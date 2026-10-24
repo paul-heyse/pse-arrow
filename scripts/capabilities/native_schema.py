@@ -234,7 +234,16 @@ class SchemaSet:
             identity = f"urn:pse:boundary:{self.fingerprint.removeprefix('blake3:')}:{slug}:input"
             schema["$id"] = identity
             definitions[slug] = schema
-            fields[field] = {"$ref": identity}
+            original = object_value(fields[field])
+            alternatives = original.get("anyOf")
+            nullable = (
+                isinstance(alternatives, list) and {"type": "null"} in alternatives
+            )
+            fields[field] = (
+                {"anyOf": [{"$ref": identity}, {"type": "null"}], "default": None}
+                if nullable
+                else {"$ref": identity}
+            )
         result["$schema"] = "https://json-schema.org/draft/2020-12/schema"
         result["required"] = list(required)
         return result

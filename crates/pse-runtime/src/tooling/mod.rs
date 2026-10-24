@@ -11,5 +11,6 @@ pub mod review_export;
 pub mod review_launch;
 pub mod review_pack;
 pub mod review_query;
+pub mod runtime_metrics;
 pub mod taskdump;
 pub mod telemetry;

@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `f2ca83005f5ba6cd36d92f6a7d8094d50a3efff6700f6d311226e6ec3dc4fc6a`.
+Catalogue content revision: `c6e5be1e1f7eabc7dfaf0874915032ce694288f3972cc3c8453a6a72c83fc46c`.
 
 ## Domains
 
@@ -270,14 +270,27 @@ Catalogue content revision: `f2ca83005f5ba6cd36d92f6a7d8094d50a3efff6700f6d31122
     },
     {
       "capabilities": [
+        "telemetry_health",
+        "telemetry_configuration",
+        "telemetry_trace_lookup"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "telemetry",
+      "purpose": "Read selected pipeline health and redacted calling-process settings, then look up an already known trace in an explicit interval. Producer observations belong to this MCP process; target runtime_metrics belong to the original native checkpoint reader. Missing telemetry does not settle execution."
+    },
+    {
+      "capabilities": [
         "native_invocation_read",
         "native_evidence_inspect",
+        "native_diagnostic_processes",
+        "native_diagnostic_checkpoint",
         "native_diagnostic_inspect"
       ],
       "default": false,
       "guides": [],
       "id": "scientific-detail",
-      "purpose": "Read selected native invocation/evidence and offline scientific diagnostics in an already prepared environment."
+      "purpose": "Read selected native invocation/evidence and offline scientific diagnostics in an already prepared environment. Target checkpoint runtime_metrics retain original target identity, executor role and registration coverage; helper-process metrics never substitute for target observations."
     },
     {
       "capabilities": [
@@ -8321,7 +8334,7 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
         "direction": null,
         "slug": "authoring"
       },
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -8402,13 +8415,2100 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
 }
 ```
 
+### `native_diagnostic_checkpoint` — Read an exact native diagnostic checkpoint
+
+Exposure: **tool**. Owner: `pse.diagnostics.read_checkpoint`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Decode one exact bounded published native checkpoint, including target runtime_metrics and registration coverage, without requiring an operation ID. Optional expected identity validates the same decoded image's original diagnostic process/start association. Recorded observations do not prove current liveness or grant attachment, cancellation or settlement authority. No Runtime construction, service startup or capture.",
+  "domain": "diagnostics",
+  "effects": "Read supplied native checkpoint and optionally validate its exact original association; no execution or publication.",
+  "exposure": "tool",
+  "family": "scientific-diagnostics",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_diagnostic_checkpoint",
+  "owner": "pse.diagnostics.read_checkpoint",
+  "prerequisites": [
+    "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Read an exact native diagnostic checkpoint",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "detached",
+      "operation": "diagnostic_checkpoint",
+      "worker": "native"
+    }
+  ],
+  "workflows": [
+    "diagnose-run"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_diagnostic_checkpoint@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_diagnostic_checkpoint",
+        "domain:diagnostics",
+        "family:scientific-diagnostics",
+        "workflow:diagnose-run"
+      ]
+    },
+    "pse.native": {
+      "authoring_guidance": null,
+      "contracts": {
+        "expected": {
+          "direction": "input",
+          "exported_name": "CheckpointIdentity",
+          "name": "CheckpointIdentity",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: observation :: CheckpointIdentity",
+          "schema_path": "docs/generated/schema/checkpoint-identity.input.schema.json",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
+          "schema_sha256": "6af9026242d01a555d7fa4f3e196d18d8506831851b2c953c55e886419f58e0d",
+          "slug": "checkpoint-identity",
+          "version": 1,
+          "wire": "FlatV1"
+        },
+        "output_document": {
+          "direction": "output",
+          "exported_name": "ProcessCheckpointOutput",
+          "name": "ProcessCheckpoint",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
+          "schema_path": "docs/generated/schema/process-checkpoint.output.schema.json",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
+          "schema_sha256": "08c578443b0dd4e265287b005bed0f2fc4d86d61b97eea40034d6e0480dce1ca",
+          "slug": "process-checkpoint",
+          "version": 5,
+          "wire": "Native"
+        }
+      },
+      "receiver": "pse.diagnostics.read_checkpoint",
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Decode one exact bounded published native checkpoint, including target runtime_metrics and registration coverage, without requiring an operation ID. Optional expected identity validates the same decoded image's original diagnostic process/start association. Recorded observations do not prove current liveness or grant attachment, cancellation or settlement authority. No Runtime construction, service startup or capture.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "checkpoint-identity": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "ProcessLocatorBody": {
+            "additionalProperties": false,
+            "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
+            "properties": {
+              "executable": {
+                "description": "Current executable path for display/symbol discovery, not a content proof.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pid": {
+                "description": "Actual operating-system process ID.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "start_ticks": {
+                "description": "Linux process start ticks; absence does not authorize attachment.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "pid"
+            ],
+            "type": "object"
+          }
+        },
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:checkpoint-identity:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Exact diagnostic association supplied by the registered receiver, never stop authority.",
+        "properties": {
+          "document_version": {
+            "const": 1,
+            "default": 1,
+            "type": "integer"
+          },
+          "locator": {
+            "$ref": "#/$defs/ProcessLocatorBody",
+            "description": "Actual process/start association recorded by the runtime."
+          },
+          "process": {
+            "description": "Diagnostic process instance, independent of PID reuse.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "process",
+          "locator",
+          "document_version"
+        ],
+        "title": "CheckpointIdentity",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "checkpoint": {
+        "minLength": 1,
+        "title": "Checkpoint",
+        "type": "string"
+      },
+      "expected": {
+        "anyOf": [
+          {
+            "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:checkpoint-identity:input"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "checkpoint"
+    ],
+    "title": "DiagnosticCheckpoint",
+    "type": "object"
+  },
+  "name": "native_diagnostic_checkpoint",
+  "outputSchema": {
+    "$defs": {
+      "ChildSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "Copied linked-operation summary; availability is explicit.",
+        "properties": {
+          "available": {
+            "description": "Actual retained child summary, never the parent's copied metrics.",
+            "type": "boolean"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual owner completion time, when known."
+          },
+          "id": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Diagnostic identity of the associated operation."
+          },
+          "kind": {
+            "description": "Bounded producer-supplied operation or phase description.",
+            "type": "string"
+          },
+          "observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual time this relationship was first observed in the parent clock."
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OperationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit owner terminal explanation, or none while active or unavailable."
+          },
+          "relationship": {
+            "$ref": "#/$defs/Relationship",
+            "description": "Producer-declared relationship, independent of interval overlap."
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic start time."
+          }
+        },
+        "required": [
+          "id",
+          "relationship",
+          "observed_at",
+          "kind",
+          "outcome",
+          "started_at",
+          "finished_at",
+          "available"
+        ],
+        "type": "object"
+      },
+      "ClockMapping": {
+        "additionalProperties": false,
+        "description": "Mapping of one observation clock checkpoint to the same-host Linux monotonic clock.",
+        "properties": {
+          "monotonic_nanoseconds": {
+            "description": "CLOCK_MONOTONIC nanoseconds, not Unix time or process CPU time.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "observation_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Observation-clock sample immediately preceding the OS clock read."
+          },
+          "uncertainty_nanoseconds": {
+            "description": "Elapsed observation time bracketing the clock read; alignment is not exact.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "observation_at",
+          "monotonic_nanoseconds",
+          "uncertainty_nanoseconds"
+        ],
+        "type": "object"
+      },
+      "ClosedDuration": {
+        "additionalProperties": false,
+        "properties": {
+          "nanos": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "secs": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "secs",
+          "nanos"
+        ],
+        "type": "object"
+      },
+      "CoherentRecordBodyOutput": {
+        "additionalProperties": false,
+        "description": "All members belong to the same source event; a read never assembles a mixed row.",
+        "properties": {
+          "coordinates": {
+            "description": "Source coordinate convention, absent when not established.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "family": {
+            "description": "Versioned source family; native families retain different field meanings.",
+            "type": "string"
+          },
+          "family_sequence": {
+            "description": "Sequence within this exact source family; absent after counter/admission failure.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "generation": {
+            "description": "Source reset/attempt generation.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "norm": {
+            "description": "Source norm convention, absent when not established.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual producer event time on this operation's process clock."
+          },
+          "phase": {
+            "description": "Actual native/workflow phase.",
+            "type": "string"
+          },
+          "producer": {
+            "$ref": "#/$defs/ProducerId",
+            "description": "Performing producer and enclosing operation."
+          },
+          "sequence": {
+            "description": "Source sequence assigned before lossy fan-out.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "values": {
+            "description": "Complete bounded tuple; large scientific payloads use their existing owner.",
+            "items": {
+              "$ref": "#/$defs/RecordFieldOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "producer",
+          "generation",
+          "sequence",
+          "family_sequence",
+          "observed_at",
+          "family",
+          "phase",
+          "coordinates",
+          "norm",
+          "values"
+        ],
+        "type": "object"
+      },
+      "CounterIntervalOutput": {
+        "additionalProperties": false,
+        "description": "Retained additive interval, copied for passive narrower-window reads.",
+        "properties": {
+          "delta": {
+            "description": "Exact retained delta; absence is arithmetic overflow.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "first_ns": {
+            "description": "Actual first source timestamp in process-clock nanoseconds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "last_ns": {
+            "description": "Actual last source timestamp, not a fabricated bucket boundary.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reset": {
+            "description": "Source generation/reset boundary affected this interval.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "first_ns",
+          "last_ns",
+          "delta",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "CounterWindowOutput": {
+        "additionalProperties": false,
+        "description": "Bounded additive history; it cannot be reconstructed from arbitrary point samples.",
+        "properties": {
+          "duration": {
+            "description": "Duration intervals have open intersection boundaries; counts have checkpoint boundaries.",
+            "type": "boolean"
+          },
+          "intervals": {
+            "description": "Retained second intervals, bounded by the same low-owner retention.",
+            "items": {
+              "$ref": "#/$defs/CounterIntervalOutput"
+            },
+            "type": "array"
+          },
+          "observed": {
+            "description": "At least one actual counter interval has been observed, even if none intersects this window.",
+            "type": "boolean"
+          },
+          "partial": {
+            "description": "Retained updates are incomplete independently of requested interval boundaries.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "duration",
+          "observed",
+          "partial",
+          "intervals"
+        ],
+        "type": "object"
+      },
+      "Coverage": {
+        "additionalProperties": false,
+        "description": "Independent coverage dimensions; loss is not hidden by otherwise available values.",
+        "properties": {
+          "available": {
+            "description": "Whether copied evidence is available at this read boundary.",
+            "type": "boolean"
+          },
+          "counter_overflow": {
+            "description": "An exact counter exceeded its fixed-width representation.",
+            "type": "boolean"
+          },
+          "curtailed": {
+            "description": "Collection or access refused observations; inspect the independent loss counts.",
+            "type": "boolean"
+          },
+          "dropped_detail": {
+            "description": "Old detail events displaced by the bounded rolling ring.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dropped_updates": {
+            "description": "Producer updates lost to contention or attempted after termination.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "enabled": {
+            "description": "Whether collection was requested; disabled is absent coverage.",
+            "type": "boolean"
+          },
+          "interrupted": {
+            "description": "The owner guard ended without an explicit terminal explanation.",
+            "type": "boolean"
+          },
+          "refused_items": {
+            "description": "Items refused by catalogue, field or collection bounds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sampled": {
+            "description": "Recent aggregates or detail have reduced temporal/detail resolution.",
+            "type": "boolean"
+          },
+          "stale": {
+            "description": "The active operation has no sufficiently fresh published checkpoint.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sampled",
+          "enabled",
+          "available",
+          "curtailed",
+          "stale",
+          "interrupted",
+          "dropped_updates",
+          "dropped_detail",
+          "refused_items",
+          "counter_overflow"
+        ],
+        "type": "object"
+      },
+      "DetailEventOutput": {
+        "additionalProperties": false,
+        "description": "One bounded actual-time detail observation.",
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic event time."
+          },
+          "name": {
+            "description": "Producer-owned observation name.",
+            "type": "string"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PhaseTransitionOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual phase lifecycle facts when this detail came from a phase owner."
+          },
+          "value": {
+            "$ref": "#/$defs/Value",
+            "description": "Copied value; this event never supplies scientific permission."
+          }
+        },
+        "required": [
+          "at",
+          "name",
+          "value",
+          "phase"
+        ],
+        "type": "object"
+      },
+      "DurationSummaryOutput": {
+        "additionalProperties": false,
+        "description": "Finite duration extrema; no inferred distribution or exclusive time.",
+        "properties": {
+          "maximum_ns": {
+            "description": "Largest complete interval in nanoseconds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "minimum_ns": {
+            "description": "Smallest complete interval in nanoseconds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "overflow": {
+            "description": "A count or duration could not be represented exactly.",
+            "type": "boolean"
+          },
+          "samples": {
+            "description": "Completed observed intervals; overflow is explicit.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "samples",
+          "minimum_ns",
+          "maximum_ns",
+          "overflow"
+        ],
+        "type": "object"
+      },
+      "ExecutorMetricsSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "Copied stable Tokio facts. Gauges are independently read, not an atomic scheduler census.",
+        "properties": {
+          "alive_tasks": {
+            "description": "Tokio's approximate current count, in tasks; not a settlement proof.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "global_queue_depth": {
+            "description": "Current global injection queue depth, in tasks; excludes worker-local queues.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "identity": {
+            "description": "Process-local registration identity, scoped by the enclosing process locator.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "registered_unix_micros": {
+            "description": "Wall time this source was registered; counters originate at runtime construction.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/$defs/ExecutorRole",
+            "description": "Fixed executor composition root."
+          },
+          "worker_busy_nanos": {
+            "description": "Sum of cumulative worker busy durations, in nanoseconds since runtime construction.\nUnavailable on targets without 64-bit atomics; not process or operation CPU time.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "workers": {
+            "description": "Configured worker count, in threads.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "identity",
+          "role",
+          "registered_unix_micros",
+          "workers",
+          "alive_tasks",
+          "global_queue_depth",
+          "worker_busy_nanos"
+        ],
+        "type": "object"
+      },
+      "ExecutorRole": {
+        "enum": [
+          "python",
+          "worker",
+          "canonical_tools"
+        ],
+        "type": "string"
+      },
+      "MetricSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "Latest and cumulative facts remain available after recent detail has rolled over.",
+        "properties": {
+          "counter_window": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CounterWindowOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Retained additive intervals for passive remote window selection; absent for gauges."
+          },
+          "cumulative": {
+            "$ref": "#/$defs/Value",
+            "description": "Observed additive work since operation start; nonadditive fields are unavailable."
+          },
+          "cumulative_partial": {
+            "description": "The additive subtotal excludes an absolute baseline or has lost updates.",
+            "type": "boolean"
+          },
+          "duration_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DurationSummaryOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bounded owner-local duration extrema, independent of recent retention."
+          },
+          "generation": {
+            "description": "Producer-declared generation of an absolute counter.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "history": {
+            "default": [],
+            "description": "Time-coalesced actual checkpoint values, with an optional immediate predecessor.",
+            "items": {
+              "$ref": "#/$defs/PointSample"
+            },
+            "type": "array"
+          },
+          "history_dropped": {
+            "default": 0,
+            "description": "Checkpoints or older retained slots lost specifically to history budget refusal.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "history_partial": {
+            "default": false,
+            "description": "History coalesces detail, crosses an interval boundary, has gaps or lost observations.",
+            "type": "boolean"
+          },
+          "latest": {
+            "$ref": "#/$defs/Value",
+            "description": "Latest published value, retaining explicit absence and nonfinite categories."
+          },
+          "name": {
+            "description": "Producer-owned observation name.",
+            "type": "string"
+          },
+          "observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic producer timestamp of the latest published observation."
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProducerId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit performing producer; absent for unscoped legacy facts."
+          },
+          "recent": {
+            "$ref": "#/$defs/Value",
+            "description": "Sum of retained aggregates overlapping the request; partial values may include boundary work."
+          },
+          "recent_observed_end": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual latest included aggregate timestamp."
+          },
+          "recent_observed_start": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual earliest included aggregate timestamp, including any overlapping boundary portion."
+          },
+          "recent_partial": {
+            "description": "Included aggregates cross the requested boundary, contain resets or have observation loss.",
+            "type": "boolean"
+          },
+          "resets": {
+            "description": "Detected generation changes or backwards absolute-counter samples.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unit": {
+            "description": "Producer-declared unit; changes are refused.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "producer",
+          "duration_summary",
+          "name",
+          "unit",
+          "latest",
+          "cumulative",
+          "recent",
+          "counter_window",
+          "recent_observed_start",
+          "recent_observed_end",
+          "observed_at",
+          "generation",
+          "resets",
+          "cumulative_partial",
+          "recent_partial",
+          "history",
+          "history_partial",
+          "history_dropped"
+        ],
+        "type": "object"
+      },
+      "NativeTaskClass": {
+        "enum": [
+          "workflow",
+          "math_submission",
+          "math_job"
+        ],
+        "type": "string"
+      },
+      "NonFinite": {
+        "enum": [
+          "Nan",
+          "PositiveInfinity",
+          "NegativeInfinity"
+        ],
+        "type": "string"
+      },
+      "OperationIdBody": {
+        "additionalProperties": false,
+        "description": "Process instance plus local sequence; never a semantic or cache identity.",
+        "properties": {
+          "process_instance": {
+            "description": "Process-local instance locator; not a semantic identity or attestation.",
+            "items": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "sequence": {
+            "description": "Unique local operation sequence.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "process_instance",
+          "sequence"
+        ],
+        "type": "object"
+      },
+      "OperationOutcome": {
+        "enum": [
+          "Completed",
+          "Failed",
+          "Cancelled",
+          "Interrupted"
+        ],
+        "type": "string"
+      },
+      "OperationSnapshotBodyOutput": {
+        "additionalProperties": false,
+        "description": "A bounded independent read. Overlapping child times must not be added as exclusive time.",
+        "properties": {
+          "children": {
+            "description": "Bounded linked-operation summaries, with explicit unavailable attribution.",
+            "items": {
+              "$ref": "#/$defs/ChildSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "coverage": {
+            "$ref": "#/$defs/Coverage",
+            "description": "Independent availability, freshness and loss facts."
+          },
+          "detail": {
+            "description": "Bounded actual-time detail prefix within the requested interval.",
+            "items": {
+              "$ref": "#/$defs/DetailEventOutput"
+            },
+            "type": "array"
+          },
+          "detail_partial": {
+            "description": "Detail events were displaced or updates were lost; aggregate coverage is separate.",
+            "type": "boolean"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual owner completion time, when known."
+          },
+          "id": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Diagnostic identity of the associated operation."
+          },
+          "interval_end": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "End of that lifetime intersection; may equal its start."
+          },
+          "interval_partial": {
+            "description": "Requested observations exceed retention or have update loss.",
+            "type": "boolean"
+          },
+          "interval_start": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Start of the requested interval intersected with operation lifetime."
+          },
+          "kind": {
+            "description": "Bounded producer-supplied operation or phase description.",
+            "type": "string"
+          },
+          "metrics": {
+            "description": "Bounded producer-owned facts; child facts are never summed implicitly.",
+            "items": {
+              "$ref": "#/$defs/MetricSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual monotonic producer timestamp of the latest published observation."
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OperationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit owner terminal explanation, or none while active or unavailable."
+          },
+          "phases": {
+            "description": "Independently active phase scopes at the last retained checkpoint.",
+            "items": {
+              "$ref": "#/$defs/Phase"
+            },
+            "type": "array"
+          },
+          "producers": {
+            "description": "Explicit producers with atomic current and independently retained recent records.",
+            "items": {
+              "$ref": "#/$defs/ProducerSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "read_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Monotonic time at which this read was requested."
+          },
+          "requested_interval": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Caller-requested lookback, anchored at read time."
+          },
+          "sources": {
+            "description": "Bounded copied source references.",
+            "items": {
+              "$ref": "#/$defs/SourceRef"
+            },
+            "type": "array"
+          },
+          "stale_after": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Owner-selected freshness threshold; passive transport cannot replace this policy."
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic start time."
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SummaryPublicationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Producer-declared responsibility and finite copied-output lifetime."
+          }
+        },
+        "required": [
+          "summary",
+          "id",
+          "kind",
+          "started_at",
+          "finished_at",
+          "outcome",
+          "observed_at",
+          "read_at",
+          "requested_interval",
+          "stale_after",
+          "interval_start",
+          "interval_end",
+          "interval_partial",
+          "detail_partial",
+          "coverage",
+          "metrics",
+          "producers",
+          "phases",
+          "children",
+          "sources",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "Phase": {
+        "additionalProperties": false,
+        "description": "One independently active copied phase scope.",
+        "properties": {
+          "kind": {
+            "description": "Bounded producer-supplied operation or phase description.",
+            "type": "string"
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic start time."
+          },
+          "token": {
+            "description": "Unique active-phase token; phase destruction removes only this token.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "token",
+          "kind",
+          "started_at"
+        ],
+        "type": "object"
+      },
+      "PhaseTransitionOutput": {
+        "additionalProperties": false,
+        "description": "Actual phase entry/exit facts, retaining token and exact timestamps for optional export.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual exit when observed; missing means an entry, not a completed interval."
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual phase start, not export or read time."
+          },
+          "token": {
+            "description": "Independently owned phase token within this operation.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "token",
+          "started_at",
+          "finished_at"
+        ],
+        "type": "object"
+      },
+      "PointSample": {
+        "additionalProperties": false,
+        "description": "First and last checkpoint values in one observed second; intermediate detail is coalesced.",
+        "properties": {
+          "first_generation": {
+            "description": "Generation of the first value; compare across generations only when the owner permits it.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "first_observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual first observation timestamp, not a fabricated bucket boundary."
+          },
+          "first_value": {
+            "$ref": "#/$defs/Value",
+            "description": "First value, retaining exact integer, absence and nonfinite meanings."
+          },
+          "generation": {
+            "description": "Generation of the latest value.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "last_observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual latest observation timestamp in this second."
+          },
+          "nonfinite": {
+            "description": "At least one coalesced observation was nonfinite, even if the latest became finite.",
+            "type": "boolean"
+          },
+          "predecessor": {
+            "description": "This actual checkpoint is the immediate second preceding the requested interval.",
+            "type": "boolean"
+          },
+          "reset": {
+            "description": "At least one counter reset or generation transition occurred in this sample.",
+            "type": "boolean"
+          },
+          "samples": {
+            "description": "Number of actual observations coalesced into this sample.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unavailable": {
+            "description": "At least one coalesced observation was unavailable, even if the latest became available.",
+            "type": "boolean"
+          },
+          "value": {
+            "$ref": "#/$defs/Value",
+            "description": "Latest value in the second, independent of additive work aggregates."
+          }
+        },
+        "required": [
+          "first_observed_at",
+          "last_observed_at",
+          "first_value",
+          "value",
+          "samples",
+          "first_generation",
+          "generation",
+          "reset",
+          "unavailable",
+          "nonfinite",
+          "predecessor"
+        ],
+        "type": "object"
+      },
+      "ProcessLocatorBodyOutput": {
+        "additionalProperties": false,
+        "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
+        "properties": {
+          "executable": {
+            "description": "Current executable path for display/symbol discovery, not a content proof.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pid": {
+            "description": "Actual operating-system process ID.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "start_ticks": {
+            "description": "Linux process start ticks; absence does not authorize attachment.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "pid",
+          "start_ticks",
+          "executable"
+        ],
+        "type": "object"
+      },
+      "ProcessResourcesOutput": {
+        "additionalProperties": false,
+        "description": "Independently sampled process scope. Missing values are unavailable, never zero-filled.",
+        "properties": {
+          "lifetime_peak_resident_bytes": {
+            "description": "Process-lifetime resident high-water mark; it is not reset for an operation.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "resident_bytes": {
+            "description": "Current resident bytes at publication, including observer/library allocations.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "system_cpu_ticks": {
+            "description": "Process-lifetime system CPU clock ticks.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "user_cpu_ticks": {
+            "description": "Process-lifetime user CPU clock ticks, with no inferred frequency or operation owner.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "resident_bytes",
+          "lifetime_peak_resident_bytes",
+          "user_cpu_ticks",
+          "system_cpu_ticks"
+        ],
+        "type": "object"
+      },
+      "ProducerDescriptor": {
+        "additionalProperties": false,
+        "description": "Stable bounded producer declaration.",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/ProducerId",
+            "description": "Exact performing instance."
+          },
+          "name": {
+            "description": "Owner-supplied label; not its identity.",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/$defs/ProducerRole",
+            "description": "Declared responsibility."
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ProducerId": {
+        "additionalProperties": false,
+        "description": "A performing instance, not a scientific or cache identity.",
+        "properties": {
+          "operation": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Actual enclosing diagnostic operation."
+          },
+          "sequence": {
+            "description": "Unique performing instance within this process.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operation",
+          "sequence"
+        ],
+        "type": "object"
+      },
+      "ProducerRole": {
+        "description": "Responsibility declared at the performing owner, never inferred from a metric prefix.",
+        "oneOf": [
+          {
+            "const": "native_callback",
+            "description": "Foreign solver callback boundary.",
+            "type": "string"
+          },
+          {
+            "const": "coordinate_transport",
+            "description": "Original-to-native coordinate transport.",
+            "type": "string"
+          },
+          {
+            "const": "original_oracle",
+            "description": "Original scientific oracle.",
+            "type": "string"
+          },
+          {
+            "const": "native_iteration",
+            "description": "Native-issued iteration or safe return checkpoint.",
+            "type": "string"
+          },
+          {
+            "const": "evaluator",
+            "description": "Prepared mathematical demand evaluator.",
+            "type": "string"
+          },
+          {
+            "const": "provider",
+            "description": "Scientific property or implicit provider.",
+            "type": "string"
+          },
+          {
+            "const": "workflow",
+            "description": "Workflow or publication stage.",
+            "type": "string"
+          },
+          {
+            "const": "native_factor",
+            "description": "Native factor/setup/solve owner.",
+            "type": "string"
+          }
+        ]
+      },
+      "ProducerSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "One producer's independent current and recent record views.",
+        "properties": {
+          "coverage": {
+            "$ref": "#/$defs/RecordCoverage",
+            "description": "Independent source-record coverage."
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CoherentRecordBodyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Latest admitted compact checkpoint, even when history is zero."
+          },
+          "descriptor": {
+            "$ref": "#/$defs/ProducerDescriptor",
+            "description": "Actual declaration."
+          },
+          "recent": {
+            "description": "Bounded whole records intersecting the requested interval.",
+            "items": {
+              "$ref": "#/$defs/CoherentRecordBodyOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "descriptor",
+          "current",
+          "recent",
+          "coverage"
+        ],
+        "type": "object"
+      },
+      "RecordAvailability": {
+        "description": "Availability of an optional source observation, independent of a numerical zero.",
+        "oneOf": [
+          {
+            "const": "not_requested",
+            "description": "Not selected or activated.",
+            "type": "string"
+          },
+          {
+            "const": "running",
+            "description": "The source interval is still running.",
+            "type": "string"
+          },
+          {
+            "const": "interrupted",
+            "description": "The source did not finish its interval.",
+            "type": "string"
+          },
+          {
+            "const": "unavailable",
+            "description": "No fitting source capability exists.",
+            "type": "string"
+          },
+          {
+            "const": "not_supplied",
+            "description": "The source did not supply this field at this event.",
+            "type": "string"
+          },
+          {
+            "const": "refused",
+            "description": "Collection admission refused.",
+            "type": "string"
+          }
+        ]
+      },
+      "RecordCoverage": {
+        "additionalProperties": false,
+        "description": "Source-record retention coverage, separate from independent metric histories.",
+        "properties": {
+          "accepted": {
+            "description": "Successfully retained whole source events.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "history_dropped": {
+            "description": "Recent records omitted or displaced independently of current retention.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "partial": {
+            "description": "Missing source sequences, refusal, overflow or publication contention.",
+            "type": "boolean"
+          },
+          "refused": {
+            "description": "Records rejected whole by admission or representation bounds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted",
+          "refused",
+          "history_dropped",
+          "partial"
+        ],
+        "type": "object"
+      },
+      "RecordFieldOutput": {
+        "additionalProperties": false,
+        "description": "One typed member of an indivisible source-issued record.",
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RecordAvailability"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Structured source availability when not a completed measurement."
+          },
+          "name": {
+            "description": "Family-defined field name.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Source-defined unit or convention.",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/Value",
+            "description": "Exact value, nonfinite category or explicit absence."
+          }
+        },
+        "required": [
+          "name",
+          "unit",
+          "value",
+          "availability"
+        ],
+        "type": "object"
+      },
+      "Relationship": {
+        "enum": [
+          "Nested",
+          "DependencyWait",
+          "SharedProduction",
+          "Reuse",
+          "Continuation"
+        ],
+        "type": "string"
+      },
+      "RuntimeMetricsCoverage": {
+        "additionalProperties": false,
+        "description": "Coverage of the bounded executor source registry at this read.",
+        "properties": {
+          "executor_registry_available": {
+            "description": "False when source synchronization was unavailable; an empty list then is not zero load.",
+            "type": "boolean"
+          },
+          "refused_executor_registrations": {
+            "description": "Cumulative refused registrations, including registry pressure or synchronization failure.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "task_scope": {
+            "$ref": "#/$defs/TaskMetricsScope",
+            "description": "Only explicitly instrumented futures are covered by task class measurements."
+          }
+        },
+        "required": [
+          "executor_registry_available",
+          "refused_executor_registrations",
+          "task_scope"
+        ],
+        "type": "object"
+      },
+      "RuntimeMetricsSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "One read of the same typed sources used by checkpoints and optional OTel export.",
+        "properties": {
+          "coverage": {
+            "$ref": "#/$defs/RuntimeMetricsCoverage",
+            "description": "Explicit registry losses and selected task coverage."
+          },
+          "executors": {
+            "description": "At most eight actual registered executors.",
+            "items": {
+              "$ref": "#/$defs/ExecutorMetricsSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "locator": {
+            "$ref": "#/$defs/ProcessLocatorBodyOutput",
+            "description": "Actual process/start locator; absence of start ticks limits identity evidence."
+          },
+          "sampled_unix_micros": {
+            "description": "Wall time immediately before independently sampled source reads.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "task_classes": {
+            "description": "Exactly three process-wide selected future classes.",
+            "items": {
+              "$ref": "#/$defs/TaskClassMetricsSnapshot"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "locator",
+          "sampled_unix_micros",
+          "coverage",
+          "executors",
+          "task_classes"
+        ],
+        "type": "object"
+      },
+      "SourceRef": {
+        "additionalProperties": false,
+        "description": "Bounded opaque source-owned attribution.",
+        "properties": {
+          "bytes": {
+            "description": "Copied opaque source-owned identity or reference bytes.",
+            "items": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "Producer-owned reference name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "SummaryCoverage": {
+        "additionalProperties": false,
+        "description": "Explicit lifetime/admission losses for producer-declared compact outputs.",
+        "properties": {
+          "expired": {
+            "description": "Outputs whose selected terminal lifetime elapsed.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pressure_lost": {
+            "description": "Oldest terminal outputs displaced to preserve active admission.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "refused": {
+            "description": "Declarations or terminal copies refused by bounds/contention/opt-out.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "refused",
+          "expired",
+          "pressure_lost"
+        ],
+        "type": "object"
+      },
+      "SummaryPublicationOutput": {
+        "additionalProperties": false,
+        "description": "Generic producer-owned compact explanation; it grants no execution ownership.",
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Finite terminal output deadline; absent for an active declaration or a refused copy."
+          },
+          "purpose": {
+            "description": "Bounded producer-supplied purpose, never interpreted by the hub.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "TaskClassMetricsSnapshot": {
+        "additionalProperties": false,
+        "description": "Cumulative library task monitor facts for a bounded class, in counts and nanoseconds.",
+        "properties": {
+          "class": {
+            "$ref": "#/$defs/NativeTaskClass",
+            "description": "Fixed selected future class."
+          },
+          "dropped_count": {
+            "description": "Wrappers dropped, including cancellation; never a native settlement counter.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idle_count": {
+            "description": "Recorded pending-to-wake idle intervals.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idle_nanos": {
+            "description": "Cumulative pending-to-wake idle time, in nanoseconds.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "instrumented_count": {
+            "description": "Number of wrappers created, not native jobs admitted.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poll_count": {
+            "description": "Recorded future polls.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poll_nanos": {
+            "description": "Cumulative time within future polls, in nanoseconds; not CPU time.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scheduled_count": {
+            "description": "Recorded wake-to-poll schedules.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scheduled_nanos": {
+            "description": "Cumulative wake-to-poll time, in nanoseconds.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class",
+          "instrumented_count",
+          "dropped_count",
+          "poll_count",
+          "poll_nanos",
+          "scheduled_count",
+          "scheduled_nanos",
+          "idle_count",
+          "idle_nanos"
+        ],
+        "type": "object"
+      },
+      "TaskMetricsScope": {
+        "enum": [
+          "selected_process_futures"
+        ],
+        "type": "string"
+      },
+      "ThreadExecutionOutput": {
+        "additionalProperties": false,
+        "description": "One actual entered native-thread scope. Async migration is not inferred from this record.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual return/drain from this scope, not scientific acceptance."
+          },
+          "operation": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Actual diagnostic operation executing in this scope."
+          },
+          "start_ticks": {
+            "description": "OS thread start identity; missing means thread-specific attachment is unavailable.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual scope entry on the process observation clock."
+          },
+          "tid": {
+            "description": "Linux OS thread ID, distinct from Rust's opaque ThreadId.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operation",
+          "tid",
+          "start_ticks",
+          "started_at",
+          "finished_at"
+        ],
+        "type": "object"
+      },
+      "Value": {
+        "description": "A value and its availability are inseparable.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Exact unsigned additive counter.",
+            "properties": {
+              "kind": {
+                "const": "Count",
+                "type": "string"
+              },
+              "value": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Exact signed native checkpoint.",
+            "properties": {
+              "kind": {
+                "const": "Integer",
+                "type": "string"
+              },
+              "value": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Finite numeric checkpoint.",
+            "properties": {
+              "kind": {
+                "const": "Number",
+                "type": "string"
+              },
+              "value": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Producer-owned predicate.",
+            "properties": {
+              "kind": {
+                "const": "Boolean",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Bounded copied textual checkpoint.",
+            "properties": {
+              "kind": {
+                "const": "Text",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Explicit absence with a bounded explanation.",
+            "properties": {
+              "kind": {
+                "const": "Unavailable",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Original nonfinite category.",
+            "properties": {
+              "kind": {
+                "const": "NonFinite",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/NonFinite"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Exact value exceeded fixed-width representation.",
+            "properties": {
+              "kind": {
+                "const": "Overflow",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "One immutable process publication, never a scientific result or native restart state.",
+                "properties": {
+                  "clock": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ClockMapping"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Mapping to the same-host monotonic clock, with bounded read uncertainty."
+                  },
+                  "locator": {
+                    "$ref": "#/$defs/ProcessLocatorBodyOutput",
+                    "description": "Actual operational attachment locator, not build provenance."
+                  },
+                  "omitted": {
+                    "description": "Operations omitted from this bounded external image.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "operations": {
+                    "description": "Current/cumulative/recent facts, including their own scopes and coverage.",
+                    "items": {
+                      "$ref": "#/$defs/OperationSnapshotBodyOutput"
+                    },
+                    "type": "array"
+                  },
+                  "parent": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/OperationIdBody"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "A parent diagnostic operation, when this process was explicitly dispatched by it."
+                  },
+                  "process": {
+                    "description": "Unique process-instance locator; PID alone is never its identity.",
+                    "type": "string"
+                  },
+                  "published_unix_micros": {
+                    "description": "Publication wall timestamp, distinct from each producer's checkpoint time.",
+                    "format": "uint128",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "registry_coverage": {
+                    "$ref": "#/$defs/Coverage",
+                    "description": "Registry refusal/loss, including operations that could not obtain diagnostic storage."
+                  },
+                  "resources": {
+                    "$ref": "#/$defs/ProcessResourcesOutput",
+                    "description": "Process-wide samples, never a private operation's peak or exclusive CPU time."
+                  },
+                  "runtime_metrics": {
+                    "$ref": "#/$defs/RuntimeMetricsSnapshotOutput",
+                    "description": "Actual executor and selected-future measurements, with their independent coverage."
+                  },
+                  "sequence": {
+                    "description": "Monotonic publication sequence within this process instance.",
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "summaries": {
+                    "$ref": "#/$defs/SummaryCoverage",
+                    "description": "Explicit compact-output admission, expiry and pressure losses."
+                  },
+                  "threads": {
+                    "description": "Bounded actual native-thread execution scopes.",
+                    "items": {
+                      "$ref": "#/$defs/ThreadExecutionOutput"
+                    },
+                    "type": "array"
+                  },
+                  "threads_partial": {
+                    "description": "Thread scopes were displaced or could not be observed.",
+                    "type": "boolean"
+                  },
+                  "version": {
+                    "const": 5,
+                    "default": 5,
+                    "description": "Format version of this diagnostic-only representation.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "summaries",
+                  "version",
+                  "process",
+                  "sequence",
+                  "published_unix_micros",
+                  "operations",
+                  "omitted",
+                  "registry_coverage",
+                  "resources",
+                  "runtime_metrics",
+                  "parent",
+                  "locator",
+                  "clock",
+                  "threads",
+                  "threads_partial"
+                ],
+                "title": "ProcessCheckpointOutput",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Diagnostic Checkpoint"
+}
+```
+
+- Native `expected`: [docs/generated/schema/checkpoint-identity.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/checkpoint-identity.input.schema.json).
+
+- Native `output_document`: [docs/generated/schema/process-checkpoint.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/process-checkpoint.output.schema.json).
+
 ### `native_diagnostic_inspect` — Inspect published diagnostic checkpoint
 
 Exposure: **tool**. Owner: `pse.diagnostics.inspect_checkpoint`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
-  "description": "Inspect an exact published checkpoint through native decoding and interpretation. Does not construct a Runtime, start a service, or cancel the observed subject.",
+  "description": "Inspect an exact published checkpoint through native decoding and interpretation, including target runtime_metrics with original target locator, executor role and registration coverage when present. These are recorded target observations, not calling/helper-process metrics. Does not construct a Runtime, start a service, or cancel the observed subject.",
   "domain": "diagnostics",
   "effects": "Read supplied native checkpoint only.",
   "exposure": "tool",
@@ -8475,10 +10575,10 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
           "schema_path": "docs/generated/schema/inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
-          "schema_sha256": "d4b6a513342de415c86ffcffa24d6874d2848d9d5314ea7e5bd8b4b82b77c0ad",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
+          "schema_sha256": "40bc883fb6a78b59fe6e92a6851882e2335565ddd5b88eeab4352dd5bb4a60e2",
           "slug": "inspection-document",
-          "version": 3,
+          "version": 4,
           "wire": "Native"
         },
         "request": {
@@ -8488,7 +10588,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionRequest",
           "schema_path": "docs/generated/schema/inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "d9b91fb3481af8a0396509f645a33d50752ac2577c6a6b3dc701356dab55d16a",
           "slug": "inspection-request",
           "version": 2,
@@ -8496,7 +10596,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         }
       },
       "receiver": "pse.diagnostics.inspect_checkpoint",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -8505,7 +10605,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Inspect an exact published checkpoint through native decoding and interpretation. Does not construct a Runtime, start a service, or cancel the observed subject.",
+  "description": "Inspect an exact published checkpoint through native decoding and interpretation, including target runtime_metrics with original target locator, executor role and registration coverage when present. These are recorded target observations, not calling/helper-process metrics. Does not construct a Runtime, start a service, or cancel the observed subject.",
   "inputSchema": {
     "$defs": {
       "JsonValue": {},
@@ -8630,7 +10730,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:inspection-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
@@ -8695,7 +10795,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:inspection-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:inspection-request:input"
       }
     },
     "required": [
@@ -8708,7 +10808,1903 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
   "name": "native_diagnostic_inspect",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
+      "ChildSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "Copied linked-operation summary; availability is explicit.",
+        "properties": {
+          "available": {
+            "description": "Actual retained child summary, never the parent's copied metrics.",
+            "type": "boolean"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual owner completion time, when known."
+          },
+          "id": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Diagnostic identity of the associated operation."
+          },
+          "kind": {
+            "description": "Bounded producer-supplied operation or phase description.",
+            "type": "string"
+          },
+          "observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual time this relationship was first observed in the parent clock."
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OperationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit owner terminal explanation, or none while active or unavailable."
+          },
+          "relationship": {
+            "$ref": "#/$defs/Relationship",
+            "description": "Producer-declared relationship, independent of interval overlap."
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic start time."
+          }
+        },
+        "required": [
+          "id",
+          "relationship",
+          "observed_at",
+          "kind",
+          "outcome",
+          "started_at",
+          "finished_at",
+          "available"
+        ],
+        "type": "object"
+      },
+      "ClosedDuration": {
+        "additionalProperties": false,
+        "properties": {
+          "nanos": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "secs": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "secs",
+          "nanos"
+        ],
+        "type": "object"
+      },
+      "CoherentRecordBodyOutput": {
+        "additionalProperties": false,
+        "description": "All members belong to the same source event; a read never assembles a mixed row.",
+        "properties": {
+          "coordinates": {
+            "description": "Source coordinate convention, absent when not established.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "family": {
+            "description": "Versioned source family; native families retain different field meanings.",
+            "type": "string"
+          },
+          "family_sequence": {
+            "description": "Sequence within this exact source family; absent after counter/admission failure.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "generation": {
+            "description": "Source reset/attempt generation.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "norm": {
+            "description": "Source norm convention, absent when not established.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual producer event time on this operation's process clock."
+          },
+          "phase": {
+            "description": "Actual native/workflow phase.",
+            "type": "string"
+          },
+          "producer": {
+            "$ref": "#/$defs/ProducerId",
+            "description": "Performing producer and enclosing operation."
+          },
+          "sequence": {
+            "description": "Source sequence assigned before lossy fan-out.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "values": {
+            "description": "Complete bounded tuple; large scientific payloads use their existing owner.",
+            "items": {
+              "$ref": "#/$defs/RecordFieldOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "producer",
+          "generation",
+          "sequence",
+          "family_sequence",
+          "observed_at",
+          "family",
+          "phase",
+          "coordinates",
+          "norm",
+          "values"
+        ],
+        "type": "object"
+      },
+      "CounterIntervalOutput": {
+        "additionalProperties": false,
+        "description": "Retained additive interval, copied for passive narrower-window reads.",
+        "properties": {
+          "delta": {
+            "description": "Exact retained delta; absence is arithmetic overflow.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "first_ns": {
+            "description": "Actual first source timestamp in process-clock nanoseconds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "last_ns": {
+            "description": "Actual last source timestamp, not a fabricated bucket boundary.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reset": {
+            "description": "Source generation/reset boundary affected this interval.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "first_ns",
+          "last_ns",
+          "delta",
+          "reset"
+        ],
+        "type": "object"
+      },
+      "CounterWindowOutput": {
+        "additionalProperties": false,
+        "description": "Bounded additive history; it cannot be reconstructed from arbitrary point samples.",
+        "properties": {
+          "duration": {
+            "description": "Duration intervals have open intersection boundaries; counts have checkpoint boundaries.",
+            "type": "boolean"
+          },
+          "intervals": {
+            "description": "Retained second intervals, bounded by the same low-owner retention.",
+            "items": {
+              "$ref": "#/$defs/CounterIntervalOutput"
+            },
+            "type": "array"
+          },
+          "observed": {
+            "description": "At least one actual counter interval has been observed, even if none intersects this window.",
+            "type": "boolean"
+          },
+          "partial": {
+            "description": "Retained updates are incomplete independently of requested interval boundaries.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "duration",
+          "observed",
+          "partial",
+          "intervals"
+        ],
+        "type": "object"
+      },
+      "Coverage": {
+        "additionalProperties": false,
+        "description": "Independent coverage dimensions; loss is not hidden by otherwise available values.",
+        "properties": {
+          "available": {
+            "description": "Whether copied evidence is available at this read boundary.",
+            "type": "boolean"
+          },
+          "counter_overflow": {
+            "description": "An exact counter exceeded its fixed-width representation.",
+            "type": "boolean"
+          },
+          "curtailed": {
+            "description": "Collection or access refused observations; inspect the independent loss counts.",
+            "type": "boolean"
+          },
+          "dropped_detail": {
+            "description": "Old detail events displaced by the bounded rolling ring.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dropped_updates": {
+            "description": "Producer updates lost to contention or attempted after termination.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "enabled": {
+            "description": "Whether collection was requested; disabled is absent coverage.",
+            "type": "boolean"
+          },
+          "interrupted": {
+            "description": "The owner guard ended without an explicit terminal explanation.",
+            "type": "boolean"
+          },
+          "refused_items": {
+            "description": "Items refused by catalogue, field or collection bounds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sampled": {
+            "description": "Recent aggregates or detail have reduced temporal/detail resolution.",
+            "type": "boolean"
+          },
+          "stale": {
+            "description": "The active operation has no sufficiently fresh published checkpoint.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sampled",
+          "enabled",
+          "available",
+          "curtailed",
+          "stale",
+          "interrupted",
+          "dropped_updates",
+          "dropped_detail",
+          "refused_items",
+          "counter_overflow"
+        ],
+        "type": "object"
+      },
+      "DetailEventOutput": {
+        "additionalProperties": false,
+        "description": "One bounded actual-time detail observation.",
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic event time."
+          },
+          "name": {
+            "description": "Producer-owned observation name.",
+            "type": "string"
+          },
+          "phase": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PhaseTransitionOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual phase lifecycle facts when this detail came from a phase owner."
+          },
+          "value": {
+            "$ref": "#/$defs/Value",
+            "description": "Copied value; this event never supplies scientific permission."
+          }
+        },
+        "required": [
+          "at",
+          "name",
+          "value",
+          "phase"
+        ],
+        "type": "object"
+      },
+      "DurationSummaryOutput": {
+        "additionalProperties": false,
+        "description": "Finite duration extrema; no inferred distribution or exclusive time.",
+        "properties": {
+          "maximum_ns": {
+            "description": "Largest complete interval in nanoseconds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "minimum_ns": {
+            "description": "Smallest complete interval in nanoseconds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "overflow": {
+            "description": "A count or duration could not be represented exactly.",
+            "type": "boolean"
+          },
+          "samples": {
+            "description": "Completed observed intervals; overflow is explicit.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "samples",
+          "minimum_ns",
+          "maximum_ns",
+          "overflow"
+        ],
+        "type": "object"
+      },
+      "EvidenceRefOutput": {
+        "additionalProperties": false,
+        "description": "Exact observed location supporting an explanatory statement.",
+        "properties": {
+          "generation": {
+            "description": "Metric generation, if this is a metric reference.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "metric": {
+            "description": "Producer metric name, or absent for an operation/phase fact.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual checkpoint time; absence never means now."
+          },
+          "operation": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Actual diagnostic operation, including its process instance."
+          },
+          "partial": {
+            "description": "Evidence has loss, reset or bounded temporal/detail resolution.",
+            "type": "boolean"
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProducerId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact performing producer, when the fact is producer-scoped."
+          },
+          "record_sequence": {
+            "description": "Source record sequence, independent of a durable append ordinal.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Value"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The referenced value retains unavailable and nonfinite categories."
+          }
+        },
+        "required": [
+          "operation",
+          "producer",
+          "record_sequence",
+          "metric",
+          "observed_at",
+          "generation",
+          "value",
+          "partial"
+        ],
+        "type": "object"
+      },
+      "ExecutorMetricsSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "Copied stable Tokio facts. Gauges are independently read, not an atomic scheduler census.",
+        "properties": {
+          "alive_tasks": {
+            "description": "Tokio's approximate current count, in tasks; not a settlement proof.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "global_queue_depth": {
+            "description": "Current global injection queue depth, in tasks; excludes worker-local queues.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "identity": {
+            "description": "Process-local registration identity, scoped by the enclosing process locator.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "registered_unix_micros": {
+            "description": "Wall time this source was registered; counters originate at runtime construction.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/$defs/ExecutorRole",
+            "description": "Fixed executor composition root."
+          },
+          "worker_busy_nanos": {
+            "description": "Sum of cumulative worker busy durations, in nanoseconds since runtime construction.\nUnavailable on targets without 64-bit atomics; not process or operation CPU time.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "workers": {
+            "description": "Configured worker count, in threads.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "identity",
+          "role",
+          "registered_unix_micros",
+          "workers",
+          "alive_tasks",
+          "global_queue_depth",
+          "worker_busy_nanos"
+        ],
+        "type": "object"
+      },
+      "ExecutorRole": {
+        "enum": [
+          "python",
+          "worker",
+          "canonical_tools"
+        ],
+        "type": "string"
+      },
+      "InspectionRequestOutput": {
+        "additionalProperties": false,
+        "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
+        "properties": {
+          "include_related": {
+            "default": true,
+            "description": "Copy bounded directly related operations; deeper navigation selects their exact IDs.",
+            "type": "boolean"
+          },
+          "numerical_history_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NumericalHistoryPolicyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Explicit selected analytical thresholds; absent means only common factual interpretations."
+          },
+          "operation": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Exact operation selected by its diagnostic process instance and sequence."
+          },
+          "related_limit": {
+            "default": 16,
+            "description": "Maximum directly related snapshots; effective ceiling is 32.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "version": {
+            "const": 2,
+            "default": 2,
+            "description": "Standalone diagnostic request encoding.",
+            "type": "integer"
+          },
+          "window": {
+            "$ref": "#/$defs/ClosedDuration",
+            "default": {
+              "nanos": 0,
+              "secs": 60
+            },
+            "description": "Requested recent interval, clamped to observed operation lifetime."
+          }
+        },
+        "required": [
+          "version",
+          "operation",
+          "window",
+          "include_related",
+          "related_limit",
+          "numerical_history_policy"
+        ],
+        "type": "object"
+      },
+      "InspectionTransportOutput": {
+        "additionalProperties": false,
+        "description": "Checkpoint transport availability, distinct from producer freshness and scientific outcomes.",
+        "properties": {
+          "checkpoint": {
+            "description": "Actual file read, absent for an in-memory read.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clock_uncertainty_nanoseconds": {
+            "description": "Cross-process clocks are not an atomic observation; alignment may be unavailable.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "failure": {
+            "description": "Optional writer or transport failure; it never becomes numerical failure.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "partial": {
+            "description": "Required operation or relationship was absent/curtailed/stale in transport.",
+            "type": "boolean"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProcessLocatorBodyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual process attachment locator, if supplied by the source."
+          },
+          "published_unix_micros": {
+            "description": "Optional publisher timestamp; it is not native fact freshness.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "runtime_metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RuntimeMetricsSnapshotOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Measurements copied from this exact source process publication or live owner.\nAbsent for a standalone operation; the inspecting process never substitutes its own sample."
+          }
+        },
+        "required": [
+          "checkpoint",
+          "process",
+          "runtime_metrics",
+          "published_unix_micros",
+          "failure",
+          "partial",
+          "clock_uncertainty_nanoseconds"
+        ],
+        "type": "object"
+      },
+      "MetricSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "Latest and cumulative facts remain available after recent detail has rolled over.",
+        "properties": {
+          "counter_window": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CounterWindowOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Retained additive intervals for passive remote window selection; absent for gauges."
+          },
+          "cumulative": {
+            "$ref": "#/$defs/Value",
+            "description": "Observed additive work since operation start; nonadditive fields are unavailable."
+          },
+          "cumulative_partial": {
+            "description": "The additive subtotal excludes an absolute baseline or has lost updates.",
+            "type": "boolean"
+          },
+          "duration_summary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DurationSummaryOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bounded owner-local duration extrema, independent of recent retention."
+          },
+          "generation": {
+            "description": "Producer-declared generation of an absolute counter.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "history": {
+            "default": [],
+            "description": "Time-coalesced actual checkpoint values, with an optional immediate predecessor.",
+            "items": {
+              "$ref": "#/$defs/PointSample"
+            },
+            "type": "array"
+          },
+          "history_dropped": {
+            "default": 0,
+            "description": "Checkpoints or older retained slots lost specifically to history budget refusal.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "history_partial": {
+            "default": false,
+            "description": "History coalesces detail, crosses an interval boundary, has gaps or lost observations.",
+            "type": "boolean"
+          },
+          "latest": {
+            "$ref": "#/$defs/Value",
+            "description": "Latest published value, retaining explicit absence and nonfinite categories."
+          },
+          "name": {
+            "description": "Producer-owned observation name.",
+            "type": "string"
+          },
+          "observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic producer timestamp of the latest published observation."
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProducerId"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit performing producer; absent for unscoped legacy facts."
+          },
+          "recent": {
+            "$ref": "#/$defs/Value",
+            "description": "Sum of retained aggregates overlapping the request; partial values may include boundary work."
+          },
+          "recent_observed_end": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual latest included aggregate timestamp."
+          },
+          "recent_observed_start": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual earliest included aggregate timestamp, including any overlapping boundary portion."
+          },
+          "recent_partial": {
+            "description": "Included aggregates cross the requested boundary, contain resets or have observation loss.",
+            "type": "boolean"
+          },
+          "resets": {
+            "description": "Detected generation changes or backwards absolute-counter samples.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unit": {
+            "description": "Producer-declared unit; changes are refused.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "producer",
+          "duration_summary",
+          "name",
+          "unit",
+          "latest",
+          "cumulative",
+          "recent",
+          "counter_window",
+          "recent_observed_start",
+          "recent_observed_end",
+          "observed_at",
+          "generation",
+          "resets",
+          "cumulative_partial",
+          "recent_partial",
+          "history",
+          "history_partial",
+          "history_dropped"
+        ],
+        "type": "object"
+      },
+      "NativeTaskClass": {
+        "enum": [
+          "workflow",
+          "math_submission",
+          "math_job"
+        ],
+        "type": "string"
+      },
+      "NextObservation": {
+        "enum": [
+          "InspectRelated",
+          "CpuProfile",
+          "TimelineCapture",
+          "OptionalAllocationProbe",
+          "OptionalWaitProbe",
+          "AwaitOwnerCheckpoint"
+        ],
+        "type": "string"
+      },
+      "NonFinite": {
+        "enum": [
+          "Nan",
+          "PositiveInfinity",
+          "NegativeInfinity"
+        ],
+        "type": "string"
+      },
+      "NumericalHistoryPolicyOutput": {
+        "additionalProperties": false,
+        "description": "Explicit operator-selected thresholds, not universal convergence criteria.\nThe enclosing inspection request retains this policy beside its statements.",
+        "properties": {
+          "barrier_progress_minimum": {
+            "description": "Minimum relative decrease in barrier accompanying a primal-stall question.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "inertia_fraction_minimum": {
+            "description": "Selected inertia-correction fraction, under one complete factor population.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "minimum_events": {
+            "description": "Required consecutive source events, at least two.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "primal_progress_maximum": {
+            "description": "Maximum relative reduction in the same native primal measure.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "raw_recycle_ratio_minimum": {
+            "description": "Selected consecutive absolute residual ratio for each captured raw-map\ncoordinate. Native input points may be accelerated; this is no contraction norm.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "repeated_worst_row": {
+            "description": "Ask whether the same owner-supplied original worst row recurs.",
+            "type": "boolean"
+          },
+          "tiny_step_maximum": {
+            "description": "Tiny native-step question, in the source's declared norm/coordinates.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "version": {
+            "description": "Interpretation version; only version 1 is supported.",
+            "format": "uint16",
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "minimum_events",
+          "tiny_step_maximum",
+          "primal_progress_maximum",
+          "barrier_progress_minimum",
+          "inertia_fraction_minimum",
+          "raw_recycle_ratio_minimum",
+          "repeated_worst_row"
+        ],
+        "type": "object"
+      },
+      "OperationIdBody": {
+        "additionalProperties": false,
+        "description": "Process instance plus local sequence; never a semantic or cache identity.",
+        "properties": {
+          "process_instance": {
+            "description": "Process-local instance locator; not a semantic identity or attestation.",
+            "items": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "sequence": {
+            "description": "Unique local operation sequence.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "process_instance",
+          "sequence"
+        ],
+        "type": "object"
+      },
+      "OperationOutcome": {
+        "enum": [
+          "Completed",
+          "Failed",
+          "Cancelled",
+          "Interrupted"
+        ],
+        "type": "string"
+      },
+      "OperationSnapshotBodyOutput": {
+        "additionalProperties": false,
+        "description": "A bounded independent read. Overlapping child times must not be added as exclusive time.",
+        "properties": {
+          "children": {
+            "description": "Bounded linked-operation summaries, with explicit unavailable attribution.",
+            "items": {
+              "$ref": "#/$defs/ChildSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "coverage": {
+            "$ref": "#/$defs/Coverage",
+            "description": "Independent availability, freshness and loss facts."
+          },
+          "detail": {
+            "description": "Bounded actual-time detail prefix within the requested interval.",
+            "items": {
+              "$ref": "#/$defs/DetailEventOutput"
+            },
+            "type": "array"
+          },
+          "detail_partial": {
+            "description": "Detail events were displaced or updates were lost; aggregate coverage is separate.",
+            "type": "boolean"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual owner completion time, when known."
+          },
+          "id": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Diagnostic identity of the associated operation."
+          },
+          "interval_end": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "End of that lifetime intersection; may equal its start."
+          },
+          "interval_partial": {
+            "description": "Requested observations exceed retention or have update loss.",
+            "type": "boolean"
+          },
+          "interval_start": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Start of the requested interval intersected with operation lifetime."
+          },
+          "kind": {
+            "description": "Bounded producer-supplied operation or phase description.",
+            "type": "string"
+          },
+          "metrics": {
+            "description": "Bounded producer-owned facts; child facts are never summed implicitly.",
+            "items": {
+              "$ref": "#/$defs/MetricSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual monotonic producer timestamp of the latest published observation."
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OperationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit owner terminal explanation, or none while active or unavailable."
+          },
+          "phases": {
+            "description": "Independently active phase scopes at the last retained checkpoint.",
+            "items": {
+              "$ref": "#/$defs/Phase"
+            },
+            "type": "array"
+          },
+          "producers": {
+            "description": "Explicit producers with atomic current and independently retained recent records.",
+            "items": {
+              "$ref": "#/$defs/ProducerSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "read_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Monotonic time at which this read was requested."
+          },
+          "requested_interval": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Caller-requested lookback, anchored at read time."
+          },
+          "sources": {
+            "description": "Bounded copied source references.",
+            "items": {
+              "$ref": "#/$defs/SourceRef"
+            },
+            "type": "array"
+          },
+          "stale_after": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Owner-selected freshness threshold; passive transport cannot replace this policy."
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic start time."
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SummaryPublicationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Producer-declared responsibility and finite copied-output lifetime."
+          }
+        },
+        "required": [
+          "summary",
+          "id",
+          "kind",
+          "started_at",
+          "finished_at",
+          "outcome",
+          "observed_at",
+          "read_at",
+          "requested_interval",
+          "stale_after",
+          "interval_start",
+          "interval_end",
+          "interval_partial",
+          "detail_partial",
+          "coverage",
+          "metrics",
+          "producers",
+          "phases",
+          "children",
+          "sources",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "Phase": {
+        "additionalProperties": false,
+        "description": "One independently active copied phase scope.",
+        "properties": {
+          "kind": {
+            "description": "Bounded producer-supplied operation or phase description.",
+            "type": "string"
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic start time."
+          },
+          "token": {
+            "description": "Unique active-phase token; phase destruction removes only this token.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "token",
+          "kind",
+          "started_at"
+        ],
+        "type": "object"
+      },
+      "PhaseTransitionOutput": {
+        "additionalProperties": false,
+        "description": "Actual phase entry/exit facts, retaining token and exact timestamps for optional export.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual exit when observed; missing means an entry, not a completed interval."
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual phase start, not export or read time."
+          },
+          "token": {
+            "description": "Independently owned phase token within this operation.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "token",
+          "started_at",
+          "finished_at"
+        ],
+        "type": "object"
+      },
+      "PointSample": {
+        "additionalProperties": false,
+        "description": "First and last checkpoint values in one observed second; intermediate detail is coalesced.",
+        "properties": {
+          "first_generation": {
+            "description": "Generation of the first value; compare across generations only when the owner permits it.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "first_observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual first observation timestamp, not a fabricated bucket boundary."
+          },
+          "first_value": {
+            "$ref": "#/$defs/Value",
+            "description": "First value, retaining exact integer, absence and nonfinite meanings."
+          },
+          "generation": {
+            "description": "Generation of the latest value.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "last_observed_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual latest observation timestamp in this second."
+          },
+          "nonfinite": {
+            "description": "At least one coalesced observation was nonfinite, even if the latest became finite.",
+            "type": "boolean"
+          },
+          "predecessor": {
+            "description": "This actual checkpoint is the immediate second preceding the requested interval.",
+            "type": "boolean"
+          },
+          "reset": {
+            "description": "At least one counter reset or generation transition occurred in this sample.",
+            "type": "boolean"
+          },
+          "samples": {
+            "description": "Number of actual observations coalesced into this sample.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unavailable": {
+            "description": "At least one coalesced observation was unavailable, even if the latest became available.",
+            "type": "boolean"
+          },
+          "value": {
+            "$ref": "#/$defs/Value",
+            "description": "Latest value in the second, independent of additive work aggregates."
+          }
+        },
+        "required": [
+          "first_observed_at",
+          "last_observed_at",
+          "first_value",
+          "value",
+          "samples",
+          "first_generation",
+          "generation",
+          "reset",
+          "unavailable",
+          "nonfinite",
+          "predecessor"
+        ],
+        "type": "object"
+      },
+      "ProcessLocatorBodyOutput": {
+        "additionalProperties": false,
+        "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
+        "properties": {
+          "executable": {
+            "description": "Current executable path for display/symbol discovery, not a content proof.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pid": {
+            "description": "Actual operating-system process ID.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "start_ticks": {
+            "description": "Linux process start ticks; absence does not authorize attachment.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "pid",
+          "start_ticks",
+          "executable"
+        ],
+        "type": "object"
+      },
+      "ProducerDescriptor": {
+        "additionalProperties": false,
+        "description": "Stable bounded producer declaration.",
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/ProducerId",
+            "description": "Exact performing instance."
+          },
+          "name": {
+            "description": "Owner-supplied label; not its identity.",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/$defs/ProducerRole",
+            "description": "Declared responsibility."
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ProducerId": {
+        "additionalProperties": false,
+        "description": "A performing instance, not a scientific or cache identity.",
+        "properties": {
+          "operation": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Actual enclosing diagnostic operation."
+          },
+          "sequence": {
+            "description": "Unique performing instance within this process.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operation",
+          "sequence"
+        ],
+        "type": "object"
+      },
+      "ProducerRole": {
+        "description": "Responsibility declared at the performing owner, never inferred from a metric prefix.",
+        "oneOf": [
+          {
+            "const": "native_callback",
+            "description": "Foreign solver callback boundary.",
+            "type": "string"
+          },
+          {
+            "const": "coordinate_transport",
+            "description": "Original-to-native coordinate transport.",
+            "type": "string"
+          },
+          {
+            "const": "original_oracle",
+            "description": "Original scientific oracle.",
+            "type": "string"
+          },
+          {
+            "const": "native_iteration",
+            "description": "Native-issued iteration or safe return checkpoint.",
+            "type": "string"
+          },
+          {
+            "const": "evaluator",
+            "description": "Prepared mathematical demand evaluator.",
+            "type": "string"
+          },
+          {
+            "const": "provider",
+            "description": "Scientific property or implicit provider.",
+            "type": "string"
+          },
+          {
+            "const": "workflow",
+            "description": "Workflow or publication stage.",
+            "type": "string"
+          },
+          {
+            "const": "native_factor",
+            "description": "Native factor/setup/solve owner.",
+            "type": "string"
+          }
+        ]
+      },
+      "ProducerSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "One producer's independent current and recent record views.",
+        "properties": {
+          "coverage": {
+            "$ref": "#/$defs/RecordCoverage",
+            "description": "Independent source-record coverage."
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CoherentRecordBodyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Latest admitted compact checkpoint, even when history is zero."
+          },
+          "descriptor": {
+            "$ref": "#/$defs/ProducerDescriptor",
+            "description": "Actual declaration."
+          },
+          "recent": {
+            "description": "Bounded whole records intersecting the requested interval.",
+            "items": {
+              "$ref": "#/$defs/CoherentRecordBodyOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "descriptor",
+          "current",
+          "recent",
+          "coverage"
+        ],
+        "type": "object"
+      },
+      "RecordAvailability": {
+        "description": "Availability of an optional source observation, independent of a numerical zero.",
+        "oneOf": [
+          {
+            "const": "not_requested",
+            "description": "Not selected or activated.",
+            "type": "string"
+          },
+          {
+            "const": "running",
+            "description": "The source interval is still running.",
+            "type": "string"
+          },
+          {
+            "const": "interrupted",
+            "description": "The source did not finish its interval.",
+            "type": "string"
+          },
+          {
+            "const": "unavailable",
+            "description": "No fitting source capability exists.",
+            "type": "string"
+          },
+          {
+            "const": "not_supplied",
+            "description": "The source did not supply this field at this event.",
+            "type": "string"
+          },
+          {
+            "const": "refused",
+            "description": "Collection admission refused.",
+            "type": "string"
+          }
+        ]
+      },
+      "RecordCoverage": {
+        "additionalProperties": false,
+        "description": "Source-record retention coverage, separate from independent metric histories.",
+        "properties": {
+          "accepted": {
+            "description": "Successfully retained whole source events.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "history_dropped": {
+            "description": "Recent records omitted or displaced independently of current retention.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "partial": {
+            "description": "Missing source sequences, refusal, overflow or publication contention.",
+            "type": "boolean"
+          },
+          "refused": {
+            "description": "Records rejected whole by admission or representation bounds.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted",
+          "refused",
+          "history_dropped",
+          "partial"
+        ],
+        "type": "object"
+      },
+      "RecordFieldOutput": {
+        "additionalProperties": false,
+        "description": "One typed member of an indivisible source-issued record.",
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RecordAvailability"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Structured source availability when not a completed measurement."
+          },
+          "name": {
+            "description": "Family-defined field name.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Source-defined unit or convention.",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/Value",
+            "description": "Exact value, nonfinite category or explicit absence."
+          }
+        },
+        "required": [
+          "name",
+          "unit",
+          "value",
+          "availability"
+        ],
+        "type": "object"
+      },
+      "Relationship": {
+        "enum": [
+          "Nested",
+          "DependencyWait",
+          "SharedProduction",
+          "Reuse",
+          "Continuation"
+        ],
+        "type": "string"
+      },
+      "RuntimeMetricsCoverage": {
+        "additionalProperties": false,
+        "description": "Coverage of the bounded executor source registry at this read.",
+        "properties": {
+          "executor_registry_available": {
+            "description": "False when source synchronization was unavailable; an empty list then is not zero load.",
+            "type": "boolean"
+          },
+          "refused_executor_registrations": {
+            "description": "Cumulative refused registrations, including registry pressure or synchronization failure.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "task_scope": {
+            "$ref": "#/$defs/TaskMetricsScope",
+            "description": "Only explicitly instrumented futures are covered by task class measurements."
+          }
+        },
+        "required": [
+          "executor_registry_available",
+          "refused_executor_registrations",
+          "task_scope"
+        ],
+        "type": "object"
+      },
+      "RuntimeMetricsSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "One read of the same typed sources used by checkpoints and optional OTel export.",
+        "properties": {
+          "coverage": {
+            "$ref": "#/$defs/RuntimeMetricsCoverage",
+            "description": "Explicit registry losses and selected task coverage."
+          },
+          "executors": {
+            "description": "At most eight actual registered executors.",
+            "items": {
+              "$ref": "#/$defs/ExecutorMetricsSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "locator": {
+            "$ref": "#/$defs/ProcessLocatorBodyOutput",
+            "description": "Actual process/start locator; absence of start ticks limits identity evidence."
+          },
+          "sampled_unix_micros": {
+            "description": "Wall time immediately before independently sampled source reads.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "task_classes": {
+            "description": "Exactly three process-wide selected future classes.",
+            "items": {
+              "$ref": "#/$defs/TaskClassMetricsSnapshot"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "locator",
+          "sampled_unix_micros",
+          "coverage",
+          "executors",
+          "task_classes"
+        ],
+        "type": "object"
+      },
+      "SourceRef": {
+        "additionalProperties": false,
+        "description": "Bounded opaque source-owned attribution.",
+        "properties": {
+          "bytes": {
+            "description": "Copied opaque source-owned identity or reference bytes.",
+            "items": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "Producer-owned reference name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "bytes"
+        ],
+        "type": "object"
+      },
+      "StatementKind": {
+        "enum": [
+          "Established",
+          "Hypothesis",
+          "Limitation"
+        ],
+        "type": "string"
+      },
+      "StatementOutput": {
+        "additionalProperties": false,
+        "description": "A bounded source-linked statement. Consumers render it; they do not reinterpret it.",
+        "properties": {
+          "code": {
+            "description": "Stable interpretation code, not a severity or convergence score.",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Actual evidence supporting this statement.",
+            "items": {
+              "$ref": "#/$defs/EvidenceRefOutput"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/$defs/StatementKind",
+            "description": "Evidence strength, never an inferred numerical outcome."
+          },
+          "message": {
+            "description": "Plain explanation of the observed meaning and its limits.",
+            "type": "string"
+          },
+          "next": {
+            "description": "Discriminating optional observations; none are executed by inspection.",
+            "items": {
+              "$ref": "#/$defs/NextObservation"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "code",
+          "message",
+          "evidence",
+          "next"
+        ],
+        "type": "object"
+      },
+      "SummaryPublicationOutput": {
+        "additionalProperties": false,
+        "description": "Generic producer-owned compact explanation; it grants no execution ownership.",
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Finite terminal output deadline; absent for an active declaration or a refused copy."
+          },
+          "purpose": {
+            "description": "Bounded producer-supplied purpose, never interpreted by the hub.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "TaskClassMetricsSnapshot": {
+        "additionalProperties": false,
+        "description": "Cumulative library task monitor facts for a bounded class, in counts and nanoseconds.",
+        "properties": {
+          "class": {
+            "$ref": "#/$defs/NativeTaskClass",
+            "description": "Fixed selected future class."
+          },
+          "dropped_count": {
+            "description": "Wrappers dropped, including cancellation; never a native settlement counter.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idle_count": {
+            "description": "Recorded pending-to-wake idle intervals.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idle_nanos": {
+            "description": "Cumulative pending-to-wake idle time, in nanoseconds.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "instrumented_count": {
+            "description": "Number of wrappers created, not native jobs admitted.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poll_count": {
+            "description": "Recorded future polls.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poll_nanos": {
+            "description": "Cumulative time within future polls, in nanoseconds; not CPU time.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scheduled_count": {
+            "description": "Recorded wake-to-poll schedules.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scheduled_nanos": {
+            "description": "Cumulative wake-to-poll time, in nanoseconds.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class",
+          "instrumented_count",
+          "dropped_count",
+          "poll_count",
+          "poll_nanos",
+          "scheduled_count",
+          "scheduled_nanos",
+          "idle_count",
+          "idle_nanos"
+        ],
+        "type": "object"
+      },
+      "TaskMetricsScope": {
+        "enum": [
+          "selected_process_futures"
+        ],
+        "type": "string"
+      },
+      "Value": {
+        "description": "A value and its availability are inseparable.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Exact unsigned additive counter.",
+            "properties": {
+              "kind": {
+                "const": "Count",
+                "type": "string"
+              },
+              "value": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Exact signed native checkpoint.",
+            "properties": {
+              "kind": {
+                "const": "Integer",
+                "type": "string"
+              },
+              "value": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Finite numeric checkpoint.",
+            "properties": {
+              "kind": {
+                "const": "Number",
+                "type": "string"
+              },
+              "value": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Producer-owned predicate.",
+            "properties": {
+              "kind": {
+                "const": "Boolean",
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Bounded copied textual checkpoint.",
+            "properties": {
+              "kind": {
+                "const": "Text",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Explicit absence with a bounded explanation.",
+            "properties": {
+              "kind": {
+                "const": "Unavailable",
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Original nonfinite category.",
+            "properties": {
+              "kind": {
+                "const": "NonFinite",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/NonFinite"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Exact value exceeded fixed-width representation.",
+            "properties": {
+              "kind": {
+                "const": "Overflow",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      }
     },
     "additionalProperties": false,
     "properties": {
@@ -8728,11 +12724,99 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "type": "string"
       },
       "payload": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "title": "Payload",
-        "type": "object"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "One typed interpretation shared by Rust, generated Python and CLI consumers.",
+                "properties": {
+                  "omitted": {
+                    "description": "Statements or requested children omitted by response bounds.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "operation": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/OperationSnapshotBodyOutput"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Exact selected operation, absent when unavailable/evicted rather than invented complete."
+                  },
+                  "related": {
+                    "description": "Bounded directly related observations, with their independent clocks and outcomes.",
+                    "items": {
+                      "$ref": "#/$defs/OperationSnapshotBodyOutput"
+                    },
+                    "type": "array"
+                  },
+                  "request": {
+                    "$ref": "#/$defs/InspectionRequestOutput",
+                    "description": "Original bounded read request."
+                  },
+                  "statements": {
+                    "description": "Established explanations, hypotheses and their source-linked next observations.",
+                    "items": {
+                      "$ref": "#/$defs/StatementOutput"
+                    },
+                    "type": "array"
+                  },
+                  "transport": {
+                    "$ref": "#/$defs/InspectionTransportOutput",
+                    "description": "Independent transport/collector explanation."
+                  },
+                  "version": {
+                    "const": 4,
+                    "default": 4,
+                    "description": "Standalone diagnostic response encoding with explicit producer/record references.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version",
+                  "request",
+                  "operation",
+                  "related",
+                  "statements",
+                  "omitted",
+                  "transport"
+                ],
+                "title": "InspectionDocumentOutput",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
       }
     },
     "required": [
@@ -8751,6 +12835,783 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
 - Native `output_document`: [docs/generated/schema/inspection-document.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/inspection-document.output.schema.json).
 
 - Native `request`: [docs/generated/schema/inspection-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/inspection-request.input.schema.json).
+
+### `native_diagnostic_processes` — Discover published native diagnostic processes
+
+Exposure: **tool**. Owner: `pse.diagnostics.list_processes`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Read one bounded page of native process checkpoint summaries from the selected diagnostic directory through the original native reader. Retains process/start locators, recorded target runtime_metrics and operation IDs when available. Directory discovery is not an atomic snapshot or live-process/attachment authority; no Runtime construction, service startup or capture.",
+  "domain": "diagnostics",
+  "effects": "Read bounded selected native diagnostic process summaries only; no subject execution or settlement.",
+  "exposure": "tool",
+  "family": "scientific-diagnostics",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_diagnostic_processes",
+  "owner": "pse.diagnostics.list_processes",
+  "prerequisites": [
+    "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Discover published native diagnostic processes",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "detached",
+      "operation": "diagnostic_processes",
+      "worker": "native"
+    }
+  ],
+  "workflows": [
+    "diagnose-run"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_diagnostic_processes@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_diagnostic_processes",
+        "domain:diagnostics",
+        "family:scientific-diagnostics",
+        "workflow:diagnose-run"
+      ]
+    },
+    "pse.native": {
+      "authoring_guidance": null,
+      "contracts": {
+        "output_document": {
+          "direction": "output",
+          "exported_name": "DiagnosticProcessPageOutput",
+          "name": "DiagnosticProcessPage",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticProcessPage",
+          "schema_path": "docs/generated/schema/diagnostic-process-page.output.schema.json",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
+          "schema_sha256": "3ff591b32fd34482c24547aafeac963e684bc07c8202742185638118124557a7",
+          "slug": "diagnostic-process-page",
+          "version": 2,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "DiagnosticListRequest",
+          "name": "DiagnosticListRequest",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticListRequest",
+          "schema_path": "docs/generated/schema/diagnostic-list-request.input.schema.json",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
+          "schema_sha256": "e53fe554306a8e3a6e49e8aece0ee18c0d1964913e7bd75735f78cab78cdcda5",
+          "slug": "diagnostic-list-request",
+          "version": 1,
+          "wire": "FlatV1"
+        }
+      },
+      "receiver": "pse.diagnostics.list_processes",
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Read one bounded page of native process checkpoint summaries from the selected diagnostic directory through the original native reader. Retains process/start locators, recorded target runtime_metrics and operation IDs when available. Directory discovery is not an atomic snapshot or live-process/attachment authority; no Runtime construction, service startup or capture.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "diagnostic-list-request": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:diagnostic-list-request:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Discovery request; only matching page images are decoded, never scientific store members.",
+        "properties": {
+          "after": {
+            "description": "Exclusive checkpoint filename cursor; not a durable catalogue generation.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_version": {
+            "const": 1,
+            "default": 1,
+            "type": "integer"
+          },
+          "limit": {
+            "default": 16,
+            "description": "Requested page size, default 16 and effective ceiling 32.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_version"
+        ],
+        "title": "DiagnosticListRequest",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "directory": {
+        "anyOf": [
+          {
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Directory"
+      },
+      "request": {
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:diagnostic-list-request:input"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "title": "DiagnosticProcesses",
+    "type": "object"
+  },
+  "name": "native_diagnostic_processes",
+  "outputSchema": {
+    "$defs": {
+      "ClosedDuration": {
+        "additionalProperties": false,
+        "properties": {
+          "nanos": {
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "secs": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "secs",
+          "nanos"
+        ],
+        "type": "object"
+      },
+      "DiagnosticProcessSummaryOutput": {
+        "additionalProperties": false,
+        "description": "One discovered process prefix; errors retain the path without implying an empty process.",
+        "properties": {
+          "checkpoint": {
+            "description": "Actual checkpoint path.",
+            "type": "string"
+          },
+          "failure": {
+            "description": "Optional decode/access error, independent of simulation success.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locator": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProcessLocatorBodyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual operational locator, if readable."
+          },
+          "operations": {
+            "description": "Bounded available operation catalogue from this image.",
+            "items": {
+              "$ref": "#/$defs/OperationSummaryOutput"
+            },
+            "type": "array"
+          },
+          "partial": {
+            "description": "Image omitted observations or registry collection was curtailed.",
+            "type": "boolean"
+          },
+          "process": {
+            "description": "Process diagnostic identity, if the image is readable.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runtime_metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RuntimeMetricsSnapshotOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Measurements from this checkpoint, absent when the source image is unavailable."
+          },
+          "summaries": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SummaryCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit producer-summary admission, expiry and pressure losses when readable."
+          }
+        },
+        "required": [
+          "summaries",
+          "checkpoint",
+          "process",
+          "locator",
+          "runtime_metrics",
+          "operations",
+          "failure",
+          "partial"
+        ],
+        "type": "object"
+      },
+      "ExecutorMetricsSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "Copied stable Tokio facts. Gauges are independently read, not an atomic scheduler census.",
+        "properties": {
+          "alive_tasks": {
+            "description": "Tokio's approximate current count, in tasks; not a settlement proof.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "global_queue_depth": {
+            "description": "Current global injection queue depth, in tasks; excludes worker-local queues.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "identity": {
+            "description": "Process-local registration identity, scoped by the enclosing process locator.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "registered_unix_micros": {
+            "description": "Wall time this source was registered; counters originate at runtime construction.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/$defs/ExecutorRole",
+            "description": "Fixed executor composition root."
+          },
+          "worker_busy_nanos": {
+            "description": "Sum of cumulative worker busy durations, in nanoseconds since runtime construction.\nUnavailable on targets without 64-bit atomics; not process or operation CPU time.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "workers": {
+            "description": "Configured worker count, in threads.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "identity",
+          "role",
+          "registered_unix_micros",
+          "workers",
+          "alive_tasks",
+          "global_queue_depth",
+          "worker_busy_nanos"
+        ],
+        "type": "object"
+      },
+      "ExecutorRole": {
+        "enum": [
+          "python",
+          "worker",
+          "canonical_tools"
+        ],
+        "type": "string"
+      },
+      "NativeTaskClass": {
+        "enum": [
+          "workflow",
+          "math_submission",
+          "math_job"
+        ],
+        "type": "string"
+      },
+      "OperationIdBody": {
+        "additionalProperties": false,
+        "description": "Process instance plus local sequence; never a semantic or cache identity.",
+        "properties": {
+          "process_instance": {
+            "description": "Process-local instance locator; not a semantic identity or attestation.",
+            "items": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "sequence": {
+            "description": "Unique local operation sequence.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "process_instance",
+          "sequence"
+        ],
+        "type": "object"
+      },
+      "OperationOutcome": {
+        "enum": [
+          "Completed",
+          "Failed",
+          "Cancelled",
+          "Interrupted"
+        ],
+        "type": "string"
+      },
+      "OperationSummaryOutput": {
+        "additionalProperties": false,
+        "description": "Small copied catalogue entry without metric or scientific ownership.",
+        "properties": {
+          "finished_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual owner completion time, when known."
+          },
+          "id": {
+            "$ref": "#/$defs/OperationIdBody",
+            "description": "Diagnostic identity of the associated operation."
+          },
+          "kind": {
+            "description": "Bounded producer-supplied operation or phase description.",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OperationOutcome"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Explicit owner terminal explanation, or none while active or unavailable."
+          },
+          "started_at": {
+            "$ref": "#/$defs/ClosedDuration",
+            "description": "Actual monotonic start time."
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SummaryPublicationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Producer-declared responsibility and finite copied-output lifetime."
+          }
+        },
+        "required": [
+          "summary",
+          "id",
+          "kind",
+          "started_at",
+          "finished_at",
+          "outcome"
+        ],
+        "type": "object"
+      },
+      "ProcessLocatorBodyOutput": {
+        "additionalProperties": false,
+        "description": "Actual process locator. PID reuse must be checked before attaching an optional sampler.",
+        "properties": {
+          "executable": {
+            "description": "Current executable path for display/symbol discovery, not a content proof.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pid": {
+            "description": "Actual operating-system process ID.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "start_ticks": {
+            "description": "Linux process start ticks; absence does not authorize attachment.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "pid",
+          "start_ticks",
+          "executable"
+        ],
+        "type": "object"
+      },
+      "RuntimeMetricsCoverage": {
+        "additionalProperties": false,
+        "description": "Coverage of the bounded executor source registry at this read.",
+        "properties": {
+          "executor_registry_available": {
+            "description": "False when source synchronization was unavailable; an empty list then is not zero load.",
+            "type": "boolean"
+          },
+          "refused_executor_registrations": {
+            "description": "Cumulative refused registrations, including registry pressure or synchronization failure.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "task_scope": {
+            "$ref": "#/$defs/TaskMetricsScope",
+            "description": "Only explicitly instrumented futures are covered by task class measurements."
+          }
+        },
+        "required": [
+          "executor_registry_available",
+          "refused_executor_registrations",
+          "task_scope"
+        ],
+        "type": "object"
+      },
+      "RuntimeMetricsSnapshotOutput": {
+        "additionalProperties": false,
+        "description": "One read of the same typed sources used by checkpoints and optional OTel export.",
+        "properties": {
+          "coverage": {
+            "$ref": "#/$defs/RuntimeMetricsCoverage",
+            "description": "Explicit registry losses and selected task coverage."
+          },
+          "executors": {
+            "description": "At most eight actual registered executors.",
+            "items": {
+              "$ref": "#/$defs/ExecutorMetricsSnapshotOutput"
+            },
+            "type": "array"
+          },
+          "locator": {
+            "$ref": "#/$defs/ProcessLocatorBodyOutput",
+            "description": "Actual process/start locator; absence of start ticks limits identity evidence."
+          },
+          "sampled_unix_micros": {
+            "description": "Wall time immediately before independently sampled source reads.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "task_classes": {
+            "description": "Exactly three process-wide selected future classes.",
+            "items": {
+              "$ref": "#/$defs/TaskClassMetricsSnapshot"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "locator",
+          "sampled_unix_micros",
+          "coverage",
+          "executors",
+          "task_classes"
+        ],
+        "type": "object"
+      },
+      "SummaryCoverage": {
+        "additionalProperties": false,
+        "description": "Explicit lifetime/admission losses for producer-declared compact outputs.",
+        "properties": {
+          "expired": {
+            "description": "Outputs whose selected terminal lifetime elapsed.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pressure_lost": {
+            "description": "Oldest terminal outputs displaced to preserve active admission.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "refused": {
+            "description": "Declarations or terminal copies refused by bounds/contention/opt-out.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "refused",
+          "expired",
+          "pressure_lost"
+        ],
+        "type": "object"
+      },
+      "SummaryPublicationOutput": {
+        "additionalProperties": false,
+        "description": "Generic producer-owned compact explanation; it grants no execution ownership.",
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ClosedDuration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Finite terminal output deadline; absent for an active declaration or a refused copy."
+          },
+          "purpose": {
+            "description": "Bounded producer-supplied purpose, never interpreted by the hub.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "TaskClassMetricsSnapshot": {
+        "additionalProperties": false,
+        "description": "Cumulative library task monitor facts for a bounded class, in counts and nanoseconds.",
+        "properties": {
+          "class": {
+            "$ref": "#/$defs/NativeTaskClass",
+            "description": "Fixed selected future class."
+          },
+          "dropped_count": {
+            "description": "Wrappers dropped, including cancellation; never a native settlement counter.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idle_count": {
+            "description": "Recorded pending-to-wake idle intervals.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "idle_nanos": {
+            "description": "Cumulative pending-to-wake idle time, in nanoseconds.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "instrumented_count": {
+            "description": "Number of wrappers created, not native jobs admitted.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poll_count": {
+            "description": "Recorded future polls.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "poll_nanos": {
+            "description": "Cumulative time within future polls, in nanoseconds; not CPU time.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scheduled_count": {
+            "description": "Recorded wake-to-poll schedules.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scheduled_nanos": {
+            "description": "Cumulative wake-to-poll time, in nanoseconds.",
+            "format": "uint128",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "class",
+          "instrumented_count",
+          "dropped_count",
+          "poll_count",
+          "poll_nanos",
+          "scheduled_count",
+          "scheduled_nanos",
+          "idle_count",
+          "idle_nanos"
+        ],
+        "type": "object"
+      },
+      "TaskMetricsScope": {
+        "enum": [
+          "selected_process_futures"
+        ],
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "Bounded checkpoint discovery result.",
+                "properties": {
+                  "next": {
+                    "description": "Exclusive filename cursor when another page may exist.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "processes": {
+                    "description": "The selected readable/unreadable process prefixes.",
+                    "items": {
+                      "$ref": "#/$defs/DiagnosticProcessSummaryOutput"
+                    },
+                    "type": "array"
+                  },
+                  "version": {
+                    "const": 2,
+                    "default": 2,
+                    "description": "Standalone diagnostic page encoding.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version",
+                  "processes",
+                  "next"
+                ],
+                "title": "DiagnosticProcessPageOutput",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Diagnostic Processes"
+}
+```
+
+- Native `output_document`: [docs/generated/schema/diagnostic-process-page.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/diagnostic-process-page.output.schema.json).
+
+- Native `request`: [docs/generated/schema/diagnostic-list-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/diagnostic-list-request.input.schema.json).
 
 ### `native_evidence_inspect` — Inspect supplied frozen evidence
 
@@ -8827,8 +13688,8 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
           "schema_path": "docs/generated/schema/frozen-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
-          "schema_sha256": "437b297bb6926a5888c85d007f406ff9696cfd425870f7a3a171b03571626a79",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
+          "schema_sha256": "a0aaa93739bb53d7c4965d9a1d87e479e461b0bb241d4bfb95e84dbc979d8d91",
           "slug": "frozen-inspection-document",
           "version": 1,
           "wire": "Native"
@@ -8840,7 +13701,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionRequest",
           "schema_path": "docs/generated/schema/frozen-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "a9bdc3183ed66ba9252fe3d4586d8b8b21dfeb0607c99fd7df04ef9a51a3ef68",
           "slug": "frozen-inspection-request",
           "version": 1,
@@ -8848,7 +13709,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.read_evidence + inspect_frozen",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -9097,7 +13958,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
             ]
           }
         },
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:frozen-inspection-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:frozen-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
@@ -9137,7 +13998,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:frozen-inspection-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:frozen-inspection-request:input"
       }
     },
     "required": [
@@ -9269,7 +14130,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: invocation :: InvocationEvidenceDocument",
           "schema_path": "docs/generated/schema/invocation-evidence.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "513b0d130552259de59f3ab1575423c5b4b56cd3123ee249df6e93aabf2285b8",
           "slug": "invocation-evidence",
           "version": 2,
@@ -9277,7 +14138,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         }
       },
       "receiver": "pse.diagnostics.read_invocation",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -9425,7 +14286,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -9438,7 +14299,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -9451,7 +14312,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -9464,7 +14325,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -9472,7 +14333,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
         }
       },
       "receiver": "pse.ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -10074,7 +14935,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -10128,7 +14989,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -10168,13 +15029,13 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -10314,7 +15175,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectManifest",
           "schema_path": "docs/generated/schema/project-manifest.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "afcf6d813ebe9d5488cda86d5df827416faf129419c05527ce1aba6d53d9aa78",
           "slug": "project-manifest",
           "version": 1,
@@ -10322,7 +15183,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
         }
       },
       "receiver": "pse.ProjectBundle.manifest + digest",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -10485,7 +15346,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataPage",
           "schema_path": "docs/generated/schema/project-metadata-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "247bcbf54ba1f8787e71f6e84fcd093b719a27f83b18dc7730bf0a9f14119c9c",
           "slug": "project-metadata-page",
           "version": 1,
@@ -10498,7 +15359,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataRequest",
           "schema_path": "docs/generated/schema/project-metadata-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "5f252f295e44801126cafb6f147efdade00a0c618978098dbe75d854481614cd",
           "slug": "project-metadata-request",
           "version": 1,
@@ -10506,7 +15367,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         }
       },
       "receiver": "pse.Runtime.project_metadata",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -10584,7 +15445,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-metadata-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-metadata-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact owner and optional continuation for a bounded live metadata listing.",
@@ -10632,7 +15493,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-metadata-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-metadata-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -10785,7 +15646,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelection",
           "schema_path": "docs/generated/schema/project-selection.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "94c26dbd186b231b086e6e37d8dd6df5a0d4b00655a6e8f4d95a498e8b3f37d9",
           "slug": "project-selection",
           "version": 1,
@@ -10798,7 +15659,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -10811,7 +15672,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelectRequest",
           "schema_path": "docs/generated/schema/project-select-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "393a032a9136db4e6aaa0ae0168ed9aafc244c47bb9207f48d340763164d5284",
           "slug": "project-select-request",
           "version": 1,
@@ -10819,7 +15680,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         }
       },
       "receiver": "pse.Runtime.project_select",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -10860,7 +15721,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -10942,7 +15803,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-select-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-select-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit navigation command transport.",
@@ -10975,10 +15836,10 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-select-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-select-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -11133,7 +15994,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadResult",
           "schema_path": "docs/generated/schema/research-read-result.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "edf625447db75b6278030fd28171b9b009aa21cb85ff16c05108e3c33f99e8b4",
           "slug": "research-read-result",
           "version": 1,
@@ -11146,7 +16007,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
           "schema_path": "docs/generated/schema/research-read-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
           "slug": "research-read-request",
           "version": 1,
@@ -11154,7 +16015,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         }
       },
       "receiver": "pse.Runtime.research_read",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -11195,7 +16056,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
       },
       "research-read-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:research-read-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:research-read-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "Exact discovery and selected detail commands; metadata does not retain payloads.",
         "oneOf": [
@@ -11309,7 +16170,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:research-read-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:research-read-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -11459,7 +16320,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
           "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "7f9e0c189b0d7588008ba5e443b18823f1f93212bf1b50882fe13f5bcc1f3ee4",
           "slug": "result-inspection-document",
           "version": 1,
@@ -11472,7 +16333,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
           "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "fb0431325e5ee50f1704f3921c3d636e4503a0c3d902e9b36492b3132105e2fa",
           "slug": "result-inspection-request",
           "version": 1,
@@ -11480,7 +16341,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         }
       },
       "receiver": "pse.Runtime.inspect_result",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -11585,7 +16446,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:result-inspection-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:result-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Select one exact immutable result; schema discovery does not read its Arrow rows.",
@@ -11654,7 +16515,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:result-inspection-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:result-inspection-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -12535,7 +17396,7 @@ Exact callable component key: `tool:native_result_read@`. The following is the r
       "authoring_guidance": null,
       "contracts": {},
       "receiver": "pse.Runtime.results",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -12767,7 +17628,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -12780,7 +17641,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -12793,7 +17654,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -12801,7 +17662,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -13403,7 +18264,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -13457,7 +18318,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -13502,10 +18363,10 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -13669,7 +18530,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -13677,7 +18538,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -13718,7 +18579,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -13773,7 +18634,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         "type": "array"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -13922,7 +18783,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -13935,7 +18796,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -13943,7 +18804,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
         }
       },
       "receiver": "pse.Runtime.physical_from_documents + modeling_from_documents",
-      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+      "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
     }
   },
   "annotations": {
@@ -13984,7 +18845,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
+        "$id": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -14024,10 +18885,10 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -19568,6 +24429,1496 @@ Exact callable component key: `tool:storage_observe@`. The following is the regi
     "x-fastmcp-wrap-result": true
   },
   "title": "Storage Observe"
+}
+```
+
+### `telemetry-observation` — Telemetry pipeline and bounded trace observations
+
+Exposure: **native**. Owner: `scripts/telemetry.py`. Declaration source: [scripts/telemetry.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/telemetry.py).
+
+```json
+{
+  "description": "Read selected service health, redacted calling-process configuration and known traces. Native target runtime_metrics remain at the original checkpoint reader, with target identity and registration coverage.",
+  "domain": "diagnostics",
+  "effects": "Passive reads do not install, start, capture or initialize native execution. Service lifecycle commands retain their native effects and admission.",
+  "exposure": "native",
+  "family": null,
+  "guides": [
+    "diagnostics"
+  ],
+  "id": "telemetry-observation",
+  "owner": "scripts/telemetry.py",
+  "prerequisites": [],
+  "reason": "Canonical health, redacted effective configuration and known-trace reads retain bounded owner contracts. Service lifecycle stays native; telemetry never replaces native target checkpoints, results or settlement.",
+  "requirements": [],
+  "route": [
+    ".venv/bin/python",
+    "-m",
+    "scripts.telemetry",
+    "--help"
+  ],
+  "source": "scripts/telemetry.py",
+  "title": "Telemetry pipeline and bounded trace observations",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": []
+}
+```
+
+### `telemetry_configuration` — telemetry configuration
+
+Exposure: **tool**. Owner: `scripts/telemetry_config.py`. Declaration source: [scripts/telemetry_config.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/telemetry_config.py).
+
+```json
+{
+  "description": "Read redacted effective telemetry settings for this calling MCP process. Optional state selects persisted local configuration; environment precedence stays with the host resolver. Endpoint paths and header values remain redacted. Configuration establishes neither SDK activation, target settings nor delivery; no service startup or native import.",
+  "domain": "diagnostics",
+  "effects": "Passive bounded selected telemetry read; no startup, capture, native import or subject settlement",
+  "exposure": "tool",
+  "family": "telemetry-observation",
+  "guides": [
+    "diagnostics"
+  ],
+  "id": "telemetry_configuration",
+  "owner": "scripts/telemetry_config.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/telemetry_config.py",
+  "title": "telemetry configuration",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "diagnose-run"
+  ]
+}
+```
+
+Exact callable component key: `tool:telemetry_configuration@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:telemetry_configuration",
+        "domain:diagnostics",
+        "family:telemetry-observation",
+        "workflow:diagnose-run"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Read redacted effective telemetry settings for this calling MCP process. Optional state selects persisted local configuration; environment precedence stays with the host resolver. Endpoint paths and header values remain redacted. Configuration establishes neither SDK activation, target settings nor delivery; no service startup or native import.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "state": {
+        "anyOf": [
+          {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "^[^\\x00]+$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "type": "object"
+  },
+  "name": "telemetry_configuration",
+  "outputSchema": {
+    "$defs": {
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "population"
+        ],
+        "type": "object"
+      },
+      "ConfigurationPayload": {
+        "additionalProperties": true,
+        "properties": {
+          "configuration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delivery": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "lifecycle_owner": {
+            "type": "string"
+          },
+          "max_export_batch_size": {
+            "type": "integer"
+          },
+          "max_queue_size": {
+            "type": "integer"
+          },
+          "resource": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "sampler": {
+            "type": "string"
+          },
+          "sampler_argument": {
+            "type": "number"
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "sdk_versions": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "selection": {
+            "type": "string"
+          },
+          "signals": {
+            "$ref": "#/$defs/Signals"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "disabled",
+          "selection",
+          "signals",
+          "transport",
+          "resource",
+          "sdk_versions",
+          "lifecycle_owner",
+          "sampler",
+          "sampler_argument",
+          "max_queue_size",
+          "max_export_batch_size",
+          "configuration_id",
+          "delivery"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "SignalSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "header_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "timeout_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "endpoint",
+          "header_names",
+          "timeout_ms"
+        ],
+        "type": "object"
+      },
+      "Signals": {
+        "additionalProperties": false,
+        "properties": {
+          "logs": {
+            "$ref": "#/$defs/SignalSettings"
+          },
+          "metrics": {
+            "$ref": "#/$defs/SignalSettings"
+          },
+          "traces": {
+            "$ref": "#/$defs/SignalSettings"
+          }
+        },
+        "required": [
+          "traces",
+          "logs",
+          "metrics"
+        ],
+        "type": "object"
+      },
+      "TelemetryConfigurationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "telemetry_configuration",
+            "default": "telemetry_configuration",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ConfigurationPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      }
+    },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TelemetryConfigurationResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
+    "required": [
+      "result"
+    ],
+    "type": "object",
+    "x-fastmcp-wrap-result": true
+  },
+  "title": "Telemetry Configuration"
+}
+```
+
+### `telemetry_health` — telemetry health
+
+Exposure: **tool**. Owner: `scripts/telemetry.py`. Declaration source: [scripts/telemetry.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/telemetry.py).
+
+```json
+{
+  "description": "Passively read the selected pipeline's owned service health and collector delivery counters. Producer state is this calling MCP process, never a native target's metrics. Each HTTP read retains its owner's total deadline and byte bound. No install, start, capture, SDK activation or native import; native results/settlement remain authoritative. Use native_diagnostic_inspect for target checkpoint runtime_metrics, preserving its target identity and registration coverage.",
+  "domain": "diagnostics",
+  "effects": "Passive bounded selected telemetry read; no startup, capture, native import or subject settlement",
+  "exposure": "tool",
+  "family": "telemetry-observation",
+  "guides": [
+    "diagnostics"
+  ],
+  "id": "telemetry_health",
+  "owner": "scripts/telemetry.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/telemetry.py",
+  "title": "telemetry health",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "diagnose-run"
+  ]
+}
+```
+
+Exact callable component key: `tool:telemetry_health@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:telemetry_health",
+        "domain:diagnostics",
+        "family:telemetry-observation",
+        "workflow:diagnose-run"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Passively read the selected pipeline's owned service health and collector delivery counters. Producer state is this calling MCP process, never a native target's metrics. Each HTTP read retains its owner's total deadline and byte bound. No install, start, capture, SDK activation or native import; native results/settlement remain authoritative. Use native_diagnostic_inspect for target checkpoint runtime_metrics, preserving its target identity and registration coverage.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "state": {
+        "anyOf": [
+          {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "^[^\\x00]+$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "type": "object"
+  },
+  "name": "telemetry_health",
+  "outputSchema": {
+    "$defs": {
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "population"
+        ],
+        "type": "object"
+      },
+      "CollectorSample": {
+        "additionalProperties": false,
+        "properties": {
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "labels",
+          "value"
+        ],
+        "type": "object"
+      },
+      "ConfigurationPayload": {
+        "additionalProperties": true,
+        "properties": {
+          "configuration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delivery": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "lifecycle_owner": {
+            "type": "string"
+          },
+          "max_export_batch_size": {
+            "type": "integer"
+          },
+          "max_queue_size": {
+            "type": "integer"
+          },
+          "resource": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "sampler": {
+            "type": "string"
+          },
+          "sampler_argument": {
+            "type": "number"
+          },
+          "schema_version": {
+            "type": "integer"
+          },
+          "sdk_versions": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "selection": {
+            "type": "string"
+          },
+          "signals": {
+            "$ref": "#/$defs/Signals"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "disabled",
+          "selection",
+          "signals",
+          "transport",
+          "resource",
+          "sdk_versions",
+          "lifecycle_owner",
+          "sampler",
+          "sampler_argument",
+          "max_queue_size",
+          "max_export_batch_size",
+          "configuration_id",
+          "delivery"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "HealthPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "observed_at_ns": {
+            "type": "integer"
+          },
+          "pipeline": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PipelineStage"
+              },
+              {
+                "additionalProperties": {
+                  "$ref": "#/$defs/PipelineStage"
+                },
+                "type": "object"
+              }
+            ]
+          },
+          "producer": {
+            "$ref": "#/$defs/LocalProducer"
+          },
+          "service": {
+            "$ref": "#/$defs/ServiceObservation"
+          },
+          "source_coverage": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "observed_at_ns",
+          "service",
+          "producer",
+          "delivery",
+          "source_coverage",
+          "pipeline"
+        ],
+        "type": "object"
+      },
+      "LocalProducer": {
+        "additionalProperties": true,
+        "properties": {
+          "configuration": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ConfigurationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "delivery": {
+            "type": "string"
+          },
+          "dropped_records": {
+            "type": "string"
+          },
+          "export_attempts": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "lifecycle_owner": {
+            "type": "string"
+          },
+          "queue_occupancy": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "lifecycle_owner",
+          "export_attempts",
+          "delivery",
+          "queue_occupancy",
+          "dropped_records"
+        ],
+        "type": "object"
+      },
+      "OwnerRecord": {
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
+        "properties": {},
+        "type": "object"
+      },
+      "PipelineStage": {
+        "additionalProperties": true,
+        "properties": {
+          "configuration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "observed_at_ns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "process": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "query_visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "samples": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/CollectorSample"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "ServiceObservation": {
+        "additionalProperties": true,
+        "properties": {
+          "configuration": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "services": {
+            "additionalProperties": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "object"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "SignalSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "header_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "timeout_ms": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "endpoint",
+          "header_names",
+          "timeout_ms"
+        ],
+        "type": "object"
+      },
+      "Signals": {
+        "additionalProperties": false,
+        "properties": {
+          "logs": {
+            "$ref": "#/$defs/SignalSettings"
+          },
+          "metrics": {
+            "$ref": "#/$defs/SignalSettings"
+          },
+          "traces": {
+            "$ref": "#/$defs/SignalSettings"
+          }
+        },
+        "required": [
+          "traces",
+          "logs",
+          "metrics"
+        ],
+        "type": "object"
+      },
+      "TelemetryHealthResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "telemetry_health",
+            "default": "telemetry_health",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/HealthPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      }
+    },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TelemetryHealthResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
+    "required": [
+      "result"
+    ],
+    "type": "object",
+    "x-fastmcp-wrap-result": true
+  },
+  "title": "Telemetry Health"
+}
+```
+
+### `telemetry_trace_lookup` — telemetry trace lookup
+
+Exposure: **tool**. Owner: `scripts/telemetry_query.py`. Declaration source: [scripts/telemetry_query.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/telemetry_query.py).
+
+```json
+{
+  "description": "Look up one known nonzero trace ID in an explicit ordered microsecond interval, with 1..1000 rows. The original owner enforces HTTP byte/deadline bounds and backend incarnation/configuration fences. Unavailable, stale, partial and empty observations stay distinct. Live bounded selection has no completeness, pagination or custody guarantee; telemetry is not native result or settlement authority. No SQL, credentials, arbitrary endpoint or service startup is accepted.",
+  "domain": "diagnostics",
+  "effects": "Passive bounded selected telemetry read; no startup, capture, native import or subject settlement",
+  "exposure": "tool",
+  "family": "telemetry-observation",
+  "guides": [
+    "diagnostics"
+  ],
+  "id": "telemetry_trace_lookup",
+  "owner": "scripts/telemetry_query.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/telemetry_query.py",
+  "title": "telemetry trace lookup",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "diagnose-run"
+  ]
+}
+```
+
+Exact callable component key: `tool:telemetry_trace_lookup@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:telemetry_trace_lookup",
+        "domain:diagnostics",
+        "family:telemetry-observation",
+        "workflow:diagnose-run"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Look up one known nonzero trace ID in an explicit ordered microsecond interval, with 1..1000 rows. The original owner enforces HTTP byte/deadline bounds and backend incarnation/configuration fences. Unavailable, stale, partial and empty observations stay distinct. Live bounded selection has no completeness, pagination or custody guarantee; telemetry is not native result or settlement authority. No SQL, credentials, arbitrary endpoint or service startup is accepted.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "end_time_us": {
+        "maximum": 9223372036854775807,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "limit": {
+        "default": 100,
+        "maximum": 1000,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "start_time_us": {
+        "maximum": 9223372036854775807,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "^[^\\x00]+$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "trace_id": {
+        "pattern": "^[0-9a-f]{32}$",
+        "type": "string"
+      }
+    },
+    "required": [
+      "trace_id",
+      "start_time_us",
+      "end_time_us"
+    ],
+    "type": "object"
+  },
+  "name": "telemetry_trace_lookup",
+  "outputSchema": {
+    "$defs": {
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "population"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "OwnerRecord": {
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
+        "properties": {},
+        "type": "object"
+      },
+      "TelemetryTraceResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "telemetry_trace_lookup",
+            "default": "telemetry_trace_lookup",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/TracePayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "TracePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "type": "boolean"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "missing_record_meaning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "population_total": {
+            "default": null,
+            "type": "null"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "records": {
+            "items": {
+              "$ref": "#/$defs/TraceRecord"
+            },
+            "type": "array"
+          },
+          "returned_rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "row_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TraceSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "enum": [
+              "unavailable",
+              "stale",
+              "partial",
+              "available",
+              "empty"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "records",
+          "complete"
+        ],
+        "type": "object"
+      },
+      "TraceRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "operation_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_span_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "service_instance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "span_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timestamp_us": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "trace_id",
+          "span_id",
+          "parent_span_id",
+          "parent_trace_id",
+          "service_instance_id",
+          "operation_name",
+          "timestamp_us"
+        ],
+        "type": "object"
+      },
+      "TraceSource": {
+        "additionalProperties": true,
+        "properties": {
+          "backend": {
+            "const": "openobserve",
+            "type": "string"
+          },
+          "backend_process": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "backend_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "configuration_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end_time_us": {
+            "type": "integer"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retrieved_at_ns": {
+            "type": "integer"
+          },
+          "signal": {
+            "const": "traces",
+            "type": "string"
+          },
+          "source_cut": {
+            "type": "string"
+          },
+          "start_time_us": {
+            "type": "integer"
+          },
+          "stream": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "configuration_id",
+          "backend",
+          "backend_version",
+          "signal",
+          "stream",
+          "start_time_us",
+          "end_time_us",
+          "retrieved_at_ns",
+          "retention_days",
+          "source_cut"
+        ],
+        "type": "object"
+      }
+    },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TelemetryTraceResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
+    "required": [
+      "result"
+    ],
+    "type": "object",
+    "x-fastmcp-wrap-result": true
+  },
+  "title": "Telemetry Trace Lookup"
 }
 ```
 

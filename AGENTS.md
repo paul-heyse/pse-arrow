@@ -128,7 +128,7 @@ GitHub check workflows run only when manually dispatched.
    When a check is run, report its actual result against the zero target; it does not
    become a commit, push or merge gate (see *Execution rhythm*).
 2. **Never edit a generated directory. Fix the generator, then `just codegen`.** The
-   generated paths are `docs/generated/`, `crates/*/src/generated/` (the operational
+   generated paths are `docs/generated/`, `scripts/generated/`, `crates/*/src/generated/` (the operational
    store's `crates/pse-operations/src/generated/` included), `crates/pse-operations-queries/`,
    `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/` and
    `python/pse/_native.pyi`. `just codegen-check` covers every generated

@@ -75,7 +75,7 @@ class ReferenceTests(unittest.TestCase):
             reference_tool.output_schema["properties"]["outcome"]["enum"],
             ["issued", "not_observed"],
         )
-        self.assertEqual(len(tools), 14)
+        self.assertEqual(len(tools), 17)
         for identity, tool in tools.items():
             with self.subTest(operation=identity):
                 schema = tool.output_schema

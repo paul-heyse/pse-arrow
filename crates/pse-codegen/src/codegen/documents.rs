@@ -38,6 +38,8 @@ use crate::{Registry, SchemaError};
 pub const SCHEMA_ROOT: &str = "docs/generated/schema";
 /// Where the generated Python document types live.
 pub const PYTHON_ROOT: &str = "python/pse/contracts/documents";
+/// Bootstrap-only private contracts, independent of scientific package imports.
+pub const PRIVATE_PYTHON_ROOT: &str = "scripts/generated";
 
 /// The committed trees this generator owns.
 pub fn roots() -> Vec<PathBuf> {
@@ -582,6 +584,8 @@ fn tagged(alternatives: &[Value]) -> Option<String> {
 }
 
 struct Emitter<'a> {
+    /// Private bootstrap records omit scientific equality hooks and redact representations.
+    private: bool,
     /// Registry vocabularies by their Python class name, with their member spellings.
     vocabularies: BTreeMap<String, Vec<&'a str>>,
     /// Every named schema of every document.
@@ -599,6 +603,7 @@ struct Emitter<'a> {
 impl<'a> Emitter<'a> {
     fn new(reg: &'a Registry) -> Self {
         Self {
+            private: false,
             vocabularies: reg
                 .enums()
                 .iter()
@@ -872,10 +877,12 @@ impl<'a> Emitter<'a> {
             } else {
                 (field.clone(), default)
             };
-            keys.push(format!(
-                "{}(self.{attribute})",
-                self.equality_key(property)?
-            ));
+            if !self.private {
+                keys.push(format!(
+                    "{}(self.{attribute})",
+                    self.equality_key(property)?
+                ));
+            }
             self.unique_validations(property, &format!("self.{attribute}"), 2, &mut validation)?;
             match default {
                 Some(default) => {
@@ -886,15 +893,23 @@ impl<'a> Emitter<'a> {
                 }
             }
         }
-        source.push_str("\n    def _pse_equality_key(self) -> v.EqualityKey:\n");
-        let _ = writeln!(
-            source,
-            "        return (type(self), ({}))",
-            keys.iter()
-                .map(|key| format!("{key},"))
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+        if self.private {
+            let _ = writeln!(
+                source,
+                "\n    def __repr__(self) -> str:\n        return {}",
+                py_str(&format!("{python_name}(<private>)"))
+            );
+        } else {
+            source.push_str("\n    def _pse_equality_key(self) -> v.EqualityKey:\n");
+            let _ = writeln!(
+                source,
+                "        return (type(self), ({}))",
+                keys.iter()
+                    .map(|key| format!("{key},"))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+        }
         if !validation.is_empty() {
             source.push_str("\n    def __post_init__(self) -> None:\n");
             source.push_str(&validation.join("\n"));
@@ -1372,7 +1387,16 @@ fn docstring(text: &str) -> String {
 
 /// The Python module of every document type.
 fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError> {
+    python_module(reg, documents, false)
+}
+
+fn python_module(
+    reg: &Registry,
+    documents: &[Document],
+    private: bool,
+) -> Result<String, SchemaError> {
     let mut emitter = Emitter::new(reg);
+    emitter.private = private;
     let mut roots = Vec::new();
     for document in documents {
         roots.push(emitter.collect(document)?);
@@ -1381,12 +1405,16 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
         emitter.named(root)?;
     }
     let mut source = String::from(PYTHON_HEADER);
-    source.push_str(
+    if private {
+        source.push_str("\"\"\"Private Rust-owned bootstrap wire records; never expose values.\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n");
+    } else {
+        source.push_str(
         "\"\"\"Rust-owned boundary documents as frozen msgspec types (ADR-0116 Outcome 7).\n\nGenerated from the documents' JSON Schemas in `docs/generated/schema/`; the Rust serde\ntypes are the authority. Every enumeration is a registry vocabulary.\n\"\"\"\n\n",
     );
-    source.push_str(
+        source.push_str(
         "from __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n\nfrom pse.contracts import enums, identities\nfrom pse.contracts import values as v\n",
     );
+    }
     if emitter
         .classes
         .values()
@@ -1471,7 +1499,38 @@ fn python(reg: &Registry, documents: &[Document]) -> Result<String, SchemaError>
             }
         }
     }
+    if private
+        && ["v.", "enums.", "identities.", "_document_default("]
+            .iter()
+            .any(|needle| source.contains(needle))
+    {
+        return Err(error(
+            "private bootstrap contract requires scientific package helpers",
+        ));
+    }
     Ok(source)
+}
+
+/// Project private Rust-owned records through the existing schema emitter without
+/// publishing their schemas or introducing scientific package imports.
+/// # Errors
+/// Unsupported schema constructs or bootstrap dependencies outside msgspec.
+pub fn generate_private(
+    reg: &Registry,
+    documents: &[Document],
+) -> Result<GeneratedTree, SchemaError> {
+    let mut tree = GeneratedTree::empty(vec![PathBuf::from(PRIVATE_PYTHON_ROOT)]);
+    for document in documents {
+        tree.files.insert(
+            format!(
+                "{PRIVATE_PYTHON_ROOT}/{}.py",
+                document.name.replace('-', "_")
+            )
+            .into(),
+            python_module(reg, std::slice::from_ref(document), true)?.into_bytes(),
+        );
+    }
+    Ok(tree)
 }
 
 #[cfg(test)]
@@ -1482,6 +1541,52 @@ mod tests {
         Document {
             name: "probe".into(),
             schema,
+        }
+    }
+
+    #[test]
+    fn private_bootstrap_reuses_schema_projection_without_package_helpers() {
+        let registry = crate::registry().unwrap();
+        let document = Document {
+            name: "telemetry-settings".into(),
+            schema: serde_json::json!({
+                "title": "Settings", "type": "object", "additionalProperties": false,
+                "properties": {
+                    "schema_version": {"type": "integer", "const": 1},
+                    "signal": {"$ref": "#/$defs/SignalSettings"}
+                },
+                "required": ["schema_version", "signal"],
+                "$defs": {"SignalSettings": {
+                    "type": "object", "additionalProperties": false,
+                    "properties": {"endpoint": {"type": ["string", "null"]},
+                        "headers": {"type": "object", "additionalProperties": {"type": "string"}}},
+                    "required": ["headers"]
+                }}
+            }),
+        };
+        let tree = generate_private(registry, &[document]).unwrap();
+        assert_eq!(tree.roots, [PathBuf::from(PRIVATE_PYTHON_ROOT)]);
+        assert_eq!(tree.files.len(), 1);
+        let source = String::from_utf8(tree.files.values().next().unwrap().clone()).unwrap();
+        for expected in [
+            "schema_version: Literal[1] = 1",
+            "headers: dict[str, str]",
+            "Settings(<private>)",
+            "SignalSettings(<private>)",
+            "forbid_unknown_fields=True",
+        ] {
+            assert!(source.contains(expected), "missing {expected}: {source}");
+        }
+        for forbidden in [
+            "pse.contracts",
+            "_pse_equality_key",
+            "opentelemetry",
+            "import pse",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "unexpected {forbidden}: {source}"
+            );
         }
     }
 

@@ -331,6 +331,10 @@ fn main() -> Result<()> {
             let executor = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
                 .build()?;
+            let _executor_metrics = pse_runtime::tooling::runtime_metrics::register_executor(
+                executor.handle(),
+                pse_runtime::tooling::runtime_metrics::ExecutorRole::CanonicalTools,
+            );
             executor.block_on(
                 pse_operations::canonical::CanonicalStore::initialize_database(&options),
             )?;
@@ -520,6 +524,10 @@ fn canonical_maintenance(
     let executor = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
+    let _executor_metrics = pse_runtime::tooling::runtime_metrics::register_executor(
+        executor.handle(),
+        pse_runtime::tooling::runtime_metrics::ExecutorRole::CanonicalTools,
+    );
     let witness = executor.block_on(async {
         let store = pse_operations::canonical::CanonicalStore::connect(&options).await?;
         let result = async {

@@ -907,8 +907,9 @@ impl MathService {
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(
-            crate::observation::child(
+        tokio::spawn(crate::tooling::runtime_metrics::instrument(
+            crate::tooling::runtime_metrics::NativeTaskClass::MathSubmission,
+            crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
                 "math.submission",
                 pse_operations::canonical::inherit_activity(async move {
                     let result = service
@@ -928,8 +929,8 @@ impl MathService {
                         .await;
                     let _ = sender.send(result);
                 }),
-            ),
-        )));
+            ))),
+        ));
         Ok(super::solves::SolveHandle {
             cancel,
             receiver: Some(receiver),
@@ -1379,8 +1380,9 @@ impl MathService {
         let mut caller = Caller(Some(cancel.clone()));
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::invocation::inherit(crate::observation::inherit(
-            crate::observation::child(
+        tokio::spawn(crate::tooling::runtime_metrics::instrument(
+            crate::tooling::runtime_metrics::NativeTaskClass::MathJob,
+            crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
                 "math.job",
                 pse_operations::canonical::inherit_activity(async move {
                     let result = async {
@@ -1520,8 +1522,8 @@ impl MathService {
                     drop(slot);
                     let _ = tx.send(result);
                 }),
-            ),
-        )));
+            ))),
+        ));
         let result = rx
             .await
             .map_err(|_| MathRuntimeError::Infrastructure("lost native supervisor".into()))?;

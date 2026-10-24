@@ -319,7 +319,7 @@ for pse_runtime::tooling::inspection::DiagnosticProcessPage {
     const INPUT_NAME: &'static str = "DiagnosticProcessPage";
     const OUTPUT_NAME: &'static str = "DiagnosticProcessPageOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(1);
+    const VERSION: Option<u32> = Some(2);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::DiagnosticReproducer {
@@ -502,7 +502,7 @@ for pse_runtime::tooling::inspection::InspectionDocument {
     const INPUT_NAME: &'static str = "InspectionDocument";
     const OUTPUT_NAME: &'static str = "InspectionDocumentOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(3);
+    const VERSION: Option<u32> = Some(4);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType
@@ -771,7 +771,7 @@ impl crate::documents::DocumentType for pse_runtime::observation::ProcessCheckpo
     const INPUT_NAME: &'static str = "ProcessCheckpoint";
     const OUTPUT_NAME: &'static str = "ProcessCheckpointOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(4);
+    const VERSION: Option<u32> = Some(5);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::observation::ProcessLocator {

@@ -11,7 +11,7 @@ import msgspec
 from pse._build import _telemetry_initialize, _telemetry_shutdown
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable
 
 
 class NativeTelemetryLifetime:
@@ -29,11 +29,7 @@ class NativeTelemetryLifetime:
 
 
 def initialize(
-    settings: Mapping[str, object], carrier_injector: Callable[[], dict[str, str]]
+    settings: str, carrier_injector: Callable[[], dict[str, str]]
 ) -> NativeTelemetryLifetime:
     """The native owner samples the injector at execution ingress before detach."""
-    return NativeTelemetryLifetime(
-        _telemetry_initialize(
-            msgspec.json.encode(dict(settings)).decode(), carrier_injector
-        )
-    )
+    return NativeTelemetryLifetime(_telemetry_initialize(settings, carrier_injector))

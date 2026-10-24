@@ -12,6 +12,7 @@ from scripts.capabilities import (
     environment_queries,
     knowledge_queries,
     rust_references,
+    telemetry_queries,
     workload_queries,
 )
 
@@ -33,6 +34,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         workload_queries.bindings,
         coverage_queries.bindings,
         rust_references.bindings,
+        telemetry_queries.bindings,
     ):
         declared, bound = factory(root)
         specs.extend(declared)

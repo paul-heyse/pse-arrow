@@ -58,6 +58,7 @@ from pse.contracts.enums import (
     OperationOutcome,
     PresolvePolicyKind,
     StatementKind,
+    TaskMetricsScope,
 )
 from pse.contracts.values import SemanticId
 from pse.tests.test_local_runtime import physical_documents
@@ -446,7 +447,7 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
         locator, type=documents.ProcessLocatorBody, from_attributes=True
     )
     image = ProcessCheckpoint(
-        version=4,
+        version=5,
         process="0000000000000001-0000000000000002",
         sequence=1,
         published_unix_micros=1,
@@ -465,6 +466,19 @@ def test_exact_prefix_read_and_inspection_use_same_image_after_process_exit(
         clock=None,
         threads=(),
         threads_partial=False,
+        runtime_metrics=documents.RuntimeMetricsSnapshot(
+            locator=documents.ProcessLocatorBody(
+                pid=(1 << 32) - 1, start_ticks=77, executable=None
+            ),
+            sampled_unix_micros=1,
+            coverage=documents.RuntimeMetricsCoverage(
+                executor_registry_available=True,
+                refused_executor_registrations=0,
+                task_scope=TaskMetricsScope.SELECTED_PROCESS_FUTURES,
+            ),
+            executors=(),
+            task_classes=(),
+        ),
     )
     checkpoint = tmp_path / "retained.json"
     checkpoint.write_bytes(codec.encode_json(image))

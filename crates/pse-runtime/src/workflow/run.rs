@@ -854,10 +854,13 @@ impl RunSupervisor {
         let handle = self.public_handle(receiver);
         let checks = self.checks.clone();
         let native = self.native.clone();
-        tokio::spawn(crate::workflow::inherit_runtime_activity(
-            joined_with_cancel(move || work(self), native, checks).map(move |result| {
-                sender.send_replace(Some(Arc::new(result)));
-            }),
+        tokio::spawn(crate::tooling::runtime_metrics::instrument(
+            crate::tooling::runtime_metrics::NativeTaskClass::Workflow,
+            crate::workflow::inherit_runtime_activity(
+                joined_with_cancel(move || work(self), native, checks).map(move |result| {
+                    sender.send_replace(Some(Arc::new(result)));
+                }),
+            ),
         ));
         handle
     }

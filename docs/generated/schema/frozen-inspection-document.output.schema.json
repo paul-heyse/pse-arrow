@@ -456,6 +456,73 @@
       ],
       "type": "object"
     },
+    "ExecutorMetricsSnapshotOutput": {
+      "additionalProperties": false,
+      "description": "Copied stable Tokio facts. Gauges are independently read, not an atomic scheduler census.",
+      "properties": {
+        "alive_tasks": {
+          "description": "Tokio's approximate current count, in tasks; not a settlement proof.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "global_queue_depth": {
+          "description": "Current global injection queue depth, in tasks; excludes worker-local queues.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "identity": {
+          "description": "Process-local registration identity, scoped by the enclosing process locator.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "registered_unix_micros": {
+          "description": "Wall time this source was registered; counters originate at runtime construction.",
+          "format": "uint128",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "role": {
+          "$ref": "#/$defs/ExecutorRole",
+          "description": "Fixed executor composition root."
+        },
+        "worker_busy_nanos": {
+          "description": "Sum of cumulative worker busy durations, in nanoseconds since runtime construction.\nUnavailable on targets without 64-bit atomics; not process or operation CPU time.",
+          "format": "uint128",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "workers": {
+          "description": "Configured worker count, in threads.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "identity",
+        "role",
+        "registered_unix_micros",
+        "workers",
+        "alive_tasks",
+        "global_queue_depth",
+        "worker_busy_nanos"
+      ],
+      "type": "object"
+    },
+    "ExecutorRole": {
+      "enum": [
+        "python",
+        "worker",
+        "canonical_tools"
+      ],
+      "type": "string"
+    },
     "FrozenInspectionRequestOutput": {
       "additionalProperties": false,
       "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
@@ -529,8 +596,8 @@
           "description": "Independent transport/collector explanation."
         },
         "version": {
-          "const": 3,
-          "default": 3,
+          "const": 4,
+          "default": 4,
           "description": "Standalone diagnostic response encoding with explicit producer/record references.",
           "type": "integer"
         }
@@ -653,11 +720,23 @@
             "integer",
             "null"
           ]
+        },
+        "runtime_metrics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuntimeMetricsSnapshotOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Measurements copied from this exact source process publication or live owner.\nAbsent for a standalone operation; the inspecting process never substitutes its own sample."
         }
       },
       "required": [
         "checkpoint",
         "process",
+        "runtime_metrics",
         "published_unix_micros",
         "failure",
         "partial",
@@ -810,6 +889,14 @@
         "history_dropped"
       ],
       "type": "object"
+    },
+    "NativeTaskClass": {
+      "enum": [
+        "workflow",
+        "math_submission",
+        "math_job"
+      ],
+      "type": "string"
     },
     "NextObservation": {
       "enum": [
@@ -1571,6 +1658,74 @@
       ],
       "type": "string"
     },
+    "RuntimeMetricsCoverage": {
+      "additionalProperties": false,
+      "description": "Coverage of the bounded executor source registry at this read.",
+      "properties": {
+        "executor_registry_available": {
+          "description": "False when source synchronization was unavailable; an empty list then is not zero load.",
+          "type": "boolean"
+        },
+        "refused_executor_registrations": {
+          "description": "Cumulative refused registrations, including registry pressure or synchronization failure.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "task_scope": {
+          "$ref": "#/$defs/TaskMetricsScope",
+          "description": "Only explicitly instrumented futures are covered by task class measurements."
+        }
+      },
+      "required": [
+        "executor_registry_available",
+        "refused_executor_registrations",
+        "task_scope"
+      ],
+      "type": "object"
+    },
+    "RuntimeMetricsSnapshotOutput": {
+      "additionalProperties": false,
+      "description": "One read of the same typed sources used by checkpoints and optional OTel export.",
+      "properties": {
+        "coverage": {
+          "$ref": "#/$defs/RuntimeMetricsCoverage",
+          "description": "Explicit registry losses and selected task coverage."
+        },
+        "executors": {
+          "description": "At most eight actual registered executors.",
+          "items": {
+            "$ref": "#/$defs/ExecutorMetricsSnapshotOutput"
+          },
+          "type": "array"
+        },
+        "locator": {
+          "$ref": "#/$defs/ProcessLocatorBodyOutput",
+          "description": "Actual process/start locator; absence of start ticks limits identity evidence."
+        },
+        "sampled_unix_micros": {
+          "description": "Wall time immediately before independently sampled source reads.",
+          "format": "uint128",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "task_classes": {
+          "description": "Exactly three process-wide selected future classes.",
+          "items": {
+            "$ref": "#/$defs/TaskClassMetricsSnapshot"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "locator",
+        "sampled_unix_micros",
+        "coverage",
+        "executors",
+        "task_classes"
+      ],
+      "type": "object"
+    },
     "SourceRef": {
       "additionalProperties": false,
       "description": "Bounded opaque source-owned attribution.",
@@ -1669,6 +1824,82 @@
         "expires_at"
       ],
       "type": "object"
+    },
+    "TaskClassMetricsSnapshot": {
+      "additionalProperties": false,
+      "description": "Cumulative library task monitor facts for a bounded class, in counts and nanoseconds.",
+      "properties": {
+        "class": {
+          "$ref": "#/$defs/NativeTaskClass",
+          "description": "Fixed selected future class."
+        },
+        "dropped_count": {
+          "description": "Wrappers dropped, including cancellation; never a native settlement counter.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idle_count": {
+          "description": "Recorded pending-to-wake idle intervals.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "idle_nanos": {
+          "description": "Cumulative pending-to-wake idle time, in nanoseconds.",
+          "format": "uint128",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "instrumented_count": {
+          "description": "Number of wrappers created, not native jobs admitted.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "poll_count": {
+          "description": "Recorded future polls.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "poll_nanos": {
+          "description": "Cumulative time within future polls, in nanoseconds; not CPU time.",
+          "format": "uint128",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "scheduled_count": {
+          "description": "Recorded wake-to-poll schedules.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "scheduled_nanos": {
+          "description": "Cumulative wake-to-poll time, in nanoseconds.",
+          "format": "uint128",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "class",
+        "instrumented_count",
+        "dropped_count",
+        "poll_count",
+        "poll_nanos",
+        "scheduled_count",
+        "scheduled_nanos",
+        "idle_count",
+        "idle_nanos"
+      ],
+      "type": "object"
+    },
+    "TaskMetricsScope": {
+      "enum": [
+        "selected_process_futures"
+      ],
+      "type": "string"
     },
     "Value": {
       "description": "A value and its availability are inseparable.",

@@ -977,6 +977,14 @@ class EvidenceUnavailableReason(StrEnum):
     NONFINITE = "nonfinite"
 
 
+class ExecutorRole(StrEnum):
+    """The declared ExecutorRole enumeration."""
+
+    PYTHON = "python"
+    WORKER = "worker"
+    CANONICAL_TOOLS = "canonical_tools"
+
+
 class ExternalDerivativeSource(StrEnum):
     """The declared ExternalDerivativeSource enumeration."""
 
@@ -2102,6 +2110,14 @@ class NativeStructuralPolicy(StrEnum):
     FACTORABLE = "factorable"
 
 
+class NativeTaskClass(StrEnum):
+    """The declared NativeTaskClass enumeration."""
+
+    WORKFLOW = "workflow"
+    MATH_SUBMISSION = "math_submission"
+    MATH_JOB = "math_job"
+
+
 class NativeTermination(StrEnum):
     """The declared NativeTermination enumeration."""
 
@@ -2918,6 +2934,12 @@ class SubjectRule(StrEnum):
     PRESERVE = "preserve"
     REQUIRE_EQUAL = "require_equal"
     DECLARED_RESULT = "declared_result"
+
+
+class TaskMetricsScope(StrEnum):
+    """The declared TaskMetricsScope enumeration."""
+
+    SELECTED_PROCESS_FUTURES = "selected_process_futures"
 
 
 class TearMethod(StrEnum):

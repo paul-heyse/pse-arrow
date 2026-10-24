@@ -11,6 +11,7 @@ import pytest
 import pse
 from pse import codec, diagnostics
 from pse.contracts import documents
+from pse.contracts.enums import TaskMetricsScope
 from pse.tests.test_diagnostics import diagnostic_native_solve
 
 
@@ -29,7 +30,7 @@ def test_frozen_review_public_ingress_is_recorded_and_relocatable(
     )
     assert original.operation is not None
     image = documents.ProcessCheckpoint(
-        version=4,
+        version=5,
         process="0000000000000001-0000000000000002",
         sequence=1,
         published_unix_micros=1,
@@ -50,6 +51,19 @@ def test_frozen_review_public_ingress_is_recorded_and_relocatable(
         clock=None,
         threads=(),
         threads_partial=False,
+        runtime_metrics=documents.RuntimeMetricsSnapshot(
+            locator=documents.ProcessLocatorBody(
+                pid=(1 << 32) - 1, start_ticks=None, executable=None
+            ),
+            sampled_unix_micros=1,
+            coverage=documents.RuntimeMetricsCoverage(
+                executor_registry_available=True,
+                refused_executor_registrations=0,
+                task_scope=TaskMetricsScope.SELECTED_PROCESS_FUTURES,
+            ),
+            executors=(),
+            task_classes=(),
+        ),
     )
     supplied = documents.FrozenEvidenceSet(version=3, checkpoints=(image,))
     request = codec.decode_json(

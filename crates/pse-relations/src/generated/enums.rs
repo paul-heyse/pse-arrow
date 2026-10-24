@@ -18,12 +18,12 @@ pub use pse_model::generated::r#enums::{
     DiagnosticObservationKind, DiagnosticRule, DiagnosticSeverity, DiagnosticStage,
     DiffsolLinear, DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
     EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection, EvidenceCoverage,
-    EvidenceGenerationState, EvidenceUnavailableReason, ExternalDerivativeSource,
-    FailureClass, FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
-    HessianMode, HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy,
-    InputConsumptionKind, IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind,
-    IpoptLinearSolver, KinsolOrthogonalization, KinsolStrategy, KnowledgeBasis,
-    KnowledgeDirection, KnowledgeDocumentRole, KnowledgeGenerationState,
+    EvidenceGenerationState, EvidenceUnavailableReason, ExecutorRole,
+    ExternalDerivativeSource, FailureClass, FeralOrdering, FeralScaling, FindingSeverity,
+    FitDerivatives, HessianMode, HighsMethod, IdPolicy, IdasInitialization,
+    IncumbentPolicy, InputConsumptionKind, IntervalEnd, IntervalMethod, IntervalOutcome,
+    InvariantKind, IpoptLinearSolver, KinsolOrthogonalization, KinsolStrategy,
+    KnowledgeBasis, KnowledgeDirection, KnowledgeDocumentRole, KnowledgeGenerationState,
     KnowledgeRelationKind, KnowledgeSourceRole, KnowledgeSourceStatus,
     KnowledgeSubjectKind, LiveSimulationEventKind, MigrationOp, ModelingAccumulatorMode,
     ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
@@ -48,8 +48,8 @@ pub use pse_model::generated::r#enums::{
     NativePetscPreconditioner, NativePrimalCoordinateRole, NativeProblemClass,
     NativeQualification, NativeRayCoordinate, NativeRepresentation, NativeRouteKind,
     NativeRouteRefusal, NativeRouteSelection, NativeRunState, NativeSolveIntent,
-    NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy, NativeTermination,
-    NativeUnoMethod, NativeWarmCapability, NextObservation, NonFinite,
+    NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy, NativeTaskClass,
+    NativeTermination, NativeUnoMethod, NativeWarmCapability, NextObservation, NonFinite,
     NumericalAccuracyClass, NumericalAttemptObservation, NumericalBranchPolicy,
     NumericalCompositionPolicy, NumericalCoordinates, NumericalEventKind,
     NumericalMechanism, NumericalOriginalConclusion, NumericalPathEventKind,
@@ -70,8 +70,8 @@ pub use pse_model::generated::r#enums::{
     StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
     StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
     StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
-    SubjectRule, TearMethod, TearPolicy, TimeCoordinateKind, TrajectoryTermination,
-    TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
+    SubjectRule, TaskMetricsScope, TearMethod, TearPolicy, TimeCoordinateKind,
+    TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
     fn append(
@@ -1808,6 +1808,31 @@ impl crate::columnar::ArrowValue for EvidenceUnavailableReason {
                         value
                     }
                 },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ExecutorRole {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(ExecutorRole).to_owned(),
+                enumeration: stringify!(ExecutorRole).to_owned(),
+                value: value.to_owned(),
             })
     }
 }
@@ -4815,6 +4840,31 @@ impl crate::columnar::ArrowValue for NativeStructuralPolicy {
             })
     }
 }
+impl crate::columnar::ArrowValue for NativeTaskClass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(NativeTaskClass).to_owned(),
+                enumeration: stringify!(NativeTaskClass).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
 impl crate::columnar::ArrowValue for NativeTermination {
     fn append(
         &self,
@@ -7225,6 +7275,31 @@ impl crate::columnar::ArrowValue for SubjectRule {
             .ok_or_else(|| crate::RelationError::EnumMember {
                 field: stringify!(SubjectRule).to_owned(),
                 enumeration: stringify!(SubjectRule).to_owned(),
+                value: value.to_owned(),
+            })
+    }
+}
+impl crate::columnar::ArrowValue for TaskMetricsScope {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(TaskMetricsScope).to_owned(),
+                enumeration: stringify!(TaskMetricsScope).to_owned(),
                 value: value.to_owned(),
             })
     }

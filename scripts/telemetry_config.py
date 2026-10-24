@@ -8,11 +8,15 @@ import json
 import math
 import os
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit, urlunsplit
+
+import msgspec
+
+from scripts.generated.telemetry_settings import Settings, SignalSettings
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -46,7 +50,10 @@ def state_directory(environment: Mapping[str, str]) -> Path:
 def _number(
     environment: Mapping[str, str], name: str, default: float, *, maximum: float = 60000
 ) -> float:
-    value = float(environment.get(name, str(default)))
+    try:
+        value = float(environment.get(name, str(default)))
+    except ValueError:
+        raise ValueError("invalid telemetry numeric setting: " + name) from None
     if not math.isfinite(value) or not 0 < value <= maximum:
         raise ValueError("invalid telemetry numeric setting: " + name)
     return value
@@ -77,7 +84,12 @@ def _headers(value: str) -> tuple[tuple[str, str], ...]:
 
 
 def _endpoint(value: str) -> str:
-    parts = urlsplit(value)
+    try:
+        parts = urlsplit(value)
+        # Accessing port also rejects malformed and out-of-range transport ports.
+        _ = parts.port
+    except ValueError:
+        raise ValueError("invalid telemetry endpoint") from None
     if (
         parts.scheme not in {"http", "https"}
         or not parts.hostname
@@ -92,73 +104,55 @@ def _endpoint(value: str) -> str:
     return value
 
 
-@dataclass(frozen=True)
-class SignalSettings:
-    enabled: bool
-    endpoint: str | None
-    headers: tuple[tuple[str, str], ...]
-    timeout_ms: int
-
-    def native_settings(self) -> dict[str, object]:
-        return {
-            "enabled": self.enabled,
-            "endpoint": self.endpoint,
-            "headers": dict(self.headers),
-            "timeout_ms": self.timeout_ms,
-        }
-
-    def effective(self) -> dict[str, object]:
-        endpoint = None
-        if self.endpoint is not None:
-            parts = urlsplit(self.endpoint)
-            # Paths may contain tenant secrets; only the transport authority is public.
-            endpoint = urlunsplit(
-                (parts.scheme, parts.netloc, "/<redacted-path>", "", "")
-            )
-        return {
-            "enabled": self.enabled,
-            "endpoint": endpoint,
-            "header_names": [k for k, _ in self.headers],
-            "timeout_ms": self.timeout_ms,
-        }
+def _effective_signal(signal: SignalSettings) -> dict[str, object]:
+    endpoint = None
+    if signal.endpoint is not None:
+        parts = urlsplit(signal.endpoint)
+        # Paths may contain tenant secrets; only the transport authority is public.
+        endpoint = urlunsplit((parts.scheme, parts.netloc, "/<redacted-path>", "", ""))
+    return {
+        "enabled": signal.enabled,
+        "endpoint": endpoint,
+        "header_names": sorted(signal.headers),
+        "timeout_ms": signal.timeout_ms,
+    }
 
 
 @dataclass(frozen=True)
 class ResolvedSettings:
-    disabled: bool
+    """Private generated wire settings plus host-only selection provenance."""
+
+    _document: str = field(repr=False)
     selection: str
-    traces: SignalSettings
-    logs: SignalSettings
-    metrics: SignalSettings
-    resource: tuple[tuple[str, str], ...]
-    max_queue_size: int
-    max_export_batch_size: int
-    schedule_delay_ms: int
-    export_timeout_ms: int
-    metric_export_interval_ms: int
-    sampler: str
-    sampler_argument: float
     configuration_id: str | None
 
-    def native_settings(self) -> dict[str, object]:
-        return {
-            "schema_version": 1,
-            "disabled": self.disabled,
-            "traces": self.traces.native_settings(),
-            "logs": self.logs.native_settings(),
-            "metrics": self.metrics.native_settings(),
-            "resource": dict(self.resource),
-            "process_incarnation": dict(self.resource)["service.instance.id"],
-            "max_queue_size": self.max_queue_size,
-            "max_export_batch_size": self.max_export_batch_size,
-            "schedule_delay_ms": self.schedule_delay_ms,
-            "export_timeout_ms": self.export_timeout_ms,
-            "metric_export_interval_ms": self.metric_export_interval_ms,
-            "sampler": self.sampler,
-            "sampler_argument": self.sampler_argument,
-        }
+    @classmethod
+    def from_wire(
+        cls, *, wire: Settings, selection: str, configuration_id: str | None
+    ) -> ResolvedSettings:
+        """Freeze the generated wire once, without retaining mutable maps."""
+        try:
+            document = msgspec.json.encode(wire)
+        except (TypeError, ValueError):
+            raise ValueError("invalid private telemetry settings") from None
+        if len(document) > 65536:
+            raise ValueError("telemetry settings exceed 64 KiB")
+        return cls(document.decode(), selection, configuration_id)
+
+    @property
+    def wire(self) -> Settings:
+        """A fresh typed projection cannot mutate the process selection."""
+        try:
+            return msgspec.json.decode(self._document, type=Settings)
+        except (msgspec.DecodeError, ValueError, TypeError):
+            raise ValueError("invalid private telemetry settings") from None
+
+    def native_json(self) -> str:
+        """Return only the canonical immutable Rust-owned private contract."""
+        return self._document
 
     def effective(self) -> dict[str, object]:
+        wire = self.wire
         versions: dict[str, str | None] = {}
         for distribution in (
             "opentelemetry-api",
@@ -172,7 +166,7 @@ class ResolvedSettings:
                 versions[distribution] = None
         safe_resource = {
             key: value
-            for key, value in self.resource
+            for key, value in wire.resource.items()
             if key
             in {
                 "service.name",
@@ -183,22 +177,22 @@ class ResolvedSettings:
             }
         }
         return {
-            "schema_version": 1,
-            "disabled": self.disabled,
+            "schema_version": wire.schema_version,
+            "disabled": wire.disabled,
             "selection": self.selection,
             "signals": {
-                "traces": self.traces.effective(),
-                "logs": self.logs.effective(),
-                "metrics": self.metrics.effective(),
+                "traces": _effective_signal(wire.traces),
+                "logs": _effective_signal(wire.logs),
+                "metrics": _effective_signal(wire.metrics),
             },
             "transport": "http/protobuf",
             "resource": safe_resource,
             "sdk_versions": versions,
             "lifecycle_owner": "process host",
-            "sampler": self.sampler,
-            "sampler_argument": self.sampler_argument,
-            "max_queue_size": self.max_queue_size,
-            "max_export_batch_size": self.max_export_batch_size,
+            "sampler": wire.sampler,
+            "sampler_argument": wire.sampler_argument,
+            "max_queue_size": wire.max_queue_size,
+            "max_export_batch_size": wire.max_export_batch_size,
             "configuration_id": self.configuration_id,
             "delivery": "not_observed",
         }
@@ -259,12 +253,14 @@ def resolve_process(
             maximum=60,
         )
         signals[name] = SignalSettings(
-            enabled and bool(endpoint),
-            _endpoint(endpoint) if endpoint and enabled else None,
-            _headers(env.get(f"OTEL_EXPORTER_OTLP_{name}_HEADERS", base_headers))
+            enabled=enabled and bool(endpoint),
+            endpoint=_endpoint(endpoint) if endpoint and enabled else None,
+            headers=dict(
+                _headers(env.get(f"OTEL_EXPORTER_OTLP_{name}_HEADERS", base_headers))
+            )
             if enabled
-            else (),
-            max(1, int(timeout * 1000)),
+            else {},
+            timeout_ms=max(1, int(timeout * 1000)),
         )
     resource = dict(_headers(env.get("OTEL_RESOURCE_ATTRIBUTES", "")))
     try:
@@ -293,27 +289,37 @@ def resolve_process(
         "parentbased_traceidratio",
     }:
         raise ValueError("unsupported telemetry sampler")
-    argument = float(env.get("OTEL_TRACES_SAMPLER_ARG", "1"))
+    try:
+        argument = float(env.get("OTEL_TRACES_SAMPLER_ARG", "1"))
+    except ValueError:
+        raise ValueError("invalid telemetry sampler argument") from None
     if not math.isfinite(argument) or not 0 <= argument <= 1:
         raise ValueError("invalid telemetry sampler argument")
     configuration_id = configuration.get("configuration_id")
-    return ResolvedSettings(
-        disabled,
-        "disabled"
+    return ResolvedSettings.from_wire(
+        wire=Settings(
+            disabled=disabled,
+            traces=signals["TRACES"],
+            logs=signals["LOGS"],
+            metrics=signals["METRICS"],
+            resource=resource,
+            process_incarnation=resource["service.instance.id"],
+            max_queue_size=queue,
+            max_export_batch_size=batch,
+            schedule_delay_ms=_integer(env, "OTEL_BSP_SCHEDULE_DELAY", 5000),
+            export_timeout_ms=_integer(env, "OTEL_BSP_EXPORT_TIMEOUT", 5000),
+            metric_export_interval_ms=_integer(
+                env, "OTEL_METRIC_EXPORT_INTERVAL", 60000, maximum=3600000
+            ),
+            sampler=sampler,
+            sampler_argument=argument,
+        ),
+        selection="disabled"
         if disabled
         else "environment"
         if any(k.startswith("OTEL_EXPORTER_OTLP") for k in env)
         else "configured_service",
-        signals["TRACES"],
-        signals["LOGS"],
-        signals["METRICS"],
-        tuple(sorted(resource.items())),
-        queue,
-        batch,
-        _integer(env, "OTEL_BSP_SCHEDULE_DELAY", 5000),
-        _integer(env, "OTEL_BSP_EXPORT_TIMEOUT", 5000),
-        _integer(env, "OTEL_METRIC_EXPORT_INTERVAL", 60000, maximum=3600000),
-        sampler,
-        argument,
-        configuration_id if isinstance(configuration_id, str) else None,
+        configuration_id=configuration_id
+        if isinstance(configuration_id, str)
+        else None,
     )

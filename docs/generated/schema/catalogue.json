@@ -1056,9 +1056,9 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticProcessPage",
       "schema_path": "docs/generated/schema/diagnostic-process-page.input.schema.json",
-      "schema_sha256": "ecaf16828439734edff95cdd44498bd3edada04b8111931294c1351c1499e752",
+      "schema_sha256": "0a3979f72a87f3458435c86c5062ece65a19f9243e8b2886b9809d0126861a5f",
       "slug": "diagnostic-process-page",
-      "version": 1,
+      "version": 2,
       "wire": "Native"
     },
     {
@@ -1068,9 +1068,9 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticProcessPage",
       "schema_path": "docs/generated/schema/diagnostic-process-page.output.schema.json",
-      "schema_sha256": "34ea790ab999b0ffb1ffcf76cf9af4d39063796fad268037a507346c03d69ec9",
+      "schema_sha256": "3ff591b32fd34482c24547aafeac963e684bc07c8202742185638118124557a7",
       "slug": "diagnostic-process-page",
-      "version": 1,
+      "version": 2,
       "wire": "Native"
     },
     {
@@ -1368,7 +1368,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenEvidenceSet",
       "schema_path": "docs/generated/schema/frozen-evidence-set.input.schema.json",
-      "schema_sha256": "e68de739b8adb90c85cbbad15cca29eed361fedd6693770f842a9019b1c244ce",
+      "schema_sha256": "52db2e07142e12491dff15fca126a25eb80919180fc04dd201e837964596172c",
       "slug": "frozen-evidence-set",
       "version": 3,
       "wire": "Native"
@@ -1380,7 +1380,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenEvidenceSet",
       "schema_path": "docs/generated/schema/frozen-evidence-set.output.schema.json",
-      "schema_sha256": "9d2e0f7e075569f3c6293d00657f9c74935fe17f99e8ec29c53e7f830b763fcc",
+      "schema_sha256": "be53a98e7f78082d83c5e663f89166650343fccb66240238f519613b1edc78bb",
       "slug": "frozen-evidence-set",
       "version": 3,
       "wire": "Native"
@@ -1392,7 +1392,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
       "schema_path": "docs/generated/schema/frozen-inspection-document.input.schema.json",
-      "schema_sha256": "1a1482c24886f07292ee396ee25200f9f13db79e685105a83a10727e3e4a738e",
+      "schema_sha256": "1abb7ff11604c44465adec875c913912fec31762ecd54477343c95aa8897839d",
       "slug": "frozen-inspection-document",
       "version": 1,
       "wire": "Native"
@@ -1404,7 +1404,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
       "schema_path": "docs/generated/schema/frozen-inspection-document.output.schema.json",
-      "schema_sha256": "437b297bb6926a5888c85d007f406ff9696cfd425870f7a3a171b03571626a79",
+      "schema_sha256": "a0aaa93739bb53d7c4965d9a1d87e479e461b0bb241d4bfb95e84dbc979d8d91",
       "slug": "frozen-inspection-document",
       "version": 1,
       "wire": "Native"
@@ -1632,9 +1632,9 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
       "schema_path": "docs/generated/schema/inspection-document.input.schema.json",
-      "schema_sha256": "fb60d27f2acfcf31bac58f92557b570534c4bce9b62a22789d3b7995648ae601",
+      "schema_sha256": "f8f6e98ae4cada90ecba46df80b8ddab0b4b63cf66fd6cad49b85ffe4b953a6a",
       "slug": "inspection-document",
-      "version": 3,
+      "version": 4,
       "wire": "Native"
     },
     {
@@ -1644,9 +1644,9 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
       "schema_path": "docs/generated/schema/inspection-document.output.schema.json",
-      "schema_sha256": "d4b6a513342de415c86ffcffa24d6874d2848d9d5314ea7e5bd8b4b82b77c0ad",
+      "schema_sha256": "40bc883fb6a78b59fe6e92a6851882e2335565ddd5b88eeab4352dd5bb4a60e2",
       "slug": "inspection-document",
-      "version": 3,
+      "version": 4,
       "wire": "Native"
     },
     {
@@ -2436,9 +2436,9 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
       "schema_path": "docs/generated/schema/process-checkpoint.input.schema.json",
-      "schema_sha256": "61c8bf2c295fbdb26e3a8d15c157ba2491218f914cd40ff583979b98a81cbb50",
+      "schema_sha256": "310906c1749a2a6fd3359b360c751f24cb08c82d0d64aa382b9acfeeacd3a133",
       "slug": "process-checkpoint",
-      "version": 4,
+      "version": 5,
       "wire": "Native"
     },
     {
@@ -2448,9 +2448,9 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
       "schema_path": "docs/generated/schema/process-checkpoint.output.schema.json",
-      "schema_sha256": "b29dc6cdd0bf31fd39eaf71ec2c33c4dfa3a9445804bd370b96add16c17b18d2",
+      "schema_sha256": "08c578443b0dd4e265287b005bed0f2fc4d86d61b97eea40034d6e0480dce1ca",
       "slug": "process-checkpoint",
-      "version": 4,
+      "version": 5,
       "wire": "Native"
     },
     {
@@ -5310,6 +5310,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+  "schema_set_fingerprint": "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218",
   "version": 1
 }

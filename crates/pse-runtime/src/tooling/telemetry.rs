@@ -46,8 +46,12 @@ pub fn sdk_metadata() -> BTreeMap<String, String> {
 #[diagnostic(code(config::invalid))]
 pub struct TelemetryError(pub String);
 
+/// Private resolved telemetry wire version.
+pub const SETTINGS_VERSION: u32 = 1;
+
 /// Resolved signal settings; environment precedence belongs to the host resolver.
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SignalSettings {
     /// Whether the host selected this signal.
     pub enabled: bool,
@@ -59,9 +63,11 @@ pub struct SignalSettings {
     pub timeout_ms: u64,
 }
 /// Shared Python/Rust host settings. Credentials are never Debug; serialization is private launcher transport.
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Settings {
     /// Shared host settings document version.
+    #[schemars(extend("const" = SETTINGS_VERSION))]
     pub schema_version: u32,
     /// Process-wide telemetry disable selection.
     pub disabled: bool,
@@ -120,7 +126,7 @@ impl Settings {
         Ok(settings)
     }
     fn validate(&self) -> Result<(), TelemetryError> {
-        if self.schema_version != 1
+        if self.schema_version != SETTINGS_VERSION
             || self.process_incarnation.is_empty()
             || self.resource.get("service.instance.id") != Some(&self.process_incarnation)
             || (self.max_queue_size == 0 || self.max_queue_size > 65536)
@@ -140,14 +146,33 @@ impl Settings {
             if signal.timeout_ms == 0 || signal.timeout_ms > 60000 {
                 return Err(TelemetryError("signal timeout outside host bounds".into()));
             }
-            if signal.enabled && !self.disabled {
-                let endpoint = signal
-                    .endpoint
-                    .as_ref()
-                    .ok_or_else(|| TelemetryError("enabled signal lacks endpoint".into()))?;
+            if signal.headers.len() > 32
+                || signal
+                    .headers
+                    .iter()
+                    .map(|(key, value)| key.len() + value.len())
+                    .sum::<usize>()
+                    > 8192
+                || signal.headers.iter().any(|(key, value)| {
+                    reqwest::header::HeaderName::from_bytes(key.as_bytes()).is_err()
+                        || reqwest::header::HeaderValue::from_str(value).is_err()
+                })
+            {
+                return Err(TelemetryError("invalid bounded signal headers".into()));
+            }
+            if signal.enabled && !self.disabled && signal.endpoint.is_none() {
+                return Err(TelemetryError("enabled signal lacks endpoint".into()));
+            }
+            if let Some(endpoint) = &signal.endpoint {
                 let url = reqwest::Url::parse(endpoint)
                     .map_err(|_| TelemetryError("invalid signal endpoint".into()))?;
-                if !matches!(url.scheme(), "http" | "https") {
+                if !matches!(url.scheme(), "http" | "https")
+                    || url.host_str().is_none()
+                    || !url.username().is_empty()
+                    || url.password().is_some()
+                    || url.query().is_some()
+                    || url.fragment().is_some()
+                {
                     return Err(TelemetryError("unsupported signal transport".into()));
                 }
             }
@@ -403,6 +428,140 @@ fn client(signal: &SignalSettings) -> Result<ResolvedClient, TelemetryError> {
         .map_err(|_| TelemetryError("blocking HTTP client unavailable".into()))?;
     Ok(ResolvedClient { client, headers })
 }
+
+/// SDK callbacks read the same native sources as passive checkpoints. The SDK owns
+/// collection scheduling; no second sampler, executor or resource owner is installed.
+fn install_runtime_metrics(provider: &SdkMeterProvider) {
+    use opentelemetry::metrics::MeterProvider as _;
+    let meter = provider.meter_with_scope(
+        opentelemetry::InstrumentationScope::builder(INSTRUMENTATION_SCOPE)
+            .with_version(env!("CARGO_PKG_VERSION"))
+            .build(),
+    );
+    for (name, description, unit, field) in [
+        (
+            "pse_runtime_executor_workers",
+            "Configured workers of currently registered executors",
+            "{thread}",
+            0,
+        ),
+        (
+            "pse_runtime_executor_alive_tasks",
+            "Approximate alive tasks of currently registered executors; not settlement",
+            "{task}",
+            1,
+        ),
+        (
+            "pse_runtime_executor_global_queue_depth",
+            "Global injection queues only; excludes worker-local queues",
+            "{task}",
+            2,
+        ),
+    ] {
+        meter
+            .u64_observable_gauge(name)
+            .with_description(description)
+            .with_unit(unit)
+            .with_callback(move |observer| {
+                let snapshot = super::runtime_metrics::snapshot();
+                if !snapshot.coverage.executor_registry_available {
+                    return;
+                }
+                let mut roles = BTreeMap::<&'static str, u64>::new();
+                for executor in snapshot.executors {
+                    let value = match field {
+                        0 => executor.workers,
+                        1 => executor.alive_tasks,
+                        _ => executor.global_queue_depth,
+                    };
+                    let total = roles.entry(executor.role.as_str()).or_default();
+                    *total = total.saturating_add(value as u64);
+                }
+                for (role, value) in roles {
+                    observer.observe(value, &[KeyValue::new("executor.role", role)]);
+                }
+            })
+            .build();
+    }
+    // This is a gauge over the current executor population. Removing an executor
+    // can decrease it; calling it a process-lifetime monotonic counter is incorrect.
+    meter
+        .f64_observable_gauge("pse_runtime_executor_worker_busy")
+        .with_description(
+            "Sum of cumulative worker busy time for currently registered executors; not CPU time",
+        )
+        .with_unit("s")
+        .with_callback(|observer| {
+            let snapshot = super::runtime_metrics::snapshot();
+            if !snapshot.coverage.executor_registry_available {
+                return;
+            }
+            let mut roles = BTreeMap::<&'static str, u128>::new();
+            for executor in snapshot.executors {
+                if let Some(nanos) = executor.worker_busy_nanos {
+                    let total = roles.entry(executor.role.as_str()).or_default();
+                    *total = total.saturating_add(nanos);
+                }
+            }
+            for (role, nanos) in roles {
+                observer.observe(
+                    nanos as f64 / 1_000_000_000.0,
+                    &[KeyValue::new("executor.role", role)],
+                );
+            }
+        })
+        .build();
+    meter.u64_observable_counter("pse_runtime_task_events")
+        .with_description("Process-wide selected future wrapper events; dropped wrappers do not establish native settlement")
+        .with_unit("{event}").with_callback(|observer| {
+            for task in super::runtime_metrics::snapshot().task_classes {
+                for (event, count) in [
+                    ("instrumented", task.instrumented_count), ("dropped", task.dropped_count),
+                    ("poll", task.poll_count), ("scheduled", task.scheduled_count), ("idle", task.idle_count),
+                ] {
+                    observer.observe(count, &[KeyValue::new("task.class", task.class.as_str()), KeyValue::new("event", event)]);
+                }
+            }
+        }).build();
+    meter.f64_observable_counter("pse_runtime_task_duration")
+        .with_description("Cumulative selected-future poll, wake-to-poll and pending-to-wake intervals; not CPU time")
+        .with_unit("s").with_callback(|observer| {
+            for task in super::runtime_metrics::snapshot().task_classes {
+                for (phase, nanos) in [("poll", task.poll_nanos), ("scheduled", task.scheduled_nanos), ("idle", task.idle_nanos)] {
+                    observer.observe(nanos as f64 / 1_000_000_000.0, &[KeyValue::new("task.class", task.class.as_str()), KeyValue::new("phase", phase)]);
+                }
+            }
+        }).build();
+    meter
+        .u64_observable_gauge("pse_runtime_executor_registry_available")
+        .with_description("Whether the executor source registry was available at collection")
+        .with_callback(|observer| {
+            observer.observe(
+                u64::from(
+                    super::runtime_metrics::snapshot()
+                        .coverage
+                        .executor_registry_available,
+                ),
+                &[],
+            )
+        })
+        .build();
+    meter
+        .u64_observable_counter("pse_runtime_executor_registration_refused")
+        .with_description(
+            "Process-lifetime executor observation registration refusals; never workload admission",
+        )
+        .with_unit("{registration}")
+        .with_callback(|observer| {
+            observer.observe(
+                super::runtime_metrics::snapshot()
+                    .coverage
+                    .refused_executor_registrations,
+                &[],
+            )
+        })
+        .build();
+}
 impl Host {
     /// Construct on a synchronous host thread; no implicit global mutation.
     pub fn build(
@@ -520,6 +679,9 @@ impl Host {
         } else {
             None
         };
+        if let Some(provider) = &metrics {
+            install_runtime_metrics(provider);
+        }
         // Export only explicit native diagnostics as logs; other tracing events remain
         // span events. In particular SDK/HTTP exporter internals cannot recurse.
         let bridge = logs.as_ref().map(|provider| {
@@ -977,6 +1139,46 @@ mod tests {
         let host = Host::build(&roundtrip, None).unwrap();
         assert!(host.traces.is_none() && host.logs.is_none() && host.metrics.is_none());
         host.shutdown().unwrap();
+    }
+
+    #[test]
+    fn private_settings_reject_unknown_fields_and_never_render_credentials() {
+        let mut settings = settings();
+        settings.traces.endpoint = Some("https://example.test/secret-path".into());
+        settings
+            .traces
+            .headers
+            .insert("authorization".into(), "secret-token".into());
+        settings
+            .resource
+            .insert("private".into(), "secret-resource".into());
+        for secret in ["secret-path", "secret-token", "secret-resource"] {
+            assert!(!format!("{settings:?}").contains(secret));
+        }
+        let wire = serde_json::to_value(&settings).unwrap();
+        let mut unknown = wire.clone();
+        unknown["private-secret-key"] = serde_json::json!("secret-token");
+        let mut nested = wire.clone();
+        nested["traces"]["private-secret-key"] = serde_json::json!("secret-token");
+        let mut invalid = wire.clone();
+        invalid["traces"]["timeout_ms"] = serde_json::json!("secret-token");
+        let mut url = wire.clone();
+        url["traces"]["endpoint"] = serde_json::json!("https://secret-token@example.test");
+        let mut headers = wire.clone();
+        headers["traces"]["headers"]["authorization"] = serde_json::json!("secret-token\r\n");
+        let mut oversized = wire.clone();
+        oversized["resource"]["private"] = serde_json::json!("secret-token".repeat(65536));
+        for refused in [unknown, nested, invalid, url, headers, oversized] {
+            let error = Settings::from_json(&refused.to_string()).unwrap_err();
+            for secret in [
+                "private-secret-key",
+                "secret-path",
+                "secret-token",
+                "secret-resource",
+            ] {
+                assert!(!format!("{error:?} {error}").contains(secret));
+            }
+        }
     }
 
     fn http_receiver() -> (String, std::thread::JoinHandle<Vec<u8>>) {

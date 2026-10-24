@@ -411,6 +411,7 @@ pub fn inspect_frozen(
     let transport = InspectionTransport {
         checkpoint: None,
         process: image.map(|image| image.locator.clone()),
+        runtime_metrics: image.map(|image| image.runtime_metrics.clone()),
         published_unix_micros: image.map(|image| image.published_unix_micros),
         failure: None,
         partial: operation.is_none()

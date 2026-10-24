@@ -104,6 +104,7 @@ pse-model.workspace = true
 pse-modeling.workspace = true
 pse-compiler.workspace = true
 tokio.workspace = true
+tokio-metrics.workspace = true
 pse-quantity.workspace = true
 pse-authoring.workspace = true
 pse-relations.workspace = true

@@ -25,6 +25,7 @@ from scripts.tests.test_capability_native import (
 import pse
 from pse import codec
 from pse.contracts import documents
+from pse.contracts.enums import TaskMetricsScope
 from pse.tests.test_project_portability import export_request
 
 if TYPE_CHECKING:
@@ -351,7 +352,7 @@ def test_capability_offline_diagnostic_reader_preserves_original_native_outcome(
     )
     assert original.operation is not None
     image = documents.ProcessCheckpoint(
-        version=4,
+        version=5,
         process="0000000000000001-0000000000000002",
         sequence=1,
         published_unix_micros=1,
@@ -372,6 +373,19 @@ def test_capability_offline_diagnostic_reader_preserves_original_native_outcome(
         clock=None,
         threads=(),
         threads_partial=False,
+        runtime_metrics=documents.RuntimeMetricsSnapshot(
+            locator=documents.ProcessLocatorBody(
+                pid=(1 << 32) - 1, start_ticks=77, executable=None
+            ),
+            sampled_unix_micros=1,
+            coverage=documents.RuntimeMetricsCoverage(
+                executor_registry_available=True,
+                refused_executor_registrations=0,
+                task_scope=TaskMetricsScope.SELECTED_PROCESS_FUTURES,
+            ),
+            executors=(),
+            task_classes=(),
+        ),
     )
     checkpoint = tmp_path / "retained.json"
     checkpoint.write_bytes(codec.encode_json(image))

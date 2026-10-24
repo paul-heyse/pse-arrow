@@ -17,8 +17,8 @@ pub mod observation;
 mod vocabulary;
 pub use vocabulary::{
     CaptureKind, CaptureOutputKind, CaptureStatus, DiagnosticCode, DiagnosticObservationKind,
-    DiagnosticRule, DiagnosticStage, FailureClass, NextObservation, NonFinite, OperationOutcome,
-    Relationship, StatementKind, VocabularyError,
+    DiagnosticRule, DiagnosticStage, ExecutorRole, FailureClass, NativeTaskClass, NextObservation,
+    NonFinite, OperationOutcome, Relationship, StatementKind, TaskMetricsScope, VocabularyError,
 };
 
 /// Source-owned attribution without a dependency on semantic identity crates.

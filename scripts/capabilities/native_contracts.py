@@ -69,6 +69,16 @@ class Diagnostic(Contract):
     request: JsonValue
 
 
+class DiagnosticProcesses(Contract):
+    request: JsonValue
+    directory: Text | None = None
+
+
+class DiagnosticCheckpoint(Contract):
+    checkpoint: Text
+    expected: JsonValue | None = None
+
+
 class Evidence(Contract):
     path: Text
     request: JsonValue
@@ -130,6 +140,18 @@ class Binding:
                 ),
             )
         return (extension,)
+
+
+# These original native documents/bytes are kept intact at both transport stages.
+EXACT_READS = frozenset(
+    {
+        "result_read",
+        "result_inspect",
+        "diagnostic_inspect",
+        "diagnostic_processes",
+        "diagnostic_checkpoint",
+    }
+)
 
 
 BINDINGS = (
@@ -229,12 +251,34 @@ BINDINGS = (
         "research-read-result",
     ),
     Binding(
+        "diagnostic_processes",
+        "Discover published native diagnostic processes",
+        DiagnosticProcesses,
+        {"request": "diagnostic-list-request"},
+        "pse.diagnostics.list_processes",
+        "Read one bounded page of native process checkpoint summaries from the selected diagnostic directory through the original native reader. Retains process/start locators, recorded target runtime_metrics and operation IDs when available. Directory discovery is not an atomic snapshot or live-process/attachment authority; no Runtime construction, service startup or capture.",
+        "diagnostics",
+        "Read bounded selected native diagnostic process summaries only; no subject execution or settlement.",
+        "diagnostic-process-page",
+    ),
+    Binding(
+        "diagnostic_checkpoint",
+        "Read an exact native diagnostic checkpoint",
+        DiagnosticCheckpoint,
+        {"expected": "checkpoint-identity"},
+        "pse.diagnostics.read_checkpoint",
+        "Decode one exact bounded published native checkpoint, including target runtime_metrics and registration coverage, without requiring an operation ID. Optional expected identity validates the same decoded image's original diagnostic process/start association. Recorded observations do not prove current liveness or grant attachment, cancellation or settlement authority. No Runtime construction, service startup or capture.",
+        "diagnostics",
+        "Read supplied native checkpoint and optionally validate its exact original association; no execution or publication.",
+        "process-checkpoint",
+    ),
+    Binding(
         "diagnostic_inspect",
         "Inspect published diagnostic checkpoint",
         Diagnostic,
         {"request": "inspection-request"},
         "pse.diagnostics.inspect_checkpoint",
-        "Inspect an exact published checkpoint through native decoding and interpretation. Does not construct a Runtime, start a service, or cancel the observed subject.",
+        "Inspect an exact published checkpoint through native decoding and interpretation, including target runtime_metrics with original target locator, executor role and registration coverage when present. These are recorded target observations, not calling/helper-process metrics. Does not construct a Runtime, start a service, or cancel the observed subject.",
         "diagnostics",
         "Read supplied native checkpoint only.",
         "inspection-document",

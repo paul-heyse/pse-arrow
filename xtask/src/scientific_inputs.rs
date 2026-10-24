@@ -321,8 +321,8 @@ fn capture(root: &Path, catalog_path: &Path) -> Result<Capsule> {
                 let package = &packages[path];
                 for relative in &package.modeling_documents {
                     let path = format!("{path}/{relative}");
-                    if !parsed.contains_key(&path) {
-                        parsed.insert(path, parse_package_document(package, relative, budget)?);
+                    if let std::collections::btree_map::Entry::Vacant(entry) = parsed.entry(path) {
+                        entry.insert(parse_package_document(package, relative, budget)?);
                     }
                 }
             }

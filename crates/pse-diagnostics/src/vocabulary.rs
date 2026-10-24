@@ -838,3 +838,19 @@ vocabulary! { #[doc = "Meaning of one retained output."] CaptureOutputKind as "d
     Symbols => ("Symbols", "Bounded decoded frame-name evidence from perf script."),
     ToolLog => ("ToolLog", "Capture-owned external tool diagnostics."),
 } }
+
+vocabulary! { #[doc = "Fixed executor composition roots; no request, model or operation labels."] ExecutorRole as "diagnostic_executor_role" {
+    Python => ("python", "The process-wide Python executor."),
+    Worker => ("worker", "The native receiver executor."),
+    CanonicalTools => ("canonical_tools", "Canonical initialization and maintenance tooling."),
+} }
+
+vocabulary! { #[doc = "Selected coarse futures, not scalar callbacks or all executor tasks."] NativeTaskClass as "diagnostic_native_task_class" {
+    Workflow => ("workflow", "Completion-owning workflow supervisor."),
+    MathSubmission => ("math_submission", "Submitted mathematical work supervisor."),
+    MathJob => ("math_job", "Admitted native mathematical job supervisor."),
+} }
+
+vocabulary! { #[doc = "Coverage of process-wide task monitor facts."] TaskMetricsScope as "diagnostic_task_metrics_scope" {
+    SelectedProcessFutures => ("selected_process_futures", "Process-wide cumulative samples for the selected three future classes; nested classes are not additive CPU time."),
+} }

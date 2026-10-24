@@ -50,6 +50,7 @@ canonical-tools = [
   "dep:pse-diagnostics",
   "dep:pse-model",
   "dep:pse-operations",
+  "dep:pse-runtime",
   "pse-operations/canonical-maintenance",
 ]
 canonical-tests = [

@@ -15,6 +15,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import msgspec
+
+from scripts.generated.telemetry_settings import Settings
 from scripts.telemetry_config import resolve_process
 
 
@@ -27,8 +30,8 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_no_selection_disables_without_importing_sdk_or_native(self) -> None:
         settings = resolve_process("test", environment=self.env)
-        self.assertTrue(settings.disabled)
-        self.assertFalse(settings.traces.enabled)
+        self.assertTrue(settings.wire.disabled)
+        self.assertFalse(settings.wire.traces.enabled)
         self.assertNotIn("pse._native", sys.modules)
         self.assertEqual(settings.effective()["delivery"], "not_observed")
 
@@ -56,14 +59,15 @@ class ConfigurationTests(unittest.TestCase):
                 "OTEL_RESOURCE_ATTRIBUTES": "service.instance.id=spoofed,secret=private-resource",
             },
         )
-        self.assertEqual(settings.traces.endpoint, "https://trace.test/private")
+        self.assertEqual(settings.wire.traces.endpoint, "https://trace.test/private")
         self.assertEqual(
-            settings.metrics.endpoint, "https://example.test/secret-path/v1/metrics"
+            settings.wire.metrics.endpoint,
+            "https://example.test/secret-path/v1/metrics",
         )
-        self.assertEqual(settings.traces.headers, (("x-specific", "trace-secret"),))
-        self.assertEqual(settings.traces.timeout_ms, 100)
-        self.assertEqual(settings.metrics.timeout_ms, 500)
-        self.assertFalse(settings.logs.enabled)
+        self.assertEqual(settings.wire.traces.headers, {"x-specific": "trace-secret"})
+        self.assertEqual(settings.wire.traces.timeout_ms, 100)
+        self.assertEqual(settings.wire.metrics.timeout_ms, 500)
+        self.assertFalse(settings.wire.logs.enabled)
         rendered = json.dumps(settings.effective())
         for secret in (
             "private-resource",
@@ -74,10 +78,72 @@ class ConfigurationTests(unittest.TestCase):
             "spoofed",
         ):
             self.assertNotIn(secret, rendered)
-        self.assertNotEqual(dict(settings.resource)["service.instance.id"], "spoofed")
+        self.assertNotEqual(
+            dict(settings.wire.resource)["service.instance.id"], "spoofed"
+        )
         self.assertEqual(
-            settings.native_settings()["process_incarnation"],
-            dict(settings.resource)["service.instance.id"],
+            json.loads(settings.native_json())["process_incarnation"],
+            dict(settings.wire.resource)["service.instance.id"],
+        )
+
+    def test_generated_private_wire_and_representations_preserve_redaction(
+        self,
+    ) -> None:
+        settings = resolve_process(
+            "test",
+            environment={
+                **self.env,
+                "OTEL_EXPORTER_OTLP_ENDPOINT": "https://example.test/private-secret-path",
+                "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=credential-secret",
+                "OTEL_RESOURCE_ATTRIBUTES": "private=resource-secret",
+            },
+        )
+        wire = settings.native_json()
+        decoded = msgspec.json.decode(wire, type=Settings)
+        self.assertEqual(decoded, settings.wire)
+        self.assertEqual(set(json.loads(wire)), set(Settings.__struct_fields__))
+        self.assertNotIn("selection", json.loads(wire))
+        self.assertNotIn("configuration_id", json.loads(wire))
+        for secret in ("private-secret-path", "credential-secret", "resource-secret"):
+            self.assertIn(secret, wire)
+            self.assertNotIn(secret, repr(settings))
+            self.assertNotIn(secret, repr(settings.wire.traces))
+        with self.assertRaises(AttributeError):
+            settings.wire.disabled = True
+        detached = settings.wire
+        detached.resource["service.instance.id"] = "mutated"
+        detached.traces.headers["Authorization"] = "mutated"
+        self.assertEqual(settings.native_json(), wire)
+        self.assertEqual(settings.wire, decoded)
+
+    def test_invalid_environment_errors_do_not_render_values(self) -> None:
+        for key in (
+            "OTEL_EXPORTER_OTLP_TIMEOUT",
+            "OTEL_TRACES_SAMPLER_ARG",
+            "OTEL_EXPORTER_OTLP_ENDPOINT",
+        ):
+            with self.subTest(key=key), self.assertRaises(ValueError) as caught:
+                resolve_process(
+                    "test", environment={**self.env, key: "credential-secret"}
+                )
+            self.assertNotIn("credential-secret", str(caught.exception))
+
+    def test_settings_document_bound_precedes_sdk_composition(self) -> None:
+        with self.assertRaisesRegex(ValueError, "64 KiB"):
+            resolve_process(
+                "test", environment={**self.env, "OTEL_SERVICE_NAME": "x" * 65536}
+            )
+
+    def test_source_only_bootstrap_imports_no_scientific_or_sdk_package(self) -> None:
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.telemetry_config import resolve_process; import sys; resolve_process('test', environment={'PSE_TELEMETRY_STATE':'/nonexistent-pse-telemetry-test'}); assert not any(name == 'pse' or name.startswith(('pse.', 'opentelemetry')) for name in sys.modules)",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
         )
 
     def test_configuration_is_explicit_selection_but_disabled_wins(self) -> None:
@@ -86,13 +152,15 @@ class ConfigurationTests(unittest.TestCase):
                 {"schema_version": 1, "otlp_http_endpoint": "http://127.0.0.1:4318"}
             )
         )
-        self.assertTrue(resolve_process("test", environment=self.env).traces.enabled)
+        self.assertTrue(
+            resolve_process("test", environment=self.env).wire.traces.enabled
+        )
         disabled = resolve_process(
             "test", environment={**self.env, "OTEL_SDK_DISABLED": "true"}
         )
-        self.assertTrue(disabled.disabled)
-        self.assertFalse(disabled.traces.enabled)
-        self.assertIsNone(disabled.traces.endpoint)
+        self.assertTrue(disabled.wire.disabled)
+        self.assertFalse(disabled.wire.traces.enabled)
+        self.assertIsNone(disabled.wire.traces.endpoint)
 
     def test_unsupported_transport_and_unbounded_queue_refused(self) -> None:
         for values in (
@@ -117,8 +185,8 @@ class ConfigurationTests(unittest.TestCase):
         first = resolve_process("first", environment=self.env)
         second = resolve_process("second", environment=self.env)
         self.assertEqual(
-            dict(first.resource)["service.instance.id"],
-            dict(second.resource)["service.instance.id"],
+            dict(first.wire.resource)["service.instance.id"],
+            dict(second.wire.resource)["service.instance.id"],
         )
         child = subprocess.run(
             [
@@ -131,14 +199,14 @@ class ConfigurationTests(unittest.TestCase):
             text=True,
         )
         self.assertNotEqual(
-            child.stdout.strip(), dict(first.resource)["service.instance.id"]
+            child.stdout.strip(), dict(first.wire.resource)["service.instance.id"]
         )
         with patch("scripts.telemetry_config.os.getpid", return_value=os.getpid() + 1):
             self.assertNotEqual(
-                dict(resolve_process("child", environment=self.env).resource)[
+                dict(resolve_process("child", environment=self.env).wire.resource)[
                     "service.instance.id"
                 ],
-                dict(first.resource)["service.instance.id"],
+                dict(first.wire.resource)["service.instance.id"],
             )
 
 

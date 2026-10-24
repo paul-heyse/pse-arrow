@@ -92,7 +92,7 @@ pse_diagnostics::impl_diagnostic! {
     forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
-type CheckpointVersion = pse_model::document::Version<4>;
+type CheckpointVersion = pse_model::document::Version<5>;
 
 /// One immutable process publication, never a scientific result or native restart state.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -116,6 +116,8 @@ pub struct ProcessCheckpoint {
     pub registry_coverage: pse_diagnostics::observation::Coverage,
     /// Process-wide samples, never a private operation's peak or exclusive CPU time.
     pub resources: ProcessResources,
+    /// Actual executor and selected-future measurements, with their independent coverage.
+    pub runtime_metrics: crate::tooling::runtime_metrics::RuntimeMetricsSnapshot,
     /// A parent diagnostic operation, when this process was explicitly dispatched by it.
     pub parent: Option<OperationId>,
     /// Actual operational attachment locator, not build provenance.
@@ -443,6 +445,7 @@ impl Diagnostics {
             omitted: 0,
             registry_coverage: page.coverage,
             resources: ProcessResources::sample(),
+            runtime_metrics: crate::tooling::runtime_metrics::snapshot(),
             locator: self.locator.clone(),
             clock: self.clock.mapping(),
             threads: self
@@ -855,7 +858,22 @@ mod tests {
         let image = read_checkpoint(&path).unwrap();
         let original: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_eq!(original["version"], 4);
+        assert_eq!(original["version"], 5);
+        assert_eq!(
+            original["runtime_metrics"]["locator"]["pid"],
+            std::process::id()
+        );
+        assert_eq!(
+            original["runtime_metrics"]["task_classes"]
+                .as_array()
+                .unwrap()
+                .len(),
+            3
+        );
+        assert_eq!(
+            original["runtime_metrics"]["coverage"]["task_scope"],
+            "selected_process_futures"
+        );
         assert!(original.get("document_version").is_none());
         assert_eq!(
             ProcessCheckpoint::WIRE,
@@ -865,10 +883,10 @@ mod tests {
             serde_json::from_slice(&ProcessCheckpoint::WIRE.to_vec(&image).unwrap()).unwrap();
         assert_eq!(projected, original);
         let schema = schemars::schema_for!(ProcessCheckpoint).to_value();
-        assert_eq!(schema["properties"]["version"]["const"], 4);
+        assert_eq!(schema["properties"]["version"]["const"], 5);
         for bytes in [
-            br#"{"version":3,"operations":"wrong current shape"}"#.as_slice(),
-            br#"{"version":4,"version":4}"#.as_slice(),
+            br#"{"version":4,"operations":"wrong current shape"}"#.as_slice(),
+            br#"{"version":5,"version":5}"#.as_slice(),
         ] {
             std::fs::write(&path, bytes).unwrap();
             let error = read_checkpoint(&path).unwrap_err().to_string();

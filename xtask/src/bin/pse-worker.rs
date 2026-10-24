@@ -502,6 +502,10 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    let _executor_metrics = pse_runtime::tooling::runtime_metrics::register_executor(
+        executor.handle(),
+        pse_runtime::tooling::runtime_metrics::ExecutorRole::Worker,
+    );
     let (runtime, selected) = match executor.block_on(runtime(&cli)) {
         Ok(runtime) => runtime,
         Err(error) => {

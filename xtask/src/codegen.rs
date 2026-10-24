@@ -330,6 +330,28 @@ fn check_python_candidate(
     Ok(())
 }
 
+/// Check bootstrap annotations directly, with no package or SDK startup available.
+#[cfg(feature = "product-schemas")]
+fn check_private_python_candidate(tree: &GeneratedTree) -> Result<()> {
+    let candidate = tempfile::tempdir().context("creating private contract candidate")?;
+    write_tree(candidate.path(), tree)?;
+    let root = crate::workspace_root()?;
+    let python = root.join(if cfg!(windows) {
+        ".venv/Scripts/python.exe"
+    } else {
+        ".venv/bin/python"
+    });
+    let status = Command::new(python)
+        .arg(root.join("scripts/check_private_contracts.py"))
+        .arg(candidate.path().join(documents::PRIVATE_PYTHON_ROOT))
+        .status()
+        .context("checking private bootstrap contract annotations")?;
+    if !status.success() {
+        bail!("private bootstrap contract candidate check failed: {status}");
+    }
+    Ok(())
+}
+
 /// The published document schemas and Python document types, derived from the owning
 /// crates' serde types (ADR-0116 Outcome 7).
 #[cfg(feature = "product-schemas")]
@@ -339,6 +361,30 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         &schemas::documents(),
         pse_runtime::boundary_documents::fingerprint()?,
     )?;
+    let mut private = documents::generate_private(
+        registry,
+        &[documents::Document {
+            name: "telemetry-settings".into(),
+            schema: schemars::schema_for!(pse_runtime::tooling::telemetry::Settings).to_value(),
+        }],
+    )?;
+    add_python_manifest(&mut private, Path::new(documents::PRIVATE_PYTHON_ROOT))?;
+    check_private_python_candidate(&private)?;
+    tree.roots.extend(private.roots);
+    tree.files.extend(private.files);
+    tree.relationships.push(provenance::SourceRelationship {
+        declaration_key: "pse_runtime::tooling::telemetry::Settings".into(),
+        declaration_kind: "private_bootstrap_contract".into(),
+        source_path: Some("crates/pse-runtime/src/tooling/telemetry.rs".into()),
+        source_symbol: Some("Settings".into()),
+        source_role: "definition".into(),
+        source_identity: None,
+        generator_path: "crates/pse-codegen/src/codegen/documents.rs".into(),
+        generator_symbol: "generate_private".into(),
+        output_path: format!("{}/telemetry_settings.py", documents::PRIVATE_PYTHON_ROOT),
+        direction: Some("input".into()),
+        basis: "declared".into(),
+    });
     let fixtures = schemas::boundary_fixtures()?;
     tree.roots.extend(fixtures.roots);
     tree.files.extend(fixtures.files);
@@ -469,6 +515,7 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         .iter()
         .flat_map(|language| language.roots())
         .chain(documents::roots())
+        .chain([PathBuf::from(documents::PRIVATE_PYTHON_ROOT)])
         // Each diagnostic producer owns a nested directory. The enclosing docs
         // generator must preserve every sidecar on partial regeneration.
         .chain([

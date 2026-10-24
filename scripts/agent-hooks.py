@@ -55,6 +55,7 @@ def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None
         name.startswith(
             (
                 "docs/generated/",
+                "scripts/generated/",
                 "python/pse/contracts/",
                 "crates/pse-operations-queries/",
             )

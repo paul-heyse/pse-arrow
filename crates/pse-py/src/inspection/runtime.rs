@@ -14,6 +14,7 @@ pub(crate) struct Runtime {
     pub(crate) executor: &'static tokio::runtime::Runtime,
     pub(crate) model: pse_engine::session::BoundModel,
     pub(crate) task_dump: Mutex<Option<Arc<pse_runtime::tooling::taskdump::TaskDumpTicket>>>,
+    _executor_metrics: pse_runtime::tooling::runtime_metrics::ExecutorRegistration,
     settings: EngineSettings,
 }
 
@@ -63,11 +64,16 @@ pub(crate) fn acquire(settings: &EngineSettings) -> Result<Arc<Runtime>, EngineE
             "async bridge was initialized with another executor",
         ));
     }
+    let executor_metrics = pse_runtime::tooling::runtime_metrics::register_executor(
+        executor.handle(),
+        pse_runtime::tooling::runtime_metrics::ExecutorRole::Python,
+    );
     let runtime = Arc::new(Runtime {
         shared,
         executor,
         model,
         task_dump: Mutex::new(None),
+        _executor_metrics: executor_metrics,
         settings: settings.clone(),
     });
     *active = Some(Arc::clone(&runtime));

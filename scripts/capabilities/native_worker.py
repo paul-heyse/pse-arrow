@@ -335,6 +335,30 @@ def execute(
             research = decoded(page.request, contracts.ResearchReadRequest)
         else:
             metadata = decoded(page.request, contracts.ProjectMetadataRequest)
+    elif operation == "diagnostic_processes":
+        processes = host.DiagnosticProcesses.model_validate(supplied, strict=True)
+        listing = decoded(processes.request, contracts.DiagnosticListRequest)
+        return {
+            "outcome": "observed",
+            "document": codec.document_builtins(
+                diagnostics.list_processes(listing, directory=processes.directory)
+            ),
+        }
+    elif operation == "diagnostic_checkpoint":
+        checkpoint = host.DiagnosticCheckpoint.model_validate(supplied, strict=True)
+        expected = (
+            None
+            if checkpoint.expected is None
+            else decoded(checkpoint.expected, contracts.CheckpointIdentity)
+        )
+        return {
+            "outcome": "observed",
+            "document": codec.document_builtins(
+                diagnostics.read_checkpoint(
+                    Path(checkpoint.checkpoint), expected=expected
+                )
+            ),
+        }
     elif operation == "diagnostic_inspect":
         diagnostic = host.Diagnostic.model_validate(supplied, strict=True)
         inspection = decoded(diagnostic.request, contracts.InspectionRequest)
@@ -565,6 +589,8 @@ def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from scripts.capabilities.native_contracts import EXACT_READS  # noqa: PLC0415
+
     selected = sys.argv[1:] if argv is None else argv
     operation = "unknown"
     destination = (
@@ -618,7 +644,7 @@ def main(argv: list[str] | None = None) -> int:
                 "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied.",
             }
         )
-    if operation in {"result_read", "result_inspect"}:
+    if operation in EXACT_READS:
         from scripts.capabilities.native import intact_result  # noqa: PLC0415
 
         value = intact_result(

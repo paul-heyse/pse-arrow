@@ -5727,6 +5727,23 @@ impl EvidenceUnavailableReason {
         }
     }
 }
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type ExecutorRole = pse_diagnostics::ExecutorRole;
+impl crate::SemanticEq for ExecutorRole {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for ExecutorRole {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ExecutorRole {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -18248,6 +18265,23 @@ impl NativeStructuralPolicy {
         }
     }
 }
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type NativeTaskClass = pse_diagnostics::NativeTaskClass;
+impl crate::SemanticEq for NativeTaskClass {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for NativeTaskClass {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeTaskClass {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -26128,6 +26162,23 @@ impl crate::SemanticFrame for SubjectRule {
         hash.str(self.as_str());
     }
 }
+/// A vocabulary owned by its source type; the registry declares its members.
+pub type TaskMetricsScope = pse_diagnostics::TaskMetricsScope;
+impl crate::SemanticEq for TaskMetricsScope {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for TaskMetricsScope {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for TaskMetricsScope {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -27027,20 +27078,20 @@ macro_rules! for_each_registry_enum {
         DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod,
         DualQualification, DynamicSensitivity, DynamicsMethod, EndpointPolicy,
         EngineeringScaleKind, EntityKind, EventDirection, EvidenceCoverage,
-        EvidenceGenerationState, EvidenceUnavailableReason, ExternalDerivativeSource,
-        FailureClass, FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives,
-        HessianMode, HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy,
-        InputConsumptionKind, IntervalEnd, IntervalMethod, IntervalOutcome,
-        InvariantKind, IpoptLinearSolver, KinsolOrthogonalization, KinsolStrategy,
-        KnowledgeBasis, KnowledgeDirection, KnowledgeDocumentRole,
-        KnowledgeGenerationState, KnowledgeRelationKind, KnowledgeSourceRole,
-        KnowledgeSourceStatus, KnowledgeSubjectKind, LiveSimulationEventKind,
-        MigrationOp, ModelingAccumulatorMode, ModelingAnalysisRoute,
-        ModelingAnnotationKind, ModelingApplicabilityBasis, ModelingApplicabilityKind,
-        ModelingApplicabilityOutcome, ModelingCellKind, ModelingCheckBasis,
-        ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
-        ModelingContributionRole, ModelingDataFacet, ModelingDeclarationKind,
-        ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
+        EvidenceGenerationState, EvidenceUnavailableReason, ExecutorRole,
+        ExternalDerivativeSource, FailureClass, FeralOrdering, FeralScaling,
+        FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
+        IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
+        IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+        KinsolOrthogonalization, KinsolStrategy, KnowledgeBasis, KnowledgeDirection,
+        KnowledgeDocumentRole, KnowledgeGenerationState, KnowledgeRelationKind,
+        KnowledgeSourceRole, KnowledgeSourceStatus, KnowledgeSubjectKind,
+        LiveSimulationEventKind, MigrationOp, ModelingAccumulatorMode,
+        ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
+        ModelingApplicabilityKind, ModelingApplicabilityOutcome, ModelingCellKind,
+        ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
+        ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
+        ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
         ModelingDiscreteInitialization, ModelingElasticObservation,
         ModelingEnvelopeExtent, ModelingFactNamespace, ModelingFixtureBinding,
         ModelingInitializationStep, ModelingKeyCellKind, ModelingKindFacet,
@@ -27059,31 +27110,32 @@ macro_rules! for_each_registry_enum {
         NativePrimalCoordinateRole, NativeProblemClass, NativeQualification,
         NativeRayCoordinate, NativeRepresentation, NativeRouteKind, NativeRouteRefusal,
         NativeRouteSelection, NativeRunState, NativeSolveIntent, NativeStartPolicy,
-        NativeStructuralMode, NativeStructuralPolicy, NativeTermination, NativeUnoMethod,
-        NativeWarmCapability, NextObservation, NonFinite, NumericalAccuracyClass,
-        NumericalAttemptObservation, NumericalBranchPolicy, NumericalCompositionPolicy,
-        NumericalCoordinates, NumericalEventKind, NumericalMechanism,
-        NumericalOriginalConclusion, NumericalPathEventKind, NumericalPhase,
-        NumericalPosition, NumericalProvenanceField, NumericalScope, NumericalSource,
-        NumericalStartOrigin, NumericalTarget, NumericalTransition, ObservationTimeBasis,
-        Opcode, OperationEffect, OperationOutcome, PackageKind, PardisoMatching,
-        PardisoOrdering, PhysicalInputKind, PounceFdColoring, PounceFdPattern,
-        PounceMethod, PouncePartitionedElements, PouncePartitionedUpdate, Preconditioner,
-        PreparationEligibility, PreparationProductKind, PresolvePass, PresolvePolicyKind,
-        ProjectChangeImpact, ProjectMergeChoice, ProjectMergeConflictKind,
-        ProjectMergeMode, ProjectMetadataKind, QuantityAdditionKind,
-        QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule,
-        QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind,
-        Relationship, ReusePolicy, RowActivity, ScaleKind, ScientificArtifactFamily,
-        ScientificArtifactKind, SensitivityCorrector, Severity, ShootingMethod,
-        SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
-        StatementKind, StructuralScopeKind, StudyAvailability,
-        StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
-        StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
-        StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
-        StudyUnavailableSeedPolicy, SubjectRule, TearMethod, TearPolicy,
-        TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-        WeightNormalization, WithheldReason);
+        NativeStructuralMode, NativeStructuralPolicy, NativeTaskClass, NativeTermination,
+        NativeUnoMethod, NativeWarmCapability, NextObservation, NonFinite,
+        NumericalAccuracyClass, NumericalAttemptObservation, NumericalBranchPolicy,
+        NumericalCompositionPolicy, NumericalCoordinates, NumericalEventKind,
+        NumericalMechanism, NumericalOriginalConclusion, NumericalPathEventKind,
+        NumericalPhase, NumericalPosition, NumericalProvenanceField, NumericalScope,
+        NumericalSource, NumericalStartOrigin, NumericalTarget, NumericalTransition,
+        ObservationTimeBasis, Opcode, OperationEffect, OperationOutcome, PackageKind,
+        PardisoMatching, PardisoOrdering, PhysicalInputKind, PounceFdColoring,
+        PounceFdPattern, PounceMethod, PouncePartitionedElements,
+        PouncePartitionedUpdate, Preconditioner, PreparationEligibility,
+        PreparationProductKind, PresolvePass, PresolvePolicyKind, ProjectChangeImpact,
+        ProjectMergeChoice, ProjectMergeConflictKind, ProjectMergeMode,
+        ProjectMetadataKind, QuantityAdditionKind, QuantityKindCategory,
+        QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
+        ReductionKind, ReferenceRule, ReferenceStateKind, Relationship, ReusePolicy,
+        RowActivity, ScaleKind, ScientificArtifactFamily, ScientificArtifactKind,
+        SensitivityCorrector, Severity, ShootingMethod, SnapshotClass, SpralOrdering,
+        SpralPivot, SpralScaling, Stability, StateSign, StatementKind,
+        StructuralScopeKind, StudyAvailability, StudyContinuationPermission,
+        StudyEffectState, StudyLegacyKind, StudyLifecycle, StudyPointState,
+        StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
+        StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
+        SubjectRule, TaskMetricsScope, TearMethod, TearPolicy, TimeCoordinateKind,
+        TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization,
+        WithheldReason);
     };
 }
 impl crate::HeapUsage for AccuracyCriterionStatus {

@@ -68,6 +68,9 @@ pub struct InspectionTransport {
     pub checkpoint: Option<PathBuf>,
     /// Actual process attachment locator, if supplied by the source.
     pub process: Option<ProcessLocator>,
+    /// Measurements copied from this exact source process publication or live owner.
+    /// Absent for a standalone operation; the inspecting process never substitutes its own sample.
+    pub runtime_metrics: Option<crate::tooling::runtime_metrics::RuntimeMetricsSnapshot>,
     /// Optional publisher timestamp; it is not native fact freshness.
     pub published_unix_micros: Option<u128>,
     /// Optional writer or transport failure; it never becomes numerical failure.
@@ -82,7 +85,7 @@ pub struct InspectionTransport {
 #[serde(deny_unknown_fields)]
 pub struct InspectionDocument {
     /// Standalone diagnostic response encoding with explicit producer/record references.
-    pub version: Version<3>,
+    pub version: Version<4>,
     /// Original bounded read request.
     pub request: InspectionRequest,
     /// Exact selected operation, absent when unavailable/evicted rather than invented complete.
@@ -118,6 +121,8 @@ pub struct DiagnosticProcessSummary {
     pub process: Option<String>,
     /// Actual operational locator, if readable.
     pub locator: Option<ProcessLocator>,
+    /// Measurements from this checkpoint, absent when the source image is unavailable.
+    pub runtime_metrics: Option<crate::tooling::runtime_metrics::RuntimeMetricsSnapshot>,
     /// Bounded available operation catalogue from this image.
     pub operations: Vec<OperationSummary>,
     /// Optional decode/access error, independent of simulation success.
@@ -130,7 +135,7 @@ pub struct DiagnosticProcessSummary {
 #[serde(deny_unknown_fields)]
 pub struct DiagnosticProcessPage {
     /// Standalone diagnostic page encoding.
-    pub version: Version<1>,
+    pub version: Version<2>,
     /// The selected readable/unreadable process prefixes.
     pub processes: Vec<DiagnosticProcessSummary>,
     /// Exclusive filename cursor when another page may exist.
@@ -199,6 +204,7 @@ pub fn list_processes(
                 checkpoint,
                 process: Some(image.process),
                 locator: Some(image.locator),
+                runtime_metrics: Some(image.runtime_metrics),
                 operations: image
                     .operations
                     .into_iter()
@@ -221,6 +227,7 @@ pub fn list_processes(
                 checkpoint,
                 process: None,
                 locator: None,
+                runtime_metrics: None,
                 operations: Vec::new(),
                 failure: Some(error.to_string()),
                 partial: true,
@@ -258,6 +265,7 @@ impl Diagnostics {
         let transport = InspectionTransport {
             checkpoint: None,
             process: Some(self.locator()),
+            runtime_metrics: Some(crate::tooling::runtime_metrics::snapshot()),
             published_unix_micros: None,
             failure: self.writer_failure().or_else(|| {
                 (!self.hub().policy().enabled).then(|| "diagnostic collection disabled".into())
@@ -366,6 +374,7 @@ pub fn inspect_image(
     let transport = InspectionTransport {
         checkpoint: Some(path.to_owned()),
         process: Some(image.locator),
+        runtime_metrics: Some(image.runtime_metrics),
         published_unix_micros: Some(image.published_unix_micros),
         failure: None,
         partial: operation.is_none()
@@ -388,6 +397,7 @@ pub fn inspect_snapshot(
     let transport = InspectionTransport {
         checkpoint: None,
         process: None,
+        runtime_metrics: None,
         published_unix_micros: None,
         failure: None,
         partial: operation.is_none(),
@@ -706,6 +716,56 @@ fn context_explanations(snapshot: &OperationSnapshot) -> Vec<Statement> {
 mod tests {
     use super::*;
     use pse_diagnostics::observation::{Policy, Relationship};
+    #[test]
+    fn runtime_metrics_inspection_keeps_recorded_target_and_standalone_absence() {
+        let directory = tempfile::tempdir().unwrap();
+        let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
+        let operation = owner.hub().start("native.measurement");
+        let request = InspectionRequest::new(operation.context().id());
+        let live = owner.inspect(request.clone());
+        assert_eq!(
+            live.transport.runtime_metrics.unwrap().locator.pid,
+            std::process::id()
+        );
+        owner.publish().unwrap();
+        let mut image = read_checkpoint(&owner.checkpoint_path()).unwrap();
+        // A recorded target differs from this inspecting process, including its sample time.
+        image.locator.pid = u32::MAX;
+        image.locator.start_ticks = None;
+        image.runtime_metrics.locator = image.locator.clone();
+        image.runtime_metrics.sampled_unix_micros = 7;
+        std::fs::write(owner.checkpoint_path(), serde_json::to_vec(&image).unwrap()).unwrap();
+        let recorded = inspect_checkpoint(&owner.checkpoint_path(), request.clone()).unwrap();
+        assert_eq!(recorded.transport.process.unwrap().pid, u32::MAX);
+        let metrics = recorded.transport.runtime_metrics.unwrap();
+        assert_eq!(metrics.locator.pid, u32::MAX);
+        assert_eq!(metrics.sampled_unix_micros, 7);
+        let listed = list_processes(directory.path(), DiagnosticListRequest::default()).unwrap();
+        let metrics = listed.processes[0].runtime_metrics.as_ref().unwrap();
+        assert_eq!(metrics.locator.pid, u32::MAX);
+        assert_eq!(metrics.sampled_unix_micros, 7);
+        let frozen = crate::tooling::frozen_inspection::inspect_frozen(
+            &crate::tooling::frozen_inspection::FrozenEvidenceSet {
+                checkpoints: vec![image],
+                ..Default::default()
+            },
+            crate::tooling::frozen_inspection::FrozenInspectionRequest {
+                version: Default::default(),
+                inspection: request.clone(),
+                window: Default::default(),
+            },
+        )
+        .unwrap();
+        let metrics = frozen.inspection.transport.runtime_metrics.unwrap();
+        assert_eq!(metrics.locator.pid, u32::MAX);
+        assert_eq!(metrics.sampled_unix_micros, 7);
+        let standalone = inspect_snapshot(
+            operation.reader().snapshot(Duration::from_secs(60)),
+            request,
+        );
+        assert!(standalone.transport.runtime_metrics.is_none());
+        owner.release().unwrap();
+    }
     #[test]
     fn inspection_uno_keeps_accepted_trial_and_missing_kind_without_inferred_iterations() {
         use pse_diagnostics::observation::{ObservationHub, ProducerRole, RecordField, Value};

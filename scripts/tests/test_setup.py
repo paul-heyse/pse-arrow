@@ -341,6 +341,7 @@ class EditPolicyTests(unittest.TestCase):
             "crates/pse-operations-queries/src/queries/store.rs",
             "python/pse/_native.pyi",
             "python/pse/contracts/identities.py",
+            "scripts/generated/telemetry_settings.py",
         ):
             with self.subTest(name=name):
                 self.assertIsNotNone(hooks.protected(self.root, name))

@@ -7946,10 +7946,10 @@ class DiagnosticOriginOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class DiagnosticProcessPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded checkpoint discovery result."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Standalone diagnostic page encoding.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Exclusive filename cursor when another page may exist.
     next: str | None = None
     #: The selected readable/unreadable process prefixes.
@@ -7962,10 +7962,10 @@ class DiagnosticProcessPage(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 class DiagnosticProcessPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Bounded checkpoint discovery result."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Standalone diagnostic page encoding.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Exclusive filename cursor when another page may exist.
     next: str | None
     #: The selected readable/unreadable process prefixes.
@@ -7990,11 +7990,13 @@ class DiagnosticProcessSummary(msgspec.Struct, frozen=True, forbid_unknown_field
     partial: bool
     #: Process diagnostic identity, if the image is readable.
     process: str | None = None
+    #: Measurements from this checkpoint, absent when the source image is unavailable.
+    runtime_metrics: RuntimeMetricsSnapshot | None = None
     #: Explicit producer-summary admission, expiry and pressure losses when readable.
     summaries: SummaryCoverage | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process), v.optional_key(v.record_key)(self.summaries),))
+        return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process), v.optional_key(v.record_key)(self.runtime_metrics), v.optional_key(v.record_key)(self.summaries),))
 
 
 class DiagnosticProcessSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8012,11 +8014,13 @@ class DiagnosticProcessSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown
     partial: bool
     #: Process diagnostic identity, if the image is readable.
     process: str | None
+    #: Measurements from this checkpoint, absent when the source image is unavailable.
+    runtime_metrics: RuntimeMetricsSnapshotOutput | None
     #: Explicit producer-summary admission, expiry and pressure losses when readable.
     summaries: SummaryCoverage | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process), v.optional_key(v.record_key)(self.summaries),))
+        return (type(self), (v.scalar_key(self.checkpoint), v.optional_key(v.scalar_key)(self.failure), v.optional_key(v.record_key)(self.locator), v.sequence_key(v.record_key)(self.operations), v.scalar_key(self.partial), v.optional_key(v.scalar_key)(self.process), v.optional_key(v.record_key)(self.runtime_metrics), v.optional_key(v.record_key)(self.summaries),))
 
 
 class DiagnosticReproducer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8585,6 +8589,52 @@ class EvidenceRefOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.generation), v.optional_key(v.scalar_key)(self.metric), v.optional_key(v.record_key)(self.observed_at), v.record_key(self.operation), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.producer), v.optional_key(v.scalar_key)(self.record_sequence), v.optional_key(v.record_key)(self.value),))
+
+
+class ExecutorMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied stable Tokio facts. Gauges are independently read, not an atomic scheduler census."""
+
+    #: Tokio's approximate current count, in tasks; not a settlement proof.
+    alive_tasks: Annotated[int, msgspec.Meta(ge=0)]
+    #: Current global injection queue depth, in tasks; excludes worker-local queues.
+    global_queue_depth: Annotated[int, msgspec.Meta(ge=0)]
+    #: Process-local registration identity, scoped by the enclosing process locator.
+    identity: Annotated[int, msgspec.Meta(ge=0)]
+    #: Wall time this source was registered; counters originate at runtime construction.
+    registered_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
+    #: Fixed executor composition root.
+    role: enums.ExecutorRole
+    #: Sum of cumulative worker busy durations, in nanoseconds since runtime construction.
+    #: Unavailable on targets without 64-bit atomics; not process or operation CPU time.
+    worker_busy_nanos: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Configured worker count, in threads.
+    workers: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.alive_tasks), v.scalar_key(self.global_queue_depth), v.scalar_key(self.identity), v.scalar_key(self.registered_unix_micros), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.worker_busy_nanos), v.scalar_key(self.workers),))
+
+
+class ExecutorMetricsSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied stable Tokio facts. Gauges are independently read, not an atomic scheduler census."""
+
+    #: Tokio's approximate current count, in tasks; not a settlement proof.
+    alive_tasks: Annotated[int, msgspec.Meta(ge=0)]
+    #: Current global injection queue depth, in tasks; excludes worker-local queues.
+    global_queue_depth: Annotated[int, msgspec.Meta(ge=0)]
+    #: Process-local registration identity, scoped by the enclosing process locator.
+    identity: Annotated[int, msgspec.Meta(ge=0)]
+    #: Wall time this source was registered; counters originate at runtime construction.
+    registered_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
+    #: Fixed executor composition root.
+    role: enums.ExecutorRole
+    #: Sum of cumulative worker busy durations, in nanoseconds since runtime construction.
+    #: Unavailable on targets without 64-bit atomics; not process or operation CPU time.
+    worker_busy_nanos: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Configured worker count, in threads.
+    workers: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.alive_tasks), v.scalar_key(self.global_queue_depth), v.scalar_key(self.identity), v.scalar_key(self.registered_unix_micros), v.scalar_key(self.role), v.optional_key(v.scalar_key)(self.worker_busy_nanos), v.scalar_key(self.workers),))
 
 
 class ExplanatoryRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -10504,10 +10554,10 @@ class InspectionConnectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
 class InspectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One typed interpretation shared by Rust, generated Python and CLI consumers."""
 
-    _pse_required_version: ClassVar[int] = 3
+    _pse_required_version: ClassVar[int] = 4
 
     #: Standalone diagnostic response encoding with explicit producer/record references.
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     #: Statements or requested children omitted by response bounds.
     omitted: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact selected operation, absent when unavailable/evicted rather than invented complete.
@@ -10528,10 +10578,10 @@ class InspectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 class InspectionDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One typed interpretation shared by Rust, generated Python and CLI consumers."""
 
-    _pse_required_version: ClassVar[int] = 3
+    _pse_required_version: ClassVar[int] = 4
 
     #: Standalone diagnostic response encoding with explicit producer/record references.
-    version: Literal[3] = 3
+    version: Literal[4] = 4
     #: Statements or requested children omitted by response bounds.
     omitted: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact selected operation, absent when unavailable/evicted rather than invented complete.
@@ -10758,9 +10808,12 @@ class InspectionTransport(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     process: ProcessLocatorBody | None = None
     #: Optional publisher timestamp; it is not native fact freshness.
     published_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Measurements copied from this exact source process publication or live owner.
+    #: Absent for a standalone operation; the inspecting process never substitutes its own sample.
+    runtime_metrics: RuntimeMetricsSnapshot | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.checkpoint), v.optional_key(v.scalar_key)(self.clock_uncertainty_nanoseconds), v.optional_key(v.scalar_key)(self.failure), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.process), v.optional_key(v.scalar_key)(self.published_unix_micros),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.checkpoint), v.optional_key(v.scalar_key)(self.clock_uncertainty_nanoseconds), v.optional_key(v.scalar_key)(self.failure), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.process), v.optional_key(v.scalar_key)(self.published_unix_micros), v.optional_key(v.record_key)(self.runtime_metrics),))
 
 
 class InspectionTransportOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -10778,9 +10831,12 @@ class InspectionTransportOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
     process: ProcessLocatorBodyOutput | None
     #: Optional publisher timestamp; it is not native fact freshness.
     published_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Measurements copied from this exact source process publication or live owner.
+    #: Absent for a standalone operation; the inspecting process never substitutes its own sample.
+    runtime_metrics: RuntimeMetricsSnapshotOutput | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.checkpoint), v.optional_key(v.scalar_key)(self.clock_uncertainty_nanoseconds), v.optional_key(v.scalar_key)(self.failure), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.process), v.optional_key(v.scalar_key)(self.published_unix_micros),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.checkpoint), v.optional_key(v.scalar_key)(self.clock_uncertainty_nanoseconds), v.optional_key(v.scalar_key)(self.failure), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.process), v.optional_key(v.scalar_key)(self.published_unix_micros), v.optional_key(v.record_key)(self.runtime_metrics),))
 
 
 class IntegrationControlsForArrayOfScientificCoordinateValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16193,10 +16249,10 @@ class PresolveSeedTransformation(msgspec.Struct, frozen=True, forbid_unknown_fie
 class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One immutable process publication, never a scientific result or native restart state."""
 
-    _pse_required_version: ClassVar[int] = 4
+    _pse_required_version: ClassVar[int] = 5
 
     #: Format version of this diagnostic-only representation.
-    version: Literal[4] = 4
+    version: Literal[5] = 5
     #: Mapping to the same-host monotonic clock, with bounded read uncertainty.
     clock: ClockMapping | None = None
     #: Actual operational attachment locator, not build provenance.
@@ -16215,6 +16271,8 @@ class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     registry_coverage: Coverage
     #: Process-wide samples, never a private operation's peak or exclusive CPU time.
     resources: ProcessResources
+    #: Actual executor and selected-future measurements, with their independent coverage.
+    runtime_metrics: RuntimeMetricsSnapshot
     #: Monotonic publication sequence within this process instance.
     sequence: Annotated[int, msgspec.Meta(ge=0)]
     #: Explicit compact-output admission, expiry and pressure losses.
@@ -16225,16 +16283,16 @@ class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     threads_partial: bool
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.clock), v.record_key(self.locator), v.scalar_key(self.omitted), v.sequence_key(v.record_key)(self.operations), v.optional_key(v.record_key)(self.parent), v.scalar_key(self.process), v.scalar_key(self.published_unix_micros), v.record_key(self.registry_coverage), v.record_key(self.resources), v.scalar_key(self.sequence), v.record_key(self.summaries), v.sequence_key(v.record_key)(self.threads), v.scalar_key(self.threads_partial),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.clock), v.record_key(self.locator), v.scalar_key(self.omitted), v.sequence_key(v.record_key)(self.operations), v.optional_key(v.record_key)(self.parent), v.scalar_key(self.process), v.scalar_key(self.published_unix_micros), v.record_key(self.registry_coverage), v.record_key(self.resources), v.record_key(self.runtime_metrics), v.scalar_key(self.sequence), v.record_key(self.summaries), v.sequence_key(v.record_key)(self.threads), v.scalar_key(self.threads_partial),))
 
 
 class ProcessCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One immutable process publication, never a scientific result or native restart state."""
 
-    _pse_required_version: ClassVar[int] = 4
+    _pse_required_version: ClassVar[int] = 5
 
     #: Format version of this diagnostic-only representation.
-    version: Literal[4] = 4
+    version: Literal[5] = 5
     #: Mapping to the same-host monotonic clock, with bounded read uncertainty.
     clock: ClockMapping | None
     #: Actual operational attachment locator, not build provenance.
@@ -16253,6 +16311,8 @@ class ProcessCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     registry_coverage: Coverage
     #: Process-wide samples, never a private operation's peak or exclusive CPU time.
     resources: ProcessResourcesOutput
+    #: Actual executor and selected-future measurements, with their independent coverage.
+    runtime_metrics: RuntimeMetricsSnapshotOutput
     #: Monotonic publication sequence within this process instance.
     sequence: Annotated[int, msgspec.Meta(ge=0)]
     #: Explicit compact-output admission, expiry and pressure losses.
@@ -16263,7 +16323,7 @@ class ProcessCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     threads_partial: bool
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.clock), v.record_key(self.locator), v.scalar_key(self.omitted), v.sequence_key(v.record_key)(self.operations), v.optional_key(v.record_key)(self.parent), v.scalar_key(self.process), v.scalar_key(self.published_unix_micros), v.record_key(self.registry_coverage), v.record_key(self.resources), v.scalar_key(self.sequence), v.record_key(self.summaries), v.sequence_key(v.record_key)(self.threads), v.scalar_key(self.threads_partial),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.clock), v.record_key(self.locator), v.scalar_key(self.omitted), v.sequence_key(v.record_key)(self.operations), v.optional_key(v.record_key)(self.parent), v.scalar_key(self.process), v.scalar_key(self.published_unix_micros), v.record_key(self.registry_coverage), v.record_key(self.resources), v.record_key(self.runtime_metrics), v.scalar_key(self.sequence), v.record_key(self.summaries), v.sequence_key(v.record_key)(self.threads), v.scalar_key(self.threads_partial),))
 
 
 class ProcessLocator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -24373,6 +24433,56 @@ class RuntimeComputationRunsRowOutput(msgspec.Struct, frozen=True, forbid_unknow
         return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.scalar_key(self.candidate_available), v.optional_key(v.scalar_key)(self.candidate_kind), v.optional_key(v.scalar_key)(self.completed_samples), v.optional_key(v.scalar_key)(self.completed_time), v.optional_key(v.scalar_key)(self.error), v.optional_key(v.scalar_key)(self.estimate_qualified), v.optional_key(v.scalar_key)(self.feasible), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.native_code), v.optional_key(v.scalar_key)(self.native_status), v.scalar_key(self.profile_identity), v.scalar_key(self.qualification), v.optional_key(v.scalar_key)(self.response_available), v.optional_key(v.scalar_key)(self.response_condition), v.optional_key(v.scalar_key)(self.response_rank), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.termination), v.optional_key(v.scalar_key)(self.trajectory_termination), v.optional_key(v.scalar_key)(self.validation_error),))
 
 
+class RuntimeMetricsCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Coverage of the bounded executor source registry at this read."""
+
+    #: False when source synchronization was unavailable; an empty list then is not zero load.
+    executor_registry_available: bool
+    #: Cumulative refused registrations, including registry pressure or synchronization failure.
+    refused_executor_registrations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Only explicitly instrumented futures are covered by task class measurements.
+    task_scope: enums.TaskMetricsScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.executor_registry_available), v.scalar_key(self.refused_executor_registrations), v.scalar_key(self.task_scope),))
+
+
+class RuntimeMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One read of the same typed sources used by checkpoints and optional OTel export."""
+
+    #: Explicit registry losses and selected task coverage.
+    coverage: RuntimeMetricsCoverage
+    #: At most eight actual registered executors.
+    executors: tuple[ExecutorMetricsSnapshot, ...]
+    #: Actual process/start locator; absence of start ticks limits identity evidence.
+    locator: ProcessLocatorBody
+    #: Wall time immediately before independently sampled source reads.
+    sampled_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exactly three process-wide selected future classes.
+    task_classes: tuple[TaskClassMetricsSnapshot, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.coverage), v.sequence_key(v.record_key)(self.executors), v.record_key(self.locator), v.scalar_key(self.sampled_unix_micros), v.sequence_key(v.record_key)(self.task_classes),))
+
+
+class RuntimeMetricsSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One read of the same typed sources used by checkpoints and optional OTel export."""
+
+    #: Explicit registry losses and selected task coverage.
+    coverage: RuntimeMetricsCoverage
+    #: At most eight actual registered executors.
+    executors: tuple[ExecutorMetricsSnapshotOutput, ...]
+    #: Actual process/start locator; absence of start ticks limits identity evidence.
+    locator: ProcessLocatorBodyOutput
+    #: Wall time immediately before independently sampled source reads.
+    sampled_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exactly three process-wide selected future classes.
+    task_classes: tuple[TaskClassMetricsSnapshot, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.coverage), v.sequence_key(v.record_key)(self.executors), v.record_key(self.locator), v.scalar_key(self.sampled_unix_micros), v.sequence_key(v.record_key)(self.task_classes),))
+
+
 class RuntimeRunLineageRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -27900,6 +28010,32 @@ class TargetSpecOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
         return (type(self), (v.optional_key(v.scalar_key)(self.declared_tolerance), v.scalar_key(self.id), v.scalar_key(self.integer), v.scalar_key(self.kind), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
 
 
+class TaskClassMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Cumulative library task monitor facts for a bounded class, in counts and nanoseconds."""
+
+    #: Fixed selected future class.
+    class_: enums.NativeTaskClass = msgspec.field(name="class")
+    #: Wrappers dropped, including cancellation; never a native settlement counter.
+    dropped_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Recorded pending-to-wake idle intervals.
+    idle_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cumulative pending-to-wake idle time, in nanoseconds.
+    idle_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: Number of wrappers created, not native jobs admitted.
+    instrumented_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Recorded future polls.
+    poll_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cumulative time within future polls, in nanoseconds; not CPU time.
+    poll_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: Recorded wake-to-poll schedules.
+    scheduled_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cumulative wake-to-poll time, in nanoseconds.
+    scheduled_nanos: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.class_), v.scalar_key(self.dropped_count), v.scalar_key(self.idle_count), v.scalar_key(self.idle_nanos), v.scalar_key(self.instrumented_count), v.scalar_key(self.poll_count), v.scalar_key(self.poll_nanos), v.scalar_key(self.scheduled_count), v.scalar_key(self.scheduled_nanos),))
+
+
 class TaskDumpDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Independent collector result and actual target-request settlement."""
 
@@ -29555,6 +29691,8 @@ __all__ = [
     "EventSourceOutput",
     "EvidenceRef",
     "EvidenceRefOutput",
+    "ExecutorMetricsSnapshot",
+    "ExecutorMetricsSnapshotOutput",
     "ExplanatoryRequirement",
     "ExplanatoryRequirementOutput",
     "ExtensionQuantityValue",
@@ -30490,6 +30628,9 @@ __all__ = [
     "RuntimeCanonicalProjectSavepointsRow",
     "RuntimeComputationRunsRow",
     "RuntimeComputationRunsRowOutput",
+    "RuntimeMetricsCoverage",
+    "RuntimeMetricsSnapshot",
+    "RuntimeMetricsSnapshotOutput",
     "RuntimeRunLineageRow",
     "RuntimeRunLineageRowOutput",
     "RuntimeScientificContextsRow",
@@ -30693,6 +30834,7 @@ __all__ = [
     "TableName",
     "TargetSpec",
     "TargetSpecOutput",
+    "TaskClassMetricsSnapshot",
     "TaskDumpDocument",
     "TaskDumpDocumentOutput",
     "TaskDumpRequest",
@@ -30766,4 +30908,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
+SCHEMA_SET_FINGERPRINT = "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"

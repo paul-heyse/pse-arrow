@@ -19,6 +19,7 @@ from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.model import Capability
 from scripts.capabilities.native_contracts import (
     BINDINGS,
+    EXACT_READS,
     Binding,
 )
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
@@ -34,12 +35,17 @@ _PENDING: set[asyncio.Task[dict[str, JsonValue]]] = set()
 
 
 def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
-    """Preserve exact selected scientific documents/IPC, or refuse them as a whole."""
+    """Preserve exact selected native documents/IPC, or refuse them as a whole."""
     if len(json.dumps(value, ensure_ascii=True, allow_nan=False).encode()) > 120 * 1024:
+        diagnostic = operation.startswith("native_diagnostic_")
         value = {
             "outcome": "detail_refused",
-            "code": "pse.native.result_detail_bound",
-            "remedy": "Narrow the selected field/row window; exact IPC remains available through the protected reader.",
+            "code": "pse.native.observation_detail_bound"
+            if diagnostic
+            else "pse.native.result_detail_bound",
+            "remedy": "Narrow the original diagnostic selection or use its explicit native reader; no target facts were truncated."
+            if diagnostic
+            else "Narrow the selected field/row window; exact IPC remains available through the protected reader.",
         }
     omissions = value.get("omissions", [])
     return ReadResult(
@@ -53,9 +59,9 @@ def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
     )
 
 
-def inspection_output_schema(schemas: SchemaSet) -> dict[str, JsonValue]:
-    """Compose the transport with the original directional Rust result schema."""
-    document = schemas.document("result-inspection-document", "output")
+def document_output_schema(schemas: SchemaSet, slug: str) -> dict[str, JsonValue]:
+    """Compose the transport with its original directional Rust document schema."""
+    document = schemas.document(slug, "output")
     definitions = document.pop("$defs", {})
     observed = {
         "type": "object",
@@ -199,7 +205,7 @@ class NativeTool(Tool):
                     value = await asyncio.shield(task)
         response = (
             intact_result(value, self.name)
-            if self._binding.operation in {"result_read", "result_inspect"}
+            if self._binding.operation in EXACT_READS
             else bounded(value, self.name)
         )
         return ToolResult(structured_content=response.model_dump(mode="json"))
@@ -254,8 +260,9 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             description=binding.description,
             parameters=parameters,
             output_schema=(
-                inspection_output_schema(schemas)
-                if binding.operation == "result_inspect"
+                document_output_schema(schemas, binding.output_document)
+                if binding.operation in EXACT_READS
+                and binding.output_document is not None
                 else ReadResult.model_json_schema(mode="serialization")
             ),
             tags=spec.tags,

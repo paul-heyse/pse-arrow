@@ -60,7 +60,7 @@
     "lifecycle": "cancelled"
   },
   "diagnostic_inspection": {
-    "version": 3,
+    "version": 4,
     "request": {
       "version": 2,
       "operation": {
@@ -469,6 +469,7 @@
     "transport": {
       "checkpoint": null,
       "process": null,
+      "runtime_metrics": null,
       "published_unix_micros": null,
       "failure": null,
       "partial": false,

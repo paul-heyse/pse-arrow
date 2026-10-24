@@ -30,7 +30,9 @@ def require(value: object, code: str) -> None:
         raise RuntimeError(code)
 
 
-def producer() -> dict[str, object]:
+def producer(
+    *, ready: Path | None = None, release: Path | None = None
+) -> dict[str, object]:
     import tempfile  # noqa: PLC0415
     from unittest.mock import patch  # noqa: PLC0415
 
@@ -157,10 +159,29 @@ def producer() -> dict[str, object]:
                     )
                 finally:
                     stream.close()
+                if ready is not None and release is not None:
+                    # The observer receives this actual native owner's locator.
+                    checkpoint = runtime.observations().checkpoint
+                    deadline = time.monotonic() + 60
+                    while not checkpoint.is_file():
+                        require(
+                            time.monotonic() < deadline,
+                            "native_fixture.checkpoint_not_published",
+                        )
+                        time.sleep(0.025)
+                    ready.write_text(
+                        json.dumps({"pid": os.getpid(), "checkpoint": str(checkpoint)})
+                    )
+                    while not release.is_file():
+                        require(
+                            time.monotonic() < deadline,
+                            "native_fixture.observer_did_not_release",
+                        )
+                        time.sleep(0.025)
             finally:
                 runtime.close()
             instance = (
-                dict(lifetime.settings.resource)["service.instance.id"]
+                dict(lifetime.settings.wire.resource)["service.instance.id"]
                 if lifetime.settings is not None
                 else None
             )
@@ -433,9 +454,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--produce", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--ready", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--release", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.produce:
-        print(json.dumps(producer()))
+        if (args.ready is None) != (args.release is None):
+            parser.error("ready and release require each other")
+        print(json.dumps(producer(ready=args.ready, release=args.release)))
         return 0
     if args.output is None:
         parser.error("select a fresh private --output directory")

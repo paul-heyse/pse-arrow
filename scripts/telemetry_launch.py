@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from scripts.telemetry_config import resolve_process
@@ -26,12 +25,11 @@ def configure(root: Path, environment: dict[str, str]) -> None:
         environment.pop(SETTINGS, None)
         environment[STATUS] = "initialization_refused"
         return
-    environment[STATUS] = "disabled" if settings.disabled else "configured"
-    if settings.disabled:
+    wire = settings.wire
+    environment[STATUS] = "disabled" if wire.disabled else "configured"
+    if wire.disabled:
         environment.pop(SETTINGS, None)
     else:
         # Private carrier is omitted by pse-env --print and --explain.
         # The receiving Rust executable mints its own process incarnation.
-        environment[SETTINGS] = json.dumps(
-            settings.native_settings(), separators=(",", ":"), allow_nan=False
-        )
+        environment[SETTINGS] = settings.native_json()

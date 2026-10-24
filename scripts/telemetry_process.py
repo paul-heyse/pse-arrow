@@ -330,19 +330,20 @@ def _compose(owner: ProcessLifetime) -> None:
     settings = owner.settings
     if settings is None:
         return
+    wire = settings.wire
     # Public setters are one-shot. Never replace another application's providers.
     if (
         (
-            settings.traces.enabled
+            wire.traces.enabled
             and not isinstance(trace.get_tracer_provider(), trace.ProxyTracerProvider)
         )
         or (
-            settings.metrics.enabled
+            wire.metrics.enabled
             and not isinstance(metrics.get_meter_provider(), metrics.NoOpMeterProvider)
             and type(metrics.get_meter_provider()).__name__ != "_ProxyMeterProvider"
         )
         or (
-            settings.logs.enabled
+            wire.logs.enabled
             and type(_logs.get_logger_provider()).__name__ != "ProxyLoggerProvider"
         )
     ):
@@ -352,8 +353,8 @@ def _compose(owner: ProcessLifetime) -> None:
     _protect_diagnostic_logging()
     from opentelemetry.exporter.otlp.proto.http import Compression  # noqa: PLC0415
 
-    resource = Resource.create({**dict(settings.resource), "process.pid": os.getpid()})
-    if settings.traces.enabled:
+    resource = Resource.create({**dict(wire.resource), "process.pid": os.getpid()})
+    if wire.traces.enabled:
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import (  # noqa: PLC0415 -- SDK loaded only for selected signal
             OTLPSpanExporter,
         )
@@ -368,12 +369,12 @@ def _compose(owner: ProcessLifetime) -> None:
 
         sampler = (
             ALWAYS_OFF
-            if settings.sampler.endswith("always_off")
-            else TraceIdRatioBased(settings.sampler_argument)
-            if "traceidratio" in settings.sampler
+            if wire.sampler.endswith("always_off")
+            else TraceIdRatioBased(wire.sampler_argument)
+            if "traceidratio" in wire.sampler
             else ALWAYS_ON
         )
-        if settings.sampler.startswith("parentbased"):
+        if wire.sampler.startswith("parentbased"):
             sampler = ParentBased(sampler)
         provider = TracerProvider(
             resource=resource, sampler=sampler, shutdown_on_exit=False
@@ -382,20 +383,20 @@ def _compose(owner: ProcessLifetime) -> None:
         provider.add_span_processor(
             BatchSpanProcessor(
                 OTLPSpanExporter(
-                    endpoint=settings.traces.endpoint,
-                    headers=_protocol_headers(dict(settings.traces.headers)),
-                    timeout=settings.traces.timeout_ms / 1000,
+                    endpoint=wire.traces.endpoint,
+                    headers=_protocol_headers(dict(wire.traces.headers)),
+                    timeout=wire.traces.timeout_ms / 1000,
                     compression=Compression.NoCompression,
-                    session=_export_session(dict(settings.traces.headers)),
+                    session=_export_session(dict(wire.traces.headers)),
                 ),
-                max_queue_size=settings.max_queue_size,
-                max_export_batch_size=settings.max_export_batch_size,
-                schedule_delay_millis=settings.schedule_delay_ms,
-                export_timeout_millis=settings.export_timeout_ms,
+                max_queue_size=wire.max_queue_size,
+                max_export_batch_size=wire.max_export_batch_size,
+                schedule_delay_millis=wire.schedule_delay_ms,
+                export_timeout_millis=wire.export_timeout_ms,
             )
         )
         trace.set_tracer_provider(provider)
-    if settings.logs.enabled:
+    if wire.logs.enabled:
         from opentelemetry.exporter.otlp.proto.http._log_exporter import (  # noqa: PLC0415 -- SDK loaded only for selected signal
             OTLPLogExporter,
         )
@@ -412,16 +413,16 @@ def _compose(owner: ProcessLifetime) -> None:
         logger_provider.add_log_record_processor(
             BatchLogRecordProcessor(
                 OTLPLogExporter(
-                    endpoint=settings.logs.endpoint,
-                    headers=_protocol_headers(dict(settings.logs.headers)),
-                    timeout=settings.logs.timeout_ms / 1000,
+                    endpoint=wire.logs.endpoint,
+                    headers=_protocol_headers(dict(wire.logs.headers)),
+                    timeout=wire.logs.timeout_ms / 1000,
                     compression=Compression.NoCompression,
-                    session=_export_session(dict(settings.logs.headers)),
+                    session=_export_session(dict(wire.logs.headers)),
                 ),
-                max_queue_size=settings.max_queue_size,
-                max_export_batch_size=settings.max_export_batch_size,
-                schedule_delay_millis=settings.schedule_delay_ms,
-                export_timeout_millis=settings.export_timeout_ms,
+                max_queue_size=wire.max_queue_size,
+                max_export_batch_size=wire.max_export_batch_size,
+                schedule_delay_millis=wire.schedule_delay_ms,
+                export_timeout_millis=wire.export_timeout_ms,
             )
         )
         _logs.set_logger_provider(logger_provider)
@@ -432,7 +433,7 @@ def _compose(owner: ProcessLifetime) -> None:
             logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
         logging.getLogger().addHandler(handler)
         owner.handler = handler
-    if settings.metrics.enabled:
+    if wire.metrics.enabled:
         from opentelemetry.exporter.otlp.proto.http.metric_exporter import (  # noqa: PLC0415 -- SDK loaded only for selected signal
             OTLPMetricExporter,
         )
@@ -443,14 +444,14 @@ def _compose(owner: ProcessLifetime) -> None:
 
         reader = PeriodicExportingMetricReader(
             OTLPMetricExporter(
-                endpoint=settings.metrics.endpoint,
-                headers=_protocol_headers(dict(settings.metrics.headers)),
-                timeout=settings.metrics.timeout_ms / 1000,
+                endpoint=wire.metrics.endpoint,
+                headers=_protocol_headers(dict(wire.metrics.headers)),
+                timeout=wire.metrics.timeout_ms / 1000,
                 compression=Compression.NoCompression,
-                session=_export_session(dict(settings.metrics.headers)),
+                session=_export_session(dict(wire.metrics.headers)),
             ),
-            export_interval_millis=settings.metric_export_interval_ms,
-            export_timeout_millis=settings.metrics.timeout_ms,
+            export_interval_millis=wire.metric_export_interval_ms,
+            export_timeout_millis=wire.metrics.timeout_ms,
         )
         meter_provider = MeterProvider(
             resource=resource, metric_readers=[reader], shutdown_on_exit=False
@@ -483,7 +484,7 @@ def bootstrap(
             _STATE.active = ProcessLifetime(None, "configuration_refused")
             return _STATE.active
         owner = ProcessLifetime(settings, "disabled")
-        if settings.disabled:
+        if settings.wire.disabled:
             _STATE.active = owner
             return owner
         try:
@@ -491,7 +492,7 @@ def bootstrap(
             if native and owner.status == "initialized":
                 facade = importlib.import_module("pse._telemetry")
                 owner.native = facade.initialize(
-                    settings.native_settings(), current_carrier
+                    settings.native_json(), current_carrier
                 )
                 if owner.native.activation.get("status") not in {
                     "initialized",

@@ -977,6 +977,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `unknown` | `` | false |
 | `nonfinite` | `` | false |
 
+## `ExecutorRole`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `python` | `` | false |
+| `worker` | `` | false |
+| `canonical_tools` | `` | false |
+
 ## `ExternalDerivativeSource`
 
 | Member | IDAES name | Deprecated |
@@ -2102,6 +2110,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `native_feasibility` | `` | false |
 | `factorable` | `` | false |
 
+## `NativeTaskClass`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `workflow` | `` | false |
+| `math_submission` | `` | false |
+| `math_job` | `` | false |
+
 ## `NativeTermination`
 
 | Member | IDAES name | Deprecated |
@@ -2919,6 +2935,12 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `preserve` | `` | false |
 | `require_equal` | `` | false |
 | `declared_result` | `` | false |
+
+## `TaskMetricsScope`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `selected_process_futures` | `` | false |
 
 ## `TearMethod`
 

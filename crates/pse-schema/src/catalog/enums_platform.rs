@@ -325,6 +325,27 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
 /// Registry projections of the leaf's diagnostic vocabulary.
 pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
     builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::ExecutorRole",
+        pse_diagnostics::ExecutorRole::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::NativeTaskClass",
+        pse_diagnostics::NativeTaskClass::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::TaskMetricsScope",
+        pse_diagnostics::TaskMetricsScope::ALL
+            .iter()
+            .map(|value| member(value.as_str(), value.description()))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::sourced(
         "pse_diagnostics::Relationship",
         pse_diagnostics::Relationship::ALL
             .iter()
@@ -459,6 +480,7 @@ mod tests {
                 pse_diagnostics::Relationship, pse_diagnostics::OperationOutcome, pse_diagnostics::NonFinite, pse_diagnostics::StatementKind, pse_diagnostics::NextObservation, pse_diagnostics::CaptureKind, pse_diagnostics::CaptureStatus, pse_diagnostics::CaptureOutputKind,
                 pse_diagnostics::DiagnosticCode, pse_diagnostics::FailureClass,
                 pse_diagnostics::DiagnosticRule, pse_diagnostics::DiagnosticStage, pse_diagnostics::DiagnosticObservationKind,
+                pse_diagnostics::ExecutorRole, pse_diagnostics::NativeTaskClass, pse_diagnostics::TaskMetricsScope,
                 pse_quantity::Opcode, pse_quantity::ScaleKind, pse_quantity::QuantityAdditionKind,
                 pse_quantity::QuantityKindCategory, pse_quantity::BasisKind,
                 pse_quantity::CompositionBasis, pse_quantity::RateBasis,
@@ -474,7 +496,7 @@ mod tests {
             assert_eq!(declared, expected, "{path}");
         }
         assert_eq!(
-            sourced, 39,
+            sourced, 42,
             "every source-owned vocabulary is declared as sourced"
         );
     }

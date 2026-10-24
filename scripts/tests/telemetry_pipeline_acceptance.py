@@ -625,7 +625,7 @@ def producer(args: argparse.Namespace) -> dict[str, object]:
                         metric_name, unit="1"
                     ).add(3, {"stage": "execute", "pse.fixture.phase": args.phase})
             span.end(end_time=start + index * 1000 + 1_000_000)
-        incarnation = dict(settings.resource)["service.instance.id"]
+        incarnation = settings.wire.resource["service.instance.id"]
     return {
         "trace_id": args.trace_id,
         "span_ids": span_ids,

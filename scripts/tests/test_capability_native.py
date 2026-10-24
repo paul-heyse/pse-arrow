@@ -15,10 +15,11 @@ import io
 import json
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
@@ -258,6 +259,165 @@ class IntactNativeResultTests(unittest.TestCase):
         self.assertEqual(response.omissions, value["omissions"])
 
 
+class DirectDiagnosticReaderTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.pse = Mock(name="pse-reader-fixture")
+        self.codec = Mock(name="pse.codec")
+        self.diagnostics = Mock(name="pse.diagnostics")
+        self.contracts = Mock(name="pse.contracts")
+        self.documents = Mock(name="pse.contracts.documents")
+        self.pse.SCHEMA_SET_FINGERPRINT = "reader-fixture"
+        self.pse.Runtime = Mock(
+            side_effect=AssertionError("reader constructed Runtime")
+        )
+        self.pse.EngineSettings = Mock(
+            side_effect=AssertionError("reader constructed settings")
+        )
+        self.pse.codec = self.codec
+        self.pse.diagnostics = self.diagnostics
+        self.contracts.documents = self.documents
+        self.documents.DiagnosticListRequest = object()
+        self.documents.CheckpointIdentity = object()
+        self.codec.document_builtins = Mock(side_effect=lambda value: value)
+        self.page = {"version": 1, "processes": [], "next": None}
+        self.image = {
+            "process": "actual-target",
+            "locator": {"pid": 123, "start_ticks": 456},
+        }
+        self.diagnostics.list_processes = Mock(return_value=self.page)
+        self.diagnostics.read_checkpoint = Mock(return_value=self.image)
+        modules = patch.dict(
+            sys.modules,
+            {
+                "pse": self.pse,
+                "pse.codec": self.codec,
+                "pse.diagnostics": self.diagnostics,
+                "pse.contracts": self.contracts,
+                "pse.contracts.documents": self.documents,
+            },
+        )
+        modules.start()
+        self.addCleanup(modules.stop)
+
+    def test_discovery_uses_original_reader_and_returns_before_runtime_or_scratch_effects(
+        self,
+    ) -> None:
+        listing = object()
+        with patch.object(native_worker, "decoded", return_value=listing) as decoded:
+            result = native_worker.execute(
+                "diagnostic_processes",
+                {
+                    "schema_set_fingerprint": "reader-fixture",
+                    "request": {"document_version": 1, "after": None, "limit": 16},
+                    "directory": "/exact/diagnostics",
+                },
+                scratch=Path("/not-created-by-read"),
+            )
+        decoded.assert_called_once_with(
+            {"document_version": 1, "after": None, "limit": 16},
+            self.documents.DiagnosticListRequest,
+        )
+        self.diagnostics.list_processes.assert_called_once_with(
+            listing, directory="/exact/diagnostics"
+        )
+        self.assertEqual(result, {"outcome": "observed", "document": self.page})
+        self.pse.Runtime.assert_not_called()
+
+    def test_checkpoint_keeps_optional_expected_identity_at_original_owner(
+        self,
+    ) -> None:
+        identity = {
+            "document_version": 1,
+            "process": "actual-target",
+            "locator": {"pid": 123, "start_ticks": 456},
+        }
+        expected = object()
+        with patch.object(native_worker, "decoded", return_value=expected) as decoded:
+            result = native_worker.execute(
+                "diagnostic_checkpoint",
+                {
+                    "schema_set_fingerprint": "reader-fixture",
+                    "checkpoint": "/exact/checkpoint.json",
+                    "expected": identity,
+                },
+                scratch=Path("/not-created-by-read"),
+            )
+        decoded.assert_called_once_with(identity, self.documents.CheckpointIdentity)
+        self.diagnostics.read_checkpoint.assert_called_once_with(
+            Path("/exact/checkpoint.json"), expected=expected
+        )
+        self.assertEqual(result, {"outcome": "observed", "document": self.image})
+        self.diagnostics.read_checkpoint.reset_mock()
+        with patch.object(
+            native_worker,
+            "decoded",
+            side_effect=AssertionError("decoded absent identity"),
+        ):
+            native_worker.execute(
+                "diagnostic_checkpoint",
+                {
+                    "schema_set_fingerprint": "reader-fixture",
+                    "checkpoint": "/exact/checkpoint.json",
+                },
+                scratch=Path("/not-created-by-read"),
+            )
+        self.diagnostics.read_checkpoint.assert_called_once_with(
+            Path("/exact/checkpoint.json"), expected=None
+        )
+        self.pse.Runtime.assert_not_called()
+
+    def test_checkpoint_owner_refusal_is_not_replaced_with_success_or_fallback(
+        self,
+    ) -> None:
+        self.diagnostics.read_checkpoint.side_effect = ValueError(
+            "original identity mismatch"
+        )
+        with self.assertRaisesRegex(ValueError, "original identity mismatch"):
+            native_worker.execute(
+                "diagnostic_checkpoint",
+                {
+                    "schema_set_fingerprint": "reader-fixture",
+                    "checkpoint": "/exact/checkpoint.json",
+                },
+                scratch=Path("/not-created-by-read"),
+            )
+        self.pse.Runtime.assert_not_called()
+
+    def test_checkpoint_worker_and_host_preserve_all_target_records_or_refuse_whole_detail(
+        self,
+    ) -> None:
+        original = {
+            "outcome": "observed",
+            "document": {
+                "process": "actual-target",
+                "operations": [{"sequence": index} for index in range(101)],
+            },
+        }
+        with (
+            patch.object(
+                native_worker,
+                "worker_request",
+                return_value=("diagnostic_checkpoint", {}),
+            ),
+            patch.object(native_worker, "execute", return_value=original),
+            contextlib.redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(native_worker.main([]), 0)
+        answer = json.loads(output.getvalue())
+        self.assertEqual(answer, original)
+        self.assertEqual(
+            native.intact_result(answer, "native_diagnostic_checkpoint").payload,
+            original,
+        )
+        refused = native.intact_result(
+            {"outcome": "observed", "document": {"target": "x" * (121 << 10)}},
+            "native_diagnostic_checkpoint",
+        )
+        self.assertEqual(refused.payload["outcome"], "detail_refused")
+        self.assertEqual(refused.payload["code"], "pse.native.observation_detail_bound")
+        self.assertNotIn("document", refused.payload)
+
+
 class NativeSchemaTests(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
@@ -294,6 +454,85 @@ class NativeSchemaTests(unittest.TestCase):
                 "$ref",
             ),
             "#/$defs/ProjectReference",
+        )
+
+    def test_direct_diagnostic_readers_retain_original_schemas_and_nullable_identity(
+        self,
+    ) -> None:
+        for name, slug, receiver in (
+            (
+                "native_diagnostic_processes",
+                "diagnostic-process-page",
+                "pse.diagnostics.list_processes",
+            ),
+            (
+                "native_diagnostic_checkpoint",
+                "process-checkpoint",
+                "pse.diagnostics.read_checkpoint",
+            ),
+        ):
+            with self.subTest(operation=name):
+                tool = self.tools[name]
+                self.assertEqual(at(tool.meta, "pse.native", "receiver"), receiver)
+                self.assertEqual(
+                    at(tool.meta, "pse.native", "contracts", "output_document", "slug"),
+                    slug,
+                )
+                self.assertTrue(tool.annotations.read_only_hint)
+                original = self.schemas.document(slug, "output")
+                definitions = original.pop("$defs", {})
+                schema = tool.output_schema
+                assert schema is not None
+                Draft202012Validator.check_schema(schema)
+                self.assertEqual(
+                    at(
+                        schema,
+                        "properties",
+                        "payload",
+                        "oneOf",
+                        0,
+                        "properties",
+                        "document",
+                    ),
+                    original,
+                )
+                self.assertEqual(at(schema, "$defs"), definitions)
+        processes = Draft202012Validator(
+            self.tools["native_diagnostic_processes"].parameters
+        )
+        processes.validate(
+            {"request": {"document_version": 1, "after": None, "limit": 16}}
+        )
+        self.assertFalse(processes.is_valid({"request": {"document_version": 999}}))
+        checkpoint = Draft202012Validator(
+            self.tools["native_diagnostic_checkpoint"].parameters
+        )
+        checkpoint.validate({"checkpoint": "exact.json"})
+        checkpoint.validate({"checkpoint": "exact.json", "expected": None})
+        checkpoint.validate(
+            {
+                "checkpoint": "exact.json",
+                "expected": {
+                    "document_version": 1,
+                    "process": "original-process",
+                    "locator": {"pid": 123, "start_ticks": 456, "executable": None},
+                },
+            }
+        )
+        self.assertFalse(
+            checkpoint.is_valid({"checkpoint": "exact.json", "expected": {}})
+        )
+        self.assertFalse(
+            checkpoint.is_valid(
+                {
+                    "checkpoint": "exact.json",
+                    "expected": {
+                        "document_version": 1,
+                        "process": "original-process",
+                        "locator": {"pid": -1},
+                    },
+                }
+            )
         )
 
     def test_result_inspection_registration_uses_original_directional_rust_contracts(
