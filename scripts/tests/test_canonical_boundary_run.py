@@ -16,6 +16,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from scripts import resource_store
 from scripts.tests import canonical_boundary_run as boundary
 from scripts.tests import plan30_context_overlap_run as overlap
 from scripts.tests import plan50_database_fixture as database_fixture
@@ -62,6 +63,7 @@ class RestartPeerTests(unittest.TestCase):
         self.process = Mock(spec=subprocess.Popen)
         self.process.poll.return_value = None
         self.process.pid = 321
+        self.lifecycle_deadline = boundary.server.lifecycle_deadline
         self.options = {
             "controls_resource": "controls",
             "test_identity": "selected-python-peer",
@@ -389,6 +391,58 @@ class RestartPeerTests(unittest.TestCase):
         self.assertEqual(query.call_args.args, (self.state,))
         self.assertIn("deadline", query.call_args.kwargs)
 
+    def test_restart_reads_actual_filestore_snapshots_under_original_deadline(
+        self,
+    ) -> None:
+        with self.cohort_authority() as (_, snapshots, _, query):
+            store = resource_store.FileStore(self.directory / "actual-registry")
+            for nonce, snapshot in snapshots.items():
+                store.create_invocation(snapshot["declaration"])
+                if "producer" in snapshot:
+                    with store.invocation_edit(nonce) as image:
+                        image["producer"] = snapshot["producer"]
+            for expired in (False, True):
+                query.reset_mock()
+                deadline = time.monotonic() + (-1 if expired else 5)
+                with (
+                    self.subTest(expired=expired),
+                    patch.object(boundary.test_resources, "storage", return_value=store),
+                    patch.object(
+                        boundary.server,
+                        "lifecycle_deadline",
+                        side_effect=self.lifecycle_deadline,
+                    ),
+                    patch.object(
+                        store, "invocation_snapshot", wraps=store.invocation_snapshot
+                    ) as snapshot_read,
+                    patch.object(
+                        boundary.server, "remaining", wraps=boundary.server.remaining
+                    ) as remaining,
+                ):
+                    if expired:
+                        with self.assertRaises(boundary.server.DeadlineExpiredError):
+                            boundary.restart_cohort(
+                                self.state, self.control, self.process, deadline,
+                                self.database, **self.options,
+                            )
+                        snapshot_read.assert_not_called()
+                        query.assert_not_called()
+                        self.assertEqual(remaining.call_count, 1)
+                    else:
+                        boundary.restart_cohort(
+                            self.state, self.control, self.process, deadline,
+                            self.database, **self.options,
+                        )
+                        self.assertEqual(
+                            [call.args for call in snapshot_read.call_args_list],
+                            [("parent",), ("child",)],
+                        )
+                        query.assert_called_once_with(self.state, deadline=deadline)
+                        self.assertEqual(remaining.call_count, 4)
+                    self.assertTrue(
+                        all(call.args == (deadline,) for call in remaining.call_args_list)
+                    )
+
     def test_foreign_creation_retained_reader_and_changed_binding_refuse_before_stop(
         self,
     ) -> None:
@@ -623,8 +677,7 @@ class RestartPeerTests(unittest.TestCase):
         directory = self.directory / "new-journey"
         state = directory / "live"
         control = state / "restart-control"
-        initializer = self.directory / "target/debug/xtask"
-        initializer.parent.mkdir(parents=True)
+        initializer = self.directory / "actual-cargo-artifact"
         initializer.write_text("captured initializer")
         initializer.chmod(0o700)
         events = []
@@ -641,7 +694,25 @@ class RestartPeerTests(unittest.TestCase):
 
         def setup(_):
             self.assertNotIn("CMAKE_TOOLCHAIN_FILE", os.environ)
+            events.append("setup")
             state.mkdir()
+
+        def prepare(extra, environment):
+            self.assertEqual(extra, [])
+            self.assertNotIn("CMAKE_TOOLCHAIN_FILE", environment)
+            environment["PREPARATION_PRIVATE_INPUT"] = "not exported"
+            events.append("prepare")
+            return initializer
+
+        def freeze(source, destination):
+            self.assertEqual(source, initializer)
+            self.assertEqual(destination, directory / "tools.json")
+            events.append("freeze")
+            return initializer
+
+        def capture(*_):
+            events.append("capture")
+            return ["prepared"], self.directory / "worker"
 
         self.process.wait.return_value = 0
         self.process.poll.return_value = 0
@@ -654,9 +725,11 @@ class RestartPeerTests(unittest.TestCase):
         }
         with (
             patch.dict(os.environ, {boundary.test_resources.MARKER: parent}),
-            patch.object(boundary, "ROOT", self.directory),
             patch.object(
-                boundary.reference_run, "freeze_initializer", return_value=initializer
+                boundary.native_tests, "canonical_tools_binary", side_effect=prepare
+            ),
+            patch.object(
+                boundary.reference_run, "freeze_initializer", side_effect=freeze
             ),
             patch.object(
                 boundary.native_operation,
@@ -669,7 +742,7 @@ class RestartPeerTests(unittest.TestCase):
             patch.object(
                 boundary.native_tests,
                 "ordinary_rust_capture",
-                return_value=(["prepared"], self.directory / "worker"),
+                side_effect=capture,
             ),
             patch.object(boundary.server, "setup", side_effect=setup),
             patch.object(boundary.server, "initialize"),
@@ -703,7 +776,11 @@ class RestartPeerTests(unittest.TestCase):
             [call.kwargs["effect"] for call in require.call_args_list],
             ["canonical", "native"],
         )
-        self.assertEqual(events, ["registered", "created"])
+        self.assertEqual(
+            events, ["prepare", "freeze", "capture", "setup", "registered", "created"]
+        )
+        self.assertNotIn("PREPARATION_PRIVATE_INPUT", os.environ)
+        self.assertFalse((self.directory / "target/debug/xtask").exists())
         self.assertNotIn(boundary.test_resources.MARKER, launch.call_args.kwargs["env"])
         self.assertEqual(
             launch.call_args.kwargs["env"]["PSE_SURREAL_STATE"], str(state)

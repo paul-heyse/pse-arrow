@@ -866,6 +866,58 @@ class ManagedRustSelectionTests(unittest.TestCase):
         self.assertEqual(actual, self.worker)
         build.assert_not_called()
 
+    def test_canonical_initializer_uses_actual_artifact_and_selected_profile(self) -> None:
+        environment = {"CALLER_INPUT": "preserved"}
+        original = environment.copy()
+        response = subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps(
+                {
+                    "reason": "compiler-artifact",
+                    "target": {"name": "xtask"},
+                    "executable": str(self.worker),
+                }
+            ),
+        )
+        with patch.object(
+            native_tests.subprocess, "run", return_value=response
+        ) as build:
+            actual = native_tests.canonical_tools_binary(
+                ["--cargo-profile", "producer"], environment
+            )
+        self.assertEqual(actual, self.worker)
+        self.assertFalse((self.root / "target/debug/xtask").exists())
+        command = build.call_args.args[0]
+        self.assertEqual(command[command.index("--bin") + 1], "xtask")
+        self.assertEqual(command[command.index("--features") + 1], "canonical-tools")
+        self.assertEqual(command[command.index("--profile") + 1], "producer")
+        self.assertIn("--locked", command)
+        self.assertEqual(
+            command[command.index("--message-format") + 1], "json-render-diagnostics"
+        )
+        self.assertEqual(environment, original)
+
+    def test_explicit_canonical_initializer_never_falls_back_to_building(self) -> None:
+        with patch.object(native_tests.subprocess, "run") as build:
+            self.assertEqual(
+                native_tests.canonical_tools_binary(
+                    [], {"PSE_CANONICAL_TOOLS": str(self.worker)}
+                ),
+                self.worker,
+            )
+            for path in (self.root / "missing-custom-initializer", self.binary):
+                if path.exists():
+                    path.chmod(0o600)
+                with (
+                    self.subTest(path=path),
+                    self.assertRaisesRegex(ValueError, "PSE_CANONICAL_TOOLS"),
+                ):
+                    native_tests.canonical_tools_binary(
+                        [], {"PSE_CANONICAL_TOOLS": str(path)}
+                    )
+        build.assert_not_called()
+
     def test_managed_filters_precede_libtest_separator_and_cargo_options_stay_in_metadata(
         self,
     ) -> None:

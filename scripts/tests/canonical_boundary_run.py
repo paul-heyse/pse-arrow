@@ -193,7 +193,10 @@ def restart_cohort(
         raise RuntimeError("Restart child is not the exact selected Rust peer")
     store = test_resources.storage()
     for declaration in (parent, child):
-        image = store.invocation_snapshot(declaration["nonce"], deadline=deadline)
+        # Snapshot is an atomic detached read, not a locking store operation.
+        # Keep the original lifecycle clock around it without renewing admission.
+        with server.lifecycle_deadline(deadline):
+            image = store.invocation_snapshot(declaration["nonce"])
         if image["phase"] != "open" or image["declaration"] != declaration:
             raise RuntimeError("Restart cohort invocation is no longer open")
         if declaration is child:
@@ -302,7 +305,7 @@ def restart_journey(directory: Path, test_identity: str) -> None:
     test_resources.require_effect({"test": test_identity}, effect="native")
     directory.mkdir(mode=0o700, parents=True)
     initializer = reference_run.freeze_initializer(
-        Path(os.environ.get("PSE_CANONICAL_TOOLS", str(ROOT / "target/debug/xtask"))),
+        native_tests.canonical_tools_binary([], dict(os.environ)),
         directory / "tools.json",
     )
     state = directory / "live"
