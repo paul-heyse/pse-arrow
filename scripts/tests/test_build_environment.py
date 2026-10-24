@@ -126,6 +126,8 @@ class BuildEnvironmentTests(unittest.TestCase):
                 '{"dist":{"scheduler_url":"http://localhost:12345"}}'
             )
             for extra in (
+                {"SCCACHE_LOG": ""},
+                {"SCCACHE_LOG": "debug"},
                 {"SCCACHE_ERROR_LOG": ""},
                 {"SCCACHE_CONF": str(config)},
                 {"SCCACHE_CONF": str(json_config)},
@@ -138,7 +140,10 @@ class BuildEnvironmentTests(unittest.TestCase):
                 env = build.configure(build.ROOT, original)
                 self.assertEqual(env["RUSTC_WRAPPER"], "")
                 self.assertEqual(env["PSE_NATIVE_COMPILER_CACHE"], "")
-                with self.assertRaisesRegex(ValueError, "disables supervised"):
+                for name in ("SCCACHE_LOG", "SCCACHE_ERROR_LOG"):
+                    if name in original:
+                        self.assertEqual(env[name], original[name])
+                with self.assertRaisesRegex(ValueError, "supervised client compilation"):
                     build.configure(build.ROOT, original, cache="on")
             json_config.write_text('{"client_side_mode":false}')
             selected = build.configure(

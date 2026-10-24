@@ -83,8 +83,10 @@ The shared environment requires sccache client-side compilation, keeping compile
 children inside the invoking operation's supervision. It disables the C/C++ direct
 include shortcut so preprocessing observes newly present headers. The repository's
 `.config/sccache.toml` supplies the default configuration; explicit configurations
-remain supported. Logging or distributed scheduler settings that disable client-side
-compilation cause ordinary builds to use the compiler directly. An explicit cache
+remain supported. The presence of `SCCACHE_LOG` (even an empty value) or a configured
+distributed scheduler disables upstream client-side compilation. The repository also
+restricts `SCCACHE_ERROR_LOG` on this route. These settings cause ordinary builds to use
+the compiler directly; direct managed compiler calls refuse before service admission. An explicit cache
 experiment refuses those settings rather than measuring a different execution mode.
 The local cache remains a trusted build input, not an artifact provenance authority.
 

@@ -24,6 +24,29 @@ ROOT = Path(__file__).resolve().parents[1]
 FOREGROUND_CACHE = "PSE_SCCACHE_FOREGROUND"
 
 
+def cache_mode_problem(root: Path, environment: Mapping[str, str]) -> str | None:
+    """Explain why the selected cache cannot keep compilation in the caller."""
+    if "SCCACHE_LOG" in environment:
+        return "SCCACHE_LOG disables supervised client compilation"
+    if "SCCACHE_ERROR_LOG" in environment:
+        return "SCCACHE_ERROR_LOG is unsupported for supervised client compilation"
+    config_path = Path(environment.get("SCCACHE_CONF", str(root / ".config/sccache.toml")))
+    config_text = config_path.read_text()
+    settings = (
+        json.loads(config_text)
+        if config_path.suffix == ".json"
+        else tomllib.loads(config_text)
+    )
+    if not isinstance(settings, dict):
+        raise ValueError("sccache configuration must be a table")
+    dist = settings.get("dist", {})
+    if not isinstance(dist, dict):
+        raise ValueError("sccache distribution configuration must be a table")
+    if dist.get("scheduler_url") is not None:
+        return "sccache distribution disables supervised client compilation"
+    return None
+
+
 def language_server_environment(environment: Mapping[str, str]) -> dict[str, str]:
     """Project already selected compiler/native state through a filtering LSP bridge.
 
@@ -162,26 +185,11 @@ def configure(
         # include shortcut cannot establish the recorded absence premises.
         env.update(SCCACHE_CLIENT_SIDE="1", SCCACHE_DIRECT="false")
         env.setdefault("SCCACHE_CONF", str(root / ".config/sccache.toml"))
-        config_path = Path(env["SCCACHE_CONF"])
-        config_text = config_path.read_text()
-        cache_settings = (
-            json.loads(config_text)
-            if config_path.suffix == ".json"
-            else tomllib.loads(config_text)
-        )
-        if not isinstance(cache_settings, dict):
-            raise ValueError("sccache configuration must be a table")
-        dist = cache_settings.get("dist", {})
-        if not isinstance(dist, dict):
-            raise ValueError("sccache distribution configuration must be a table")
-        if "SCCACHE_ERROR_LOG" in env or dist.get("scheduler_url") is not None:
-            # Those switches disable client-side compilation in sccache. A
-            # normal build falls back to direct compilation; an explicit cache
-            # experiment reports that its requested conditions cannot hold.
+        if problem := cache_mode_problem(root, env):
+            # Normal builds fall back; explicit experiments refuse a different
+            # execution mode. Keep the caller's diagnostic settings intact.
             if cache == "on":
-                raise ValueError(
-                    "sccache logging/distribution disables supervised client compilation"
-                )
+                raise ValueError(problem)
             env.update(
                 RUSTC_WRAPPER="",
                 RUSTC_WORKSPACE_WRAPPER="",

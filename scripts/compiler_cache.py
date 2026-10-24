@@ -40,6 +40,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts import host_admission as host  # noqa: E402 -- direct-script root routing
 from scripts import native_operation as operation  # noqa: E402 -- script routing
+from scripts import build_environment  # noqa: E402 -- direct-script root routing
 
 
 class CacheSignal(BaseException):
@@ -629,8 +630,8 @@ def supervised_compile(
     )
     child_env.pop("SCCACHE_START_SERVER", None)
     child_env.pop("SCCACHE_STARTUP_NOTIFY", None)
-    if "SCCACHE_ERROR_LOG" in child_env:
-        raise CacheError("SCCACHE_ERROR_LOG disables supervised client compilation")
+    if problem := build_environment.cache_mode_problem(ROOT, child_env):
+        raise CacheError(problem)
     with pidfd(service.pid) as descriptor:
         if not same(service, env):
             raise CacheError("compiler cache service changed during lifetime binding")
@@ -689,6 +690,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 refuse("explicit cache server requires foreground ownership")
             os.execve(str(real_binary(env)), [str(real_binary(env)), *argv], env)  # noqa: S606 -- explicitly selected local cache control
             return 0
+        if problem := build_environment.cache_mode_problem(ROOT, env):
+            refuse(problem)
         service = ensure(env)
         return compile_command(argv, env, service)
     except CacheSignal as interrupted:

@@ -250,6 +250,35 @@ class CompilerCacheTests(unittest.TestCase):
         with pytest.raises(cache.CacheError, match="ELF"):
             cache.real_binary(self.env)
 
+    def test_incompatible_modes_refuse_before_admission_or_compiler_launch(self) -> None:
+        scheduler = self.root / "scheduler.json"
+        scheduler.write_text('{"dist":{"scheduler_url":"http://localhost:12345"}}')
+        for extra in (
+            {"SCCACHE_LOG": ""},
+            {"SCCACHE_LOG": "debug"},
+            {"SCCACHE_ERROR_LOG": ""},
+            {"SCCACHE_CONF": str(scheduler)},
+        ):
+            environment = {**self.env, **extra}
+            with (
+                self.subTest(extra=extra),
+                patch.dict(os.environ, environment, clear=True),
+                patch.object(cache, "ensure") as ensure,
+                patch.object(cache.subprocess, "Popen") as launch,
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
+                assert cache.main(["compiler"]) == 125
+                ensure.assert_not_called()
+                launch.assert_not_called()
+            owner = self.owner()
+            with (
+                patch.object(cache, "same", return_value=True),
+                patch.object(cache.subprocess, "Popen") as launch,
+                pytest.raises(cache.CacheError, match="supervised client compilation"),
+            ):
+                cache.supervised_compile(["compiler"], environment, self.service(owner))
+            launch.assert_not_called()
+
     def test_readiness_requires_actual_executable_group_registration_and_socket_peer(
         self,
     ) -> None:
