@@ -67,9 +67,27 @@ impl Policy {
         Ok(())
     }
 }
+/// One actual library difference, in the diagnostic's normalized coordinates.
+#[derive(Clone,Debug,serde::Serialize)]
+pub struct ComparisonSample {
+    /// Gradient or row Jacobian entry in the original ordered diagnostic inventory.
+    pub label:String,
+    /// Ordered coordinate index; normalization and physical units belong to the caller.
+    pub column:usize,
+    /// Signed displacement selected inside the declared normalized box.
+    pub step:f64,
+    /// Central inside the box, otherwise one-sided inward.
+    pub central:bool,
+    /// Supplied derivative and independently sampled value difference.
+    pub analytic:f64,
+    /// Derivative from the existing finite-difference library.
+    pub numeric:f64,
+}
 /// Numerical sampling evidence; never a proof of global derivative correctness.
 #[derive(Debug)]
 pub struct Report {
+    /// Completed comparisons, including successful entries and partial work before refusal.
+    pub comparisons:Vec<ComparisonSample>,
     /// Library comparison report, absent when no sample completed.
     pub sample: Option<DerivativeTestReport>,
     /// Whether every expected comparison ran without rejection or termination.
@@ -163,7 +181,8 @@ pub fn analyze(
         duals: None,
         solution: None,
     };
-    let sample = bounded_sample(&mut adapter, policy);
+    let mut comparisons=Vec::new();
+    let sample = bounded_sample(&mut adapter, policy, &mut comparisons);
     let terminal = adapter
         .state
         .terminal
@@ -180,6 +199,7 @@ pub fn analyze(
         && expected > 0
         && sample.as_ref().is_some_and(|r| r.checked == expected);
     Ok(Report {
+        comparisons,
         sample,
         complete,
         rejected_evaluations,
@@ -192,7 +212,7 @@ pub fn analyze(
 /// declared normalized step; central differences apply inside the box, and forward
 /// differences point inward at an active bound. No analytic derivative enters the
 /// library's value callback, including for structurally absent entries.
-fn bounded_sample(adapter: &mut Adapter, policy: Policy) -> Option<DerivativeTestReport> {
+fn bounded_sample(adapter: &mut Adapter, policy: Policy, comparisons:&mut Vec<ComparisonSample>) -> Option<DerivativeTestReport> {
     let n = adapter.initial.len();
     let m = adapter.oracle.contract().rows.len();
     let mut x = adapter
@@ -303,6 +323,7 @@ fn bounded_sample(adapter: &mut Adapter, policy: Policy) -> Option<DerivativeTes
         {
             return None;
         }
+        comparisons.push(ComparisonSample {label:format!("grad_f[{column}]"),column,step:signed,central,analytic:gradient[column],numeric:numeric[0]});
         comparison(
             &mut report,
             format!("grad_f[{column:5}]"),
@@ -312,6 +333,7 @@ fn bounded_sample(adapter: &mut Adapter, policy: Policy) -> Option<DerivativeTes
         );
         for row in 0..m {
             if let Some(index) = entries.get(&(row, column)) {
+                comparisons.push(ComparisonSample {label:format!("jac_g[{row},{column}]"),column,step:signed,central,analytic:jacobian[*index],numeric:numeric[row+1]});
                 comparison(
                     &mut report,
                     format!("jac_g [{row:5},{column:5}]"),
@@ -582,5 +604,25 @@ mod tests {
         let free = run(Pair::new(0., 1.));
         assert_eq!(free.sample.as_ref().unwrap().checked, 4);
         assert!(free.complete && free.passed());
+    }
+}
+
+#[cfg(test)]
+mod sensitivity_tests {
+    use super::*;
+    #[test]
+    fn derivative_assertion_sensitivity_preserves_completeness_and_nonempty_evidence() {
+        let report=|complete,checked,suspicious| Report {comparisons:vec![],sample:Some(DerivativeTestReport {checked,suspicious,..Default::default()}),complete,rejected_evaluations:usize::from(!complete),terminal:None,failure:None};
+        // Plausible bad acceptance trusts clean() while ignoring whether sampling
+        // completed and whether it compared anything. The positive case cannot catch it.
+        let wrong=|report:&Report|report.sample.as_ref().is_some_and(DerivativeTestReport::clean);
+        let sufficient=report(true,2,0);
+        assert!(sufficient.passed());assert!(wrong(&sufficient));
+        // Independently required outcomes: incomplete and empty evidence never pass.
+        for counterexample in [report(false,2,0),report(true,0,0)] {
+            assert!(wrong(&counterexample),"the insufficient clean-only assertion misses this fault");
+            assert!(!counterexample.passed(),"actual comparator must reject unavailable evidence");
+        }
+        let suspicious=report(true,2,1);assert!(!wrong(&suspicious));assert!(!suspicious.passed());
     }
 }
