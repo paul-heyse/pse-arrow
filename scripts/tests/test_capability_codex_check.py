@@ -249,7 +249,9 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
             "content": [{"type": "text", "text": json.dumps(result)}]
         }
         completed = {**item, "status": "completed", "result": mcp_result}
-        if tool != "read_resource" and tool != "get_prompt":
+        if tool in {"read_resource", "get_prompt"}:
+            mcp_result["structured_content"] = {"result": json.dumps(result)}
+        else:
             mcp_result["structured_content"] = result
         events.append({"type": "item.completed", "item": completed})
     events.extend(
@@ -438,6 +440,34 @@ class CodexEvidenceTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "exact authorized"):
             check.assess(altered, self.output, self.guide)
+
+    def test_content_projection_retains_complete_json_text_and_refuses_other_shapes(
+        self,
+    ) -> None:
+        document = {"content": "original instruction\n" * 2048, "complete": True}
+        encoded = json.dumps(document)
+        for operation in ("read_resource", "get_prompt"):
+            with self.subTest(operation=operation):
+                self.assertEqual(
+                    check.decoded_result(
+                        {"structured_content": {"result": encoded}},
+                        operation=operation,
+                    ),
+                    document,
+                )
+                for wrong in (
+                    None,
+                    document,
+                    {"result": document},
+                    {"result": encoded, "other": True},
+                ):
+                    with (
+                        self.subTest(wrong=wrong),
+                        self.assertRaises((ValueError, TypeError)),
+                    ):
+                        check.decoded_result(
+                            {"structured_content": wrong}, operation=operation
+                        )
 
     def test_product_reader_requires_actual_typed_wrapper_without_text_fallback(
         self,

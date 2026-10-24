@@ -68,6 +68,29 @@ class RequirementTests(unittest.TestCase):
         )
         self.assertEqual(requirements.scheduling(native.document()), ("scientific", 2))
 
+    def test_result_inspection_declares_only_the_durable_fixture_owner(self) -> None:
+        canonical = (
+            "workflow::result_inspection::canonical_result_inspection_server_unit::"
+            "canonical_readable_wide_result_retains_physical_context_protection_and_exact_ipc"
+        )
+        demand = requirements.rust("pse-runtime::lib", canonical)
+        self.assertEqual(demand, requirements.CANONICAL_NATIVE)
+        self.assertEqual(requirements.scheduling(demand.document()), ("scientific", 2))
+        declarations = {canonical: demand.document()}
+        for effect in ("canonical", "native"):
+            requirements.guard(declarations, canonical, effect)
+        for local in (
+            "workflow::result_inspection::tests::readable_cells_keep_original_ieee_bits_null_and_complete_text",
+            "workflow::result_inspection::tests::field_descriptor_is_the_original_arrow_type_and_metadata",
+            "workflow::result_inspection::canonical_result_inspection_server_unit_neighbor::pure_case",
+        ):
+            with self.subTest(local=local):
+                local_demand = requirements.rust("pse-runtime", local)
+                self.assertEqual(local_demand, requirements.LOCAL)
+                self.assertEqual(
+                    requirements.scheduling(local_demand.document()), (None, 1)
+                )
+
     def test_isolated_database_assertions_do_not_claim_whole_service_quiet(
         self,
     ) -> None:

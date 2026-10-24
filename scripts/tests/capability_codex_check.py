@@ -78,6 +78,13 @@ def decoded_result(result: object, *, operation: str) -> dict[str, object]:
     if envelope.get("is_error") is True or envelope.get("isError") is True:
         raise ValueError("host recorded an MCP error result")
     structured = envelope.get("structured_content", envelope.get("structuredContent"))
+    if operation in {"read_resource", "get_prompt"}:
+        # FastMCP's content projections return JSON text as a primitive string;
+        # their published structured output wraps that string under `result`.
+        selected = object_value(structured)
+        if set(selected) != {"result"} or not isinstance(selected["result"], str):
+            raise ValueError("content projection requires its published string wrapper")
+        return object_value(json.loads(selected["result"]))
     if operation in {"product_run_read", "workspace_concepts_query"}:
         selected = object_value(structured)
         if set(selected) != {"result"}:

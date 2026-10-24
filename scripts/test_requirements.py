@@ -116,6 +116,7 @@ RUST_OWNERS = {
                 "projects_consumer_tests",
                 "result_snapshot::result_pruning_tests",
                 "result_projection",
+                "result_inspection::canonical_result_inspection_server_unit",
                 "study_tests",
                 "study_workbench::canonical_tests",
                 "study_observation",
