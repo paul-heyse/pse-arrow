@@ -9,6 +9,7 @@ import contextlib
 import errno
 import fcntl
 import io
+import importlib.util
 import json
 import os
 import shutil
@@ -32,6 +33,7 @@ from scripts.tests.test_surrealism_module import fixture_module
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
+    from types import ModuleType
     from typing import TextIO
 
 
@@ -1468,6 +1470,97 @@ class SurrealSupervisorTests(unittest.TestCase):
             b"acknowledged fixed operation identity"
         )
         return server.config_for(self.state)
+
+    def frozen_source(self, config: dict[str, object]) -> tuple[Path, ModuleType]:
+        supervisor = server.object_mapping(config["service_supervisor"])
+        script = Path(str(supervisor["supervisor_script"]))
+        spec = importlib.util.spec_from_file_location(
+            "frozen_service_source_fixture", script.parent / "surreal_source.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return script, module
+
+    def test_frozen_config_admits_only_its_verified_bound_runtime(self) -> None:
+        config = self.initialized()
+        script, frozen = self.frozen_source(config)
+        with (
+            patch.object(server, "SCRIPT", script),
+            patch.object(server, "surreal_source", frozen),
+            patch.object(frozen, "build_context", side_effect=AssertionError("compiler scan")),
+        ):
+            self.assertEqual(server.config_for(self.state), config)
+        # The runtime path cannot be selected by a controller outside the tree.
+        with patch.object(server.surreal_source, "admitted_runtime_receipt") as runtime:
+            self.assertEqual(server.config_for(self.state), config)
+        runtime.assert_not_called()
+
+    def test_frozen_config_refuses_wrong_binding_generation_bytes_and_receipt_key(self) -> None:
+        config = self.initialized()
+        script, frozen = self.frozen_source(config)
+        original = json.loads(json.dumps(config))
+        for change in ("script", "sha256", "executable", "effective_key", "captured_bytes"):
+            candidate = json.loads(json.dumps(original))
+            if change == "script":
+                candidate["service_supervisor"]["supervisor_script"] = str(self.state / "fake/scripts/surreal_server.py")
+            elif change == "sha256":
+                candidate["service_supervisor"]["supervisor_sha256"] = "0" * 64
+            elif change == "executable":
+                candidate["service_supervisor"]["supervisor_executable"] = "/different/python"
+            elif change == "effective_key":
+                candidate["server"]["effective_key"] = "0" * 64
+            captured = script.parent.parent / ".cargo/config.toml"
+            before = captured.read_bytes()
+            if change == "captured_bytes":
+                captured.write_bytes(before + b"\n# changed\n")
+            server.write_json(self.state / "config.json", candidate)
+            try:
+                with (
+                    self.subTest(change=change),
+                    patch.object(server, "SCRIPT", script),
+                    patch.object(server, "surreal_source", frozen),
+                    self.assertRaises(server.SupervisorError),
+                ):
+                    server.config_for(self.state)
+            finally:
+                captured.write_bytes(before)
+                server.write_json(self.state / "config.json", original)
+
+    def test_frozen_supervisor_cannot_admit_same_receipt_for_another_state(self) -> None:
+        config = self.initialized()
+        script, frozen = self.frozen_source(config)
+        other = self.root / "other-state"
+        other.mkdir(mode=0o700)
+        server.write_json(other / "config.json", config)
+        with (
+            patch.object(server, "SCRIPT", script),
+            patch.object(server, "surreal_source", frozen),
+            self.assertRaisesRegex(server.SupervisorError, "bound immutable service generation"),
+        ):
+            server.config_for(other)
+
+    def test_frozen_runtime_preserves_actual_binary_digest_check_before_launch(self) -> None:
+        config = self.initialized()
+        script, frozen = self.frozen_source(config)
+        binary = Path(str(server.object_mapping(config["server"])["binary"]))
+        binary.write_bytes(b"changed executable")
+        unit = server.unit_name(self.state)
+        binding = {"group": "/controlled/group", "invocation": "b" * 32, "inode": 1}
+        with (
+            patch.object(server, "SCRIPT", script),
+            patch.object(server, "surreal_source", frozen),
+            patch.object(server._STARTUP, "deadline", time.monotonic() + 30, create=True),
+            patch.object(server, "storage_launch", return_value={"binding": binding}),
+            patch.object(server, "resume_storage_allocation", return_value=self.allocation),
+            patch.object(host, "allocation_metadata", return_value=contextlib.nullcontext({"owners": {self.allocation.nonce: {"units": {unit: binding}}}})),
+            patch.object(server.os, "sched_setaffinity"),
+            patch.object(server, "BoundedLog") as log,
+            self.assertRaisesRegex(server.SupervisorError, "Storage binary differs"),
+        ):
+            # This is the actual pre-launch branch, after frozen config validation.
+            server.serve(self.state)
+        log.assert_not_called()
 
     def check_recovery_probe_retirement(
         self, mode: str, *, unknown_committed: bool = False
