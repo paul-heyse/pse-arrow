@@ -261,6 +261,27 @@ class PreparationCurrencyTests(unittest.TestCase):
                     self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment), 0)
             self.assertEqual(installer.call_count, 4)
 
+    def test_session_transport_changes_reuse_preparation_but_unknown_build_inputs_invalidate(self) -> None:
+        from scripts import native_tests
+
+        first = {**self.environment, **{name: "first-session" for name in python_extension.PREPARATION_SESSION_ENVIRONMENT}}
+        next_call = {**self.environment, **{name: "next-session" for name in python_extension.PREPARATION_SESSION_ENVIRONMENT}}
+        self.assertNotEqual(native_tests.rust_environment_identity(first), native_tests.rust_environment_identity(next_call))
+        self.assertEqual(python_extension.preparation_environment_identity(first), python_extension.preparation_environment_identity(next_call))
+        with patch.object(python_extension.subprocess, "call", return_value=0) as prepare:
+            for environment in (first, next_call):
+                self.assertEqual(python_extension.extension_prepare("dev", "dev", environment), 0)
+                self.assertEqual(python_extension.stubs_prepare("dev", "dev", environment), 0)
+            self.assertEqual(prepare.call_count, 2, "one install and one stub generation cover both sessions")
+            for name in ("PYO3_CONFIG_FILE", "PYO3_ENVIRONMENT_SIGNATURE", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "PKG_CONFIG_PATH", "LD_LIBRARY_PATH", "CODEX_UNKNOWN_BUILD_INPUT", "DIRENV_UNKNOWN_BUILD_INPUT", "UNRECOGNIZED_BUILD_INPUT"):
+                with self.subTest(name=name):
+                    changed = {**next_call, name: "changed-build-selection"}
+                    self.assertNotEqual(python_extension.preparation_environment_identity(next_call), python_extension.preparation_environment_identity(changed))
+            changed = {**next_call, "UNRECOGNIZED_BUILD_INPUT": "changed"}
+            self.assertEqual(python_extension.extension_prepare("dev", "dev", changed), 0)
+            self.assertEqual(python_extension.stubs_prepare("dev", "dev", changed), 0)
+            self.assertEqual(prepare.call_count, 4)
+
     def test_configuration_tools_pyo3_and_installed_replacement_invalidate_currency(self) -> None:
         before = self.inputs()
         config = self.root / "pyo3.txt"

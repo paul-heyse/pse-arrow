@@ -327,6 +327,28 @@ def environment_ensure(environment: Mapping[str, str]) -> int:
     return subprocess.call(command, cwd=ROOT, env=environment)
 
 
+PREPARATION_SESSION_ENVIRONMENT = frozenset({
+    "CODEX_SESSION_ID", "CODEX_THREAD_ID", "CODEX_TOOL_CALL_ID",
+    "DIRENV_DIFF", "DIRENV_WATCHES", "DIRENV_DIR", "DIRENV_FILE",
+})
+
+
+def preparation_environment_identity(environment: Mapping[str, str]) -> dict[str, str]:
+    """Bind build inputs without tool-call and shell restoration bookkeeping.
+
+    Direnv's evaluated exports and local configuration remain inputs. Its diff and
+    watch state describe how to restore the invoking shell, while the Codex
+    identifiers route the invoking session. Unknown variables remain bound.
+    Scientific execution provenance retains its independent full environment.
+    """
+    from scripts import native_tests  # noqa: PLC0415
+
+    return native_tests.rust_environment_identity({
+        name: value for name, value in environment.items()
+        if name not in PREPARATION_SESSION_ENVIRONMENT
+    })
+
+
 def preparation_inputs(
     stage: str, mode: str, profile: str, environment: Mapping[str, str], *, validated: bool
 ) -> dict[str, object] | None:
@@ -386,7 +408,7 @@ def preparation_inputs(
         "schema": "ordinary-editable-inputs-v1", "stage": stage,
         "mode": mode, "profile": profile, "validated": validated,
         "files": files,
-        "environment": native_tests.rust_environment_identity(environment),
+        "environment": preparation_environment_identity(environment),
         "configuration": {name: file_identity(Path(name)) for name in sorted(set(configuration_paths))},
         "interpreter": {"binary": file_identity(selected_python), "configuration": configuration,
                         "venv": file_identity(selected_python.parent.parent / "pyvenv.cfg")},
