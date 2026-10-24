@@ -72,12 +72,19 @@ project invariants, checked when the corresponding command is run manually:
 
 ## Running the check manually
 
-The machinery is all still installed. It reports instead of gating.
+Security and licence checks report through the advisory bundle; unused-dependency
+maintenance also runs strictly in scope-end hygiene.
 
 ```bash
 just deps-report   # advisory: licences, advisories, bans, unused deps. Findings never fail it.
 just policy        # strict: the same checks, exiting non-zero on a finding.
 ```
+
+The routine unused-dependency detector is pinned cargo-shear, with test-target checks
+and warning denial. Inspect its findings against macro expansion, optional features and
+shared path modules before removing a declaration. Precise documented exceptions cover
+confirmed parser limitations; compiler-assisted analysis remains an explicit investigation.
+`just audit-shear` is strict, while `deps-report` preserves advisory finding semantics.
 
 `deny.toml` is that report's configuration. Its `[licenses] allow` list is no longer an
 allowlist — it records the licences a future review has already looked at, so the report

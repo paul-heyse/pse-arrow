@@ -18,9 +18,9 @@ interactive builds keep that feature opt-in.
 
 Each checkout keeps its intermediates in its own `target/`. Cargo's build directory is
 not shared between checkouts: Cargo keys a workspace crate's unit by its
-workspace-relative path and checks freshness by mtime, so a shared directory let one
-worktree reuse another's artifact for different sources (ADR-0122). Across checkouts,
-the shared sccache serves identical compilations.
+workspace-relative path with checkout-local fingerprint state. Content fingerprints do
+not make a shared directory a supported isolation boundary (ADR-0122). Across checkouts,
+the shared sccache can restore eligible identical compilations.
 
 That reuse depends on `CARGO_TARGET_DIR` staying unset. sccache keys every rustc call on
 its `CARGO_*` environment, so an absolute per-checkout target path would make every Rust
@@ -37,9 +37,19 @@ ordinary checkout. A bare `cargo` outside a recipe or an activated direnv keeps 
 its process inherited, possibly another checkout's target directory, so build through the
 recipes.
 
+Cargo uses content freshness on the pinned nightly: `.cargo/config.toml` enables both
+`unstable.checksum-freshness` and `build.fingerprint = "content"`. Identical-byte Rust
+touches and source restorations can remain fresh; changed source and included bytes must
+recompile even when their length and mtime are unchanged. Declared build-script file
+inputs retain Cargo's mtime-based `rerun-if-changed` behavior, and declared environment
+changes still rerun the script. This policy applies to recipes, rust-analyzer and maturin;
+the Python installation context includes these keys. It does not remove meaningful
+compiler, feature, profile or validation differences.
+
 Ordinary local `just` commands and direnv select the versioned managed `sccache`
 declared in `.config/diagnostic-tools.toml`; an unrelated PATH binary does not replace it.
-Install it with `just diagnostic-tools sccache` or `just bootstrap-rust-tools`.
+The current selection is 0.19.0. Install it with `just diagnostic-tools sccache` or
+`just bootstrap-rust-tools`.
 `just doctor` verifies the managed executable's bytes and version and reports the effective
 selection without installing anything. Service admission checks the selected managed bytes
 against the declaration while computing its existing executable-generation identity.
@@ -136,8 +146,12 @@ just bench-builds build/build-measurements/native-workflow --cache on --native -
 
 Every output directory must be new. The runner snapshots dirty and untracked source
 without changing the original index or files. It compiles current compiler/relations
-test targets, or the explicit native selection, then repeats unchanged/private/API
-edits three times by default. `--screen` omits edits and cannot establish total edit
+test targets, or the explicit native selection, then repeats unchanged, identical-byte touch, private and API
+edit cases three times by default. Each snapshot uses its own default `source/target/`;
+the campaign removes inherited target-directory variables and refuses Cargo target or
+intermediate build-directory settings that escape that selected target. Recovery deletes
+only that authenticated snapshot target; a second snapshot has a separate target.
+An edit-probe anchor is checked before the cold build so source refactors fail early. `--screen` omits edits and cannot establish total edit
 feedback latency. `--workflow` creates an isolated Python environment and measures
 extension → compiled stubs → native units repeatedly; those units execute.
 When the selected native units consume the canonical store, select its serving profile and

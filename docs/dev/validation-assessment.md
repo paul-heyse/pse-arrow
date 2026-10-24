@@ -51,6 +51,7 @@ manual qualification.
 | `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
 | `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, the dated nightly at or above the `rust-version` floor, unsafe allowlist, error taxonomy) | nothing about runtime behaviour, or whether the source still compiles on the stable floor |
 | `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
+| `just audit-shear` | at functional scope end through `hygiene` | pinned shear finds no unused declarations, unlinked files or empty test-target warnings, using `--locked --check-test-targets --deny-warnings` | compiler name resolution, macro expansion or all feature/platform correctness |
 | `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory: findings never fail it**, a tool that cannot run does | nothing — it refuses nothing and blocks nothing |
 | `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
 | `just parity` | on demand, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.13.0` | nothing about cases not exercised, or other IDAES versions |
@@ -385,8 +386,11 @@ each gate's command and log path as it starts and one result line as it ends, wi
 20 log lines of an unqualified gate; `--live` (or `PSE_VALIDATION_LIVE=1`) also streams gate
 output (`ready` always does). A signal (SIGINT, SIGTERM, SIGHUP) terminates the running
 gate's process group, records it `interrupted` and the rest `not_run`, and exits 128+N.
-The `audit-*` gates are advisory: findings do not fail `deps-report`, but a tool failure
-does. `policy` runs the same audits as required gates.
+The `audit-*` gates are advisory inside `deps-report`: findings do not fail that bundle,
+but a tool failure does. `policy` runs the same audits as required gates. `hygiene` also
+runs `audit-shear` as required: warning-only findings fail, and malformed or failed tool
+execution cannot count as a clean result. The dependency detector never edits manifests.
+Security and licence reporting retain their separate cargo-audit/cargo-deny owners.
 
 Report completion seals the current assessment's artifacts and outcome. It does not sweep
 unrelated historical scratch or fixture resources. Selected test terminal owners retain their
