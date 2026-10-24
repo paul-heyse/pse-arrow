@@ -6,12 +6,14 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -181,28 +183,54 @@ class PythonExtensionTests(unittest.TestCase):
                             name,
                             side_effect=lambda *_args, _name=name, _events=events, **_kwargs: (
                                 _events.append(_name)
-                                or ({} if _name == "capture" else 0)
+                                or (
+                                    {"binary": "/observed/native.so", "sha256": "observed", "features": []}
+                                    if _name == "capture"
+                                    else python_extension.StageResult(
+                                        stage={"environment_ensure": "environment", "extension_prepare": "prepare", "stubs_prepare": "stubs"}[_name],
+                                        status="prepared",
+                                    )
+                                )
                             ),
                         )
                     )
                 self.assertEqual(
-                    python_extension.run_stages(operation, "dev", "producer", {}), 0
+                    python_extension.run_stages(operation, "dev", "producer", {}).exit_code, 0
                 )
                 self.assertEqual(events, expected)
         with (
-            patch.object(python_extension, "environment_ensure", return_value=0),
-            patch.object(python_extension, "extension_prepare", return_value=17),
+            patch.object(python_extension, "environment_ensure", return_value=python_extension.StageResult(stage="environment", status="reused")),
+            patch.object(python_extension, "extension_prepare", return_value=python_extension.StageResult(stage="prepare", status="failed", exit_code=17)),
             patch.object(python_extension, "stubs_prepare") as stubs,
         ):
-            self.assertEqual(python_extension.run_stages("sync", "dev", "dev", {}), 17)
+            self.assertEqual(python_extension.run_stages("sync", "dev", "dev", {}).exit_code, 17)
             stubs.assert_not_called()
+
+    def test_resolved_cli_prints_typed_result_and_maps_failure_without_relaunch(self) -> None:
+        result = python_extension.PreparationResult(
+            operation="prepare", mode="native", profile="producer", validated=False,
+            stages=[python_extension.StageResult(stage="prepare", status="failed", exit_code=17)],
+            exit_code=17,
+        )
+        output = io.StringIO()
+        with (
+            patch.object(python_extension, "run_stages", return_value=result) as run,
+            patch.object(python_extension, "launch") as launch,
+            redirect_stdout(output),
+        ):
+            code = python_extension.main(["prepare", "native", "producer", "--resolved", "--interactive"])
+        self.assertEqual(code, 17)
+        self.assertEqual(python_extension.PreparationResult.model_validate_json(output.getvalue()), result)
+        self.assertEqual(run.call_args.args[:3], ("prepare", "native", "producer"))
+        self.assertFalse(run.call_args.kwargs["validated"])
+        launch.assert_not_called()
 
     def test_environment_check_preserves_the_separately_installed_project(self) -> None:
         for statuses, count in (([0], 1), ([1, 0], 2), ([1, 17], 2)):
             with patch.object(
                 python_extension.subprocess, "call", side_effect=statuses
             ) as run:
-                self.assertEqual(python_extension.environment_ensure({}), statuses[-1])
+                self.assertEqual(python_extension.environment_ensure({}).exit_code, statuses[-1])
             self.assertEqual(run.call_count, count)
             for call in run.call_args_list:
                 self.assertIn("--inexact", call.args[0])
@@ -337,20 +365,20 @@ class PreparationCurrencyTests(unittest.TestCase):
             python_extension.subprocess, "call", return_value=0
         ) as installer:
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 0
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 0
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(installer.call_count, 1)
             (self.root / "python/pse/module.py").write_text("changed pure Python")
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 0
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(installer.call_count, 1)
             (self.root / "crates/pse-py/src/lib.rs").write_text("changed Rust")
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 0
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(installer.call_count, 2)
             with patch.object(
@@ -360,7 +388,7 @@ class PreparationCurrencyTests(unittest.TestCase):
                     self.assertEqual(
                         python_extension.extension_prepare(
                             "dev", "dev", self.environment
-                        ),
+                        ).exit_code,
                         0,
                     )
             self.assertEqual(installer.call_count, 4)
@@ -386,18 +414,18 @@ class PreparationCurrencyTests(unittest.TestCase):
             patch.object(python_extension, "capture", side_effect=capture),
         ):
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 0
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(events, ["install", "capture"])
             events.clear()
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 0
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(events, ["capture"], "eligible reuse still checks bytes")
             events.clear()
             (self.root / "crates/pse-py/src/lib.rs").write_text("changed Rust")
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 0
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(events, ["install", "capture"])
             events.clear()
@@ -405,10 +433,34 @@ class PreparationCurrencyTests(unittest.TestCase):
                 python_extension, "preparation_inputs", return_value=None
             ):
                 self.assertEqual(
-                    python_extension.extension_prepare("dev", "dev", self.environment),
+                    python_extension.extension_prepare("dev", "dev", self.environment).exit_code,
                     0,
                 )
             self.assertEqual(events, ["install", "capture"])
+
+    def test_owner_results_separate_install_reuse_and_check_without_publication(self) -> None:
+        with patch.object(python_extension.subprocess, "call", return_value=0):
+            prepared = python_extension.extension_prepare("dev", "dev", self.environment)
+            reused = python_extension.extension_prepare("dev", "dev", self.environment)
+            self.assertEqual(prepared.status, "prepared")
+            self.assertTrue(prepared.published)
+            self.assertIsNotNone(prepared.artifact)
+            self.assertEqual(reused.status, "reused")
+            self.assertFalse(reused.published)
+            self.assertEqual(prepared.artifact, reused.artifact)
+            receipt = python_extension.stage_receipt("stubs", self.environment)
+            self.assertFalse(receipt.exists())
+            checked = python_extension.stubs_prepare("dev", "dev", self.environment, check=True)
+            self.assertEqual(checked.stage, "stubs-check")
+            self.assertEqual(checked.status, "checked")
+            self.assertFalse(checked.published)
+            self.assertIsNone(checked.receipt)
+            self.assertFalse(receipt.exists())
+            published = python_extension.stubs_prepare("dev", "dev", self.environment)
+            previous = receipt.read_bytes()
+            self.assertTrue(published.published)
+            python_extension.stubs_prepare("dev", "dev", self.environment, check=True)
+            self.assertEqual(receipt.read_bytes(), previous)
 
     def test_failed_install_has_no_import_and_changed_inputs_cannot_publish(
         self,
@@ -418,7 +470,7 @@ class PreparationCurrencyTests(unittest.TestCase):
             patch.object(python_extension, "capture") as capture,
         ):
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", self.environment), 17
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code, 17
             )
         capture.assert_not_called()
         self.assertFalse(
@@ -433,7 +485,7 @@ class PreparationCurrencyTests(unittest.TestCase):
             patch.object(python_extension.subprocess, "call", side_effect=install),
             self.assertRaisesRegex(ValueError, "inputs changed during preparation"),
         ):
-            python_extension.extension_prepare("dev", "dev", self.environment)
+            python_extension.extension_prepare("dev", "dev", self.environment).exit_code
         self.assertFalse(
             python_extension.stage_receipt("extension", self.environment).exists()
         )
@@ -466,10 +518,10 @@ class PreparationCurrencyTests(unittest.TestCase):
         ) as prepare:
             for environment in (first, next_call):
                 self.assertEqual(
-                    python_extension.extension_prepare("dev", "dev", environment), 0
+                    python_extension.extension_prepare("dev", "dev", environment).exit_code, 0
                 )
                 self.assertEqual(
-                    python_extension.stubs_prepare("dev", "dev", environment), 0
+                    python_extension.stubs_prepare("dev", "dev", environment).exit_code, 0
                 )
             self.assertEqual(
                 prepare.call_count,
@@ -495,9 +547,9 @@ class PreparationCurrencyTests(unittest.TestCase):
                     )
             changed = {**next_call, "UNRECOGNIZED_BUILD_INPUT": "changed"}
             self.assertEqual(
-                python_extension.extension_prepare("dev", "dev", changed), 0
+                python_extension.extension_prepare("dev", "dev", changed).exit_code, 0
             )
-            self.assertEqual(python_extension.stubs_prepare("dev", "dev", changed), 0)
+            self.assertEqual(python_extension.stubs_prepare("dev", "dev", changed).exit_code, 0)
             self.assertEqual(prepare.call_count, 4)
 
     def test_configuration_tools_pyo3_and_installed_replacement_invalidate_currency(
@@ -518,7 +570,7 @@ class PreparationCurrencyTests(unittest.TestCase):
         with patch.object(
             python_extension.subprocess, "call", return_value=0
         ) as installer:
-            python_extension.extension_prepare("dev", "dev", self.environment)
+            python_extension.extension_prepare("dev", "dev", self.environment).exit_code
             with patch.object(
                 python_extension,
                 "capture",
@@ -528,7 +580,7 @@ class PreparationCurrencyTests(unittest.TestCase):
                     "features": ["force-validate"],
                 },
             ):
-                python_extension.extension_prepare("dev", "dev", self.environment)
+                python_extension.extension_prepare("dev", "dev", self.environment).exit_code
             self.assertEqual(installer.call_count, 2)
         self.environment["PYO3_CROSS_LIB_DIR"] = "/untracked/cross"
         self.assertIsNone(self.inputs())
@@ -620,7 +672,7 @@ class PreparationCurrencyTests(unittest.TestCase):
                     self.assertEqual(
                         python_extension.extension_prepare(
                             "native", "dev", environment
-                        ),
+                        ).exit_code,
                         0,
                     )
                     self.assertTrue(
@@ -636,14 +688,14 @@ class PreparationCurrencyTests(unittest.TestCase):
         ) as generator:
             for _ in range(2):
                 self.assertEqual(
-                    python_extension.stubs_prepare("dev", "dev", self.environment), 0
+                    python_extension.stubs_prepare("dev", "dev", self.environment).exit_code, 0
                 )
             self.assertEqual(generator.call_count, 1)
             (self.root / "xtask/src/codegen/python_stubs.rs").write_text(
                 "changed generator"
             )
             self.assertEqual(
-                python_extension.stubs_prepare("dev", "dev", self.environment), 0
+                python_extension.stubs_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(generator.call_count, 2)
             output = (
@@ -653,13 +705,13 @@ class PreparationCurrencyTests(unittest.TestCase):
             output.parent.mkdir(parents=True)
             output.write_text("extra")
             self.assertEqual(
-                python_extension.stubs_prepare("dev", "dev", self.environment), 0
+                python_extension.stubs_prepare("dev", "dev", self.environment).exit_code, 0
             )
             self.assertEqual(generator.call_count, 3)
             self.assertEqual(
                 python_extension.stubs_prepare(
                     "dev", "dev", self.environment, check=True
-                ),
+                ).exit_code,
                 0,
             )
             self.assertIn("--check", generator.call_args.args[0])
@@ -862,7 +914,7 @@ class InstallerGraphTests(unittest.TestCase):
                 "dev",
                 "dev",
                 {"VIRTUAL_ENV": str(python_extension.ROOT / ".venv")},
-            )
+            ).exit_code
         self.assertEqual(child.call_count, 1)
         self.assertEqual(child.call_args.args[0][:2], ["uv", "sync"])
         self.assertIn("--check", child.call_args.args[0])

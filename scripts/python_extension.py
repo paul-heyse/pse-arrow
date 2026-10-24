@@ -13,7 +13,9 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
+
+from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -21,6 +23,40 @@ if TYPE_CHECKING:
 from scripts import arrow_validation
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class ExtensionContract(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+
+class ExtensionArtifact(ExtensionContract):
+    """Host-observed imported artifact identity, not a scientific package schema."""
+
+    binary: str
+    sha256: str
+    features: list[str]
+
+
+Stage = Literal["environment", "prepare", "stubs", "stubs-check", "admit"]
+Mode = Literal["dev", "native"]
+
+
+class StageResult(ExtensionContract):
+    stage: Stage
+    status: Literal["reused", "prepared", "checked", "admitted", "failed"]
+    exit_code: int = 0
+    artifact: ExtensionArtifact | None = None
+    receipt: str | None = None
+    published: bool = False
+
+
+class PreparationResult(ExtensionContract):
+    operation: Literal["sync", "environment", "prepare", "stubs", "stubs-check", "admit"]
+    mode: Mode
+    profile: str
+    validated: bool
+    stages: list[StageResult]
+    exit_code: int
 
 
 def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
@@ -376,12 +412,15 @@ def tool_identity(name: str, environment: Mapping[str, str]) -> dict[str, object
     return file_identity(Path(selected))
 
 
-def environment_ensure(environment: Mapping[str, str]) -> int:
+def environment_ensure(environment: Mapping[str, str]) -> StageResult:
     """Ask uv about the selected locked installation before mutating it."""
     command = ["uv", "sync", "--locked", "--no-install-project", "--inexact"]
     if subprocess.call([*command, "--check"], cwd=ROOT, env=environment) == 0:
-        return 0
-    return subprocess.call(command, cwd=ROOT, env=environment)
+        return StageResult(stage="environment", status="reused")
+    code = subprocess.call(command, cwd=ROOT, env=environment)
+    return StageResult(
+        stage="environment", status="failed" if code else "prepared", exit_code=code
+    )
 
 
 PREPARATION_SESSION_ENVIRONMENT = frozenset(
@@ -536,11 +575,15 @@ def preparation_inputs(
     }
 
 
-def stage_receipt(stage: str, environment: Mapping[str, str]) -> Path:
-    key = hashlib.sha256(str(interpreter(environment).absolute()).encode()).hexdigest()[
-        :20
-    ]
-    return ROOT / "build/python-extension" / key / f"{stage}.json"
+def stage_receipt(
+    stage: str, environment: Mapping[str, str], *, root: Path | None = None
+) -> Path:
+    from scripts import pse_env  # noqa: PLC0415
+
+    selected_root = ROOT if root is None else root
+    selected_python = pse_env.venv(selected_root, environment) / "bin/python"
+    key = hashlib.sha256(str(selected_python.absolute()).encode()).hexdigest()[:20]
+    return selected_root / "build/python-extension" / key / f"{stage}.json"
 
 
 def read_receipt(path: Path) -> dict[str, object]:
@@ -560,7 +603,7 @@ def publish_receipt(path: Path, value: dict[str, object]) -> None:
 
 def extension_prepare(
     mode: str, profile: str, environment: Mapping[str, str], *, validated: bool = True
-) -> int:
+) -> StageResult:
     """Install only when a completed supported preparation no longer applies."""
     command = develop_command(
         ROOT, mode, profile, environment=environment, validated=validated
@@ -585,12 +628,15 @@ def extension_prepare(
             "inputs": inputs,
             "artifact": installed,
         }:
-            return 0
+            return StageResult(
+                stage="prepare", status="reused", receipt=str(path),
+                artifact=ExtensionArtifact.model_validate(installed),
+            )
     if validated:
         command = validated_maturin_command(command, environment)
     result = subprocess.call(command, cwd=ROOT, env=environment)
     if result:
-        return result
+        return StageResult(stage="prepare", status="failed", exit_code=result)
     installed = capture(environment, validated=validated, native=mode == "native")
     after = preparation_inputs(
         "python-extension", mode, profile, environment, validated=validated
@@ -601,7 +647,12 @@ def extension_prepare(
     # RPATH bytes, so raw Cargo-artifact equality is not a currency premise.
     if inputs is not None:
         publish_receipt(path, {"inputs": inputs, "artifact": installed})
-    return 0
+    return StageResult(
+        stage="prepare", status="prepared",
+        artifact=ExtensionArtifact.model_validate(installed),
+        receipt=str(path) if inputs is not None else None,
+        published=inputs is not None,
+    )
 
 
 def stub_outputs() -> dict[str, object]:
@@ -621,7 +672,7 @@ def stubs_prepare(
     *,
     validated: bool = True,
     check: bool = False,
-) -> int:
+) -> StageResult:
     """Independent declaration/tool/binary/output currency for actual API stubs."""
     artifact = capture(environment, validated=validated, native=mode == "native")
     inputs = preparation_inputs(
@@ -630,7 +681,10 @@ def stubs_prepare(
     expected = {"inputs": inputs, "artifact": artifact, "outputs": stub_outputs()}
     path = stage_receipt("stubs", environment)
     if not check and inputs is not None and read_receipt(path) == expected:
-        return 0
+        return StageResult(
+            stage="stubs", status="reused", receipt=str(path),
+            artifact=ExtensionArtifact.model_validate(artifact),
+        )
     command = [
         "cargo",
         "run",
@@ -649,18 +703,26 @@ def stubs_prepare(
     ).command
     result = subprocess.call(command, cwd=ROOT, env=environment)
     if result:
-        return result
+        return StageResult(
+            stage="stubs-check" if check else "stubs", status="failed", exit_code=result
+        )
     if artifact != capture(
         environment, validated=validated, native=mode == "native"
     ) or inputs != preparation_inputs(
         "python-stubs", mode, profile, environment, validated=validated
     ):
         raise ValueError("Python stub inputs changed during generation")
-    if inputs is not None:
+    if inputs is not None and not check:
         publish_receipt(
             path, {"inputs": inputs, "artifact": artifact, "outputs": stub_outputs()}
         )
-    return 0
+    return StageResult(
+        stage="stubs-check" if check else "stubs",
+        status="checked" if check else "prepared",
+        artifact=ExtensionArtifact.model_validate(artifact),
+        receipt=str(path) if inputs is not None and not check else None,
+        published=inputs is not None and not check,
+    )
 
 
 def run_stages(
@@ -670,34 +732,42 @@ def run_stages(
     environment: Mapping[str, str],
     *,
     validated: bool = True,
-) -> int:
-    """Explicit compositions retain four independently callable responsibilities."""
-    if operation in {"sync", "environment"}:
-        result = environment_ensure(environment)
-        if result or operation == "environment":
-            return result
-    if operation in {"sync", "prepare"}:
-        result = extension_prepare(mode, profile, environment, validated=validated)
-        if result or operation == "prepare":
-            return result
-    if operation in {"sync", "stubs", "stubs-check"}:
-        result = stubs_prepare(
-            mode,
-            profile,
-            environment,
-            validated=validated,
-            check=operation == "stubs-check",
-        )
-        if result:
-            return result
-    if operation in {"sync", "admit"}:
-        print(
-            json.dumps(
-                capture(environment, validated=validated, native=mode == "native"),
-                sort_keys=True,
+) -> PreparationResult:
+    """Run selected owner stages in an already resolved environment, without relaunch."""
+    if operation not in {"sync", "environment", "prepare", "stubs", "stubs-check", "admit"}:
+        raise ValueError("unsupported Python preparation stage")
+    if mode not in {"dev", "native"}:
+        raise ValueError("resolved extension mode must be dev or native")
+    stages: list[StageResult] = []
+    selected = (
+        ("environment", "prepare", "stubs", "admit")
+        if operation == "sync" else (operation,)
+    )
+    for stage in selected:
+        if stage == "environment":
+            result = environment_ensure(environment)
+        elif stage == "prepare":
+            result = extension_prepare(mode, profile, environment, validated=validated)
+        elif stage in {"stubs", "stubs-check"}:
+            result = stubs_prepare(
+                mode, profile, environment,
+                validated=validated, check=stage == "stubs-check",
             )
-        )
-    return 0
+        else:
+            result = StageResult(
+                stage="admit", status="admitted",
+                artifact=ExtensionArtifact.model_validate(
+                    capture(environment, validated=validated, native=mode == "native")
+                ),
+            )
+        stages.append(result)
+        if result.exit_code:
+            break
+    return PreparationResult.model_validate({
+        "operation": operation, "mode": mode, "profile": profile,
+        "validated": validated, "stages": stages,
+        "exit_code": stages[-1].exit_code,
+    })
 
 
 def launch(
@@ -848,12 +918,12 @@ def diagnostic_sync(mode: str = "dev") -> int:
     return 0
 
 
-if __name__ == "__main__":
-    if sys.argv[1:2] == ["maturin"]:
-        raise SystemExit(maturin(sys.argv[2:]))
-    if len(sys.argv) == 3 and sys.argv[1] == "diagnostic-sync":
-        raise SystemExit(diagnostic_sync(sys.argv[2]))
-    arguments = sys.argv[1:]
+def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments[:1] == ["maturin"]:
+        return maturin(arguments[1:])
+    if len(arguments) == 2 and arguments[0] == "diagnostic-sync":
+        return diagnostic_sync(arguments[1])
     resolved = "--resolved" in arguments
     validated = "--interactive" not in arguments
     arguments = [
@@ -873,7 +943,13 @@ if __name__ == "__main__":
     operation, mode = arguments[:2]
     profile = arguments[2] if len(arguments) == 3 else "dev"
     if resolved:
-        raise SystemExit(
-            run_stages(operation, mode, profile, dict(os.environ), validated=validated)
+        result = run_stages(
+            operation, mode, profile, dict(os.environ), validated=validated
         )
-    raise SystemExit(launch(operation, mode, profile, validated=validated))
+        print(result.model_dump_json())
+        return result.exit_code
+    return launch(operation, mode, profile, validated=validated)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
