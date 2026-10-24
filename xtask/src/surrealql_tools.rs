@@ -88,7 +88,8 @@ mod tests {
 
     #[test]
     fn parses_surrealism_module_without_loading_its_archive() {
-        assert!(parse_error("DEFINE MODULE mod::probe FROM silo::example::probe::1.0.0 UNSIGNED;").is_none());
+        let source = r#"DEFINE MODULE mod::probe FROM f"fixture:/probe.surli" UNSIGNED; RETURN mod::probe::ping();"#;
+        assert!(parse_error(source).is_none(), "{:?}", parse_error(source));
         assert!(parse_error("RETURN 1;").is_none());
         let info = parser_info().unwrap();
         assert_eq!(info.library, "surrealdb-syn");
