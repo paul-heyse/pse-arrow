@@ -2028,13 +2028,12 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
         let selected_rows = row_order.map(|i| row_ids[i]).to_vec();
         let selected_columns = column_order.map(|i| coordinate_ids[i]).to_vec();
         let executable = service
-            .prepare_modeling_function_products(
+            .prepare_modeling_functions(
                 package.numerical_workspace()?,
                 prepared.model.model.clone(),
                 selected_rows,
                 selected_columns,
                 DerivativeOrder::Second,
-                vec![pse_math::jets::ProductKind::WeightedHessianAction],
                 analysis.compiler,
                 &cancel,
             )
@@ -2083,13 +2082,10 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
                     entries, 3,
                     "both diagonals and the mixed coordinate are present"
                 );
-                let direction = column_order.map(|i| [0.3, -0.7][i]);
-                let mut action = [0.; 2];
-                worker.hessian_product(&base, 0., &weights, &direction, &mut action)?;
-                Ok(((constraints, jacobian, hessian, action), 0))
+                Ok(((constraints, jacobian, hessian), 0))
             },
         )?;
-        let ((values, jacobian, hessian, action), _owner) = handle.finish().await?;
+        let ((values, jacobian, hessian), _owner) = handle.finish().await?;
         // Numerical outputs alone are compared to the closed-form oracle. No
         // production primitive jet participates in the expected assembly.
         let close = |actual: f64, expected: f64| {
@@ -2109,14 +2105,6 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
                     - 3. * expected_hessians[1][column_order[i]][column_order[j]];
                 close(hessian[i][j], expected);
             }
-            let expected_action = (0..2)
-                .map(|j| {
-                    (2. * expected_hessians[0][column_order[i]][j]
-                        - 3. * expected_hessians[1][column_order[i]][j])
-                        * [0.3, -0.7][j]
-                })
-                .sum::<f64>();
-            close(action[i], expected_action);
         }
     }
     Ok(())

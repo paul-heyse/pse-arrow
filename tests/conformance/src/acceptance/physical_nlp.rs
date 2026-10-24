@@ -280,8 +280,8 @@ async fn authored_countercurrent_and_unequal_pressure_variants() {
             .expect("authored variant fixture")
             .declaration_id
             .as_id();
-        // Keep this witness on the actual native route even when the water-only
-        // mixer can be eliminated completely by algebraic presolve.
+        // Preserve native component evidence within the structural schedule; its
+        // final original-space reconstruction can have a Constant outcome.
         let mut settings = profile(Backend::Ipopt, false);
         settings.presolve = pse_backend_native::presolve::Policy::Off;
         let prepared = seed_prepare(
@@ -299,16 +299,24 @@ async fn authored_countercurrent_and_unequal_pressure_variants() {
             "{name}: {:?}",
             report.diagnostic()
         );
-        let Outcome::Native(native) = &report.outcome else {
-            panic!("{name}: actual native solve required; outcome={:?}", report.outcome);
+        let native_reports = match &report.outcome {
+            Outcome::Native(native) => vec![native.as_ref()],
+            Outcome::Constant(original) => {
+                assert!(original.quality.feasible(), "{name}: original-space closure");
+                original.component_reports().collect()
+            }
+            Outcome::Rejected(error) => panic!("{name}: {error:?}"),
         };
-        assert!(
-            native
-                .quality
-                .as_ref()
-                .is_some_and(|quality| quality.feasible()),
-            "{name}"
-        );
+        if name == "heat_exchanger_default_countercurrent" {
+            assert!(!native_reports.is_empty(), "{name}: actual native component required");
+        }
+        for native in native_reports {
+            assert_eq!(native.backend, Backend::Ipopt, "{name}");
+            assert!(
+                native.quality.as_ref().is_some_and(|quality| quality.feasible()),
+                "{name}: native component feasibility"
+            );
+        }
         assert!(
             !report.checks.is_empty(),
             "{name}: actual authored expectations required"
