@@ -59,7 +59,8 @@
 @id("59838f7a6d8c4abb9af8e64d80d7128a") eq measurement[i in t]:regulator.measurement[i]==(reactor[i].outlet.T-300{K})/temperature_driving_force.kelvin_difference();
 @id("62fafb7ccd34404d80dbba16cf533785") eq target[i in t]:regulator.setpoint[i]==5;
 @id("6d4403abffa941aead525214ad3e5d59") eq duty[i in t]:reactor[i].heat==transfer(heat_gain*regulator.output[i],reactor[i].energy_boundary,Into);
-@id("09e0996be231496f9eed2ffe52faf352") eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==reactors.stored_energy(0.0015{m^3},reactor[0{s}].outlet.solvent_density,saponification.component_enthalpy(304.0858373453369{K},chemistry.liquid,chem.water),101325{Pa});
+// Aggregate the selected pure-solvent record to actual density, as the binding does.
+@id("09e0996be231496f9eed2ffe52faf352") eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==reactors.stored_energy(0.0015{m^3},sum(j in saponification.solvents | correlations.constant_density[j,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit].c0),saponification.component_enthalpy(304.0858373453369{K},chemistry.liquid,chem.water),101325{Pa});
 @id("cde9c6a2b91f44b4a273281d506c3fa3") eq initial_inventory[j in solutes]:reactor[0{s}].phase_material_holdup[chemistry.liquid,j]==0.0015{m^3}*initial_outlet[j];
 @id("6a5989f1e66142a699392958a85bb18a") let temperature[i in t]:Temperature=reactor[i].outlet.T;
 @id("9d0459f45eff45a8a6723d5ce7828bb6") let reactant[i in t]:MolarDensity=reactor[i].outlet.concentration[chem.ethyl_acetate];
@@ -105,7 +106,7 @@
 @id("01a0ee3de15373109faad817ab4b2d5c") eq pressure[i in t]:reactor[i].delta_pressure==0{Pa};
 @id("01a0ee3de15373109faad818b4cf01c6") eq duty[i in t]:reactor[i].heat==0{W};
 @id("bc8ac5e38f7142e098f3cf3b9dc35086") when analysis.dynamic {
-@id("01a0ee3de15373109faad819c2a75a0b") eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==reactors.stored_energy(0.0015{m^3},reactor[0{s}].outlet.solvent_density,saponification.component_enthalpy(303.15{K},chemistry.liquid,chem.water),101325{Pa});
+@id("01a0ee3de15373109faad819c2a75a0b") eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==reactors.stored_energy(0.0015{m^3},sum(j in saponification.solvents | correlations.constant_density[j,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit].c0),saponification.component_enthalpy(303.15{K},chemistry.liquid,chem.water),101325{Pa});
 @id("01a0ee3de15373109faad81a921fd677") eq initial_inventory[j in solutes]:reactor[0{s}].phase_material_holdup[chemistry.liquid,j]==0.0015{m^3}*initial_feed[j];
 }
 @id("01a0ee3de15373109faad81b22c3826e") let temperature[i in t]:Temperature=reactor[i].outlet.T;
