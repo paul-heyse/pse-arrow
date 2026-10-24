@@ -8,6 +8,7 @@ import json
 import os
 import re
 import subprocess
+import tomllib
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from scripts import arrow_validation, cargo_tools, validation, validation_scope
@@ -20,7 +21,77 @@ def context(arguments: list[str], branch: bool) -> dict:
     return {"inputs": validation_scope.input_identity("rust-product", validation.sources(ROOT), validation.relevant_environment()),
             "compiler": subprocess.check_output(["rustc", "-Vv"], text=True),
             "tool": cargo_tools.selected_identity("cargo-llvm-cov"),
-            "arguments": arguments, "branch": branch, "exclusions": EXCLUSIONS}
+            "arguments": arguments, "branch": branch, "exclusions": EXCLUSIONS,
+            "instrumentation_environment": {key: value for key, value in os.environ.items()
+                if key in {"LLVM_COV", "LLVM_PROFDATA", "LLVM_COV_FLAGS", "LLVM_PROFDATA_FLAGS", "CARGO_LLVM_COV_FLAGS", "CARGO_LLVM_PROFDATA_FLAGS", "RUSTDOCFLAGS"}
+                or key.startswith(("CARGO_PROFILE_", "NEXTEST_"))},
+            "nextest_configuration": configuration_identity(arguments)}
+
+
+def option(arguments: list[str], names: set[str], default: str) -> str:
+    selected = default
+    for index, argument in enumerate(arguments):
+        key, separator, value = argument.partition("=")
+        if key in names:
+            if not separator:
+                if index + 1 == len(arguments):
+                    raise ValueError(f"missing value for {argument}")
+                value = arguments[index + 1]
+            selected = value
+    return selected
+
+
+def configuration_identity(arguments: list[str]) -> dict:
+    path = Path(option(arguments, {"--config-file"}, str(ROOT / ".config/nextest.toml")))
+    if not path.is_absolute():
+        path = ROOT / path
+    return {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+
+
+def junit_path(arguments: list[str]) -> Path:
+    """Root nextest config owns report placement, independently of LLVM's target.
+
+    Tool-specific config layering is not reconstructed; unsupported layouts retain
+    explicit unavailable population, never an unrelated or old report.
+    """
+    if any(argument.split("=", 1)[0] == "--tool-config-file" for argument in arguments):
+        raise ValueError("tool-specific nextest configuration requires explicit population inspection")
+    config = configuration_identity(arguments)
+    with Path(config["path"]).open("rb") as stream:
+        selected = tomllib.load(stream)
+    profile = option(arguments, {"--profile", "-P"}, "ci")
+    profiles = selected.get("profile", {})
+    default = profiles.get("default", {}).get("junit", {})
+    path = profiles.get(profile, {}).get("junit", {}).get("path", default.get("path"))
+    if not isinstance(path, str):
+        raise ValueError("selected nextest profile has no known JUnit path")
+    store = selected.get("store", {}).get("dir", "target/nextest")
+    return ROOT / store / profile / path
+
+
+def population(raw: bytes) -> list[dict]:
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError as error:
+        raise ValueError("malformed nextest JUnit") from error
+    if root.tag != "testsuites" or not root.get("uuid"):
+        raise ValueError("unsupported nextest JUnit identity")
+    return [{"binary": case.get("classname"), "test": case.get("name"),
+             "outcome": "failed" if case.find("failure") is not None or case.find("error") is not None
+             else "not-run" if case.find("skipped") is not None else "passed"}
+            for case in root.iter("testcase")]
+
+
+def junit_image(path: Path) -> tuple[bytes, tuple[int, ...]]:
+    with path.open("rb") as stream:
+        before = os.fstat(stream.fileno())
+        raw = stream.read()
+        after = os.fstat(stream.fileno())
+    def identity(stat: os.stat_result) -> tuple[int, ...]:
+        return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+    if identity(before) != identity(after):
+        raise ValueError("nextest JUnit changed while being read")
+    return raw, identity(after)
 
 
 def changed_regions(base: str, path: str) -> list[dict[str, int]]:
@@ -36,6 +107,8 @@ def changed_regions(base: str, path: str) -> list[dict[str, int]]:
 
 def line_counts(segments: list[list]) -> dict[int, int]:
     counts: dict[int, int] = {}
+    if not isinstance(segments, list) or any(not isinstance(segment, list) or len(segment) < 6 or any(type(value) is not int or value < 0 for value in segment[:3]) or type(segment[3]) is not bool for segment in segments):
+        raise ValueError("unsupported LLVM segment record")
     for index, segment in enumerate(segments):
         line, column, count, has_count, _entry, *rest = segment
         if not has_count or (len(rest) and rest[0]):
@@ -48,6 +121,12 @@ def line_counts(segments: list[list]) -> dict[int, int]:
 
 
 def correspondence(report: dict, changes: dict[str, list[dict[str, int]]]) -> list[dict]:
+    # Qualified with cargo-llvm-cov 0.9.1 / pinned nightly's LLVM export 3.1.
+    # Unknown protocols must not silently claim changed-path evidence.
+    if not isinstance(report, dict) or report.get("type") != "llvm.coverage.json.export" or report.get("version") != "3.1.0":
+        raise ValueError("unsupported LLVM coverage JSON protocol")
+    if not isinstance(report.get("data"), list) or len(report["data"]) != 1:
+        raise ValueError("expected one merged LLVM coverage export unit")
     files = {str(Path(f["filename"]).resolve()): f for unit in report["data"] for f in unit["files"]}
     rows = []
     for path, regions in sorted(changes.items()):
@@ -69,27 +148,41 @@ def correspondence(report: dict, changes: dict[str, list[dict[str, int]]]) -> li
     return rows
 
 
-def capture(output: Path, arguments: list[str], branch: bool) -> int:
+def capture(output: Path | None, arguments: list[str], branch: bool) -> int:
     output = validation.fresh_output(ROOT, output, "coverage")
     branch = branch or "--branch" in arguments
     arguments = [arg for arg in arguments if arg != "--branch"] or ["--workspace"]
     selected = context(arguments, branch)
-    command = arrow_validation.compose(["cargo", "llvm-cov", "nextest", "--locked", "--profile", "ci",
+    profile = [] if any(arg.split("=", 1)[0] in {"--profile", "-P"} for arg in arguments) else ["--profile", "ci"]
+    command = arrow_validation.compose(["cargo", "llvm-cov", "nextest", "--locked", *profile,
         "--json", "--output-path", str(output/"llvm.json"), "--ignore-filename-regex", EXCLUSIONS,
         *(["--branch"] if branch else []), *arguments])
     env = dict(os.environ, CARGO_LLVM_COV_TARGET_DIR=str(output/"target"))
     record = {"schema": "coverage-correspondence-v1", "context": selected, "command": command,
               "individual_test_attribution": "unknown; selected capture population only", "native_coverage": "opaque"}
+    before = None
+    junit = None
+    try:
+        junit = junit_path(arguments)
+        before = junit_image(junit) if junit.is_file() else None
+    except (OSError, ValueError) as error:
+        record["population_error"] = str(error)
     code = subprocess.run(command, cwd=ROOT, env=env, check=False).returncode
-    junit = output/"target/nextest/ci/junit.xml"
-    population = None
-    if junit.is_file():
-        population = [{"binary": case.get("classname"), "test": case.get("name"),
-                       "outcome": "failed" if case.find("failure") is not None or case.find("error") is not None
-                       else "not-run" if case.find("skipped") is not None else "passed"}
-                      for case in ET.parse(junit).iter("testcase")]
+    executed = None
+    try:
+        if junit is not None:
+            raw, original_identity = junit_image(junit)
+            if before is not None and (raw == before[0] or original_identity == before[1]):
+                raise ValueError("nextest JUnit was not replaced by this capture")
+            executed = population(raw)
+            (output/"population.xml").write_bytes(raw)
+            record["population_sha256"] = hashlib.sha256(raw).hexdigest()
+            record["population_source"] = str(junit)
+            record["population_file_identity"] = original_identity
+    except (OSError, ValueError, ET.ParseError) as error:
+        record["population_error"] = str(error)
     report = output/"llvm.json"
-    record.update(exit_code=code, population=population, population_status="observed" if population is not None else "unavailable",
+    record.update(exit_code=code, population=executed, population_status="observed" if executed is not None else "unavailable",
                   unchanged_during_capture=selected == context(arguments, branch),
                   llvm_sha256=hashlib.sha256(report.read_bytes()).hexdigest() if report.is_file() else None)
     validation.write_json(output/"capture.json", record)
@@ -100,17 +193,21 @@ def capture(output: Path, arguments: list[str], branch: bool) -> int:
 def inspect(directory: Path, base: str) -> dict:
     from scripts import affected
     record = json.loads((directory/"capture.json").read_text())
-    if record.get("schema") != "coverage-correspondence-v1":
+    if not isinstance(record, dict) or record.get("schema") != "coverage-correspondence-v1":
         raise ValueError("unsupported coverage capture")
     current = context(record["context"]["arguments"], record["context"]["branch"])
     fresh = record["unchanged_during_capture"] and record["context"] == current
     raw = (directory/"llvm.json").read_bytes()
     if hashlib.sha256(raw).hexdigest() != record["llvm_sha256"]:
         raise ValueError("coverage report bytes differ from capture")
+    if record.get("population_status") == "observed":
+        original = (directory/"population.xml").read_bytes()
+        if hashlib.sha256(original).hexdigest() != record.get("population_sha256") or population(original) != record["population"]:
+            raise ValueError("executed population differs from captured nextest report")
     changes = {path: changed_regions(base, path) for _, path in affected.changed_files(base)}
     return {"schema": "changed-source-coverage-v1", "capture": str(directory), "fresh": fresh,
             "status": "observed" if fresh and record["exit_code"] == 0 else "stale-or-unsuccessful",
-            "population": record["population"], "exclusions": EXCLUSIONS,
+            "population": record["population"], "population_status": record["population_status"], "exclusions": EXCLUSIONS,
             "regions": correspondence(json.loads(raw), changes) if fresh else [],
             "selection": "conservative dependency reach remains authoritative; coverage never omits tests",
             "limits": ["coverage does not establish assertion adequacy", "merged capture has no individual-test attribution", "opaque native code is unobserved"]}
@@ -120,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
     run = commands.add_parser("capture")
-    run.add_argument("--output", type=Path, required=True)
+    run.add_argument("--output", type=Path)
     run.add_argument("--branch", action="store_true")
     run.add_argument("arguments", nargs=argparse.REMAINDER)
     view = commands.add_parser("report")

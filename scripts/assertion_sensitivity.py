@@ -17,7 +17,74 @@ def classification(outcome: str) -> str:
             "Timeout":"timeout", "Success":"baseline-passed", "Failure":"setup-failed"}.get(outcome,"unknown")
 
 
-def run(path: str, output: Path, arguments: list[str], pattern: str | None, base: str | None, native: bool) -> int:
+def split_arguments(arguments: list[str]) -> tuple[list[str], list[str]]:
+    """Mutants 27.1 trailing args are test-only; -C reaches Build and Test.
+
+    Both phases use nextest, so preserve nextest's Cargo-profile spelling. Exact
+    test packages come from the already validated root graph, not mutated-package
+    defaults, which could silently add an unvalidated test root.
+    """
+    common: list[str] = []
+    tests: list[str] = []
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        key = argument.split("=", 1)[0]
+        if argument == "--":
+            tests.extend(arguments[index:])
+            break
+        package = key in {"-p", "--package", "--exclude", "--workspace", "--all"} or (argument.startswith("-p") and not argument.startswith("--") and len(argument) > 2)
+        compile_option = key in arrow_validation.VALUE | arrow_validation.FLAG | {"--cargo-profile", "--cargo-message-format", "--cargo-quiet", "--cargo-verbose", "--profile", "-P", "--config-file", "--tool-config-file"}
+        if argument.startswith("-F") and len(argument) > 2:
+            compile_option = True
+        # Nextest -j/--jobs are runner width, not Cargo compilation width.
+        if key in {"-j", "--jobs"}:
+            compile_option = False
+        destination = common if compile_option else tests
+        needs_value = key in arrow_validation.VALUE | arrow_validation.NEXTEST_VALUE | {"--cargo-profile", "--cargo-message-format"}
+        if key in {"--workspace", "--all"}:
+            needs_value = False
+        consumed = [argument]
+        if needs_value and "=" not in argument and not (argument.startswith(("-p", "-j", "-F")) and not argument.startswith("--") and len(argument) > 2):
+            index += 1
+            if index == len(arguments):
+                raise ValueError(f"missing value for {argument}")
+            consumed.append(arguments[index])
+        if key in {"--target-dir", "--archive-file", "--binaries-metadata", "--cargo-metadata", "--workspace-remap"}:
+            raise ValueError(f"{key} cannot bypass the isolated mutation copy")
+        if key == "--manifest-path":
+            value = argument.split("=", 1)[1] if "=" in argument else consumed[1]
+            if Path(value).is_absolute() or ".." in Path(value).parts:
+                raise ValueError("mutation manifest must remain inside its owned copy")
+        if not package:
+            destination.extend(consumed)
+        index += 1
+    return common, tests
+
+
+def decode_outcomes(value: object) -> tuple[list[dict], str]:
+    if not isinstance(value, dict) or not isinstance(value.get("outcomes"), list):
+        raise ValueError("unsupported cargo-mutants outcome protocol")
+    rows = value["outcomes"]
+    if any(not isinstance(row, dict) or classification(row.get("summary", "")) == "unknown" or not isinstance(row.get("phase_results"), list) for row in rows):
+        raise ValueError("unknown cargo-mutants scenario outcome")
+    baseline = [row for row in rows if row.get("scenario") == "Baseline"]
+    mutants = [row for row in rows if isinstance(row.get("scenario"), dict) and isinstance(row["scenario"].get("Mutant"), dict)]
+    if len(baseline) != 1 or len(baseline) + len(mutants) != len(rows):
+        raise ValueError("missing or ambiguous unchanged baseline / mutant scenarios")
+    if any(row["summary"] == "Success" or not isinstance(row["scenario"]["Mutant"].get("name"), str) for row in mutants):
+        raise ValueError("mutant lacks a classified assertion challenge")
+    if any(not isinstance(phase, dict) for row in rows for phase in row["phase_results"]):
+        raise ValueError("unknown cargo-mutants phase protocol")
+    status = classification(baseline[0]["summary"])
+    if status == "baseline-passed" and not any(phase.get("phase") == "Test" and phase.get("process_status") == "Success" for phase in baseline[0]["phase_results"]):
+        raise ValueError("unchanged baseline lacks a successful actual test phase")
+    if status == "baseline-passed" and not mutants:
+        raise ValueError("no selected mutants were challenged")
+    return [{"classification": classification(row["summary"]), "original": row} for row in rows], "passed" if status == "baseline-passed" else status
+
+
+def run(path: str, output: Path | None, arguments: list[str], pattern: str | None, base: str | None, native: bool) -> int:
     target=(ROOT/path).resolve()
     target.relative_to(ROOT)
     if not target.is_file() or target.suffix!=".rs" or any(part in {"generated","tests","benches"} for part in target.relative_to(ROOT).parts):
@@ -26,9 +93,12 @@ def run(path: str, output: Path, arguments: list[str], pattern: str | None, base
     tool=cargo_tools.selected_identity("cargo-mutants")
     selection=native_tests.rust_command("run",arguments) if native else ["cargo","nextest","run","--locked",*arguments]
     resolution=arrow_validation.resolve(selection)
-    cargo_arguments=resolution.command[3:]
+    common, test_arguments = split_arguments(resolution.command[3:])
     command=["cargo","mutants","--test-tool","nextest","--baseline","run","--copy-vcs=true",
              "--file",path,"--output",str(output),"--no-shuffle","--timeout","60","--build-timeout","900"]
+    for package in resolution.packages:
+        command += ["--test-package", package]
+    command += ["--cargo-arg=" + argument for argument in common]
     if pattern:
         command += ["--re",pattern]
     if base:
@@ -37,33 +107,30 @@ def run(path: str, output: Path, arguments: list[str], pattern: str | None, base
             raise ValueError("selected production target has no changes; omit --base for an explicit whole-file challenge")
         (output/"selected.diff").write_bytes(patch)
         command += ["--in-diff",str(output/"selected.diff")]
-    command += ["--",*cargo_arguments]
+    command += ["--",*test_arguments]
     record={"schema":"assertion-sensitivity-v1","tool":tool,"command":command,"target":path,
             "correctness_command":resolution.command,"inputs":validation.sources(ROOT),
             "environment":validation.relevant_environment(),"native_requested":native,
             "limits":["a survivor is not automatically equivalent","bounded selected predicates only; no repository score"]}
     validation.write_json(output/"selection.json",record)
     code=subprocess.run(command,cwd=ROOT,env=dict(os.environ),check=False).returncode
-    reports=list(output.glob("**/outcomes.json"))
-    outcome=None
-    if len(reports)==1:
-        outcome=json.loads(reports[0].read_text())
-    rows=outcome.get("outcomes",[]) if isinstance(outcome,dict) else []
-    baseline=[row for row in rows if row.get("scenario")=="Baseline" or row.get("scenario")=={"Baseline":None}]
-    # Keep original tool fields; unknown protocol shapes never become successful mutation evidence.
-    record.update(exit_code=code,raw_outcomes=str(reports[0]) if len(reports)==1 else None,
-        outcomes=[{"classification":classification(row.get("summary","")),"original":row} for row in rows],
-        baseline_status="passed" if any(row.get("summary")=="Success" for row in baseline) else "inspect-original-tool-report",
-        equivalent="not-inferred")
+    report = output / "mutants.out/outcomes.json"
+    record.update(exit_code=code, raw_outcomes=str(report), equivalent="not-inferred",
+                  unchanged_during_run=record["inputs"] == validation.sources(ROOT))
+    try:
+        rows, baseline = decode_outcomes(json.loads(report.read_text()))
+        record.update(outcomes=rows, baseline_status=baseline, protocol_status="observed")
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        record.update(outcomes=[], baseline_status="unavailable", protocol_status="unavailable", protocol_error=str(error))
     validation.write_json(output/"sensitivity.json",record)
     print(output/"sensitivity.json")
-    return code
+    return code or int(record["protocol_status"] != "observed" or record["baseline_status"] != "passed" or not record["unchanged_during_run"])
 
 
 def main(argv:list[str]|None=None)->int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path")
-    parser.add_argument("--output",type=Path,required=True)
+    parser.add_argument("--output",type=Path)
     parser.add_argument("--pattern",help="bounded cargo-mutants regex selection")
     parser.add_argument("--base",help="optional production diff selection")
     parser.add_argument("--native",action="store_true",help="compose selected native test root features; launch through pse-env --native")
