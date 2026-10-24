@@ -505,3 +505,8 @@ attempts, databases and borrower lifetimes remain independently owned. Operation
 deterministic hook instrumentation. Production-shaped Python checks exercise the complementary
 support-absent closure. These changes establish removed setup/embedding work structurally;
 execution-time benefits require separate measurement.
+
+Fresh per-test canonical databases and borrowers register with the existing invocation/resource
+owners and retain the production admission and drain contracts. Isolated execution does not
+create another outcome authority: selected reports and terminal reconciliation remain with the
+established result composer and readers.

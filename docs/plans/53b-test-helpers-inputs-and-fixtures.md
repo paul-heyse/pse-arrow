@@ -1,6 +1,6 @@
 ---
 title: "Plan 53b: Test helpers, inputs and fixtures"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
@@ -79,7 +79,12 @@ The coordinator retains package/inquiry/finding state. The shared input contract
 consumer migration; independent bound-source/refusal/support work proceeds with separate file
 owners. Targeted functional checks only; no new audit, benchmark or repository-health campaign.
 
-## Verification and Outcome — implementation checkpoint 2026-10-24
+## Verification and Outcome — 2026-10-24
+
+**Implemented and Tested:** all B01–B05 producer/consumer migrations, replacement deletions and
+targeted acceptance are complete at the boundaries below. The coordinator owns package and
+finding closure; G01 retains the later joined Plan53 qualification. This companion remains
+referenced by the active series' downstream C/D/F work and publication owner.
 
 **Implemented:** B01's `SourceBody::prepare` owns common bound-source mechanics; callers retain
 their scientific settings, bindings, cancellation and residual expectations. Ten duplicate
@@ -97,7 +102,7 @@ quantity/context control before single-condition mutations assert the intended t
 and dependencies while retaining real `NativeFixture`, factory and capture consumers.
 `canonical-tests` selects participation; `test-support` owns fixture lifetime and deterministic
 hooks. Runtime test closures retain support, while the actual native Python production graph
-does not select it. Required service-dependent lifetime/reader checks remain pending below.
+does not select it. Both support-enabled and support-absent lifetime/reader selections pass below.
 
 **Implemented:** B04's single catalog declares nineteen families. Production bounded package
 reads, typed P0 resolution and the authored parser derive source/data/import closure; exact
@@ -135,16 +140,44 @@ separate selections and are not an additive coverage total.
 | Native `just check-package` selections for compiler/modeling/admission/operations/testkit/runtime/xtask and conformance/benches | Passed affected all-target closures, including `native-acceptance`, `native-process` and `canonical-tests`. Final runtime recheck passed with zero warnings after removing an unused fixture wrapper. |
 | Two local Python cases, `-n 0`, native correctness extension, no-allocation guards | Both passed through `test_run.run_python` with authenticated extension capture and the established invocation/result composer; invocation `42bb174b2292483e9b24497d471a0c4c`. An earlier direct pytest pass is supporting evidence only. |
 | `test_modeling_kernel.py::test_conformance_runs_the_declared_reference_set`, `-n 0`, selected controller preparation and native correctness extension | One passed through `test_run.run_python`; invocation `30bc7580f6f449f5a01d6c9a6b7e4d95`. Authored synthetic pass/fail and manifest refusals remain real controls. |
+| Selected Rust lifetime/cancellation/GDP/MILP/reference command below | Seven passed, zero failed, 1,898 filtered, 68.064 seconds; invocation `6913fe10b8964b7d8bc00d846a394bb5`. Support-enabled runtime/operations closures against the regenerated selected canonical service. |
+| Five selected Python cases below, `-n 0`, native correctness extension, actual freshly built worker binding and `test_run.run_python` | Five passed, zero failed, 119.53 seconds; invocation `5817ed62465b4125bab51e40c73c6ae9`. Two local no-allocation controls and three support-absent production reader/drop journeys against that same service. |
 
-**Pending:** seven selected support-enabled Rust lifetime/cancellation/GDP/MILP/reference controls
-and three complementary support-absent Python reader/drop journeys need an admitted canonical
-service. The selected service's older server receipt refuses current admission before tests
-execute (exit 125). This is a setup failure, not a product pass. The existing service and its
-payloads were preserved until the operator explicitly authorized retirement of legacy server
-contents. The selected service has now been quiesced and stopped through its authenticated
-supervisor; current `fresh-engine` regeneration is in progress in the same selected state.
-Any fixture isolation will use the existing invocation, result and resource owners rather than a
-second result ledger. B03 remains open until both complementary closures are exercised.
+The final Rust selection was:
+
+```bash
+scripts/pse-env --native=solver,klu,isolation,uno,petsc --store -- just unit-package pse-runtime 'test(fixture_lifetime_waits_for_last_store_borrower) | test(fixture_explicit_drain_retains_database_for_runner_disposition) | test(fixture_connections_preserve_deployment_database) | test(canonical_member_transfer_cancellation_keeps_unacknowledged_facts_out_of_graph) | test(authored_gdp_fixture_selects_the_enumerated_alternative) | test(authored_milp_routes_to_highs) | test(conditional_unit_reference_request_declares_original_inventories_and_root_refusal)' -p pse-operations --features pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-operations/canonical-tests
+```
+
+The final Python command was a native/store `scripts/pse-env` invocation of
+`test_run.run_python([sys.executable, '-m', 'pytest', '-n', '0',
+'--basetemp=build/p53b-production-reader-python', ...])`, with authenticated
+`python_extension.capture`/`execution_environment` and the worker artifact from the preceding
+native build bound through `native_tests.worker_binding`. Its exact selected node IDs were:
+
+```text
+python/pse/tests/test_native_workflow.py::test_native_capability_discovery_and_hard_cut
+python/pse/tests/test_canonical_results.py::test_canonical_constructor_preserves_interpretation_and_transport_timeout
+python/pse/tests/test_canonical_results.py::test_canonical_close_preserves_live_result_reader_and_independent_caller
+python/pse/tests/test_canonical_results.py::test_canonical_result_selection_and_progress_reopen
+python/pse/tests/test_canonical_results.py::test_canonical_close_and_idempotent_cache_clear_with_retained_payload
+```
+
+**Tested — outcome reconciliation:** `just result INVOCATION --kind product-test --json` for
+both final durable invocations reports complete terminals, child exit zero, exactly seven/five
+selected outcomes, zero selected-unreported subjects and no report errors. Both use established
+invocation/result/resource owners. Fresh per-test databases and borrowers remain independently
+owned; fixture isolation does not create a second outcome ledger.
+
+The selected service's older server receipt initially refused admission before tests executed
+(exit 125), retained as a setup failure. After explicit operator authorization to discard legacy
+server contents, its authenticated supervisor quiesced/stopped the listener and drained contexts.
+Current `fresh-engine --drained` retired its fixed generated database/payload/context roots in
+the same selected state, reusing the qualified current main server artifact. `just canonical-init`
+installed the current schema and `surreal_server.py start` restored admitted open service.
+No legacy data import or weakened admission guard was used. An unnecessary preparatory server
+build was cancelled; its processes and host allocation drained. Other service states were not
+part of this regeneration.
 
 Mistakes corrected: the ordinary local Rust route initially bypassed scientific preparation;
 preparation now occurs after actual selection and before effects, and its selected controls pass.
@@ -162,3 +195,7 @@ closures are selected without minimality or measured speed/memory claims. The us
 sixteen functional allocation slots retain their existing memory ceilings. No whole-repository
 health, feature powerset, parity, performance campaign or broader Plan53 qualification is claimed;
 A04's independent production-consumer limitations and C–G remain with their owning plans.
+
+**Tested — process closeout:** `scripts/pse-env -- just turn-end` passed ADR indexing and
+formatting. Its unrelated historical resource cleanup attempts retained unsupported old profiles;
+they were not treated as disposed or repaired as part of these functional changes.
