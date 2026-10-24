@@ -45,7 +45,7 @@ class CodexSessionTests(unittest.TestCase):
                 "mcp_servers.pse-capabilities.enabled=false",
                 "spaces $HOME `pwd`",
             ]
-            with patch.object(session.shutil, "which", return_value="/machine/tool"):
+            with patch.object(session.shutil, "which", return_value="/machine/tool"), patch.object(session, "inherited_specialists", return_value=("rust-analyzer", "pse-python", "pse-surreal")):
                 command, description = self.describe(state=state, arguments=literal)
             self.assertEqual(command[-len(literal) :], literal)
             self.assertIn("mcp_servers.pse-capabilities.enabled=true", command)
@@ -72,6 +72,24 @@ class CodexSessionTests(unittest.TestCase):
                 description["capabilities"]["database"]["attached"], "not observed"
             )
             self.assertIn("lazily", description["capabilities"]["database"]["identity"])
+
+    def test_absent_specialists_do_not_create_transportless_disabled_entries(self):
+        with patch.object(session.shutil, "which", return_value="/machine/tool"), patch.object(session, "inherited_specialists", return_value=()):
+            command, _ = self.describe()
+        for name in ("rust-analyzer", "pse-python", "pse-surreal"):
+            self.assertFalse(any(value.startswith("mcp_servers." + name + ".") for value in command))
+
+    def test_standard_config_layers_only_disable_real_legacy_transports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "checkout"
+            root.mkdir()
+            config = Path(directory) / "codex"
+            config.mkdir()
+            (config / "config.toml").write_text('[mcp_servers.rust-analyzer]\ncommand="rust-tool"\n[mcp_servers.unrelated]\nurl="https://example.invalid/mcp"\n')
+            (root / ".codex").mkdir()
+            (root / ".codex/config.toml").write_text('[mcp_servers.pse-python]\ncommand="python-tool"\n[mcp_servers.pse-surreal]\nenabled=false\n')
+            with patch.dict(session.os.environ, {"CODEX_HOME": str(config)}):
+                self.assertEqual(session.inherited_specialists(root), ("pse-python", "rust-analyzer"))
 
     def test_required_database_checks_preparation_without_observing_service(self):
         with patch.object(session.shutil, "which", return_value="/machine/tool"):

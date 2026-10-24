@@ -9,11 +9,36 @@ import json
 import os
 import shutil
 import sys
+import tomllib
 from pathlib import Path
 
 from scripts import diagnostic_trace, pse_env
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def inherited_specialists(root: Path) -> tuple[str, ...]:
+    """Disable actual legacy transports without creating invalid empty entries.
+
+    Codex validates transports even for disabled servers. A dotted enabled=false
+    override for an absent server would create an entry with no transport. Read
+    only the standard local configuration layers; explicit caller overrides
+    remain last and retain their existing precedence.
+    """
+    names = {"rust-analyzer", "pse-python", "pse-surreal"}
+    configured: set[str] = set()
+    home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+    # ROOT is the selected checkout root, not an arbitrary nested cwd. Other
+    # home directories are not config layers when CODEX_HOME is overridden.
+    paths = [home / "config.toml", root / ".codex/config.toml"]
+    for path in dict.fromkeys(paths):
+        if not path.is_file():
+            continue
+        document = tomllib.loads(path.read_text())
+        servers = document.get("mcp_servers", {})
+        if isinstance(servers, dict):
+            configured.update(name for name in names if isinstance(servers.get(name), dict) and ("command" in servers[name] or "url" in servers[name]))
+    return tuple(sorted(configured))
 
 
 def session_description(
@@ -75,12 +100,8 @@ def session_description(
             "PSE_CAPABILITIES_DATABASE": "1" if database else "0",
             "PSE_CAPABILITIES_DATABASE_STATE": str(selected_state.absolute()),
         },
-        # Disable inherited specialist attachments; all useful operations now
-        # share the canonical endpoint and its owned lazy transport lifetime.
-        "mcp_servers.rust-analyzer.enabled": False,
-        "mcp_servers.pse-python.enabled": False,
-        "mcp_servers.pse-surreal.enabled": False,
     }
+    settings.update({"mcp_servers." + name + ".enabled": False for name in inherited_specialists(ROOT)})
     command = [executable, "-C", str(ROOT)]
     for key, value in settings.items():
         if isinstance(value, dict):

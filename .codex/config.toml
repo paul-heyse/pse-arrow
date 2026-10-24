@@ -16,14 +16,6 @@ enabled = true
 default_subagent_model = "gpt-6.1-sol"
 default_subagent_reasoning_effort = "high"
 
-# Use `just codex-session` to select this checkout's maintained navigation bridge.
-# Keep inherited machine registrations disabled for an unselected raw session.
-[mcp_servers.rust-analyzer]
-enabled = false
-
-# The selected-session launcher replaces this disabled transport with a verified
-# endpoint and an identity-fenced header helper. No machine state or port is stored here.
-[mcp_servers.pse-surreal]
-url = "http://127.0.0.1:1/mcp"
-enabled = false
-enabled_tools = ["info", "list", "query"]
+# `just codex-session` selects this checkout's canonical attachment and disables
+# actual inherited specialist transports. Do not declare empty disabled servers:
+# Codex validates their transport even when enabled=false.
