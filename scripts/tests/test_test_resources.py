@@ -9,7 +9,6 @@ import contextlib
 import fcntl
 import json
 import os
-import subprocess
 import tempfile
 import threading
 import unittest
@@ -462,7 +461,41 @@ class TestResourceTests(unittest.TestCase):
         with self.assertRaises(resources.ResourceError):
             resources.cli_json("[null]", database="fixture")
 
-    def test_cleanup_requires_exact_complete_success_without_diagnostics(self) -> None:
+    def test_namespace_sql_preserves_exact_context_and_explicit_statement_errors(self) -> None:
+        config = {"credentials_file": str(self.state / "credentials.json")}
+        query = "// retained comment\nRETURN '// literal';"
+        ok = {"status": "OK", "result": None}
+        error = {"status": "ERR", "result": "fixture refusal"}
+        with patch.object(surreal_server, "administrative_results", return_value=[ok]) as transport:
+            self.assertEqual(resources.namespace_sql(config, query), [None])
+            self.assertEqual(transport.call_args.args[1], query)
+            self.assertFalse(transport.call_args.kwargs["select_context"])
+            self.assertIsNone(transport.call_args.kwargs["namespace"])
+        ack = {"status": "OK", "result": {"namespace": "owned", "database": None}}
+        with patch.object(surreal_server, "administrative_results", return_value=[ack, ok, error]) as transport:
+            self.assertEqual(resources.namespace_sql(config, query, namespace="owned"), [None, "fixture refusal"])
+            self.assertEqual(transport.call_args.args[1], "USE NS `owned`;\n" + query)
+            self.assertFalse(transport.call_args.kwargs["select_context"])
+            self.assertIsNone(transport.call_args.kwargs["namespace"])
+        with patch.object(surreal_server, "administrative_results", return_value=[ok]) as transport:
+            resources.namespace_sql(config, query, namespace="owned", database="fixture")
+            self.assertEqual(transport.call_args.args[1], query)
+            self.assertEqual(transport.call_args.kwargs["namespace"], "owned")
+            self.assertEqual(transport.call_args.kwargs["database"], "fixture")
+            self.assertTrue(transport.call_args.kwargs["select_context"])
+
+    def test_namespace_only_requires_its_exact_selection_acknowledgment(self) -> None:
+        config = {"credentials_file": str(self.state / "credentials.json")}
+        for acknowledgment in ({"namespace": "other", "database": None},
+                               {"namespace": "owned", "database": "implicit"}, None):
+            with patch.object(surreal_server, "administrative_results", return_value=[
+                {"status": "OK", "result": acknowledgment}, {"status": "OK", "result": None}]), self.assertRaises(resources.ResourceError):
+                resources.namespace_sql(config, "RETURN 1;", namespace="owned")
+        with patch.object(surreal_server, "administrative_results") as transport, self.assertRaises(resources.ResourceError):
+            resources.namespace_sql(config, "RETURN 1;", database="fixture")
+        transport.assert_not_called()
+
+    def test_cleanup_requires_exact_complete_root_acknowledgment(self) -> None:
 
         credentials = self.root / "credentials.json"
         credentials.write_text('{"username":"control","password":"not-a-live-secret"}')
@@ -473,26 +506,14 @@ class TestResourceTests(unittest.TestCase):
             "namespace": "pse",
         }
         record = {"state": str(self.state), "database": "canonical_test_" + "a" * 32}
-        for stdout, stderr, code in (
-            ("pse> [null, null]\npse> ", "", 0),
-            ("pse> [null]\npse> ", "query failed", 0),
-            ("pse> [null]\npse> ", "", 1),
-        ):
+        for values in ([None, None], ["query failed"], []):
             with (
-                self.subTest(stdout=stdout, stderr=stderr, code=code),
-                patch.object(
-                    resources.subprocess,
-                    "run",
-                    return_value=subprocess.CompletedProcess([], code, stdout, stderr),
-                ),
+                self.subTest(values=values),
+                patch.object(resources, "namespace_sql", return_value=values),
                 self.assertRaises(resources.ResourceError),
             ):
                 resources.remove_database(record, config)
-        with patch.object(
-            resources.subprocess,
-            "run",
-            return_value=subprocess.CompletedProcess([], 0, "pse> [null]\n\npse> ", ""),
-        ):
+        with patch.object(resources, "namespace_sql", return_value=[None]):
             resources.remove_database(record, config)
 
     def test_failure_after_drop_retains_database_and_controls(self) -> None:

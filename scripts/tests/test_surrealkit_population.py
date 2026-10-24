@@ -99,6 +99,10 @@ class PopulationTests(unittest.TestCase):
 
         with patch.object(resources, "namespace_sql", side_effect=observed):
             tool.populate(resource)
+        schema = (tool.ROOT / tool.GENERATED_SCHEMA).read_text()
+        self.assertIn(schema, self.queries)
+        self.assertLess(self.queries.index("DEFINE DATABASE `representative_v1`;"),
+                        self.queries.index(schema))
 
     def test_interrupted_after_submit_stays_pinned_and_recovery_only_reads_original(self) -> None:
         resource = tool.provision(self.state)
