@@ -521,6 +521,8 @@ mod tests {
         contract: crate::OracleContract,
         pattern: faer::sparse::SparseColMat<usize, f64>,
         bounds: Vec<(f64, f64)>,
+        offset: f64,
+        jacobian_scale: f64,
     }
     impl Pair {
         fn new(lower: f64, upper: f64) -> Self {
@@ -550,6 +552,8 @@ mod tests {
                 )
                 .unwrap(),
                 bounds: vec![(1., 1.)],
+                offset: 0.,
+                jacobian_scale: 1.,
             }
         }
     }
@@ -574,11 +578,11 @@ mod tests {
             Ok(())
         }
         fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-            out[0] = x[0] * x[1];
+            out[0] = x[0] * x[1] + self.offset;
             Ok(())
         }
         fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-            out.copy_from_slice(&[x[1], x[0]]);
+            out.copy_from_slice(&[self.jacobian_scale * x[1], self.jacobian_scale * x[0]]);
             Ok(())
         }
         fn hessian(
@@ -589,6 +593,31 @@ mod tests {
             _: &mut [f64],
         ) -> Result<(), ProblemError> {
             Err(ProblemError::Contract("first-order sample".into()))
+        }
+    }
+    #[test]
+    fn declared_step_resolves_offset_cancellation_without_hiding_wrong_derivatives() {
+        let run = |perturbation, jacobian_scale| {
+            let mut oracle = Pair::new(0., 2.);
+            // At the sampled point both exact row partials are one. The large
+            // independent offset exercises cancellation in value differences.
+            oracle.offset = 10_000_000.;
+            oracle.jacobian_scale = jacobian_scale;
+            analyze(Box::new(oracle), vec![1., 1.], Normalization::identity(2, 1), Policy {
+                perturbation, relative_tolerance: 1e-4, maximum_cells: 4,
+            }, Execution::new(pse_diagnostics::Cancellation::new(false), &Default::default())).unwrap()
+        };
+        let cancelled = run(1e-6, 1.);
+        assert!(cancelled.complete);
+        assert!(!cancelled.passed());
+        assert_eq!(cancelled.sample.as_ref().unwrap().suspicious, 2);
+        for step in [5e-5, 1e-4] {
+            let resolved = run(step, 1.);
+            assert!(resolved.passed(), "{}", resolved.summary());
+            let wrong = run(step, 0.99);
+            assert!(wrong.complete);
+            assert!(!wrong.passed());
+            assert_eq!(wrong.sample.as_ref().unwrap().suspicious, 2);
         }
     }
     /// A coordinate its box fixes (equal bounds, as an authored `bounds x(T, T)` gives) has

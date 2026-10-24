@@ -2319,46 +2319,56 @@ impl ModelingPackage {
                 .await
             {
                 Ok(_) => return Ok(Some(false)),
-                Err(error) if range_rejected(&error, source.as_id()) => {}
+                Err(error) if range_rejected(&error, source.as_id(), range.target) => {}
                 Err(error) => return Err(error),
             }
         }
         Ok(Some(true))
     }
 }
-fn range_rejected(error: &WorkflowError, source: SemanticId) -> bool {
-    fn math(e: &pse_math::MathError, s: SemanticId) -> bool {
-        match e {
-            pse_math::MathError::Domain { source_id, .. }
-            | pse_math::MathError::OutsideRange { source_id, .. } => *source_id == s,
-            // A closure range's rejection names its annotation (Plan 23 H5).
-            pse_math::MathError::Validity(lineage) => lineage.source == s,
-            pse_math::MathError::Instance { cause, .. } => math(cause, s),
-            _ => false,
-        }
-    }
-    fn runtime(e: &MathRuntimeError, s: SemanticId) -> bool {
-        match e {
-            MathRuntimeError::Math(e) => math(e, s),
-            MathRuntimeError::Solve(pse_backend_native::ProblemError::Math(e)) => math(e, s),
-            MathRuntimeError::Compile(pse_compiler::workspace::CompileError::Math(e)) => math(e, s),
-            MathRuntimeError::Shared(e) => runtime(e, s),
-            MathRuntimeError::Strategy { cause, .. }
-            | MathRuntimeError::StrategyTraceUnavailable { cause, .. } => runtime(cause, s),
-            _ => false,
-        }
-    }
-    match error {
-        WorkflowError::Math(e) => runtime(e, source),
-        WorkflowError::Shared(e) => range_rejected(e, source),
-        _ => false,
-    }
+fn range_rejected(error: &WorkflowError, source: SemanticId, target: SemanticId) -> bool {
+    // Executable bodies use local checked tokens. The bound diagnostic owns their
+    // correspondence to original annotations and scalar members; inspecting the
+    // innermost MathError directly loses that instance binding.
+    error.boundary_diagnostic().validity.is_some_and(|lineage| {
+        lineage.layer == pse_model::generated::enums::ModelingValidityLayer::Closure
+            && lineage.source == source
+            && lineage.members == [target]
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::workflow::DurabilitySelection;
+    #[test]
+    fn envelope_rejection_matches_bound_original_source_and_member() {
+        use pse_model::diagnostic::ValidityLineage;
+        use pse_model::generated::enums::ModelingValidityLayer;
+        let id = |n| SemanticId::from_bytes([n; 16]);
+        let token_source = id(1);
+        let token_member = id(2);
+        let source = id(3);
+        let target = id(4);
+        let error = |layer| WorkflowError::Math(MathRuntimeError::Math(
+            pse_math::MathError::Instance {
+                instance: id(5),
+                checked_sources: BTreeMap::from([(token_source, source)]),
+                checked_members: BTreeMap::from([(token_member, target)]),
+                occurrences: BTreeMap::new(),
+                cause: Box::new(pse_math::MathError::Validity(Box::new(ValidityLineage {
+                    layer, source: token_source, form: None, sets: vec![],
+                    variables: vec![], members: vec![token_member],
+                }))),
+            },
+        ));
+        let closure = error(ModelingValidityLayer::Closure);
+        assert!(range_rejected(&closure, source, target));
+        assert!(!range_rejected(&closure, token_source, token_member));
+        assert!(!range_rejected(&closure, id(6), target));
+        assert!(!range_rejected(&closure, source, id(6)));
+        assert!(!range_rejected(&error(ModelingValidityLayer::Form), source, target));
+    }
     #[derive(Clone, Default, Debug)]
     struct ProbeState {
         entered: BTreeSet<DeclarationId>,
