@@ -945,6 +945,13 @@ borrowers or changed current-version backup inventories refuse recovery. Current
 restore retains its backup and exact export/copy ownership contract; it is independent of
 fresh design-phase regeneration.
 
+Interrupted listener publication retains its authoritative supervisor/unit acknowledgement;
+failure closure never replaces it with an older caller snapshot. Recovery recognizes a lost
+unit acknowledgement only from the exact private declaration and independent shutdown proof.
+An interrupted initializer's private listener marker and pending owner may authenticate an
+unbound generation solely to confirm drain. That temporary interpretation cannot execute or
+readmit the generation, and changed, foreign or incomplete evidence keeps ownership protected.
+
 ## Targeted fixture controls
 
 ```bash

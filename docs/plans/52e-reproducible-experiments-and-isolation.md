@@ -193,7 +193,12 @@ Initial failed setup/replay artifacts retain their original partial outcomes rat
 manufactured terminal records. The actual database consumer additionally exposed frozen
 supervisor receipt checks incorrectly interpreting build-configuration paths relative to a
 runtime snapshot. Verified generations now authenticate their closed build receipt without
-weakening main-checkout configuration checks or full launch revalidation.
+weakening main-checkout configuration checks or full launch revalidation. A second initialization
+failure exposed a stale caller snapshot rolling back the published supervisor and unit-file
+acknowledgement. Failure closure now refreshes authoritative configuration. Lost materialization
+acknowledgements require exact private unit bytes and independently drained ownership; the
+interrupted initializer's private marker can authenticate an unbound generation for drain only,
+without persisting or executing that reconstructed selection.
 
 **Deliberate limits:** deterministic regeneration is selected over logical restore and physical
 store copying. Native archival is unselected until a concrete investigation justifies complete

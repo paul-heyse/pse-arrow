@@ -291,7 +291,8 @@ access and native structured knowledge. ADR-0222 preceded the new family; bluepr
 owns enduring meaning, while formal ADR status stays proposed. B05 selected structured access
 with lexical discovery and retired the unused model helper after its bounded comparison.
 FastMCP4.1.3/MCP2.3.0 are installed and exercised. The subsequent 52c/52d checkpoint below owns their delivery and execution limit. Other FND00/G01
-obligations and Plan52e–52h remain planned, including assembled qualification and scope-end hygiene/manual checks.
+obligations and Plan52f–52h remain planned, including assembled qualification and scope-end hygiene/manual checks.
+The subsequent 52e checkpoint below owns that authorized execution.
 No whole-series or productivity/performance claim follows from these targeted checks.
 
 ### Owner-selected structured-query pivot
@@ -329,5 +330,19 @@ original reproduction remains exact. RC03's narrower reuse unit is published at 
 Test Assessment1.2 guided execution without reopening settled reviews. I05 selects existing
 Proptest sequences. I06 records actual native/schedule outcomes independently. I07 selects parsed
 TOML equivalence only inside the closed context. Their details and revisit triggers live at their
-companion owners. Other FND00/G01 obligations and 52e–52h stay planned; full powerset, hygiene/manual
+companion owners. Other FND00/G01 obligations and 52f–52h stay planned; full powerset, hygiene/manual
 checks, assembled qualification and any performance/productivity benefit remain unestablished.
+
+### 52e execution checkpoint — 2026-10-24
+
+E01–E04 are authorized; [52e's Outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24)
+owns selected historical replay and retention, actual semantic Git bisection, retained inconclusive
+comparison and optional Bubblewrap/server/library parser consumers. Native archival and Podman
+remain unselected under the recorded revisit conditions. FND00 required no new runtime document
+family for these existing-owner tooling records.
+
+E02's named populations and settlement controls are implemented. Actual fresh-service acceptance
+has repaired immutable receipt context, interrupted publication and drain recovery, and is now
+qualifying full-schema transport and explicit database setup. Its package remains in progress
+until actual isolated populations, permission/query checks and cleanup complete. Other FND00/G01
+obligations, C04's separately recorded denial boundary and Plan52f–52h retain their scope.
