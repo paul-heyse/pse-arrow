@@ -40,12 +40,12 @@ class ToolingExperimentTests(unittest.TestCase):
         self.output = self.root / "output"
         self.calls = []
 
-    def invoke(self) -> tuple[int, dict]:
+    def invoke(self, *, library_parser: bool = False) -> tuple[int, dict]:
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
             code = tooling.main([
                 "surrealql-validate", "--input", str(self.source), "--output", str(self.output),
-                "--server-receipt", str(self.receipt),
+                *( ["--parser-binary", str(self.binary)] if library_parser else ["--server-receipt", str(self.receipt)] ),
             ])
         return code, json.loads(stdout.getvalue())
 
@@ -89,6 +89,65 @@ class ToolingExperimentTests(unittest.TestCase):
         self.assertIn('/tool/surreal validate "$@"', command[command.index("-c") + 1])
         self.assertFalse(any(path.name.startswith(".probe-") for path in self.output.iterdir()))
         self.assertTrue((self.output / "server-receipt.json").is_file())
+        self.assertEqual(result["parser"]["selection"], "server-cli")
+        self.assertEqual(result["parser"]["syntax_profile"], "server-cli-experimental-grammar-disabled")
+
+    def parser_report(self, *, valid: bool = True) -> dict:
+        return {
+            "schema": "surrealql-validation-v1", "valid": valid,
+            "parser": {"library": "surrealdb-syn", "version": "compiled-version", "syntax_profile": "all-features", "scope": "parse-only"},
+            "files": [{"input": "/inputs/input-000.surql", "valid": valid,
+                       "error": None if valid else {"kind": "syntax", "message": "Parse error: exact library diagnostic"}}],
+        }
+
+    def test_explicit_library_parser_preserves_metadata_errors_and_exact_binary(self) -> None:
+        self.binary.chmod(0o500)
+        expected = self.parser_report(valid=False)
+
+        def library(command, output, label, work, deadline):
+            observed = self.staged(command, output, label, work, deadline)
+            if label == "parser":
+                (output / "parser.stdout.txt").write_text(json.dumps(expected))
+                observed["exit_code"] = 1
+            return observed
+
+        with self.configured(library), patch.object(tooling, "admitted_server", side_effect=AssertionError("server route selected")):
+            code, result = self.invoke(library_parser=True)
+        self.assertEqual(code, 1)
+        self.assertEqual(result["outcome"], "invalid")
+        self.assertEqual(result["validation"], expected)
+        self.assertEqual(result["parser"]["selection"], "library-parser")
+        self.assertEqual(result["parser"]["reported"]["version"], "compiled-version")
+        self.assertEqual(result["parser"]["binary_sha256"], self.release["binary_sha256"])
+        self.assertNotIn("server", result)
+        self.assertFalse((self.output / "server-receipt.json").exists())
+        command = self.calls[-1][0]
+        self.assertIn("/tool/parser", command)
+        self.assertNotIn("/tool/surreal", command)
+        self.assertIn('exec /tool/parser surrealql-validate "$@"', command[command.index("-c") + 1])
+
+    def test_library_report_refuses_missing_or_contradictory_population(self) -> None:
+        valid = self.parser_report()
+        self.assertEqual(tooling.library_report(json.dumps(valid), 1, 0), valid)
+        for change in ("count", "profile", "status", "error", "correspondence"):
+            report = self.parser_report()
+            count, code = 1, 0
+            if change == "count":
+                count = 2
+            elif change == "profile":
+                report["parser"]["syntax_profile"] = "unknown"
+            elif change == "status":
+                code = 1
+            elif change == "error":
+                report["files"][0]["valid"] = False
+            else:
+                report["files"][0]["input"] = "/unselected.surql"
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                tooling.library_report(json.dumps(report), count, code)
+
+    def test_parser_selection_is_explicit_and_rejects_mixed_sources(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            tooling.main(["surrealql-validate", "--input", str(self.source), "--output", str(self.output), "--server-receipt", str(self.receipt), "--parser-binary", str(self.binary)])
 
     def test_namespace_refusal_does_not_run_unconfined_parser(self) -> None:
         def refused(command, output, label, work, deadline):

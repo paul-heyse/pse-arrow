@@ -38,6 +38,8 @@ mod evidence_tools;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
 mod producer_identity;
+#[cfg(feature = "surrealql-tools")]
+mod surrealql_tools;
 #[cfg(feature = "project-tools")]
 mod project_runtime;
 #[cfg(feature = "canonical-tools")]
@@ -65,6 +67,12 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Parse files with the pinned parser and all optional grammar; never execute SQL.
+    #[cfg(feature = "surrealql-tools")]
+    SurrealqlValidate {
+        #[arg(required = true, num_args = 1..)]
+        inputs: Vec<PathBuf>,
+    },
     /// Inspect and mutate project metadata through canonical guarded operations.
     #[cfg(feature = "canonical-tools")]
     Project(project_tools::ProjectArgs),
@@ -290,8 +298,17 @@ enum Target {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    // This pure tooling route also runs in namespaces without a checkout or store.
+    #[cfg(feature = "surrealql-tools")]
+    if let Cmd::SurrealqlValidate { inputs } = &cli.command {
+        std::process::exit(surrealql_tools::run(inputs)?);
+    }
     let root = workspace_root()?;
     match cli.command {
+        #[cfg(feature = "surrealql-tools")]
+        Cmd::SurrealqlValidate { inputs } => {
+            std::process::exit(surrealql_tools::run(&inputs)?);
+        }
         #[cfg(feature = "canonical-tools")]
         Cmd::Project(args) => project_tools::run(args),
         #[cfg(feature = "evidence-tools")]
