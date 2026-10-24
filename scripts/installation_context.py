@@ -325,9 +325,64 @@ def tree(path: Path) -> dict:
     }
 
 
+def validate_cache_toolchain(root: Path, selected: str) -> None:
+    """Support only the reviewed repository C/C++ cache-launcher program.
+
+    It reads PSE_NATIVE_COMPILER_CACHE, whose value and executable are captured.
+    NATIVE_PATHS captures this program's actual bytes. New file/environment
+    includes in that source require a context-support review; this is not
+    general support for interpreting external CMake toolchain programs.
+    """
+    expected = root.resolve() / ".config/native-cache.cmake"
+    path = Path(selected)
+    if not path.is_absolute():
+        path = root.resolve() / path
+    if (
+        path != expected
+        or any(parent.is_symlink() for parent in (path, *path.parents))
+        or not path.is_file()
+        or path.resolve() != expected
+    ):
+        raise ContextError(
+            "External CMake toolchain programs require explicit installer support; "
+            "only the regular repository .config/native-cache.cmake is supported"
+        )
+
+
+def bindgen_resource(root: Path, env: dict[str, str], clang: str) -> Path | None:
+    """Admit compiler_env's exact resource flag and retain its native input root."""
+    flags = env.get("BINDGEN_EXTRA_CLANG_ARGS")
+    if not flags:
+        return None
+    problem = (
+        "External native flags BINDGEN_EXTRA_CLANG_ARGS require explicit installer "
+        "support; only the selected Clang -resource-dir=<directory> is supported"
+    )
+    try:
+        arguments = shlex.split(flags)
+    except ValueError as error:
+        raise ContextError(problem) from error
+    if arguments != [flags] or not flags.startswith("-resource-dir="):
+        raise ContextError(problem)
+    selected = subprocess.check_output(
+        [clang, "-print-resource-dir"], cwd=root, env=env, text=True
+    ).strip()
+    resource = Path(selected)
+    if (
+        flags != f"-resource-dir={selected}"
+        or not resource.is_absolute()
+        or not resource.is_dir()
+        or not (resource / "include/stddef.h").is_file()
+    ):
+        raise ContextError(problem)
+    return resource
+
+
 def capture(root: Path, env: dict[str, str]) -> tuple[dict, dict]:
     if platform.system() != "Linux":
         raise ContextError("Safe installation equivalence is qualified only for Linux")
+    if env.get("CMAKE_TOOLCHAIN_FILE"):
+        validate_cache_toolchain(root, env["CMAKE_TOOLCHAIN_FILE"])
     configs, raw, configured_tools = configuration(root, env)
     tools = {}
     toolchain = {}
@@ -371,22 +426,18 @@ def capture(root: Path, env: dict[str, str]) -> tuple[dict, dict]:
     ):
         if env.get(key):
             tools[key] = tool(env[key], root, env)
-    if env.get("CMAKE_TOOLCHAIN_FILE"):
-        raise ContextError(
-            "External CMake toolchain programs require explicit installer support"
-        )
     for key in (
         "CFLAGS",
         "CXXFLAGS",
         "FFLAGS",
         "CPPFLAGS",
         "LDFLAGS",
-        "BINDGEN_EXTRA_CLANG_ARGS",
     ):
         if env.get(key):
             raise ContextError(
                 f"External native flags {key} require explicit installer support"
             )
+    resource = bindgen_resource(root, env, tools["CLANG_PATH"]["resolved"])
     # The only qualified rustflag external mechanism is the selected linker
     # backend. Other flags that can open files/directories must not alias.
     flag_groups = []
@@ -528,6 +579,8 @@ def capture(root: Path, env: dict[str, str]) -> tuple[dict, dict]:
         Path("/usr/lib/gcc"),
         Path("/usr/lib64"),
     }
+    if resource is not None:
+        roots.add(resource)
     for key in NATIVE_PATHS:
         for value in env.get(key, "").split(os.pathsep):
             if value:

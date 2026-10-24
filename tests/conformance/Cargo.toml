@@ -71,9 +71,11 @@ parquet.workspace = true
 datafusion.workspace = true
 tokio.workspace = true
 tempfile.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 
-# Shared tests/support/{plan14,workflow_runtime}.rs supplies these actual uses.
+# Shared tests/support/{plan14,workflow_runtime}.rs and the native scientific-input
+# fixture supply these actual uses.
 # cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
 [package.metadata.cargo-shear]
 ignored = [
@@ -81,5 +83,6 @@ ignored = [
   "pse-engine",
   "pse-operations",
   "pse-schema",
+  "serde",
   "tempfile",
 ]

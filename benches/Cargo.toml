@@ -65,6 +65,7 @@ tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tokio.workspace = true
 tempfile.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 serde-saphyr.workspace = true
 futures-util.workspace = true
@@ -97,7 +98,8 @@ harness = false
 
 [dependencies]
 
-# Shared tests/support/workflow_runtime.rs is outside the bench target directory.
+# Shared tests/support/workflow_runtime.rs and tests/fixtures/scientific-inputs.rs
+# are outside the bench target directory.
 # cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
 [package.metadata.cargo-shear]
-ignored = ["tempfile"]
+ignored = ["serde", "tempfile"]
