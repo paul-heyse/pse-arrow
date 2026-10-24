@@ -276,6 +276,7 @@ def assess(
             and c.result.get("kind") == "domain"
             and bool(c.result.get("items"))
         ),
+        after=-1,
     )
     require(
         "workflows",
@@ -284,6 +285,7 @@ def assess(
             and c.result.get("kind") == "workflow"
             and bool(c.result.get("items"))
         ),
+        after=-1,
     )
     phase_two = cursor
     require(

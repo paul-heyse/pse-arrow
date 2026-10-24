@@ -298,6 +298,23 @@ class CodexEvidenceTests(unittest.TestCase):
             self.native["run_path"], registry=Path("/registry"), limit=10
         )
 
+    def test_bootstrap_catalogues_can_complete_in_either_order(self) -> None:
+        events = copy.deepcopy(self.events)
+        domain_start, domain_done, workflow_start, workflow_done = events[2:6]
+        events[2:6] = [domain_start, workflow_start, workflow_done, domain_done]
+        with patch.object(
+            check.run_inspection, "product_result", return_value=self.native
+        ):
+            outcome, _authentic = check.assess(
+                self.transcript(events), self.output, self.guide
+            )
+        self.assertEqual(outcome["passed"], 1)
+        # The following phase still waits for both catalogue answers.
+        late = events.pop(5)
+        events.insert(8, late)
+        with self.assertRaisesRegex(ValueError, "describe_skill"):
+            check.assess(self.transcript(events), self.output, self.guide)
+
     def test_phase_two_parallel_descriptions_can_complete_in_reverse_order(
         self,
     ) -> None:
