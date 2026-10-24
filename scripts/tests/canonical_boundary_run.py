@@ -19,6 +19,7 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
 
 from scripts import (
@@ -76,7 +77,8 @@ def wait_record(
 
 
 def restart_handshake(
-    state: Path, control: Path, process: subprocess.Popen[bytes], deadline: float
+    state: Path, control: Path, process: subprocess.Popen[bytes], deadline: float,
+    *, controls_resource: str, test_identity: str, selection: Mapping[str, object],
 ) -> None:
     """Only the freshly owned profile may be stopped; peer ACKs bound each phase."""
     ready = wait_record(control, "ready.json", process, deadline)
@@ -85,25 +87,36 @@ def restart_handshake(
     database = ready.get("database")
     if not isinstance(database, str) or not test_resources.DATABASE.fullmatch(database):
         raise RuntimeError("Restart peer did not select its isolated fixture")
-    original = native_operation.unit_observation(server.unit_name(state))
-    if original.get("ActiveState") != "active" or not original.get("InvocationID"):
-        raise RuntimeError("Owned restart service has no active invocation")
-    server.stop(state, server.config_for(state), abrupt=True)
-    if server.active(state):
-        raise RuntimeError("Owned restart service did not stop")
-    server.write_json(control / "stopped.json", {"database": database})
-    down = wait_record(control, "down-observed.json", process, deadline)
-    if down.get("database") != database or not down.get("error"):
-        raise RuntimeError("Restart peer did not observe the actual closed service")
-    server.start(state, server.config_for(state), deadline=deadline)
-    restarted = native_operation.unit_observation(server.unit_name(state))
-    if (
-        restarted.get("ActiveState") != "active"
-        or not restarted.get("InvocationID")
-        or restarted["InvocationID"] == original["InvocationID"]
+    with (
+        server.lifecycle_deadline(deadline),
+        server.lifecycle_reservation(state, purpose="maintenance", deadline=deadline),
     ):
-        raise RuntimeError("Owned restart did not produce a fresh server invocation")
-    server.write_json(control / "restarted.json", {"database": database})
+        restart_cohort(
+            state, control, process, deadline, database,
+            controls_resource=controls_resource, test_identity=test_identity,
+            selection=selection,
+        )
+        original = native_operation.unit_observation(server.unit_name(state))
+        if original.get("ActiveState") != "active" or not original.get("InvocationID"):
+            raise RuntimeError("Owned restart service has no active invocation")
+        server.stop(state, server.config_for(state), abrupt=True)
+        if server.active(state):
+            raise RuntimeError("Owned restart service did not stop")
+        server.write_json(control / "stopped.json", {"database": database})
+        down = wait_record(control, "down-observed.json", process, deadline)
+        if down.get("database") != database or not down.get("error"):
+            raise RuntimeError("Restart peer did not observe the actual closed service")
+        server.start(state, server.config_for(state), deadline=deadline)
+        restarted = native_operation.unit_observation(server.unit_name(state))
+        if (
+            restarted.get("ActiveState") != "active"
+            or not restarted.get("InvocationID")
+            or restarted["InvocationID"] == original["InvocationID"]
+        ):
+            raise RuntimeError("Owned restart did not produce a fresh server invocation")
+        server.write_json(control / "restarted.json", {"database": database})
+    # The peer removes its fixture before completing. That cleanup must enter
+    # ordinary context admission after the guarded restart releases its owner.
     complete = wait_record(control, "complete.json", process, deadline)
     if (
         complete.get("database") != database
@@ -114,6 +127,99 @@ def restart_handshake(
         raise RuntimeError(
             "Restart peer did not establish the retained-handle capability"
         )
+
+
+def restart_cohort(
+    state: Path, control: Path, process: subprocess.Popen[bytes], deadline: float,
+    database: str, *, controls_resource: str, test_identity: str,
+    selection: Mapping[str, object],
+) -> None:
+    """Authenticate the two intentional borrowers under lifecycle admission."""
+    if (
+        server.service_directory(state, deadline=deadline) != state
+        or control != state / "restart-control"
+        or server.startup_selection(server.config_for(state, deadline=deadline)) != selection
+    ):
+        raise RuntimeError("Owned restart service selection changed")
+    marker = os.environ.get(test_resources.MARKER)
+    if not marker:
+        raise RuntimeError("Restart requires its authenticated parent invocation")
+    parent_path = Path(marker)
+    invocation_directory = test_resources.registry().resolve() / "invocations"
+    if parent_path.parent.resolve() != invocation_directory:
+        raise RuntimeError("Restart parent uses another resource authority")
+    parent = test_resources.read_invocation(parent_path)
+    if parent["kind"] != "python":
+        raise RuntimeError("Restart parent must be the selected Python control")
+    parent_nonce, parent_test = test_resources.selected_test(
+        {"test": test_identity}, declaration=parent
+    )
+    binding = wait_record(state.parent, "child-ready.json", process, deadline)
+    child_path = Path(str(binding.get("child", "")))
+    if (
+        binding.get("parent") != marker
+        or child_path.parent.resolve() != invocation_directory
+        or child_path == parent_path
+    ):
+        raise RuntimeError("Restart child lost its owning parent association")
+    child = test_resources.read_invocation(child_path)
+    selected = child["selected"]
+    if (
+        child["kind"] != "rust"
+        or len(selected) != 1
+        or selected[0].get("name") != RESTART_TEST
+        or selected[0].get("binary_id", "").split("::", 1)[0] != "pse-operations"
+    ):
+        raise RuntimeError("Restart child is not the exact selected Rust peer")
+    store = test_resources.storage()
+    for declaration in (parent, child):
+        image = store.invocation_snapshot(declaration["nonce"], deadline=deadline)
+        if image["phase"] != "open" or image["declaration"] != declaration:
+            raise RuntimeError("Restart cohort invocation is no longer open")
+        if declaration is child:
+            producer = image.get("producer", {})
+            if (
+                not isinstance(producer, dict)
+                or producer.get("pid") != process.pid
+                or not test_resources.borrower_alive(producer)
+            ):
+                raise RuntimeError("Restart child invocation belongs to another process")
+    resources = test_resources.service_resources(state, deadline=deadline)
+    child_test = selected[0]["binary_id"] + "::" + RESTART_TEST
+    children = [
+        identity for identity, record in resources.items()
+        if record.get("invocation") == child["nonce"]
+        and record.get("test") == child_test
+        and record.get("database") == database
+        and record.get("kind") == "database"
+    ]
+    if len(children) != 1 or set(resources) != {controls_resource, *children}:
+        raise RuntimeError("Restart service has an unrelated or unresolved borrower cohort")
+    for identity, invocation, test, kind in (
+        (controls_resource, parent_nonce, parent_test, "controls"),
+        (children[0], child["nonce"], child_test, "database"),
+    ):
+        record = resources[identity]
+        creation = record.get("creation_borrower")
+        if (
+            record.get("state") != str(state)
+            or record.get("service_owner") != str(state)
+            or record.get("service_generation") != selection.get("instance_id")
+            or record.get("namespace") != selection.get("namespace")
+            or record.get("invocation") != invocation
+            or record.get("test") != test
+            or record.get("kind") != kind
+            or record.get("cleanup") != "retained"
+            or record.get("drained") is not False
+            or record.get("references") != {}
+            or record.get("borrows") != {}
+            or not test_resources.borrower_alive(record)
+            or (creation is not None and creation != {
+                key: record.get(key) for key in ("pid", "start", "boot")
+            })
+            or (kind == "controls" and record.get("directory") != str(control))
+        ):
+            raise RuntimeError("Restart borrower does not match its authenticated owning cohort")
 
 
 def rust_child(execution: Path) -> int:
@@ -134,6 +240,10 @@ def rust_child(execution: Path) -> int:
     ):
         raise TypeError("Invalid prepared restart selection")
     invocation = test_resources.invocation("rust", test_run.rust_selected(inventory))
+    server.write_json(
+        execution.with_name("child-ready.json"),
+        {"parent": prepared["parent_invocation"], "child": str(invocation)},
+    )
     environment[test_resources.MARKER] = str(invocation)
     environment["PSE_RUST_TERMINAL_OWNER"] = "runner"
     code = test_run.run_rust(
@@ -212,6 +322,7 @@ def restart_journey(directory: Path, test_identity: str) -> None:
     try:
         server.initialize(state, [str(initializer), "canonical-init", str(state)])
         server.start(state, server.config_for(state))
+        selection = server.startup_selection(server.config_for(state))
         resource = test_resources.register(
             {
                 "state": str(state),
@@ -250,7 +361,10 @@ def restart_journey(directory: Path, test_identity: str) -> None:
                 stderr=subprocess.STDOUT,
             )
             deadline = time.monotonic() + 360
-            restart_handshake(state, control, process, deadline)
+            restart_handshake(
+                state, control, process, deadline, controls_resource=resource,
+                test_identity=test_identity, selection=selection,
+            )
             code = process.wait(timeout=max(0.001, deadline - time.monotonic()))
             if code:
                 raise RuntimeError(

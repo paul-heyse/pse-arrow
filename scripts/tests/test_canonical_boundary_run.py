@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import copy
 import os
 import subprocess
 import sys
@@ -59,6 +61,12 @@ class RestartPeerTests(unittest.TestCase):
         self.control = self.state / "restart-control"
         self.process = Mock(spec=subprocess.Popen)
         self.process.poll.return_value = None
+        self.process.pid = 321
+        self.options = {"controls_resource": "controls", "test_identity": "selected-python-peer", "selection": {"instance_id": "service-generation", "namespace": "pse"}}
+        for name in ("lifecycle_deadline", "lifecycle_reservation"):
+            patcher = patch.object(boundary.server, name, side_effect=lambda *_, **__: contextlib.nullcontext())
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.database = "canonical_test_" + "1" * 32
         self.ready = {"state": str(self.state), "database": self.database}
         self.down = {"database": self.database, "error": "actual closed server"}
@@ -84,6 +92,7 @@ class RestartPeerTests(unittest.TestCase):
 
         with (
             patch.object(boundary, "wait_record", side_effect=wait),
+            patch.object(boundary, "restart_cohort"),
             patch.object(boundary.server, "config_for", return_value={}),
             patch.object(
                 boundary.server,
@@ -114,7 +123,7 @@ class RestartPeerTests(unittest.TestCase):
             ),
         ):
             boundary.restart_handshake(
-                self.state, self.control, self.process, time.monotonic() + 5
+                self.state, self.control, self.process, time.monotonic() + 5, **self.options
             )
         stop.assert_called_once_with(self.state, {}, abrupt=True)
         self.assertEqual(
@@ -138,7 +147,7 @@ class RestartPeerTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "another service"):
                 boundary.restart_handshake(
-                    self.state, self.control, self.process, time.monotonic() + 5
+                    self.state, self.control, self.process, time.monotonic() + 5, **self.options
                 )
         stop.assert_not_called()
 
@@ -156,6 +165,7 @@ class RestartPeerTests(unittest.TestCase):
 
     def test_live_service_does_not_publish_stopped_ack(self) -> None:
         with (
+            patch.object(boundary, "restart_cohort"),
             patch.object(boundary, "wait_record", return_value=self.ready),
             patch.object(boundary.server, "config_for", return_value={}),
             patch.object(boundary.server, "stop"),
@@ -173,13 +183,14 @@ class RestartPeerTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "did not stop"):
                 boundary.restart_handshake(
-                    self.state, self.control, self.process, time.monotonic() + 5
+                    self.state, self.control, self.process, time.monotonic() + 5, **self.options
                 )
         publish.assert_not_called()
         start.assert_not_called()
 
     def test_invalid_down_observation_never_starts_service(self) -> None:
         with (
+            patch.object(boundary, "restart_cohort"),
             patch.object(
                 boundary,
                 "wait_record",
@@ -201,7 +212,7 @@ class RestartPeerTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "actual closed"):
                 boundary.restart_handshake(
-                    self.state, self.control, self.process, time.monotonic() + 5
+                    self.state, self.control, self.process, time.monotonic() + 5, **self.options
                 )
         start.assert_not_called()
 
@@ -243,6 +254,130 @@ class RestartPeerTests(unittest.TestCase):
         )
         self.assertEqual(observe.call_args.args[1]["parent"], parent)
         self.assertEqual(observe.call_args.args[1]["child"], str(child))
+        early = observe.call_args_list[0]
+        self.assertEqual(early.args[0], execution.with_name("child-ready.json"))
+        self.assertEqual(early.args[1], {"parent": parent, "child": str(child)})
+
+    @contextlib.contextmanager
+    def cohort_authority(self):
+        registry = self.directory / "registry"
+        parent_path = registry / "invocations" / "parent.json"
+        child_path = registry / "invocations" / "child.json"
+        parent = {"kind": "python", "nonce": "parent", "selected": [{"name": "selected-python-peer"}]}
+        child = {"kind": "rust", "nonce": "child", "selected": [{"binary_id": "pse-operations", "name": boundary.RESTART_TEST}]}
+        binding = {"parent": str(parent_path), "child": str(child_path)}
+        producer = {"pid": self.process.pid, "start": "driver-start", "boot": "boot"}
+        snapshots = {
+            "parent": {"phase": "open", "declaration": parent},
+            "child": {"phase": "open", "declaration": child, "producer": producer},
+        }
+        shared = {
+            "state": str(self.state), "service_owner": str(self.state),
+            "service_generation": "service-generation", "namespace": "pse",
+            "cleanup": "retained", "drained": False, "borrows": {}, "references": {},
+            "pid": 123, "start": "fixture-start", "boot": "boot",
+            "creation_borrower": {"pid": 123, "start": "fixture-start", "boot": "boot"},
+        }
+        records = {
+            "controls": {**copy.deepcopy(shared), "kind": "controls", "directory": str(self.control), "database": "canonical_test_" + "2" * 32, "invocation": "parent", "test": "selected-python-peer"},
+            "database": {**copy.deepcopy(shared), "kind": "database", "database": self.database, "invocation": "child", "test": "pse-operations::" + boundary.RESTART_TEST},
+        }
+        with (
+            patch.dict(os.environ, {boundary.test_resources.MARKER: str(parent_path)}),
+            patch.object(boundary.server, "service_directory", return_value=self.state),
+            patch.object(boundary.server, "config_for", return_value=self.options["selection"]),
+            patch.object(boundary.test_resources, "registry", return_value=registry),
+            patch.object(boundary.test_resources, "read_invocation", side_effect=lambda path: parent if path == parent_path else child),
+            patch.object(boundary.test_resources, "selected_test", return_value=("parent", "selected-python-peer")),
+            patch.object(boundary.test_resources, "storage") as store,
+            patch.object(boundary.test_resources, "borrower_alive", return_value=True),
+            patch.object(boundary.test_resources, "service_resources", return_value=records) as query,
+            patch.object(boundary, "wait_record", side_effect=lambda _directory, name, *_: {"ready.json": self.ready, "child-ready.json": binding, "down-observed.json": self.down, "complete.json": self.complete}[name]),
+        ):
+            store.return_value.invocation_snapshot.side_effect = lambda nonce, **_: snapshots[nonce]
+            yield records, snapshots, binding, query
+
+    def test_restart_allows_only_its_authenticated_parent_and_live_child_fixture(self) -> None:
+        with self.cohort_authority() as (_, _, _, query):
+            boundary.restart_cohort(
+                self.state, self.control, self.process, time.monotonic() + 5,
+                self.database, **self.options,
+            )
+        self.assertEqual(query.call_args.args, (self.state,))
+        self.assertIn("deadline", query.call_args.kwargs)
+
+    def test_foreign_creation_retained_reader_and_changed_binding_refuse_before_stop(self) -> None:
+        for change in ("foreign-creation", "foreign-reader", "child-reader", "retained-reference", "wrong-generation", "wrong-child", "wrong-process", "wrong-parent", "uncovered"):
+            with self.subTest(change=change), self.cohort_authority() as (records, snapshots, binding, query):
+                if change in {"foreign-creation", "foreign-reader"}:
+                    records["foreign"] = {**copy.deepcopy(records["database"]), "invocation": "another-invocation"}
+                    if change == "foreign-reader":
+                        records["foreign"].pop("creation_borrower")
+                        records["foreign"]["borrows"] = {"reader": {"pid": 999, "start": "reader-start"}}
+                elif change == "child-reader":
+                    records["database"]["borrows"] = {"reader": {"pid": 999, "start": "reader-start"}}
+                elif change == "retained-reference":
+                    records["database"]["references"] = {"report": "digest"}
+                elif change == "wrong-generation":
+                    records["database"]["service_generation"] = "another-service-generation"
+                elif change == "wrong-child":
+                    records["database"]["invocation"] = "another-child"
+                elif change == "wrong-process":
+                    snapshots["child"]["producer"]["pid"] = 999
+                elif change == "wrong-parent":
+                    binding["parent"] = "another-parent"
+                else:
+                    query.side_effect = boundary.test_resources.ResourceError("unestablished coverage")
+                with (
+                    patch.object(boundary.server, "stop") as stop,
+                    self.assertRaises((RuntimeError, boundary.test_resources.ResourceError)),
+                ):
+                    boundary.restart_handshake(
+                        self.state, self.control, self.process, time.monotonic() + 5,
+                        **self.options,
+                    )
+                stop.assert_not_called()
+
+    def test_guard_and_restart_share_reservation_but_peer_cleanup_runs_after_release(self) -> None:
+        reserved = False
+
+        @contextlib.contextmanager
+        def reservation(*_, **__):
+            nonlocal reserved
+            reserved = True
+            try:
+                yield
+            finally:
+                reserved = False
+
+        def assert_reserved(*_, **__):
+            self.assertTrue(reserved)
+
+        with self.cohort_authority() as (_, _, _, query):
+            original_query = query.return_value
+            query.side_effect = lambda *args, **kwargs: (assert_reserved(), original_query)[1]
+            wait = boundary.wait_record.side_effect
+
+            def wait_phase(directory, name, *args):
+                if name == "complete.json":
+                    self.assertFalse(reserved, "peer fixture cleanup must regain admission")
+                return wait(directory, name, *args)
+
+            with (
+                patch.object(boundary.server, "lifecycle_reservation", side_effect=reservation),
+                patch.object(boundary, "wait_record", side_effect=wait_phase),
+                patch.object(boundary.server, "stop", side_effect=assert_reserved),
+                patch.object(boundary.server, "active", return_value=False),
+                patch.object(boundary.server, "start", side_effect=assert_reserved),
+                patch.object(boundary.server, "unit_name", return_value="owned.service"),
+                patch.object(boundary.native_operation, "unit_observation", side_effect=[{"ActiveState": "active", "InvocationID": "original"}, {"ActiveState": "active", "InvocationID": "restarted"}]),
+                patch.object(boundary.server, "write_json"),
+            ):
+                boundary.restart_handshake(
+                    self.state, self.control, self.process, time.monotonic() + 5,
+                    **self.options,
+                )
+        self.assertFalse(reserved)
 
     def test_context_overlap_selects_the_pytest_component_peer(self) -> None:
         (self.directory / "python-native.json").write_text("{}")
@@ -365,7 +500,7 @@ class RestartPeerTests(unittest.TestCase):
             events.append("registered")
             return "1" * 32
 
-        def handshake(*_):
+        def handshake(*_, **__):
             self.assertTrue(control.is_dir())
             events.append("created")
 
