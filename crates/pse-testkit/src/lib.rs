@@ -3,10 +3,6 @@
 
 //! Development fixtures and contract evidence; never a production dependency.
 pub mod capture;
-pub mod counting_store;
-pub mod execution;
-pub mod fault_store;
-pub mod introspection;
 use pse_engine::{
     EngineError, EngineFactory, ExecutionSettings, ThreadBudget, resources::EngineResources,
 };

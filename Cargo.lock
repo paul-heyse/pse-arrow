@@ -6802,12 +6802,9 @@ version = "0.0.1"
 dependencies = [
  "async-trait",
  "datafusion",
- "futures-util",
- "object_store",
  "pse-columnar",
  "pse-engine",
  "pse-schema",
- "serde_json",
  "tempfile",
  "tokio",
  "tracing",

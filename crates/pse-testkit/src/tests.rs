@@ -27,32 +27,6 @@ fn native_unit_observation_coverage_distinguishes_disabled_sampled_and_truncated
     assert_eq!(capture.coverage(), Coverage::Truncated);
 }
 
-#[tokio::test]
-async fn native_unit_value_helper_defaults_to_contract_and_diagnostic_is_explicit() {
-    let fixture = fixture();
-    let state = fixture.factory.native_state();
-    let context = datafusion::prelude::SessionContext::new_with_state(state.clone());
-    let plan = context
-        .sql("SELECT 42")
-        .await
-        .unwrap()
-        .into_unoptimized_plan();
-    let registry = pse_schema::shared_registry().unwrap();
-    let prepared = execution::prepare(state, registry.clone(), &plan).unwrap();
-    assert!(prepared.observation().is_captured());
-    assert!(prepared.observation().explain_pgjson().is_empty());
-    assert!(prepared.observation().rules_fired().is_empty());
-    let diagnostic =
-        execution::prepare_with_observation(state, registry, &plan, ObservationPolicy::Diagnostic)
-            .unwrap();
-    assert!(diagnostic.observation().is_captured());
-    assert!(!diagnostic.observation().explain_pgjson().is_empty());
-    let cancel = CancellationToken::new();
-    assert_eq!(
-        prepared.execute(&cancel).await.unwrap().batches(),
-        diagnostic.execute(&cancel).await.unwrap().batches()
-    );
-}
 fn operation(capture: &Capture) -> u64 {
     capture
         .snapshot()
@@ -599,86 +573,6 @@ async fn native_unit_reusable_rounds_have_distinct_terminal_evidence() {
             .count(),
         1
     );
-}
-
-#[tokio::test]
-async fn native_unit_store_wrappers_preserve_conditions_ranges_and_consumption() {
-    use fault_store::{Fault, FaultPlan, FaultStore};
-    use object_store::{GetOptions, ObjectStore, ObjectStoreExt, PutMode, PutOptions, path::Path};
-    let inner: Arc<dyn ObjectStore> = Arc::new(object_store::memory::InMemory::new());
-    let faults = FaultStore::new(inner.clone());
-    let counts = counting_store::CountingStore::new(faults.clone());
-    let path = Path::from("_delta_log/000.json");
-    let create = PutOptions {
-        mode: PutMode::Create,
-        ..Default::default()
-    };
-    counts
-        .put_opts(&path, Vec::from(b"abcdef").into(), create.clone())
-        .await
-        .unwrap();
-    assert!(
-        counts
-            .put_opts(&path, Vec::from(b"wrong").into(), create)
-            .await
-            .is_err()
-    );
-    let read = counts
-        .get_opts(
-            &path,
-            GetOptions {
-                range: Some((1..4).into()),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-    assert_eq!(read.range, 1..4);
-    assert_eq!(counts.report()["bytes_consumed"], 0);
-    assert_eq!(read.bytes().await.unwrap().as_ref(), b"bcd");
-    assert_eq!(counts.report()["bytes_consumed"], 3);
-    assert_eq!(counts.report()["log_gets"], 1);
-    faults.arm(FaultPlan {
-        operation: "put",
-        prefix: path.to_string(),
-        call: 1,
-        fault: Fault::LostResponse,
-    });
-    assert!(
-        counts
-            .put(&path, Vec::from(b"committed").into())
-            .await
-            .is_err()
-    );
-    assert_eq!(faults.fired(), 1);
-    assert_eq!(
-        inner
-            .get(&path)
-            .await
-            .unwrap()
-            .bytes()
-            .await
-            .unwrap()
-            .as_ref(),
-        b"committed"
-    );
-    // Injection is one-shot; a backend conditional refusal remains a native error.
-    assert!(matches!(
-        counts
-            .put_opts(
-                &path,
-                Vec::from(b"duplicate").into(),
-                PutOptions {
-                    mode: PutMode::Create,
-                    ..Default::default()
-                }
-            )
-            .await,
-        Err(object_store::Error::AlreadyExists { .. })
-    ));
-    counts.reset();
-    assert_eq!(counts.report()["gets"], 0);
-    assert_eq!(counts.report()["bytes_consumed"], 0);
 }
 
 #[test]
