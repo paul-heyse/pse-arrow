@@ -103,7 +103,7 @@ class PopulationTests(unittest.TestCase):
             tool.populate(resource)
         schema = (tool.ROOT / tool.GENERATED_SCHEMA).read_text()
         self.assertIn(schema, self.queries)
-        self.assertLess(self.queries.index("DEFINE DATABASE `representative_v1`;"),
+        self.assertLess(self.queries.index("DEFINE DATABASE `" + population.DATABASE + "`;"),
                         self.queries.index(schema))
 
     def test_interrupted_after_submit_stays_pinned_and_recovery_only_reads_original(self) -> None:
@@ -246,6 +246,21 @@ class PopulationTests(unittest.TestCase):
         # Deterministic expected answers are independently derived from rows.
         ready = sorted(row["ordinal"] for row in population.rows()["canonical_study_readiness"] if row["study"] == "fixture_alpha" and row["eligible"] and row["ordinal"] >= 4)
         self.assertEqual([str(value) for value in ready[:4]], population.READINESS_ANSWER)
+
+    def test_declared_population_satisfies_every_selected_generated_unique_index(self) -> None:
+        schema = (tool.ROOT / tool.GENERATED_SCHEMA).read_text()
+        rows = population.rows()
+        selected = []
+        for index, table, columns in re.findall(r"DEFINE INDEX (\w+) ON (\w+) FIELDS ([\w, ]+) UNIQUE;", schema):
+            if table not in rows:
+                continue
+            selected.append(index)
+            fields = [field.strip() for field in columns.split(",")]
+            keys = [tuple(row[field] for field in fields) for row in rows[table]]
+            self.assertEqual(len(keys), len(set(keys)), index)
+        self.assertIn("revision_operation", selected)
+        self.assertIn("study_point_run", selected)
+        self.assertIn("study_point_occurrence", selected)
 
 
 if __name__ == "__main__":

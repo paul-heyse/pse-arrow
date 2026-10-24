@@ -13,8 +13,8 @@ import base64
 import hashlib
 import json
 
-NAME = "readiness-graph-v1"
-DATABASE = "representative_v1"
+NAME = "readiness-graph-v2"
+DATABASE = "representative_v2"
 READINESS = (
     "SELECT VALUE ordinal FROM canonical_study_readiness {hint} "
     "WHERE study='fixture_alpha' AND eligible=true AND ordinal>=4dec "
@@ -56,7 +56,7 @@ def rows(name: str = NAME) -> dict[str, list[dict[str, object]]]:
             result["canonical_revisions"].append(dict(
                 key=key, problem=problem, sequence=revision,
                 parent=None if revision == 0 else problem + "_r" + str(revision - 1),
-                operation="synthetic-fixture", request=b"fixture-only-v1",
+                operation="synthetic-fixture-" + key, request=b"fixture-only-v1",
                 interpretation="unactivated-fixture",
             ))
             result["canonical_project_contexts"].append(dict(
@@ -75,10 +75,10 @@ def rows(name: str = NAME) -> dict[str, list[dict[str, object]]]:
             scenario = ("accepted", "refused", "unobserved")[ordinal % 3]
             marker = json.dumps({"synthetic_fixture_evidence": scenario}, sort_keys=True).encode()
             result["canonical_study_points"].append(dict(
-                key=key, study=study, ordinal=ordinal, occurrence=0,
+                key=key, study=study, ordinal=ordinal, occurrence=ordinal,
                 seed_solution=None, policy=b"fixture-only-v1", descriptor=b"fixture-only-v1",
                 admission=None, facts=marker, outcome=None if scenario == "unobserved" else marker,
-                run="fixture-unexecuted", revision=ordinal % 3,
+                run=key + "_unexecuted", revision=ordinal % 3,
                 assigned=False, settled=scenario != "unobserved", attempt=None, start=None,
             ))
             result["canonical_study_readiness"].append(dict(
