@@ -401,6 +401,11 @@ codegen-docs-check:
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs --check
 
 [group('local')]
+[doc('Compare the complete canonical MCP reference without invoking operations or changing files')]
+codegen-capabilities-check:
+    "{{ py }}" -m scripts.capabilities.reference --check
+
+[group('local')]
 [doc('The canonical native schema and codecs match a fresh regeneration')]
 codegen-surreal-check:
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal --check
@@ -1011,6 +1016,7 @@ codegen:
     "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --no-default-features --locked -- codegen --only rust-contracts
     "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --no-default-features --locked -- codegen --only surreal
     scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --features full-codegen,force-validate --locked -- codegen
+    "{{ py }}" -m scripts.capabilities.reference
 
 
 [group('mutating')]
@@ -1022,6 +1028,7 @@ codegen-contracts:
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only python
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
+    "{{ py }}" -m scripts.capabilities.reference
 
 [group('local')]
 [doc('Exercise pure candidate annotation checking and refusal of native codec execution')]

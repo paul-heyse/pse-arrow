@@ -299,7 +299,11 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
         .chain(documents::roots())
         // Each diagnostic producer owns a nested directory. The enclosing docs
         // generator must preserve every sidecar on partial regeneration.
-        .chain([PathBuf::from(provenance::ROOT)])
+        .chain([
+            PathBuf::from(provenance::ROOT),
+            // The source-only capability reference has its own Python producer.
+            PathBuf::from("docs/generated/capabilities"),
+        ])
         .filter(|candidate| {
             !tree.roots.contains(candidate)
                 && tree
@@ -760,6 +764,34 @@ mod tests {
         assert!(checkout.path().join(catalogue_path).is_file());
         let scratch = tempfile::tempdir().unwrap();
         write_tree(scratch.path(), &markdown).unwrap();
+        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
+    }
+
+    #[test]
+    fn markdown_generation_preserves_capability_reference_owner_and_checks_own_stale_files() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let reference = checkout.path().join("docs/generated/capabilities/reference.md");
+        fs::create_dir_all(reference.parent().unwrap()).unwrap();
+        fs::write(&reference, b"capability producer bytes\n").unwrap();
+        let mut markdown = GeneratedTree::empty(Language::Markdown.roots());
+        markdown.files.insert(
+            PathBuf::from("docs/generated/enums.md"),
+            b"# Enum reference\n".to_vec(),
+        );
+        write_tree(checkout.path(), &markdown).unwrap();
+        write_tree(scratch.path(), &markdown).unwrap();
+        assert_eq!(fs::read(&reference).unwrap(), b"capability producer bytes\n");
+        // The nested reference is absent in scratch and may change independently.
+        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
+        fs::write(&reference, b"updated capability producer bytes\n").unwrap();
+        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
+        let stale = checkout.path().join("docs/generated/stale.md");
+        fs::write(&stale, b"stale Markdown owner output\n").unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &markdown).is_err());
+        write_tree(checkout.path(), &markdown).unwrap();
+        assert!(!stale.exists());
+        assert_eq!(fs::read(&reference).unwrap(), b"updated capability producer bytes\n");
         compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
     }
 
