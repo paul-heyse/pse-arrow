@@ -264,7 +264,9 @@ def setup(
             "organization": organization, "streams": selected_streams,
             "configuration_id": generation_id,
         }
-        email, password = "telemetry@localhost.local", secrets.token_urlsafe(32)
+        # The pinned backend requires all four character classes. A random URL token
+        # alone can omit one; retain its full entropy and guarantee the required prefix.
+        email, password = "telemetry@localhost.local", "pSe9!" + secrets.token_urlsafe(32)
         authorization = "Basic " + base64.b64encode(f"{email}:{password}".encode()).decode()
         values = {
             "PSE_TELEMETRY_AUTHORIZATION": authorization,
@@ -465,6 +467,7 @@ def inspect(state: Path | str | None = None, *, environment: Mapping[str, str] |
         "state": str(selected), "status": "configured", "configuration": _read(selected / "configuration.json"),
         "owner_id": config["owner_id"], "configuration_id": config["configuration_id"], "generation": config["generation"],
         "retention_days": config["retention_days"], "limits": config["limits"], "services": services,
+        "endpoints": {"collector_health": f"http://127.0.0.1:{config['ports']['health']}/", "collector_metrics": f"http://127.0.0.1:{config['ports']['metrics']}/metrics"},
         "versions": versions, "components": components,
         "storage": {"collector_queue": str(selected / "collector-queue"), "backend": str(selected / "openobserve-data")},
         "declaration_sources": {"tools": ".config/diagnostic-tools.toml", "service": "scripts/telemetry_service.py", "collector": str(Path(str(config["generation"])) / "collector.yaml")},

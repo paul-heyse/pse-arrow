@@ -46,6 +46,8 @@ class TelemetryServiceTests(unittest.TestCase):
         self.assertEqual(public["streams"], service.DEFAULT_STREAMS)
         self.assertEqual(public["otlp_http_endpoint"], "http://127.0.0.1:4318")
         self.assertEqual(result["configuration_id"], public["configuration_id"])
+        self.assertEqual(result["endpoints"]["collector_health"], "http://127.0.0.1:13133/")
+        self.assertEqual(result["endpoints"]["collector_metrics"], "http://127.0.0.1:8888/metrics")
         self.assertNotIn("Authorization", json.dumps(result))
         self.assertEqual((self.state / "service.env").stat().st_mode & 0o777, 0o600)
         base, headers = service.backend_access(self.state)
@@ -121,6 +123,17 @@ class TelemetryServiceTests(unittest.TestCase):
         self.binary.write_text("changed")
         with self.assertRaisesRegex(service.TelemetryServiceError, "binary changed"):
             service.backend_access(self.state)
+
+    def test_generated_password_always_satisfies_pinned_backend_policy(self) -> None:
+        with patch.object(service.secrets, "token_urlsafe", return_value="a" * 43):
+            self.setup()
+        lines = dict(line.split("=", 1) for line in (self.state / "service.env").read_text().splitlines())
+        password = json.loads(lines["ZO_ROOT_USER_PASSWORD"])
+        self.assertGreaterEqual(len(password), 8)
+        self.assertLessEqual(len(password), 128)
+        for pattern in (r"[a-z]", r"[A-Z]", r"[0-9]", r"[^a-zA-Z0-9]"):
+            self.assertRegex(password, pattern)
+        self.assertNotIn(password, json.dumps(service.inspect(self.state)))
 
     def test_owner_mismatch_never_stops_any_unit(self) -> None:
         self.setup()
