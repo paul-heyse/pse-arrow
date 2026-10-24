@@ -129,6 +129,66 @@ class SourceAdmissionTests(unittest.TestCase):
     def test_installation_namespace_is_an_executable_input(self) -> None:
         self.assertNotEqual(source.installation_name(Path("/one")),source.installation_name(Path("/two")))
 
+    def test_unknown_existing_target_is_preserved_and_refused_before_compile(self) -> None:
+        for recorded in (None, b"not json", b'{"inputs": {}, "effective_key": "old"}'):
+            with self.subTest(recorded=recorded), tempfile.TemporaryDirectory() as scratch:
+                directory = Path(scratch) / source.installation_name(Path(scratch))
+                target = directory / "source/target"
+                target.mkdir(parents=True)
+                artifact = target / "unknown-artifact"
+                artifact.write_bytes(b"preserve")
+                request = directory / "build-request.json"
+                if recorded is not None:
+                    request.write_bytes(recorded)
+                with (patch.object(source, "verify_source"),
+                      patch.object(source, "command") as execute,
+                      self.assertRaisesRegex(source.BuildError, "target.*build request")):
+                    source.install(directory)
+                execute.assert_not_called()
+                self.assertEqual(artifact.read_bytes(), b"preserve")
+                self.assertEqual(request.read_bytes() if request.exists() else None, recorded)
+                self.assertFalse((directory / "release.json").exists())
+
+    def test_exact_interrupted_build_request_can_resume_existing_target(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            directory = Path(scratch) / source.installation_name(Path(scratch))
+            target = directory / "source/target"
+            target.mkdir(parents=True)
+            selected = source.inputs(Path(scratch))
+            (directory / "build-request.json").write_text(json.dumps(source.build_request(selected)))
+
+            def execute(arguments: list[str], **kwargs: object) -> str:
+                if arguments[0] == str(source.ROOT / "scripts/pse-env"):
+                    binary = target / source.PROFILE / "surreal"
+                    binary.parent.mkdir()
+                    binary.write_bytes(b"resumed executable")
+                    (directory / "source/Cargo.lock").write_text("resumed lock")
+                    return ""
+                if arguments[-1] == "version":
+                    return f'{source.VERSION} {selected["build_metadata"]}'
+                return "module help"
+
+            with patch.object(source, "verify_source"), patch.object(source, "command", side_effect=execute) as compile_command:
+                receipt = source.install(directory)
+            self.assertEqual(compile_command.call_count, 3)
+            self.assertTrue(source.admitted_receipt(receipt, selected))
+            self.assertTrue((directory / "release.json").exists())
+
+    def test_existing_target_cannot_resume_request_from_another_namespace(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            directory = Path(scratch) / source.installation_name(Path(scratch))
+            (directory / "source/target").mkdir(parents=True)
+            previous = source.build_request(source.inputs(Path(scratch) / "old-namespace"))
+            request = directory / "build-request.json"
+            request.write_text(json.dumps(previous))
+            original = request.read_bytes()
+            with (patch.object(source, "verify_source"),
+                  patch.object(source, "command") as execute,
+                  self.assertRaisesRegex(source.BuildError, "target differs")):
+                source.install(directory)
+            execute.assert_not_called()
+            self.assertEqual(request.read_bytes(), original)
+
 
 if __name__ == "__main__":
     unittest.main()
