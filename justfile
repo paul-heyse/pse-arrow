@@ -447,6 +447,7 @@ features-no-default:
     "{{ py }}" -m scripts.validation_feature_campaign no-default
 
 [group('local')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 doctest-release:
     "{{ py }}" -m scripts.arrow_validation test --no-fail-fast --doc --workspace --exclude pse-py --locked --release
 
@@ -656,6 +657,7 @@ unit-native-contracts:
 
 [group('local')]
 [doc('Doctests (nextest does not run them)')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 doctest:
     # Cargo cannot run doctests for the pse-py cdylib target.
     "{{ py }}" -m scripts.arrow_validation test --no-fail-fast --doc --workspace --exclude pse-py --locked
@@ -680,6 +682,7 @@ codegen-all-check:
 
 [group('local')]
 [doc('One resolved version per family, equal to the pins; shared packages match the evidence lockfiles')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 family-check:
     cargo run -p xtask --no-default-features --locked -- family-check
 
@@ -696,6 +699,7 @@ ci-fast:
 
 [group('local')]
 [doc('Ensure dependencies, prepare the editable extension and stubs, then admit the actual import')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 py-sync:
     "{{ py }}" -m scripts.python_extension sync dev dev --interactive
 
@@ -712,11 +716,13 @@ py-environment-ensure mode="dev":
 
 [group('local')]
 [doc('Prepare/install the selected correctness extension only when its supported inputs changed')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 py-extension-prepare mode="auto" profile="dev":
     "{{ py }}" -m scripts.python_extension prepare {{ quote(mode) }} {{ quote(profile) }}
 
 [group('local')]
 [doc('Prepare compiled API stubs independently of dependency sync and extension installation')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 py-stubs-prepare mode="auto" profile="dev":
     "{{ py }}" -m scripts.python_extension stubs {{ quote(mode) }} {{ quote(profile) }}
 
@@ -754,6 +760,7 @@ py-native-contracts:
 [group('mutating')]
 [doc('Generate or --check the actual compiled native Python API stub; run py-sync after Rust edits')]
 [positional-arguments]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 python-stubs *args:
     scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- python-stubs "$@"
 
@@ -1245,7 +1252,7 @@ lint-native-data:
 
 [group('local')]
 [doc('The committed native stub matches the installed extension; prerequisite: an extension built from current sources')]
-[script]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
 python-stubs-check:
     if [ "$(python3 scripts/doctor.py --extension-kind)" = absent ]; then
         echo "pse-env: prerequisite: no installed pse extension; run just py-sync (or just py-sync-native)" >&2
