@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [FastMCP usability and tooling-evolution review](fastmcp-usability-and-tooling-evolution-2026-10-24.md)
+assesses the implemented single endpoint and the Python/Rust operations beneath it. It proposes
+constructible typed requests, useful selective results, progressive instructions, actionable
+recovery, scoped restart requirements and additional editing/execution capabilities. Code Mode,
+protocol tasks and operator views retain conditional dispositions. Actual read/presentation probes
+and concurrent-source refusals have explicit evidence limits; recommendations authorize no
+implementation or changes to existing Plan52/53 scope.
+
 The [unified FastMCP capability-interface review](unified-fastmcp-capability-interface-2026-10-24.md)
 develops the operator-selected single entry point, deterministic reveal and progressive
 instructions, with explicit design-principle assessment. It covers native schema alignment,
