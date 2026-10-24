@@ -9,28 +9,33 @@ standard for test scope; it does not bound the assessment.
 
 ## Baseline and coverage
 
-- **Source baseline:** commit `cbda2efc6605db74e8a06ade00d36a72ebf97e63`, audited on
-  2026-10-23 in two passes.
-  - No uncommitted change is included.
-  - Commits after the baseline (`14466f98e`, `c80dbfac3`, `497904dbe`) were checked. They add
-    a tooling test discovered in the ordinary way, three quality-group dependencies and
-    standard text. None changes test architecture or evidence.
-  - Concurrent uncommitted work in pse-codegen, xtask and scripts is excluded.
+- **Source baseline:** commit `7902a1f5be1e46b65f17bb3330b4d67a359bbc73`, the baseline of the
+  third pass on 2026-10-23.
+  - Passes one and two used `cbda2efc6`. Between the two baselines only developer-tooling
+    scripts, their tests and documentation changed: the knowledge store, semantic edits,
+    workspace sources and tasks, and session retrospectives.
+  - Every test, fixture, runner and configuration file cited is identical at both baselines, so
+    earlier findings carry forward unchanged.
+  - No uncommitted change is included. Concurrent uncommitted work, including in pse-operations,
+    pse-codegen, xtask and scripts, was excluded by reading dirty paths at the baseline commit.
   - The publication commits are recorded separately by Git.
 - **Standard:**
-  - core 3.4 with its heuristics companion;
-  - test-assessment companion 1.1 (`497904dbe`);
+  - core 3.4 with Heuristics for Efficient Architecture 1.0;
+  - test-assessment companion 1.2 (`9c8c927bc`);
   - the process-simulator profile 1.5;
   - the pse-arrow binding, as selected by [standard.toml](../design_principles/standard.toml).
 
-  The first pass used companion 1.0. Version 1.1 makes the full standard the explicit basis and
-  broadens §8 into an efficiency investigation. The second pass applies 1.1 throughout. The
-  first-pass findings were rechecked under it and stand, with the corrections recorded in place.
+  The earlier passes used companion 1.0 and 1.1. Version 1.2 asks for particular attention to
+  the efficiency-oriented principles, applied primarily through static architectural review.
+  Earlier findings were rechecked under it and stand, with the corrections recorded in place.
 - **Passes:**
   - *First pass:* organized by the companion's topics; produced DTA-001 to DTA-019.
-  - *Second pass:* principle-directed. It reviewed the code against every core foundation, the
-    operational refinements and every profile principle, and explicitly investigated execution
-    efficiency. It produced DTA-020 to DTA-030 and corrected earlier findings.
+  - *Second pass:* principle-directed across every core foundation, refinement and profile
+    principle; produced DTA-020 to DTA-030.
+  - *Third pass:* an efficiency-principle review. Four static review streams covered AP-07/G9,
+    DP-09, DP-10, DP-16, DP-19, DP-20 and heuristics H1–H28. The pass produced DTA-031 to
+    DTA-048, reframed DTA-018, DTA-029 and DTA-030, extended DTA-024 and DTA-025, and replaced
+    the second pass's walk of feedback routes.
 - **Grounding:** source code only. Existing reviews, the broad audit's content, plans and
   capability maps were not inputs. The broad audit was consulted for finding identities and
   titles only, to keep identities distinct and to link shared causes.
@@ -60,15 +65,30 @@ exhaustively:
   - the salsa 0.28.5, arrow 59.3.0 and approx 0.5.1 registry sources where decisive;
   - nextest and pytest documentation through Context7.
 
+**Workload premise for execution fit.** AP-07 is judged against these routes and scales:
+- *Physical units:* the test, test binary, invocation, Python session, developer iteration and
+  qualification run.
+- *Routes:* the agent inner loop (`just unit-package`, `just py-unit`, `just py-test`), broad
+  library units, and the assessment and qualification routes.
+- *Scale:*
+  - about 4,900 Rust tests, about 1,560 of them in pse-runtime;
+  - about 270 `canonical-tests` cfg sites and about 78 Python store tests;
+  - 16-way nextest and xdist parallelism;
+  - one shared SurrealDB server per state, shared across sessions and worktrees;
+  - up to four concurrent build owners in the maintainer-selected unbounded mode.
+
 **Limits.**
 - No test suite was executed and no new measurement was taken. Native-only and store-only
   behavior was judged from source.
-- *Measured* claims come only from runs already recorded in the local nextest record store,
-  with their conditions named.
+- *Measured* claims come only from runs already recorded (the nextest record store and existing
+  JUnit reports), with their conditions named. They support diagnoses and never establish them.
+- *Local observations* are read-only counts and sizes from the local build and state directories
+  on 2026-10-23, not timings or attributions.
 - Read-only probes were:
   - `cargo tree`/`cargo metadata` feature queries;
   - a static check of `nextest.toml` exact-name terms;
   - trace exports of recorded nextest runs;
+  - local build and state inventories;
   - source and history searches.
 - Other findings are *Interface-checked* diagnoses.
 - Not individually inspected:
@@ -140,26 +160,44 @@ for what a change requires a developer to read and instantiate.
   are driven by closures and an in-memory `runtime()`, so PSE-S05 holds for them.
 - *Not local:* three responsibilities need unrelated infrastructure or hand-built context.
   - A canonical store operation needs a server, a Python bridge, the full schema and a feature
-    variant ([DTA-018](evidence-routes-and-execution.md#dta-018),
-    [DTA-029](execution-efficiency.md#dta-029)).
+    variant ([DTA-018](execution-efficiency.md#dta-018),
+    [DTA-029](execution-efficiency.md#dta-029)). Some tests acquire one without needing it
+    ([DTA-031](execution-efficiency.md#dta-031)).
   - Compiler reference consumers need the hand-built closure ([DTA-027](doubles-and-coupling.md#dta-027)).
   - Pure-Python codec tests import the server supervisor through the shared conftest.
 
-**AP-07 Execution fit and development-feedback efficiency — finding.** See
-[Execution efficiency](execution-efficiency.md) for the routes followed:
-- the focused Rust and Python routes, broad library units, the qualification composition and
-  replay;
-- in each, build, discovery and collection, setup, execution, teardown and diagnosis.
+**AP-07 Execution fit, with the efficiency-oriented refinements and heuristics — finding.** The
+third pass reviewed the test system statically against these criteria:
+- AP-07/G9;
+- DP-09 (reuse keys), DP-10 (prepare once, cross boundaries coarsely), DP-16 (bespoke machinery
+  and lifecycle burden), DP-19 (proportionate publication and recovery) and DP-20 (coordinated
+  concurrency and resources);
+- heuristic groups A–G (H1–H28) of the efficiency companion.
 
-The *demonstrated* work is:
-- per-test bridge and schema installation ([DTA-018](evidence-routes-and-execution.md#dta-018));
-- compile-time store-test variants ([DTA-029](execution-efficiency.md#dta-029)).
+[Efficiency-oriented design principles](execution-efficiency.md) gives a per-group synthesis
+and the findings. The judgments rest on structural causes:
 
-The *measured* finding is that broad library feedback is bounded by a few full-closure
-specializations ([DTA-030](execution-efficiency.md#dta-030)).
+| Group | Heuristics | What deviates | Findings |
+|---|---|---|---|
+| Physical units | H2, H12, H5 | Per-test units carry obligations that belong to the server generation or invocation; some tests acquire stores they do not use | [DTA-018](execution-efficiency.md#dta-018), [DTA-031](execution-efficiency.md#dta-031) |
+| Preparation and change | H12, H13, DP-10 | Rebuilds, reinstalls, re-resolution and re-enumeration repeated per run; build variants and embedded data widen change propagation; generation is repeated | [DTA-029](execution-efficiency.md#dta-029), [DTA-032](execution-efficiency.md#dta-032) to [DTA-037](execution-efficiency.md#dta-037) |
+| Representations and access paths | H8, H9, H15, H16 | A monolithic, fsynced invocation document is rewritten per fixture under a host-shared lock | [DTA-038](execution-efficiency.md#dta-038) |
+| Repeated assurance | H18–H20 | Artifact identity is re-proved by full hashing at successive stages; end-of-run checks cover windows that cannot affect completed observations | [DTA-039](execution-efficiency.md#dta-039), [DTA-040](execution-efficiency.md#dta-040) |
+| Coordination and recovery | H21–H25, DP-19, DP-20 | An evidence-grade protocol for disposable databases; retention that does not converge, coupled to the production lifecycle; capacity coordinated per layer; two barriers with no recorded dependency; budgets maximized per process | [DTA-041](execution-efficiency.md#dta-041) to [DTA-046](execution-efficiency.md#dta-046), [DTA-025](evidence-routes-and-execution.md#dta-025) |
+| Whole-system economics | H26–H28, DP-16 | Sealing and protection for evidence that can never be disposed; receipts rewritten whole and carrying copied payloads | [DTA-047](execution-efficiency.md#dta-047), [DTA-048](execution-efficiency.md#dta-048) |
+| Necessary work | H5, H6, H10, H11 | Union-closure preparation for narrow claims; growth with retained history | [DTA-030](execution-efficiency.md#dta-030), [DTA-042](execution-efficiency.md#dta-042) |
 
-*Suspected and unmeasured:* the fixed pre-collection build-and-install cost of every focused
-Python run, and the recompilation of each crate's whole test binary on a test edit.
+The same groups record strengths, which the topic page lists in full:
+- isolation where fresh state is the claim;
+- in-process runtime sharing in Python;
+- unification that removes per-package variants;
+- write-on-change generators;
+- composer leaf verification;
+- absolute deadlines;
+- no retries.
+
+Respected premises: the unbounded build mode and 16-lane SurrealDB-coordinated parallelism.
+Elapsed-time shares remain unmeasured, and no finding depends on a timing.
 
 **Operational refinements.** DP-01 to DP-24 were each reviewed against the test system:
 - *Findings:*
@@ -188,9 +226,15 @@ Python run, and the recompilation of each crate's whole test binary on a test ed
   - DP-20: bare pytest ignores the allocation width; see
     [DTA-015](evidence-routes-and-execution.md#dta-015).
   - DP-23: the thin areas are DTA-004, DTA-013, DTA-014 and DTA-020.
-- *Re-examined and not raised:* bespoke machinery with no library equivalent. That covers the
-  Arrow validation composer, native provenance, cross-language terminal freezing,
-  reference-protected retention, and the resource store's import fence for older worktrees.
+- *Library equivalence, re-examined:* the Arrow validation composer, native provenance,
+  cross-language terminal freezing, reference-protected retention and the resource store's
+  import fence have no library equivalent. That judgment stands. The third pass did raise
+  proportionality and repetition problems in several of them under DP-16 and H19, H24 to H28:
+  [DTA-039](execution-efficiency.md#dta-039), [DTA-041](execution-efficiency.md#dta-041) and
+  [DTA-047](execution-efficiency.md#dta-047).
+- *Efficiency refinements:*
+  - DP-09: generation reuse omits generator inputs ([DTA-024](test-execution-system.md#dta-024)).
+  - DP-10, DP-16, DP-19 and DP-20 carry the third-pass findings above.
 
 **Process-simulator profile.** Each of PS-01 to PS-13 was reviewed for which tests carry the
 obligation, whether their expectations are independent and whether a plausible defect would fail
@@ -223,7 +267,14 @@ them.
 - *Gates:* PS-G2 (structure) is the strongest area. PS-G1 and PS-G3 carry the open findings above.
 
 **Material omissions and unresolved questions.**
-- Compile and edit cost was not measured.
+- Compile and edit cost, fsync and lock wait, hashing time and how per-test fixture cost divides
+  between phases were not measured. The efficiency findings are structural, and they do not
+  claim to identify the dominant runtime bottleneck.
+- Not settled:
+  - whether a leased, verified database would satisfy every fresh-state premise;
+  - the dependency behind the Python canonical-owner group;
+  - which solver tests own pools;
+  - whether maturin rewrites an unchanged extension.
 - No mutation or perturbation probe confirmed the suspected blind spots in DTA-002, DTA-004,
   DTA-020 and DTA-021.
 - Whether the solver tests outside the `scientific` group matter was not established.
@@ -268,15 +319,38 @@ material weaknesses fall into five causes.
    - The runner re-derives tool state ([DTA-022](test-execution-system.md#dta-022)) from
      floating tools ([DTA-024](test-execution-system.md#dta-024)), inside one cyclic component
      with several roots ([DTA-026](test-execution-system.md#dta-026)).
-5. **Feedback cost is dominated by work unrelated to most claims.** Per-test schema installation
-   and bridge round trips ([DTA-018](evidence-routes-and-execution.md#dta-018)), and a few
-   full-closure specializations that set broad library wall time
-   ([DTA-030](execution-efficiency.md#dta-030), *Measured*).
+5. **The test system's physical design repeats work and sizes machinery beyond the obligations
+   of its units.**
+   - *Per-test lifecycle.* The test is the physical unit for obligations that belong to the
+     generation or invocation ([DTA-018](execution-efficiency.md#dta-018)), and some tests
+     acquire a store they do not use ([DTA-031](execution-efficiency.md#dta-031)).
+   - *Repeated preparation and assurance.*
+     - Builds, installs, resolutions and enumerations repeat per run
+       ([DTA-033](execution-efficiency.md#dta-033), [DTA-034](execution-efficiency.md#dta-034),
+       [DTA-037](execution-efficiency.md#dta-037)).
+     - Artifact identity is re-hashed at successive stages ([DTA-039](execution-efficiency.md#dta-039)).
+     - Route-chosen features and embedded data widen rebuilds
+       ([DTA-032](execution-efficiency.md#dta-032), [DTA-035](execution-efficiency.md#dta-035)).
+   - *Disposable state treated as durable.*
+     - Disposable state gets an evidence-grade protocol ([DTA-041](execution-efficiency.md#dta-041)).
+     - Registration rewrites a monolithic document under a host-shared lock
+       ([DTA-038](execution-efficiency.md#dta-038)).
+     - Retention does not converge and couples test history to the production lifecycle
+       ([DTA-042](execution-efficiency.md#dta-042)).
+     - Report retention protects evidence that can never be disposed
+       ([DTA-047](execution-efficiency.md#dta-047)).
+   - *Coordination.* Capacity is coordinated per layer ([DTA-043](execution-efficiency.md#dta-043),
+     [DTA-046](execution-efficiency.md#dta-046)), and two barriers serialize independent work
+     ([DTA-044](execution-efficiency.md#dta-044), [DTA-045](execution-efficiency.md#dta-045)).
+   - *Narrow claims, broad preparation.* Reference consumers prepare the union closure
+     ([DTA-030](execution-efficiency.md#dta-030)).
 
 Lower-severity findings are [DTA-010](doubles-and-coupling.md#dta-010),
 [DTA-017](evidence-routes-and-execution.md#dta-017),
-[DTA-019](evidence-routes-and-execution.md#dta-019) and
-[DTA-025](evidence-routes-and-execution.md#dta-025).
+[DTA-019](evidence-routes-and-execution.md#dta-019),
+[DTA-025](evidence-routes-and-execution.md#dta-025),
+[DTA-036](execution-efficiency.md#dta-036), [DTA-037](execution-efficiency.md#dta-037),
+[DTA-040](execution-efficiency.md#dta-040) and [DTA-046](execution-efficiency.md#dta-046).
 
 ## Finding index
 
@@ -299,19 +373,37 @@ Lower-severity findings are [DTA-010](doubles-and-coupling.md#dta-010),
 | [DTA-015](evidence-routes-and-execution.md#dta-015) | Resource, grouping, width and stack guarantees only on managed routes | Evidence routes |
 | [DTA-016](evidence-routes-and-execution.md#dta-016) | Exclusive scheduling by unchecked exact-name filters | Evidence routes |
 | [DTA-017](evidence-routes-and-execution.md#dta-017) | Superseded force-validate declaration survives; name-only routes | Evidence routes |
-| [DTA-018](evidence-routes-and-execution.md#dta-018) | Per-test Python bridge and full schema installation | Evidence routes |
+| [DTA-018](execution-efficiency.md#dta-018) | Per-test fixture lifecycle re-establishes generation-scoped premises (moved, third pass) | Efficiency principles |
 | [DTA-019](evidence-routes-and-execution.md#dta-019) | Unused pse-testkit doubles; dev-dependencies beyond use | Evidence routes |
 | [DTA-020](oracles-and-acceptance.md#dta-020) | Second-order outputs tested only at constant curvature | Oracles and acceptance |
 | [DTA-021](oracles-and-acceptance.md#dta-021) | Coverage counts definitions; default variants undiscriminated | Oracles and acceptance |
 | [DTA-022](test-execution-system.md#dta-022) | Runner re-derives nextest profile, grammar and identity | Execution system |
 | [DTA-023](test-execution-system.md#dta-023) | Test requirements in name-keyed runner tables; dead recipe; losable control | Execution system |
-| [DTA-024](test-execution-system.md#dta-024) | Floating test tools; reuse key omits tool versions | Execution system |
+| [DTA-024](test-execution-system.md#dta-024) | Floating test tools; reuse keys omit tool versions and generator inputs | Execution system |
 | [DTA-025](evidence-routes-and-execution.md#dta-025) | Fixture setup failures surface as product failures | Evidence routes |
 | [DTA-026](test-execution-system.md#dta-026) | Cyclic runner/resource/server component; several composition roots | Execution system |
 | [DTA-027](doubles-and-coupling.md#dta-027) | Hand-assembled reference closures outside production resolution | Doubles and coupling |
 | [DTA-028](doubles-and-coupling.md#dta-028) | Free-text modeling refusals; tests match wording or any error | Doubles and coupling |
-| [DTA-029](execution-efficiency.md#dta-029) | Store-test selection as a compile-time production feature | Execution efficiency |
-| [DTA-030](execution-efficiency.md#dta-030) | Broad library feedback bounded by full-closure specializations (*Measured*) | Execution efficiency |
+| [DTA-029](execution-efficiency.md#dta-029) | Store-test selection as a compile-time production feature | Efficiency principles |
+| [DTA-030](execution-efficiency.md#dta-030) | Union reference closure prepared and specialized for narrow claims | Efficiency principles |
+| [DTA-031](execution-efficiency.md#dta-031) | Tests acquire a canonical store their claims do not need | Efficiency principles |
+| [DTA-032](execution-efficiency.md#dta-032) | Route-chosen features split the build into full workspace variants | Efficiency principles |
+| [DTA-033](execution-efficiency.md#dta-033) | Every Python run rebuilds, reinstalls, re-stubs and re-hashes the extension | Efficiency principles |
+| [DTA-034](execution-efficiency.md#dta-034) | Ordinary managed Rust route re-resolves, rebuilds and re-enumerates | Efficiency principles |
+| [DTA-035](execution-efficiency.md#dta-035) | Reference documents compiled into the largest test binaries | Efficiency principles |
+| [DTA-036](execution-efficiency.md#dta-036) | `affected` propagates touched packages, not reachable tests | Efficiency principles |
+| [DTA-037](execution-efficiency.md#dta-037) | `codegen-check` repeats covered generation | Efficiency principles |
+| [DTA-038](execution-efficiency.md#dta-038) | Registration rewrites the whole selection three times under a host-shared lock | Efficiency principles |
+| [DTA-039](execution-efficiency.md#dta-039) | Artifact identity re-proved by full re-hashing at successive stages | Efficiency principles |
+| [DTA-040](execution-efficiency.md#dta-040) | End-of-assessment checks fail completed observations | Efficiency principles |
+| [DTA-041](execution-efficiency.md#dta-041) | Evidence-grade durable protocol for disposable fixture databases | Efficiency principles |
+| [DTA-042](execution-efficiency.md#dta-042) | Non-converging retention on the shared server and production lifecycle | Efficiency principles |
+| [DTA-043](execution-efficiency.md#dta-043) | Shared-store and host capacity coordinated per layer | Efficiency principles |
+| [DTA-044](execution-efficiency.md#dta-044) | Python canonical tests serialized on one worker | Efficiency principles |
+| [DTA-045](execution-efficiency.md#dta-045) | `scientific` group serializes independent solver unit tests | Efficiency principles |
+| [DTA-046](execution-efficiency.md#dta-046) | Per-process budgets sized to the whole allocation × width | Efficiency principles |
+| [DTA-047](execution-efficiency.md#dta-047) | Report retention protects evidence no producer can dispose | Efficiency principles |
+| [DTA-048](execution-efficiency.md#dta-048) | Receipts copy maps and payloads and rewrite them per checkpoint | Efficiency principles |
 
 ## Strengths to preserve
 
@@ -395,6 +487,9 @@ audit.
 | Bare tools are first-class | AGENTS.md | Bare pytest and cargo lose grouping, width, resource association and stack policy ([DTA-015](evidence-routes-and-execution.md#dta-015)) |
 | Ordinary pytest takes the allocation width | `docs/dev/agent-environment.md` | Only the runner applies it; `addopts` fixes `-n 16` ([DTA-015](evidence-routes-and-execution.md#dta-015)) |
 | `approx_eq` is the finite comparison contract | `numeric.rs`; blueprint §7.3 | It has no callers ([DTA-007](oracles-and-acceptance.md#dta-007)) |
+| An identified resource consumes only its actual metadata dependencies; exclusion follows invocation, identity and resource order | ADR-0174 (proposed); §24.1 | Registration rewrites the whole invocation selection under a host-shared server lock ([DTA-038](execution-efficiency.md#dta-038)) |
+| "Bounded maintenance follows active/unresolved paths" | §24.1 | The production lifecycle scan visits every active registry entry, and the active set grows ([DTA-042](execution-efficiency.md#dta-042)) |
+| "One feature set per dependency, whatever `-p` selects" | ADR-0122; AGENTS.md | Holds per package selection; routes still produce full workspace variants ([DTA-032](execution-efficiency.md#dta-032)) |
 
 ## Reexamined and not raised
 
@@ -418,9 +513,20 @@ audit.
   raises caller-specified capacities. Sampled call sites do not depend on the requested value.
 - **Solver doubles.** The doubles inspected follow documented derivative and sparsity
   conventions and pass through production validation.
-- **Bespoke runner machinery with no library equivalent.** The Arrow validation composer,
-  native provenance, terminal freezing, reference-protected retention and the resource store's
-  import fence for older worktrees.
+- **Library equivalence of bespoke runner machinery.** No library equivalent was found for the
+  Arrow validation composer, native provenance, terminal freezing, reference-protected retention
+  or the import fence. Their proportionality and repetition were raised in the third pass
+  ([DTA-039](execution-efficiency.md#dta-039), [DTA-041](execution-efficiency.md#dta-041),
+  [DTA-047](execution-efficiency.md#dta-047)).
+- **Efficiency leads judged not material.**
+  - Construction of `tests::runtime()`, which is local and in memory.
+  - Process-level statics that pay off only under `cargo test`.
+  - Specialization returning full models.
+  - The fixed-point lineage filter.
+  - Per-element Python-to-Rust crossings in sampled tests.
+  - The managed route's ordered phases, apart from the duplication in DTA-034.
+  - `managed_primary` serial execution, which has a real single-allocation dependency.
+  - `codegen --check` repeating the producer, because drift is the property it checks.
 - **Lower-severity profile observations.**
   - Integrated-fixture DOF rows are asserted from admission.
   - Scaling sanity is not a shared check; PS-13 says "where warranted", and diagnostics are
@@ -441,8 +547,8 @@ pages hold the findings:
   gating, reconciliation, isolation and per-test cost.
 - [Test execution system architecture](test-execution-system.md): runner structure, requirement
   tables and tool dependence.
-- [Execution efficiency](execution-efficiency.md): the feedback-route investigation and its
-  findings.
+- [Efficiency-oriented design principles](execution-efficiency.md): the static review by
+  heuristic group (A–G) and its findings.
 
 Findings explain what claim is at risk, why the structural cause matters, the inspected footprint,
 decisive sources, contrary evidence and material uncertainty. They use the standard's evidence
@@ -452,8 +558,10 @@ does not establish its evidential quality.
 
 ## Finding ownership and history
 
-New test findings use stable DTA-nnn identities. DTA-001 to DTA-030 are assigned; the next
-identity is DTA-031. DTA-011's title was widened in the second pass with its identity kept. Each
+New test findings use stable DTA-nnn identities. DTA-001 to DTA-048 are assigned; the next
+identity is DTA-049. DTA-011's title was widened in the second pass. DTA-018 moved to the
+efficiency page in the third pass, and DTA-030 was reframed there. All three kept their
+identities, and the former DTA-018 home keeps a route. Each
 finding has one primary home, linked from the index. Keep identity and lineage as explanations or
 topic boundaries change; never reuse retired IDs.
 

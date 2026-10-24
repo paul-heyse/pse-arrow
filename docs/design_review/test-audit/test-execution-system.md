@@ -158,6 +158,16 @@ Whether their solver pools matter was not established.
 unresolved. The finding is the gap between version-specific dependence and an unbound version,
 not the policy itself.
 
+**Third-pass extension (DP-09; H13).** The same reuse mechanism also omits generator inputs.
+- `declared()` maps `codegen-*` gates to the "generation" scope (`scripts/validation_scope.py:36-42`).
+  That scope excludes `packages/`, `tests/` and `vendor/` (`:435-450`).
+- The relations and physical generators read `packages/reference/fixture-projection.toml` and the
+  physical and fixture packages (`xtask/src/codegen/physical.rs:44-56`).
+- So an explicit unchanged-input reuse of `codegen-physical-check` or `codegen-relations-check` can
+  carry a pass across an edit to the sources of `crates/pse-quantity/src/generated`.
+- The per-gate mid-run check uses the same scope. The run-level change record does still note the
+  edit.
+
 ## <a id="dta-026"></a>DTA-026 — The runner, receipt, resource and server modules form one cyclic component with several composition roots for Rust test runs
 
 **Principles:** AP-01, AP-03, AP-05, DP-17; companion §6, §8.

@@ -278,51 +278,12 @@ A composer resolution for the maturin closure
 (`python -m scripts.arrow_validation build -p pse-py --lib --features force-validate`) would
 settle the remaining route.
 
-## <a id="dta-018"></a>DTA-018 — Each Rust canonical test pays a Python bridge round trip and a full schema installation, independent of what it checks
+## <a id="dta-018"></a>DTA-018 — moved
 
-**Principles:** AP-06, AP-07, DP-16; companion §8. **Magnitude unmeasured.**
-
-**Diagnosis.** nextest runs every test in its own process. Each canonical fixture then does
-three things:
-- *Python bridge.* It spawns `.venv/bin/python -m scripts.test_resources register`, and later
-  `drain`, through `resource_bridge` (`crates/pse-operations/src/testing.rs:140-219`). That
-  loads `test_resources` and its service-admission imports.
-- *Schema installation.* It installs the complete generated schema into a fresh database
-  (`testing.rs:348-399`). `crates/pse-operations/src/generated/surreal.surql` is 340,507 bytes
-  with 989 `DEFINE` statements.
-- *Checkout coupling.* Rust tests take a hard dependency on the checkout's `.venv`.
-
-The managed route adds per-invocation work before the test body:
-- `cargo metadata`, plus one or two `--unit-graph` resolutions;
-- `nextest list`, then `nextest run` (`scripts/test_run.py:516-540`);
-- invocation and config copies.
-
-`py-unit` and `py-test` run `maturin develop` first.
-
-**Consequence.** The cost of feedback for a store-touching responsibility scales with the number
-of selected tests times the fixed fixture cost. This is the case whether or not a test's claim
-concerns schema installation or registry state. The resources are not unrelated: a fresh
-database per test is a deliberate isolation premise.
-
-**Counterevidence.** The machinery buys three things nextest and pytest alone do not:
-- retained databases for failed tests;
-- drained native descendants and cgroups;
-- `not_run` accounting.
-
-[DTA-012](#dta-012) weakens that last benefit at the exit-status level. Some tests target
-schema installation itself.
-
-**Python side.** The Python `canonical_substrate` fixture likewise initializes a full database
-per test through `initialize_database` (`python/pse/tests/conftest.py:84-133`). About 78 test
-functions use it.
-
-**Uncertainty.** The per-test cost is unattributed. One recorded nextest run gives an order of
-magnitude without attributing it (*Measured*). Run `217bd5e6` (2026-10-23, nextest 0.9.146,
-default profile) selected 27 tests across pse-runtime, pse-operations and pse-backend-native,
-with `pse-runtime/canonical-tests` among its features. Its fastest test took 12.6 s and the run
-took 333 s of wall time. That was read from the nextest record store and exported as a trace.
-Whether the bridge and schema share is material relative to test bodies or server contention
-is not established.
+DTA-018 moved in the third pass (2026-10-23) to
+[Efficiency-oriented design principles](execution-efficiency.md#dta-018). It is reframed
+there as a per-test physical lifecycle that re-establishes generation-scoped premises
+(H2, H12, DP-10). Its identity is unchanged.
 
 ## <a id="dta-019"></a>DTA-019 — Shared fault and counting doubles in pse-testkit have had no consumers since 2026-10-06, and test dependencies are declared beyond their use
 
@@ -374,3 +335,18 @@ plus N pinned databases ([DTA-015](#dta-015)).
 **Counterevidence.** Store readiness is checked before the run (`pse_env.require_store`), the
 messages are specific, and nextest has no per-test setup phase to report separately. Severity is
 low.
+
+**Third-pass extension (H24).** Store degradation is also recovered per test rather than once per
+run. Every Rust registration probes readiness and may start the server
+(`scripts/test_resources.py:505-510`; a 40 s start budget) inside a 60 s bridge
+(`crates/pse-operations/src/testing.rs:189`). Drain waits up to the request timeout plus a 50 s
+bridge, and `Drop` panics on failure (`testing.rs:94-137`). With `fail-fast = false`
+(`.config/nextest.toml:21`), no owner handles an outage at the level of the run.
+
+A mid-run outage therefore costs roughly the number of remaining store tests ÷ 16 × the bridge
+budget, and it reports one product failure per test.
+
+**Counterevidence:**
+- Budgets are finite and absolute.
+- `require_store` fails early before the run.
+- `start` joins a single lifecycle owner rather than starting duplicates.
