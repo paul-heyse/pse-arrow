@@ -131,11 +131,18 @@ class InstallationContextTests(unittest.TestCase):
                 "PATH": "/usr/bin",
                 "PRIVATE_TOKEN": "never-published",
                 "CC": "clang",
+                "SCCACHE_MAX_FRAME_LENGTH": "134217728",
             },
         ):
             selected = context.controlled_environment(root, {})
         self.assertEqual(
-            selected, {"HOME": "/home/test", "PATH": "/usr/bin", "CC": "clang"}
+            selected,
+            {
+                "HOME": "/home/test",
+                "PATH": "/usr/bin",
+                "CC": "clang",
+                "SCCACHE_MAX_FRAME_LENGTH": "134217728",
+            },
         )
         for variable in ("CARGO_UNDERSTOOD_IN_FUTURE", "CARGO_BUILD_FINGERPRINT"):
             with (

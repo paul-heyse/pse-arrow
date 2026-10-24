@@ -3,4 +3,6 @@
 # Local compiler-cache and storage budgets. The toolchain is rust-toolchain.toml's dated
 # nightly; nothing here names another one (ADR-0122).
 cache_size = "100G"
+# Client-side publication transfers a whole compressed entry in one frame.
+cache_max_frame_length = 268435456
 free_space_gib = 50
