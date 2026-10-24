@@ -1062,6 +1062,72 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(check["status"], "failed")
         self.assertTrue(check["report_errors"])
 
+    def test_shear_receipt_is_required_for_both_roles_and_findings_keep_authority(self) -> None:
+        tool = self.output / "audit-shear-tool.json"
+        for role in ("required", "advisory"):
+            for status, code in (("passed", 0), ("findings", 1), ("failed", 2)):
+                check = {
+                    "gate": "audit-shear", "role": role, "exit_code": code,
+                    "status": "passed" if code == 0 else "failed", "started": 1,
+                    "report_errors": [], "artifacts": {},
+                }
+                validation.write_json(tool, {
+                    "gate": "audit-shear", "status": status, "started": 2,
+                    "invocations": [{"exit_code": code}],
+                })
+                validation_receipts.classify(check, self.output)
+                self.assertEqual(check["status"], status)
+                self.assertEqual(validation_receipts.qualified(check), status == "passed" or (status == "findings" and role == "advisory"))
+                self.assertEqual(check["artifacts"][tool.name], validation_receipts.digest(tool))
+            for invalid in (
+                None, "{", "[]", "null",
+                json.dumps({"gate": "audit-shear", "status": "passed", "started": 0, "invocations": [{}]}),
+            ):
+                if invalid is None:
+                    tool.unlink(missing_ok=True)
+                else:
+                    tool.write_text(invalid)
+                check = {
+                    "gate": "audit-shear", "role": role, "exit_code": 0,
+                    "status": "passed", "started": 1,
+                    "report_errors": [], "artifacts": {},
+                }
+                validation_receipts.classify(check, self.output)
+                self.assertEqual(check["status"], "failed")
+                self.assertTrue(check["report_errors"])
+
+    def test_shear_aggregate_exit_respects_required_and_advisory_roles(self) -> None:
+        real_execute = validation.execute
+        for group in ("hygiene", "deps-report"):
+            gate = next(g for g in expand((group,)) if g.name == "audit-shear")
+            for status, code in (("passed", 0), ("findings", 1), ("failed", 2)):
+                output = self.output / f"{group}-{status}"
+                output.mkdir()
+
+                def execute(
+                    root: Path,
+                    output: Path,
+                    name: str,
+                    command: list[str],
+                    env: dict[str, str],
+                    code: int = code,
+                    status: str = status,
+                ) -> dict:
+                    del command
+                    result = real_execute(root, output, name, [sys.executable, "-c", f"raise SystemExit({code})"], env)
+                    validation.write_json(output / "audit-shear-tool.json", {
+                        "gate": "audit-shear", "status": status,
+                        "started": result["started"], "invocations": [{"exit_code": code}],
+                    })
+                    return result
+
+                with patch.object(validation, "execute", side_effect=execute):
+                    actual = validation.run_gates(self.root, output, [gate], capture=False)
+                self.assertEqual(actual, int(status == "failed" or (status == "findings" and group == "hygiene")))
+                receipt = assessment_store.export(output)
+                self.assertEqual(receipt["checks"][0]["status"], status)
+                self.assertIn("audit-shear-tool.json", receipt["checks"][0]["artifacts"])
+
     def test_interrupt_marks_later_gates_not_run(self) -> None:
         real = validation.execute
 
@@ -1464,6 +1530,13 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(
             next(g.role for g in combined if g.name == "audit-advisories"), "required"
         )
+        for names in (("hygiene", "deps-report"), ("deps-report", "hygiene")):
+            combined = expand(names)
+            shear = [gate for gate in combined if gate.name == "audit-shear"]
+            self.assertEqual(len(shear), 1)
+            self.assertEqual(shear[0].role, "required")
+        self.assertEqual(next(g.role for g in expand(("hygiene",)) if g.name == "audit-shear"), "required")
+        self.assertFalse({"audit-machete", "udeps"} & {gate.name for group in GROUPS for gate in expand((group,))})
 
     def test_reuse_and_transfer_preserve_original_observation(self) -> None:
         scope = [asdict(Gate("test"))]

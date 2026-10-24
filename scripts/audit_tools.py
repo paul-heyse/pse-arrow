@@ -24,12 +24,43 @@ COMMANDS = {
         "check",
     ],
     "audit-advisories": ["cargo", "audit", "--json", "--deny", "warnings"],
-    "audit-shear": ["cargo", "shear", "--format", "json", "--locked"],
-    "audit-machete": ["cargo", "machete", "--with-metadata"],
+    "audit-shear": [
+        "cargo", "shear", "--locked", "--check-test-targets", "--deny-warnings",
+        "--format", "json",
+    ],
 }
 
 
 def finding_status(gate: str, code: int, stdout: str, stderr: str) -> str:
+    if gate == "audit-shear":
+        # --deny-warnings makes every reported finding a strict nonzero result.
+        # Even an exit-zero invocation needs a valid report, not empty output.
+        try:
+            report = json.loads(stdout)
+            findings = report["findings"]
+            summary = report["summary"]
+            if not isinstance(findings, list) or not isinstance(summary, dict):
+                return "failed"
+            if not all(
+                isinstance(item, dict)
+                and isinstance(item.get("code"), str)
+                and item["code"].startswith("shear/")
+                and item.get("severity") in {"warning", "error"}
+                for item in findings
+            ) or not all(
+                type(summary[plural]) is int
+                and summary[plural]
+                == sum(item["severity"] == singular for item in findings)
+                for plural, singular in (("errors", "error"), ("warnings", "warning"))
+            ):
+                return "failed"
+            return (
+                "passed" if code == 0 and not findings
+                else "findings" if code == 1 and findings
+                else "failed"
+            )
+        except (ValueError, KeyError, TypeError, AttributeError):
+            return "failed"
     if code == 0:
         return "passed"
     try:
@@ -55,34 +86,9 @@ def finding_status(gate: str, code: int, stdout: str, stderr: str) -> str:
             return "findings" if mask == code and mask > 0 else "failed"
         if code != 1:
             return "failed"
-        if gate == "audit-machete":
-            # Documented exit 1 is unused dependencies; exit 2 is a tool error.
-            return "findings"
         if gate == "audit-advisories":
             report = json.loads(stdout)
             if report.get("vulnerabilities", {}).get("found") or report.get("warnings"):
-                return "findings"
-        elif gate == "audit-shear":
-            report = json.loads(stdout)
-            findings = report["findings"]
-            summary = report["summary"]
-            if (
-                findings
-                and all(
-                    isinstance(item.get("code"), str)
-                    and item["code"].startswith("shear/")
-                    and item.get("severity") in {"warning", "error"}
-                    for item in findings
-                )
-                and all(
-                    summary[plural]
-                    == sum(item["severity"] == singular for item in findings)
-                    for plural, singular in (
-                        ("errors", "error"),
-                        ("warnings", "warning"),
-                    )
-                )
-            ):
                 return "findings"
     except (ValueError, KeyError, TypeError, AttributeError):
         pass

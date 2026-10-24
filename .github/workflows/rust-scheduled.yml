@@ -91,27 +91,6 @@ jobs:
       - name: doctests at the release profile
         run: cargo test --doc --workspace --locked --release --features pse-relations/force-validate
 
-  # Owner: maintainer. Response: remove the dependency, or record why it is kept
-  # (a build-only or feature-gated use that udeps cannot see).
-  udeps:
-    name: udeps
-    runs-on: ubuntu-24.04
-    container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-2893f027e09f@sha256:cf6a21efa0728a9dfae55ac453445196bc2c0f4cb6775e62dafe1b0a688f5b95
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-rust
-        with:
-          shared-key: udeps
-          save-if: "true"
-          tools: cargo-udeps
-      - name: unused dependencies
-        # cargo-udeps needs nightly; the repository toolchain is the dated nightly in
-        # rust-toolchain.toml, so no second nightly is named here (ADR-0122).
-        run: cargo udeps --workspace --locked --all-targets
-
   # Owner: maintainer. Advisory only (`continue-on-error`): a surviving mutant is a
   # question about test strength, not a defect. Response: read the artifact and decide
   # whether the surviving mutation describes behaviour anyone relies on.

@@ -26,9 +26,9 @@ export PY
 # Names live here; protocol-sensitive versions come from diagnostic-tools.toml.
 CARGO_TOOLS=(
   "cargo-nextest" "cargo-deny"   "cargo-audit"
-  "cargo-shear"   "cargo-machete" "cargo-llvm-cov"
+  "cargo-shear"   "cargo-llvm-cov"
   "cargo-insta"   "cargo-hack"   "cargo-msrv"
-  "cargo-mutants" "cargo-fuzz" "cargo-geiger" "cargo-udeps"
+  "cargo-mutants" "cargo-fuzz" "cargo-geiger"
   "cargo-semver-checks" "git-cliff"
 )
 

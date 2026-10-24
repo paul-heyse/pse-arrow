@@ -68,7 +68,6 @@ def _declared(name: str, scope: str) -> Gate:
         "audit-dependencies",
         "audit-advisories",
         "audit-shear",
-        "audit-machete",
     }:
         return Gate(name, input_scope=scope, role="advisory")
     if name == "doc-lint":
@@ -150,6 +149,7 @@ GROUPS = {
         "engine-boundary-check",
         "solver-pin-check",
         "family-check",
+        "audit-shear",
         "codegen-check",
         "clippy-default",
         "clippy-no-default",
@@ -159,7 +159,6 @@ GROUPS = {
         "audit-dependencies",
         "audit-advisories",
         "audit-shear",
-        "audit-machete",
     ),
 }
 
@@ -172,7 +171,7 @@ def expand(names: tuple[str, ...]) -> list[Gate]:
             expand(GROUPS[name]) if name in GROUPS else [declared(name)]
         ):
             gate = declared_gate
-            if name == "policy":
+            if name == "policy" or (name == "hygiene" and gate.name == "audit-shear"):
                 gate = replace(gate, role="required")
             existing = output.get(gate.name)
             if existing is None or gate.role == "required":

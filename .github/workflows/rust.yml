@@ -190,9 +190,8 @@ jobs:
       - name: cargo audit
         # .cargo/audit.toml carries the dated acceptances.
         run: cargo audit --deny warnings
-      # cargo shear / cargo machete are advisory in phase 0 (`just deps-report`): the
-      # skeleton declares its blueprint dependencies before using them. Register row R-18
-      # promotes them to a gate once every crate has code.
+      # The local hygiene bundle requires cargo shear; deps-report keeps the same
+      # detector advisory for dependency investigation.
 
   docs:
     name: rust / docs

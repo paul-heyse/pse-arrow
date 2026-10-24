@@ -211,7 +211,7 @@ def _families() -> tuple[_Family, ...]:
             "Cargo.toml",
             "Inspect exact dependency families and deliberately update selected pins through the existing owners.",
             "Reports read declarations; update/lock commands deliberately mutate manifests and lockfiles.",
-            recipes="upgrade lock-python lock-workspace versions metadata metadata-resolve deps-report family-check floors-latest udeps audit-advisories audit-dependencies audit-machete audit-shear",
+            recipes="upgrade lock-python lock-workspace versions metadata metadata-resolve deps-report family-check floors-latest audit-advisories audit-dependencies audit-shear",
             sources="pyproject.toml scripts/cargo_feature_check.py xtask/src/dependency_ceilings.rs",
             guides=("environment", "rust", "python"),
             route=("just", "deps-report"),

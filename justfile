@@ -437,10 +437,6 @@ audit-shear:
     "{{ py }}" -m scripts.audit_tools audit-shear
 
 [group('local')]
-audit-machete:
-    "{{ py }}" -m scripts.audit_tools audit-machete
-
-[group('local')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-combinations:
     "{{ py }}" -m scripts.validation_feature_campaign combinations
@@ -957,11 +953,6 @@ features-powerset:
 [positional-arguments]
 test-release *args:
     "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} --workspace --locked --cargo-profile release "$@"
-
-[group('manual')]
-[doc('cargo udeps on the pinned nightly toolchain')]
-udeps:
-    cargo udeps --workspace --all-targets --locked
 
 [group('manual')]
 [doc('Mutation testing for one file')]
