@@ -9,6 +9,7 @@ import hashlib
 import json
 import re
 import tomllib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -261,8 +262,10 @@ def reference(root: Path, value: str, source: Path | None = None) -> str:
     )
 
 
-def load_policy(root: Path = ROOT) -> dict:
-    policy = tomllib.loads((root / "docs/lifecycle.toml").read_text(encoding="utf-8"))
+def load_policy(root: Path = ROOT, *, read_source: Callable[[str], bytes] | None = None) -> dict:
+    def read(relative: str) -> str:
+        return read_source(relative).decode('utf-8') if read_source else (root / relative).read_text(encoding='utf-8')
+    policy = tomllib.loads(read('docs/lifecycle.toml'))
     if type(policy.get("version")) is not int or policy["version"] != 1:
         raise ValueError("unsupported document lifecycle policy version")
     topics = policy.get("topics", [])
@@ -272,7 +275,7 @@ def load_policy(root: Path = ROOT) -> dict:
         or len(set(topics)) != len(topics)
     ):
         raise ValueError("lifecycle topics must be unique declared strings")
-    collections = tomllib.loads((root / "docs/site.toml").read_text(encoding="utf-8"))[
+    collections = tomllib.loads(read('docs/site.toml'))[
         "collections"
     ]
     if set(policy.get("collections", {})) - {

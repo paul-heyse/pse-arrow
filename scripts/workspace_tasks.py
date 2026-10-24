@@ -62,7 +62,7 @@ def task_packet(task: str | None, paths: tuple[str, ...], *, root: Path = ROOT,
                 return native_inputs[relative]['text'].encode('utf-8')
             for relative in (plan,fact['owner'].partition('#')[0],'docs/lifecycle.toml'):
                 read_native(relative)
-            native = document_lifecycle.aggregate(root, document_metadata.load_policy(root), documents={plan, fact['owner']}, read_source=read_native)
+            native = document_lifecycle.aggregate(root, document_metadata.load_policy(root, read_source=read_native), documents={plan, fact['owner']}, read_source=read_native)
             rows = [row for row in native
                     if row["document"] in {plan, fact["owner"]}
                     and (not separator or row.get("native_id") == native_id)]

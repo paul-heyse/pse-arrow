@@ -132,12 +132,15 @@ def _stamp(path: Path) -> tuple[int, int, int, int, int]:
 def _document_context(root: Path, policy_stamp: tuple, site_stamp: tuple) -> tuple[dict, dict, list[dict]]:
     """Reuse one native interpretation per unchanged policy cut, not per result row."""
     inputs = []
+    captured = {}
     for relative, expected in (("docs/lifecycle.toml", policy_stamp), ("docs/site.toml", site_stamp)):
         raw = _read(root, relative, 4 << 20)
+        captured[relative] = raw
         if _stamp(root / relative) != expected:
             raise ValueError("metadata interpretation changed during selection")
         inputs.append({"path": relative, "digest": hashlib.sha256(raw).hexdigest(), "role": "metadata-interpretation"})
-    policy, site = document_metadata.load_policy(root), docs.configuration(root)
+    policy = document_metadata.load_policy(root, read_source=captured.__getitem__)
+    site = tomllib.loads(captured['docs/site.toml'].decode('utf-8'))
     if _stamp(root / "docs/lifecycle.toml") != policy_stamp or _stamp(root / "docs/site.toml") != site_stamp:
         raise ValueError("metadata interpretation changed during read")
     return policy, site, inputs
