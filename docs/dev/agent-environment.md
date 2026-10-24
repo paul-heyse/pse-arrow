@@ -123,7 +123,7 @@ The [documentation guide](documentation.md) owns metadata, scope-query and retir
 ## Placement and memory
 
 Commands acquire a registered host allocation before their systemd user scope starts.
-`.config/agent-capacity.toml` owns bounded memory partitions, shared build slots and physical-core
+`.config/agent-capacity.toml` owns bounded memory partitions and physical-core
 lanes; `scripts/host_admission.py` coordinates independent sessions under private XDG
 state. The aggregate parent initially caps cooperating work at 160 GiB. Functional
 work uses cores 8–15 (and their SMT siblings), timing uses cores 0–7. Kernel quotas
@@ -132,8 +132,10 @@ has no delegated cpuset controller.
 
 A machine-local `export PSE_BUILD_MODE=unbounded` in `.envrc.local` selects ordinary
 build/test defaults without an OS memory budget or startup memory-pressure guard.
-Four build owners may overlap, each sharing all sixteen physical cores with a 1600%
-CPU quota. Cargo's declared default is sixteen jobs; an explicit `CARGO_BUILD_JOBS`
+Ordinary build owners may overlap without an admission count ceiling, each sharing all sixteen
+physical cores with a 1600% CPU quota. Ownership and liveness remain tracked; scientific
+timing/reference exclusions retain their distinct contracts.
+Cargo's declared default is sixteen jobs; an explicit `CARGO_BUILD_JOBS`
 remains a caller choice. Build allocations live under `psebuild.slice`, outside the
 bounded `pse.slice` hierarchy. Their scopes omit `MemoryMax` and `MemorySwapMax` and
 verify actual `memory.max=max` through every ancestor, including the cgroup root.
