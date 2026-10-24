@@ -1,264 +1,244 @@
 # Execution fit
 
-These findings concern work, movement, live state or lifecycle machinery that the supported
-workloads do not appear to need: edit → re-solve, studies, recycles, dynamics and extension
-(process-simulator functional target). They are assessed qualitatively under AP-07/G9.
-Static evidence of avoidable work or amplification counts as architectural evidence. No
-quantitative speed or capacity claim is made without a measurement, and none was taken.
-Baseline and limits are in the [collection README](README.md). Citations are `path:line`
-at source commit `a791c533e`.
+These findings concern necessary versus actual work for the supported workloads: repeated work,
+crossings, units of publication, live state, exclusion scope and recovery. They cover the
+simulator's edit/re-solve, study, dynamic and recycle workloads, under the maintainer premises of
+canonical SurrealDB, 16 coordinated lanes, and durable work that outlives its caller without a
+daemon.
 
-## <a id="da-025"></a>DA-025 — Persistence machinery is sized for a more demanding deployment than the system's actual participants and recovery obligations
+The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
+at `cbf45ccc9`. Unless a claim says *Measured*, costs are structural observations.
 
-**Principles:** AP-07 (H1, H14, H25, H26, H27), DP-16, DP-19 ("without gratuitous leases or hostile-operator assumptions").
+## <a id="da-034"></a>DA-034 — The durable publication unit follows semantic and transport boundaries, and each unit carries the full file-intent lifecycle
 
-**Diagnosis.** The persistence boundary carries the following machinery.
+**Principles:** AP-07, DP-10, DP-19, DP-20, PS-11; H2, H8, H16, H24, H26, H27, H28; G9 (the
+edit → re-solve loop, PSE-S07).
 
-- **Bookkeeping tables.** About 27 of the 62 canonical tables track lifetime, protection,
-  retention, history, staging or coordination, by the slice reviewer's classification.
-  Examples: file owners, borrowers, instances and admission; manifest tickets; protections
-  and result protections; artifact obligations, reads and releases; history obligations,
-  counts, identities and locators; reclaimed ranges; guards; roots; stages; retirements.
-- **Server functions.** 116 hand-authored server functions.
-- **Owner identity.** File owners are bound to Linux boot ID, PID namespace, PID, process
-  start time and cgroup (`crates/pse-operations/src/canonical_files.rs:213-251`).
-  Nonexpiring read tickets are released only on "authenticated owner death". Yet the online
-  physical collector those protections arbitrate, `CanonicalStore::collect_file`
-  (`canonical_files.rs:625`), has no production caller. Every caller is a test module
-  (coordinator-confirmed).
-- **Patched SDK.** A patched SurrealDB SDK is vendored (`vendor/surrealdb/PATCH.md`;
-  `Cargo.toml:158`). The diff against crates.io 3.3.0 is several thousand lines; it
-  carries deadlines, admission, replay and response limits.
-- **Python supervisor.** An 8,874-line Python supervisor, `scripts/surreal_server.py`
-  (see also [DA-019](boundaries-and-composition.md#da-019)), plus host admission,
-  native-operation and maintenance scripts.
-- **Operational protocols.** Restore, rollout and incarnation-rotation protocols exist,
-  although §20.5 describes the design-phase store as disposable and regenerated.
-
-Fine-grained allocator charging is a separate cause, covered in
-[DA-022](local-reasoning-and-assurance.md#da-022).
-
-**Consequence.**
-- A single-user local simulator pays a client-server, multi-owner recovery protocol on
-  every durable operation.
-- Representative persistence changes (PSE-S04, PSE-S06) cross the SDK fork, the Python
-  supervisor, generated SurrealQL and several protection tables.
-- One layer's benefit cannot be realized in production, because there is no online
-  collector. If physical payload reclamation is simply absent in production, payloads may
-  also grow without bound. That is unresolved.
-
-**Counterevidence (material).**
-- Real concurrent writers exist: 16 worker lanes, the Python caller, and study summary
-  writers.
-- Crashes are real, and H25 warns against assuming they cannot happen.
-- Attempt leases, fences and acknowledgement settlement protect DP-19 truthfulness.
-- The remote server was a deliberate ADR-0164 tradeoff with stated costs.
-- Logical forget and reclaim are reachable from Python and arbitrate through tickets.
-- The fixed durable overhead in the edit → re-solve loop has not been measured.
-  `canonical_joined_publication_progress_and_ordinary_cost_probe`
-  (`workflow/durable.rs:4309`) is the existing probe for it.
-
-**Evidence strength.** The inventory and the missing production caller are source-established.
-The disproportion is a qualitative judgment. The cost is a hypothesis.
-
-**Related.** [DA-007](structure-and-invariants.md#da-007), [DA-024](local-reasoning-and-assurance.md#da-024).
-
-## <a id="da-026"></a>DA-026 — Result selection is a bespoke index and predicate engine whose transactional index writes grow with result rows, while DataFusion sees an unpruned serial scan
-
-**Principles:** DP-13, DP-14, DP-16 (§E), AP-07 (H4, H7, H8, H16, H27); PSE-S04.
-
-**Diagnosis.** For solve variables, solve constraints, fit parameters and fit observations,
-the append protocol requires one `canonical_result_rows` locator per row. Each locator is
-written into SurrealDB inside the guarded append transaction. This is on top of the Arrow
-IPC payload, the block zone maps and the output descriptors
-(`crates/pse-operations/src/generated/surreal.surql:1012-1060`).
-
-Which relations, fields and owner columns are indexed is hand-coded across pse-operations
-and runtime, not declared in the registry. The relation-name aspect is covered by
-[DA-032](semantic-model-and-authority.md#da-032)
-(`crates/pse-operations/src/canonical_execution.rs:2345-2360`;
-`crates/pse-runtime/src/workflow/result_projection.rs:28-140`).
-
-The query surface is a bespoke single-field predicate (`minimum`, `maximum`, `missing`)
-evaluated with hand-built Arrow kernels (`result_projection.rs`, scalar predicate;
-`connected_results.rs:140-155`). The DataFusion `SnapshotProvider` meanwhile reports every
-filter as `Unsupported` and exposes one partition behind a mutex-held decoder
-(`workflow/result_snapshot.rs:39-50`, `:686-727`). General DataFusion queries over results
-therefore never reach the zone maps or the row index.
-
-**Consequence.**
-- Durable write work and the number of guarded round trips scale with variables plus
-  constraints, not with useful payload. Per-row metadata extent drives how appends are
-  split.
-- Adding an indexed relation or field edits about four places across two crates.
-- Pruning that the libraries provide natively (Parquet statistics, page index, bloom
-  filters with DataFusion pruning) is re-implemented in the catalog.
-
-**Counterevidence.**
-- Exact bits, signed zero and missingness are preserved deliberately.
-- Locators reference IPC rows rather than duplicating payload.
-- Each transaction is bounded.
-- The single-decoder choice is declared and compared in tests.
-
-**Open library question.** Can the pinned Parquet/DataFusion route satisfy the result
-contract? The contract requires exact f64 bits including NaN payloads, signed-zero
-equality for numeric access, missingness, and recoverable row coordinates. Parquet float
-statistics special-case ±0 and exclude NaN, so pruning correctness under these semantics
-needs primary-source confirmation.
-
-**Evidence strength.** *Implemented* for the structure. The magnitude of write
-amplification is a hypothesis. Counting locator rows and append transactions for one
-large solve would settle it.
-
-## <a id="da-027"></a>DA-027 — Shared-body structure is grouped during specialization, re-expanded for the compiler, then rediscovered under a second identity
-
-**Principles:** DP-06, DP-09, DP-16, AP-07 (H12, H14, H16, H17).
-
-**Diagnosis.** Preparation handles shared bodies in four steps:
-1. `group_bodies` scans every instance, then renames, renders and hashes it into dispatch
-   groups (`crates/pse-modeling/src/specialize/group.rs:50-223`).
-2. Its only consumer, `bound_bodies`, renames each group back into per-instance
-   expressions (`group.rs:229-276`; called once at
-   `crates/pse-compiler/src/workspace/modeling/executable.rs:401`; coordinator-confirmed).
-   A test asserts the result equals `model.equations`.
-3. The compiler projection then wraps each scalar output with clones of its transitive
-   member bindings (`executable.rs:1257-1272`).
-4. For each output it re-normalizes, runs a full physical-only `BodyBuilder` pass to
-   capture premises, then renders and hashes. Only after that does the memoized
-   `semantic_body` lookup happen (`executable/grouped.rs:938-1023`).
-
-Two independent body-identity mechanisms therefore track the same meaning, and the
-modeling-side one has no compact consumer. Proving reuse repeats the physical walk for
-every output, however much sharing there is. Several full copies of the model's
-expressions stay live during preparation:
-- the specialized model;
-- the `bound_bodies` maps;
-- `Projection.expressions`, retained by a tracked query;
-- interned `BodyInput` expressions.
-
-**Counterevidence.**
-- Symbolica materialization still runs once per distinct identity.
-- `MathService` body retention prevents repeated materialization across workspaces.
-
-**Evidence strength.** *Implemented*. Magnitude unmeasured.
-
-**Related.** [DA-001](semantic-model-and-authority.md#da-001), [DA-030](#da-030).
-
-## <a id="da-028"></a>DA-028 — Single-output bodies recompute shared member computations once per consuming output on every evaluation
-
-**Principles:** AP-07, DP-10 (H12, H16); divergence from declared design.
-
-**Diagnosis.** A compiler body is one scalar output expression (row, term, contribution or
-member), with every transitively read member inlined
-(`crates/pse-compiler/src/workspace/modeling/executable/grouped.rs:245-265`;
-`executable.rs:1257-1272`). A member read by k outputs is therefore computed k times per
-case evaluation, and so are its derivatives. Examples are mixing-rule or caloric `let`s
-read by every fugacity row (`packages/reference/thermodynamics/models/pr-equilibrium.pse:134-141`)
-and replica members read by a quadrature closure row (`projection_tests.rs:54-70`).
-
-`CaseWorker` reuse applies only to identical programs with identical input bits
-(`crates/pse-math/src/assembly.rs:3451-3560`), so it does not cover shared intermediates
-inside different bodies. §7.1 says "a body covers one definition and its consumed finite
-membership". Reading that as a per-definition body makes the code a divergence, but this
-is an interpretation of the text. Either way, the per-output choice maximizes program
-sharing across instances at the cost of recomputation within an instance, and that
-tradeoff is not stated anywhere.
-
-**Counterevidence.**
-- Symbolica common-subexpression elimination works within a body.
-- Implicit providers reuse their last product at identical inputs
-  (`crates/pse-math/src/implicit.rs:2091-2115`).
-- Whether term and contribution outputs are evaluated during solver iterations, or only in
-  observation demands, is unverified.
-
-**Evidence strength.** *Implemented* for the structure. Magnitude is a hypothesis; operation
-counters on a flash fixture would settle it.
-
-## <a id="da-029"></a>DA-029 — Preparation contains whole-model nested scans that grow superlinearly within the supported limits
-
-**Principles:** AP-07 (H9, H10, H11).
-
-**Diagnosis.** Preparation nests linear searches inside whole-model loops. The supported
-scope is 100,000 rows, instances and scalars (`crates/pse-math/src/binding.rs:1161-1170`)
-and 100,000 specialization items (`crates/pse-modeling/src/specialize.rs:73-82`). These
-scans run on every structural edit, and through [DA-030](#da-030) also on unrelated edits.
-
-The scans:
-- For every row, a fixed-point loop over all member bindings by name, re-walking ASTs. It
-  is not guarded by whether the model has derivatives, so it runs for steady models too; the
-  dynamic-row count is checked only afterwards
-  (`crates/pse-compiler/src/workspace/modeling/executable.rs:614-655`).
-- `rows.iter().find` per output (`:997-1014`).
-- `outputs.iter().position` per term or hint (`:1040-1046`, `:1106`).
-- Every accumulator's term list scanned per contribution output (`executable/grouped.rs:1076-1077`).
-- Per instance, a scan of all model symbols and all equations (`crates/pse-modeling/src/specialize/group.rs:51-74`).
-- The full symbol table re-rendered per contribution × coordinate ([DA-001](semantic-model-and-authority.md#da-001)).
-
-The naive closure is incidental: `MemberReads` (`executable.rs:1276+`) computes the same
-member-read closure with indices.
-
-**Evidence strength.** *Implemented*, static amplification evidence. No timing was taken. A
-probe would run the `projection_tests.rs` `projected(cells)` harness at 500, 2,000 and
-8,000 cells.
-
-## <a id="da-030"></a>DA-030 — Compiler reuse stops at package-wide and whole-root granularity, and the runtime layers hand-keyed caches beside Salsa to compensate
-
-**Principles:** DP-09, PS-11, DP-18, H13, H14.
+**Refresh status:** new. It continues DA-025's concern with machinery scale in a specific
+structural form. It is distinct from DA-026, whose per-row locators are verified removed.
 
 **Diagnosis.**
-
-**Granularity.** Checking is per declaration in Salsa, but the result is published as one
-package-wide `Catalog { checked: Arc<CheckedPackage> }` input
-(`crates/pse-compiler/src/workspace/modeling.rs:176-182`; coordinator-confirmed).
-`projection` reads that input directly (`executable.rs:459`, `:1033`). So any package edit
-re-runs projection, including [DA-029](#da-029)'s scans, for every live root, even when
-`specialized` backdates. Specialization is one query over the whole root
-(`modeling.rs:323-342`), so any structural edit re-specializes the whole flowsheet.
-
-**Capacity.** `semantic_body` is LRU-capped at 64 (`executable/grouped.rs:99`;
-`workspace.rs:103`; coordinator-confirmed). When a `MathService` retention is attached,
-eviction costs a retention lookup rather than rematerialization (`grouped.rs:107-130`). The
-per-output re-normalization and premise walk of
-[DA-027](#da-027) still run before that lookup, whatever the LRU size.
-
-**Parallel cross-lane caches.** Because Salsa lanes do not share memos, the runtime adds
-cross-lane reuse beside Salsa:
-- `MathService` has a weighted cache with 13 product kinds, a DataFusion compiled-program
-  cache, five single-flight maps and a products map (`crates/pse-runtime/src/math.rs:365-402`;
-  `math/retention.rs`; `math/artifacts.rs`; `math/products.rs`).
-- `PhysicalCache` and the engine `ModelCache` are separate.
-
-The tracked `semantic_body` query reads and writes this runtime retention
-(`grouped.rs:99-130`; coordinator-confirmed), so the hand-framed `SemanticBodyHash`
-overrides Salsa's dependency tracking for that product. Other cross-lane keys are
-hand-maintained:
-- `BasisKey` uses field-by-field equality.
-- `SelectedRequest` and `AdmittedClosureHash` include process pointer addresses, with
-  owners retained to prevent pointer reuse (`math/preparation.rs:23-63`;
-  `workflow/modeling/canonical.rs:1845-1863`).
-- `view_key` lists `Profile` fields by hand (`executable/solve.rs:221-271`).
+- `ResultAppendQueue` (`workflow/result_projection.rs`) packs batches into a file only within one
+  (attempt, relation) pair:
+  - It seals at every relation boundary (`push`, when `item.name != name`).
+  - An empty relation forces a queue flush plus its own `declare_empty_result_set` write
+    (`finish_deferred`).
+- `canonical_execution.rs::append_execution_batch` gives every opaque chunk (completion, seeds,
+  progress) its own file.
+- Each file runs the complete crash-safe protocol (`pse-operations/src/canonical_files.rs`):
+  1. `reserve_file`;
+  2. two `intent_open` round trips around an instance lock;
+  3. `publish_locked`, which fsyncs the file, hard-links it and fsyncs two directories;
+  4. a `seal` write;
+  5. a persistent `.locks/<instance>.lock` that is kept after collection.
+- Metadata appends *are* grouped across relations. The per-unit cost is the file protocol.
+- The store runs synchronous persistence (`aol=sync&sync=every`).
+- The same unit serves:
+  - every progress flush (at most 64 events or 200 ms, `durable.rs`);
+  - every live-sample batch (`run.rs`);
+  - every horizon step × relation (`durable.rs::publish_horizon_step`);
+  - every 4-row study-summary page ([DA-035](#da-035)).
+- Durable execution is the *default* Python runtime. An ordinary solve publishes every
+  advertised relation under `StudyOutputDemand::Full`: up to 23 relation sets for modeling and
+  19 for fit.
 
 **Consequence.**
-- Edit → re-solve on a structural or unrelated edit repeats whole-model preparation.
-- The soundness of each cross-lane product rests on keys maintained by hand that Salsa
-  cannot cross-check.
-- Each new reusable product needs a key variant, a product variant, size accounting and a
-  flight.
-- The same product can be found through more than one mechanism, each with its own
-  eviction.
+- **The edit → re-solve loop**, the profile's first workload, pays publication on its critical
+  path.
+  - The public `RunHandle` wait is terminal only after acknowledgement (Plan 48f).
+  - ADR-0211's Running/Publishing overlap helps a worker refill. It does not shorten an
+    interactive caller's wait.
+  - **Measured** (Plan 48f I30, `docs/plans/48f-scheduling-resources-and-result-completion.md`):
+    - five ordinary small KINSOL samples spent a median 1.47 ms in native work and a median
+      0.85 s exporting through acknowledgement ("Publication dominated this small case");
+    - conditions: a test build, a small payload, measured before Plan 49a moved the store to
+      SurrealMX with synchronous persistence;
+    - it is not a current-engine measurement and does not decompose round trips from fsyncs;
+    - the probe still exists:
+      `workflow/durable.rs::canonical_joined_publication_progress_and_ordinary_cost_probe`.
+- **Other workloads.** Fixed publication machinery scales with semantic kinds, flushes and steps
+  rather than useful bytes:
+  - a value-only study occurrence publishes about ten summary sets plus completion, seed and
+    progress files;
+  - an MPC horizon publishes relations × steps;
+  - live recording publishes one file per sample batch.
+- **Every unit is permanent**, because collection never runs ([DA-025](#da-025)).
 
-**Counterevidence (material).**
-- Value-only changes bypass this path: `PreparedCase::rebind` shares plan, structure and
-  artifacts (`executable/solve.rs:467-548`).
-- Reuse is conservative.
-- One identity spans the scopes, and retention hits are checked for identity and physical
-  equality.
-- `materialize` refuses reuse on incomplete premise coverage.
-- Reuse tests are extensive.
-- The scopes (lane, process, study lane, durable) are genuinely different. §14.4 declares
-  persisted dependencies the reuse authority and Salsa an accelerator.
-- No stale reuse was demonstrated.
+**Counterevidence.**
+- Durable-by-default is deliberate: scope §0, §21 and ADR-0164 say "ordinary runtime construction
+  is durable". `Runtime(..., ephemeral=True)` gives an explicit store-free route. The defect is
+  the per-unit fixed cost, not durability.
+- ADR-0187 moved bulk bytes into sealed private files, for bounded RPC envelopes and lazy
+  protected reads. Its packing rule packs compatible batches from one
+  attempt/relation/schema/interpretation, up to 16 MiB. It rejected per-writer logs as extra
+  arbitration machinery.
+- An Arrow IPC file holds one schema, so one file per relation is the natural container.
+- Demanded acknowledgements flush immediately for observability.
+- These justify the file tier and the per-relation container. They do not weigh the fixed cost
+  per file for tiny, frequent units:
+  - small control receipts already stay in the database;
+  - Plan 45 groups physical-source publication by bytes.
 
-**Evidence strength.** *Implemented* for the structure. Unsoundness risk is a hypothesis. A
-probe would publish an edit to a definition the live root does not reach and observe the
-`compiler.query.*` phases.
+**Evidence.**
+- *Implemented* for the unit structure and the round-trip and fsync sequence. The coordinator
+  re-read the relation-boundary seal and the Full default.
+- *Measured* for the I30 small-case ratio, under its stated conditions.
+- *Interface-checked* for the claim that the ratio persists on the current engine. Re-running
+  the existing probe, and counting files, round trips and fsyncs for one Full solve, one Compact
+  occurrence and a 100-step horizon, would settle it.
+
+**Improvement direction.**
+- Physical units chosen by flush economics and recovery need:
+  - one sealed object per attempt or per publication-lane flush, with per-member descriptors;
+  - small payloads inline in the metadata transaction;
+  - empty sets declared in the close manifest;
+  - progress and live cadence set by consumer demand.
+- An interactive caller's critical path holds only what its result requires.
+- Crash safety, exact bytes and per-run retirement semantics are kept.
+
+Changing ADR-0187's packing rule is the rule impact a solution would carry.
+
+## <a id="da-035"></a>DA-035 — Study population operations are realized as loops of per-occurrence item operations
+
+**Principles:** AP-07, DP-10, DP-20, PS-11; H7, H8, H10, H11; G9 (PSE-S07, PSE-S03).
+
+**Refresh status:** new.
+
+**Diagnosis.**
+1. **Creation.**
+   - Point rows are batched at 64 rows or 2 MiB.
+   - `pse-operations/src/canonical_studies.rs::create_study` still issues one guarded
+     `begin_run` write per point. Each touches the execution, sequence and source-creator guards
+     and creates roots and edges.
+   - The whole creation runs inside one fixed `within_clock(ACTIVATION_REQUEST_TIMEOUT)` of 90 s,
+     whatever the point count.
+   - A retry restarts at point 0.
+   - The admission bound is `MAXIMUM_STUDY_POINTS = 100_000` (`workflow/study.rs`).
+2. **Finalization and observation.**
+   - `study_outcome_page` and `STUDY_DEFINITION_SQL` use `LIMIT 4`, because each row carries the
+     full descriptor (up to 512 KiB) under the 4 MiB message bound. The outcome row needs only
+     the case id and binding hash from it.
+   - `workflow/study.rs::finalize_canonical_study` turns each 4-row page into one sealed file,
+     one `append_result_block` write and one `renew_attempt` write.
+   - The joined caller re-pages every descriptor four at a time.
+3. **Analysis.**
+   - `workflow/study_workbench.rs::FrozenStudyCohort::aggregate` runs one full protected reader
+     per member and holds them all live until one DataFusion `union`.
+   - Cohorts refuse more than 64 studies or 128 occurrences.
+   - There is no population-level reader over one relation across attempts.
+
+**Consequence.** Take a value-only sweep near the admitted bound, the profile's canonical study
+workload:
+- **Creation** needs about 100k sequential guarded writes inside 90 s, under 1 ms each including
+  synchronous persistence. A timeout repeats them (H11).
+- **Finalization** produces about 25k four-row files serially (DA-034, DA-025).
+- **Analysis.** Any sweep larger than 128 points needs caller-side paging and recombination.
+
+The middle of the workload is sound: lane-parallel and structure-reusing. Its ends are not.
+
+**Counterevidence.**
+- Per-occurrence runs are the recovery and retry unit under the durability premise. Eager run
+  creation gives every occurrence durable identity before activation.
+- Bounded pages and cohorts keep every response and memory charge finite (DP-20). Decision I28
+  retains bounded canonical pages and reopens streaming only for a named consumer.
+- No architecture section declares 100k-point studies a supported workload; 100k is the
+  admission bound. A clock that does not scale with N and a descriptor-sized page still do not
+  follow from these reasons.
+
+**Evidence:**
+- *Implemented* for the loops, limits and clock scope. The coordinator re-read `create_study` and
+  the `LIMIT 4` pages.
+- Whether creation times out at large N is *Interface-checked*: no test exceeds about 132 points.
+  Creating and finalizing 10k- and 100k-point studies would settle it.
+
+**Improvement direction.**
+- Population intents expressed at set level in the store: batched creation in bounded
+  transactions with a resumable cursor, and a clock proportional to declared size.
+- Server-side projection of only the fields outcome rows need (H7).
+- The study summary published as one or a few objects.
+- A population-level reader, or a study-level columnar view, under one protection.
+
+## <a id="da-025"></a>DA-025 — Physical collection is a declared lifecycle transition with no production route
+
+**Principles:** DP-19, DP-20, AP-07; H11, H25, H27.
+
+**Refresh status:** reframed and narrowed.
+- The original framing ("persistence machinery sized beyond actual participants") is withdrawn
+  under the binding premises: 16 coordinated lanes, durability that outlives the caller across
+  processes, and no daemon. The participants are real.
+- Machinery scale moves to [DA-033](boundaries-and-composition.md#da-033) and [DA-034](#da-034).
+- What survives is the part the prior account left unresolved: physical payload reclamation.
+
+**Diagnosis.**
+- §20.4 declares occurrence retirement, history-detail release and physical collection as
+  separate transitions, with collection bounded and resumable.
+- The only production code that unlinks sealed payloads is `CanonicalStore::collect_file`
+  (`canonical_files.rs`). All its callers are in its test module. The coordinator re-checked this
+  across `crates/`, `xtask/`, `scripts/` and `python/`.
+- Logical reclamation releases borrowers and deletes block and batch rows, but never collects
+  the file: `workflow/retention.rs::reclaim_run_results`, then
+  `canonical_result_retention.rs::forget_run_results`, then `fn::pse_retention_v1::collect_run`.
+- `canonical_lifecycle.rs` reports reclaimed physical bytes as "always unknown".
+- Lock files are kept for the storage incarnation by design.
+
+**Consequence.**
+- Every DA-034 unit stays for the life of the storage incarnation: sealed file, lock file and
+  instance row.
+- The public `reclaim_run_results` ("reclaim one bounded page of scientific data") returns no
+  disk space.
+- A long-lived Plan 51 project store with history and backups grows with every solve,
+  occurrence, progress flush and horizon step.
+- Backup copies logically released files.
+
+**Counterevidence.**
+- The substrate guide deliberately selects no automatic collector and names "returned disk space"
+  as a revisit trigger.
+- ADR-0214 treats design-phase data as regenerable by fresh initialization.
+- The maintainer recorded the unconsumed online collector as a decision.
+- These held for a disposable design-phase store. They weaken once long-lived projects, backups
+  and a public reclaim API exist, while the declared transition stays unimplemented rather than
+  deliberately excluded from the contract.
+
+**Evidence:**
+- *Implemented* for the missing caller.
+- Growth magnitude is unmeasured. Counting files before and after reclaiming a completed study
+  would settle it.
+
+**Improvement direction.**
+- The declared collection transition gets an operator- or maintenance-owned route that composes
+  with tickets, borrowers and backup freeze.
+- Lock retention is proportional to live instances.
+- Reclaimed bytes are reported truthfully.
+- If collection stays out of scope, the contract says so and the public reclaim API says what it
+  does not do. The decision's revisit trigger ("returned disk space") is arguably met by the
+  Plan 51 long-lived stores.
+
+## Considered and not raised
+
+**The per-problem creator guard.**
+- Every protection acquisition and every creator writes `canonical_guards` /
+  `source-creators:<problem>`, which serializes creator–creator decisions
+  (`pse-operations/src/canonical.rs::ACQUIRE_PROTECTION`, `ProblemTurns`).
+- Plan 49 decision I01 measured actual 16-lane mixed work. It kept `ProblemTurns` and the shared
+  source-creator and sequence guards as necessary pacing, and found no safe excess-scope
+  replacement.
+- Plan 49a established that `FOR UPDATE` tracks observed records, not range phantoms. That rules
+  out the obvious range-read alternative.
+- A protection is a creator with respect to reclamation.
+- What would reopen it: creators added since I01 (Plan 51 project roots and research rows), and
+  per-member protections in study KPI analysis ([DA-035](#da-035)), contending measurably under
+  concurrent 16-lane work.
+
+## Closed by decision, resolved and merged identities
+
+| ID | Refresh outcome | What establishes it |
+|---|---|---|
+| <a id="da-022"></a>DA-022 | Closed by decision (I16) | Memory admission rests on hand size models: about 328 estimator functions (275 before), with ad hoc constants such as `reads.len() * 128`. I16 investigated and found that existing `HeapUsage` and generated rows account their structures, and adopted no sizing crate. Revisit trigger: a concrete unsupported allocation or graph lifecycle with fallible admission, no double charge, last-alias custody and measured overhead. |
+| <a id="da-026"></a>DA-026 | Resolved | `canonical_result_rows` is gone from the generated schema (`f1c12663e`). `workflow/result_snapshot.rs` builds a DataFusion `PruningPredicate` with `Inexact` pushdown, and scalar appends write no per-row outputs. |
+| <a id="da-027"></a>DA-027 | Resolved | `pse-modeling/src/specialize/group.rs` and its group/re-expand/re-identify cycle are deleted (`4de4c68d6`). No rendering remains in compiler identity. |
+| <a id="da-028"></a>DA-028 | Resolved structurally | Multi-output guarded regions share members across outputs (`pse-modeling/src/resolved/selection.rs::{RegionRequest, RegionOutput}`). The magnitude was never measured. |
+| <a id="da-029"></a>DA-029 | Resolved in the compiler; residue merged | Compiler projection holds no per-item linear search. The runtime scans in `require_frozen_expression` and the dynamic row lookup are manifestations of [DA-006](semantic-model-and-authority.md#da-006). |
+| <a id="da-030"></a>DA-030 | Closed by decision (I08–I10) | The cross-lane `MathService` cache and flights beside Salsa, and pointer-address keys, are retained. I08 keeps independent publication lanes, I09 keeps reached exact-key flights, and I10 adds no compiler persistence. The `selected()` firewall prevents unrelated edits from invalidating projection. No stale reuse has been demonstrated. Revisit when a stale reuse or a distinct cold-work need appears. |
+
+The removal commit of this refresh preserves their 2026-10-21 text. DA-022's home has moved here
+from the local-reasoning page.

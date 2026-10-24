@@ -1,379 +1,288 @@
 # Semantic model and authority
 
-Findings whose structural cause is how a meaning is represented, who owns it, and whether
-consumers use that owner or reconstruct the meaning themselves. The baseline, standard
-versions and coverage limits are in the [collection README](README.md). Citations are
-`path:line` at source commit `a791c533e`.
+These findings concern two things: whether domain meaning has an adequate model, and whether
+behavior consumes that model or each consumer reinterprets it. The
+[collection README](README.md) gives the baseline, the standard and the limits. The
+[integrated account](system-architecture.md) explains how these findings interact with the
+other pages. Citations are `path::symbol` at source commit `cbf45ccc9`; line numbers are
+approximate where given.
 
-## <a id="da-001"></a>DA-001 — The specialized model is carried in the authoring syntax tree, with resolved identity encoded in synthesized names
+## <a id="da-006"></a>DA-006 — Runtime mode formulation re-derives or fills in what the compiler and modeling owners publish
 
-**Principles:** AP-04, DP-02, DP-04, DP-08, DP-09; AP-07 (H10, H12) for the cost consequence.
+**Principles:** AP-04, DP-01, DP-04, DP-08, PS-07, PS-11; G1, G2, G6.
+**Refresh status:** reframed and widened. The original diagnosis was annotations lowered with
+different rules per mode; that core is resolved. The residues of DA-001, DA-002, DA-029 and
+DA-031 merge here because they share this cause.
 
-**Diagnosis.** Specialization (`pse-modeling`) hands the compiler `SpecializedModel`
-equations, member expressions and contributions as `pse_authoring::dsl::Expr` /
-`Equation`, which is the same type used for authored syntax. A resolved scalar reference is
-represented as a single-segment path named `s_<32 hex>`. Consumers recover its identity by
-stripping the prefix and parsing the hex. Dispatch grouping renames these strings to
-`local_<n>`, the compiler renames them again to `input_<n>` / `member_<n>`, and body
-identity frames the *rendered text* (`render_expr`) together with path strings. The type
-environment is keyed by rendered names. As a result, at each checking site the whole symbol
-table is rebuilt as a fresh `BTreeMap<String, Type>`.
+**Diagnosis.** Plan 49 gave the compiler and modeling owners authoritative products:
+- a resolved, typed executable syntax with symbol, binder and node arenas
+  (`pse-modeling/src/specialize.rs::SpecializedModel::resolved`);
+- a catalogue of modeling derivations (`pse-modeling/src/derived.rs`);
+- compiler-owned numerical annotation plans keyed by mode
+  (`pse-compiler/.../executable/policy.rs::NumericalAnnotations`);
+- a compiler view policy (`compiler_view(ViewPolicy{..})`).
 
-The distinctions between a resolved symbol reference, a lexical name, a binder and a
-function parameter are therefore naming conventions rather than types. Dependency
-structure is recovered by walking names: for example, the compiler's petgraph edges are
-built by parsing names. Identity correctness depends on rendering staying canonical and
-injective, so a presentation-level change (renderer, unit spelling) is also an identity
-change. There is no separate resolved stage between authored syntax and library
-mathematics. The declared design chooses this deliberately ("no intermediate IR is
-produced or stored", §7.1), and that choice is the subject of this finding under DP-08.
+The annotation plans are mode-keyed but carry one mode-invariant classification.
+- `projection_annotations` computes `hints`, and each hint's `target_kind` (declared variable,
+  equation output, else observable), once.
+- It clones the same hints into the Steady, Implicit and Dynamic plans. Only start precedence and
+  a few mode filters differ.
+- The compiler has no notion of a dynamic state, an algebraic row or a closure target.
 
-**Consequences.**
-- A change to rendering or naming silently re-keys bodies.
-- An authored binder spelled `s_<hex>` would share a namespace with resolved references. The
-  grammar reserves no prefix. Misresolution is a hypothesis; misses observed in code refuse
-  rather than mis-bind.
-- Each contribution × coordinate re-renders every symbol into a fresh map
-  (`specialize.rs:2576-2582`, called inside the per-coordinate loop at `:2038-2047`). The
-  same pattern recurs for annotations, forms and objectives, so specialization work grows
-  with occurrences × symbols. See also [DA-029](execution-fit.md#da-029).
+The runtime's per-mode formulation (`workflow/modeling/cases.rs` for steady,
+`workflow/modeling/dynamics.rs` for dynamics) then supplies the mode semantics separately.
 
-**Evidence.**
-- Encoding and parse-back:
-  - `crates/pse-modeling/src/specialize.rs:2833-2855` (`symbol_name`, `symbol_reference` → `strip_prefix("s_")`)
-  - `specialize.rs:1134-1140`
-  - `specialize/forms.rs:1231-1237`
-  - `crates/pse-compiler/src/workspace/modeling/executable.rs:183-190`
-  - `executable.rs:532-541` (dependency edges from names)
-  - `executable/implicit.rs:69, 1673, 1737-1738`
-- Representation: `specialize.rs:167-192`.
-- Name-keyed environments: `crates/pse-modeling/src/types/environment.rs:8-16`, `specialize/value.rs:203`, `specialize/rewrite.rs:393-413`.
-- An initial-state equation located by `render_path(p) == state_name`: `executable.rs:682`.
-- Identity over rendered text:
-  - `specialize/group.rs:16-32`, `:123`, `:150-155`
-  - `executable/grouped.rs:563-590`, `:988-1023`
-- About 91 production `render_*` call sites across `pse-modeling` and `pse-compiler`.
+- **Target classification.**
+  - No runtime code reads `target_kind`.
+  - *Steady mode duplicates it.* `cases.rs::hints` drops the field, then reclassifies nominal
+    targets by set membership (`variable_states`) and adds observable targets separately
+    (`resolve_numerics`).
+  - *Dynamic mode fills a gap the compiler leaves.* It builds its own inventory of states,
+    algebraic rows and closures (`dynamics.rs` ≈2205–2300). It silently skips a nominal hint
+    outside that inventory with `continue` (≈2342).
+  - So a nominal annotation on an observable output is honoured in steady mode and dropped in
+    dynamic mode. §16.2 promises "intentional per-mode differences", but this one is declared
+    nowhere.
+- **Symbol identity by name.**
+  - `cases.rs::require_frozen_expression` decides whether an accuracy goal or engineering scale
+    depends on a changing solve coordinate.
+  - It walks the authored `dsl::Expr`, which the struct documents as inspection-only, and maps
+    paths to symbols by scanning every symbol and comparing synthesized `s_<hex>` names.
+  - An unmatched name is skipped, so this refusal check can fail open if naming and resolution
+    diverge. It is also the remaining whole-model scan of former DA-029, run once per free path.
+    The dynamic row lookup at `dynamics.rs` ≈2250 is quadratic in the number of DAE rows.
+- **Derived identities re-minted.**
+  - Requirement lowering mints `named_id(id, "tighter-endpoint-budget")` and
+    `"inventory-closure-requirement"`, then mints them again in the same module to recognize
+    producers (`cases.rs` ≈1610/2567, ≈1620/2639).
+  - `reconstructed-original-bound` rows are minted independently in
+    `pse-backend-native/src/derived.rs` and `pse-runtime/src/math/solves/derived.rs`.
+- **Role admission inline.** Case resolution still filters inner-unknown requirements and admits
+  sensitivity and covariance roles inline (`cases.rs` ≈1100–1210), beside the compiler view
+  policy. This is the residue of DA-031.
+
+**Consequence.**
+- *PSE-S01/S03* (add an annotation or target kind; extend accuracy goals to fit or shooting):
+  the change needs coordinated edits in the compiler and in each runtime mode's assembly.
+  - Changing the compiler's published classification changes no behavior, so today's steady
+    agreement holds by construction, not by contract.
+  - Consuming `target_kind` would not suffice for dynamics, which needs a mode-aware inventory
+    that no owner publishes.
+- A mode can silently drop authored meaning (the dynamic nominal skip).
+- A refusal can fail open (the name lookup).
+
+**Footprint.**
+- *Decisive:*
+  - `pse-compiler/.../executable/policy.rs::{NumericalAnnotation::target_kind, projection_annotations}`;
+  - `workflow/modeling/cases.rs::{hints, variable_states, resolve_numerics, require_frozen_expression, resolve_prepared_case_with_current_view}`;
+  - `workflow/modeling/dynamics.rs` (≈2205–2460).
+- *Suspected:* nested-implicit `TrialHints`. Fit and shooting inherit through the steady and
+  dynamic paths.
 
 **Counterevidence and limits.**
-- Lowering does not re-parse text (`Row` states this; fields are parsed once).
-- Member identities themselves are well layered: `member_id` frames instance, declaration
-  and coordinate identity (`specialize.rs:2815-2826`).
-- Parse/render round trips are property-tested in `pse-authoring`.
-- Compiler lowering refuses a missing physical admission (`crates/pse-compiler/src/typed_math.rs:689-712`).
-- The cost growth is static structural evidence; it has not been measured.
+- Dynamic mode genuinely has different targets: states, algebraic rows, closure over time.
+- Policy resolution needs case values the compiler does not hold.
+- Each lowering rule has exactly one function.
+- Precedence and duplicate handling are compiler-owned. That was the original DA-006 core, and
+  it is resolved.
+- A positive refusal test of `require_frozen_expression` exists (`cases.rs` tests). Its fail-open
+  path for an unmatched name has not been exercised, and neither has the dynamic skip.
+- The second `LexicalLookup::bound` in the runtime source index
+  ([DA-003](#da-003)) is a further instance of runtime re-interpretation.
 
-**Evidence strength.** *Implemented*, from source reading by two independent slice reviews
-and confirmed by the coordinator at the cited sites. The cost magnitude is a hypothesis.
+**Evidence:** *Implemented* for the unused field, the skip, the name lookup and the re-mints.
 
-**Related.** [DA-002](#da-002) (derived identities), [DA-027](execution-fit.md#da-027)
-(bodies re-identified), [DA-029](execution-fit.md#da-029).
+**Improvement direction.**
+- One owner publishes, per mode, the target inventory, classification, lowering inputs and
+  declared mode differences.
+- Runtime formulation binds values and consumes resolved identities.
+- An annotation a mode cannot honor is refused or diagnosed, never skipped.
 
-**Solution lead (proposal).** A resolved expression IR with typed symbol-reference and
-binder variants, an identity-keyed type environment, and body identity framed over that IR.
+**Related:** [DA-003](#da-003) (expression roles), [DA-021](local-reasoning-and-assurance.md#da-021)
+(formulation is evaluation-coupled and non-local), [DA-038](#da-038).
 
-## <a id="da-002"></a>DA-002 — Derived identities are minted from call-site strings, and other crates re-derive them to find relationships
+## <a id="da-003"></a>DA-003 — Expression grammar and role are restated by the selected-source inventory
 
-**Principles:** DP-04, DP-01, DP-07; G1, G2.
+**Principles:** AP-04, DP-01, DP-02; G1.
+**Refresh status:** narrowed. The registry now declares grammar and role per field
+(`pse.expr_dsl`, `pse.domain.expression.role`). The remaining inventories are unchanged.
 
-**Diagnosis.** `pse_ids::named_id(parent, "<literal>")` frames its input under the
-catalogued `Frame::NamedV1`. That frame is documented for named-policy reference entities
-"whose qualified names are the public contract" (`crates/pse-ids/src/derive.rs:934-953`).
-It is reused as a general derived-identity mint at roughly 169 production call sites
-(about 85 of them in `pse-modeling`) for derived row, parameter and output identities. The
-meaning that distinguishes each derivation is an uncataloged preimage literal at the call
-site, and some preimages format a Rust `Debug` value.
-
-The frame context is catalogued, so §5.3's "no context is a literal" holds in letter. But
-derivation meanings are introduced without the new frame variant that §5.3 asks for
-("a new meaning or derivation version is a new variant").
-
-`SpecializedModel` does not record the relationships these identities stand for (for
-example closure → conservation row). Consumers in other crates therefore recompute the
-derivation to find the related entity. When the minted string and a re-derivation differ,
-lookups return `None`. At least one consumer then skips the case silently.
-
-**Evidence.**
-- Frame meaning: `crates/pse-ids/src/derive.rs:98-99`, `:934-953`.
-- Conservation row:
-  - Minted at `crates/pse-modeling/src/specialize.rs:2712-2713`.
-  - Re-derived at:
-    - `specialize/contextual.rs:78-84`
-    - `crates/pse-compiler/src/workspace/modeling/executable.rs:475`, `:1180` (a per-output scan)
-    - `crates/pse-runtime/src/workflow/modeling/cases.rs:2660`, `:2695-2700`. The last is a `let … else { continue; }`, which drops the numerical requirement without a diagnostic. Coordinator-confirmed.
-- `conditional-boundary-value`: minted at `crates/pse-compiler/src/workspace/modeling/conditional.rs:306`, re-derived at `crates/pse-runtime/src/workflow/strategies/conditional.rs:1261`.
-- `reconstructed-original-bound`: minted independently at `crates/pse-runtime/src/math/solves/derived.rs:1256` and `crates/pse-backend-native/src/derived.rs:369`.
-- `Debug` in preimages: `executable/grouped.rs:393`, `:398-401`.
-
-**Counterevidence.**
-- `member_id` uses a catalogued frame.
-- `ModelingOutput::row_id` centralizes output derivations, and the runtime calls it
-  instead of re-deriving (`grouped.rs:378-413`; `crates/pse-runtime/src/workflow/objectives.rs:150`).
-- The `continue` at `cases.rs:2697-2700` is also the legitimate path when a conservation
-  row is simply not a numerical target. A derivation mismatch and a legitimate absence
-  therefore look the same, which is why the silent-loss consequence remains a hypothesis.
-
-**Evidence strength.** *Implemented* for the duplication. That a mint change silently loses
-conservation requirements is a hypothesis. A probe would change the mint string and run
-`just unit-package pse-runtime conservation`.
-
-**Related.** [DA-001](#da-001).
-
-## <a id="da-003"></a>DA-003 — Modeling expressions are stored as plain text, so each consumer restates which grammar and role a field carries
-
-**Principles:** DP-02, DP-01, DP-16 (§E extension locality); G2.
-
-**Diagnosis.** Every expression, predicate, equation, path and number field of
-`authored.modeling_declarations` is declared as plain `Utf8`. The registry declares a
-`pse.expr_dsl` extension for "authored expression text", but no relation field uses it.
-Because the registry cannot say which grammar and role a field carries, that knowledge is
-maintained by hand in several inventories:
-
-1. The occurrence collector, which assigns grammar and role per field.
-2. A per-arm text inventory for demand-driven source selection. It is reconciled with
-   inventory 1 by comparing *text values*, and falls back lossily on parse failure.
-3. About 153 production `expression_at(…, "arm.field", …)` lookups using about 70 role
-   strings.
-4. Two definitions of "which arms bind argument names": the checker's, and a wider one in
-   canonical source selection, under a trait documented as "one lexical rule".
-5. A generator special case that treats every String field of this relation as maskable.
-
-One field can also carry two grammars. `realization.argument` is checked as a DSL
-expression, but for `derived_big_m` and `hull` it is read with `str::parse::<f64>`.
-
-**Consequence.** Adding an IR field or arm means editing the registry, the collector, the
-selector inventory, the binding rule and each consumer. That is not one authoritative
-addition. If the two binding rules diverge, selection and checking can resolve the same
-name differently.
-
-**Evidence.**
-- `crates/pse-schema/src/catalog/modeling.rs:10-12`, `:546-571`, `:1293-1310`.
-- The unused extension: `crates/pse-schema/src/model/extension.rs:151-153`, `:242`. No
-  `pse.expr_dsl` use appears in `docs/generated/relations/`.
-- Collector: `crates/pse-modeling/src/expression/occurrences.rs:801-880`.
-- Selector: `crates/pse-modeling/src/selected_source.rs:127-138`, `:336-357`, `:409-440`, `:595-640`.
-- Binding rules: `crates/pse-modeling/src/check.rs:2122-2139` versus `crates/pse-runtime/src/workflow/modeling/canonical.rs:1458-1497`.
-- Generator: `crates/pse-codegen/src/codegen/rust/semantic.rs:307-316`, `:329-331`.
-- Dual grammar: `occurrences.rs:837-844` versus `crates/pse-modeling/src/specialize/forms.rs:199-205`, `:237-252`.
-
-**Counterevidence.**
-- Parser field spans are derived from the generated struct through serde
-  (`crates/pse-authoring/src/language/field_spans.rs:1-44`).
-- Several former text vocabularies are now typed enums (§6.15.1).
-
-**Evidence strength.** *Implemented* for the inventories. Behavioural divergence of the two
-binding rules is a hypothesis. A probe would author a `response` whose argument shadows an
-outer member.
-
-## <a id="da-004"></a>DA-004 — Decision vocabularies that cross the Rust–Python boundary are spelled by hand in each layer, and their projections disagree
-
-**Principles:** DP-01, DP-02, DP-24, AP-05; G1, G2.
-
-**Diagnosis.** The declared design says every decision vocabulary crossing a crate, store
-or language boundary is a registry enumeration with one Rust type, and that closed getters
-expose generated enums (architecture-overview §0.6 "Shared vocabulary"; §4.1; §21.5).
-Several vocabularies that reach Python are instead hand-spelled in each layer:
-
-- **Scientific artifact kind** is spelled at least five ways:
-  - A 3-member Rust enum, whose serde form is snake_case while `name()` is kebab-case
-    (`crates/pse-runtime/src/workflow/artifacts.rs:199-217`).
-  - A literal `"seed"` writer (`durable.rs:3360`).
-  - A 5-member reader allow-list (`artifacts.rs:620-631`).
-  - A PyO3 parser (`crates/pse-py/src/workflow.rs:1155-1162`).
-  - A Python `Literal` (`python/pse/_artifacts.py:12`), with `ScientificArtifact.kind`
-    returning `str`.
-
-  The registry has machinery for scientific product completeness, `artifact_profiles`
-  (`crates/pse-schema/src/catalog/products.rs:12-58`), but scientific artifacts bypass it.
-  Their kinds and member relations are therefore hand lists ([DA-032](#da-032)), not
-  profile declarations.
-- **Terminal-class filters** arrive from Python as `Sequence[str]`
-  (`python/pse/_workflow.py:252`) and are parsed by hand in the binding
-  (`crates/pse-py/src/workflow.rs:1345-1353`). No Python enum is generated for them.
-- **Artifact owner kind** is accepted from Python as a free `&str`. The Python
-  `Literal["user","project","audit"]` (`python/pse/_artifacts.py:13`) is not enforced at
-  runtime. The store-side value set is covered by [DA-007](structure-and-invariants.md#da-007).
-- **Live simulation events.** `kind` and `termination` are hand strings invented in the
-  adapter (`crates/pse-py/src/workflow.rs:2806-2817`, `:2880-2884`). The sibling
-  `ModelingTrajectory.termination` is a generated enum.
-- **Dynamics settings.** `method`, `sensitivity` and `trial_failures` cross as strings
-  ([DA-005](#da-005)).
+**Diagnosis.**
+- `pse-modeling/src/selected_source.rs` is byte-identical to the previous baseline. It keeps:
+  - a hand-written per-arm text inventory (`requirements`);
+  - reconciliation of occurrences by text value, with a lossy fallback on parse failure.
+- The two `LexicalLookup::bound` implementations still differ, although the trait promises one
+  lexical rule:
+  - the checker's version (`pse-modeling/src/check.rs`) covers function arguments and scope
+    parameters;
+  - the runtime source index (`workflow/modeling/canonical.rs`) also binds `coordinate_map`,
+    `response`, `reconstruction` and `reference_translation` arguments.
+- `realization.argument` is declared as expression DSL, yet `specialize/forms.rs` reads it as
+  `f64` for `derived_big_m` and `hull`.
+- About 95 production `expression_at(id, "role.field", n)` calls pass literal role strings.
+  These fail closed.
 
 **Consequence.**
-- Python callers cannot discover legal values.
-- Projections of one vocabulary disagree on membership and spelling.
-- Adding a member is a multi-language hand edit with no regeneration check.
+- Adding a field or a binding form needs synchronized edits to the selector inventory and to
+  both lexical rules.
+- A disagreement between the rules can bind a name in one consumer and not in the other. This
+  is unexercised.
 
-**Counterevidence.**
-- Source-owned vocabularies derive registry members from `ALL` / `as_str`
-  (`crates/pse-schema/src/catalog/enums_platform.rs:62-100`).
-- Some registry enums are parsed at the PyO3 boundary (`crates/pse-py/src/workflow/strategies.rs:30-31`).
+**Counterevidence:** lookups now return typed results from one checked-occurrence map.
+**Evidence:** *Implemented*.
+**Improvement direction:**
+- the selector inventory and binding rules are derived from the registry's field roles;
+- there is one lexical binding rule.
 
-**Evidence strength.** *Implemented*. Three independent slice reviews converged on it.
+## <a id="da-005"></a>DA-005 — Physical meaning that Rust checks cannot be read or supplied at the public boundary
 
-**Related.** [DA-007](structure-and-invariants.md#da-007) (store-column value sets),
-[DA-032](#da-032) (relation names as strings).
+**Principles:** PS-01, PS-12, DP-02, DP-04; G2, PS-G1 (bounded: admission still refuses
+mismatches).
+**Refresh status:** narrowed, reframed and split.
+- Physical side inputs are now keyed, quantity-typed Arrow rows, checked before custody
+  (`workflow/physical_values.rs`).
+- What remains is the readable physical meaning of identities and outputs.
+- The canonical-key half (bare `str` keys, `forget_study_results(study: str)`) moves to
+  [DA-007](structure-and-invariants.md#da-007), which shares its cause.
 
-## <a id="da-005"></a>DA-005 — Physical meaning does not survive the Python boundary round trip on side routes and result reads
-
-**Principles:** PS-01, PS-12, DP-02, DP-04; G2.
-
-**Diagnosis.** The primary typed route says outright that "bare numbers are not input
-values" (`BindingAssignment` / `BindingQuantity`, which carry quantity and unit ids;
-`python/pse/contracts/documents/__init__.py:2860-2883`). Around it, both directions lose
-physical meaning.
-
-**Inputs accept bare floats or solver-ordered vectors.**
-- `PreparedOperation.with_primal_start(Mapping[SemanticId, float])` (`python/pse/_runs.py:235`).
-- Block-initialization stages (`python/pse/_modeling.py:926-930`).
-- `diagnose_samples` (`_modeling.py:722-727`).
-- The `minimum` / `maximum` result filters (`python/pse/_workflow.py:311`).
-- `SimulationSettings` projects `pse_backend_native::dynamics::Profile` one-to-one
-  (`crates/pse-py/src/workflow.rs:2320-2400`; `crates/pse-backend-native/src/dynamics.rs:1724-1800`):
-  - `atol` is positional "in normalized state order".
-  - `parameter_scales` and `out_atol` are positional too.
-  - Times are seconds by convention.
-  - `method`, `sensitivity` and `trial_failures` are strings.
-
-**Outputs carry opaque physical ids that Python cannot resolve.**
-- `ModelingInitialization.committed_values() -> dict[SemanticId, float]`.
-- `NativeAttempt` mirrors the backend `SolveReport` (`primal() -> list[tuple[str, float]]`,
-  `native_status: str`; `crates/pse-py/src/workflow/strategies.rs:396-433`).
-- `runtime.solve_variables` and `solve_constraints` hold a bare `Float64` value beside
-  *optional*, untyped `quantity_id` / `unit_id` columns
-  (`crates/pse-schema/src/catalog/native_math.rs:1175-1205`).
-- The registry declares no identity domain for units, quantity types, reference states,
-  symbols or rows. These are typed only inside `pse-quantity`, so about 88 physical
-  references in generated rows are raw `SemanticId`.
-- The public Python surface has no resolver from a quantity or unit id to unit, basis or
-  reference state (`python/pse/_workflow.py:454-462`; `python/pse/_native.pyi:721-723`).
-
-**Identities lose their kind.**
-- Generated documents type about 262 identity fields as hex-pattern `str`, while relation
-  rows type the same fields as NewTypes (for example `python/pse/contracts/authored.py:1639`).
-  That contradicts §21.5 ("Entity identities are generated NewTypes").
-- Canonical keys (run, attempt, problem, revision, analysis, artifact, owner) are bare
-  `str` (`python/pse/_workflow.py:158-356`).
-- The same study concept is typed in one place and not in another: `study(StudyId)` versus
-  `forget_study_results(study: str)`.
-- Identities of different kinds can therefore be swapped without rejection.
-
-Minor execution note: each `SemanticId` hex encode or decode is a native call
-(`python/pse/contracts/values.py:14-44`). Bulk maps such as `with_primal_start` cross once
-as a dict, followed by per-element hex conversion and re-parse in Rust
-(`crates/pse-py/src/workflow.rs:2663-2674`). This is linear and on side routes, and is not
-raised as a separate execution-fit finding.
+**Diagnosis.**
+- **Physical identities have no kind.**
+  - The registry identity catalog has eleven scientific domains.
+  - Units, quantity types, bases and reference states are typed only inside `pse-quantity`.
+  - Generated documents and rows therefore carry them as interchangeable `SemanticId`s. For
+    example, `BindingQuantity { quantity: SemanticId, unit: SemanticId }` can be swapped, and
+    only Rust admission would catch it.
+- **No public resolver.**
+  - `PhysicalContext` exposes only an identity.
+  - Inspection members carry no quantity or unit.
+  - The Arrow formatter renders `unit:id:<hex>`.
+  - The Plan 52l "readable physical-value view" (`workflow/result_inspection.rs`) returns hex
+    context.
+  - The repository's own Python fixtures get unit ids by parsing package YAML
+    (`python/pse/tests/physical_input_fixture.py`).
+- **Outputs carry no unit.** Examples: `committed_values -> dict[SemanticId, float]`, and the
+  result filters `minimum`/`maximum`, which are compared in the stored unit with no unit
+  argument.
 
 **Consequence.**
-- A start or initialization value given in °C instead of K, or bar instead of Pa, is
-  accepted silently and can steer the solve to another root. It does not reach published
-  results unqualified: results are re-qualified, and initialization commits only start
-  values.
-- Per-state tolerances require knowing the solver's state order, which is the kind of
-  solver-index knowledge PS-12 rules out.
-- A result's physical meaning is recoverable only through ids the Python user cannot
-  interpret.
+- An engineer or agent cannot state a result's unit, basis or energy reference state from
+  Python, MCP inspection or an exported bundle.
+- An input cannot be supplied in °C or bar by name without obtaining ids out of band.
+- PS-01's question "is the reference state of every energy quantity recoverable?" passes inside
+  Rust and fails at the public boundary.
+- *PSE-S04:* meaning survives only while the reader holds the same physical closure and Rust.
 
 **Counterevidence.**
-- Result rows carry `target_id`, `source_id`, `path`, `quantity_id` and `unit_id`
-  (`python/pse/contracts/runtime.py:2707-2719`), and in-process producers always set them.
-- `solve_bound` uses the typed overlay.
-- Dynamics `numerics` are keyed by id.
-- The gap is in side routes and in resolution, not in the main result path.
+- Ids are exact and stable; symbols are presentation.
+- Admission refuses mismatches, so this is not a silent PS-G1 failure.
+- Plan 49 decision I20 found that the generated physical owners `BindingQuantity` and
+  `CanonicalConversionPlan` already resolve the complete registered meaning, and adopted no
+  independent unit table or resolver. That stands. The gap is that this owned meaning is not
+  projected to readers.
 
-**Evidence strength.** *Interface-checked*. The Python negative (no unit resolver) was
-searched in `python/pse` (excluding generated contracts), `_native.pyi` and
-`crates/pse-py/src`.
+**Evidence:** *Interface-checked* (absence searched in `python/pse`, `_native.pyi`, `pse-py` and
+`result_inspection.rs`). An actual `inspect_result` on `runtime.solve_variables` would settle the
+read-side claim.
 
-**Related.** [DA-004](#da-004), [DA-011](structure-and-invariants.md#da-011).
+**Improvement direction.**
+- Physical ids become declared identity domains with typed Python counterparts.
+- The existing physical owners (`BindingQuantity`, `CanonicalConversionPlan`) are projected to
+  readers, giving symbol, dimension, basis and reference state for Python, inspection and
+  exchange. This is consistent with I20; it is not a second resolver.
+- Inputs can be addressed by declared name or symbol.
 
-## <a id="da-006"></a>DA-006 — Each analysis mode lowers authored numerical annotations with its own rules
+**Related:** [DA-007](structure-and-invariants.md#da-007) shares a root: identity domains stop
+at the scientific core.
 
-**Principles:** DP-01, AP-04, AP-03, PS-11, PS-07; G1, G2.
+## <a id="da-038"></a>DA-038 — Result permission is decided once per candidate, but aggregates, one fit route and composite analyses re-derive it
 
-**Diagnosis.** Lowering authored numerical annotations (start, bounds, nominal) into
-variable states and numerical requirements has no single owner. The compiler emits every
-annotation as a hint without deduplicating
-(`crates/pse-compiler/src/workspace/modeling/executable.rs:858-875`). Three workflow
-consumers then interpret the hints with different rules:
+**Principles:** AP-04, DP-01, PS-10, PS-12, AP-06; G1, G7, PS-G3.
 
-| Mode | Duplicate annotation on one target and kind | Nominal target classes | Bounds become |
-|---|---|---|---|
-| Steady (`workflow/modeling/cases.rs:1324-1415`) | Refused ("ambiguous numerical annotations") | Variable, Row, Observable | Solver variable bounds |
-| Nested implicit (`modeling/implicit.rs:88-121`) | Collected into a `BTreeMap`, so the last one silently wins (coordinator-confirmed) | Variable or Row only | The unknown's interval |
-| Dynamic (`modeling/dynamics.rs:2068-2205`, `:3225-3385`) | Refused ("competing dynamic bounds") | Only targets in its own list; others silently dropped (`:2199`) | IDAS sign constraints |
+**Refresh status:** new. It partly continues DA-021's concern with driver locality. The
+store-vocabulary projections the draft first placed here (the terminal-class wildcard,
+generator-owned projections and `PackScientificState::Unknown`) belong to
+[DA-007](structure-and-invariants.md#da-007).
+
+**Diagnosis.**
+
+`workflow/numerics.rs` is a genuine strength: a pure, typed completion owner (`native_use`,
+`original_completion`, `complete`). Its contract stops at one candidate, and three kinds of
+consumer re-derive permission around it.
+
+1. **Aggregate usability is restated with different conjuncts.**
+
+   | Site | Conjuncts |
+   |---|---|
+   | `run.rs::RunResult::usable` | requires `report().is_ok()` |
+   | `horizon/driver.rs` (≈1387) | accepts `outcome.is_ok() \|\| publication_failure.is_some()` |
+   | `study.rs::stored_scientific_facts` | omits the report conjunct |
+   | `study_operations.rs::scientific_facts` and `study.rs` | each rewrite the single-assessment candidate rule |
+   | pse-py `NativeRunHandle::usable` | combines a stored termination cause with the re-derived conjunction |
+
+2. **A top-level fit route bypasses the completion owner.**
+   - `FitOptimizer::Automatic`, the default, selects the residual Levenberg–Marquardt route
+     whenever `fitting/oracle/residual.rs::eligible` holds, without considering the declared
+     `IncumbentPolicy`.
+   - On that route, `fitting.rs::FitReport::candidate_use` returns before `native_use`, and
+     refuses any non-successful termination whatever the policy.
+   - The NLP route consults the policy. An `IterationLimit` NLP fit becomes seed-only under
+     `Refuse`, and a qualified result under `AcceptFeasible`.
+
+3. **Composite analyses write their own inner acceptance.**
+   - Profile-likelihood pins (`fitting/profile.rs::PinFailure::assess`, `Chains::solve`) use
+     their own termination and qualification sets and an LM gradient rule. They skip the
+     estimate's model checks, and they drop its applicability qualifiers (for example permitted
+     extrapolation) from published interval ends.
+   - Horizon move authorization (Solved/Held/Fallback/Predicted) is decided inline in the
+     2.4k-line async `horizon/driver.rs::control`.
 
 **Consequence.**
-- One authored annotation can be refused in one mode, silently resolved in another and
-  dropped in a third.
-- Changing what an annotation means is a coordinated edit in three modules.
-- "One model serves every analysis mode" holds for structure but not for numerical policy
-  such as nominal scaling.
+- *PSE-S02.*
+  - The same authored fit and numerical policy can receive different result and seed
+    permission depending on which route automatic selection picked.
+  - §16.6 ("every workflow consumes this decision; none re-derives acceptance") and §19.4 state a
+    uniformity that does not hold.
+- *PSE-S03.*
+  - A new composite analysis (multi-start, robust design) has no composable inner acceptance to
+    reuse.
+  - A changed aggregate policy (for example partial acceptance) must find four or more sites in
+    three crates.
+- *PS-12.*
+  - Published profile intervals lose qualifiers that the producer's typed decision holds.
+  - A horizon reader can disagree with a stored reader about usability after a publication
+    failure (source-derived, unexercised).
 
 **Counterevidence.**
-- The numerical-policy resolver refuses equal-priority conflicts, which may catch some
-  duplicates downstream.
-- Differences between modes may be intentional, but they are not recorded anywhere.
+- Pins rightly demand stationarity, and model checks at every pin cost real work.
+- Refusing a non-converged LM estimate is conservative, and the route reports its library
+  termination honestly.
+- Predicted horizon moves are labelled, conditioned on the active set, and fall back.
+- None of these differences is declared, and the stricter rules do not justify losing qualifiers
+  or making permission depend on the route.
 
-**Evidence strength.** *Implemented*. Reachability of the divergence from authored input
-is a hypothesis. A probe would author duplicate `nominal` / `bounds` annotations in an
-implicit block, a steady case and a dynamic fixture.
+**Evidence:**
+- *Implemented* for each site. The coordinator re-read `candidate_use` and both usability
+  conjunctions.
+- The divergences are *Interface-checked*. Two runs would settle them:
+  - an evaluation-limited LM fit under `AcceptFeasible` against `FitOptimizer::NativeNlp`;
+  - a horizon with an induced publication failure.
 
-**Related.** [DA-031](#da-031).
+**Improvement direction.**
+- The completion owner publishes aggregate permission as a typed fact recorded with the
+  completion.
+- Library routes produce the shared native-outcome evidence so that `native_use` applies.
+- A composable inner-candidate acceptance lets a composite analysis declare which obligations it
+  requires, waives or strengthens, and how qualifiers propagate.
+- Horizon and profile decisions are pure functions of explicit facts.
 
-## <a id="da-031"></a>DA-031 — Steady case resolution restates compiler eligibility and admission rules in orchestration
+## Resolved, merged and moved identities
 
-**Principles:** DP-01, AP-03; G1.
+| ID | Refresh outcome | Where its meaning now lives |
+|---|---|---|
+| <a id="da-001"></a>DA-001 | Resolved in the core | The resolved typed IR owns executable syntax. The runtime name-lookup residue is a manifestation of [DA-006](#da-006). |
+| <a id="da-002"></a>DA-002 | Resolved for modeling relationships | `pse-modeling::derived` and the `ModelingDerivedRelationshipV1` frame. The runtime re-mints merge into [DA-006](#da-006); store-key derivations merge into [DA-007](structure-and-invariants.md#da-007). |
+| <a id="da-004"></a>DA-004 | Resolved | Artifact and owner kinds cross as generated enums (`python/pse/_artifacts.py`; `EnumValue<ArtifactOwnerKind>`). |
+| <a id="da-031"></a>DA-031 | Resolved for view choice | `compiler_view(ViewPolicy)`. The inline role admission merges into [DA-006](#da-006). |
+| <a id="da-032"></a>DA-032 | Narrowed and merged | Relation names in result projection are typed. Artifact-profile membership by literal names (`pse-schema/src/catalog/products.rs`, `workflow/artifacts.rs` ≈897–984) is a manifestation of [DA-007](structure-and-invariants.md#da-007). |
 
-**Diagnosis.** `resolve_prepared_case_with_current_view` (about 700 lines in
-`crates/pse-runtime/src/workflow/modeling/cases.rs`) chooses between the original-equation
-view and the reduced view.
-- **Supplier predicate.** Its predicate (`cases.rs:1071-1088`) partly restates the
-  compiler's promotion predicate (`crates/pse-compiler/src/workspace/modeling/executable.rs:1634-1645`;
-  `conditional.rs:39-40`), but omits conditions the compiler also requires. They agree today
-  only because `original_equations()` returns `None` when nothing is promoted.
-- **Requirement filtering.** The same function filters numerical requirements to exclude
-  inner unknowns (`cases.rs:1119-1135`).
-- **Sensitivity admission.** It admits sensitivity parameters itself (`:1199-1230`),
-  alongside `SensitivityRequest::admit`.
-
-**Consequence.**
-- If the compiler relaxes or tightens its promotion rule, orchestration silently keeps the
-  old view choice.
-- A sensitivity-admission change has two places to update.
-
-**Evidence strength.** *Implemented* for the predicate duplication.
-
-**Related.** [DA-006](#da-006).
-
-## <a id="da-032"></a>DA-032 — Relation membership and handling policies name relations by literal strings and bypass the generated relation handles
-
-**Principles:** DP-01, DP-02, AP-05, DP-16 (§E); G2.
-
-**Diagnosis.** Several hand-maintained policies decide which relations belong to an
-artifact kind, which are scalar-indexed, which get serde and how analysis rows are
-dispatched. They key these decisions on qualified relation-name strings resolved at run
-time:
-- per-kind artifact member lists (`crates/pse-runtime/src/workflow/artifacts.rs:786-826`);
-- analysis dispatch with a catch-all arm (`crates/pse-runtime/src/workflow/analyses.rs:279-299`, `:319-324`);
-- the scalar-indexed relation list (`crates/pse-operations/src/canonical_execution.rs:2345-2356`);
-- indexable fields and owner columns (`crates/pse-runtime/src/workflow/result_projection.rs:28-140`);
-- the generator's serde list (`crates/pse-codegen/src/codegen/rust/semantic.rs:136-162`).
-
-Generated typed handles exist (`RELATION_ID`, `NAME`;
-`crates/pse-relations/src/generated/runtime/solve_variables.rs:10-17`), and some consumers
-use them (`crates/pse-runtime/src/workflow/study_demand.rs:106`, `:347`).
-
-**Consequence.** A typo or rename does not fail to compile; it silently changes
-classification.
-- `registry.relation(name).is_some_and(...)` is false on a bad name, so the row-coverage
-  check is skipped without any error (`canonical_execution.rs:2345-2356`).
-- Unknown analysis rows fall through to the catch-all arm.
-- Adding a relation to a product or index edits several string lists in different crates.
-
-**Counterevidence.** Names are resolved through the registry rather than used as free text,
-and the analyses catch-all may be an intended default.
-
-**Evidence strength.** *Interface-checked*. The silent-skip consequence is traced in source
-and not *Tested*.
-
-**Related.** [DA-004](#da-004), [DA-026](execution-fit.md#da-026).
+The removal commit of this refresh preserves the 2026-10-21 text of these findings.
