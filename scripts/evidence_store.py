@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import TYPE_CHECKING
 from pathlib import Path
 
 from scripts import (
@@ -26,6 +27,9 @@ from scripts import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+
+if TYPE_CHECKING:
+    from typing import TextIO
 
 
 def prepare(state: Path, *, deadline: float) -> dict[str, object]:
@@ -109,7 +113,7 @@ def selected_configuration(state: Path, service: dict[str, object]) -> None:
 
 
 def run_native(
-    state: Path, tool: Path, arguments: list[str], *, deadline: float
+    state: Path, tool: Path, arguments: list[str], *, deadline: float, stdout: TextIO | None = None
 ) -> int:
     """Run only the explicit built tool; never install, compile or invoke a shell."""
     information = tool.stat()
@@ -152,6 +156,7 @@ def run_native(
             timeout=surreal_server.remaining(deadline),
             pass_fds=(activity,),
             env=environment,
+            stdout=stdout,
         )
         return completed.returncode
 

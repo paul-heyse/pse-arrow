@@ -1345,11 +1345,18 @@ codex-session *args:
     exec "{{ py }}" -m scripts.codex_session "$@"
 
 [group('discovery')]
-[doc('Select recipe grammar, native plan scope and changed-file context without executing work')]
+[doc('Select source-fresh task, research, ownership, history or recipe context without executing suggested work')]
 [positional-arguments]
-[script("bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
 context *args:
     exec "{{ py }}" -m scripts.workspace_context "$@"
+
+[group('discovery')]
+[doc('Explicit source-only knowledge corpus build, or bounded use of the existing tooling database')]
+[positional-arguments]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+knowledge *args:
+    exec "{{ py }}" -m scripts.knowledge_store "$@"
 
 [group('local')]
 [doc('Build/setup then own one reference start/init/work/drained-stop lifetime; literal workload after --')]

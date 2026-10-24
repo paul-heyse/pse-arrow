@@ -63,6 +63,49 @@ def checked_path(docs: Path, relative: str) -> Path:
     return path
 
 
+def document_scope(
+    relative: Path, status: str, config: dict, collection: dict | None = None
+) -> str | None:
+    """Native publication scope, reusable by selected source readers.
+
+    An unpublished document has no publication scope. Neither its status alone
+    nor a caller's path convention can promote it to current authority.
+    """
+    publication = config["publication"]
+    if matches(relative, publication["exclude"]):
+        return None
+    if collection is None:
+        matching = []
+        for candidate in config["collections"]:
+            base = Path(candidate["root"])
+            if base.is_absolute() or ".." in base.parts:
+                raise ValueError("publication collection escapes docs")
+            if not relative.is_relative_to(base):
+                continue
+            within = relative.relative_to(base)
+            if candidate.get("recursive", True) or len(within.parts) == 1:
+                matching.append(candidate)
+        if len(matching) > 1:
+            raise ValueError(f"duplicate publication path: {relative}")
+        if not matching:
+            return None
+        collection = matching[0]
+    scope = collection["scope"]
+    if relative.parts[0] == "adr" and re.match(r"\d{4}-", relative.name):
+        scope = {
+            "accepted": "Current", "superseded": "History",
+            "deprecated": "History", "rejected": "History",
+        }.get(status, "Reference")
+    if matches(relative, publication["current_work"]) or relative.as_posix() in publication["entrypoints"]:
+        scope = "Current"
+    for override in config.get("overrides", []):
+        if matches(relative, override["patterns"]):
+            scope = override["scope"]
+    if scope not in SCOPES:
+        raise ValueError(f"{relative}: invalid search scope {scope!r}")
+    return scope
+
+
 def discover(root: Path, config: dict) -> list[Page]:
     docs = root / "docs"
     publication = config["publication"]
@@ -105,24 +148,8 @@ def discover(root: Path, config: dict) -> list[Page]:
             status = front.get("status", "")
             if not isinstance(status, str):
                 raise ValueError(f"{relative}: status must be a string")  # noqa: TRY004 -- invalid publication input uses ValueError
-            scope = collection["scope"]
-            if relative.parts[0] == "adr" and re.match(r"\d{4}-", relative.name):
-                scope = {
-                    "accepted": "Current",
-                    "superseded": "History",
-                    "deprecated": "History",
-                    "rejected": "History",
-                }.get(status, "Reference")
-            if (
-                matches(relative, publication["current_work"])
-                or relative.as_posix() in publication["entrypoints"]
-            ):
-                scope = "Current"
-            for override in config.get("overrides", []):
-                if matches(relative, override["patterns"]):
-                    scope = override["scope"]
-            if scope not in SCOPES:
-                raise ValueError(f"{relative}: invalid search scope {scope!r}")
+            scope = document_scope(relative, status, config, collection)
+            assert scope is not None  # publication exclusions were applied above
             pages.append(
                 Page(relative, title, body, collection["title"], scope, status)
             )

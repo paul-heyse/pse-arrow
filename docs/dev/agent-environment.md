@@ -447,112 +447,50 @@ deliberately with `just --yes <recipe>`.
 
 ### Focused command and source context
 
-Use `just context QUERY --json` for a bounded projection of actual Just declarations and
-source owners; `--owner`, `--scope`, `--changed`, `--offset` and `--limit` narrow it.
-`just context --symbol TYPE --json` adds catalogue/generator, Rust/PyO3, generated stub,
-facade and test leads. These are explicit source matches, not invented semantic edges
-across language boundaries. Refine them using the appropriate language server.
-`just affected --json` previews the exact selected force-validation command and its
-Python/native/generator/dynamic exclusions without executing a test.
+Use `just context QUERY --json` for selected recipe grammar; `--owner`/`--scope` read native
+plan rows, and `--changed` reports the actual dirty delta. These projections execute no suggested
+work. Source-only operations do not enumerate unrequested recipe definitions or start a database.
+Readable output includes every section also returned by JSON.
 
-`just context --retrospective --hours 24 --json` explicitly inspects local Codex records
-for this checkout and the selected time window. It reads named date partitions with a
-ten-second/128 MiB bound and a one-MiB record ceiling, deduplicates inherited records and
-returns tool/error-class counts and source paths. It does not copy prompts, arguments,
-environments or raw outputs into a new index. An error-pattern count is an investigation
-lead, not a number of failed tests or a causal diagnosis. Partial/oversized input remains
-explicit. This work never runs during startup or ordinary activity polling.
+- `just context --task docs/plans/PLAN.md#PACKAGE --path scripts/owned.py --json` composes the
+  native status owner, exact selected content digests, dirty/deleted paths, bounded Git rationale
+  and declared producer links. `--evidence HANDLE` adds explicit references without reading payloads.
+- `--symbol TYPE` adds bounded text leads and producer-declared contributors. Declarations,
+  generators, outputs, direction and registry/catalogue/API identities come from each actual
+  producer. Source/generator byte digests describe current files separately from producer identities.
+  Unknown declaration locations, stale generation premises and dynamic/string consumers remain
+  unresolved; generated output is edited through its declared owner. `just codegen` and
+  `just python-stubs` explicitly refresh their independently owned sidecars.
+- `just context 'source freshness' --search --source-root docs/authoritative_design --source-root crates/pse-operations/src --json`
+  reads bounded current source bytes and lexical excerpts with native roles/section IDs.
+  `--literal`, `--source-role`, `--offset` and `--limit` narrow selection. Current, reference and
+  historical scope comes from the documentation owner; a better word match cannot promote old authority.
+- `just context --library surrealdb --reference vendor/surrealdb/src/method/query.rs --json`
+  reports exact declarations, locks, patches/local source and selected signature leads. `--feature`
+  is intent. `--target`, `--cargo-metadata` and `--rustdoc` can bind supplied build observations
+  to manifest/lock/source digests; wrong or unknown formats/contexts remain unsuitable/unknown.
+  Reading a packet never resolves dependencies, installs tools or compiles a library.
+- `--compare alternatives.json` consumes exactly two explicit named proposals, selected paths,
+  removals and unknowns. It reports current owners/generators and conservative all-target package
+  reach separately from proposed consequences; `--library` can attach selected research.
+  There is no automatic design approval or score.
 
-What a session loads costs context and processes, so optional capabilities are opt-in:
+For historical Git leads use `--history-query TEXT --history-mode literal` (or `regex`) with
+selected task/source paths, or `--line-history START,END:PATH`. Historical commits are rationale,
+not current instructions. `just affected --json` retains its existing force-validation selection
+and Python/native/generator/dynamic exclusions without executing tests.
 
-- **Claude Code** — the project disables the synced plugins and claude.ai connectors unrelated
-  to this repository (superpowers' workflow injection competes with the process skills) and
-  the pyright LSP (the repository's checker is pyrefly). Re-enable one for a session with
-  `--settings` or `/plugin`.
-- **Codex** — `.codex/config.toml` raises `project_doc_max_bytes` so AGENTS.md is never
-  truncated, sets static non-secret command defaults, and disables inherited machine
-  database/navigation registrations until `just codex-session` selects this checkout.
-  Codex runs `bash -lc` without direnv; prefix commands with `scripts/pse-env --`.
-
-**Native SurrealDB inspection.** Start a selected session with `just codex-session
-[--state STATE] -- CODEX_ARGS`. It attaches to the existing owned server's verified
-HTTP MCP endpoint; application SDK traffic continues to use gRPC. The supervisor's fixed
-`mcp-headers` action verifies the explicit owned state, endpoint and frozen selection
-fence, then supplies the private selection VIEWER credential through Codex's header helper.
-It uses ordinary light admission, no compiler setup and one eight-second deadline.
-Failure does not start/reconcile the service or initialize a database. Never print or save
-the helper's Authorization output yourself.
-
-The exposed native tools are `info`, `list` and `query`; the database VIEWER authority
-enforces read access. Select namespace and database explicitly in every inspection call
-and establish existence with `list` before reading schema/indexes. Missing `pse/canonical`
-is an error to report, not permission to initialize it. Retained/quiesced contexts can be
-read independently of scientific write admission. Codex caches headers; reconnect or
-restart after state, port, service identity or credential changes. The frozen selection
-refuses replacement even at the same endpoint. Do not launch `surreal mcp` on the persistent
-files: that opens another datastore. The disabled repository registration deliberately has
-no usable service selection; merely enabling it is not a supported attachment route.
-
-For an explicitly selected session, `just codex-session [--state STATE] -- CODEX_ARGS`
-observes the existing service and supplies the validated endpoint and pinned checkout header
-helper to Codex. This fixed launcher bypasses workload admission and starts no database.
-Rust/Python navigation and database inspection are requested by default; `--without-rust`,
-`--without-python` and `--without-database` opt out. An unavailable optional capability is
-reported and disabled; `--require-rust`, `--require-python` or `--require-database` makes it a prerequisite. `--explain --json` reports
-nonsecret selection/readiness, never attachment or credentials. Explicit trailing Codex overrides
-remain last and can change the preset; actual attachment is established by client interaction.
-
-For scientific meaning use the typed APIs and exact identifiers described in
-[the substrate guide](surreal-substrate.md#typed-scientific-inspection), rather than
-interpreting raw rows as a qualified scientific result.
-
-**Semantic navigation, when text search is not enough.** The selected Codex session uses
-pinned mcpls 0.8.0, a maintained LSP bridge, with the pinned rustup rust-analyzer and checkout
-`.venv/bin/pyrefly lsp`. Install the bridge explicitly with `just diagnostic-tools mcpls`;
-attachment never installs it. `python -m scripts.semantic_navigation describe --language python`
-reports availability without starting an LSP. The explicit temporary configuration selects the
-checkout and `.pyi` coverage. Rust configuration derives from `rust-analyzer.toml`; automatic
-checks are disabled for navigation, while explicit correctness recipes remain unchanged.
-The bridge clears ambient environment by design. Its Rust declaration explicitly forwards
-only the already selected compiler/native/admission keys through the environment owner's
-allowlist; credentials and licence values are excluded. This keeps compiler-cache startup
-under its managed owner instead of falling back to a machine-global wrapper. A navigation
-client's shutdown must drain its actual children, independently of a successful semantic reply.
-The bridge adds implementation and call-hierarchy queries absent from rust-analyzer-mcp 0.4.0.
-Readiness and missing capabilities belong to the real request, not an executable-presence check.
-mcpls input and returned edit positions are **one-based UTF-16**; rust-analyzer-mcp's direct tool positions are zero-based.
-Neither server crosses the PyO3 boundary semantically. `just context --symbol TYPE --json`
-returns bounded catalogue, generator, Rust, stub, facade and test text leads with explicit
-coverage and truncation; inspect each language's native references to refine those leads.
-
-The finite semantic-edit harness uses the pinned FastMCP framework and MCP SDK in the quality
-environment. FastMCP owns transport, initialization, discovery, typed tool results and cancellation;
-`keep_alive=False` plus explicit close releases each request's bridge and language servers.
-`python -m scripts.semantic_navigation request --language rust --calls calls.json` performs
-explicit calls. `preview --language rust --calls calls.json --owned src/a.rs src/b.rs` captures
-all selected source-cut inputs before calling the server and prints a reviewable edit preview.
-`apply --preview preview.json --receipt application.json` revalidates the full basis;
-`reconcile --preview preview.json --receipt application.json` reports exact applied/missing/diverged
-files after interruption. A partial or unsupported result is refused, and command-only code
-actions do not become source edits. Actual fixture support includes Rust cross-file rename and
-Pyrefly rename/extraction; it does not migrate wire strings or generated contracts.
-
-`python -m scripts.structural_migrations preview --paths scripts/owned.py` previews the selected
-JSON source-reader migration with ast-grep plus LibCST's import/scope metadata. Use its
-`apply`/`reconcile` commands with the same preview/receipt arguments after review. Paths must
-belong to the owned edit scope; generated/protected outputs point back to declarations.
-`python -m scripts.semantic_edit_probe --language both --output /tmp/semantic-probe.json` is an
-explicit small real-server qualification, separate from ordinary source reads and unit tests.
-
-rust-analyzer (Claude's LSP plugin,
-or the Codex MCP server when enabled) answers callers, implementations and type resolution
-across the workspace; `rust-analyzer.toml` gives it the force-validate feature and its own
-target directory, so it never waits on an agent's build lock. Context7 serves current library
-documentation; optional docs/libraries/ overviews orient capability research. The former library
-catalog MCP, refresh/read helpers and resolver are removed. Native-solver-libraries remains the
-only selected shared skill; existing setup/readiness/worktree routes synchronize that link.
-Other central skills are inactive historical references. Retained reports and capability maps
-keep their original evidence scope; they are not live catalog lookup services.
+`just context --retrospective --hours 24 --json` explicitly scans relevant local Codex activity
+across creation dates, selected archives, explicit `--related-checkout` roots and parent/subagent
+associations. Discovery and record reads are bounded and independently report incompleteness;
+metadata alone cannot prove inactivity. `--save-history-checkpoint PATH` writes a disposable
+metadata/hash/locator checkpoint; `--history-checkpoint PATH` resumes or refreshes it.
+`--recall TEXT` returns exact historical locators. Write one selected locator to JSON and use
+`--history-excerpt LOCATOR.json` for an explicit bounded raw read; changed sources are refused.
+Prompts, arguments and raw outputs are absent from default/checkpoint projections. Quoted failures,
+retries and polls are observations, not incident or productivity totals. The current conversation
+retains authorization. The selected file adapter neither starts an App Server nor repairs state,
+and never writes global memories.
 
 ## Explicit host controls
 

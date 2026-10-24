@@ -4,8 +4,9 @@
 captures all O01–O30 and operator-confirmed RC01–RC09 from the agent-effectiveness review.
 Its coordinator owns scheduled packages, conditional inquiries and cross-plan boundaries;
 companions 52a–52h develop context/editing, knowledge, verification, execution, experiments,
-evidence/tracing, agent/operator workflows and assembled qualification. The series is drafted;
-authoring and document checks establish no production delivery or execution authorization.
+evidence/tracing, agent/operator workflows and assembled qualification. Execution of 52a/52b and their required prerequisite slices is authorized and active;
+the coordinator records delivered host/editing scope and remaining native integration. Other packages
+remain planned, and targeted acceptance does not establish assembled Plan52 qualification.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

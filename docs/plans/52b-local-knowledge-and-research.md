@@ -1,8 +1,8 @@
 ---
 title: "Plan 52b: Local knowledge and research"
-status: draft
+status: in-progress
 date: 2026-10-23
-adrs: []
+adrs: [ADR-0222]
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
@@ -28,8 +28,11 @@ Development knowledge needs a separate derived family in the existing disposable
 
 ## Selected realization and alternatives
 
-Start with source-selected lexical search: existing ripgrep plus exact excerpt reads, native
-role filtering and dirty-source detection. This provides a useful server-independent consumer
+Start with source-selected lexical search: exact bounded file reads and excerpt matching, native
+role filtering and dirty-source detection. Implementation uses the existing literal/OR-term Python
+regex once on captured bytes; redundant per-file ripgrep subprocesses were removed. Ripgrep remains
+a manual discovery tool. This refinement avoids duplicate matching/process work without adding an
+index or search engine; no speed claim is inferred. This provides a useful server-independent consumer
 without writing a general search engine. The selected persistent target is SurrealDB full-text
 and typed graph links in the existing tooling database, with explicit import/refresh and atomic
 generation activation. B04 adds that integration once useful source questions work. No extra
@@ -180,3 +183,50 @@ its schema/decision slice; B05 needs the lexical baseline, not the entire series
 exact roles and missing populations receive targeted tests. Persistent import/search and optional
 model use need real selected-server/runtime consumer checks. 52h owns assembled qualification;
 no query/index success qualifies scientific results or authorizes following historical instructions.
+
+## Selected host execution and inquiry outcome
+
+**Implemented and Tested (2026-10-23):** B01 source-only lexical access, B02 activity-based
+resumable recall, B03 exact-version packets and B05's bounded decision are delivered. Native B04
+remains in integration at the coordinator.
+
+The selected host command
+`scripts/pse-env --resource-class light -- python -m unittest scripts.tests.test_workspace_sources scripts.tests.test_workspace_tasks scripts.tests.test_workspace_context scripts.tests.test_session_retrospective scripts.tests.test_knowledge_store scripts.tests.test_semantic_retrieval scripts.tests.test_semantic_navigation scripts.tests.test_semantic_edits scripts.tests.test_evidence_store scripts.tests.test_setup scripts.tests.test_docs`
+passed 117 tests against the zero-failure baseline. It covers source deletion/drift, scope changes,
+unknown versions/targets/features, partial discovery, historical attribution, edit reconciliation
+and source-only operation. It establishes host behavior, not native B04 or assembled Plan52 qualification.
+
+Actual context consumers reconstructed a current native A03 status from its coordinator, compared
+source-only task composition with persistent enrichment, and reconstructed SurrealDB3.3.4's local
+SDK declaration with signature leads from `vendor/surrealdb/src/method/query.rs`. For the unavailable-DB
+question, source-only composition remains the simpler selected base; native enrichment has separate
+installation/freshness obligations. Missing references remain visibly unavailable. API lifetime
+semantics and an unsupplied compiled feature closure remain unresolved in the packet.
+
+I04 selects the bounded incremental file adapter. Installed Codex0.163 protocol/schema inspection
+identified listing/read capabilities, but no isolated/live App Server read-only runtime was qualified.
+The adapter's actual bounded two-session rationale consumer read 478 records/3,742,209 bytes and
+selected the assistant review record in session `01a16b0b-f97f-7b23-bb53-e4bee9cadade` at
+`2026-10-23T23:31:54.625Z`, byte offset1562169: scientific datasets/selections/physical ancestry
+retain their meaning, while development research belongs in the tooling projection. This is
+attributed prior reviewer rationale, not current authorization or full-history coverage. An actual
+changed live source was refused before an excerpt read, as intended.
+
+I03 selects source-fresh lexical delivery and no automatic semantic index. The exact
+llama.cppv0.7.0 source and Qwen3-Embedding-0.6B-Q8_0 weights in `.config/local-retrieval.toml`
+ran one finite batch on RTX5090/CUDA13.4: 11 selected sources,41 explicit excerpts,6 concept/code/prose/
+symbol/historical questions and47 inputs,1024 finite L2-normalized dimensions,29/29 GPU layers.
+**Measured:** that one cold process took2.291 seconds; this is compatibility/finite-batch timing,
+not a retrieval or productivity speed claim. Host controls passed five tests. No model process
+or owned GPU allocation remained afterward. Initial observation guards were corrected against
+pinned source/native logs; source-cut drift correctly refused a comparison before reload. Native
+GGUF token-classification warnings remain observed, not a warning-free claim.
+
+Usefulness was mixed: freshness/symbol questions did not improve; the code question ranked a guide
+higher without the required detailed passage; raw similarity preferred the obsolete dependency
+policy; current-scope ordering still buried the desired functional-review skill. Lexical results
+already supplied these sources. This bounded sample does not justify a new native vector/index
+pipeline. The finite `semantic_retrieval compare` experiment remains opt-in with authenticated
+runtime/model/source identities and no implicit installation or service. Reranking, fusion and
+Agent Memory remain unselected; revisit when a concrete persistent concept-retrieval miss warrants
+a narrower comparison. This outcome does not establish that those mechanisms lack value generally.

@@ -46,7 +46,8 @@ class WorkspaceContextTests(unittest.TestCase):
             result = workspace_context.boundary_leads("SelectedRequest", root=root)
             self.assertEqual(len(result["items"]), 2)
             self.assertEqual(result["items"][0]["meaning"], "catalogue declaration")
-            self.assertIn("generator", result["items"][1]["edit_owner"])
+            self.assertIsNone(result["items"][1]["edit_owner"])
+            self.assertIn("producer-declared", result["items"][1]["owner_basis"])
             self.assertTrue(
                 workspace_context.boundary_leads("SelectedRequest", root=root, limit=1)[
                     "truncated"
