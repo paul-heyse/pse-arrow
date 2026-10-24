@@ -108,8 +108,9 @@ class ConfigurationTests(unittest.TestCase):
             self.assertIn(secret, wire)
             self.assertNotIn(secret, repr(settings))
             self.assertNotIn(secret, repr(settings.wire.traces))
+        field_name = "disabled"
         with self.assertRaises(AttributeError):
-            settings.wire.disabled = True
+            setattr(settings.wire, field_name, True)
         detached = settings.wire
         detached.resource["service.instance.id"] = "mutated"
         detached.traces.headers["Authorization"] = "mutated"

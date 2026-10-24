@@ -478,7 +478,10 @@ class NativeSchemaTests(unittest.TestCase):
                     at(tool.meta, "pse.native", "contracts", "output_document", "slug"),
                     slug,
                 )
-                self.assertTrue(tool.annotations.read_only_hint)
+                annotations = tool.annotations
+                if annotations is None:
+                    self.fail("Expected explicit native reader annotations")
+                self.assertTrue(annotations.read_only_hint)
                 original = self.schemas.document(slug, "output")
                 definitions = original.pop("$defs", {})
                 schema = tool.output_schema

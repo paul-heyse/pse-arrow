@@ -244,7 +244,7 @@ extend-exclude = [
 docstring-code-format = true
 # Generated contracts are formatted by the generator; formatting them here would make
 # `rust / codegen-diff` fail. Lint still runs on them.
-exclude = ["python/pse/contracts/**"]
+exclude = ["python/pse/contracts/**", "scripts/generated/**"]
 
 [tool.ruff.lint]
 # Explicit selection: a ruff upgrade cannot silently change what the gate means.

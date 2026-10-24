@@ -534,7 +534,7 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
 }
 
 fn python_bytecode_path(relative: &Path) -> bool {
-    if !relative.starts_with(PYTHON_ROOT)
+    if !(relative.starts_with(PYTHON_ROOT) || relative.starts_with(documents::PRIVATE_PYTHON_ROOT))
         || relative.parent().and_then(Path::file_name) != Some("__pycache__".as_ref())
     {
         return false;
@@ -820,10 +820,90 @@ mod tests {
     }
 
     fn python_tree() -> GeneratedTree {
+        python_tree_at(PYTHON_ROOT)
+    }
+
+    fn python_tree_at(root: &str) -> GeneratedTree {
         GeneratedTree {
             relationships: Vec::new(),
-            roots: vec![PathBuf::from(PYTHON_ROOT)],
-            files: [(Path::new(PYTHON_ROOT).join("a.py"), b"value = 1\n".to_vec())].into(),
+            roots: vec![PathBuf::from(root)],
+            files: [(Path::new(root).join("a.py"), b"value = 1\n".to_vec())].into(),
+        }
+    }
+
+    #[test]
+    fn private_python_caches_survive_writing_without_hiding_source_changes() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let tree = python_tree_at(documents::PRIVATE_PYTHON_ROOT);
+        write_tree(checkout.path(), &tree).unwrap();
+        write_tree(scratch.path(), &tree).unwrap();
+        let root = checkout.path().join(documents::PRIVATE_PYTHON_ROOT);
+        let cache = root.join("__pycache__");
+        fs::create_dir(&cache).unwrap();
+        let names = [
+            "a.cpython-312.pyc",
+            "a.cpython-314.pyc",
+            "a.cpython-314.opt-2.pyc",
+        ];
+        for name in names {
+            fs::write(cache.join(name), name.as_bytes()).unwrap();
+        }
+        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        fs::write(root.join("a.py"), b"changed source\n").unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        write_tree(checkout.path(), &tree).unwrap();
+        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        for name in names {
+            assert_eq!(fs::read(cache.join(name)).unwrap(), name.as_bytes());
+        }
+    }
+
+    #[test]
+    fn private_python_caches_reject_lookalikes_and_symlinks() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let tree = python_tree_at(documents::PRIVATE_PYTHON_ROOT);
+        write_tree(checkout.path(), &tree).unwrap();
+        write_tree(scratch.path(), &tree).unwrap();
+        let root = checkout.path().join(documents::PRIVATE_PYTHON_ROOT);
+        let cache = root.join("__pycache__");
+        fs::create_dir(&cache).unwrap();
+        for relative in [
+            "__pycache__/unexpected.py",
+            "__pycache__/a.pyc",
+            "__pycache__/a.cpython-source.pyc",
+            "__pycache__/a.cpython-314.opt-.pyc",
+            "__pycache__/a.cpython-314.pyc.py",
+            "a.cpython-314.pyc",
+            "__pycache__/nested/a.cpython-314.pyc",
+        ] {
+            let path = root.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, b"unexpected file\n").unwrap();
+            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+            write_tree(checkout.path(), &tree).unwrap();
+            assert!(!path.exists());
+        }
+        assert!(!python_bytecode_path(Path::new(
+            "scripts/generated-other/__pycache__/a.cpython-314.pyc"
+        )));
+        #[cfg(unix)]
+        {
+            let external = tempfile::tempdir().unwrap();
+            let target = external.path().join("untouched");
+            fs::write(&target, b"external source\n").unwrap();
+            let link = cache.join("a.cpython-314.pyc");
+            std::os::unix::fs::symlink(&target, &link).unwrap();
+            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+            assert!(write_tree(checkout.path(), &tree).is_err());
+            assert!(fs::symlink_metadata(&link).unwrap().is_symlink());
+            fs::remove_file(link).unwrap();
+            fs::remove_dir_all(&cache).unwrap();
+            std::os::unix::fs::symlink(external.path(), &cache).unwrap();
+            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+            assert!(write_tree(checkout.path(), &tree).is_err());
+            assert_eq!(fs::read(target).unwrap(), b"external source\n");
         }
     }
 

@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
@@ -32,13 +33,16 @@ from scripts.tests.telemetry_pipeline_acceptance import (
 )
 from scripts.tests.test_capability_native import source_request
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 
 async def selected(
-    client: Client, name: str, arguments: dict[str, object], *, action: bool = False
+    client: Client, name: str, arguments: Mapping[str, object], *, action: bool = False
 ) -> dict[str, object]:
     answer = await client.call_tool(
         "capabilities_invoke_action" if action else "capabilities_invoke_read",
-        {"capability": name, "arguments": arguments},
+        {"capability": name, "arguments": dict(arguments)},
         meta={"traceparent": "00-" + TRACE_B + "-2468abcdef123456-01"},
     )
     content = mapping(answer.structured_content)
@@ -212,6 +216,15 @@ def run(output: Path) -> int:
             require(producer.wait(timeout=30) == 0, "mcp.native_outcome_changed")
         produced = mapping(json.loads((output / "producer-stdout.json").read_bytes()))
         require(produced["native_result"] == "usable", "mcp.scientific_result_changed")
+        require(
+            any(
+                point.get("executor_role") == "python"
+                and point.get("value") == 2
+                and point.get("service_instance_id") == produced["service_instance_id"]
+                for point in points
+            ),
+            "mcp.native_metric_process_identity_changed",
+        )
         receipt["producer"] = produced
         from scripts import telemetry_query  # noqa: PLC0415 -- selected bounded owner.
 

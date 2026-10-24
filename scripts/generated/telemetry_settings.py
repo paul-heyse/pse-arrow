@@ -46,9 +46,7 @@ class Settings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
         return "Settings(<private>)"
 
 
-class SignalSettings(
-    msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True
-):
+class SignalSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Resolved signal settings; environment precedence belongs to the host resolver."""
 
     #: Whether the host selected this signal.

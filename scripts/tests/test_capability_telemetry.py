@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
@@ -65,7 +66,10 @@ class TelemetryTests(TelemetryClientCase):
             {item.name for item in await self.client.list_tools()}, BOOTSTRAP
         )
         family = self.runtime.catalogue.describe("telemetry-observation")
-        self.assertEqual(set(family["operations"]), OPERATIONS)
+        operations = family["operations"]
+        if not isinstance(operations, list):
+            self.fail("Expected the declared operation list")
+        self.assertEqual(set(operations), OPERATIONS)
         declaration = next(
             item
             for item in _families()
@@ -90,9 +94,10 @@ class TelemetryTests(TelemetryClientCase):
             self.assertEqual(spec.family, "telemetry-observation")
             self.assertEqual(spec.exposure, "tool")
             self.assertIn("diagnose-run", spec.workflows)
-            self.assertTrue(
-                self.runtime.catalogue.tools[operation].annotations.read_only_hint
-            )
+            annotations = self.runtime.catalogue.tools[operation].annotations
+            if annotations is None:
+                self.fail("Expected explicit read-only tool annotations")
+            self.assertTrue(annotations.read_only_hint)
             description = await self.client.call_tool(
                 "capabilities_describe", {"capability": operation}
             )
@@ -105,8 +110,11 @@ class TelemetryTests(TelemetryClientCase):
         self.assertFalse(step.default)
         self.assertIn("native_diagnostic_inspect", self.runtime.catalogue.tools)
         native = self.runtime.catalogue.tools["native_diagnostic_inspect"]
-        self.assertIn("target locator", native.description)
-        self.assertIn("registration coverage", native.description)
+        description = native.description
+        if description is None:
+            self.fail("Expected the original native reader description")
+        self.assertIn("target locator", description)
+        self.assertIn("registration coverage", description)
         self.assertEqual(
             {item.name for item in await self.client.list_tools()}, BOOTSTRAP
         )
@@ -115,7 +123,7 @@ class TelemetryTests(TelemetryClientCase):
         self,
     ) -> None:
         with (
-            patch.object(telemetry_process._STATE, "active", None),
+            patch.object(telemetry_process._STATE, "active", None),  # noqa: SLF001 -- isolate calling-process state without initializing an SDK.
             patch.object(
                 telemetry_service, "start", side_effect=AssertionError("started")
             ),
@@ -216,20 +224,22 @@ class TelemetryTests(TelemetryClientCase):
     async def test_owner_errors_are_safe_and_never_render_supplied_private_data(
         self,
     ) -> None:
-        with patch.object(
-            telemetry_query,
-            "lookup_trace",
-            side_effect=telemetry_service.TelemetryServiceError(PRIVATE),
+        with (
+            patch.object(
+                telemetry_query,
+                "lookup_trace",
+                side_effect=telemetry_service.TelemetryServiceError(PRIVATE),
+            ),
+            self.assertRaises(ToolError) as error,
         ):
-            with self.assertRaises(ToolError) as error:
-                await self.call(
-                    "telemetry_trace_lookup",
-                    {
-                        "trace_id": TRACE_ID,
-                        "start_time_us": 100,
-                        "end_time_us": 200,
-                    },
-                )
+            await self.call(
+                "telemetry_trace_lookup",
+                {
+                    "trace_id": TRACE_ID,
+                    "start_time_us": 100,
+                    "end_time_us": 200,
+                },
+            )
         self.assertNotIn(PRIVATE, str(error.exception))
         self.assertIn("source_unavailable", str(error.exception))
 
@@ -252,10 +262,8 @@ class BackendTests(TelemetryClientCase):
                 self.send_response(case.code)
                 self.send_header("Content-Length", str(len(case.body)))
                 self.end_headers()
-                try:
+                with suppress(BrokenPipeError):
                     self.wfile.write(case.body)
-                except BrokenPipeError:
-                    pass
 
             def do_GET(self) -> None:
                 body = (
@@ -268,8 +276,8 @@ class BackendTests(TelemetryClientCase):
                 self.end_headers()
                 self.wfile.write(body)
 
-            def log_message(self, _format: str, *_args: object) -> None:
-                pass
+            def log_message(self, format: str, *args: object) -> None:
+                del format, args
 
         backend = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         backend.daemon_threads = True
@@ -379,7 +387,7 @@ class BackendTests(TelemetryClientCase):
             "collector_health": self.base + "/",
             "collector_metrics": self.base + "/metrics",
         }
-        with patch.object(telemetry_process._STATE, "active", None):
+        with patch.object(telemetry_process._STATE, "active", None):  # noqa: SLF001 -- isolate calling-process state without initializing an SDK.
             result = await self.call("telemetry_health", {})
         payload = result["payload"]
         self.assertEqual(payload["producer"]["status"], "not_initialized")
