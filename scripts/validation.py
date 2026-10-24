@@ -1205,11 +1205,6 @@ def run_gates(
         roles=artifact_roles(output, receipt),
         required_provenance=REQUIRED_PROVENANCE,
     )
-    for error in test_resources.reclaim_reports():
-        print(
-            f"test-resources: cleanup deferred after error: {error}",
-            file=sys.stderr,
-        )
     return int(not receipt["required_checks_covered"])
 
 

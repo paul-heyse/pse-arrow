@@ -45,6 +45,40 @@ from scripts.validation_scope import (
 
 
 class ValidationTests(unittest.TestCase):
+    def test_report_completion_does_not_sweep_unrelated_historical_resources(
+        self,
+    ) -> None:
+        execute = validation.execute
+
+        def pure_gate(
+            root: Path,
+            output: Path,
+            name: str,
+            _command: list[str],
+            env: dict[str, str],
+        ) -> dict:
+            return execute(root, output, name, [sys.executable, "-c", "pass"], env)
+
+        with (
+            patch.object(validation, "execute", side_effect=pure_gate),
+            patch.object(
+                test_resources,
+                "reclaim_reports",
+                side_effect=AssertionError("unrelated historical cleanup"),
+            ),
+        ):
+            self.assertEqual(
+                validation.run_gates(
+                    self.root, self.output, [Gate("pure")], capture=False
+                ),
+                0,
+            )
+        resource = test_resources.report_resource(self.output)
+        self.assertIsNotNone(resource)
+        record = test_resources.resource_status(resource)
+        self.assertEqual(record["disposition"], "pass")
+        self.assertIsNotNone(record["artifact_manifest"])
+
     def test_functional_scopes_supply_actual_portable_producer_receipt(self) -> None:
         self.assertEqual(expand(("producer-fixture",))[0].input_scope, "rust-product")
         for name in FUNCTIONAL_SCOPES:
@@ -391,21 +425,29 @@ class ValidationTests(unittest.TestCase):
         projection.chmod(0o755)
         self.assertNotEqual(present, applicability())
 
-    def test_aggregate_generation_uses_relations_once_and_keeps_independent_guards(
+    def test_aggregate_generation_uses_one_rust_process_and_keeps_independent_guards(
         self,
     ) -> None:
         names = [gate.name for gate in expand(("codegen-check",))]
-        self.assertEqual(names.count("codegen-relations-check"), 1)
-        self.assertNotIn("codegen-physical-check", names)
-        self.assertNotIn("codegen-rust-contracts-check", names)
-        for guard in (
-            "python-contracts-check",
-            "python-stubs-check",
+        self.assertEqual(
+            names,
+            [
+                "codegen-all-check",
+                "python-contracts-check",
+                "python-stubs-check",
+                "codegen-capabilities-check",
+            ],
+        )
+        for independent in (
+            "codegen-relations-check",
+            "codegen-physical-check",
+            "codegen-rust-contracts-check",
+            "codegen-python-check",
+            "codegen-docs-check",
+            "codegen-surreal-check",
             "codegen-bindgen-check",
             "codegen-schemas-check",
         ):
-            self.assertIn(guard, names)
-        for independent in ("codegen-physical-check", "codegen-rust-contracts-check"):
             self.assertEqual(expand((independent,))[0].name, independent)
 
     def test_evidence_requires_ignored_contained_paths_and_rejects_symlink_escape(
