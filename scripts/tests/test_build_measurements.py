@@ -29,8 +29,8 @@ from scripts import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from unittest.mock import MagicMock
     from typing import TextIO
+    from unittest.mock import MagicMock
 
 
 def drain_fixture(complete: bool) -> native_operation.DrainObservation:

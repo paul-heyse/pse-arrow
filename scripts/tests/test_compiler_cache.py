@@ -296,7 +296,7 @@ class CompilerCacheTests(unittest.TestCase):
                 patch.object(cache.subprocess, "Popen") as launch,
                 pytest.raises(
                     cache.CacheError,
-                    match="supervised client compilation|SCCACHE_MAX_FRAME_LENGTH",
+                    match=r"supervised client compilation|SCCACHE_MAX_FRAME_LENGTH",
                 ),
             ):
                 cache.supervised_compile(["compiler"], environment, self.service(owner))

@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
-import random
 import subprocess
 import tempfile
 from pathlib import Path
@@ -33,7 +33,7 @@ def main() -> None:
         ).strip()
         # In client-side mode, publication sends the compressed artifact over
         # daemon IPC. A tiny probe cannot detect the upstream 8 MiB frame limit.
-        payload = random.Random(54).randbytes(4 * 1024**2)
+        payload = hashlib.shake_256(b"pse compiler cache canary").digest(4 * 1024**2)
         (root / "payload.bin").write_bytes(payload)
         source = root / "probe.rs"
         source.write_text(
@@ -66,7 +66,19 @@ def main() -> None:
         try:
             before = build_measurements.cache_stats(env)
             subprocess.run(command, env=env, check=True)
+            artifact = output / "libpse_cache_probe.rlib"
+            artifact.unlink()
+            (output / "libpse_cache_probe.rmeta").unlink(missing_ok=True)
+            (output / "pse_cache_probe.d").unlink(missing_ok=True)
             subprocess.run(command, env=env, check=True)
+            if not artifact.is_file() or not (output / "pse_cache_probe.d").is_file():
+                raise ValueError("cache hit did not restore the owned Rust outputs")
+            largest_entry = max(
+                (path.stat().st_size for path in (root / "cache").rglob("*") if path.is_file()),
+                default=0,
+            )
+            if largest_entry <= 8 * 1024**2:
+                raise ValueError("cache probe did not publish an entry above 8 MiB")
             delta = build_measurements.counter_delta(
                 before, build_measurements.cache_stats(env)
             )
@@ -99,10 +111,12 @@ def main() -> None:
                 json.dumps(
                     {
                         "compiler": rustc,
+                        "cache_max_frame_length": env["SCCACHE_MAX_FRAME_LENGTH"],
                         "cache_delta": delta,
                         "incremental_passthrough": True,
                         "restored_payload_bytes": len(payload),
                         "restored_payload_checksum_verified": True,
+                        "largest_cache_entry_bytes": largest_entry,
                     },
                     indent=2,
                 )

@@ -54,13 +54,13 @@ def finding_status(gate: str, code: int, stdout: str, stderr: str) -> str:
                 for plural, singular in (("errors", "error"), ("warnings", "warning"))
             ):
                 return "failed"
-            return (
-                "passed" if code == 0 and not findings
-                else "findings" if code == 1 and findings
-                else "failed"
-            )
         except (ValueError, KeyError, TypeError, AttributeError):
             return "failed"
+        return (
+            "passed" if code == 0 and not findings
+            else "findings" if code == 1 and findings
+            else "failed"
+        )
     if code == 0:
         return "passed"
     try:

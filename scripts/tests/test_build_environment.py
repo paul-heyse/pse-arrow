@@ -137,22 +137,22 @@ class BuildEnvironmentTests(unittest.TestCase):
 
     def test_frame_values_refuse_instead_of_sccache_silent_fallback(self) -> None:
         for value in (
-            "", "0", "-1", "+1", "1.5", "128M", " 12", "12\n", "１２",
+            "", "0", "-1", "+1", "1.5", "128M", " 12", "12\n", "\uff11\uff12",
             "4294967296", "9" * 5000,
         ):
             for mode in ("auto", "on"):
-                with self.subTest(value=value[:20], mode=mode):
-                    with self.assertRaisesRegex(
-                        ValueError, "SCCACHE_MAX_FRAME_LENGTH"
-                    ):
-                        build.configure(
-                            build.ROOT,
-                            {
-                                "RUSTC_WRAPPER": "/custom/sccache",
-                                "SCCACHE_MAX_FRAME_LENGTH": value,
-                            },
-                            cache=mode,
-                        )
+                with (
+                    self.subTest(value=value[:20], mode=mode),
+                    self.assertRaisesRegex(ValueError, "SCCACHE_MAX_FRAME_LENGTH"),
+                ):
+                    build.configure(
+                        build.ROOT,
+                        {
+                            "RUSTC_WRAPPER": "/custom/sccache",
+                            "SCCACHE_MAX_FRAME_LENGTH": value,
+                        },
+                        cache=mode,
+                    )
         for value, expected in (
             ("1", "1"), ("4294967295", "4294967295"), ("0" * 5000 + "12", "12")
         ):

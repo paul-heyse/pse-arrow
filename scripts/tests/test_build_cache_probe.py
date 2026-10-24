@@ -10,6 +10,7 @@ import io
 import json
 import subprocess
 import unittest
+from pathlib import Path
 from unittest.mock import patch, sentinel
 
 from scripts import build_cache_probe as probe
@@ -25,10 +26,29 @@ class BuildCacheProbeTests(unittest.TestCase):
             "SCCACHE_MAX_FRAME_LENGTH": "134217728",
         }
         stats = {"stats": {"cache_hits": {"counts": {"Rust": 1}}}}
+        invocations = 0
+
+        def compiler_output(command: list[str], *, env: dict[str, str], check: bool) -> None:
+            nonlocal invocations
+            self.assertTrue(check)
+            if "--out-dir" not in command:
+                return
+            destination = Path(command[command.index("--out-dir") + 1])
+            artifact = destination / "libpse_cache_probe.rlib"
+            invocations += 1
+            if invocations == 2:
+                self.assertFalse(artifact.exists(), "hit must recreate removed outputs")
+            artifact.write_bytes(b"owned mock output")
+            (destination / "pse_cache_probe.d").write_text("owned dep-info")
+            entry = Path(env["SCCACHE_DIR"]) / "entry"
+            entry.parent.mkdir(exist_ok=True)
+            with entry.open("wb") as stream:
+                stream.truncate(8 * 1024**2 + 1)
+
         with (
             patch.object(probe.build_environment, "configure", return_value=selected),
             patch.object(probe.subprocess, "check_output", return_value="/rustc\n"),
-            patch.object(probe.subprocess, "run") as compile_process,
+            patch.object(probe.subprocess, "run", side_effect=compiler_output) as compile_process,
             patch.object(
                 probe.build_measurements,
                 "start_cache_server",
