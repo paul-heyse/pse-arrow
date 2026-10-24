@@ -242,8 +242,8 @@ retain their meaning, while development research belongs in the tooling projecti
 attributed prior reviewer rationale, not current authorization or full-history coverage. An actual
 changed live source was refused before an excerpt read, as intended.
 
-I03 selects source-fresh lexical delivery and no automatic semantic index. The exact
-llama.cppv0.7.0 source and Qwen3-Embedding-0.6B-Q8_0 weights in `.config/local-retrieval.toml`
+I03 selects exact structured access with source-fresh lexical fallback and no automatic semantic index. The exact
+llama.cppv0.7.0 source and Qwen3-Embedding-0.6B-Q8_0 weights in the experiment's former `.config/local-retrieval.toml`
 ran one finite batch on RTX5090/CUDA13.4: 11 selected sources,41 explicit excerpts,6 concept/code/prose/
 symbol/historical questions and47 inputs,1024 finite L2-normalized dimensions,29/29 GPU layers.
 **Measured:** that one cold process took2.291 seconds; this is compatibility/finite-batch timing,
@@ -256,10 +256,12 @@ Usefulness was mixed: freshness/symbol questions did not improve; the code quest
 higher without the required detailed passage; raw similarity preferred the obsolete dependency
 policy; current-scope ordering still buried the desired functional-review skill. Lexical results
 already supplied these sources. This bounded sample does not justify a new native vector/index
-pipeline. The finite `semantic_retrieval compare` experiment remains opt-in with authenticated
-runtime/model/source identities and no implicit installation or service. Reranking, fusion and
-Agent Memory remain unselected; revisit when a concrete persistent concept-retrieval miss warrants
-a narrower comparison. This outcome does not establish that those mechanisms lack value generally.
+pipeline. The completed candidate experiment and its runtime/model declarations are retained in
+[Git](https://github.com/paul-heyse/pse-arrow/tree/498c44786/scripts/semantic_retrieval.py),
+with authenticated runtime/model/source identities. Its unused helper/configuration were removed
+after the structured pivot; ordinary operation starts no model or semantic index. Reranking, fusion and Agent Memory remain unselected. A missing answer first calls for checking
+the domain model, declared relationships and exact query coverage; the trial creates no semantic
+implementation backlog. This outcome does not establish that those mechanisms lack value generally.
 
 ### Structured pivot checkpoint
 
@@ -269,3 +271,29 @@ exact owner-native selectors, interpreted inherited metadata, typed concept/prod
 and their actual consumers. The requested SurrealDB/tooling/SurrealKV capability review informs
 the physical realization before it is finalized. Source identity, atomic activation, exact replay
 reconciliation and source-only operation remain required. No new storage authority is selected.
+
+### Structured library mechanisms
+
+**Interface-checked:** the requested `surrealdb.md`, `surrealdb_tooling.md` and `SurrealKV.md`
+references were read end to end, with consequential checks against custom SurrealDB3.3.4
+source revision `1ac2b1dba7cd177621a4cf5d507caebeb2414395` and tagged upstream APIs.
+Selected implementation uses SCHEMAFULL/closed vocabulary/assertions, ordinary ENFORCED
+provenanced relations, exact Production assertions and compound indexes around real selectors.
+Typed record references need explicit existence and same-generation constraints; REFERENCE alone
+tracks references and deletion policy, not existence. Physical aliases, if used, are mechanically
+derived and strictly reconciled; they must not create independently mutable relationship meanings.
+Bound queries select a cut once and check every statement result. Native EXPLAIN qualifies actual
+lookup/traversal paths; LIMIT alone proves no bound on examined work.
+
+LIGHTWEIGHT relations cannot carry this schema/provenance/index meaning and are unselected.
+Small relationship-kind/basis inline fields are candidates only for actual adjacency predicates;
+64-character hashes do not fit the default64-byte inline-property payload with overhead. Broad
+index combinations, materialized active-pointer views, database functions, GQL/GraphQL, a second
+migration lifecycle, ANN and WASM computation add no required current capability.
+
+The selected custom MX adapter uses serializable snapshot isolation and rejects temporal options
+and versioned reads. SurrealKV1.0 get-at/history/checkpoint/retention APIs are separate backend
+capabilities, not available through that selected adapter. No SurrealKV store or backend change is
+selected: temporal storage would still not replace owner source versions and exact corpus membership.
+Runtime assertions, structured/empty/paginated queries and bound plans remain to be exercised on
+the custom server; this source review establishes no measured performance or native qualification.
