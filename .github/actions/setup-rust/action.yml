@@ -10,8 +10,8 @@
 # it ships no rustup, so the first step installs one with `--default-toolchain none` and
 # lets the toolchain file decide.
 #
-# Tool names are passed in by the caller. No release is named: taiki-e/install-action
-# fetches the current prebuilt binary of each tool, as `just bootstrap` does locally.
+# Tool names come from callers; protocol-sensitive versions are selected from the
+# same diagnostic-tool declaration as local bootstrap.
 
 name: Set up Rust
 description: >-
@@ -37,8 +37,8 @@ inputs:
   tools:
     description: >-
       Cargo tools, one per line (a comma-separated single line also works), e.g.
-      `cargo-nextest`. Forwarded verbatim to taiki-e/install-action, which fetches the
-      current prebuilt binary; an `@version` suffix is accepted but not expected. Leave
+      `cargo-nextest`. Protocol-sensitive pins are resolved from the repository
+      declaration; other explicit `@version` suffixes are preserved. Leave
       empty for jobs that need no tools.
     required: false
     default: ""
@@ -114,8 +114,18 @@ runs:
         cache-all-crates: "true"
         cache-on-failure: "true"
 
+    - name: Resolve Cargo tool selections
+      id: cargo-tools
+      if: inputs.tools != ''
+      shell: bash
+      env:
+        REQUESTED_CARGO_TOOLS: ${{ inputs.tools }}
+      run: |
+        python3 -m scripts.cargo_tools "$REQUESTED_CARGO_TOOLS" > /tmp/pse-cargo-tools.txt
+        { echo 'tools<<PSE_CARGO_TOOLS'; cat /tmp/pse-cargo-tools.txt; echo 'PSE_CARGO_TOOLS'; } >> "$GITHUB_OUTPUT"
+
     - name: Install cargo tools
       if: inputs.tools != ''
       uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
       with:
-        tool: ${{ inputs.tools }}
+        tool: ${{ steps.cargo-tools.outputs.tools }}

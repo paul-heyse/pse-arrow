@@ -124,6 +124,7 @@ chrono.workspace = true
 flatbuffers.workspace = true
 
 [dev-dependencies]
+proptest.workspace = true
 egobox-doe.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
