@@ -1113,16 +1113,14 @@ mod tests {
 
     #[test]
     fn production_source_fields_all_keep_parser_attribution() {
-        let sources = [
-            include_str!("../../../../packages/reference/physical/models/math.pse"),
-            include_str!("../../../../packages/reference/thermodynamics/models/peng-robinson.pse"),
-            include_str!("../../../../packages/reference/campaign/models/cstr-dynamics.pse"),
-            include_str!("../../../../packages/reference/campaign/models/flash-diagnostics.pse"),
-        ];
-        for (index, text) in sources.into_iter().enumerate() {
+        for (index, (_path, text)) in
+            crate::scientific_inputs::family_documents("source-attribution")
+                .into_iter()
+                .enumerate()
+        {
             let document = pse_ids::SemanticId::from_bytes([index as u8 + 1; 16]);
             let (rows, spans) = language::parse_with_spans(
-                text,
+                &text,
                 document,
                 language::IdentityPolicy::Named,
                 pse_authoring::ParseBudget::default(),

@@ -1,6 +1,6 @@
 ---
 title: "Plan 53b: Test helpers, inputs and fixtures"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
@@ -68,3 +68,97 @@ The family closure from B04 supports wider migration, but an early B05 slice can
 B02 owns DTA-006 scientific refusal closure with 53a input. B04 produces dependency facts for D04's narrow capture and C02 selection requirements. B03 produces support/configuration distinctions for D02. B05's immutable module preparation and effect-free cases let F01 remove only demonstrated barriers. Separate semantic dependency from shared editing: coordinate runtime/conformance tests, `Cargo.toml`, root/Python conftest and source loaders with the other owner before concurrent edits.
 
 Acceptance is planned targeted compiler/math/runtime/Python evidence during execution, followed by 53g's relevant assembled journeys. Document structural removed admission/embedding/store work without claiming latency or memory gains. No mutable-workspace cache, compulsory trace campaign or uniform helper hierarchy belongs to this target.
+
+## Execution checkpoint — 2026-10-24
+
+B01–B05 are authorized on main under the owning session; Plan52 implementation is paused for
+its independent review. Reuse 52c's analytic/stateful and cancellation controls, typed scientific
+causes and coverage overlay. Reuse 52e's existing fixture staging/remapping and deterministic
+regeneration; its SQL populations do not replace canonical runtime admission or borrowers.
+The coordinator retains package/inquiry/finding state. The shared input contract precedes
+consumer migration; independent bound-source/refusal/support work proceeds with separate file
+owners. Targeted functional checks only; no new audit, benchmark or repository-health campaign.
+
+## Verification and Outcome — implementation checkpoint 2026-10-24
+
+**Implemented:** B01's `SourceBody::prepare` owns common bound-source mechanics; callers retain
+their scientific settings, bindings, cancellation and residual expectations. Ten duplicate
+math/backend construction paths moved and their finish helpers were deleted. Compiler tests use
+existing semantic-body admission/completion counters for that bounded claim and one complete
+private observer for remaining query assertions. Missing or truncated observations refuse counts.
+
+**Implemented:** B02 introduces source-owned `ModelingContractReason` and migrates consumed
+refusals/forwarders. The existing diagnostic code, rule, record identity, human detail and actual
+revision-bound location survive; an authored requirement retains its separate identity without
+inventing a span. Unmigrated contracts explicitly remain `Unclassified`. DTA-006 now admits a real
+quantity/context control before single-condition mutations assert the intended typed rule.
+
+**Implemented:** B03 removes unused store doubles, execution/introspection helpers, self-tests
+and dependencies while retaining real `NativeFixture`, factory and capture consumers.
+`canonical-tests` selects participation; `test-support` owns fixture lifetime and deterministic
+hooks. Runtime test closures retain support, while the actual native Python production graph
+does not select it. Required service-dependent lifetime/reader checks remain pending below.
+
+**Implemented:** B04's single catalog declares nineteen families. Production bounded package
+reads, typed P0 resolution and the authored parser derive source/data/import closure; exact
+directory membership, absence and package inventory are retained and rechecked before publication.
+Reference bytes are explicit invocation input through `PSE_SCIENTIFIC_INPUTS`; migrated Rust
+consumers no longer embed shared packages. Authentic transport and synthetic declaration projection
+remain separate. `affected` consumes these facts conservatively. Selected pure archives stage and
+remap the exact capsule; native archival retains its existing unsupported-closure refusal.
+Python maps only this checkout's reference root, preserving arbitrary user directories with a
+similar spelling. Conformance, campaign, process-cost and selected pytest controllers prepare
+before child execution; a supplied capsule is validated without recapture.
+
+**Implemented:** B05 reuses only a compatible immutable `Arc<ModelingRevision>` and creates a
+fresh mutable workspace from its compiler context. Independent fresh admission/edit controls
+remain. The two local Python cases use an ephemeral capability runtime and authenticated immutable
+study-module evidence, respectively; neither acquires a canonical context/database. Collection
+and execution guards reject accidental durable dependencies, including transitive fixture/group
+selection. Process-local revision reuse is distinct from invocation-wide captured byte sharing.
+
+**Tested — targeted functional evidence, zero-failure target:** commands used the pinned checkout
+environment and force-validation on actual Arrow-consuming closures. Counts below describe
+separate selections and are not an additive coverage total.
+
+| Command / selection | Result and conditions |
+|---|---|
+| `scripts/pse-env -- just unit-package pse-math 'test(bound_source_preparation) \| test(implicit)'` | 74 passed, zero failed; math binding/implicit controls. |
+| `just unit-package pse-modeling <selected filterset> -p pse-compiler -p pse-admission --execution-effects native-local` through `scripts/pse-env` | 138 passed, zero failed, 487 filtered; typed reasons, scientific selection/composition/reaction/parameter/potential, compiler observations/revision reuse, capture and migrated authored consumers. Invocation `b43860d73011434b8a537d2d39eaa786`. |
+| `scripts/pse-env -- just unit-package pse-testkit 'test(native_unit) \| test(implicit)' -p pse-backend-native --execution-effects native-local` | 15 passed, zero failed, 316 filtered. |
+| `scripts/pse-env -- just unit-package pse-admission mixture_normalization_preserves_differences_and_requires_actual_fraction_contracts --test quantity_relations --execution-effects native-local` | One passed, zero failed, 29 filtered; admitted DTA-006 control and intended refusals. |
+| `scripts/pse-env -- cargo t -p xtask --bin xtask --features physical-admission -E 'test(scientific_inputs_)'` | Six passed, zero failed, 84 filtered; real dependency/version/import resolution, source-only reload, projection/inheritance and source/data/inventory drift refusal. |
+| `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_test_run scripts.tests.test_scientific_inputs scripts.tests.test_test_archives scripts.tests.test_native_tests scripts.tests.test_scientific_input_consumers scripts.tests.test_host_admission scripts.tests.test_thermodynamic_campaign scripts.tests.test_case_measure scripts.tests.test_case_collection.CollectionSelectionTests.test_build_selects_compiled_feature_only_when_requested scripts.tests.test_validation.ValidationTests.test_k4_smoke_selectors_build_and_dispatch_only_the_preparation_target` | Final integration: 162 passed, zero failed, including controller preparation, two distinct reference trees and existing lifecycle/capacity controls. Controlled interruption/missing-report diagnostics are expected assertions. No benchmark campaign executed. |
+| `scripts/pse-env -- .venv/bin/python -m scripts.test_archives archive --package pse-modeling --lib --filter 'test(scientific_composition_unknown_and_complete_empty_are_distinct)' --output build/test-archives/p53b-scientific-role` | One selected test passed; exact scientific role staged. |
+| `PSE_SCIENTIFIC_INPUTS=/unavailable-original-producer/scientific.json scripts/pse-env -- .venv/bin/python -m scripts.test_archives replay build/test-archives/p53b-scientific-role --output build/test-archives/p53b-scientific-role-replay` | One selected test passed using remapped captured bytes; historical execution, not current-source qualification. |
+| `scripts/pse-env -- just py-sync-native-correctness` | Installed native force-validated extension built successfully; actual API stubs matched. `cargo tree -p pse-py --locked --features force-validate,native-solvers -e features,no-dev -i pse-operations` confirmed no `test-support`. |
+| Native `just check-package` selections for compiler/modeling/admission/operations/testkit/runtime/xtask and conformance/benches | Passed affected all-target closures, including `native-acceptance`, `native-process` and `canonical-tests`. Final runtime recheck passed with zero warnings after removing an unused fixture wrapper. |
+| Two local Python cases, `-n 0`, native correctness extension, no-allocation guards | Both passed through `test_run.run_python` with authenticated extension capture and the established invocation/result composer; invocation `42bb174b2292483e9b24497d471a0c4c`. An earlier direct pytest pass is supporting evidence only. |
+| `test_modeling_kernel.py::test_conformance_runs_the_declared_reference_set`, `-n 0`, selected controller preparation and native correctness extension | One passed through `test_run.run_python`; invocation `30bc7580f6f449f5a01d6c9a6b7e4d95`. Authored synthetic pass/fail and manifest refusals remain real controls. |
+
+**Pending:** seven selected support-enabled Rust lifetime/cancellation/GDP/MILP/reference controls
+and three complementary support-absent Python reader/drop journeys need an admitted canonical
+service. The selected service's older server receipt refuses current admission before tests
+execute (exit 125). This is a setup failure, not a product pass. The existing service and its
+payloads were preserved until the operator explicitly authorized retirement of legacy server
+contents. The selected service has now been quiesced and stopped through its authenticated
+supervisor; current `fresh-engine` regeneration is in progress in the same selected state.
+Any fixture isolation will use the existing invocation, result and resource owners rather than a
+second result ledger. B03 remains open until both complementary closures are exercised.
+
+Mistakes corrected: the ordinary local Rust route initially bypassed scientific preparation;
+preparation now occurs after actual selection and before effects, and its selected controls pass.
+Actual archive execution exposed two fixture role/environment bridges that unit controls had
+missed; both were repaired before successful producer/replay execution. Pure Python module
+preparation initially called live server admission unnecessarily; it now authenticates immutable
+module evidence through `study_module`, preserving the separate live-server freshness guard.
+Independent review also identified omitted controller routes and a path-suffix collision; these
+are corrected at their actual owners rather than adding a live-source fallback.
+
+Deliberate boundaries: fresh mutable attempts, authentic admission and borrower/drain semantics
+remain. Existing valid prepared-pair helpers remain where tests independently inspect both parts;
+they are not compatibility copies of the removed ordinary finish operation. Full sufficient
+closures are selected without minimality or measured speed/memory claims. The user-authorized
+sixteen functional allocation slots retain their existing memory ceilings. No whole-repository
+health, feature powerset, parity, performance campaign or broader Plan53 qualification is claimed;
+A04's independent production-consumer limitations and C–G remain with their owning plans.

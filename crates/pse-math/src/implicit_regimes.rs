@@ -636,20 +636,27 @@ mod tests {
                         }
                     };
                     SourceBody::prepare(
-            b,
-            &outputs,
-            |prepared| crate::SourceBindings::new(
-                id, prepared, Default::default(), Default::default(), Default::default(),
-            ),
-            if kind == 0 {
+                        b,
+                        &outputs,
+                        |prepared| {
+                            crate::SourceBindings::new(
+                                id,
+                                prepared,
+                                Default::default(),
+                                Default::default(),
+                                Default::default(),
+                            )
+                        },
+                        if kind == 0 {
                             DerivativeOrder::Second
                         } else {
                             DerivativeOrder::First
                         },
-            crate::library::Optimization::default(),
-            crate::jets::EvaluationLimits::default(),
-            &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-        ).unwrap()
+                        crate::library::Optimization::default(),
+                        crate::jets::EvaluationLimits::default(),
+                        &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+                    )
+                    .unwrap()
                 };
                 let problem = Arc::new(
                     Problem::new(
@@ -1447,14 +1454,21 @@ mod tests {
         let body = SourceBody::prepare(
             body,
             &[residual],
-            |prepared| crate::SourceBindings::new(
-                id, prepared, Default::default(), Default::default(), Default::default(),
-            ),
+            |prepared| {
+                crate::SourceBindings::new(
+                    id,
+                    prepared,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+            },
             DerivativeOrder::Second,
             crate::library::Optimization::default(),
             crate::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
-        ).unwrap();
+        )
+        .unwrap();
         let previous = &selected.alternatives[0].problem;
         selected.alternatives[0].problem = Arc::new(
             Problem::new(

@@ -16,7 +16,7 @@ doc_topics: [current-work, design, validation, preparation, environment, numeric
 
 **Proposed:** bring the composed test architecture to the target in the [holistic test-architecture review](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md). Preserve federated owner-local tests, independent science, shared conformance, actual native execution, durable lifecycle, installed Python and selected parity. Make their joins consistent: selected work governs preparation, validation, effects, execution and reported assurance; immutable input/detail can be shared while mutable attempts and borrowers remain separately owned.
 
-This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents and subsequently authorized execution of **P00 and A01–A04 only**, in a separate worktree with main integration pending explicit go-ahead. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
+This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents, then P00/A01–A04 (integrated into main), and subsequently **all B01–B05 on main**. Plan52 implementation is paused for its independent review; the current session owns main for this scope. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
 
 This coordinator owns the combined target, shared decisions, cross-plan boundaries, one package-state table, finding dispositions and inquiries. Seven companions own detailed designs and acceptance, linking here for state. Reviews own remedy reasoning, audits own diagnosis, architecture/ADRs own enduring contracts/rationale. Scheduling a finding does not resolve it; a rule decision does not establish implementation. The source review's historical source references attribute evidence, not a commit pin, freeze or ongoing churn-reconciliation obligation.
 
@@ -89,7 +89,7 @@ B02's typed refusal direction fits the existing §23.2 source-owned typed-cause 
 
 ## Package state and execution route
 
-This is the **single package progress owner**. P00 and A01–A04 are authorized; all other packages remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. Package acceptance was **Proposed / not_run** at authoring; current execution evidence is recorded below.
+This is the **single package progress owner**. P00, A01–A04 and B01–B05 are authorized; C–G remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. Package acceptance was **Proposed / not_run** at authoring; current execution evidence is recorded below.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
@@ -98,11 +98,11 @@ This is the **single package progress owner**. P00 and A01–A04 are authorized;
 | A02 | done | [53a](53a-scientific-assurance-and-references.md#a02) | Tested: nine-feed regime journey and wrong-regime controls; solved countercurrent and unequal-pressure mixer; current PID consumer qualification remains A04 |
 | A03 | done | [53a](53a-scientific-assurance-and-references.md#a03) | Tested: independent integrated PR root/layout/mixed Hessian and two-point exact/approximate nonlinear publication/readback |
 | A04 | in-progress | [53a](53a-scientific-assurance-and-references.md#a04) | I02 resolved; all three independent generators pass; PFR/controller assembled consumers retain failed/inconclusive acceptance below |
-| B01 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b01) | I03 resolved; narrow source helper and truthful observed reuse, duplicate copies deleted |
-| B02 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b02) | I04 resolved; typed reasons and valid/single-change origin controls across consumers |
-| B03 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b03) | Unused doubles/devdeps removed; participation/support scopes and real lifetime evidence retained |
-| B04 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b04) | I05 resolved; one closure/projection feeds runtime input and affected consumers |
-| B05 | planned | [53b](53b-test-helpers-inputs-and-fixtures.md#b05) | Compatible revision reuse with fresh attempts; two local Python cases shed stores/groups |
+| B01 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b01) | I03 resolved; bound-source helper, stable body-admission counters and complete private query observer; targeted math/compiler controls pass |
+| B02 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b02) | I04 resolved; source-owned typed reasons retain diagnostic identity/location; valid and single-change origin controls pass |
+| B03 | in-progress | [53b](53b-test-helpers-inputs-and-fixtures.md#b03) | Unused doubles/devdeps removed; participation/support scopes and real lifetime evidence retained |
+| B04 | in-progress | [53b](53b-test-helpers-inputs-and-fixtures.md#b04) | I05 resolved; one closure/projection feeds runtime input and affected consumers |
+| B05 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b05) | Compatible revision reuse and context/owner/budget refusal controls pass; two local Python cases pass with no-allocation guards through the existing result composer |
 | C01 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c01) | One invocation/config/profile/overlay interpretation with actual tool selection |
 | C02 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog/requirements/roles and before-effects guard across managed routes |
 | C03 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c03) | Actual Arrow leaves proved across installer/codegen/routes; stale declaration/check removed |
@@ -133,9 +133,9 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 |---|---|---|---|
 | I01 | resolved | [A02](53a-scientific-assurance-and-references.md#a02) | Compute independent positive slack and propagated feasibility envelope for selected phase fixture; adopt concrete regime bound or choose a better away-transition case. Blocks that regime assertion, not historical policy or other cases. |
 | I02 | resolved | [A04](53a-scientific-assurance-and-references.md#a04) | Locate/recover verifiable three generators or specify independent reduced equations/method/environment; reproduce references or explain reviewed discrepancy before golden migration. No production-output regeneration. |
-| I03 | open | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Determine whether existing semantic-body counters observe the asserted reuse invariant; select them or one private complete observer with cold/invalidation controls. Blocks observer migration only. |
-| I04 | open | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Enumerate consumed reasons/constructors/codec projections against §23.2; preserve code/declaration/location. Existing typed-source direction selected; any genuine incompatible promise needs a specific decision before incompatible migration. |
-| I05 | open | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Derive sufficient authentic/synthetic source/data/import closures and membership/absence facts for actual families. Adopt complete sufficient closures; minimality is not required. Unknown edges stay broad. |
+| I03 | resolved | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Existing counters establish no new semantic-body admissions, not exact Salsa memo hits. Other query claims use one private observer with positive cold/invalidation and missing/truncated refusal controls; independent fresh results remain. |
+| I04 | resolved | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Source-owned reasons fit §23.2; migrated constructors/forwarders preserve ValidationInvariant, ModelingContract, declaration and real source location. Codec/changed-prose controls pass; untouched contracts explicitly remain Unclassified. |
+| I05 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Nineteen declared families use real bounded package/P0/parser closure, exact data/source bytes, directory membership/absence and explicit synthetic substitutions. Drift refuses publication; unknown affected edges broaden. Full sufficient closures adopted without a minimality claim. |
 | I06 | open | [D03](53d-build-discovery-and-generation.md#d03) | Establish extension installer/build/stub/native consumed-input and binary-identity domain, mutable boundaries and unknown fallback. Reuse only known complete premises; otherwise prepare conservatively. |
 | I07 | open | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Inventory dormant Python Rust assertions and optional peer/restart/CLI claims; select active equivalent public coverage and real role routes, or explicitly retire unsupported claims. Required supported claims cannot silently disappear. |
 | I08 | open | [F02](53f-effect-scoped-scheduling.md#f02) | Identify true service-quiet versus database-local claims; select once-per-invocation owned service or justified narrower assertion and demonstrate two-run isolation. Retain protection until then; no blanket capacity relaxation. |
@@ -342,3 +342,14 @@ reports `active=False`, `admission=quiesced`, `accepting_writes=False`. Existing
 services were untouched. Targeted reports are retained in the main checkout before removing
 the fully merged worktree. `just turn-end` passed ADR indexing and formatting; unrelated safe
 formatter changes were restored. This is process verification, not product qualification.
+
+## B01–B05 execution checkpoint — 2026-10-24
+
+The full 53b scope is authorized on main. The existing 52c/52e mechanisms and their acceptance
+limits are inputs, not work to repeat: preserve analytic/stateful controls, typed scientific
+causes, deterministic cancellation, coverage correspondence, selected archive/remapping and
+deterministic fixture regeneration. Canonical runtime ownership and actual scientific dependency
+edges remain distinct obligations. I03–I05 close on their concrete implementation evidence.
+A04 remains independently in progress; this execution does not repair its unrelated runtime
+acceptance failures or authorize C–G. Current unrelated history/lock/review/library edits remain
+outside this session's commits.

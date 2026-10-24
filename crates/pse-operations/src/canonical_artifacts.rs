@@ -17,7 +17,7 @@ use pse_model::SemanticFrame;
 use std::time::Duration;
 use surrealdb::types::{Object, Value};
 
-#[cfg(feature = "canonical-tests")]
+#[cfg(any(test, feature = "test-support"))]
 tokio::task_local! { pub(crate) static CANCEL_AFTER_ARTIFACT_APPEND_ACK: std::sync::Arc<dyn Fn() + Send + Sync>; }
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -505,7 +505,7 @@ impl CanonicalStore {
         let index = response.num_statements().saturating_sub(2);
         let keys = response.take::<Vec<String>>(index)?;
         validate_artifact_ack(rows, &keys)?;
-        #[cfg(feature = "canonical-tests")]
+        #[cfg(any(test, feature = "test-support"))]
         if let Ok(cancel) = CANCEL_AFTER_ARTIFACT_APPEND_ACK.try_with(Clone::clone) {
             cancel();
             // The real group ACK has arrived. Suspend the publication so its

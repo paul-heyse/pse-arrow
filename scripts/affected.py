@@ -148,6 +148,18 @@ def main(argv: list[str] | None = None) -> int:
             seeds.add(name)
         elif not path.startswith(("python/", "docs/")) and path not in WORKSPACE_WIDE:
             unowned.append(f"{status} {path}")
+    from scripts import scientific_inputs
+
+    try:
+        scientific = scientific_inputs.affected(changes)
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        scientific = {
+            "consumers": sorted(roots),
+            "families": [],
+            "unknown": [path for _, path in changes],
+            "reason": str(error),
+        }
+    seeds.update(name for name in scientific["consumers"] if name in roots)
     selected = sorted(closure(seeds, dependents)) if not wide else sorted(roots)
     command = ["cargo", "nextest", "run", "--locked"]
     if args.features:
@@ -183,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         {"kind": "unowned", "files": unowned},
         {
             "kind": "dynamic",
-            "meaning": "data, fixtures and external-process reach is not inferred",
+            "meaning": "unknown dynamic dependencies broaden scientific-family reach; other external-process reach is not inferred",
         },
     ]
     result = {
@@ -191,6 +203,7 @@ def main(argv: list[str] | None = None) -> int:
         "base": args.base,
         "changes": changes,
         "changed_packages": sorted(seeds),
+        "scientific_inputs": scientific,
         "selected_packages": selected,
         "workspace_widening": wide,
         "command": command if seeds or wide else None,

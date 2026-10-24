@@ -2098,7 +2098,13 @@ impl Engine<'_, '_> {
                 Selected::Disjunction(_) => self.disjunction(id, *member, &env, None)?,
                 Selected::Requirement(r) => {
                     if !self.predicate(*member, &env, "requirement.predicate")? {
-                        return Err(invalid(*member, &r.message));
+                        return Err(crate::invalid_reason(
+                            *member,
+                            crate::ModelingContractReason::AuthoredRequirement {
+                                requirement: member.as_id(),
+                            },
+                            &r.message,
+                        ));
                     }
                 }
                 Selected::Port(b) => {
@@ -2652,8 +2658,9 @@ impl Engine<'_, '_> {
                 .map(|_| self.eval_field(member, &env, "binding.expression", 0, Some(&ty)))
                 .transpose()?;
             if existing.ty != ty || existing.initial != initial {
-                return Err(invalid(
+                return Err(crate::invalid_reason(
                     member,
+                    crate::ModelingContractReason::TemporalScalarDefaultMismatch,
                     "scalar temporal parameter defaults must agree; time changes belong to an analysis schedule",
                 ));
             }

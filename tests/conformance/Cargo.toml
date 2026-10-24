@@ -47,6 +47,7 @@ sundials-sys = { workspace = true, optional = true }
 diffsol = { workspace = true, optional = true }
 
 [dev-dependencies]
+bytes.workspace = true
 pse-diagnostics.workspace = true
 pse-admission.workspace = true
 object_store.workspace = true

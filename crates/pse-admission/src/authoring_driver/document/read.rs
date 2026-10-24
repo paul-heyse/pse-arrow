@@ -16,10 +16,24 @@ pub(super) fn package_files(
     registry: &Registry,
     budget: &ParseBudget,
 ) -> Result<BTreeMap<String, Vec<u8>>, DriverError> {
+    Ok(package_files_with_directories(root, registry, budget)?.files)
+}
+
+pub(super) struct PackageFiles {
+    pub files: BTreeMap<String, Vec<u8>>,
+    pub directories: BTreeMap<String, Option<Vec<String>>>,
+}
+
+pub(super) fn package_files_with_directories(
+    root: &Path,
+    registry: &Registry,
+    budget: &ParseBudget,
+) -> Result<PackageFiles, DriverError> {
     let mut files = BTreeMap::new();
+    let mut membership = BTreeMap::new();
     let mut remaining = budget.max_bytes;
     read_one(root, "package.toml", &mut remaining, &mut files)?;
-    let mut directories = std::collections::BTreeSet::new();
+    let mut directories = BTreeMap::<&str, Vec<&str>>::new();
     for document in registry.documents() {
         let Some((directory, pattern)) = document.path_glob.split_once('/') else {
             continue;
@@ -30,11 +44,12 @@ pub(super) fn package_files(
                 "unsupported declared document glob",
             ));
         }
-        if !directories.insert(directory) {
-            continue;
-        }
+        directories.entry(directory).or_default().push(pattern);
+    }
+    for (directory, patterns) in directories {
         let path = root.join(directory);
         if !path.exists() {
+            membership.insert(directory.to_owned(), None);
             continue;
         }
         if std::fs::symlink_metadata(&path)
@@ -46,12 +61,29 @@ pub(super) fn package_files(
         }
         let entries =
             std::fs::read_dir(path).map_err(|error| failure(directory, &error.to_string()))?;
+        let mut names = Vec::new();
         for entry in entries {
             let entry = entry.map_err(|error| failure(directory, &error.to_string()))?;
             let name = entry
                 .file_name()
                 .into_string()
                 .map_err(|_| failure(directory, "non-UTF8 document path"))?;
+            names.push(name.clone());
+            if entry
+                .file_type()
+                .map_err(|error| failure(directory, &error.to_string()))?
+                .is_symlink()
+            {
+                return Err(failure(
+                    &format!("{directory}/{name}"),
+                    "symlink document member",
+                ));
+            }
+            if !patterns.iter().any(|pattern| name.ends_with(&pattern[1..])) {
+                // Generator inputs and other non-documents remain membership facts;
+                // only the registry's declared globs own document selection.
+                continue;
+            }
             super::load::select(registry, &format!("{directory}/{name}"))?;
             read_one(
                 root,
@@ -60,8 +92,13 @@ pub(super) fn package_files(
                 &mut files,
             )?;
         }
+        names.sort();
+        membership.insert(directory.to_owned(), Some(names));
     }
-    Ok(files)
+    Ok(PackageFiles {
+        files,
+        directories: membership,
+    })
 }
 
 fn read_one(

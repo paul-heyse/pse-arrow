@@ -194,7 +194,7 @@ service dies. This bounds surviving work; it does not establish that no transien
 or cache effect occurred during the race. Explicit measurement servers keep their own
 foreground lifecycle and endpoint.
 
-`PSE_MEMORY_MAX` requests a positive finite cap. Requests above 40 GiB widen to both
+`PSE_MEMORY_MAX` requests a positive finite cap. Requests above 40 GiB consume two
 functional slots; above 80 GiB requires exclusive heavy admission. A larger request
 also raises its aggregate ancestor after checking physical capacity and nominal
 non-agent headroom. Nested commands reuse the actual owner, and cannot silently

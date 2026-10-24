@@ -1611,8 +1611,9 @@ pub(super) fn inventory_package(
             .and_then(|import| import.alias.as_deref())
             .unwrap_or(&row.name);
         if context.quantities.physical_name(local).is_some() {
-            return Err(invalid(
+            return Err(crate::invalid_reason(
                 row.declaration_id,
+                crate::ModelingContractReason::AmbiguousName,
                 format!(
                     "ambiguous name {local}: declared by package {} and by the physical document",
                     package.name

@@ -40,6 +40,57 @@ pub use specialize::{Bindings, Limits, SpecializedModel, specialize};
 pub use specialize::{DeclarationId, InstanceId};
 pub use types::{PhysicalScope, Type, TypeContext, TypeLookup, TypeScope};
 
+/// Source-owned distinctions consumed by modeling callers, independent of display wording.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ModelingContractReason {
+    /// A contract outside the bounded typed migration; never inferred from its message.
+    Unclassified,
+    /// A visible authored name conflicts with an admitted physical name.
+    AmbiguousName,
+    /// A contextual path names no declaration.
+    UnknownContextualDeclaration,
+    /// The selected declaration type has no requested member.
+    UnknownMember,
+    /// A contextual reference needs a member path rather than an arbitrary expression.
+    ContextualMemberPathRequired,
+    /// A member occurrence supplies the wrong number of coordinates.
+    MemberIndexArity,
+    /// A coordinate is outside the member's admitted finite membership.
+    CoordinateOutsideMembership,
+    /// A continuous operation received an unrealized finite-set coordinate.
+    ContinuousCoordinateRequired,
+    /// An inventory event guard is not a physical numeric member.
+    PhysicalNumericGuardRequired,
+    /// An inventory event transfer names the same event twice.
+    DuplicateInventoryEventTransfer,
+    /// Shared scalar temporal defaults disagree between instances.
+    TemporalScalarDefaultMismatch,
+    /// An authored requirement evaluated false; the requirement retains its own identity.
+    AuthoredRequirement {
+        /// The actual requirement declaration, distinct from the refused record.
+        requirement: SemanticId,
+    },
+}
+impl ModelingContractReason {
+    /// Stable spelling projected through the existing diagnostic reason observation.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Unclassified => "unclassified",
+            Self::AmbiguousName => "ambiguous_name",
+            Self::UnknownContextualDeclaration => "unknown_contextual_declaration",
+            Self::UnknownMember => "unknown_member",
+            Self::ContextualMemberPathRequired => "contextual_member_path_required",
+            Self::MemberIndexArity => "member_index_arity",
+            Self::CoordinateOutsideMembership => "coordinate_outside_membership",
+            Self::ContinuousCoordinateRequired => "continuous_coordinate_required",
+            Self::PhysicalNumericGuardRequired => "physical_numeric_guard_required",
+            Self::DuplicateInventoryEventTransfer => "duplicate_inventory_event_transfer",
+            Self::TemporalScalarDefaultMismatch => "temporal_scalar_default_mismatch",
+            Self::AuthoredRequirement { .. } => "authored_requirement",
+        }
+    }
+}
+
 /// An attributable checking or specialization failure.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ModelingError {
@@ -59,7 +110,9 @@ pub enum ModelingError {
     Contract {
         /// Stable semantic source identity.
         declaration: SemanticId,
-        /// Actual violated condition.
+        /// Stable violated condition, owned by the producer rather than rendered prose.
+        reason: ModelingContractReason,
+        /// Human detail about the violated condition.
         message: String,
     },
     /// A parsed and checked construct needs a later execution capability.
@@ -193,7 +246,12 @@ impl ModelingError {
         let (class, rule, source, detail) = match self {
             Self::Located { span, name, cause } => {
                 let mut diagnostic = cause.boundary_diagnostic();
-                for source in &diagnostic.sources {
+                // A record's span cannot witness the distinct requirement's bytes.
+                let located_sources = match cause.as_ref() {
+                    Self::Contract { declaration, .. } => vec![*declaration],
+                    _ => diagnostic.sources.clone(),
+                };
+                for source in &located_sources {
                     diagnostic
                         .locations
                         .push(pse_model::diagnostic::SourceLocation {
@@ -214,13 +272,29 @@ impl ModelingError {
             }
             Self::Contract {
                 declaration,
+                reason,
                 message,
-            } => (
-                Class::InvalidModel,
-                pse_diagnostics::DiagnosticRule::ModelingContract,
-                Some(*declaration),
-                Some(message),
-            ),
+            } => {
+                let mut sources = vec![*declaration];
+                if let ModelingContractReason::AuthoredRequirement { requirement } = reason
+                    && !sources.contains(requirement)
+                {
+                    sources.push(*requirement);
+                }
+                let mut diagnostic = BoundaryDiagnostic::new(
+                    Class::InvalidModel,
+                    pse_diagnostics::DiagnosticStage::Modeling,
+                    sources,
+                    pse_diagnostics::DiagnosticRule::ModelingContract,
+                );
+                diagnostic
+                    .observations
+                    .insert("reason".into(), Observation::Text(reason.as_str().into()));
+                diagnostic
+                    .observations
+                    .insert("detail".into(), Observation::Text(message.clone()));
+                return diagnostic.with_code(pse_diagnostics::DiagnosticCode::ValidationInvariant);
+            }
             Self::Unsupported {
                 declaration,
                 capability,
@@ -582,8 +656,17 @@ pub(crate) fn indicator_type(
 }
 /// A contract failure attributed to a declaration, or to the instance or member it names.
 pub(crate) fn invalid(id: impl Into<SemanticId>, message: impl Into<String>) -> ModelingError {
+    invalid_reason(id, ModelingContractReason::Unclassified, message)
+}
+/// A source-classified contract failure; never recover its reason from rendered detail.
+pub(crate) fn invalid_reason(
+    id: impl Into<SemanticId>,
+    reason: ModelingContractReason,
+    message: impl Into<String>,
+) -> ModelingError {
     ModelingError::Contract {
         declaration: id.into(),
+        reason,
         message: message.into(),
     }
 }
@@ -629,3 +712,10 @@ impl pse_model::diagnostic::DiagnosticProjection for ModelingError {
         self.boundary_diagnostic()
     }
 }
+
+#[cfg(test)]
+mod contract_reason_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/fixtures/scientific-inputs.rs"]
+mod scientific_inputs;

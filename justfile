@@ -791,13 +791,13 @@ _preflight +kinds:
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 modeling-conformance *args: (_preflight "native" "native-extension")
-    "{{ py }}" -m pse.conformance "$@"
+    "{{ py }}" scripts/scientific_inputs.py run -- "{{ py }}" -m pse.conformance "$@"
 
 [group('local')]
 [doc('Run every reference fixture once from packages/reference/conformance.toml; Arrow reports in build/seed-conformance')]
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 seed-conformance: (_preflight "native" "native-extension" "conformance" "--manifest" reference_manifest)
-    "{{ py }}" -m pse.conformance --manifest {{ reference_manifest }} --report-dir build/seed-conformance
+    "{{ py }}" scripts/scientific_inputs.py run -- "{{ py }}" -m pse.conformance --manifest {{ reference_manifest }} --report-dir build/seed-conformance
 
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]

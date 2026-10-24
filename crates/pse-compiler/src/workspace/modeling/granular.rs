@@ -308,6 +308,7 @@ fn modeling_error(error: CompileError) -> pse_modeling::ModelingError {
         CompileError::Modeling(error) => error,
         CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
         error => pse_modeling::ModelingError::Contract {
+            reason: pse_modeling::ModelingContractReason::Unclassified,
             declaration: SemanticId::NIL,
             message: error.to_string(),
         },

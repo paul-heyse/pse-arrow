@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+use super::test_observation::{Query, observed_workspace};
 use super::*;
 use pse_authoring::{
     ParseBudget,
@@ -9,6 +10,9 @@ use pse_diagnostics::Cancellation;
 use pse_modeling::specialize::root_instance;
 use std::collections::BTreeSet;
 fn source(text: &str) -> Vec<Declaration> {
+    if text.contains("// pse-test-source:") {
+        return crate::scientific_inputs::parse_sources(text, IdentityPolicy::Named);
+    }
     parse(
         text,
         SemanticId::from_bytes([81; 16]),
@@ -152,28 +156,14 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
         )]
         .into(),
     });
-    let events = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let observed = Arc::clone(&events);
-    let document_admissions = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let observed_documents = Arc::clone(&document_admissions);
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, events) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits {
-            // Cover the full retained granular candidate, not just bulk rows.
-            // Oversized defaults alone precharge 17,920,000 bytes before expansion.
+            // Oversized defaults precharge 17,920,000 bytes before expansion.
             input_bytes: 16 << 20,
             ..WorkspaceLimits::default()
         },
-        Some(Box::new(move |event| {
-            if matches!(event.kind, salsa::EventKind::WillExecute { .. }) {
-                observed.fetch_add(1, Ordering::Relaxed);
-                if format!("{:?}", event.kind).contains("document_table") {
-                    observed_documents.fetch_add(1, Ordering::Relaxed);
-                }
-            }
-        })),
-    )
-    .unwrap();
+    );
     let oversized = source(&text.replace("$DEFAULT", &"x".repeat(4096)));
     let error = workspace
         .publish_modeling_with(oversized, PhysicalScope::default(), Arc::clone(&documents))
@@ -181,8 +171,8 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
     assert!(error.to_string().contains("before expansion"), "{error}");
     // Semantic phases establish the dataset plan before its expansion can be
     // preflighted. The bulk row-admission query must never execute on refusal.
-    assert!(events.load(Ordering::Relaxed) > 0);
-    assert_eq!(document_admissions.load(Ordering::Relaxed), 0);
+    assert!(events.total() > 0);
+    assert_eq!(events.count(Query::DocumentTable), 0);
     assert!(workspace.modeling.is_none());
     let small = source(&text.replace("$DEFAULT", "small"));
     assert!(matches!(
@@ -211,25 +201,13 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
         admitted.checked().record(id).unwrap().values["payload"],
         pse_modeling::specialize::Value::Text("small".into())
     );
-    // Refusal rotates the candidate lane, including its event observer. A fresh
-    // successful control proves that this observer identifies actual bulk work.
-    let observed_documents = Arc::clone(&document_admissions);
-    let mut control = CompilerWorkspace::with_events(
-        workspace.inputs.clone(),
-        workspace.limits,
-        Some(Box::new(move |event| {
-            if matches!(event.kind, salsa::EventKind::WillExecute { .. })
-                && format!("{:?}", event.kind).contains("document_table")
-            {
-                observed_documents.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    // A cold independent admission is a positive control for the same observer.
+    let (mut control, control_events) =
+        observed_workspace(workspace.inputs.clone(), workspace.limits);
     control
         .publish_modeling_with(small, PhysicalScope::default(), documents)
         .unwrap();
-    assert!(document_admissions.load(Ordering::Relaxed) > 0);
+    assert!(control_events.count(Query::DocumentTable) > 0);
 }
 
 #[test]
@@ -418,23 +396,11 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
 fn kernel_queries_reuse_math_across_values_unrelated_edits_and_clean_rebuild() {
     let text = "package p { def Root { param p: Scalar = 2; var x: Scalar; eq e: x * p == 6; } def Other { var y: Scalar; eq e: y == 1; } }";
     let (initial, mut rows, names, root) = setup(text);
-    let events = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let observed = events.clone();
-    let mut workspace = CompilerWorkspace::with_events(
-        initial.inputs.clone(),
-        initial.limits,
-        Some(Box::new(move |event| {
-            if matches!(event.kind, salsa::EventKind::WillExecute { .. }) {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
-    workspace
-        .publish_modeling(rows.clone(), names.clone())
-        .unwrap();
+    let (mut workspace, events) = observed_workspace(initial.inputs.clone(), initial.limits);
+    let revision = initial.modeling.as_ref().unwrap().revision.clone();
+    workspace.publish_modeling_revision(revision).unwrap();
     let original = admit(&mut workspace, root);
-    let executed = events.load(Ordering::Relaxed);
+    let executed = events.total();
     assert!(executed > 0);
     let catalog = workspace.modeling.as_ref().unwrap().catalog;
     let checked = catalog.checked(&workspace.db).clone();
@@ -443,7 +409,7 @@ fn kernel_queries_reuse_math_across_values_unrelated_edits_and_clean_rebuild() {
         .unwrap();
     assert!(Arc::ptr_eq(&checked, catalog.checked(&workspace.db)));
     assert!(Arc::ptr_eq(&original, &admit(&mut workspace, root)));
-    assert_eq!(events.load(Ordering::Relaxed), executed);
+    assert_eq!(events.total(), executed);
     let parameter = rows
         .iter_mut()
         .find(|r| r.name == "p" && r.value.binding.is_some())
@@ -453,7 +419,7 @@ fn kernel_queries_reuse_math_across_values_unrelated_edits_and_clean_rebuild() {
         .publish_modeling(rows.clone(), names.clone())
         .unwrap();
     let values = admit(&mut workspace, root);
-    assert!(events.load(Ordering::Relaxed) > executed);
+    assert!(events.total() > executed);
     assert_eq!(original.case.key(), values.case.key());
     assert_eq!(original.inputs, values.inputs);
     assert_eq!(original.outputs, values.outputs);
@@ -566,6 +532,219 @@ fn kernel_admitted_revisions_reuse_checked_state_and_refuse_context_substitution
     let mut other = CompilerWorkspace::new(other, WorkspaceLimits::default()).unwrap();
     assert!(other.publish_modeling_revision(first).is_err());
     assert!(other.modeling.is_none());
+}
+
+#[test]
+fn immutable_revision_reuse_keeps_workspace_and_numerical_attempts_fresh() {
+    let (mut source, rows, scope, root) =
+        setup("package p {def Root {var x:Scalar; eq e:x*x==4;}}");
+    let revision = source.modeling.as_ref().unwrap().revision.clone();
+    let context = revision.compiler_context();
+    let (mut reused, events) = observed_workspace(context.clone(), WorkspaceLimits::default());
+    reused.publish_modeling_revision(revision.clone()).unwrap();
+    assert!(Arc::ptr_eq(
+        &revision,
+        &reused.modeling.as_ref().unwrap().revision
+    ));
+    // Publication of admitted immutable input performs no declaration checking.
+    // A subsequent cold preparation supplies the positive callback control.
+    let actual = admit(&mut reused, root);
+    assert_eq!(events.count(Query::Parsed), 0);
+    assert!(events.total() > 0);
+    let (mut fresh, fresh_events) = observed_workspace(context.clone(), WorkspaceLimits::default());
+    let fresh_revision = fresh.publish_modeling(rows, scope).unwrap();
+    assert!(!Arc::ptr_eq(&revision, &fresh_revision));
+    assert!(fresh_events.count(Query::Parsed) > 0);
+    let expected = admit(&mut fresh, root);
+    assert_eq!(actual.as_ref(), expected.as_ref());
+    assert!(!Arc::ptr_eq(&actual, &expected));
+    let original = admit(&mut source, root);
+    assert_eq!(actual.as_ref(), original.as_ref());
+    let evaluate = |admitted: &AdmittedModeling, x| {
+        let cancel = Cancellation::new(false);
+        let artifact = fixture(
+            admitted,
+            context.quantities.clone(),
+            DerivativeOrder::Second,
+            &cancel,
+        )
+        .unwrap();
+        let result = artifact
+            .worker()
+            .evaluate(
+                &[x],
+                DerivativeOrder::Second,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel,
+            )
+            .unwrap();
+        result.equations(admitted)
+    };
+    assert_eq!(evaluate(&actual, 3.), evaluate(&expected, 3.));
+    assert_eq!(evaluate(&actual, 3.), vec![5.]);
+    assert_eq!(evaluate(&actual, 2.), vec![0.]);
+    assert_eq!(evaluate(&expected, 3.), vec![5.]);
+}
+
+#[test]
+fn immutable_revision_refuses_equal_physical_values_with_different_arc_owners() {
+    let (source, _, _, _) = setup("package p {def Root {var x:Scalar; eq e:x==2;}}");
+    let revision = source.modeling.as_ref().unwrap().revision.clone();
+    for quantities in [true, false] {
+        let mut context = revision.compiler_context();
+        if quantities {
+            context.quantities = Arc::new(context.quantities.as_ref().clone());
+        } else {
+            context.preconditions = Arc::new(context.preconditions.as_ref().clone());
+        }
+        assert_eq!(context, revision.compiler_context());
+        let mut receiver = CompilerWorkspace::new(context, WorkspaceLimits::default()).unwrap();
+        let generation = receiver.generation();
+        assert!(matches!(
+            receiver.publish_modeling_revision(revision.clone()),
+            Err(CompileError::Missing(_))
+        ));
+        assert!(receiver.modeling.is_none());
+        assert_eq!(receiver.generation(), generation);
+    }
+    let mut compatible =
+        CompilerWorkspace::new(revision.compiler_context(), WorkspaceLimits::default()).unwrap();
+    compatible.publish_modeling_revision(revision).unwrap();
+}
+
+#[test]
+fn immutable_revision_refuses_provider_context_substitution_before_publication() {
+    use pse_kernels::{AdmittedProvider, DerivativeSource, Port, ProviderShapes, ProviderSpec};
+    let mut context = crate::authored_transfer_tests::context();
+    let quantity = context.quantities.neutral_dimensionless().unwrap();
+    let unit = context
+        .quantities
+        .quantity_type(quantity)
+        .unwrap()
+        .canonical_unit;
+    let port = |id| Port {
+        id: SemanticId::from_bytes([id; 16]),
+        quantity,
+        unit,
+    };
+    context.providers.insert(
+        "identity".into(),
+        ProviderCall {
+            descriptor: AdmittedProvider::new(
+                ProviderSpec {
+                    id: SemanticId::from_bytes([235; 16]),
+                    revision: ContentHash::from_bytes([236; 32]),
+                    data: ContentHash::from_bytes([237; 32]),
+                    inputs: vec![port(238)],
+                    outputs: vec![port(239)],
+                    shapes: ProviderShapes::default(),
+                    derivative_source: DerivativeSource::Analytic,
+                    derivatives: DerivativeOrder::Second,
+                    smoothness: DerivativeOrder::Second,
+                },
+                &context.quantities,
+            )
+            .unwrap(),
+            output: 0,
+        },
+    );
+    let (source, rows, scope, root) =
+        setup_with_inputs("package p {def Root {var x:Scalar; eq e:x==2;}}", context);
+    let revision = source.modeling.as_ref().unwrap().revision.clone();
+    let mut changed = revision.compiler_context();
+    changed.providers.clear();
+    assert!(Arc::ptr_eq(
+        &changed.quantities,
+        &revision.inputs.quantities
+    ));
+    assert!(Arc::ptr_eq(
+        &changed.preconditions,
+        &revision.inputs.preconditions
+    ));
+    let mut receiver = CompilerWorkspace::new(changed, WorkspaceLimits::default()).unwrap();
+    let head = receiver.publish_modeling(rows, scope).unwrap();
+    let expected = admit(&mut receiver, root);
+    let generation = receiver.generation();
+    assert!(matches!(
+        receiver.publish_modeling_revision(revision),
+        Err(CompileError::Missing(_))
+    ));
+    assert!(Arc::ptr_eq(
+        &head,
+        &receiver.modeling.as_ref().unwrap().revision
+    ));
+    assert_eq!(receiver.generation(), generation);
+    assert!(Arc::ptr_eq(&expected, &admit(&mut receiver, root)));
+}
+
+#[test]
+fn immutable_revision_rechecks_receiving_input_bytes_before_publication() {
+    let (source, _, _, _) = setup("package p {def Root {var x:Scalar; eq e:x==2;}}");
+    let revision = source.modeling.as_ref().unwrap().revision.clone();
+    let context = revision.compiler_context();
+    let required = context_extent(&context) + revision.input_bytes;
+    assert!(revision.input_bytes > 1);
+    let mut refused = CompilerWorkspace::new(
+        context.clone(),
+        WorkspaceLimits {
+            input_bytes: required - 1,
+            ..WorkspaceLimits::default()
+        },
+    )
+    .unwrap();
+    assert!(matches!(
+        refused.publish_modeling_revision(revision.clone()),
+        Err(CompileError::Limit("context extent"))
+    ));
+    assert!(refused.modeling.is_none());
+    let mut exact = CompilerWorkspace::new(
+        context,
+        WorkspaceLimits {
+            input_bytes: required,
+            ..WorkspaceLimits::default()
+        },
+    )
+    .unwrap();
+    exact.publish_modeling_revision(revision.clone()).unwrap();
+    assert!(Arc::ptr_eq(
+        &revision,
+        &exact.modeling.as_ref().unwrap().revision
+    ));
+}
+
+#[test]
+fn immutable_revision_rechecks_receiving_declaration_budget_before_publication() {
+    let (mut source, _, _, _) = setup("package p {def Root {}}");
+    let head = source.modeling.as_ref().unwrap().revision.clone();
+    let text = format!(
+        "package p {{def Root {{}} {} }}",
+        (0..1025)
+            .map(|i| format!("def D{i} {{}} "))
+            .collect::<String>()
+    );
+    let large = source
+        .publish_modeling(self::source(&text), PhysicalScope::default())
+        .unwrap();
+    assert!(large.declarations().len() > 1024);
+    let mut receiver = CompilerWorkspace::new(
+        head.compiler_context(),
+        WorkspaceLimits {
+            query_values: 1,
+            ..WorkspaceLimits::default()
+        },
+    )
+    .unwrap();
+    receiver.publish_modeling_revision(head.clone()).unwrap();
+    let generation = receiver.generation();
+    assert!(matches!(
+        receiver.publish_modeling_revision(large),
+        Err(CompileError::Limit("modeling declarations"))
+    ));
+    assert!(Arc::ptr_eq(
+        &head,
+        &receiver.modeling.as_ref().unwrap().revision
+    ));
+    assert_eq!(receiver.generation(), generation);
 }
 
 #[test]
@@ -4239,8 +4418,7 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
 
 #[test]
 fn kernel_authored_math_replaces_composite_native_functions() {
-    let package = include_str!("../../../../../packages/reference/physical/models/math.pse");
-    let kinds = include_str!("../../../../../packages/reference/physical/models/kinds.pse");
+    let authored = crate::scientific_inputs::family_sources("authored-math");
     for expectation in [
         "math.log10(100) == 2",
         "math.tan(0) == 0",
@@ -4251,7 +4429,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
         "math.softplus(1000) == 1000",
     ] {
         let source = format!(
-            "{kinds} {package} package p {{ use math @ \"1.0.0\"; def Root {{}} test pure {{ expect {expectation} tolerance 1e-12; }} }}"
+            "{authored} package p {{ use math @ \"1.0.0\"; def Root {{}} test pure {{ expect {expectation} tolerance 1e-12; }} }}"
         );
         let (mut workspace, rows, _, _) = setup(&source);
         let root = rows

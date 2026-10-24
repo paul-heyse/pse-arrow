@@ -1017,38 +1017,13 @@ def test_flash_sweep_prepares_structure_once_per_lane(
     runtime = canonical_substrate.runtime(engine_settings, ephemeral=ephemeral)
     reference = Path(__file__).resolve().parents[3] / "packages/reference"
 
-    def documents(path: Path) -> dict[str, str | bytes]:
-        return {
-            p.relative_to(path).as_posix(): p.read_bytes()
-            for p in path.rglob("*")
-            if p.is_file()
-            and p.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}
-        }
+    from pse._scientific_inputs import family_packages, package_documents
 
-    physical = runtime.physical_from_documents(documents(reference / "physical"))
+    physical_documents = package_documents(reference / "physical")
+    assert physical_documents is not None
+    physical = runtime.physical_from_documents(physical_documents)
     package = runtime.modeling_from_documents(
-        [
-            documents(reference / name)
-            for name in (
-                "data/oracles/teqp-0.23.1",
-                "data/oracles/feos-0.10.1",
-                "data/gross-sadowski-2001",
-                "data/references",
-                "data/nist",
-                "data/perry7",
-                "data/poling2000",
-                "data/oracles/idaes-2.13",
-                "data/species",
-                "data/ciaaw",
-                "seed-data",
-                "campaign",
-                "process",
-                "thermodynamics",
-                "methods",
-                "domain",
-                "physical",
-            )
-        ],
+        family_packages("campaign-transport"),
         physical,
     )
     case = next(

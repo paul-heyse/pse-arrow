@@ -38,9 +38,13 @@ def assignment(
 
 def physical_ids(path: Path, quantity: str, unit: str) -> tuple[str, str]:
     """Read identities from the fixture's authoritative physical document."""
+    from pse._scientific_inputs import reference_bytes
+
     # The physical fixtures use JSON-formatted YAML with a comment header.
     content = "\n".join(
-        line for line in path.read_text().splitlines() if not line.startswith("#")
+        line
+        for line in reference_bytes(path).decode("utf-8").splitlines()
+        if not line.startswith("#")
     )
     document = msgspec.json.decode(content, type=dict[str, object])
     quantities = msgspec.convert(

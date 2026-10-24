@@ -36,9 +36,9 @@ impl std::ops::Deref for Draft {
         &self.head
     }
 }
-#[cfg(feature = "canonical-tests")]
+#[cfg(any(test, feature = "test-support"))]
 tokio::task_local! { pub(crate) static PROJECT_REPLY_LOSS: bool; }
-#[cfg(feature = "canonical-tests")]
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn simulate_reply_loss() -> bool {
     PROJECT_REPLY_LOSS.try_with(|value| *value).unwrap_or(false)
 }
@@ -480,7 +480,7 @@ impl CanonicalStore {
         request: &[u8],
         result: Result<surrealdb::IndexedResults, CanonicalError>,
     ) -> Result<ProjectAcknowledgement, CanonicalError> {
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(any(test, feature = "test-support"))]
         let result = if result.is_ok() && simulate_reply_loss() {
             Err(CanonicalError::IncompleteResponse)
         } else {

@@ -505,8 +505,19 @@ fn ambiguous_quantity_name_refused() {
         "use other @\"1.0.0\" as Scalar;",
     ] {
         let text = format!("package other {{}} package p {{ {declaration} }}");
-        let error = check(&source(&text), &context).unwrap_err().to_string();
-        assert!(error.contains("ambiguous name"), "{declaration}: {error}");
+        let rows = source(&text);
+        let error = check(&rows, &context).unwrap_err();
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::ModelingContract
+        );
+        assert!(matches!(diagnostic.observations.get("reason"),
+            Some(pse_model::diagnostic::Observation::Text(reason)) if reason == ModelingContractReason::AmbiguousName.as_str()));
+        assert!(diagnostic.sources.iter().any(|id| {
+            rows.iter()
+                .any(|row| row.declaration_id.as_id() == *id && row.parent_id.is_some())
+        }));
     }
     // Control: a member of a definition is lexical and shadows the physical name.
     assert!(

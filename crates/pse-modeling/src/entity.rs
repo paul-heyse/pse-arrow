@@ -2477,8 +2477,11 @@ pub(crate) fn verify(p: &CheckedPackage) -> Result<()> {
                 }
                 .predicate(&predicate)?;
                 if !holds {
-                    return Err(invalid(
+                    return Err(crate::invalid_reason(
                         record.origin,
+                        crate::ModelingContractReason::AuthoredRequirement {
+                            requirement: row.as_id(),
+                        },
                         format!(
                             "{} of kind {kind_name} violates the requirement `{}`: {}",
                             crate::data::display(

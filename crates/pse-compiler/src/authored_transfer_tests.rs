@@ -7,7 +7,7 @@
 )]
 
 use crate::workspace::{
-    CompilerContext, CompilerWorkspace, ModelingOutput, Profile, WorkspaceLimits,
+    CompilerContext, CompilerWorkspace, ModelingOutput, ModelingRevision, Profile, WorkspaceLimits,
 };
 use pse_kernels::DerivativeOrder;
 use pse_math::{
@@ -16,11 +16,18 @@ use pse_math::{
 use pse_modeling::{
     Bindings, Declaration, DeclarationId, Limits, PhysicalScope, specialize::root_instance,
 };
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, OnceLock},
+};
 
 #[path = "../../../tests/fixtures/reference-source-fixture.rs"]
 mod reference_source_fixture;
-pub(crate) use reference_source_fixture::{reference_sources, rows};
+pub(crate) use reference_source_fixture::{reference_family_sources, rows};
+
+pub(crate) fn reference_sources() -> String {
+    reference_family_sources("bounded-reference")
+}
 
 pub(crate) fn context() -> CompilerContext {
     CompilerContext {
@@ -48,7 +55,7 @@ pub(crate) fn root(rows: &[Declaration], package: &str, name: &str) -> Declarati
         .declaration_id
 }
 
-fn workspace(text: &str) -> (CompilerWorkspace, Vec<Declaration>) {
+fn fresh_workspace(text: &str) -> (CompilerWorkspace, Vec<Declaration>) {
     let rows = rows(text);
     let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
     workspace
@@ -57,9 +64,32 @@ fn workspace(text: &str) -> (CompilerWorkspace, Vec<Declaration>) {
     (workspace, rows)
 }
 
+fn authored_fixture_workspace() -> (CompilerWorkspace, Arc<ModelingRevision>) {
+    static REVISION: OnceLock<Arc<ModelingRevision>> = OnceLock::new();
+    let revision = REVISION
+        .get_or_init(|| {
+            let mut workspace =
+                CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
+            workspace
+                .publish_modeling(
+                    rows(&format!("{}\n{FIXTURE}", reference_sources())),
+                    PhysicalScope::default(),
+                )
+                .unwrap()
+        })
+        .clone();
+    let mut workspace =
+        CompilerWorkspace::new(revision.compiler_context(), WorkspaceLimits::default()).unwrap();
+    workspace
+        .publish_modeling_revision(revision.clone())
+        .unwrap();
+    (workspace, revision)
+}
+
 fn check(name: &str) {
-    let (mut workspace, rows) = workspace(&format!("{}\n{FIXTURE}", reference_sources()));
-    let root = root(&rows, "authored_transfer_fixture", name);
+    let (mut workspace, revision) = authored_fixture_workspace();
+    let rows = revision.declarations();
+    let root = root(rows, "authored_transfer_fixture", name);
     let result = workspace
         .check_modeling_point(
             root,
@@ -82,7 +112,7 @@ fn check(name: &str) {
 
 #[test]
 fn authored_process_and_caloric_declarations_admit() {
-    let _ = workspace(&reference_sources());
+    let _ = fresh_workspace(&reference_sources());
 }
 
 #[test]
@@ -117,14 +147,13 @@ fn authored_reaction_extent_and_stoichiometric_component_rates_are_physical() {
 
 #[test]
 fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
-    let input = context();
-    let registry = input.quantities.clone();
-    let mut workspace = CompilerWorkspace::new(input, WorkspaceLimits::default()).unwrap();
-    let rows = rows(&format!("{}\n{FIXTURE}", reference_sources()));
-    let root = root(&rows, "authored_transfer_fixture", "InventoryPoint");
-    workspace
-        .publish_modeling(rows, PhysicalScope::default())
-        .unwrap();
+    let (mut workspace, revision) = authored_fixture_workspace();
+    let registry = revision.compiler_context().quantities;
+    let root = root(
+        revision.declarations(),
+        "authored_transfer_fixture",
+        "InventoryPoint",
+    );
     let cancel = pse_diagnostics::Cancellation::default();
     let prepared = workspace
         .prepare_modeling_cancellable(
@@ -206,8 +235,9 @@ fn authored_vessel_amount_and_energy_equations_evaluate_without_adapters() {
 
 #[test]
 fn authored_cstr_extent_report_retains_quantity_and_unit_contract() {
-    let (mut workspace, rows) = workspace(&format!("{}\n{FIXTURE}", reference_sources()));
-    let root = root(&rows, "authored_transfer_fixture", "CstrPoint");
+    let (mut workspace, revision) = authored_fixture_workspace();
+    let rows = revision.declarations();
+    let root = root(rows, "authored_transfer_fixture", "CstrPoint");
     let model = workspace
         .specialize_modeling(
             root,
@@ -246,8 +276,9 @@ fn authored_cstr_extent_report_retains_quantity_and_unit_contract() {
 
 #[test]
 fn authored_distributed_energy_boundaries_bind_each_actual_coordinate() {
-    let (mut workspace, rows) = workspace(&format!("{}\n{FIXTURE}", reference_sources()));
-    let root = root(&rows, "authored_transfer_fixture", "DistributedPoint");
+    let (mut workspace, revision) = authored_fixture_workspace();
+    let rows = revision.declarations();
+    let root = root(rows, "authored_transfer_fixture", "DistributedPoint");
     let model = workspace
         .specialize_modeling(
             root,
@@ -317,8 +348,9 @@ fn authored_distributed_energy_boundaries_bind_each_actual_coordinate() {
 
 #[test]
 fn authored_exchanger_reflection_preserves_opposite_actual_owners() {
-    let (mut workspace, rows) = workspace(&format!("{}\n{FIXTURE}", reference_sources()));
-    let root = root(&rows, "authored_transfer_fixture", "ExchangerPoint");
+    let (mut workspace, revision) = authored_fixture_workspace();
+    let rows = revision.declarations();
+    let root = root(rows, "authored_transfer_fixture", "ExchangerPoint");
     let model = workspace
         .specialize_modeling(
             root,

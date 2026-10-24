@@ -263,7 +263,11 @@ impl Engine<'_, '_> {
             Vec::new()
         };
         if indices.len() != values.len() {
-            return Err(invalid(member, "member index arity differs"));
+            return Err(crate::invalid_reason(
+                member,
+                crate::ModelingContractReason::MemberIndexArity,
+                "member index arity differs",
+            ));
         }
         let admitted = self.coordinates(
             instance,
@@ -274,7 +278,7 @@ impl Engine<'_, '_> {
         admitted.into_iter().find(|row| row.iter().zip(&values).all(|((_, x), y)| {
             x == y || matches!((x,y),
                 (Value::Coordinate{quantity:q,bits:a,..},Value::Number{quantity:r,bits:b}) if q==r && a==b)
-        })).ok_or_else(|| invalid(member, "coordinate outside declared membership"))
+        })).ok_or_else(|| crate::invalid_reason(member, crate::ModelingContractReason::CoordinateOutsideMembership, "coordinate outside declared membership"))
     }
     pub(super) fn resolve_path(
         &self,

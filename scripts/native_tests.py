@@ -21,6 +21,7 @@ from scripts import (
     arrow_validation,
     pse_env,
     python_extension,
+    scientific_inputs,
     surreal_server,
 )
 
@@ -91,6 +92,7 @@ def native_provenance(
         "PSE_PYTHON_DEPLOYMENT_ATTESTATION",
         "PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS",
         "PSE_NATIVE_PROVIDER_RECEIPT",
+        scientific_inputs.ROLE,
     ):
         selected = native_environment.get(name)
         if selected:
@@ -683,7 +685,7 @@ RUST_FIXTURE_TESTS = {
 
 def selected_rust_fixtures(inventory: dict) -> set[str]:
     """Only the actual selected consumer can request its fixture preparation."""
-    return {
+    selected = {
         variable
         for suite in inventory["rust-suites"].values()
         if suite.get("binary-id", "").split("::", 1)[0] == "pse-runtime"
@@ -691,6 +693,10 @@ def selected_rust_fixtures(inventory: dict) -> set[str]:
         if suite["testcases"].get(name, {}).get("filter-match", {}).get("status")
         == "matches"
     }
+
+    if scientific_inputs.selected_consumers(inventory):
+        selected.add(scientific_inputs.ROLE)
+    return selected
 
 
 def prepare_rust_fixtures(
@@ -723,6 +729,13 @@ def prepare_rust_fixtures(
         if not receipt.is_file():
             raise ValueError("producer fixture capture did not identify one receipt")
         bindings["PSE_PRODUCER_FIXTURE_RECEIPT"] = str(receipt)
+    bindings.update(
+        scientific_inputs.prepare(
+            inventory,
+            destination.with_name(destination.stem + "-scientific.json"),
+            environment,
+        )
+    )
     environment.update(bindings)
     return bindings
 
@@ -736,7 +749,9 @@ def rust_fixture_bindings(
     if not isinstance(prepared, dict):
         raise TypeError("Unknown Rust preparation identity")
     bindings = prepared.get("fixtures", {})
-    if not isinstance(bindings, dict) or set(bindings) - RUST_FIXTURE_TESTS.keys():
+    if not isinstance(bindings, dict) or set(bindings) - (
+        RUST_FIXTURE_TESTS.keys() | {scientific_inputs.ROLE}
+    ):
         raise ValueError("Unknown prepared Rust fixture roles")
     files = native.get("files", {})
     recorded = prepared.get("environment", {})
@@ -1376,6 +1391,7 @@ def main() -> int:
         report.parent.mkdir(parents=True, exist_ok=True)
         provenance = Path(path) if path else report.with_suffix(".native.json")
         env = dict(os.environ)
+        scientific_inputs.prepare_python(extra, env)
         artifact = python_extension.capture(env, native=True)
         binary = Path(str(artifact["binary"]))
         observe_deployed_artifacts(env, binary)

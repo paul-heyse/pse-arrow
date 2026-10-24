@@ -64,3 +64,7 @@ pub use crate::peak::ResourceReport;
 pub mod math;
 /// Typed native modeling, completion-owned jobs, physical results and explicit publication.
 pub mod workflow;
+
+#[cfg(test)]
+#[path = "../../../tests/fixtures/scientific-inputs.rs"]
+mod scientific_inputs;

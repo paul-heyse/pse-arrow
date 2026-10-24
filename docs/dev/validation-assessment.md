@@ -469,3 +469,39 @@ release, coverage, feature powerset and alternate toolchains; IDAES parity (`jus
 parity`); performance (`case-measure`); the time-dependent `register-check`;
 and architecture or scientific review, which is a judgement recorded by its owner, not
 command-exit evidence.
+
+## Scientific test input and support ownership
+
+The [scientific family catalog](../../tests/fixtures/scientific-inputs.toml) owns authored
+roots and named projections. The ordinary bounded document reader, typed package resolver
+and modeling parser derive dependencies, exact package/data bytes, imported documents and
+membership/absence facts. A synthetic declaration projection is distinct from authentic
+package transport. Its substitutions carry their own source paths; they never qualify
+external data or an independent oracle.
+
+The Rust selected-invocation preparer captures these bytes once when a selected consumer
+package needs them; the Python controller prepares before worker launch. Children consume
+`PSE_SCIENTIFIC_INPUTS`, with no mutable reference-source fallback. For a standalone command,
+prepare explicitly and bind the returned path:
+
+```bash
+scripts/pse-env -- python scripts/scientific_inputs.py capture build/my-scientific-inputs.json
+PSE_SCIENTIFIC_INPUTS="$PWD/build/my-scientific-inputs.json" scripts/pse-env -- cargo t -p pse-compiler -E 'test(authored_process_and_caloric_declarations_admit)'
+```
+
+Use a fresh capture destination. `just seed-conformance` prepares its invocation automatically;
+ad hoc reference conformance commands use the same explicit role. Changing shared science
+changes runtime input identity and preparation; those bytes are no longer embedded into each
+migrated Rust test binary. `affected` consumes the same derived closure and widens on unknown,
+new or deleted membership. Its optional coverage overlay never prunes dependency reach.
+Selected pure historical archives stage the exact capsule as a logical role and remap it on
+replay; native archival retains its existing refusal boundary.
+
+Compatible compiler tests may share an immutable admitted `ModelingRevision` within their
+process and publish it into a fresh workspace. This is separate from invocation-wide byte
+capture: nextest children do not share an `Arc`. Mutable workspaces, runtimes, numerical
+attempts, databases and borrower lifetimes remain independently owned. Operations
+`canonical-tests` selects test participation; `test-support` selects fixture lifetime and
+deterministic hook instrumentation. Production-shaped Python checks exercise the complementary
+support-absent closure. These changes establish removed setup/embedding work structurally;
+execution-time benefits require separate measurement.

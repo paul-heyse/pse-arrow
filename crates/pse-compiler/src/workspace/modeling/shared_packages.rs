@@ -221,6 +221,7 @@ pub(super) fn read_static_package(
     let package = key.package(db).0.clone();
     if !same_owners(&package.shared_inputs(), &owners) {
         return Err(pse_modeling::ModelingError::Contract {
+            reason: pse_modeling::ModelingContractReason::Unclassified,
             declaration: SemanticId::NIL,
             message: "static package lost its canonical shared input owner".into(),
         });

@@ -182,5 +182,130 @@ class ArchiveClosureTests(unittest.TestCase):
             )
 
 
+class ScientificArchiveBridgeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.workspace = self.root / "historical" / "workspace"
+        self.source = self.root / "producer-input.json"
+        self.source.write_bytes(
+            b'{"schema":"scientific-inputs-v1","files":{"law.pse":[111,108,100]},"families":{}}'
+        )
+        self.original = self.source.read_bytes()
+        self.role = archives.scientific_inputs.ROLE
+        self.native = {
+            "rust_invocation": {"fixtures": {self.role: str(self.source)}},
+            "files": {str(self.source): archives.digest(self.source)},
+        }
+
+    def stage(self) -> dict:
+        fixtures, roles = archives.stage_scientific_input(self.native, self.workspace)
+        return {"fixtures": fixtures, "input_roles": roles}
+
+    def test_stage_and_relocate_replays_exact_bytes_without_producer_or_live_source(
+        self,
+    ) -> None:
+        manifest = self.stage()
+        logical = ".pse-inputs/scientific.json"
+        self.assertEqual(set(manifest["fixtures"]), {logical})
+        self.assertEqual(
+            manifest["input_roles"],
+            {
+                self.role: {
+                    "path": logical,
+                    "sha256": self.native["files"][str(self.source)],
+                }
+            },
+        )
+        self.source.unlink()
+        relocated = self.root / "relocated-workspace"
+        self.workspace.rename(relocated)
+        environment = {self.role: "/deleted/producer/capsule.json", "OTHER": "retained"}
+        archives.bind_input_roles(manifest, relocated, environment)
+        self.assertEqual(environment["OTHER"], "retained")
+        self.assertEqual(environment[self.role], str(relocated / logical))
+        self.assertEqual(Path(environment[self.role]).read_bytes(), self.original)
+        self.assertFalse(self.source.exists())
+
+    def test_stage_refuses_missing_tampered_or_unrecorded_producer_input(self) -> None:
+        self.source.write_bytes(self.original + b"changed")
+        with self.assertRaises(archives.ArchiveError):
+            self.stage()
+        self.source.unlink()
+        with self.assertRaises(archives.ArchiveError):
+            self.stage()
+        self.source.write_bytes(self.original)
+        self.native["files"] = {}
+        with self.assertRaises(archives.ArchiveError):
+            self.stage()
+        self.assertFalse(self.workspace.exists())
+
+    def test_legacy_archive_clears_inherited_role_without_requiring_new_input(
+        self,
+    ) -> None:
+        environment = {self.role: str(self.source), "OTHER": "retained"}
+        archives.bind_input_roles({"fixtures": {}}, self.workspace, environment)
+        self.assertEqual(environment, {"OTHER": "retained"})
+        self.assertEqual(archives.stage_scientific_input({}, self.workspace), ({}, {}))
+        self.assertFalse(self.workspace.exists())
+
+    def test_role_refuses_missing_tampered_or_unstaged_historical_bytes(self) -> None:
+        manifest = self.stage()
+        target = self.workspace / ".pse-inputs/scientific.json"
+        for mutate in (lambda: target.write_bytes(b"tampered"), target.unlink):
+            target.write_bytes(self.original)
+            mutate()
+            environment = {self.role: "/old/producer"}
+            with self.assertRaises(archives.ArchiveError):
+                archives.bind_input_roles(manifest, self.workspace, environment)
+            self.assertNotIn(self.role, environment)
+        target.write_bytes(self.original)
+        manifest["fixtures"] = {}
+        with self.assertRaises(archives.ArchiveError):
+            archives.bind_input_roles(manifest, self.workspace, {})
+
+    def test_role_refuses_unknown_roles_and_relative_path_escape(self) -> None:
+        manifest = self.stage()
+        binding = manifest["input_roles"][self.role]
+        with self.assertRaises(archives.ArchiveError):
+            archives.bind_input_roles(
+                {
+                    "fixtures": manifest["fixtures"],
+                    "input_roles": {"OTHER_ROLE": binding},
+                },
+                self.workspace,
+                {},
+            )
+        for path in ("../producer-input.json", str(self.source)):
+            with self.subTest(path=path), self.assertRaises(archives.ArchiveError):
+                archives.bind_input_roles(
+                    {
+                        "fixtures": {path: binding["sha256"]},
+                        "input_roles": {self.role: {**binding, "path": path}},
+                    },
+                    self.workspace,
+                    {},
+                )
+
+    def test_role_refuses_a_symlinked_input_or_parent_even_with_matching_bytes(
+        self,
+    ) -> None:
+        manifest = self.stage()
+        logical = self.workspace / ".pse-inputs/scientific.json"
+        logical.unlink()
+        logical.symlink_to(self.source)
+        with self.assertRaises(archives.ArchiveError):
+            archives.bind_input_roles(manifest, self.workspace, {})
+        logical.unlink()
+        logical.parent.rmdir()
+        external = self.root / "external"
+        external.mkdir()
+        (external / "scientific.json").write_bytes(self.original)
+        logical.parent.symlink_to(external, target_is_directory=True)
+        with self.assertRaises(archives.ArchiveError):
+            archives.bind_input_roles(manifest, self.workspace, {})
+
+
 if __name__ == "__main__":
     unittest.main()

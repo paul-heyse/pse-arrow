@@ -21,14 +21,7 @@ pub(in crate::workflow) struct ReferenceRecycleFixture {
 pub(in crate::workflow) async fn actual_reference_recycle_fixture(
     cancel: &crate::CancelSource,
 ) -> Result<ReferenceRecycleFixture, WorkflowError> {
-    let source = format!(
-        "{}\n{}\n{}\n{}\n{}",
-        source_fixture::reference_sources(),
-        include_str!("../../../../../../packages/reference/process/models/mixer.pse"),
-        include_str!("../../../../../../packages/reference/process/models/flash.pse"),
-        include_str!("../../../../../../packages/reference/campaign/models/references.pse"),
-        include_str!("../../../../../../packages/reference/campaign/models/recycle-flash.pse")
-    );
+    let source = source_fixture::reference_family_sources("recycle-reference");
     let rows = source_fixture::rows(&source);
     let namespace = rows
         .iter()

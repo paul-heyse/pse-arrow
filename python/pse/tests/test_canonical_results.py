@@ -124,7 +124,8 @@ def _physical_cache_usage(runtime: pse.Runtime) -> tuple[int, int]:
 def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
     inspection_settings: pse.EngineSettings,
     tmp_path: Path,
-    canonical_substrate: CanonicalFixture,
+    admitted_study_module: str,
+    no_canonical_allocation: None,
 ) -> None:
     state = tmp_path / "private-storage"
     state.mkdir(mode=0o700)
@@ -142,10 +143,9 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
     credentials.chmod(0o600)
     # Borrow the immutable selected artifact receipt. The private endpoint below
     # is synthetic, but its local module admission must use real pinned evidence.
-    selected = server.read_json(Path(canonical_substrate.state) / "config.json")
     config = {
         "profile_version": 3,
-        "study_module": selected["study_module"],
+        "study_module": json.loads(admitted_study_module),
         "endpoint": "grpc://127.0.0.1:1",
         "namespace": "fixture",
         "database": "fixture",

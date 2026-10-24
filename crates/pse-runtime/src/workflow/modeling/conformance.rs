@@ -5081,27 +5081,10 @@ mod tests {
         use pse_relations::columnar::RelationRow;
         // The fixture's source and role are declared by the seed's references and the
         // domain's provenance module (ADR-0123 Outcome 5).
-        let rows = [
-            include_str!("../../../../../packages/reference/seed-data/models/price-taker.pse"),
-            include_str!("../../../../../packages/reference/data/references/models/references.pse"),
-            include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
-            include_str!("../../../../../packages/reference/domain/models/numerical-policy.pse"),
-            include_str!("../../../../../packages/reference/domain/models/properties.pse"),
-            include_str!("../../../../../packages/reference/domain/models/constants.pse"),
-            include_str!("../../../../../packages/reference/physical/models/chemistry.pse"),
-            include_str!("../../../../../packages/reference/physical/models/compatibility.pse"),
-        ]
-        .into_iter()
-        .flat_map(|text| {
-            pse_authoring::language::parse(
-                text,
-                SemanticId::NIL,
-                pse_authoring::language::IdentityPolicy::Explicit,
-                pse_authoring::ParseBudget::default(),
-            )
-            .unwrap()
-        })
-        .collect::<Vec<_>>();
+        let rows = crate::scientific_inputs::parse_sources(
+            &crate::scientific_inputs::family_sources("milp-runtime"),
+            pse_authoring::language::IdentityPolicy::Explicit,
+        );
         let fixture = rows
             .iter()
             .find(|r| r.name == "price_taker" && r.value.kind == DeclarationKind::Test)

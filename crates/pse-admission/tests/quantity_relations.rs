@@ -192,7 +192,11 @@ async fn mixture_normalization_preserves_differences_and_requires_actual_fractio
     let physical = PhysicalInventory::load(&session, &registry, &cancel)
         .await
         .unwrap();
-    let quantity = |id| QuantityTypeId::from_id(SemanticId::parse_hex(id).unwrap());
+    let quantity = |id| {
+        let id = QuantityTypeId::from_id(SemanticId::parse_hex(id).unwrap());
+        physical.quantities().quantity_type(id).unwrap();
+        id
+    };
     let difference = quantity("d5bb3d48b9804f2f8d5a6f0a7cadaee8");
     let fraction = quantity("4f842bb63da53a798dca2764c2c64ece");
     let indices = IndexSet::new();
@@ -225,19 +229,79 @@ async fn mixture_normalization_preserves_differences_and_requires_actual_fractio
     .unwrap()
     .result;
     assert_eq!(weighted, difference);
-    assert_eq!(infer(weighted, fraction).unwrap().result, difference);
+    let normalized = infer(weighted, fraction).unwrap();
+    assert_eq!(normalized.result, difference);
+    let operation = pse_quantity::OperationId::from_id(
+        SemanticId::parse_hex("037b96403f764554a614c25cbb9801d3").unwrap(),
+    );
+    assert!(matches!(normalized.selected,
+        pse_quantity::infer::OperationSelection::Registered { operation: selected, .. } if selected == operation));
+    let normalization = physical.quantities().operation(operation).unwrap();
+    assert_eq!(normalization.opcode, pse_quantity::Opcode::Div);
+    // Every prerequisite is actually present; declaring its ID alone is not evidence.
+    for prerequisite in &normalization.precondition_invariants {
+        assert!(
+            physical
+                .preconditions()
+                .iter()
+                .any(|known| known.id == *prerequisite)
+        );
+    }
     assert_eq!(
         infer(fraction, quantity("11a07d5c43da49afbf360f3b404ce9ca"))
             .unwrap()
             .result,
         quantity("b6edcb08fc072d81a9f99b45f7f9c90a")
     );
-    // Normalization divides a weighted enthalpy difference. Dividing an
-    // origin-sensitive point directly would move its thermodynamic datum.
-    assert!(infer(quantity("1831d0d72dc74b299ba8ecb6d4da6f53"), fraction).is_err());
-    assert!(infer(quantity("94b88c5bead5458629c2afc11ffcff20"), fraction).is_err());
-    assert!(infer(quantity("0f83c0a2bffb4cd09c7f727ae6c42d20"), fraction).is_err());
-    assert!(infer(quantity("899354057d474a1ab027860e1b3a18ea"), fraction).is_err());
+    // The same admitted Div operation requires the complete mixture-difference
+    // contract: a point, another datum or a component subject cannot replace it.
+    // Check those physical axes explicitly so the opaque IDs cannot change the claim.
+    let valid_key = &physical.quantities().quantity_type(difference).unwrap().key;
+    for (id, scale_changed, reference_changed, subject_changed) in [
+        ("1831d0d72dc74b299ba8ecb6d4da6f53", true, false, false),
+        ("94b88c5bead5458629c2afc11ffcff20", false, true, false),
+        ("0f83c0a2bffb4cd09c7f727ae6c42d20", false, false, true),
+        ("899354057d474a1ab027860e1b3a18ea", false, true, true),
+    ] {
+        let numerator = quantity(id);
+        let actual = &physical.quantities().quantity_type(numerator).unwrap().key;
+        assert_eq!(actual.kind, valid_key.kind);
+        assert_eq!(actual.basis, valid_key.basis);
+        assert_eq!(actual.shape, valid_key.shape);
+        assert_eq!(actual.scale_kind != valid_key.scale_kind, scale_changed);
+        assert_eq!(
+            actual.reference_state != valid_key.reference_state,
+            reference_changed
+        );
+        assert_eq!(
+            actual.subject_kind != valid_key.subject_kind,
+            subject_changed
+        );
+        // Each input is usable in an admitted operation before its numerator
+        // replaces the valid quotient's numerator. No missing-ID refusal suffices.
+        let admitted = infer_with_evidence(
+            &OpRequest::Neg,
+            &[Operand {
+                quantity_type: numerator,
+                indices: &indices,
+            }],
+            physical.quantities(),
+            physical.precondition_checker(),
+        )
+        .unwrap();
+        assert_eq!(admitted.result, numerator);
+        let error = infer(numerator, fraction).unwrap_err();
+        assert!(
+            matches!(
+                error,
+                pse_quantity::QuantityError::InferencePrecondition {
+                    rule: "operation.physical_prerequisite",
+                    ..
+                }
+            ),
+            "{operation}: Div({numerator}, {fraction}): {error:?}"
+        );
+    }
     assert!(infer(fraction, difference).is_err());
     assert!(
         infer_with_evidence(

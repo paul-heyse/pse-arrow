@@ -3,13 +3,13 @@
 
 //! Admitted document tables are tracked queries (ADR-0125, review F10): the workspace is
 //! their one reuse owner.
+use super::test_observation::{Query, observed_workspace};
 use super::*;
 use pse_authoring::{
     ParseBudget,
     language::{IdentityPolicy, parse},
 };
 use pse_modeling::document::{DocumentColumn, RowSet, Values};
-use std::sync::atomic::AtomicUsize;
 
 const SOURCE: SemanticId = SemanticId::from_bytes([81; 16]);
 const PACKAGE: SemanticId = SemanticId::from_bytes([82; 16]);
@@ -93,20 +93,10 @@ fn value(revision: &ModelingRevision, table: &str, item: &str) -> f64 {
 /// clean workspace's.
 #[test]
 fn unchanged_dataset_reuses_admitted_table() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, executions) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event| {
-            if let salsa::EventKind::WillExecute { .. } = event.kind
-                && format!("{:?}", event.kind).contains("document_table")
-            {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    );
     let scope = PhysicalScope::default();
     let original = workspace
         .publish_modeling_with(
@@ -115,7 +105,7 @@ fn unchanged_dataset_reuses_admitted_table() {
             inventory(&[1.0, 2.0], &[3.0, 4.0]),
         )
         .unwrap();
-    assert_eq!(executions.load(Ordering::Relaxed), 2);
+    assert_eq!(executions.count(Query::DocumentTable), 2);
     assert_eq!(value(&original, "p.first", "p.a"), 1000.0);
     assert_eq!(value(&original, "p.second", "p.b"), 4.0);
     // One document's bytes change: only its table is admitted again.
@@ -123,7 +113,7 @@ fn unchanged_dataset_reuses_admitted_table() {
     let incremental = workspace
         .publish_modeling_with(rows(TEXT), scope.clone(), edited.clone())
         .unwrap();
-    assert_eq!(executions.load(Ordering::Relaxed), 3);
+    assert_eq!(executions.count(Query::DocumentTable), 3);
     assert_eq!(value(&incremental, "p.second", "p.b"), 5.0);
     let clean = CompilerWorkspace::new(
         crate::authored_transfer_tests::context(),
@@ -139,12 +129,12 @@ fn unchanged_dataset_reuses_admitted_table() {
     workspace
         .publish_modeling_with(rows(&renamed), scope.clone(), edited.clone())
         .unwrap();
-    assert_eq!(executions.load(Ordering::Relaxed), 4);
+    assert_eq!(executions.count(Query::DocumentTable), 4);
     let restored = TEXT.replace("Energy storage {kJ}", "Energy storage {J}");
     let replanned = workspace
         .publish_modeling_with(rows(&restored), scope, edited)
         .unwrap();
-    assert_eq!(executions.load(Ordering::Relaxed), 5);
+    assert_eq!(executions.count(Query::DocumentTable), 5);
     assert_eq!(value(&replanned, "p.first", "p.a"), 1.0);
 }
 

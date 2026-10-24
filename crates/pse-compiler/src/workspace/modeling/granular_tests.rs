@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Actual phase executions, complete fresh answers and failed-candidate isolation.
+use super::test_observation::{Query, QueryObservations, metric_count, observed_workspace};
 use super::*;
 use pse_authoring::{
     ParseBudget,
     language::{IdentityPolicy, parse},
 };
-use std::sync::Mutex;
 
 const TEXT: &str = "package p { def Root { var x: Scalar; eq balance: x == 1; } def Other { var y: Scalar; eq balance: y == 2; } }";
 
@@ -19,28 +19,11 @@ fn rows(text: &str) -> Vec<Declaration> {
     )
     .unwrap()
 }
-fn observed() -> (CompilerWorkspace, Arc<Mutex<Vec<String>>>) {
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let sink = events.clone();
-    let workspace = CompilerWorkspace::with_events(
+fn observed() -> (CompilerWorkspace, QueryObservations) {
+    observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event| {
-            if matches!(event.kind, salsa::EventKind::WillExecute { .. }) {
-                sink.lock().unwrap().push(format!("{:?}", event.kind));
-            }
-        })),
     )
-    .unwrap();
-    (workspace, events)
-}
-fn count(events: &Arc<Mutex<Vec<String>>>, phase: &str) -> usize {
-    events
-        .lock()
-        .unwrap()
-        .iter()
-        .filter(|event| event.contains(phase))
-        .count()
 }
 fn assert_fresh(
     workspace: &CompilerWorkspace,
@@ -81,14 +64,14 @@ fn consumed_body_edit_executes_one_source_and_cuts_off_equal_sibling_phases() {
             Limits::default(),
         )
         .unwrap();
-    let specializations = count(&events, "specialized");
-    let parses = count(&events, "parsed");
-    let types = count(&events, "typed");
-    let resolutions = count(&events, "resolved");
-    let members = count(&events, "effective_members");
-    let occurrences = count(&events, "occurrence");
-    let expressions = count(&events, "checked_expressions");
-    let references = count(&events, "expression_references");
+    let specializations = events.count(Query::Specialized);
+    let parses = events.count(Query::Parsed);
+    let types = events.count(Query::Typed);
+    let resolutions = events.count(Query::Resolved);
+    let members = events.count(Query::EffectiveMembers);
+    let occurrences = events.count(Query::Occurrence);
+    let expressions = events.count(Query::CheckedExpressions);
+    let references = events.count(Query::ExpressionReferences);
     assert_eq!(parses, source.len());
     assert_eq!(types, source.len());
     let balance = source
@@ -101,13 +84,13 @@ fn consumed_body_edit_executes_one_source_and_cuts_off_equal_sibling_phases() {
         .unwrap();
     assert_fresh(&workspace, &source, &after);
     assert_ne!(before.checked, after.checked);
-    assert_eq!(count(&events, "parsed") - parses, 1);
-    assert_eq!(count(&events, "resolved") - resolutions, 0);
-    assert_eq!(count(&events, "typed") - types, 1);
-    assert_eq!(count(&events, "effective_members"), members);
-    assert_eq!(count(&events, "occurrence") - occurrences, 1);
-    assert_eq!(count(&events, "checked_expressions") - expressions, 1);
-    assert_eq!(count(&events, "expression_references") - references, 1);
+    assert_eq!(events.count(Query::Parsed) - parses, 1);
+    assert_eq!(events.count(Query::Resolved) - resolutions, 0);
+    assert_eq!(events.count(Query::Typed) - types, 1);
+    assert_eq!(events.count(Query::EffectiveMembers), members);
+    assert_eq!(events.count(Query::Occurrence) - occurrences, 1);
+    assert_eq!(events.count(Query::CheckedExpressions) - expressions, 1);
+    assert_eq!(events.count(Query::ExpressionReferences) - references, 1);
     let root_after = workspace
         .specialize_modeling(root, instance, Bindings::default(), Limits::default())
         .unwrap();
@@ -122,7 +105,7 @@ fn consumed_body_edit_executes_one_source_and_cuts_off_equal_sibling_phases() {
     assert!(!Arc::ptr_eq(&root_before, &root_after));
     assert!(Arc::ptr_eq(&other_before, &other_after));
     assert_eq!(
-        count(&events, "specialized") - specializations,
+        events.count(Query::Specialized) - specializations,
         1,
         "equal selected sibling cuts off actual specialization"
     );
@@ -135,12 +118,12 @@ fn consumed_body_edit_executes_one_source_and_cuts_off_equal_sibling_phases() {
     )
     .unwrap();
     assert_eq!(root_after.as_ref(), &fresh);
-    let executions = events.lock().unwrap().len();
+    let executions = events.total();
     let repeated = workspace
         .publish_modeling(source.clone(), PhysicalScope::default())
         .unwrap();
     assert!(Arc::ptr_eq(&after, &repeated));
-    assert_eq!(events.lock().unwrap().len(), executions);
+    assert_eq!(events.total(), executions);
     // An ABA source transition must recover the original complete answer, not a stale B answer.
     let restored = workspace
         .publish_modeling(rows(TEXT), PhysicalScope::default())
@@ -336,10 +319,10 @@ fn field_attribution_and_document_identity_are_exact_phase_inputs() {
             Arc::new(docs.clone()),
         )
         .unwrap();
-    let parses = count(&events, "parsed");
-    let types = count(&events, "typed");
-    let resolutions = count(&events, "resolved");
-    let expressions = count(&events, "checked_expressions");
+    let parses = events.count(Query::Parsed);
+    let types = events.count(Query::Typed);
+    let resolutions = events.count(Query::Resolved);
+    let expressions = events.count(Query::CheckedExpressions);
     docs.field_spans
         .get_mut(&equation)
         .unwrap()
@@ -350,10 +333,10 @@ fn field_attribution_and_document_identity_are_exact_phase_inputs() {
         .publish_modeling_with(source, PhysicalScope::default(), Arc::new(docs))
         .unwrap();
     assert_ne!(first.checked, second.checked);
-    assert_eq!(count(&events, "parsed") - parses, 1);
-    assert_eq!(count(&events, "typed"), types);
-    assert_eq!(count(&events, "resolved"), resolutions);
-    assert_eq!(count(&events, "checked_expressions"), expressions);
+    assert_eq!(events.count(Query::Parsed) - parses, 1);
+    assert_eq!(events.count(Query::Typed), types);
+    assert_eq!(events.count(Query::Resolved), resolutions);
+    assert_eq!(events.count(Query::CheckedExpressions), expressions);
     assert_eq!(
         first
             .checked
@@ -381,10 +364,10 @@ fn relocating_unchanged_declarations_preserves_type_and_member_memos() {
     workspace
         .publish_modeling(source.clone(), PhysicalScope::default())
         .unwrap();
-    let types = count(&events, "typed");
-    let resolutions = count(&events, "resolved");
-    let members = count(&events, "effective_members");
-    let expressions = count(&events, "checked_expressions");
+    let types = events.count(Query::Typed);
+    let resolutions = events.count(Query::Resolved);
+    let members = events.count(Query::EffectiveMembers);
+    let expressions = events.count(Query::CheckedExpressions);
     for row in &mut source {
         row.source_start += 10;
         row.source_end += 10;
@@ -393,10 +376,10 @@ fn relocating_unchanged_declarations_preserves_type_and_member_memos() {
         .publish_modeling(source.clone(), PhysicalScope::default())
         .unwrap();
     assert_fresh(&workspace, &source, &revision);
-    assert_eq!(count(&events, "typed"), types);
-    assert_eq!(count(&events, "resolved"), resolutions);
-    assert_eq!(count(&events, "effective_members"), members);
-    assert_eq!(count(&events, "checked_expressions"), expressions);
+    assert_eq!(events.count(Query::Typed), types);
+    assert_eq!(events.count(Query::Resolved), resolutions);
+    assert_eq!(events.count(Query::EffectiveMembers), members);
+    assert_eq!(events.count(Query::CheckedExpressions), expressions);
 }
 
 #[test]
@@ -425,7 +408,7 @@ fn expression_inputs_retain_signature_type_guard_and_missing_name_changes() {
             .publish_modeling(source.clone(), PhysicalScope::default())
             .unwrap();
         assert_fresh(&workspace, &source, &head);
-        let executions = count(&events, "checked_expressions");
+        let executions = events.count(Query::CheckedExpressions);
         let changed = rows(after);
         let context = TypeContext {
             admissions: None,
@@ -445,7 +428,7 @@ fn expression_inputs_retain_signature_type_guard_and_missing_name_changes() {
             actual.contains(&expected),
             "fresh: {expected}; retained: {actual}"
         );
-        assert!(count(&events, "checked_expressions") > executions);
+        assert!(events.count(Query::CheckedExpressions) > executions);
         assert!(Arc::ptr_eq(
             &head,
             &workspace.modeling.as_ref().unwrap().revision
@@ -496,7 +479,24 @@ fn physical_visibility_change_rechecks_ambiguity_without_publishing_failed_scope
     let failure = workspace
         .publish_modeling(source.clone(), PhysicalScope::default())
         .unwrap_err();
-    assert!(failure.to_string().contains("ambiguous name Temperature"));
+    let declaration = source
+        .iter()
+        .find(|row| row.name == "Temperature")
+        .unwrap()
+        .declaration_id
+        .as_id();
+    let diagnostic = pse_model::diagnostic::DiagnosticProjection::boundary_diagnostic(
+        &failure,
+        pse_diagnostics::DiagnosticStage::Modeling,
+    );
+    assert_eq!(diagnostic.sources, vec![declaration]);
+    assert_eq!(
+        diagnostic.rule,
+        pse_diagnostics::DiagnosticRule::ModelingContract
+    );
+    assert!(matches!(diagnostic.observations.get("reason"),
+        Some(pse_model::diagnostic::Observation::Text(reason))
+        if reason == pse_modeling::ModelingContractReason::AmbiguousName.as_str()));
     assert!(Arc::ptr_eq(
         &head,
         &workspace.modeling.as_ref().unwrap().revision
@@ -531,23 +531,6 @@ fn consumer_validation_refusal_occurs_before_live_head_publication() {
     assert_eq!(workspace.generation(), 1);
 }
 
-fn observation_count(
-    context: &pse_diagnostics::observation::ObservationContext,
-    name: &str,
-) -> u64 {
-    let snapshot = context
-        .reader()
-        .snapshot(std::time::Duration::from_secs(60));
-    snapshot
-        .metrics
-        .iter()
-        .find(|metric| metric.name == name)
-        .map_or(0, |metric| match metric.cumulative {
-            pse_diagnostics::observation::Value::Count(value) => value,
-            ref value => panic!("unexpected count for {name}: {value:?}"),
-        })
-}
-
 #[test]
 fn observation_attaches_to_actual_queries_and_survives_generation_and_operation_changes() {
     use pse_diagnostics::observation::{ObservationHub, Policy};
@@ -561,10 +544,10 @@ fn observation_attaches_to_actual_queries_and_survives_generation_and_operation_
         let revision = workspace
             .publish_modeling(rows(TEXT), PhysicalScope::default())
             .unwrap();
-        let executed = events.lock().unwrap().len() as u64;
+        let executed = events.total() as u64;
         assert!(executed > 0);
         assert_eq!(
-            observation_count(&first_context, "compiler.query_executions"),
+            metric_count(&first_context, "compiler.query_executions"),
             executed
         );
         let repeated = workspace
@@ -572,11 +555,11 @@ fn observation_attaches_to_actual_queries_and_survives_generation_and_operation_
             .unwrap();
         assert!(Arc::ptr_eq(&revision, &repeated));
         assert_eq!(
-            observation_count(&first_context, "compiler.query_executions"),
+            metric_count(&first_context, "compiler.query_executions"),
             executed
         );
         assert_eq!(
-            observation_count(&first_context, "compiler.unchanged_revision_reuses"),
+            metric_count(&first_context, "compiler.unchanged_revision_reuses"),
             1
         );
         workspace.rebuild(workspace.inputs.clone()).unwrap();
@@ -587,16 +570,16 @@ fn observation_attaches_to_actual_queries_and_survives_generation_and_operation_
             )
             .unwrap();
         assert_eq!(
-            observation_count(&first_context, "compiler.workspace_rebuilds"),
+            metric_count(&first_context, "compiler.workspace_rebuilds"),
             1
         );
         assert_eq!(
-            observation_count(&first_context, "compiler.query_executions"),
-            events.lock().unwrap().len() as u64
+            metric_count(&first_context, "compiler.query_executions"),
+            events.total() as u64
         );
     }
-    let frozen = observation_count(&first_context, "compiler.query_executions");
-    let before = events.lock().unwrap().len() as u64;
+    let frozen = metric_count(&first_context, "compiler.query_executions");
+    let before = events.total() as u64;
     let second = hub.start("next preparation");
     let second_context = second.context();
     {
@@ -606,14 +589,14 @@ fn observation_attaches_to_actual_queries_and_survives_generation_and_operation_
             .unwrap();
     }
     assert_eq!(
-        observation_count(&first_context, "compiler.query_executions"),
+        metric_count(&first_context, "compiler.query_executions"),
         frozen
     );
     assert_eq!(
-        observation_count(&second_context, "compiler.query_executions"),
-        events.lock().unwrap().len() as u64 - before
+        metric_count(&second_context, "compiler.query_executions"),
+        events.total() as u64 - before
     );
-    assert!(observation_count(&second_context, "compiler.query_executions") > 0);
+    assert!(metric_count(&second_context, "compiler.query_executions") > 0);
 }
 
 #[test]
@@ -627,7 +610,7 @@ fn observation_and_test_callback_survive_failed_candidate_restore() {
     let operation = hub.start("failed source and retry");
     let context = operation.context();
     let _entered = context.enter();
-    let before = events.lock().unwrap().len() as u64;
+    let before = events.total() as u64;
     assert!(
         workspace
             .publish_modeling(
@@ -637,20 +620,20 @@ fn observation_and_test_callback_survive_failed_candidate_restore() {
             .is_err()
     );
     assert_eq!(
-        observation_count(&context, "compiler.failed_candidate_rotations"),
+        metric_count(&context, "compiler.failed_candidate_rotations"),
         1
     );
-    let after_failure = events.lock().unwrap().len();
+    let after_failure = events.total();
     workspace
         .publish_modeling(
             rows(&TEXT.replace("x == 1", "x == 4")),
             PhysicalScope::default(),
         )
         .unwrap();
-    assert!(events.lock().unwrap().len() > after_failure);
+    assert!(events.total() > after_failure);
     assert_eq!(
-        observation_count(&context, "compiler.query_executions"),
-        events.lock().unwrap().len() as u64 - before
+        metric_count(&context, "compiler.query_executions"),
+        events.total() as u64 - before
     );
 }
 
@@ -664,19 +647,16 @@ fn observation_reports_memo_validation_without_inventing_query_execution() {
     let context = operation.context();
     let _entered = context.enter();
     assert!(provider(&workspace.db, workspace.inventory, "absent".into()).is_none());
-    assert_eq!(observation_count(&context, "compiler.query_executions"), 1);
+    assert_eq!(metric_count(&context, "compiler.query_executions"), 1);
     // This query consumes providers, never environment: a new revision validates it.
     workspace
         .inventory
         .set_environment(&mut workspace.db)
         .to(ContentHash::from_bytes([77; 32]));
     assert!(provider(&workspace.db, workspace.inventory, "absent".into()).is_none());
-    assert_eq!(observation_count(&context, "compiler.query_executions"), 1);
-    assert_eq!(events.lock().unwrap().len(), 1);
-    assert_eq!(
-        observation_count(&context, "compiler.query_memo_validations"),
-        1
-    );
+    assert_eq!(metric_count(&context, "compiler.query_executions"), 1);
+    assert_eq!(events.total(), 1);
+    assert_eq!(metric_count(&context, "compiler.query_memo_validations"), 1);
 }
 
 #[test]
@@ -720,7 +700,7 @@ fn current_input_roots_do_not_accumulate_candidate_preflight_history() {
             let s = workspace.observe_retention();
             (s.entries, s.known_bytes)
         };
-        let executed = events.lock().unwrap().len();
+        let executed = events.total();
         let repeated = workspace
             .publish_modeling(source, PhysicalScope::default())
             .unwrap();
@@ -732,7 +712,7 @@ fn current_input_roots_do_not_accumulate_candidate_preflight_history() {
             },
             before
         );
-        assert_eq!(events.lock().unwrap().len(), executed);
+        assert_eq!(events.total(), executed);
         assert_eq!(
             workspace.generation(),
             0,
@@ -771,15 +751,15 @@ fn unrelated_preceding_type_change_retains_exact_sibling_signature_products() {
         .publish_modeling(source.clone(), PhysicalScope::default())
         .unwrap();
     assert_fresh(&workspace, &source, &before);
-    let typed = count(&events, "typed");
-    let resolved = count(&events, "resolved");
+    let typed = events.count(Query::Typed);
+    let resolved = events.count(Query::Resolved);
     let changed = rows(&text.replace("law(x:Scalar)->Scalar", "law(x:Temperature)->Temperature"));
     let after = workspace
         .publish_modeling(changed.clone(), PhysicalScope::default())
         .unwrap();
     assert_fresh(&workspace, &changed, &after);
-    assert_eq!(count(&events, "typed") - typed, 1);
-    assert_eq!(count(&events, "resolved") - resolved, 1);
+    assert_eq!(events.count(Query::Typed) - typed, 1);
+    assert_eq!(events.count(Query::Resolved) - resolved, 1);
 }
 
 #[test]

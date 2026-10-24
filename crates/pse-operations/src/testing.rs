@@ -684,7 +684,7 @@ pub async fn invalidate_prepared_revision(
 
 /// Cancel the supplied operation after its first actual artifact append-group ACK.
 /// The suspended transfer must be owned by a cancellation-aware caller.
-#[cfg(feature = "canonical-tests")]
+#[cfg(any(test, feature = "test-support"))]
 pub async fn cancel_after_artifact_append_ack<F: Future>(
     cancel: impl Fn() + Send + Sync + 'static,
     future: F,
@@ -696,7 +696,7 @@ pub async fn cancel_after_artifact_append_ack<F: Future>(
 
 /// Suppress the real project's successful source-activation response so a composed
 /// consumer exercises original-operation settlement. Available only in canonical fixtures.
-#[cfg(feature = "canonical-tests")]
+#[cfg(any(test, feature = "test-support"))]
 pub async fn lose_project_source_reply<F: Future>(future: F) -> F::Output {
     crate::canonical_projects::PROJECT_REPLY_LOSS
         .scope(true, future)

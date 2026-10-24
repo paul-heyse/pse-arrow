@@ -8,46 +8,19 @@
 )]
 
 use crate::workspace::{CompilerContext, CompilerWorkspace, Profile, WorkspaceLimits};
-use pse_authoring::{
-    ParseBudget,
-    language::{IdentityPolicy, parse},
-};
-use pse_ids::SemanticId;
+use pse_authoring::language::IdentityPolicy;
 use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// Whole current source documents: the tests do not copy scientific function bodies.
-const SOURCES: &[&str] = &[
-    include_str!("../../../packages/reference/domain/models/numerical-policy.pse"),
-    include_str!("../../../packages/reference/physical/models/kinds.pse"),
-    include_str!("../../../packages/reference/physical/models/compatibility.pse"),
-    include_str!("../../../packages/reference/physical/models/chemistry.pse"),
-    include_str!("../../../packages/reference/domain/models/provenance.pse"),
-    include_str!("../../../packages/reference/domain/models/constants.pse"),
-    include_str!("../../../packages/reference/domain/models/properties.pse"),
-    include_str!("../../../packages/reference/domain/models/interactions.pse"),
-    include_str!("../../../packages/reference/methods/models/caloric.pse"),
-    include_str!("../../../packages/reference/methods/models/pure-properties.pse"),
-    include_str!("../../../packages/reference/methods/models/cubic.pse"),
-    include_str!("../../../packages/reference/methods/models/pcsaft-parameters.pse"),
-    include_str!("../../../packages/reference/methods/models/nrtl.pse"),
-    include_str!("../../../packages/reference/data/references/models/references.pse"),
-    include_str!("../../../packages/reference/thermodynamics/models/helmholtz.pse"),
-    include_str!("../../../packages/reference/thermodynamics/models/peng-robinson.pse"),
-    include_str!("../../../packages/reference/thermodynamics/models/pcsaft.pse"),
-    include_str!("../../../packages/reference/seed-data/models/pr-oracle.pse"),
-];
 
 fn workspace() -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) {
-    let text = format!("{}\n{FIXTURE}", SOURCES.join("\n"));
-    let rows = parse(
-        &text,
-        SemanticId::from_bytes([193; 16]),
-        IdentityPolicy::Named,
-        ParseBudget::default(),
-    )
-    .unwrap();
+    let text = format!(
+        "{}\n{FIXTURE}",
+        crate::scientific_inputs::family_sources("potential")
+    );
+    let rows = crate::scientific_inputs::parse_sources(&text, IdentityPolicy::Named);
     let input = CompilerContext {
         quantities: Arc::new(pse_quantity::standard::standard_registry().unwrap()),
         preconditions: Arc::new(

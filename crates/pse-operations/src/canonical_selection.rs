@@ -2121,7 +2121,7 @@ impl CanonicalStore {
         .await
     }
     /// Corrupt only a disposable native fixture's first immutable product block.
-    #[cfg(feature = "canonical-tests")]
+    #[cfg(any(test, feature = "test-support"))]
     pub async fn corrupt_product_block(&self, key: &str) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
         activity
@@ -2153,7 +2153,7 @@ impl CanonicalStore {
             .await
     }
     /// Corrupt an isolated fixture's product descriptor without touching protected roots.
-    #[cfg(feature = "canonical-tests")]
+    #[cfg(any(test, feature = "test-support"))]
     pub async fn corrupt_product_descriptor(&self, key: &str) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {

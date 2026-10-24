@@ -584,15 +584,21 @@ def test_empty_library_is_admitted_but_missing_case_is_refused(
 
 
 @pytest.mark.component
-def test_native_capability_discovery_and_hard_cut(runtime: pse.Runtime) -> None:
-    capabilities = runtime.capabilities()
-    assert capabilities
-    assert "clarabel" in {c.backend for c in capabilities}
-    assert all(c.classes and c.reuse and c.cancellation for c in capabilities)
-    for capability in capabilities:
-        pse.SolveSettings(backend=NativeBackend(capability.backend))
-    assert not hasattr(pse, "probe_host")
-    assert not hasattr(pse, "HostCapabilities")
+def test_native_capability_discovery_and_hard_cut(
+    inspection_settings: pse.EngineSettings, no_canonical_allocation: None
+) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        capabilities = runtime.capabilities()
+        assert capabilities
+        assert "clarabel" in {c.backend for c in capabilities}
+        assert all(c.classes and c.reuse and c.cancellation for c in capabilities)
+        for capability in capabilities:
+            pse.SolveSettings(backend=NativeBackend(capability.backend))
+        assert not hasattr(pse, "probe_host")
+        assert not hasattr(pse, "HostCapabilities")
+    finally:
+        runtime.close()
 
 
 @pytest.mark.integration

@@ -989,8 +989,10 @@ mod tests {
     }
     #[test]
     fn conditional_unit_recycle_reference_declares_material_connections_and_stages() {
-        let source =
-            include_str!("../../../../../packages/reference/campaign/models/recycle-flash.pse");
+        let documents = crate::scientific_inputs::family_documents("recycle-declaration");
+        let [(_path, source)] = documents.as_slice() else {
+            panic!("one recycle document")
+        };
         let declarations = pse_authoring::language::parse(
             source,
             id(73),
@@ -1018,15 +1020,8 @@ mod tests {
     }
     #[test]
     fn conditional_unit_recycle_reference_specializes_actual_unit_boundaries() {
-        use crate::authored_transfer_tests::{context, reference_sources, root, rows};
-        let source = format!(
-            "{}\n{}\n{}\n{}\n{}",
-            reference_sources(),
-            include_str!("../../../../../packages/reference/process/models/mixer.pse"),
-            include_str!("../../../../../packages/reference/process/models/flash.pse"),
-            include_str!("../../../../../packages/reference/campaign/models/references.pse"),
-            include_str!("../../../../../packages/reference/campaign/models/recycle-flash.pse")
-        );
+        use crate::authored_transfer_tests::{context, reference_family_sources, root, rows};
+        let source = reference_family_sources("recycle-reference");
         let declarations = rows(&source);
         let root = root(
             &declarations,

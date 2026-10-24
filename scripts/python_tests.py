@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from scripts import native_tests, python_extension, surreal_server
+from scripts import native_tests, python_extension, scientific_inputs, surreal_server
 from scripts.test_run import python_observer, run_python
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     extra = sys.argv[1:]
+    scientific_inputs.prepare_python(extra, os.environ)
     managed = "--managed-primary-route" in extra
     child = "--managed-primary-child" in extra
     functional_child = "--functional-observer-child" in extra

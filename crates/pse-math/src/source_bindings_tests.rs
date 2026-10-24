@@ -358,15 +358,29 @@ fn bound_source_preparation_preserves_attribution_outputs_and_derivatives() {
         BodyLimits::default(),
     )
     .unwrap();
-    let x = builder.input(0, quantity, Default::default(), id(1)).unwrap();
-    let y = builder.input(1, quantity, Default::default(), id(2)).unwrap();
-    let sum = builder.binary(Binary::Add, x.clone(), y.clone(), None, id(3)).unwrap();
+    let x = builder
+        .input(0, quantity, Default::default(), id(1))
+        .unwrap();
+    let y = builder
+        .input(1, quantity, Default::default(), id(2))
+        .unwrap();
+    let sum = builder
+        .binary(Binary::Add, x.clone(), y.clone(), None, id(3))
+        .unwrap();
     let product = builder.binary(Binary::Mul, x, y, None, id(4)).unwrap();
     let control = pse_diagnostics::Cancellation::new(false);
     let body = SourceBody::prepare(
         builder,
         &[sum, product],
-        |prepared| SourceBindings::new(id(10), prepared, Default::default(), Default::default(), Default::default()),
+        |prepared| {
+            SourceBindings::new(
+                id(10),
+                prepared,
+                Default::default(),
+                Default::default(),
+                Default::default(),
+            )
+        },
         DerivativeOrder::Second,
         Optimization::default(),
         EvaluationLimits::default(),
@@ -374,12 +388,15 @@ fn bound_source_preparation_preserves_attribution_outputs_and_derivatives() {
     )
     .unwrap();
     assert_eq!(body.bindings().instance(), id(10));
-    let result = body.worker().evaluate(
-        &[2., 3.],
-        DerivativeOrder::Second,
-        &mut ProviderBindings::new(),
-        &control.flag(),
-    ).unwrap();
+    let result = body
+        .worker()
+        .evaluate(
+            &[2., 3.],
+            DerivativeOrder::Second,
+            &mut ProviderBindings::new(),
+            &control.flag(),
+        )
+        .unwrap();
     assert_eq!(result.values, [5., 6.]);
     assert_eq!(result.jacobian, [1., 1., 3., 2.]);
     assert_eq!(result.hessians, [0., 0., 0., 0., 0., 1., 1., 0.]);
@@ -397,8 +414,11 @@ fn bound_source_preparation_refuses_attribution_before_compilation_and_keeps_con
             &pse_quantity::standard::StandardInvariantChecker,
             1,
             BodyLimits::default(),
-        ).unwrap();
-        let value = builder.input(0, quantity, Default::default(), id(1)).unwrap();
+        )
+        .unwrap();
+        let value = builder
+            .input(0, quantity, Default::default(), id(1))
+            .unwrap();
         (builder, value)
     };
     let compile = |instance, limits, cancelled| {
@@ -406,16 +426,40 @@ fn bound_source_preparation_refuses_attribution_before_compilation_and_keeps_con
         SourceBody::prepare(
             builder,
             &[value],
-            |prepared| SourceBindings::new(instance, prepared, Default::default(), Default::default(), Default::default()),
+            |prepared| {
+                SourceBindings::new(
+                    instance,
+                    prepared,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+            },
             DerivativeOrder::Value,
             Optimization::default(),
             limits,
             &ExecutionScope::new(pse_diagnostics::Cancellation::new(cancelled), None),
         )
     };
-    assert!(matches!(compile(SemanticId::NIL, EvaluationLimits::default(), true), Err(MathError::Contract(_))));
-    assert!(matches!(compile(id(10), EvaluationLimits { operations: 0, ..EvaluationLimits::default() }, false), Err(MathError::Limit("zero evaluation allowance"))));
-    assert!(matches!(compile(id(10), EvaluationLimits::default(), true), Err(MathError::Cancelled)));
+    assert!(matches!(
+        compile(SemanticId::NIL, EvaluationLimits::default(), true),
+        Err(MathError::Contract(_))
+    ));
+    assert!(matches!(
+        compile(
+            id(10),
+            EvaluationLimits {
+                operations: 0,
+                ..EvaluationLimits::default()
+            },
+            false
+        ),
+        Err(MathError::Limit("zero evaluation allowance"))
+    ));
+    assert!(matches!(
+        compile(id(10), EvaluationLimits::default(), true),
+        Err(MathError::Cancelled)
+    ));
     let unrelated = fixture_body(false);
     let unrelated_bindings = bindings(&unrelated, 10);
     let (builder, value) = build();

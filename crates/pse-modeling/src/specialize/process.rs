@@ -1002,7 +1002,12 @@ impl Engine<'_, '_> {
             .clone();
         let (mesh, _) = self
             .coordinate_mesh(&coordinate)
-            .map_err(|error| invalid(at, error.to_string()))?;
+            .map_err(|error| match error {
+                ModelingError::Contract {
+                    reason, message, ..
+                } => crate::invalid_reason(at, reason, message),
+                other => other,
+            })?;
         let mesh_id = mesh.id;
         let integrated = self.model.integrated.contains_key(&mesh_id);
         let first = mesh

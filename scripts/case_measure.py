@@ -17,7 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from scripts import host_admission, validation, validation_receipts
+from scripts import host_admission, scientific_inputs, validation, validation_receipts
 from scripts.validation_scope import RUST_INPUTS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -452,6 +452,11 @@ def smoke_campaign(
         )
         if any(workload["id"] in selected for workload in declaration["workloads"])
     }
+    environment = dict(os.environ)
+    if "native_process" in targets:
+        scientific_inputs.prepare_controller(
+            output / "scientific-inputs.json", environment
+        )
     command = [
         "cargo",
         "bench",
@@ -509,7 +514,7 @@ def smoke_campaign(
         directory = output / name
         directory.mkdir()
         env = {
-            **os.environ,
+            **environment,
             "PSE_PROCESS_COST_CASE": name,
             "PSE_PROCESS_COST_SPEC": json.dumps(workload),
             "PSE_PROCESS_COST_OUTPUT": str(directory),
@@ -806,6 +811,8 @@ def main() -> int:
         args.functional_from, snapshot=snapshot, environment=environment_started
     )
     output = validation.fresh_output(ROOT, args.output)
+    environment = dict(os.environ)
+    scientific_inputs.prepare_controller(output / "scientific-inputs.json", environment)
     started = time.time()
     host_started = host_admission.measurement_context()
     profile = {
@@ -850,7 +857,7 @@ def main() -> int:
         directory = output / "process-cost" / name
         directory.mkdir(parents=True, exist_ok=False)
         env = {
-            **os.environ,
+            **environment,
             "PSE_PROCESS_COST_CASE": name,
             "PSE_PROCESS_COST_OUTPUT": str(directory),
             "PSE_PROCESS_COST_SPEC": json.dumps(workload),

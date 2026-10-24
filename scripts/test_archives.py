@@ -25,6 +25,7 @@ from scripts import (
     cargo_tools,
     native_operation,
     native_tests,
+    scientific_inputs,
     test_resources,
     test_run,
     validation,
@@ -184,6 +185,50 @@ def library_closure(binaries: list[str], environment: dict[str, str]) -> dict[st
     return files
 
 
+def stage_scientific_input(native: dict, workspace: Path) -> tuple[dict, dict]:
+    """Retain a logical input role, independently of the producer's absolute path."""
+    supplied = (
+        native.get("rust_invocation", {})
+        .get("fixtures", {})
+        .get(scientific_inputs.ROLE)
+    )
+    if supplied is None:
+        return {}, {}
+    source = Path(supplied)
+    expected = native["files"].get(str(source))
+    if source.is_symlink() or not source.is_file() or expected != digest(source):
+        raise ArchiveError("Scientific producer input changed before staging")
+    relative = ".pse-inputs/scientific.json"
+    destination = workspace / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("xb") as stream:
+        stream.write(source.read_bytes())
+    if digest(destination) != expected or digest(source) != expected:
+        raise ArchiveError("Scientific producer input changed during staging")
+    return {relative: expected}, {
+        scientific_inputs.ROLE: {"path": relative, "sha256": expected}
+    }
+
+
+def bind_input_roles(
+    manifest: dict, workspace: Path, environment: dict[str, str]
+) -> None:
+    """Never inherit an original producer binding or use the live checkout on replay."""
+    environment.pop(scientific_inputs.ROLE, None)
+    for role, binding in manifest.get("input_roles", {}).items():
+        if role != scientific_inputs.ROLE:
+            raise ArchiveError("Unknown historical input role")
+        relative = str(relative_input(binding["path"]))
+        if manifest["fixtures"].get(relative) != binding["sha256"]:
+            raise ArchiveError("Historical input role is not a staged fixture")
+        path = workspace / relative
+        try:
+            verify_inputs(workspace, {relative: binding["sha256"]})
+        except ArchiveError as error:
+            raise ArchiveError("Historical input role bytes changed") from error
+        environment[role] = str(path.resolve())
+
+
 def preflight(manifest: dict, directory: Path, environment: dict[str, str]) -> None:
     if (
         manifest.get("schema") != SCHEMA
@@ -197,6 +242,7 @@ def preflight(manifest: dict, directory: Path, environment: dict[str, str]) -> N
     if manifest.get("runtime_environment") != runtime_environment(environment):
         raise ArchiveError("Historical runtime environment differs")
     verify_inputs(directory / "workspace", manifest["fixtures"])
+    bind_input_roles(manifest, directory / "workspace", {})
     archive = directory / "tests.tar.zst"
     if (
         not archive.is_file()
@@ -282,6 +328,7 @@ def archive(args: argparse.Namespace) -> dict:
         test_resources.MARKER,
         "PSE_NATIVE_PROVENANCE",
         test_run.RUST_OBSERVER,
+        scientific_inputs.ROLE,
     ):
         environment.pop(name, None)
     build = ["cargo", "nextest", "list", "--locked", "-p", args.package]
@@ -314,6 +361,7 @@ def archive(args: argparse.Namespace) -> dict:
         original, provenance, selection, environment, effects="native-local"
     )
     native = json.loads(provenance.read_text())
+    environment.update(native_tests.rust_fixture_bindings(provenance, environment))
     inventory = json.loads(selection.read_text())
     selected = test_run.rust_selected(inventory)
     if not selected:
@@ -327,6 +375,11 @@ def archive(args: argparse.Namespace) -> dict:
         output / "workspace",
         ["Cargo.toml", ".config/nextest.toml", package_manifest, *args.fixture],
     )
+    source_fixtures = fixtures.copy()
+    scientific_fixtures, input_roles = stage_scientific_input(
+        native, output / "workspace"
+    )
+    fixtures.update(scientific_fixtures)
     environment["PSE_NATIVE_PROVENANCE"] = str(provenance)
     native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
     invocation = test_resources.invocation("rust", selected)
@@ -370,9 +423,7 @@ def archive(args: argparse.Namespace) -> dict:
         raise ArchiveError(f"Archive creation failed or did not drain: {code}")
     native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
     verify_inputs(output / "workspace", fixtures)
-    for relative, expected in fixtures.items():
-        if digest(ROOT / relative) != expected:
-            raise ArchiveError("Declared fixture changed during archiving")
+    verify_inputs(ROOT, source_fixtures)
     manifest = {
         "schema": SCHEMA,
         "nextest": cargo_tools.selected_identity("cargo-nextest"),
@@ -385,6 +436,7 @@ def archive(args: argparse.Namespace) -> dict:
         "filter": args.filter,
         "selected": selected,
         "fixtures": fixtures,
+        "input_roles": input_roles,
         "libraries": library_closure(
             [item["executable"] for item in selected], environment
         ),
@@ -477,6 +529,7 @@ def replay(directory: Path, output: Path) -> dict:
         test_resources.MARKER,
         "PSE_NATIVE_PROVENANCE",
         test_run.RUST_OBSERVER,
+        scientific_inputs.ROLE,
     ):
         environment.pop(name, None)
     resource = new_output(output)
@@ -486,6 +539,7 @@ def replay(directory: Path, output: Path) -> dict:
         fixture_manifest = stage_inputs(
             directory / "workspace", output / "workspace", list(manifest["fixtures"])
         )
+        bind_input_roles(manifest, output / "workspace", environment)
         extraction = output / "extracted"
         extraction.mkdir(mode=0o700)
         common = [

@@ -724,27 +724,10 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     use pse_model::generated::enums::ModelingConformanceStatus as Status;
     // The fixture's oracle is declared by the seed's references and the domain's
     // provenance module (ADR-0123 Outcome 5).
-    let rows = [
-        include_str!("../../../../../packages/reference/seed-data/models/gdp.pse"),
-        include_str!("../../../../../packages/reference/data/references/models/references.pse"),
-        include_str!("../../../../../packages/reference/domain/models/provenance.pse"),
-        include_str!("../../../../../packages/reference/domain/models/numerical-policy.pse"),
-        include_str!("../../../../../packages/reference/domain/models/properties.pse"),
-        include_str!("../../../../../packages/reference/domain/models/constants.pse"),
-        include_str!("../../../../../packages/reference/physical/models/chemistry.pse"),
-        include_str!("../../../../../packages/reference/physical/models/compatibility.pse"),
-    ]
-    .into_iter()
-    .flat_map(|text| {
-        pse_authoring::language::parse(
-            text,
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Explicit,
-            pse_authoring::ParseBudget::default(),
-        )
-        .unwrap()
-    })
-    .collect::<Vec<_>>();
+    let rows = crate::scientific_inputs::parse_sources(
+        &crate::scientific_inputs::family_sources("gdp-runtime"),
+        pse_authoring::language::IdentityPolicy::Explicit,
+    );
     let physical = fixture::physical();
     // The full imported schema closure coexists with source indexing and checked
     // declarations during admission; this is larger than the local toy fixtures.

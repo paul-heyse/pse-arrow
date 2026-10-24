@@ -88,7 +88,7 @@ class ParityContext:
     def reference_physical(self) -> pse.PhysicalContext:
         """Lazily admit the same physical source used by the reference closure."""
         if self._reference is None:
-            source = self.reference_documents[-1]
+            source = documents(ROOT / "packages/reference/physical")
             physical = self._runtime.physical_from_documents(source)
             self._reference = source, physical
         return self._reference[1]
@@ -97,17 +97,10 @@ class ParityContext:
     def reference_documents(self) -> tuple[Mapping[str, bytes], ...]:
         """Immutable library source bytes; no admitted model packages or results."""
         if self._reference_documents is None:
-            reference = ROOT / "packages/reference"
+            from pse._scientific_inputs import family_packages
+
             self._reference_documents = tuple(
-                documents(reference / name)
-                for name in (
-                    "data/references",
-                    "process",
-                    "thermodynamics",
-                    "methods",
-                    "domain",
-                    "physical",
-                )
+                MappingProxyType(p) for p in family_packages("parity")
             )
         return self._reference_documents
 
@@ -139,6 +132,11 @@ def package(
 
 def documents(path: Path, *, all_files: bool = False) -> Mapping[str, bytes]:
     """An immutable snapshot of original document bytes, by relative path."""
+    from pse._scientific_inputs import package_documents
+
+    captured = package_documents(path)
+    if captured is not None:
+        return MappingProxyType(captured)
     return MappingProxyType(
         {
             p.relative_to(path).as_posix(): p.read_bytes()

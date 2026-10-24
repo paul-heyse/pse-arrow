@@ -6,7 +6,7 @@
     reason = "focused composition contract assertions"
 )]
 use crate::{
-    authored_transfer_tests::{context, reference_sources, root, rows},
+    authored_transfer_tests::{context, reference_family_sources, reference_sources, root, rows},
     workspace::{CompilerWorkspace, WorkspaceLimits},
 };
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
@@ -35,9 +35,8 @@ eq initial_energy:reactor[0{s}].phase_energy_holdup[chemistry.liquid]==1000{J};
 #[test]
 fn indexed_process_composition_keeps_memoryless_units_algebraic() {
     let text = format!(
-        "{}\n{}\n{COMPOSE}",
-        reference_sources(),
-        include_str!("../../../packages/reference/process/models/mixer.pse")
+        "{}\n{COMPOSE}",
+        reference_family_sources("process-reference")
     );
     let declarations = rows(&text);
     let id = root(&declarations, "process_composition", "ThreeUnits");
@@ -299,7 +298,6 @@ permission solvent_use records(correlations.constant[chem.water,properties.heat_
     }
     let source = format!(
         r#"{}
-{}
 package indexed_basis {{
 use chemistry @"1.0.0";use ciaaw @"1.0.0";use control_volumes @"1.0.0";
 use equilibrium @"1.0.0";use kinds @"1.0.0";use mixing @"1.0.0";use separation @"1.0.0";use saponification @"1.0.0";
@@ -307,8 +305,7 @@ use correlations @"1.0.0";use chem @"1.0.0";use properties @"1.0.0";use compatib
 entity kinds.port_set first {{}}entity kinds.port_set second {{}}
 {definitions}
 }}"#,
-        reference_sources(),
-        include_str!("../../../packages/reference/process/models/mixer.pse")
+        reference_family_sources("process-reference")
     );
     let declarations = rows(&source);
     let ids = bases.map(|(basis, _, _)| {

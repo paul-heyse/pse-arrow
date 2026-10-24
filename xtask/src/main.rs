@@ -42,6 +42,8 @@ mod producer_identity;
 mod project_runtime;
 #[cfg(feature = "canonical-tools")]
 mod project_tools;
+#[cfg(feature = "physical-admission")]
+mod scientific_inputs;
 #[cfg(feature = "surrealql-tools")]
 mod surrealql_tools;
 #[path = "../../scripts/workspace.rs"]
@@ -67,6 +69,12 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Capture exact scientific source bytes and derived package/import closures.
+    #[cfg(feature = "physical-admission")]
+    ScientificInputs {
+        catalog: PathBuf,
+        output: PathBuf,
+    },
     /// Parse files with the pinned parser and all optional grammar; never execute SQL.
     #[cfg(feature = "surrealql-tools")]
     SurrealqlValidate {
@@ -305,6 +313,10 @@ fn main() -> Result<()> {
     }
     let root = workspace_root()?;
     match cli.command {
+        #[cfg(feature = "physical-admission")]
+        Cmd::ScientificInputs { catalog, output } => {
+            scientific_inputs::run(&root, &catalog, &output)
+        }
         #[cfg(feature = "surrealql-tools")]
         Cmd::SurrealqlValidate { inputs } => {
             std::process::exit(surrealql_tools::run(&inputs)?);

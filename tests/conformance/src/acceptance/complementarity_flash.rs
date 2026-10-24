@@ -32,10 +32,10 @@ struct FlashEvidence {
 fn independent_phase_brackets(delta: f64) {
     use datafusion::arrow::array::{Float64Array, StringArray};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
-        "../../packages/reference/data/oracles/idaes-2.13/data/rpp4_pressure_oracles.parquet",
-    );
-    let reader = ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(path).unwrap())
+    let data = bytes::Bytes::from(source_bytes(
+        "packages/reference/data/oracles/idaes-2.13/data/rpp4_pressure_oracles.parquet",
+    ));
+    let reader = ParquetRecordBatchReaderBuilder::try_new(data)
         .unwrap()
         .build()
         .unwrap();

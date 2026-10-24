@@ -17,10 +17,27 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import native_tests, surreal_server, test_run
+from scripts import native_tests, scientific_inputs, surreal_server, test_run
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+
+def scientific_capture_fixture(destination: Path) -> Path:
+    """Stand in for Cargo's immutable output, keeping real role validation active."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        json.dumps(
+            {
+                "schema": "scientific-inputs-v1",
+                "files": {},
+                "families": {},
+                "directories": {},
+                "package_headers": [],
+            }
+        )
+    )
+    return destination.resolve()
 
 
 class ManagedRustSelectionTests(unittest.TestCase):
@@ -89,6 +106,17 @@ class ManagedRustSelectionTests(unittest.TestCase):
         self.binary = self.root / "runtime-unit"
         self.binary.write_bytes(b"prebuilt actual unit binary")
         self.binary.chmod(0o700)
+        self.scientific: Path | None = None
+
+        def capture_scientific(destination: Path, _environment: dict) -> Path:
+            self.scientific = scientific_capture_fixture(destination)
+            return self.scientific
+
+        capture_input = patch.object(
+            scientific_inputs, "capture", side_effect=capture_scientific
+        )
+        self.scientific_capture = capture_input.start()
+        self.addCleanup(capture_input.stop)
         self.provenance = self.root / "native.json"
         self.selected = self.root / "native-selected.json"
         self.inventory = json.dumps(
@@ -143,7 +171,8 @@ class ManagedRustSelectionTests(unittest.TestCase):
     ) -> dict:
         self.assertEqual(environment["PSE_WORKER_BINARY"], str(self.worker))
         files = {}
-        for name in binaries:
+        capsule = environment.get(scientific_inputs.ROLE)
+        for name in [*binaries, *([capsule] if capsule else [])]:
             with Path(name).open("rb") as stream:
                 files[name] = hashlib.file_digest(stream, "sha256").hexdigest()
         return {"profile": profile, "files": files}
@@ -420,6 +449,11 @@ class ManagedRustSelectionTests(unittest.TestCase):
             {
                 "PSE_WORKER_BINARY": str(self.worker),
                 "PSE_NATIVE_PROVENANCE": str(self.provenance),
+                **(
+                    {scientific_inputs.ROLE: str(self.scientific)}
+                    if self.scientific
+                    else {}
+                ),
             }
         )
 
@@ -863,7 +897,10 @@ class ManagedRustSelectionTests(unittest.TestCase):
         self.assertEqual(build.call_args.args[0], ["--cargo-profile", "producer"])
         environment = self.prepared_environment()
         bindings = native_tests.rust_fixture_bindings(self.provenance, environment)
-        self.assertEqual(bindings, {variable: str(self.worker)})
+        self.assertEqual(
+            bindings,
+            {variable: str(self.worker), scientific_inputs.ROLE: str(self.scientific)},
+        )
         environment.update(bindings)
         native_tests.prepared_rust_inventory(execution, environment)
         with self.assertRaisesRegex(ValueError, "binding differs"):
@@ -881,7 +918,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "role differs"):
             native_tests.rust_fixture_bindings(self.provenance, environment)
 
-    def test_unselected_fixture_consumer_does_not_build_or_capture(self) -> None:
+    def test_unselected_native_fixtures_keep_only_selected_scientific_input(
+        self,
+    ) -> None:
         self.select_fixture_consumer("PSE_NATIVE_LANE_EXECUTABLE", selected=False)
         self.select_fixture_consumer("PSE_PRODUCER_FIXTURE_RECEIPT", selected=False)
         with (
@@ -892,10 +931,11 @@ class ManagedRustSelectionTests(unittest.TestCase):
                 native_tests.prepare_rust_fixtures(
                     json.loads(self.inventory), [], self.root / "receipt.json", {}
                 ),
-                {},
+                {scientific_inputs.ROLE: str(self.scientific)},
             )
         lane.assert_not_called()
         capture.assert_not_called()
+        self.scientific_capture.assert_called_once()
 
     def test_selected_portable_consumer_runs_real_recipe_or_preserves_explicit_receipt(
         self,
@@ -916,7 +956,10 @@ class ManagedRustSelectionTests(unittest.TestCase):
             bindings = native_tests.prepare_rust_fixtures(
                 json.loads(self.inventory), [], receipt, environment
             )
-        self.assertEqual(bindings, {variable: str(receipt)})
+        self.assertEqual(
+            bindings,
+            {variable: str(receipt), scientific_inputs.ROLE: str(self.scientific)},
+        )
         self.assertEqual(environment, bindings)
         self.assertEqual(run.call_count, 1)
         with patch.object(native_tests.subprocess, "run") as run:
@@ -1050,9 +1093,19 @@ class ManagedRustSelectionTests(unittest.TestCase):
         environment = {**self.prepared_environment(), variable: str(receipt)}
         self.assertEqual(
             native_tests.rust_fixture_bindings(self.provenance, environment),
-            {variable: str(receipt)},
+            {variable: str(receipt), scientific_inputs.ROLE: str(self.scientific)},
+        )
+        assert self.scientific is not None
+        self.assertEqual(
+            native["files"][str(self.scientific)],
+            hashlib.sha256(self.scientific.read_bytes()).hexdigest(),
         )
         native_tests.prepared_rust_inventory(execution, environment)
+        original_capsule = self.scientific.read_bytes()
+        self.scientific.write_bytes(original_capsule + b"changed")
+        with self.assertRaisesRegex(ValueError, "artifact changed"):
+            native_tests.rust_fixture_bindings(self.provenance, environment)
+        self.scientific.write_bytes(original_capsule)
         receipt.write_bytes(b"same path changed after capture")
         with self.assertRaisesRegex(ValueError, "artifact changed"):
             native_tests.rust_fixture_bindings(self.provenance, environment)
@@ -1344,6 +1397,13 @@ class ManagedPythonRouteTests(unittest.TestCase):
                 ),
                 patch.object(native_tests, "observe_deployed_artifacts"),
                 patch.object(
+                    scientific_inputs,
+                    "capture",
+                    side_effect=lambda _destination, _environment: (
+                        scientific_capture_fixture(Path(directory) / "scientific.json")
+                    ),
+                ) as scientific,
+                patch.object(
                     native_tests,
                     "native_provenance",
                     return_value={"files": {str(binary): "actual-digest"}},
@@ -1353,6 +1413,7 @@ class ManagedPythonRouteTests(unittest.TestCase):
             ):
                 self.assertEqual(native_tests.main(), 0)
             placed.assert_not_called()
+            scientific.assert_called_once()
             command = run.call_args.args[0]
             self.assertEqual(command[-2:], ["-n", "0"])
             self.assertIn(f"--junitxml={report}", command)
@@ -1455,6 +1516,13 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
                 ["native_tests.py", "rust", *extra, "--success-output", "final"],
             ),
             patch.object(subprocess, "run", side_effect=responses) as listed,
+            patch.object(
+                scientific_inputs,
+                "capture",
+                side_effect=lambda destination, _environment: (
+                    scientific_capture_fixture(destination)
+                ),
+            ) as scientific,
             patch.object(test_run, "run_rust", return_value=0) as executed,
             patch.object(
                 native_tests,
@@ -1462,7 +1530,17 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
                 return_value=Path(directory) / "actual-worker",
             ),
             patch.object(native_tests, "observe_deployed_artifacts"),
-            patch.object(native_tests, "native_provenance", return_value={"files": {}}),
+            patch.object(
+                native_tests,
+                "native_provenance",
+                side_effect=lambda _profile, _binaries, *, environment: {
+                    "files": {
+                        environment[scientific_inputs.ROLE]: hashlib.sha256(
+                            Path(environment[scientific_inputs.ROLE]).read_bytes()
+                        ).hexdigest()
+                    },
+                },
+            ),
             patch.object(
                 native_tests,
                 "correctness_resolution",
@@ -1471,6 +1549,7 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
         ):
             self.assertEqual(native_tests.main(), 0)
         resolved.assert_called_once()
+        scientific.assert_called_once()
         self.assertEqual(
             listed.call_count,
             2,

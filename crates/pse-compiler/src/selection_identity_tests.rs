@@ -16,17 +16,11 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
 };
 
-const SOURCES: &[&str] = &[
-    include_str!("../../../packages/reference/physical/models/chemistry.pse"),
-    include_str!("../../../packages/reference/physical/models/compatibility.pse"),
-    include_str!("../../../packages/reference/domain/models/constants.pse"),
-    include_str!("../../../packages/reference/domain/models/provenance.pse"),
-    include_str!("../../../packages/reference/domain/models/properties.pse"),
-    include_str!("../../../packages/reference/domain/models/interactions.pse"),
-];
-
 fn specialized(fixture: &str, root_name: &str, demand: &[&str]) -> Arc<SpecializedModel> {
-    let source = format!("{}\n{fixture}", SOURCES.join("\n"));
+    let source = format!(
+        "{}\n{fixture}",
+        crate::scientific_inputs::family_sources("selection")
+    );
     let declarations = crate::authored_transfer_tests::rows(&source);
     let root = crate::authored_transfer_tests::root(&declarations, "retention_fixture", root_name);
     let mut workspace = CompilerWorkspace::new(
@@ -112,7 +106,10 @@ fn changed_main_edge() -> String {
     )
 }
 fn prepared_body_ids(fixture: &str) -> BTreeSet<pse_ids::ContentHash> {
-    let source = format!("{}\n{fixture}", SOURCES.join("\n"));
+    let source = format!(
+        "{}\n{fixture}",
+        crate::scientific_inputs::family_sources("selection")
+    );
     let declarations = crate::authored_transfer_tests::rows(&source);
     let root = crate::authored_transfer_tests::root(&declarations, "retention_fixture", "Isolated");
     let mut workspace = CompilerWorkspace::new(

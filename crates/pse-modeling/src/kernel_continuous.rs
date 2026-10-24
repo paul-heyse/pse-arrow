@@ -366,11 +366,19 @@ fn temporal_composition_refuses_time_varying_scalar_defaults() {
         )
         .replace("let endpoint:Time=cell[2{s}].x;", "");
     let error = temporal(&text, analysis::Route::Simultaneous).unwrap_err();
+    temporal(
+        &TEMPORAL.replace("let endpoint:Time=cell[2{s}].x;", ""),
+        analysis::Route::Simultaneous,
+    )
+    .unwrap();
+    let gain = kernel_types::source(&text)
+        .into_iter()
+        .find(|row| row.name == "gain")
+        .unwrap()
+        .declaration_id
+        .as_id();
     assert!(
-        error
-            .to_string()
-            .contains("scalar temporal parameter defaults must agree"),
-        "{error}"
+        matches!(error, ModelingError::Contract { reason: ModelingContractReason::TemporalScalarDefaultMismatch, declaration, .. } if declaration == gain)
     );
 }
 

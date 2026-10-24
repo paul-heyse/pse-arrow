@@ -88,7 +88,9 @@ class RunSummary(msgspec.Struct, frozen=True):
 
 def load_manifest(path: Path) -> ConformanceManifestOutput:
     """Read generated TOML settings and admit the campaign through its Rust owner."""
-    manifest = codec.decode_toml(path.read_bytes(), ConformanceManifest)
+    from pse._scientific_inputs import reference_bytes
+
+    manifest = codec.decode_toml(reference_bytes(path), ConformanceManifest)
     return _admit_conformance_manifest(str(path), manifest)
 
 
@@ -108,7 +110,9 @@ def _preparation_document(
 
 
 def _diagnostic_policy(path: str) -> ModelingDiagnosticPolicyBody:
-    source = Path(path).read_text(encoding="utf-8")
+    from pse._scientific_inputs import reference_bytes
+
+    source = reference_bytes(Path(path)).decode("utf-8")
     # Rust retains threshold/budget validation; project the original authored fields.
     ModelingDiagnosticSettings.from_json(source)
     policy = codec.decode_json(source, ModelingDiagnosticPolicy)
@@ -117,7 +121,12 @@ def _diagnostic_policy(path: str) -> ModelingDiagnosticPolicyBody:
     )
 
 
-def _documents(root: Path) -> dict[str, str | bytes]:
+def _documents(root: Path) -> dict[str, bytes]:
+    from pse._scientific_inputs import package_documents
+
+    captured = package_documents(root)
+    if captured is not None:
+        return captured
     if not (root / "package.toml").is_file():
         message = f"missing package.toml in {root}"
         raise ValueError(message)

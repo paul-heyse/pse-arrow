@@ -1739,7 +1739,7 @@ impl CanonicalStore {
                 .map_err(|_| CanonicalError::Timeout)
                 .and_then(|response| response.map_err(CanonicalError::from))
                 .and_then(complete_response);
-            #[cfg(feature="canonical-tests")]
+            #[cfg(any(test, feature = "test-support"))]
             let result=if project.is_some() && result.is_ok() && crate::canonical_projects::simulate_reply_loss(){Err(CanonicalError::IncompleteResponse)}else{result};
             if let Err(error) = result {
                 // A lost acknowledgment or concurrent identical activation is settled
@@ -2215,7 +2215,7 @@ impl CanonicalStore {
     /// Final fixture ownership may join terminal SDK callbacks after their reply
     /// woke the caller. Seal new admission before waiting for actual activity;
     /// this path grants no cancellation or early close of escaped protected reads.
-    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) async fn drain_fixture_connection(&self) -> Result<(), CanonicalError> {
         self.drain_owned_connection().await
     }
@@ -2234,24 +2234,17 @@ impl CanonicalStore {
         })
         .await
     }
-    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    #[cfg(any(test, feature = "test-support"))]
     fn seal_final_fixture_owner(&self) -> bool {
         self.db.access.physical.seal_if_final_fixture(|| {
-            #[cfg(any(test, feature = "test-support"))]
-            {
-                !self
-                    .fixture_lifetime
-                    .as_ref()
-                    .is_some_and(|lifetime| Arc::strong_count(lifetime) > 1)
-            }
-            #[cfg(not(any(test, feature = "test-support")))]
-            {
-                true
-            }
+            !self
+                .fixture_lifetime
+                .as_ref()
+                .is_some_and(|lifetime| Arc::strong_count(lifetime) > 1)
         })
     }
     /// Drain a registered fixture locally; runner disposition owns disposal.
-    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    #[cfg(any(test, feature = "test-support"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
         let deadline = original_deadline(REQUEST_TIMEOUT);
         if !self.database.starts_with("canonical_test_") {
@@ -2259,12 +2252,10 @@ impl CanonicalStore {
                 "fixture removal requires an isolated test database".into(),
             ));
         }
-        #[cfg(any(test, feature = "test-support"))]
         let mut removed = match &self.fixture_lifetime {
             Some(lifetime) => Some(lifetime.removed.lock().await),
             None => None,
         };
-        #[cfg(any(test, feature = "test-support"))]
         if removed.as_deref().is_some_and(|removed| *removed) {
             return Ok(());
         }
@@ -2275,7 +2266,6 @@ impl CanonicalStore {
             return Ok(());
         }
         within_clock(deadline, self.drain_fixture_connection()).await?;
-        #[cfg(any(test, feature = "test-support"))]
         if let Some(lifetime) = &self.fixture_lifetime {
             lifetime.drain_connections().await?;
             crate::testing::resource_bridge(
@@ -2285,7 +2275,6 @@ impl CanonicalStore {
                 }),
             )?;
         }
-        #[cfg(any(test, feature = "test-support"))]
         if let Some(removed) = removed.as_mut() {
             **removed = true;
         }
@@ -2454,11 +2443,11 @@ where
 /// Labels are supplied by callers; bindings and query text are never logged.
 pub(crate) fn operation_failed(operation: &'static str, error: &CanonicalError) {
     tracing::warn!(operation, error = %error, "canonical operation failed");
-    #[cfg(feature = "canonical-tests")]
+    #[cfg(any(test, feature = "test-support"))]
     {
         #[allow(
             clippy::print_stderr,
-            reason = "explicit canonical qualification captures final operation attribution without requiring a tracing subscriber"
+            reason = "explicit test support captures final operation attribution without requiring a tracing subscriber"
         )]
         {
             eprintln!("canonical operation {operation} failed: {error}");

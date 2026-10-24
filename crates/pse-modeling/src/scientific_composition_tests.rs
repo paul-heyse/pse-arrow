@@ -3,14 +3,15 @@
 //! Authored composition evidence is independent of conserved zeros and mass data.
 use crate::{CheckedPackage, PhysicalScope, TypeContext, check, kernel_types, specialize::Value};
 
-fn admit(body: &str) -> Result<CheckedPackage, String> {
-    let sources = [
-        include_str!("../../../packages/reference/physical/models/compatibility.pse"),
-        include_str!("../../../packages/reference/physical/models/chemistry.pse"),
-        include_str!("../../../packages/reference/domain/models/provenance.pse"),
-        body,
-    ];
-    let rows = kernel_types::try_source(&sources.join("\n")).map_err(|error| error.to_string())?;
+fn admit(body: &str) -> Result<CheckedPackage, crate::ModelingError> {
+    let source = format!(
+        "{}\n{body}",
+        crate::scientific_inputs::family_sources("composition")
+    );
+    let rows = crate::scientific_inputs::parse_sources(
+        &source,
+        pse_authoring::language::IdentityPolicy::Named,
+    );
     let (registry, _) = kernel_types::physical();
     let checks =
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -25,7 +26,44 @@ fn admit(body: &str) -> Result<CheckedPackage, String> {
             scope: &PhysicalScope::default(),
         },
     )
-    .map_err(|error| error.to_string())
+}
+fn assert_requirement(error: &crate::ModelingError, expected: &str, record: &str, body: &str) {
+    let mut cause = error;
+    while let crate::ModelingError::Located { cause: inner, .. } = cause {
+        cause = inner;
+    }
+    let crate::ModelingError::Contract {
+        declaration,
+        reason: crate::ModelingContractReason::AuthoredRequirement { requirement },
+        ..
+    } = cause
+    else {
+        panic!("expected authored requirement: {error:?}");
+    };
+    let expected_requirement = pse_ids::SemanticId::parse_hex(expected).unwrap();
+    assert_eq!(*requirement, expected_requirement);
+    let rows = crate::scientific_inputs::parse_sources(
+        body,
+        pse_authoring::language::IdentityPolicy::Named,
+    );
+    let expected_record = rows
+        .iter()
+        .find(|row| row.name == record)
+        .unwrap()
+        .declaration_id
+        .as_id();
+    assert_eq!(*declaration, expected_record);
+    let diagnostic = error.boundary_diagnostic();
+    assert_eq!(
+        diagnostic.code,
+        pse_diagnostics::DiagnosticCode::ValidationInvariant
+    );
+    assert_eq!(
+        diagnostic.rule,
+        pse_diagnostics::DiagnosticRule::ModelingContract
+    );
+    assert!(diagnostic.sources.contains(&expected_record));
+    assert!(diagnostic.sources.contains(&expected_requirement));
 }
 const PARTICIPANTS: &str = r#"package p {
  use chemistry @"1.0.0"; use provenance @"1.0.0";
@@ -72,42 +110,62 @@ fn scientific_composition_sparse_formulas_conserve_without_atomic_weights() {
     }
     // No hydrogen rows are stored: complete elemental vectors supply conserved zeros.
     let error = admit(&PARTICIPANTS.replace("[b,c]=[1{1}]", "[b,c]=[2{1}]")).unwrap_err();
-    assert!(
-        error.contains("a reaction conserves every element"),
-        "{error}"
+    assert_requirement(
+        &error,
+        "01a0f00baca572638a494b0dad768f4e",
+        "conversion",
+        PARTICIPANTS,
     );
 }
 #[test]
 fn scientific_composition_unknown_participants_and_unknown_charge_refuse_independently() {
+    admit(PARTICIPANTS).unwrap();
     let unknown = PARTICIPANTS.replace(
         "entity chemistry.species b {composition=chemistry.CompositionKnowledge.Complete,charge=0{1}}",
         "entity chemistry.species b {charge=0{1}}",
     ).replace("[b,c]=[1{1}];", "");
     let error = admit(&unknown).unwrap_err();
-    assert!(error.contains("IncompleteComposition"), "{error}");
+    assert_requirement(
+        &error,
+        "9066ffbd8c2e5021985af0f6c35e1b2b",
+        "conversion",
+        PARTICIPANTS,
+    );
     let error = admit(&PARTICIPANTS.replace(
         "entity chemistry.species b {composition=chemistry.CompositionKnowledge.Complete,charge=0{1}}",
         "entity chemistry.species b {composition=chemistry.CompositionKnowledge.Complete}",
     )).unwrap_err();
-    assert!(error.contains("IncompleteCharge"), "{error}");
+    assert_requirement(
+        &error,
+        "b28738e2629058a78763c9ea9596624b",
+        "conversion",
+        PARTICIPANTS,
+    );
     let error = admit(&PARTICIPANTS.replace(
         "entity chemistry.species b {composition=chemistry.CompositionKnowledge.Complete,charge=0{1}}",
         "entity chemistry.species b {composition=chemistry.CompositionKnowledge.Complete,charge=1{1}}",
     )).unwrap_err();
-    assert!(error.contains("a reaction conserves charge"), "{error}");
+    assert_requirement(
+        &error,
+        "01a0f00baca572638a494b0eec9e5b89",
+        "conversion",
+        PARTICIPANTS,
+    );
 }
 #[test]
 fn scientific_composition_apparent_and_lumped_mappings_conserve_elements_and_charge() {
-    for (kind, relation, label) in [
+    for (kind, relation, conservation, completeness) in [
         (
             "apparent",
             "dissociation",
-            "an apparent mapping conserves every element",
+            "0204550929b6584382a39bc4a00239a4",
+            "01a0f00baca572638a494b0bc8fbc911",
         ),
         (
             "lumped",
             "lumping",
-            "a lumped mapping conserves every element",
+            "68c39c7af73252a5b29a8e967d6e151e",
+            "e97f0933fcbc520b8c8af8d89a5ae9ee",
         ),
     ] {
         let body = format!(
@@ -122,13 +180,13 @@ fn scientific_composition_apparent_and_lumped_mappings_conserve_elements_and_cha
 }}"#
         );
         let error = admit(&body).unwrap_err();
-        assert!(error.contains(label), "{error}");
+        assert_requirement(&error, conservation, "apparent_species", &body);
         admit(&body.replace("[true_species,c]=[2{1}]", "[true_species,c]=[1{1}]")).unwrap();
         let error = admit(&body.replace(
             "entity chemistry.species true_species {composition=chemistry.CompositionKnowledge.Complete,charge=0{1}}",
             "entity chemistry.species true_species {charge=0{1}}",
         )).unwrap_err();
-        assert!(error.contains("IncompleteComposition"), "{error}");
+        assert_requirement(&error, completeness, "apparent_species", &body);
     }
 }
 
@@ -136,5 +194,5 @@ fn scientific_composition_apparent_and_lumped_mappings_conserve_elements_and_cha
 fn scientific_composition_extent_identity_belongs_to_one_authored_reaction() {
     let text=PARTICIPANTS.replace("entity chemistry.reaction conversion {extent=conversion_extent}","entity chemistry.reaction conversion {extent=conversion_extent}\nentity chemistry.reaction other {extent=conversion_extent}");
     let error = admit(&text).unwrap_err();
-    assert!(error.contains("unique"), "{error}");
+    assert!(error.to_string().contains("unique"), "{error}");
 }

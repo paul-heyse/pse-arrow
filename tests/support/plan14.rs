@@ -5,6 +5,8 @@
     dead_code,
     reason = "shared acceptance and benchmark fixtures have distinct consumers"
 )]
+#[path = "../fixtures/scientific-inputs.rs"]
+mod scientific_inputs;
 #[path = "workflow_runtime.rs"]
 mod workflow_runtime;
 use pse_backend_native::execution::BackendSettings;
@@ -40,34 +42,9 @@ pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
     )
     .unwrap()
 }
-fn package_documents(root: &std::path::Path) -> BTreeMap<String, Vec<u8>> {
-    fn visit(
-        root: &std::path::Path,
-        path: &std::path::Path,
-        documents: &mut BTreeMap<String, Vec<u8>>,
-    ) {
-        for entry in std::fs::read_dir(path).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                visit(root, &path, documents);
-            } else if matches!(
-                path.extension().and_then(|s| s.to_str()),
-                Some("toml" | "yaml" | "yml" | "pse" | "parquet")
-            ) {
-                documents.insert(
-                    path.strip_prefix(root)
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .replace('\\', "/"),
-                    std::fs::read(&path).unwrap(),
-                );
-            }
-        }
-    }
-    let mut documents = BTreeMap::new();
-    visit(root, root, &mut documents);
-    documents
+/// Independently consumed frozen inputs from the invocation's immutable capture.
+pub(crate) fn source_bytes(logical_path: &str) -> Vec<u8> {
+    scientific_inputs::file_bytes(logical_path)
 }
 pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::PhysicalContext {
     let runtime = runtime(owner);
@@ -78,12 +55,7 @@ pub(crate) async fn physical_on(
     owner: &WorkflowRuntime,
     runtime: &Runtime,
 ) -> pse_runtime::workflow::PhysicalContext {
-    let root = fixture("")
-        .ancestors()
-        .find(|p| p.join("packages/reference").is_dir())
-        .unwrap()
-        .join("packages/reference/physical");
-    let texts = package_documents(&root);
+    let texts = scientific_inputs::package_documents("packages/reference/physical");
     let pool = owner.runtime.pool();
     let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
         &texts,
@@ -172,43 +144,21 @@ pub(crate) async fn seed_package_on(
         OwnedDocumentSet, load_package_documents_owned,
     };
 
-    let root = fixture("")
-        .ancestors()
-        .find(|p| p.join("packages/reference").is_dir())
-        .unwrap()
-        .join("packages/reference");
     let pool = owner.runtime.pool();
-    let bundles = [
-        "data/oracles/teqp-0.23.1",
-        "data/oracles/feos-0.10.1",
-        "data/gross-sadowski-2001",
-        "data/references",
-        "data/nist",
-        "data/perry7",
-        "data/poling2000",
-        "data/oracles/idaes-2.13",
-        "data/species",
-        "data/ciaaw",
-        "seed-data",
-        "process",
-        "thermodynamics",
-        "methods",
-        "domain",
-        "physical",
-    ]
-    .into_iter()
-    .map(|name| {
-        load_package_documents_owned(
-            &package_documents(&root.join(name)),
-            owner.model.registry(),
-            Default::default(),
-            &pool,
-            &owner.cancel,
-            &owner.model.validation_context(),
-        )
-        .unwrap()
-    })
-    .collect();
+    let bundles = scientific_inputs::family_packages("seed-transport")
+        .into_iter()
+        .map(|(_path, texts)| {
+            load_package_documents_owned(
+                &texts,
+                owner.model.registry(),
+                Default::default(),
+                &pool,
+                &owner.cancel,
+                &owner.model.validation_context(),
+            )
+            .unwrap()
+        })
+        .collect();
     let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &owner.cancel).unwrap();
     let physical = runtime
         .physical_from_documents(&documents, &owner.cancel)

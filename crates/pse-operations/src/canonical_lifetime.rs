@@ -218,7 +218,7 @@ impl PhysicalLifetime {
     /// The fixture association is counted while independent minting is excluded.
     /// Ordinary clones preserve the same caller: those racing after this seal
     /// are closed aliases and cannot admit new work or restore open authority.
-    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn seal_if_final_fixture(&self, is_final: impl FnOnce() -> bool) -> bool {
         let mut state = self
             .state

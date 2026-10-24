@@ -1253,9 +1253,11 @@ pub(crate) fn context(error: crate::ModelingError, part: &str) -> crate::Modelin
     match error {
         crate::ModelingError::Contract {
             declaration,
+            reason,
             message,
         } => crate::ModelingError::Contract {
             declaration,
+            reason,
             message: format!("{part}: {message}"),
         },
         other => other,

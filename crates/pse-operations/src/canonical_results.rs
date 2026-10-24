@@ -142,7 +142,7 @@ impl ResultReadDrain {
         }
         self.wait_for_releases().await
     }
-    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) async fn drain(&self) -> Result<(), CanonicalError> {
         if self.live.load(std::sync::atomic::Ordering::SeqCst) != 0 {
             return Err(invalid("canonical client still has live protected readers"));
@@ -152,7 +152,7 @@ impl ResultReadDrain {
     /// Join cleanup already enqueued by dropped readers while independent
     /// readers may remain live. This does not close protection admission or
     /// establish global reader drain; later drops still enqueue tracked releases.
-    #[cfg(any(test, feature = "test-support", feature = "canonical-tests"))]
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) async fn join_pending_releases(&self) -> Result<(), CanonicalError> {
         self.releases.close();
         self.wait_for_releases().await

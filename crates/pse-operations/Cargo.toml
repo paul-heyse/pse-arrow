@@ -26,9 +26,9 @@ force-validate = [
 ]
 default = []
 evidence-query = ["dep:pse-engine", "dep:datafusion", "dep:pse-columnar"]
-# Isolated databases with the generated schema for tests in other crates.
+# Fixture lifetime, isolated databases and deterministic hooks for downstream tests.
 test-support = []
-# Explicit remote mechanism fixture; ordinary unit selection does not start a server.
+# Participation in remote mechanism tests; does not select downstream instrumentation.
 canonical-tests = []
 # Parse-only server libraries; ordinary scientific runtime does not select these.
 canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]

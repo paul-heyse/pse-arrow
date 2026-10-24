@@ -199,6 +199,11 @@ class CollectionSelectionTests(unittest.TestCase):
                 with (
                     self.subTest(compiled=compiled),
                     patch.object(
+                        case_measure.scientific_inputs,
+                        "prepare_controller",
+                        return_value={},
+                    ),
+                    patch.object(
                         arrow_validation, "compose", side_effect=lambda command: command
                     ),
                     patch.object(

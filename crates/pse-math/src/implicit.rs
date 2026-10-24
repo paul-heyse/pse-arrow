@@ -2372,7 +2372,6 @@ pub(crate) fn source_body_for_test(
     SourceBody::new(compiled, bindings).unwrap()
 }
 
-
 #[cfg(test)]
 pub(crate) fn residual_bodies_for_test(parameter: SourceBody) -> ResidualBodies {
     let unknowns = parameter.prepared_support().outputs().len();
@@ -3368,14 +3367,21 @@ mod tests {
         let body = SourceBody::prepare(
             builder,
             &[residual],
-            |prepared| crate::SourceBindings::new(
-                id, prepared, Default::default(), Default::default(), Default::default(),
-            ),
+            |prepared| {
+                crate::SourceBindings::new(
+                    id,
+                    prepared,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+            },
             DerivativeOrder::Second,
             crate::library::Optimization::default(),
             crate::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(control.clone(), None),
-        ).unwrap();
+        )
+        .unwrap();
         let unknowns = vec![Unknown {
             id,
             lower: -10.0,
@@ -3632,14 +3638,21 @@ mod tests {
         let body = SourceBody::prepare(
             builder,
             &[residual],
-            |prepared| crate::SourceBindings::new(
-                id, prepared, Default::default(), Default::default(), Default::default(),
-            ),
+            |prepared| {
+                crate::SourceBindings::new(
+                    id,
+                    prepared,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                )
+            },
             DerivativeOrder::Second,
             crate::library::Optimization::default(),
             crate::jets::EvaluationLimits::default(),
             &pse_kernels::ExecutionScope::new(control.clone(), None),
-        ).unwrap();
+        )
+        .unwrap();
         // Explicit operation-local admission reaches scratch, numeric factorization
         // and both IFT solve orders. Ordinary Problem::new remains serial.
         let mut problem = Problem::new_with_parallelism(

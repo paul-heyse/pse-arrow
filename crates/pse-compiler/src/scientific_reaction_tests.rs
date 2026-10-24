@@ -7,7 +7,7 @@
 )]
 use crate::{
     authored_transfer_tests::{context, root, rows},
-    workspace::{CompilerWorkspace, ModelingOutput, WorkspaceLimits},
+    workspace::{CompileError, CompilerWorkspace, ModelingOutput, WorkspaceLimits},
 };
 use pse_kernels::DerivativeOrder;
 use pse_math::{
@@ -65,49 +65,57 @@ test Both {
 }
 }"#;
 // Complete production documents in the reaction consumers' imported dependency closure.
-const REACTION_SOURCES: &[&str] = &[
-    include_str!("../../../packages/reference/domain/models/numerical-policy.pse"),
-    include_str!("../../../packages/reference/thermodynamics/models/aqueous.pse"),
-    include_str!("../../../packages/reference/methods/models/caloric.pse"),
-    include_str!("../../../packages/reference/data/species/models/catalogue.pse"),
-    include_str!("../../../packages/reference/physical/models/chemistry.pse"),
-    include_str!("../../../packages/reference/data/ciaaw/models/catalogue.pse"),
-    include_str!("../../../packages/reference/physical/models/compatibility.pse"),
-    include_str!("../../../packages/reference/domain/models/constants.pse"),
-    include_str!("../../../packages/reference/process/models/control-volumes.pse"),
-    include_str!("../../../packages/reference/methods/models/correlations.pse"),
-    include_str!("../../../packages/reference/process/models/control-volume-1d.pse"),
-    include_str!("../../../packages/reference/thermodynamics/models/equilibrium.pse"),
-    include_str!("../../../packages/reference/thermodynamics/models/helmholtz.pse"),
-    include_str!("../../../packages/reference/physical/models/kinds.pse"),
-    include_str!("../../../packages/reference/physical/models/math.pse"),
-    include_str!("../../../packages/reference/domain/models/properties.pse"),
-    include_str!("../../../packages/reference/domain/models/provenance.pse"),
-    include_str!("../../../packages/reference/methods/models/pure-properties.pse"),
-    include_str!("../../../packages/reference/methods/models/reaction-forms.pse"),
-    include_str!("../../../packages/reference/thermodynamics/models/reactions.pse"),
-    include_str!("../../../packages/reference/process/models/reactors.pse"),
-    include_str!("../../../packages/reference/data/references/models/references.pse"),
-    include_str!("../../../packages/reference/seed-data/models/saponification.pse"),
-];
 fn source() -> String {
-    format!("{}\n{FIXTURE}", REACTION_SOURCES.join("\n"))
+    format!(
+        "{}\n{FIXTURE}",
+        crate::scientific_inputs::family_sources("reaction")
+    )
 }
-fn specialize(text: &str, name: &str) -> Result<Arc<SpecializedModel>, String> {
+fn specialize(text: &str, name: &str) -> Result<Arc<SpecializedModel>, CompileError> {
     let declarations = rows(text);
     let id = root(&declarations, "scientific_reaction_fixture", name);
     let mut workspace = CompilerWorkspace::new(context(), WorkspaceLimits::default()).unwrap();
-    workspace
-        .publish_modeling(declarations, PhysicalScope::default())
-        .map_err(|e| e.to_string())?;
-    workspace
-        .specialize_modeling(
-            id,
-            root_instance(id),
-            Bindings::default(),
-            Limits::default(),
-        )
-        .map_err(|e| e.to_string())
+    workspace.publish_modeling(declarations, PhysicalScope::default())?;
+    workspace.specialize_modeling(
+        id,
+        root_instance(id),
+        Bindings::default(),
+        Limits::default(),
+    )
+}
+fn assert_authored_requirement(error: &CompileError, expected: &[&str]) {
+    let CompileError::Modeling(error) = error else {
+        panic!("expected source-owned modeling refusal: {error:?}");
+    };
+    let mut cause = error;
+    while let pse_modeling::ModelingError::Located { cause: inner, .. } = cause {
+        cause = inner;
+    }
+    let pse_modeling::ModelingError::Contract {
+        declaration,
+        reason: pse_modeling::ModelingContractReason::AuthoredRequirement { requirement },
+        ..
+    } = cause
+    else {
+        panic!("expected authored requirement: {cause:?}");
+    };
+    assert!(
+        expected
+            .iter()
+            .any(|id| pse_ids::SemanticId::parse_hex(id).unwrap() == *requirement),
+        "{cause:?}"
+    );
+    let diagnostic = error.boundary_diagnostic();
+    assert_eq!(
+        diagnostic.code,
+        pse_diagnostics::DiagnosticCode::ValidationInvariant
+    );
+    assert_eq!(
+        diagnostic.rule,
+        pse_diagnostics::DiagnosticRule::ModelingContract
+    );
+    assert!(diagnostic.sources.contains(declaration));
+    assert!(diagnostic.sources.contains(requirement));
 }
 fn contributions(text: &str, point: &str) -> Vec<(String, f64)> {
     let input = context();
@@ -266,8 +274,9 @@ fn scientific_reaction_missing_products_refuse_both_reactors_before_solving() {
         "={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.water};",
     );
     for name in ["CstrPoint", "PfrPoint"] {
+        specialize(&source(), name).unwrap();
         let error = specialize(&text, name).unwrap_err();
-        assert!(error.contains("MissingParticipant"), "{name}: {error}");
+        assert_authored_requirement(&error, &["51aa67a6032b5b67881da0a284179fc2"]);
     }
 }
 #[test]
@@ -288,18 +297,23 @@ fn scientific_reaction_inert_extra_material_has_zero_authoritative_coefficient()
 #[test]
 fn scientific_reaction_rate_and_heat_extent_identity_mismatch_refuse_independently() {
     let text=source().replace("entity chemistry.reaction hydrolysis {extent=hydrolysis_extent}","entity chemistry.reaction hydrolysis {extent=hydrolysis_extent}\nentity chemistry.extent_convention wrong_extent {normalization=chemistry.ExtentNormalization.AsAuthored}");
-    for attribute in ["rate_extent", "heat_extent"] {
+    specialize(&source(), "ProjectionPoint").unwrap();
+    for (attribute, requirement) in [
+        ("rate_extent", "3e792d8c4ed857889fd3a922c18faf22"),
+        ("heat_extent", "e1fb8b726ae15ca097700791c7a7e5f1"),
+    ] {
         let bad = text.replace(
             &format!("{attribute}=hydrolysis_extent"),
             &format!("{attribute}=wrong_extent"),
         );
         let error = specialize(&bad, "ProjectionPoint").unwrap_err();
-        assert!(error.contains("ExtentMismatch"), "{attribute}: {error}");
+        assert_authored_requirement(&error, &[requirement]);
     }
 }
 #[test]
 fn scientific_reaction_missing_charge_cannot_establish_conservation() {
     let original = source();
+    specialize(&original, "ProjectionPoint").unwrap();
     let text = original
         .lines()
         .map(|line| {
@@ -313,7 +327,7 @@ fn scientific_reaction_missing_charge_cannot_establish_conservation() {
         .join("\n");
     assert_ne!(text, source());
     let error = specialize(&text, "ProjectionPoint").unwrap_err();
-    assert!(error.contains("IncompleteCharge"), "{error}");
+    assert_authored_requirement(&error, &["b28738e2629058a78763c9ea9596624b"]);
 }
 
 #[test]
@@ -345,7 +359,7 @@ fn scientific_composition_elemental_control_volume_uses_guarded_authoritative_co
         .join("\n");
     assert_ne!(text, unknown);
     let error = specialize(&unknown, "ElementalPoint").unwrap_err();
-    assert!(error.contains("IncompleteComposition"), "{error}");
+    assert_authored_requirement(&error, &["a5c32de27ea75823918d3abbe4b65a39"]);
 }
 
 #[test]
@@ -367,6 +381,7 @@ package invalid_projection {
 }
 #[test]
 fn scientific_reaction_multiple_selected_variants_refuse_one_rate_and_heat_vector() {
+    specialize(&source(), "ProjectionPoint").unwrap();
     let text = source()
         + r#"
 package extra_kinetics {
@@ -383,10 +398,12 @@ package extra_kinetics {
 }"#;
     let text=text.replace("selected=saponification.SaponificationReactions.records","selected={reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,saponification.hydrolysis],reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,saponification.hydrolysis,2]}");
     let error = specialize(&text, "ProjectionPoint").unwrap_err();
-    assert!(
-        error.contains("exactly one kinetic and heat record per reaction")
-            || error.contains("UnadmittedSelection"),
-        "{error}"
+    assert_authored_requirement(
+        &error,
+        &[
+            "76941200d00d5a11b9ed8f76dd85db8b",
+            "cb33bb9786f15cce8d9b49842311cbd3",
+        ],
     );
 }
 
@@ -418,19 +435,8 @@ const COSTING_FIXTURE: &str = r#"package scientific_costing_fixture {
 }"#;
 fn costing_point(name: &str) -> Result<(), String> {
     let text = format!(
-        "{}\n{}\n{}\n{COSTING_FIXTURE}",
-        [
-            include_str!("../../../packages/reference/physical/models/chemistry.pse"),
-            include_str!("../../../packages/reference/physical/models/compatibility.pse"),
-            include_str!("../../../packages/reference/domain/models/provenance.pse"),
-            include_str!("../../../packages/reference/domain/models/numerical-policy.pse"),
-            include_str!("../../../packages/reference/domain/models/constants.pse"),
-            include_str!("../../../packages/reference/domain/models/properties.pse"),
-            include_str!("../../../packages/reference/data/references/models/references.pse"),
-        ]
-        .join("\n"),
-        include_str!("../../../packages/reference/process/models/costing.pse"),
-        include_str!("../../../packages/reference/seed-data/models/sslw.pse")
+        "{}\n{COSTING_FIXTURE}",
+        crate::scientific_inputs::family_sources("costing")
     );
     let declarations = rows(&text);
     let id = root(&declarations, "scientific_costing_fixture", name);
@@ -479,14 +485,15 @@ fn scientific_costing_unknown_area_requires_permission_and_never_permits_zero_ar
 #[test]
 fn scientific_reaction_records_require_admitted_closure_and_participant_scope() {
     let original = source();
+    specialize(&original, "ProjectionPoint").unwrap();
     let unadmitted=original.replace("roots={reaction_forms.arrhenius_second_order[references.saponification_kinetics_fit,reaction_forms.kinetic_parameters,hydrolysis]}","roots={}");
     assert_ne!(original, unadmitted);
     let error = specialize(&unadmitted, "ProjectionPoint").unwrap_err();
-    assert!(error.contains("UnadmittedSelection"), "{error}");
+    assert_authored_requirement(&error, &["cb33bb9786f15cce8d9b49842311cbd3"]);
     let incomplete=original.replace("subjects={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol},models={reaction_forms.kinetic_parameters}","subjects={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate},models={reaction_forms.kinetic_parameters}");
     assert_ne!(original, incomplete);
     let error = specialize(&incomplete, "ProjectionPoint").unwrap_err();
-    assert!(error.contains("MissingScientificParticipant"), "{error}");
+    assert_authored_requirement(&error, &["ddcc474389e856cab928ccfa45e7c158"]);
 }
 
 #[test]

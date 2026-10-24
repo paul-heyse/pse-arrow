@@ -3,30 +3,19 @@
 //! Selected production scientific bodies with small independently specified parameter records.
 #![allow(clippy::unwrap_used, reason = "focused scientific selection controls")]
 use crate::workspace::{CompilerWorkspace, Profile, WorkspaceLimits};
-use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
 use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
 use std::collections::BTreeMap;
 
-const SOURCES: &[&str] = &[
-    include_str!("../../../packages/reference/physical/models/chemistry.pse"),
-    include_str!("../../../packages/reference/physical/models/compatibility.pse"),
-    include_str!("../../../packages/reference/domain/models/constants.pse"),
-    include_str!("../../../packages/reference/domain/models/provenance.pse"),
-    include_str!("../../../packages/reference/domain/models/properties.pse"),
-    include_str!("../../../packages/reference/domain/models/interactions.pse"),
-    include_str!("../../../packages/reference/methods/models/nrtl.pse"),
-    include_str!("../../../packages/reference/methods/models/cubic.pse"),
-];
 fn check(name: &str) {
-    let source = format!("{}\n{FIXTURE}", SOURCES.join("\n"));
-    let rows = pse_authoring::language::parse(
+    let source = format!(
+        "{}\n{FIXTURE}",
+        crate::scientific_inputs::family_sources("parameter")
+    );
+    let rows = crate::scientific_inputs::parse_sources(
         &source,
-        SemanticId::NIL,
         pse_authoring::language::IdentityPolicy::Named,
-        pse_authoring::ParseBudget::default(),
-    )
-    .unwrap();
+    );
     let package = rows
         .iter()
         .find(|r| r.parent_id.is_none() && r.name == "parameter_point")

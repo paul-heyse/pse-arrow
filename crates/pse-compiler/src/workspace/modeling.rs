@@ -142,6 +142,7 @@ impl pse_modeling::document::Documents for TrackedDocuments<'_> {
             self.inputs
                 .get(&document)
                 .ok_or_else(|| pse_modeling::ModelingError::Contract {
+                    reason: pse_modeling::ModelingContractReason::Unclassified,
                     declaration: plan.dataset.into(),
                     message: format!("data document {document} is not published"),
                 })?;
@@ -154,6 +155,7 @@ impl pse_modeling::document::Documents for TrackedDocuments<'_> {
             .saturating_add(projection);
         if self.pending.is_none() && next_memo > self.memo_limit {
             return Err(pse_modeling::ModelingError::Contract {
+                reason: pse_modeling::ModelingContractReason::Unclassified,
                 declaration: plan.dataset.into(), message: "modeling document plan and memo bytes exceed the workspace allowance before retention".into(),
             });
         }
@@ -172,6 +174,7 @@ impl pse_modeling::document::Documents for TrackedDocuments<'_> {
         .map_err(|error| match error {
             CompileError::Modeling(error) => error,
             other => pse_modeling::ModelingError::Contract {
+                reason: pse_modeling::ModelingContractReason::Unclassified,
                 declaration: plan.dataset.into(),
                 message: other.to_string(),
             },
@@ -482,6 +485,7 @@ fn fragment_error(error: CompileError) -> pse_modeling::ModelingError {
         CompileError::Modeling(error) => error,
         CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
         error => pse_modeling::ModelingError::Contract {
+            reason: pse_modeling::ModelingContractReason::Unclassified,
             declaration: SemanticId::NIL,
             message: error.to_string(),
         },
@@ -507,6 +511,7 @@ impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
             CompileError::Modeling(error) => error,
             CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
             error => pse_modeling::ModelingError::Contract {
+                reason: pse_modeling::ModelingContractReason::Unclassified,
                 declaration: SemanticId::NIL,
                 message: error.to_string(),
             },
@@ -528,6 +533,7 @@ impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
             CompileError::Modeling(error) => error,
             CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
             error => pse_modeling::ModelingError::Contract {
+                reason: pse_modeling::ModelingContractReason::Unclassified,
                 declaration: SemanticId::NIL,
                 message: error.to_string(),
             },
@@ -547,6 +553,7 @@ impl pse_modeling::specialize::prelude::Fragments for QueryFragments<'_> {
             CompileError::Modeling(error) => error,
             CompileError::Cancelled => pse_modeling::ModelingError::Cancelled,
             error => pse_modeling::ModelingError::Contract {
+                reason: pse_modeling::ModelingContractReason::Unclassified,
                 declaration: SemanticId::NIL,
                 message: error.to_string(),
             },
@@ -624,6 +631,7 @@ impl pse_modeling::continuous::Discretizer for LibraryDiscretizer {
             parameters.right_endpoint,
         )
         .map_err(|e| pse_modeling::ModelingError::Contract {
+            reason: pse_modeling::ModelingContractReason::Unclassified,
             declaration: at.into(),
             message: e.to_string(),
         })?;
@@ -1234,3 +1242,6 @@ mod granular_tests;
 
 #[cfg(test)]
 mod physical_premises_tests;
+
+#[cfg(test)]
+mod test_observation;

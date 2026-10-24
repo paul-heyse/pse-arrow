@@ -18,19 +18,17 @@ import msgspec
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from scripts import scientific_inputs
 from scripts.thermodynamic_feeds import COUNT, FEEDS, ROOT
 
 if TYPE_CHECKING:
     from pse.contracts.documents import StudyPoint, StudyRequest
 
 
-def authored_documents(path: Path) -> dict[str, str | bytes]:
-    return {
-        file.relative_to(path).as_posix(): file.read_bytes()
-        for file in path.rglob("*")
-        if file.is_file()
-        and file.suffix in {".toml", ".pse", ".yaml", ".yml", ".parquet"}
-    }
+def authored_documents(path: Path) -> dict[str, bytes]:
+    from pse.conformance import _documents  # noqa: PLC0415 -- placed observer only
+
+    return _documents(path)
 
 
 def binary_hex(value: object) -> str:
@@ -72,7 +70,6 @@ def measure(output: Path, selected: str) -> None:
         NativeTermination,
     )
 
-    output.mkdir(parents=True, exist_ok=False)
     manifest = conformance.load_manifest(ROOT / "packages/reference/conformance.toml")
     spec = next(run for run in manifest.runs if run.name == "seed")
     base = ROOT / "packages/reference"
@@ -141,7 +138,9 @@ def measure(output: Path, selected: str) -> None:
                 depth=64, items=1_000_000, members=1_000_000, body_occurrences=65536
             ),
         )
-        physical_text = (base / spec.physical / "materials/physical.yaml").read_text()
+        physical_text = authored_documents(base / spec.physical)[
+            "materials/physical.yaml"
+        ].decode("utf-8")
         physical_document = msgspec.json.decode(
             "\n".join(
                 line for line in physical_text.splitlines() if not line.startswith("#")
@@ -382,6 +381,10 @@ def main() -> int:
         state = os.environ.get("PSE_SURREAL_STATE")
         if not state:
             parser.error("managed study measurement requires PSE_SURREAL_STATE")
+        args.output.mkdir(parents=True, exist_ok=False)
+        scientific_inputs.prepare_controller(
+            args.output / "scientific-inputs.json", os.environ
+        )
         from scripts import (  # noqa: PLC0415 -- selected managed placement owner
             surreal_server,
         )

@@ -2,35 +2,17 @@
 // Copyright (c) 2026 Paul Heyse
 //! Current authored parameter contracts; no copied scientific functions or full bank journey.
 use crate::specialize::Value;
-use crate::{CheckedPackage, Declaration, PhysicalScope, Result, TypeContext, check};
-use pse_ids::SemanticId;
-
-const SOURCES: &[&str] = &[
-    include_str!("../../../packages/reference/physical/models/chemistry.pse"),
-    include_str!("../../../packages/reference/physical/models/compatibility.pse"),
-    include_str!("../../../packages/reference/domain/models/provenance.pse"),
-    include_str!("../../../packages/reference/domain/models/constants.pse"),
-    include_str!("../../../packages/reference/domain/models/properties.pse"),
-    include_str!("../../../packages/reference/domain/models/interactions.pse"),
-    include_str!("../../../packages/reference/methods/models/nrtl.pse"),
-    include_str!("../../../packages/reference/methods/models/cubic.pse"),
-    include_str!("../../../packages/reference/methods/models/pcsaft-parameters.pse"),
-    include_str!("../../../packages/reference/methods/models/correlations.pse"),
-];
+use crate::{CheckedPackage, PhysicalScope, Result, TypeContext, check};
 
 fn admitted(fixture: &str) -> Result<CheckedPackage> {
-    let mut declarations: Vec<Declaration> = Vec::new();
-    for source in SOURCES.iter().copied().chain(std::iter::once(fixture)) {
-        declarations.extend(
-            pse_authoring::language::parse(
-                source,
-                SemanticId::NIL,
-                pse_authoring::language::IdentityPolicy::Named,
-                pse_authoring::ParseBudget::default(),
-            )
-            .unwrap(),
-        );
-    }
+    let source = format!(
+        "{}\n{fixture}",
+        crate::scientific_inputs::family_sources("modeling-selection")
+    );
+    let declarations = crate::scientific_inputs::parse_sources(
+        &source,
+        pse_authoring::language::IdentityPolicy::Named,
+    );
     let quantities = pse_quantity::standard::standard_registry().unwrap();
     let preconditions =
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -52,18 +34,47 @@ fn records<'a>(p: &'a CheckedPackage, context: &str) -> &'a [Value] {
     };
     records
 }
-fn failure(fixture: &str) -> String {
+fn failure(fixture: &str) -> crate::ModelingError {
     match admitted(fixture) {
         Ok(_) => panic!("expected selection refusal"),
-        Err(error) => error.to_string(),
+        Err(error) => error,
     }
 }
 
 fn refuses(fixture: &str, expected: &str) {
     let error = failure(fixture);
-    assert!(error.contains(expected), "expected {expected}: {error}");
+    assert!(
+        error.to_string().contains(expected),
+        "expected {expected}: {error}"
+    );
 }
 
+fn refuses_requirement(fixture: &str, expected: &str) {
+    let error = failure(fixture);
+    let mut cause = &error;
+    while let crate::ModelingError::Located { cause: inner, .. } = cause {
+        cause = inner;
+    }
+    let crate::ModelingError::Contract {
+        declaration,
+        reason: crate::ModelingContractReason::AuthoredRequirement { requirement },
+        ..
+    } = cause
+    else {
+        panic!("expected authored requirement: {error:?}");
+    };
+    assert_eq!(
+        *requirement,
+        pse_ids::SemanticId::parse_hex(expected).unwrap()
+    );
+    let diagnostic = error.boundary_diagnostic();
+    assert_eq!(
+        diagnostic.rule,
+        pse_diagnostics::DiagnosticRule::ModelingContract
+    );
+    assert!(diagnostic.sources.contains(declaration));
+    assert!(diagnostic.sources.contains(requirement));
+}
 const BASE: &str = r#"package selection_fixture {
 use chemistry @"1.0.0"; use compatibility @"1.0.0"; use properties @"1.0.0";
 use interactions @"1.0.0"; use provenance @"1.0.0"; use nrtl @"1.0.0";
@@ -150,7 +161,9 @@ fn same_publication_variants_are_distinct_but_conflicting_slot_selection_refuses
         .replace("roots={interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],",
                  "roots={interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],interactions.symmetric_scalar[fit_y,pair_contract,a,b],");
     assert!(
-        failure(&fixture).contains("conflicting fits or variants"),
+        failure(&fixture)
+            .to_string()
+            .contains("conflicting fits or variants"),
         "same variant number in different fits does not authorize interchangeability"
     );
 }
@@ -171,7 +184,7 @@ fn symmetric_reverse_record_and_double_orientation_refuse() {
         [b,a]=[0.1];
     }
     entity properties.property_package model"#, 1);
-    refuses(&reversed_record, "canonical orientation");
+    refuses_requirement(&reversed_record, "34dfa56b577c4281bb52d06efcc4e371");
     let fixture=BASE.replace(" [model,pair_contract,a,b]=[interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],missing];",
         " [model,pair_contract,a,b]=[interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],missing];\n [model,pair_contract,b,a]=[interactions.symmetric_scalar[fit_x,pair_contract,a,b,1],missing];");
     refuses(&fixture, "both orientations");
@@ -220,7 +233,7 @@ fn explicit_dependencies_close_and_dangling_references_refuse() {
 fn joint_fit_needs_a_declared_subsystem_projection() {
     let fixture=BASE.replace("[a,c]=[0.2]; [b,c]=[0.3];", "[a,c]=[0.2]; [b,c]=[0.3]; [c,d]=[0.4];")
         .replacen("entity properties.property_package model", "entity properties.fit_group joint {members={interactions.symmetric_scalar[fit_y,pair_contract,a,c],interactions.symmetric_scalar[fit_y,pair_contract,b,c],interactions.symmetric_scalar[fit_y,pair_contract,c,d]}}\nentity properties.property_package model",1);
-    refuses(&fixture, "declared projection");
+    refuses_requirement(&fixture, "7f10006ed33b4ae3917dd99448962fd4");
     let projected=fixture.replacen("entity properties.property_package model", r#"entity properties.permitted_projection abc {group=joint,subjects=members,records={interactions.symmetric_scalar[fit_y,pair_contract,a,c],interactions.symmetric_scalar[fit_y,pair_contract,b,c]}}
  dataset project:properties.selected_projection provenance(publication,provenance.Role.published) {[selected,joint]=[abc];}
  entity properties.property_package model"#,1);
@@ -282,7 +295,7 @@ fn record_subtype_cannot_relabel_its_owned_scientific_slot() {
     let fixture=BASE.replacen("dataset x:interactions.symmetric_scalar",r#"entity kind relabeled extends interactions.symmetric_scalar {override slot=wrong_slot;}
 fn wrong_slot(r:relabeled)->Tuple<properties.property,Tuple<chemistry.species?,chemistry.species?>,compatibility.PhaseType?,chemistry.reaction?>=tuple(r.family,tuple(r.first,r.first),missing,missing);
 dataset x:relabeled"#,1);
-    refuses(&fixture, "owned symmetric record key projection");
+    refuses_requirement(&fixture, "b8aacacc07e14203bcc23d5f8f3b2081");
 }
 
 #[test]

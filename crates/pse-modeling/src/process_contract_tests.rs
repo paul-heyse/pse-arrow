@@ -33,6 +33,33 @@ fn run(text: &str) -> Result<SpecializedModel, ModelingError> {
         Limits::default(),
     )
 }
+fn assert_contract_reason(
+    error: &ModelingError,
+    expected: crate::ModelingContractReason,
+    declaration: pse_ids::SemanticId,
+) {
+    let cause = match error {
+        ModelingError::Located { cause, .. } => cause.as_ref(),
+        other => other,
+    };
+    assert!(
+        matches!(cause, ModelingError::Contract { reason, declaration: actual, .. }
+        if *reason == expected && *actual == declaration),
+        "{error:?}"
+    );
+    let diagnostic = error.boundary_diagnostic();
+    assert_eq!(
+        diagnostic.code,
+        pse_diagnostics::DiagnosticCode::ValidationInvariant
+    );
+    assert_eq!(
+        diagnostic.rule,
+        pse_diagnostics::DiagnosticRule::ModelingContract
+    );
+    assert!(diagnostic.sources.contains(&declaration));
+    assert!(matches!(diagnostic.observations.get("reason"),
+        Some(pse_model::diagnostic::Observation::Text(reason)) if reason == expected.as_str()));
+}
 // These pure arithmetic controls author explicit values. Production consumers
 // instead resolve contextual engineering requirements through their policy owner.
 fn explicit_allowances(
@@ -378,14 +405,24 @@ fn process_contract_unannotated_children_retain_nominal_connection_contracts() {
     let text = "package p {def Unit {var x:Scalar;port inlet:Scalar=x;annotation connectivity inlet(1,0);port outlet:Scalar=x;annotation connectivity outlet(0,1);} def Root {child a=Unit();child b=Unit();connect a.outlet->b.inlet;}}";
     let model = run(text).unwrap();
     assert_eq!(model.connections.len(), 1);
-    let error = checked(&text.replace("b.inlet", "missing.inlet")).unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("unknown contextual declaration reference")
-    );
-    let error = checked(&text.replace("b.inlet", "b.missing")).unwrap_err();
-    assert!(error.to_string().contains("member"));
+    let declaration = checked(text)
+        .unwrap()
+        .declarations
+        .values()
+        .find(|row| row.value.connection.is_some())
+        .unwrap()
+        .declaration_id
+        .as_id();
+    for (replacement, reason) in [
+        (
+            "missing.inlet",
+            crate::ModelingContractReason::UnknownContextualDeclaration,
+        ),
+        ("b.missing", crate::ModelingContractReason::UnknownMember),
+    ] {
+        let error = checked(&text.replace("b.inlet", replacement)).unwrap_err();
+        assert_contract_reason(&error, reason, declaration);
+    }
 }
 
 fn connection_failure_fixture(model: &str, members: &str) -> String {
@@ -673,20 +710,29 @@ fn process_contract_connection_failure_indexed_material_selects_every_row_and_ke
 
 #[test]
 fn process_contract_connection_failure_refuses_absent_coordinate_and_wrong_arity() {
-    let absent = connection_failure_fixture(INDEXED_SCALAR_CONNECTION, "root.streams[absent]");
-    assert!(
-        run(&absent)
-            .unwrap_err()
-            .to_string()
-            .contains("coordinate outside declared membership")
-    );
-    let arity = connection_failure_fixture(INDEXED_SCALAR_CONNECTION, "root.streams[a,b]");
-    assert!(
-        run(&arity)
-            .unwrap_err()
-            .to_string()
-            .contains("member index arity differs")
-    );
+    let valid = connection_failure_fixture(INDEXED_SCALAR_CONNECTION, "root.streams[a]");
+    run(&valid).unwrap();
+    let declaration = checked(&valid)
+        .unwrap()
+        .declarations
+        .values()
+        .find(|row| row.name == "streams")
+        .unwrap()
+        .declaration_id
+        .as_id();
+    for (member, reason) in [
+        (
+            "root.streams[absent]",
+            crate::ModelingContractReason::CoordinateOutsideMembership,
+        ),
+        (
+            "root.streams[a,b]",
+            crate::ModelingContractReason::MemberIndexArity,
+        ),
+    ] {
+        let source = valid.replace("root.streams[a]", member);
+        assert_contract_reason(&run(&source).unwrap_err(), reason, declaration);
+    }
 }
 
 #[test]
@@ -1053,6 +1099,7 @@ fn process_contract_static_inline_set_tuple_and_comprehension_indices_retain_ful
 
 #[test]
 fn process_contract_finite_time_set_requires_realized_continuous_inventory_coordinates() {
+    run("package p {def Root {domain times:Time from 0{s} to 1{s};discretize grid on times using integrated(elements=1,order=1);var x[i in times]:Time;conserve stock[i in times]:Time on times inventory x[i] flux 1 tolerance 1e-6{s};}}").unwrap();
     let text = "package p {set times:Set<Time>={0{s},1{s}};def Root {var x[i in times]:Time;conserve stock[i in times]:Time on times inventory x[i] flux 1 tolerance 1e-6{s};}}";
     let package = checked(text).unwrap();
     let stock = package
@@ -1069,17 +1116,10 @@ fn process_contract_finite_time_set_requires_realized_continuous_inventory_coord
         Limits::default(),
     )
     .unwrap_err();
-    let ModelingError::Contract {
-        declaration,
-        message,
-    } = error
-    else {
-        panic!("unexpected finite-set refusal: {error}");
-    };
-    assert_eq!(declaration, stock.into());
-    assert!(
-        message.contains("realized continuous coordinate"),
-        "{message}"
+    assert_contract_reason(
+        &error,
+        crate::ModelingContractReason::ContinuousCoordinateRequired,
+        stock.as_id(),
     );
 }
 
@@ -1089,22 +1129,35 @@ fn process_contract_inventory_event_transfer_requires_a_local_numeric_guard_memb
     for event in ["hit[0{s}]=1{s}", "hit[i]=1{s}"] {
         checked(&source.replace("EVENT", event)).unwrap();
     }
-    for (event, diagnostic) in [
+    let valid = source.replace("EVENT", "hit[0{s}]=1{s}");
+    let declaration = checked(&valid)
+        .unwrap()
+        .declarations
+        .values()
+        .find(|row| row.name == "stock")
+        .unwrap()
+        .declaration_id
+        .as_id();
+    for (event, reason) in [
         (
             "root.hit[0{s}]=1{s}",
-            "unknown contextual declaration reference",
+            crate::ModelingContractReason::UnknownContextualDeclaration,
         ),
-        ("hit[0{s}]+1{s}=1{s}", "requires a member path"),
-        ("flag=1{s}", "physical numeric member"),
+        (
+            "hit[0{s}]+1{s}=1{s}",
+            crate::ModelingContractReason::ContextualMemberPathRequired,
+        ),
+        (
+            "flag=1{s}",
+            crate::ModelingContractReason::PhysicalNumericGuardRequired,
+        ),
         (
             "hit[0{s}]=1{s},hit[0 {s}]=1{s}",
-            "duplicate inventory event transfer",
+            crate::ModelingContractReason::DuplicateInventoryEventTransfer,
         ),
     ] {
-        let error = checked(&source.replace("EVENT", event))
-            .unwrap_err()
-            .to_string();
-        assert!(error.contains(diagnostic), "{event}: {error}");
+        let error = checked(&source.replace("EVENT", event)).unwrap_err();
+        assert_contract_reason(&error, reason, declaration);
     }
 }
 

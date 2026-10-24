@@ -316,8 +316,9 @@ impl Engine<'_, '_> {
 
     pub(super) fn coordinate_mesh(&self, value: &Value) -> Result<(&Mesh, usize)> {
         let Value::Coordinate { id, .. } = value else {
-            return Err(invalid(
+            return Err(crate::invalid_reason(
                 SemanticId::NIL,
+                crate::ModelingContractReason::ContinuousCoordinateRequired,
                 "derivative requires a realized continuous coordinate",
             ));
         };

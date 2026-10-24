@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -13,7 +14,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import case_measure, surreal_server, test_resources, validation
+from scripts import (
+    case_measure,
+    scientific_inputs,
+    surreal_server,
+    test_resources,
+    validation,
+)
 from scripts.validation_scope import Gate
 
 
@@ -38,6 +45,13 @@ class CaseMeasurementTests(unittest.TestCase):
                 }
             ],
         }
+
+    @staticmethod
+    def capture(destination: Path, _environment: dict) -> Path:
+        destination.write_text(
+            json.dumps({"schema": "scientific-inputs-v1", "files": {}, "families": {}})
+        )
+        return destination
 
     def consume(self, report: dict) -> dict | None:
         path = self.root / "checks.json"
@@ -204,6 +218,9 @@ class CaseMeasurementTests(unittest.TestCase):
             if command_exit
             else "import os, pathlib\n"
             "output = pathlib.Path(os.environ['PSE_PROCESS_COST_OUTPUT'])\n"
+            "capsule = pathlib.Path(os.environ['PSE_SCIENTIFIC_INPUTS'])\n"
+            "assert capsule.is_file()\n"
+            "(output / 'scientific-input-role').write_text(str(capsule))\n"
             "case = os.environ['PSE_PROCESS_COST_CASE']\n"
             "(output / (case + '-memory.json')).write_text('{\"pool_peak_bytes\": 64}')\n"
             "csv = output / 'criterion/process' / case / 'new/raw.csv'\n"
@@ -221,6 +238,10 @@ class CaseMeasurementTests(unittest.TestCase):
         )
         output = self.root / "measurement"
         with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(
+                scientific_inputs, "capture", side_effect=self.capture
+            ) as captured,
             patch.object(case_measure, "ROOT", self.root),
             patch.object(
                 sys, "argv", ["case_measure", str(output), "--case", workload["id"]]
@@ -255,6 +276,7 @@ class CaseMeasurementTests(unittest.TestCase):
             self.assertIn(
                 "native-process,pse-relations/force-validate", build.call_args.args[0]
             )
+            captured.assert_called_once()
         return output
 
     def test_real_case_runs_without_reference_and_records_changing_conditions(
@@ -265,6 +287,10 @@ class CaseMeasurementTests(unittest.TestCase):
         self.assertTrue(report["measured"])
         self.assertIsNone(report["functional"])
         self.assertEqual(report["selected_cases"], ["cold-small-1"])
+        self.assertEqual(
+            (output / "process-cost/cold-small-1/scientific-input-role").read_text(),
+            str(output / "scientific-inputs.json"),
+        )
         self.assertEqual(report["cases"][0]["criterion_statistics"]["sample_count"], 2)
         self.assertEqual(report["source_changes_during_measurement"], ["Cargo.lock"])
         self.assertEqual(
@@ -281,6 +307,73 @@ class CaseMeasurementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "at least two"):
             self.run_measurement(rows="100,ns,2\n")
         self.assertFalse((self.root / "measurement/case-measure.json").exists())
+
+    def test_smoke_prepares_once_before_placement_and_binds_every_process(self) -> None:
+        process = {"workloads": [{"id": "first"}, {"id": "second"}]}
+        artifact = json.dumps(
+            {
+                "reason": "compiler-artifact",
+                "target": {"name": "native_process"},
+                "executable": "/benchmark",
+            }
+        )
+        prepared = self.root / "scientific-inputs.json"
+
+        def placement(binary: str, mode: str, _workload: dict) -> list[str]:
+            self.assertTrue(prepared.is_file())
+            return [binary, mode]
+
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(
+                scientific_inputs, "capture", side_effect=self.capture
+            ) as captured,
+            patch(
+                "scripts.arrow_validation.compose", side_effect=lambda command: command
+            ),
+            patch.object(
+                case_measure,
+                "build_benchmark",
+                return_value=subprocess.CompletedProcess([], 0, stdout=artifact),
+            ),
+            patch.object(case_measure, "process_command", side_effect=placement),
+            patch.object(
+                case_measure.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0),
+            ) as run,
+        ):
+            case_measure.smoke_campaign(
+                self.root, "dev", process, {"workloads": []}, {"first", "second"}
+            )
+            self.assertNotIn(scientific_inputs.ROLE, os.environ)
+        captured.assert_called_once()
+        self.assertEqual(run.call_count, 2)
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs["env"][scientific_inputs.ROLE], str(prepared))
+
+    def test_smoke_refuses_invalid_supplied_capsule_before_build_or_placement(
+        self,
+    ) -> None:
+        supplied = self.root / "supplied.json"
+        supplied.write_text('{"schema":"other"}')
+        with (
+            patch.dict(os.environ, {scientific_inputs.ROLE: str(supplied)}, clear=True),
+            patch.object(scientific_inputs, "capture") as captured,
+            patch.object(case_measure, "build_benchmark") as build,
+            patch.object(case_measure, "process_command") as placed,
+            self.assertRaises(ValueError),
+        ):
+            case_measure.smoke_campaign(
+                self.root,
+                "dev",
+                {"workloads": [{"id": "selected"}]},
+                {"workloads": []},
+                {"selected"},
+            )
+        captured.assert_not_called()
+        build.assert_not_called()
+        placed.assert_not_called()
 
     def test_invocations_are_separate_from_measured_samples_and_keep_unknown_work(
         self,

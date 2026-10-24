@@ -1,0 +1,376 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# One authored-root/projection owner. Dependency and membership edges are derived.
+version = 1
+package_inventory = "packages/reference"
+
+[[families]]
+name = "bounded-reference"
+roots = [
+  "packages/reference/domain",
+  "packages/reference/thermodynamics",
+  "packages/reference/seed-data",
+  "packages/reference/methods",
+  "packages/reference/data/species",
+  "packages/reference/physical",
+  "packages/reference/data/ciaaw",
+  "packages/reference/process",
+  "packages/reference/data/oracles/idaes-2.13",
+  "packages/reference/data/references",
+]
+documents = [
+  "packages/reference/domain/models/numerical-policy.pse",
+  "packages/reference/thermodynamics/models/aqueous.pse",
+  "packages/reference/seed-data/models/bt-ideal.pse",
+  "packages/reference/seed-data/models/bt-pr.pse",
+  "packages/reference/methods/models/caloric.pse",
+  "packages/reference/seed-data/models/caloric.pse",
+  "packages/reference/data/species/models/catalogue.pse",
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/data/ciaaw/models/catalogue.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/process/models/control-volumes.pse",
+  "packages/reference/process/models/separator.pse",
+  "packages/reference/methods/models/correlations.pse",
+  "packages/reference/methods/models/cubic.pse",
+  "packages/reference/process/models/control-volume-1d.pse",
+  "packages/reference/seed-data/models/eos-data.pse",
+  "packages/reference/thermodynamics/models/equilibrium.pse",
+  "packages/reference/process/models/heat-exchanger.pse",
+  "packages/reference/process/models/homogeneous-units.pse",
+  "packages/reference/thermodynamics/models/phase-stability.pse",
+  "packages/reference/thermodynamics/models/helmholtz.pse",
+  "packages/reference/thermodynamics/models/ideal-caloric-state.pse",
+  "packages/reference/process/models/pressure-changer.pse",
+  "packages/reference/seed-data/models/pressure-fixtures.pse",
+  "packages/reference/data/oracles/idaes-2.13/models/parameters.pse",
+  "packages/reference/domain/models/interactions.pse",
+  "packages/reference/physical/models/kinds.pse",
+  "packages/reference/physical/models/math.pse",
+  "packages/reference/thermodynamics/models/nested-equilibrium.pse",
+  "packages/reference/thermodynamics/models/peng-robinson.pse",
+  "packages/reference/seed-data/models/phase-data.pse",
+  "packages/reference/thermodynamics/models/pr-equilibrium.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/methods/models/pure-properties.pse",
+  "packages/reference/methods/models/reaction-forms.pse",
+  "packages/reference/thermodynamics/models/reactions.pse",
+  "packages/reference/process/models/reactors.pse",
+  "packages/reference/data/references/models/references.pse",
+  "packages/reference/seed-data/models/saponification.pse",
+  "packages/reference/process/models/delta-t.pse",
+  "packages/reference/process/models/units.pse",
+  "packages/reference/process/models/vessels.pse",
+]
+consumers = ["pse-compiler", "pse-runtime"]
+projection = "synthetic-declarations"
+substitutions = ["tests/fixtures/scientific/transfer-parameters.pse"]
+
+[[families]]
+name = "recycle-reference"
+roots = ["packages/reference/process", "packages/reference/campaign"]
+documents = [
+  "packages/reference/process/models/mixer.pse",
+  "packages/reference/process/models/flash.pse",
+  "packages/reference/campaign/models/references.pse",
+  "packages/reference/campaign/models/recycle-flash.pse",
+]
+consumers = ["pse-runtime"]
+projection = "synthetic-declarations"
+substitutions = []
+extends = "bounded-reference"
+
+[[families]]
+name = "reaction"
+roots = [
+  "packages/reference/domain",
+  "packages/reference/thermodynamics",
+  "packages/reference/methods",
+  "packages/reference/data/species",
+  "packages/reference/physical",
+  "packages/reference/data/ciaaw",
+  "packages/reference/process",
+  "packages/reference/data/references",
+  "packages/reference/seed-data",
+]
+documents = [
+  "packages/reference/domain/models/numerical-policy.pse",
+  "packages/reference/thermodynamics/models/aqueous.pse",
+  "packages/reference/methods/models/caloric.pse",
+  "packages/reference/data/species/models/catalogue.pse",
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/data/ciaaw/models/catalogue.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/process/models/control-volumes.pse",
+  "packages/reference/methods/models/correlations.pse",
+  "packages/reference/process/models/control-volume-1d.pse",
+  "packages/reference/thermodynamics/models/equilibrium.pse",
+  "packages/reference/thermodynamics/models/helmholtz.pse",
+  "packages/reference/physical/models/kinds.pse",
+  "packages/reference/physical/models/math.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/methods/models/pure-properties.pse",
+  "packages/reference/methods/models/reaction-forms.pse",
+  "packages/reference/thermodynamics/models/reactions.pse",
+  "packages/reference/process/models/reactors.pse",
+  "packages/reference/data/references/models/references.pse",
+  "packages/reference/seed-data/models/saponification.pse",
+]
+consumers = ["pse-compiler"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "parameter"
+roots = [
+  "packages/reference/physical",
+  "packages/reference/domain",
+  "packages/reference/methods",
+]
+documents = [
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/interactions.pse",
+  "packages/reference/methods/models/nrtl.pse",
+  "packages/reference/methods/models/cubic.pse",
+]
+consumers = ["pse-compiler"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "potential"
+roots = [
+  "packages/reference/domain",
+  "packages/reference/physical",
+  "packages/reference/methods",
+  "packages/reference/data/references",
+  "packages/reference/thermodynamics",
+  "packages/reference/seed-data",
+]
+documents = [
+  "packages/reference/domain/models/numerical-policy.pse",
+  "packages/reference/physical/models/kinds.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/interactions.pse",
+  "packages/reference/methods/models/caloric.pse",
+  "packages/reference/methods/models/pure-properties.pse",
+  "packages/reference/methods/models/cubic.pse",
+  "packages/reference/methods/models/pcsaft-parameters.pse",
+  "packages/reference/methods/models/nrtl.pse",
+  "packages/reference/data/references/models/references.pse",
+  "packages/reference/thermodynamics/models/helmholtz.pse",
+  "packages/reference/thermodynamics/models/peng-robinson.pse",
+  "packages/reference/thermodynamics/models/pcsaft.pse",
+  "packages/reference/seed-data/models/pr-oracle.pse",
+]
+consumers = ["pse-compiler"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "selection"
+roots = ["packages/reference/physical", "packages/reference/domain"]
+documents = [
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/interactions.pse",
+]
+consumers = ["pse-compiler"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "costing"
+roots = [
+  "packages/reference/physical",
+  "packages/reference/domain",
+  "packages/reference/data/references",
+  "packages/reference/process",
+  "packages/reference/seed-data",
+]
+documents = [
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/domain/models/numerical-policy.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/data/references/models/references.pse",
+  "packages/reference/process/models/costing.pse",
+  "packages/reference/seed-data/models/sslw.pse",
+]
+consumers = ["pse-compiler"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "modeling-selection"
+roots = [
+  "packages/reference/physical",
+  "packages/reference/domain",
+  "packages/reference/methods",
+]
+documents = [
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/interactions.pse",
+  "packages/reference/methods/models/nrtl.pse",
+  "packages/reference/methods/models/cubic.pse",
+  "packages/reference/methods/models/pcsaft-parameters.pse",
+  "packages/reference/methods/models/correlations.pse",
+]
+consumers = ["pse-modeling"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "composition"
+roots = ["packages/reference/physical", "packages/reference/domain"]
+documents = [
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/domain/models/provenance.pse",
+]
+consumers = ["pse-modeling"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "source-attribution"
+roots = [
+  "packages/reference/physical",
+  "packages/reference/thermodynamics",
+  "packages/reference/campaign",
+]
+documents = [
+  "packages/reference/physical/models/math.pse",
+  "packages/reference/thermodynamics/models/peng-robinson.pse",
+  "packages/reference/campaign/models/cstr-dynamics.pse",
+  "packages/reference/campaign/models/flash-diagnostics.pse",
+]
+consumers = ["pse-modeling"]
+projection = "parser-fields"
+substitutions = []
+
+[[families]]
+name = "gdp-runtime"
+roots = [
+  "packages/reference/seed-data",
+  "packages/reference/data/references",
+  "packages/reference/domain",
+  "packages/reference/physical",
+]
+documents = [
+  "packages/reference/seed-data/models/gdp.pse",
+  "packages/reference/data/references/models/references.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/domain/models/numerical-policy.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/physical/models/compatibility.pse",
+]
+consumers = ["pse-runtime"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "milp-runtime"
+roots = [
+  "packages/reference/seed-data",
+  "packages/reference/data/references",
+  "packages/reference/domain",
+  "packages/reference/physical",
+]
+documents = [
+  "packages/reference/seed-data/models/price-taker.pse",
+  "packages/reference/data/references/models/references.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/domain/models/numerical-policy.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/physical/models/compatibility.pse",
+]
+consumers = ["pse-runtime"]
+projection = "declarations"
+substitutions = []
+
+[[families]]
+name = "parity"
+roots = [
+  "packages/reference/data/references",
+  "packages/reference/process",
+  "packages/reference/thermodynamics",
+  "packages/reference/methods",
+  "packages/reference/domain",
+  "packages/reference/physical",
+]
+documents = []
+consumers = ["pse-py"]
+projection = "authentic-transport"
+substitutions = []
+
+[[families]]
+name = "conformance"
+roots = []
+documents = []
+consumers = ["pse-tests-conformance", "pse-py"]
+projection = "authentic-transport"
+substitutions = []
+manifest = "packages/reference/conformance.toml"
+
+[[families]]
+name = "seed-transport"
+roots = ["packages/reference/seed-data"]
+documents = []
+consumers = ["pse-py", "pse-tests-conformance", "pse-benches"]
+projection = "authentic-transport"
+
+[[families]]
+name = "campaign-transport"
+roots = ["packages/reference/campaign"]
+documents = []
+consumers = ["pse-py", "pse-tests-conformance", "pse-benches"]
+projection = "authentic-transport"
+
+[[families]]
+name = "process-reference"
+extends = "bounded-reference"
+roots = ["packages/reference/process"]
+documents = ["packages/reference/process/models/mixer.pse"]
+consumers = ["pse-compiler"]
+
+[[families]]
+name = "authored-math"
+roots = ["packages/reference/physical"]
+documents = [
+  "packages/reference/physical/models/math.pse",
+  "packages/reference/physical/models/kinds.pse",
+]
+consumers = ["pse-compiler"]
+
+[[families]]
+name = "recycle-declaration"
+roots = ["packages/reference/campaign"]
+documents = ["packages/reference/campaign/models/recycle-flash.pse"]
+projection = "parser-fields"
+consumers = ["pse-compiler"]

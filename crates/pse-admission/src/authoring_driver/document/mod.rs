@@ -4,6 +4,7 @@
 //! Bounded package documents retain parser-derived byte spans before typed DTO decoding.
 
 mod allocation;
+mod capture;
 mod data;
 mod decode;
 mod edit;
@@ -14,6 +15,7 @@ mod read;
 mod spans;
 mod value;
 
+pub use capture::{CapturedPackage, capture_package};
 pub use spans::{DocPath, SpanIndex};
 
 pub use data::{UNIT_METADATA, decode_selected_data};

@@ -5,6 +5,8 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import signal
 import subprocess
@@ -16,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import native_operation, test_run
+from scripts import native_operation, native_tests, scientific_inputs, test_run
 from scripts import resource_store as files
 from scripts import test_resources as resources
 
@@ -535,7 +537,7 @@ class TerminalComposerTests(unittest.TestCase):
             [
                 "import os,sys",
                 "from pathlib import Path",
-                "from scripts import native_operation, test_run",
+                "from scripts import native_operation, native_tests, scientific_inputs, test_run",
                 # This control owns a real process tree without a systemd scope.
                 "native_operation.scope_owner=lambda **_options:None",
                 "native_operation.cancel_foreground_handoffs=lambda **_options:None",
@@ -585,6 +587,262 @@ class TerminalComposerTests(unittest.TestCase):
             if parent.poll() is None:
                 parent.kill()
                 parent.communicate(timeout=3)
+
+
+class OrdinaryRustScientificInputTests(unittest.TestCase):
+    """Exercise ordinary execution independently of native observer preparation."""
+
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.environment = {
+            "PSE_TEST_RESOURCE_STATE": str(self.root / "registry"),
+            "RUST_MIN_STACK": str(16 << 20),
+        }
+        selected = patch.dict(os.environ, self.environment, clear=True)
+        selected.start()
+        self.addCleanup(selected.stop)
+        self.events: list[str] = []
+        self.captured: Path | None = None
+        self.capsule = {
+            "schema": "scientific-inputs-v1",
+            "files": {"packages/reference/unit/models/law.pse": list(b"captured law")},
+            "families": {
+                "control": {
+                    "packages": ["packages/reference/unit"],
+                    "documents": ["packages/reference/unit/models/law.pse"],
+                    "substitutions": [],
+                    "projection": "declarations",
+                }
+            },
+            "directories": {},
+            "package_headers": [],
+        }
+
+    def inventory(
+        self, package: str = "pse-compiler", *, selected: bool = True
+    ) -> dict:
+        return {
+            "rust-suites": {
+                "control": {
+                    "binary-id": f"{package}::lib",
+                    "binary-path": "/prebuilt/control",
+                    "testcases": {
+                        "scientific_control": {
+                            "filter-match": {
+                                "status": "matches" if selected else "mismatch",
+                            }
+                        }
+                    },
+                }
+            }
+        }
+
+    def listing(self, inventory: dict):
+        def enumerate_tests(
+            command: list[str], **_kwargs: object
+        ) -> subprocess.CompletedProcess:
+            self.events.append("enumerate")
+            self.assertEqual(command[:3], ["cargo", "nextest", "list"])
+            return subprocess.CompletedProcess(command, 0, json.dumps(inventory), "")
+
+        return enumerate_tests
+
+    def capture(self, destination: Path, environment: dict) -> Path:
+        self.assertEqual(self.events, ["enumerate"])
+        self.assertNotIn(scientific_inputs.ROLE, environment)
+        self.events.append("capture")
+        destination.write_text(json.dumps(self.capsule))
+        self.captured = destination.resolve()
+        return self.captured
+
+    def test_fresh_selected_consumer_captures_once_before_execution_and_binds_child(
+        self,
+    ) -> None:
+        def execute(
+            path: Path,
+            _command: list[str],
+            environment: dict,
+            _report: Path,
+            **kwargs: object,
+        ) -> int:
+            self.assertEqual(self.events, ["enumerate", "capture"])
+            self.events.append("execute")
+            self.assertEqual(self.captured, path.with_suffix(".scientific.json"))
+            self.assertEqual(environment[scientific_inputs.ROLE], str(self.captured))
+            self.assertEqual(environment[resources.MARKER], str(path))
+            self.assertEqual(scientific_inputs.read(self.captured), self.capsule)
+            self.assertEqual(
+                kwargs["details"],
+                {
+                    "scientific_inputs": {
+                        "path": str(self.captured),
+                        "sha256": hashlib.sha256(
+                            self.captured.read_bytes()
+                        ).hexdigest(),
+                    }
+                },
+            )
+            self.assertEqual(
+                kwargs["selected"],
+                [{"class": "pse-compiler::lib", "name": "scientific_control"}],
+            )
+            return 7
+
+        with (
+            patch.object(
+                test_run.subprocess, "run", side_effect=self.listing(self.inventory())
+            ) as listed,
+            patch.object(
+                scientific_inputs, "capture", side_effect=self.capture
+            ) as captured,
+            patch.object(test_run, "execute_selected", side_effect=execute),
+            patch.object(
+                test_run.subprocess,
+                "call",
+                side_effect=AssertionError("uncomposed execution"),
+            ),
+        ):
+            self.assertEqual(
+                test_run.run_rust(
+                    ["cargo", "nextest", "run", "-p", "pse-compiler"],
+                    env=self.environment,
+                    effects="native-local",
+                ),
+                7,
+            )
+        listed.assert_called_once()
+        captured.assert_called_once()
+        self.assertEqual(self.events, ["enumerate", "capture", "execute"])
+        self.assertNotIn(scientific_inputs.ROLE, self.environment)
+
+    def test_unselected_or_unrelated_science_consumer_never_captures(self) -> None:
+        for inventory in (self.inventory("pse-ids"), self.inventory(selected=False)):
+            with (
+                self.subTest(inventory=inventory),
+                patch.object(
+                    test_run.subprocess, "run", side_effect=self.listing(inventory)
+                ),
+                patch.object(
+                    scientific_inputs,
+                    "capture",
+                    side_effect=AssertionError("unselected capture"),
+                ) as captured,
+                patch.object(test_run, "execute_selected", return_value=0) as execute,
+            ):
+                self.assertEqual(
+                    test_run.run_rust(
+                        ["cargo", "nextest", "run"],
+                        env=self.environment,
+                        effects="native-local",
+                    ),
+                    0,
+                )
+            captured.assert_not_called()
+            self.assertNotIn(scientific_inputs.ROLE, execute.call_args.args[2])
+            self.assertIsNone(execute.call_args.kwargs["details"])
+
+    def test_retained_inventory_uses_prepared_input_without_listing_or_recapture(
+        self,
+    ) -> None:
+        capsule = self.root / "retained.json"
+        capsule.write_text(json.dumps(self.capsule))
+        inventory = self.inventory()
+        environment = {**self.environment, scientific_inputs.ROLE: str(capsule)}
+        command = [
+            "cargo",
+            "nextest",
+            "run",
+            "--binaries-metadata",
+            "/retained/binaries.json",
+            "--cargo-metadata",
+            "/retained/cargo.json",
+        ]
+
+        def validate_prepared(
+            arguments: list[str], actual_environment: dict, *, inventory: dict
+        ) -> dict:
+            self.assertEqual(arguments, command[3:])
+            self.assertEqual(
+                actual_environment,
+                environment | {test_run.EXECUTION_EFFECTS: "native-local"},
+            )
+            self.assertEqual(inventory, self.inventory())
+            return inventory
+
+        with (
+            patch.object(
+                native_tests, "prepared_rust_inventory", side_effect=validate_prepared
+            ) as prepared,
+            patch.object(
+                test_run.subprocess, "run", side_effect=AssertionError("re-enumeration")
+            ) as listed,
+            patch.object(
+                scientific_inputs, "capture", side_effect=AssertionError("recapture")
+            ) as captured,
+            patch.object(test_run, "execute_selected", return_value=0) as execute,
+        ):
+            self.assertEqual(
+                test_run.run_rust(
+                    command,
+                    env=environment,
+                    inventory=inventory,
+                    effects="native-local",
+                ),
+                0,
+            )
+        prepared.assert_called_once()
+        listed.assert_not_called()
+        captured.assert_not_called()
+        self.assertEqual(
+            execute.call_args.args[2][scientific_inputs.ROLE], str(capsule)
+        )
+        self.assertEqual(
+            execute.call_args.kwargs["details"]["scientific_inputs"]["sha256"],
+            hashlib.sha256(capsule.read_bytes()).hexdigest(),
+        )
+
+    def test_inherited_direct_child_captures_before_uncomposed_subprocess(self) -> None:
+        inventory = self.inventory()
+        path = resources.invocation("rust", test_run.rust_selected(inventory))
+        environment = {**self.environment, resources.MARKER: str(path)}
+
+        def child(_command: list[str], **kwargs: object) -> int:
+            self.assertEqual(self.events, ["enumerate", "capture"])
+            self.events.append("child")
+            self.assertEqual(
+                kwargs["env"][scientific_inputs.ROLE],
+                str(path.with_suffix(".scientific.json")),
+            )
+            self.assertEqual(
+                scientific_inputs.read(Path(kwargs["env"][scientific_inputs.ROLE])),
+                self.capsule,
+            )
+            return 9
+
+        with (
+            patch.object(
+                test_run.subprocess, "run", side_effect=self.listing(inventory)
+            ),
+            patch.object(
+                scientific_inputs, "capture", side_effect=self.capture
+            ) as captured,
+            patch.object(test_run.subprocess, "call", side_effect=child),
+            patch.object(
+                test_run,
+                "execute_selected",
+                side_effect=AssertionError("duplicate composer"),
+            ),
+        ):
+            self.assertEqual(
+                test_run.run_rust(
+                    ["cargo", "nextest", "run"], env=environment, effects="native-local"
+                ),
+                9,
+            )
+        captured.assert_called_once()
+        self.assertEqual(self.events, ["enumerate", "capture", "child"])
 
 
 if __name__ == "__main__":

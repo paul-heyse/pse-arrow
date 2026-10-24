@@ -81,6 +81,71 @@ def pytest_sessionstart() -> None:
             raise pytest.UsageError(message)
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Refuse a durable fixture dependency before a local consumer can allocate."""
+    for item in items:
+        fixtures = getattr(item, "fixturenames", ())
+        if "no_canonical_allocation" in fixtures and "canonical_substrate" in fixtures:
+            raise pytest.UsageError(
+                f"{item.nodeid}: local-only consumer requests canonical_substrate"
+            )
+
+
+def _forbid_canonical_allocation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fail at allocation boundaries while exercising a local-only consumer."""
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("local-only consumer attempted canonical allocation", pytrace=False)
+
+    for owner, name in (
+        (test_resources, "register"),
+        (surreal_server, "register_context"),
+        (surreal_server, "ready"),
+        (surreal_server, "start"),
+        (surreal_server, "config_for"),
+        (pse.Runtime, "initialize_database"),
+        (CanonicalFixture, "__init__"),
+    ):
+        monkeypatch.setattr(owner, name, forbidden)
+
+
+@pytest.fixture
+def no_canonical_allocation(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Prove the actual fixture closure and execution need no canonical owner."""
+    assert "canonical_substrate" not in request.fixturenames
+    assert all(
+        marker.kwargs.get("name") != "canonical-owner"
+        for marker in request.node.iter_markers("xdist_group")
+    )
+    _forbid_canonical_allocation(monkeypatch)
+
+
+@pytest.fixture(scope="session")
+def admitted_study_module() -> str:
+    """Capture immutable module evidence without opening a database or context.
+
+    study_module authenticates retained immutable artifact bytes and their selected
+    server builder identity. Live server-generation admission is a separate effect;
+    this local constructor control does not open it. Missing evidence fails setup.
+    JSON text prevents later tests from mutating this session-owned preparation.
+    """
+    selected = os.environ.get("PSE_SURREAL_STATE")
+    if selected is None:
+        pytest.fail(
+            "Module admission requires an explicit supervised PSE_SURREAL_STATE.",
+            pytrace=False,
+        )
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        _forbid_canonical_allocation(monkeypatch)
+        config = surreal_server.read_json(
+            Path(selected).resolve(strict=True) / "config.json"
+        )
+        module = surreal_server.study_module(config)
+    return json.dumps(module)
+
+
 @pytest.fixture
 def canonical_substrate(
     request: pytest.FixtureRequest,

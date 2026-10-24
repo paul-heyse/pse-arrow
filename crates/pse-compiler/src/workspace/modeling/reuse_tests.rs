@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Counted controls on the actual admitted-package production route.
+use super::test_observation::{BodyObservations, Query, observed_workspace};
 use super::*;
 use std::sync::atomic::AtomicUsize;
 fn rows(text: &str) -> Vec<Declaration> {
@@ -29,18 +30,11 @@ fn prepare(
 }
 #[test]
 fn complete_body_queries_reuse_unrelated_math_and_refresh_revision_attribution() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let event = Box::new(move |event: salsa::Event| {
-        let event = format!("{:?}", event.kind);
-        if event.contains("WillExecute") && event.contains("semantic_body") {
-            observed.fetch_add(1, Ordering::Relaxed);
-        }
-    });
-    let mut workspace = CompilerWorkspace::with_events(
+    let executions = BodyObservations::new();
+    let _entered = executions.enter();
+    let mut workspace = CompilerWorkspace::new(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(event),
     )
     .unwrap();
     let text = "package p { def Root { var x: Scalar; eq a: x*x == 1; eq b: x == 2; } }";
@@ -55,13 +49,13 @@ fn complete_body_queries_reuse_unrelated_math_and_refresh_revision_attribution()
         .unwrap();
     let a = prepare(&mut workspace, root, Bindings::default());
     let original_occurrences = a.occurrences();
-    let first = executions.load(Ordering::Relaxed);
+    let first = executions.admissions();
     assert!(first > 0);
     workspace
         .publish_modeling(rows(&format!("\n\n{text}")), PhysicalScope::default())
         .unwrap();
     let shifted = prepare(&mut workspace, root, Bindings::default());
-    assert_eq!(executions.load(Ordering::Relaxed), first);
+    assert_eq!(executions.admissions(), first);
     assert_ne!(a.occurrences(), shifted.occurrences());
     for (key, body) in &a.admitted.bodies {
         assert!(Arc::ptr_eq(&body.math, &shifted.admitted.bodies[key].math));
@@ -80,7 +74,7 @@ fn complete_body_queries_reuse_unrelated_math_and_refresh_revision_attribution()
         .filter(|key| !a.admitted.bodies.contains_key(*key))
         .count();
     assert!(changed_bodies > 0);
-    assert_eq!(executions.load(Ordering::Relaxed), first + changed_bodies);
+    assert_eq!(executions.admissions(), first + changed_bodies);
     assert!(a.admitted.bodies.iter().any(|(key, body)| {
         changed
             .admitted
@@ -89,6 +83,20 @@ fn complete_body_queries_reuse_unrelated_math_and_refresh_revision_attribution()
             .is_some_and(|next| Arc::ptr_eq(&body.math, &next.math))
     }));
     assert_eq!(a.occurrences(), original_occurrences);
+    assert_eq!(executions.completed(), executions.admissions());
+    let mut fresh = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
+    fresh
+        .publish_modeling(
+            rows(&text.replace("x*x == 1", "x*x == 3")),
+            PhysicalScope::default(),
+        )
+        .unwrap();
+    let independent = prepare(&mut fresh, root, Bindings::default());
+    assert_eq!(changed.admitted.as_ref(), independent.admitted.as_ref());
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        &changed.admitted,
+        &independent.admitted
+    ));
 }
 #[test]
 fn immutable_binding_inputs_allow_a_b_a_and_more_selections_than_old_root_cap() {
@@ -447,20 +455,6 @@ fn publish_frontier_source(workspace: &mut CompilerWorkspace, text: &str) -> Dec
     root
 }
 
-fn counting_frontier_workspace(executions: Arc<AtomicUsize>) -> CompilerWorkspace {
-    CompilerWorkspace::with_events(
-        crate::authored_transfer_tests::context(),
-        WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") && event.contains("semantic_body") {
-                executions.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap()
-}
-
 #[derive(Debug, Default)]
 struct PureFrontierRetention {
     bodies: std::sync::Mutex<BTreeMap<pse_ids::roles::SemanticBodyHash, Arc<AdmittedBody>>>,
@@ -492,9 +486,14 @@ impl ModelingBodyRetention for PureFrontierRetention {
 
 #[test]
 fn owned_frontier_plans_before_body_retention_and_completes_the_same_requests() {
-    let executions = Arc::new(AtomicUsize::new(0));
+    let executions = BodyObservations::new();
+    let _entered = executions.enter();
     let retention = Arc::new(PureFrontierRetention::default());
-    let mut workspace = counting_frontier_workspace(executions.clone());
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
     workspace.attach_body_retention(retention.clone()).unwrap();
     let root = publish_frontier_source(
         &mut workspace,
@@ -504,7 +503,7 @@ fn owned_frontier_plans_before_body_retention_and_completes_the_same_requests() 
     let requests = frontier.body_requests().collect::<BTreeSet<_>>();
     assert!(!requests.is_empty());
     assert!(frontier.retained_bytes() > 0);
-    assert_eq!(executions.load(Ordering::Relaxed), 0);
+    assert_eq!(executions.admissions(), 0);
     assert_eq!(retention.gets.load(Ordering::Relaxed), 0);
     assert_eq!(retention.retains.load(Ordering::Relaxed), 0);
     let completed = workspace
@@ -515,7 +514,7 @@ fn owned_frontier_plans_before_body_retention_and_completes_the_same_requests() 
         .map(|body| body.semantic_identity().unwrap())
         .collect::<BTreeSet<_>>();
     assert_eq!(identities, requests);
-    assert_eq!(executions.load(Ordering::Relaxed), requests.len());
+    assert_eq!(executions.admissions(), requests.len());
     assert_eq!(retention.retains.load(Ordering::Relaxed), requests.len());
     let again = workspace
         .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
@@ -523,9 +522,9 @@ fn owned_frontier_plans_before_body_retention_and_completes_the_same_requests() 
     assert_eq!(again.admitted.case(), completed.admitted.case());
     assert_eq!(again.portable_bodies().count(), requests.len());
     assert_eq!(
-        executions.load(Ordering::Relaxed),
+        executions.admissions(),
         requests.len(),
-        "body memos hit without losing the portable inventory"
+        "repeated completion admits no new bodies and preserves the portable inventory"
     );
     let ordinary = workspace
         .admit_modeling(
@@ -605,8 +604,13 @@ fn owned_frontier_survives_rotation_and_completion_in_an_independent_workspace()
 
 #[test]
 fn owned_frontier_inventory_includes_promoted_original_and_retains_direct_implicit_bodies() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let mut workspace = counting_frontier_workspace(executions.clone());
+    let executions = BodyObservations::new();
+    let _entered = executions.enter();
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
     let root = publish_frontier_source(
         &mut workspace,
         "package p { def Root { param p:Scalar=2; implicit a { var selected_value:Scalar; eq selected:selected_value==p; annotation start selected_value(1); annotation bounds selected_value(0,4); } realize ra on a using nested; var y:Scalar; eq e:y==a.selected_value; } }",
@@ -614,9 +618,9 @@ fn owned_frontier_inventory_includes_promoted_original_and_retains_direct_implic
     let frontier = plan_frontier(&mut workspace, root);
     let requests = frontier.body_requests().collect::<BTreeSet<_>>();
     assert_eq!(
-        executions.load(Ordering::Relaxed),
+        executions.admissions(),
         0,
-        "only existing direct implicit admission occurs during planning"
+        "planning performs no grouped semantic-body admission"
     );
     let completed = workspace
         .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
@@ -684,12 +688,12 @@ fn owned_frontier_inventory_includes_promoted_original_and_retains_direct_implic
             .all(|body| body.semantic_identity().is_none()),
         "direct residuals have no fabricated semantic portability identity"
     );
-    let executed = executions.load(Ordering::Relaxed);
+    let executed = executions.admissions();
     let again = workspace
         .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
         .unwrap();
     assert_eq!(again.portable_bodies().count(), requests.len());
-    assert_eq!(executions.load(Ordering::Relaxed), executed);
+    assert_eq!(executions.admissions(), executed);
     assert_eq!(
         again.original_equations().unwrap().admitted.as_ref(),
         original.admitted.as_ref()
@@ -1063,30 +1067,15 @@ fn bound_lookup_preserves_complete_public_view_identity_and_exact_attribution() 
 
 #[test]
 fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
-    let counts = Arc::new([const { AtomicUsize::new(0) }; 4]);
-    let observed = counts.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let body_observations = BodyObservations::new();
+    let _entered = body_observations.enter();
+    let (mut workspace, counts) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") {
-                for (i, name) in ["selected(", "specialized(", "projection(", "semantic_body("]
-                    .into_iter()
-                    .enumerate()
-                {
-                    if event.contains(name) {
-                        observed[i].fetch_add(1, Ordering::Relaxed);
-                    }
-                }
-            }
-        })),
-    )
-    .unwrap();
+    );
     let reference = format!(
-        "{}\n{}\n{}\npackage unrelated {{ def Other {{ let value:Scalar=1; }} }}",
-        crate::authored_transfer_tests::reference_sources(),
-        include_str!("../../../../../packages/reference/process/models/mixer.pse"),
+        "{}\n{}\npackage unrelated {{ def Other {{ let value:Scalar=1; }} }}",
+        crate::authored_transfer_tests::reference_family_sources("process-reference"),
         crate::process_composition_tests::COMPOSE
     );
     let declarations = crate::authored_transfer_tests::rows(&reference);
@@ -1196,13 +1185,18 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
         first.admitted.bodies.keys().copied().collect(),
         "every retained body is actually reached"
     );
-    let first_counts = counts.each_ref().map(|count| count.load(Ordering::Relaxed));
+    let first_counts = [
+        counts.count(Query::Selected),
+        counts.count(Query::Specialized),
+        counts.count(Query::Projection),
+        body_observations.admissions(),
+    ];
     assert_eq!(
         first_counts[3], 126,
-        "all distinct direct body queries were exercised"
+        "all distinct direct bodies were admitted"
     );
     let warm = prepare_reference(&mut workspace);
-    assert_eq!(counts[3].load(Ordering::Relaxed), first_counts[3]);
+    assert_eq!(body_observations.admissions(), first_counts[3]);
     workspace
         .publish_modeling(
             crate::authored_transfer_tests::rows(
@@ -1213,13 +1207,23 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
         .unwrap();
     let unrelated = prepare_reference(&mut workspace);
     assert_eq!(workspace.generation(), generation);
-    for index in 1..4 {
+    for (actual, expected) in [
+        counts.count(Query::Specialized),
+        counts.count(Query::Projection),
+    ]
+    .into_iter()
+    .zip(&first_counts[1..3])
+    {
         assert_eq!(
-            counts[index].load(Ordering::Relaxed),
-            first_counts[index],
-            "selected firewall backdates family {index}"
+            actual, *expected,
+            "selected firewall backdates preparation queries"
         );
     }
+    assert_eq!(
+        body_observations.admissions(),
+        first_counts[3],
+        "unrelated edits require no body readmission"
+    );
     for (key, body) in &first.admitted.bodies {
         assert!(Arc::ptr_eq(&body.math, &warm.admitted.bodies[key].math));
         assert!(Arc::ptr_eq(
@@ -1463,19 +1467,10 @@ fn exclusive_retention_observation_cancels_and_drains_cloned_reader() {
 
 #[test]
 fn observation_demand_reuses_structure_but_new_let_demand_changes_it() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, executions) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") && event.contains("specialized(") {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    );
     let declarations =
         rows("package p {def Root {var x:Scalar; var y:Scalar; let lazy:Scalar=x+y; eq e:x==1;}}");
     let root = declarations
@@ -1501,7 +1496,7 @@ fn observation_demand_reuses_structure_but_new_let_demand_changes_it() {
             .unwrap()
     };
     let base = specialize(&mut workspace, &[]);
-    assert_eq!(executions.load(Ordering::Relaxed), 1);
+    assert_eq!(executions.count(Query::Specialized), 1);
     let x = specialize(&mut workspace, &["x"]);
     let y = specialize(&mut workspace, &["y"]);
     let x_again = specialize(&mut workspace, &["x"]);
@@ -1509,33 +1504,24 @@ fn observation_demand_reuses_structure_but_new_let_demand_changes_it() {
         Arc::ptr_eq(&x, &x_again),
         "A/B/A reuses the exact observation product"
     );
-    assert_eq!(executions.load(Ordering::Relaxed), 1);
+    assert_eq!(executions.count(Query::Specialized), 1);
     assert_eq!(x.symbols, base.symbols);
     assert_eq!(y.symbols, base.symbols);
     assert!(x.paths.contains_key("x"));
     assert!(!x.paths.contains_key("y"));
     assert!(y.paths.contains_key("y"));
     let lazy = specialize(&mut workspace, &["lazy"]);
-    assert_eq!(executions.load(Ordering::Relaxed), 2);
+    assert_eq!(executions.count(Query::Specialized), 2);
     assert_eq!(lazy.symbols.len(), base.symbols.len() + 1);
     assert!(lazy.paths.contains_key("lazy"));
 }
 
 #[test]
 fn instance_prelude_is_local_to_membership_and_static_meaning() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, executions) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") && event.contains("instance_prelude(") {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    );
     let original = "package p {def Root {var x:Scalar; eq a:x==1;}}";
     let mut root = None;
     for (source, expected) in [
@@ -1573,25 +1559,16 @@ fn instance_prelude_is_local_to_membership_and_static_meaning() {
         )
         .unwrap();
         assert_eq!(incremental.as_ref(), &clean);
-        assert_eq!(executions.load(Ordering::Relaxed), expected);
+        assert_eq!(executions.count(Query::InstancePrelude), expected);
     }
 }
 
 #[test]
 fn typed_function_fragments_reuse_local_meaning_and_refresh_source_attribution() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, executions) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") && event.contains("function_fragment(") {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    );
     let original =
         "package p {fn law(x:Scalar)->Scalar=x*x; def Root {var x:Scalar;eq e:law(x)==1;}}";
     for (source, expected) in [
@@ -1624,7 +1601,7 @@ fn typed_function_fragments_reuse_local_meaning_and_refresh_source_attribution()
         )
         .unwrap();
         assert_eq!(incremental.as_ref(), &clean);
-        assert_eq!(executions.load(Ordering::Relaxed), expected);
+        assert_eq!(executions.count(Query::FunctionFragment), expected);
     }
 }
 
@@ -1674,19 +1651,10 @@ fn shared_typed_function_math_preserves_distinct_original_callable_selections() 
 
 #[test]
 fn typed_ordinary_fields_reuse_local_bodies_and_preserve_lazy_source_obligations() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, executions) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") && event.contains("field_fragment(") {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    );
     let original = "package p {def Root {var x:Scalar;let z:Scalar=x+x;let unused:Scalar=x*x;eq a:z==1;eq b:x*x==2;}}";
     let mut counts = Vec::new();
     for source in [
@@ -1726,7 +1694,7 @@ fn typed_ordinary_fields_reuse_local_bodies_and_preserve_lazy_source_obligations
                 .values()
                 .any(|symbol| symbol.lineage.path.ends_with(".unused"))
         );
-        counts.push(executions.load(Ordering::Relaxed));
+        counts.push(executions.count(Query::FieldFragment));
     }
     assert_eq!(
         counts[0], 4,
@@ -1805,19 +1773,10 @@ fn typed_ordinary_fields_preserve_inactive_aliases_and_membership_changes() {
 
 #[test]
 fn inherited_numerical_body_edits_preserve_structural_preludes() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, executions) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") && event.contains("instance_prelude(") {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    );
     let original = "package p {interface Base {var x:Scalar;eq inherited:x==2;} def Root:Base {eq local:x==1;}}";
     for source in [
         original.to_owned(),
@@ -1849,7 +1808,7 @@ fn inherited_numerical_body_edits_preserve_structural_preludes() {
         .unwrap();
         assert_eq!(incremental.as_ref(), &clean);
         assert_eq!(
-            executions.load(Ordering::Relaxed),
+            executions.count(Query::InstancePrelude),
             1,
             "an interface's numerical child body is not a static construction premise"
         );
@@ -1858,19 +1817,10 @@ fn inherited_numerical_body_edits_preserve_structural_preludes() {
 
 #[test]
 fn ordinary_field_premises_follow_actual_instances_and_forwarded_sources() {
-    let executions = Arc::new(AtomicUsize::new(0));
-    let observed = executions.clone();
-    let mut workspace = CompilerWorkspace::with_events(
+    let (mut workspace, executions) = observed_workspace(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits::default(),
-        Some(Box::new(move |event: salsa::Event| {
-            let event = format!("{:?}", event.kind);
-            if event.contains("WillExecute") && event.contains("field_fragment(") {
-                observed.fetch_add(1, Ordering::Relaxed);
-            }
-        })),
-    )
-    .unwrap();
+    );
     let original = "package p {def Unit(k:Scalar) {var x:Scalar;eq e:x==k;} def Root {child a:Unit=Unit(k=1);child b:Unit=Unit(k=2);}}";
     let mut counts = Vec::new();
     for source in [
@@ -1902,7 +1852,7 @@ fn ordinary_field_premises_follow_actual_instances_and_forwarded_sources() {
         )
         .unwrap();
         assert_eq!(incremental.as_ref(), &clean);
-        counts.push(executions.load(Ordering::Relaxed));
+        counts.push(executions.count(Query::FieldFragment));
     }
     assert_eq!(counts[0], 4);
     assert_eq!(

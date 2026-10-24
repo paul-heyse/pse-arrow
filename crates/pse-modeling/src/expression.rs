@@ -2501,13 +2501,18 @@ fn check_process_contracts(
                 .quantity_scheme()
                 .is_none()
             {
-                return Err(invalid(
+                return Err(crate::invalid_reason(
                     at,
+                    crate::ModelingContractReason::PhysicalNumericGuardRequired,
                     "inventory event guard requires a physical numeric member",
                 ));
             }
             if !events.insert((target, dsl::render_path(path))) {
-                return Err(invalid(at, "duplicate inventory event transfer"));
+                return Err(crate::invalid_reason(
+                    at,
+                    crate::ModelingContractReason::DuplicateInventoryEventTransfer,
+                    "duplicate inventory event transfer",
+                ));
             }
             process_value(
                 p.expression_at(at, "inventory_balance.transfers.expression", position)?,
@@ -2548,8 +2553,9 @@ pub(crate) fn indexed_declaration_reference(
     at: DeclarationId,
 ) -> Result<DeclarationId> {
     let ExprKind::Path(path) = &expression.kind else {
-        return Err(invalid(
+        return Err(crate::invalid_reason(
             at,
+            crate::ModelingContractReason::ContextualMemberPathRequired,
             "a contextual declaration reference requires a member path",
         ));
     };
@@ -2569,7 +2575,11 @@ pub(crate) fn indexed_declaration_reference(
             current_type = Some(ty.clone());
             continue;
         } else {
-            return Err(invalid(at, "unknown contextual declaration reference"));
+            return Err(crate::invalid_reason(
+                at,
+                crate::ModelingContractReason::UnknownContextualDeclaration,
+                "unknown contextual declaration reference",
+            ));
         };
         check_member_indices(
             segment,
@@ -2830,8 +2840,13 @@ fn member_declaration(
     let (Type::Entity(id) | Type::Definition(id) | Type::Interface(id)) = ty else {
         return Err(invalid(at, "value has no declaration members"));
     };
-    p.declared_member(*id, name)
-        .ok_or_else(|| invalid(at, format!("type has no member {name}")))
+    p.declared_member(*id, name).ok_or_else(|| {
+        crate::invalid_reason(
+            at,
+            crate::ModelingContractReason::UnknownMember,
+            format!("type has no member {name}"),
+        )
+    })
 }
 fn member_type(
     ty: &Type,

@@ -533,6 +533,7 @@ def run_rust(
         "--message-format",
         "json",
     ]
+    fresh_inventory = inventory is None
     if inventory is None:
         if "--binaries-metadata" in command or "--cargo-metadata" in command:
             raise ValueError("Retained Rust metadata requires its prepared inventory")
@@ -567,10 +568,18 @@ def run_rust(
             )
 
         resources.publish_selection(path, selected)
-        if environment.get("PSE_RUST_TERMINAL_OWNER") != "runner":
-            return subprocess.call(command, cwd=ROOT, env=environment)
     else:
         path = resources.invocation("rust", selected)
+    # Ordinary local unit routes enumerate here rather than through the native
+    # observer. They use the same invocation preparation after actual selection.
+    from scripts import scientific_inputs
+
+    if fresh_inventory:
+        scientific_inputs.prepare(
+            inventory, path.with_suffix(".scientific.json"), environment
+        )
+    if inherited and environment.get("PSE_RUST_TERMINAL_OWNER") != "runner":
+        return subprocess.call(command, cwd=ROOT, env=environment)
     environment[resources.MARKER] = str(path)
     run, report = rust_report_command(path, run)
     return execute_selected(
@@ -581,6 +590,16 @@ def run_rust(
         selected=[
             {"class": item["binary_id"], "name": item["name"]} for item in selected
         ],
+        details={
+            "scientific_inputs": {
+                "path": environment[scientific_inputs.ROLE],
+                "sha256": validation_receipts.digest(
+                    Path(environment[scientific_inputs.ROLE])
+                ),
+            }
+        }
+        if scientific_inputs.ROLE in environment
+        else None,
     )
 
 

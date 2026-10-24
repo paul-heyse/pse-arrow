@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+package transfer_parameters {
+use chemistry @"1.0.0"; use chem @"1.0.0"; use provenance @"1.0.0";
+use references @"1.0.0"; use correlations @"1.0.0"; use properties @"1.0.0";
+use compatibility @"1.0.0"; use cubic @"1.0.0"; use idaes_thermo @"1.0.0";
+// Simple independent caloric data exercise the actual BTIdeal property-selection and anchor
+// functions. These synthetic coefficients are not an IDAES or database qualification.
+dataset cp:correlations.rpp4_cp bind(property=properties.heat_capacity,phase_type=compatibility.PhaseType.vaporPhase,source=references.idaes_bt_ideal,parameterization=references.idaes_bt_ideal_vapor_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
+[chem.benzene]=[200{K},500{K},10{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)}];
+[chem.toluene]=[200{K},500{K},20{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)}];
+}
+// Synthetic liquid, pressure and critical rows satisfy the original seed selection
+// in bounded structural/admission controls. Their coefficients do not qualify an
+// oracle or coupled scientific journey; Plan 25k uses qualified original inputs.
+dataset liquid_cp:correlations.dippr100 bind(property=properties.heat_capacity,phase_type=compatibility.PhaseType.liquidPhase,source=references.idaes_bt_ideal,parameterization=references.idaes_bt_ideal_liquid_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
+[chem.benzene]=[200{K},500{K},10{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)},0{J/(mol*K^5)}];
+[chem.toluene]=[200{K},500{K},20{J/(mol*K)},0{J/(mol*K^2)},0{J/(mol*K^3)},0{J/(mol*K^4)},0{J/(mol*K^5)}];
+}
+dataset pressure:correlations.rpp4_wagner bind(property=properties.vapor_pressure,phase_type=compatibility.PhaseType.liquidPhase,source=references.idaes_test_rpp4,parameterization=references.idaes_rpp4_pressure_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
+[chem.benzene]=[200{K},500{K},0{1},0{1},0{1},0{1},600{K},5000000{Pa}];
+[chem.toluene]=[200{K},500{K},0{1},0{1},0{1},0{1},600{K},5000000{Pa}];
+}
+dataset critical:cubic.critical_point bind(property=cubic.critical_parameters,source=references.idaes_bt_pr,parameterization=references.idaes_bt_pr_critical_fit,dependencies={},conventions={}) provenance(references.analytic_identities,provenance.Role.synthetic) {
+[chem.benzene]=[600{K},5000000{Pa},0.1{1}];
+[chem.toluene]=[600{K},5000000{Pa},0.1{1}];
+}
+// Unused observation placeholders satisfy declared complete tables after external transport
+// exclusion. This control never evaluates an oracle fixture against these synthetic values.
+dataset observation_state:idaes_thermo.srk_state provenance(references.analytic_identities,provenance.Role.synthetic) {
+[0]=[300{K},10{mol/m^3},100000{Pa},1{1}];
+}
+dataset observation_components:idaes_thermo.srk_component provenance(references.analytic_identities,provenance.Role.synthetic) {
+[chem.benzene]=[0.5{1},0{1}];
+[chem.toluene]=[0.5{1},0{1}];
+}
+}
