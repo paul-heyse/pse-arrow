@@ -120,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="structured preview with the same selection and exclusions",
     )
+    parser.add_argument("--coverage", type=Path, help="optional source-fresh coverage capture; never narrows dependency selection")
     parser.add_argument("--features", default="", help="extra cargo features")
     parser.add_argument("nextest", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
@@ -192,6 +193,9 @@ def main(argv: list[str] | None = None) -> int:
         "exclusions": exclusions,
         "qualification": "dependency reach only; not exhaustive behavior coverage",
     }
+    if args.coverage is not None:
+        from scripts.coverage_correspondence import inspect
+        result["coverage"] = inspect(args.coverage, args.base)
     if args.json:
         print(json.dumps(result, sort_keys=True))
     else:
@@ -207,6 +211,8 @@ def main(argv: list[str] | None = None) -> int:
         for exclusion in exclusions:
             print("  - " + json.dumps(exclusion))
         print("command: " + (shlex.join(command) if seeds or wide else "none"))
+    if args.coverage is not None and not args.json:
+        print(json.dumps(result["coverage"], indent=2))
     if not args.run or (not seeds and not wide):
         return 0
     runner = [str(ROOT / "scripts/pse-env")]
