@@ -16,7 +16,7 @@ from typing import Literal, TypedDict
 
 import msgspec
 
-from scripts import host_admission, native_operation
+from scripts import host_admission, native_operation, pressure_observation
 from scripts import surreal_server as server
 
 SCHEMA = "storage-health-v1"
@@ -161,6 +161,7 @@ class CgroupObservation(msgspec.Struct, forbid_unknown_fields=True):
     fields: dict[str, Observation]
     processes: list[ProcessObservation]
     reason: str | None = None
+    pressure: pressure_observation.Sample | None = None
 
 
 class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
@@ -180,6 +181,7 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
     service_outcome: Literal["observed", "unavailable"]
     scientific_outcome: Literal["unknown"]
     correspondence: Literal["selected-service-cgroup", "unknown"]
+    host_pressure: pressure_observation.Sample | None = None
 
     def __post_init__(self) -> None:
         if not Path(self.requested_state).is_absolute() or not (
@@ -252,6 +254,19 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
             or any(p.identity.boot != group.boot for p in self.cgroup.processes)
         ):
             raise ValueError("health cgroup differs from selected service incarnation")
+        pressure = self.cgroup.pressure
+        if pressure is not None and pressure.identity is not None and (
+            group is None
+            or pressure.identity.boot != group.boot
+            or pressure.identity.group != group.group
+            or pressure.identity.inode != group.inode
+        ):
+            raise ValueError("health pressure differs from selected cgroup incarnation")
+        if self.host_pressure is not None and (
+            self.host_pressure.identity is not None
+            and self.host_pressure.identity.group is not None
+        ):
+            raise ValueError("host pressure has a cgroup identity")
         if self.tool_outcome == "complete" and (
             identity is None
             or self.observer is None
@@ -261,6 +276,8 @@ class HealthSnapshot(msgspec.Struct, forbid_unknown_fields=True):
                 f.status == "unavailable"
                 for f in (*self.host.values(), *self.configuration.values())
             )
+            or (self.host_pressure is not None and self.host_pressure.status != "observed")
+            or (pressure is not None and pressure.status != "observed")
         ):
             raise ValueError(
                 "partial health capture cannot claim complete tool outcome"
@@ -361,6 +378,11 @@ def observe_cgroup(
     selected = CgroupIdentity(boot, group, inode, identity.invocation)
     directory = Path("/sys/fs/cgroup") / group.lstrip("/")
     fields = {name: numeric_file(directory / name) for name in CGROUP_FIELDS}
+    pressure = pressure_observation.sample(group)
+    if pressure.identity is not None and (
+        pressure.identity.boot != boot or pressure.identity.inode != inode
+    ):
+        raise ValueError("pressure differs from selected cgroup incarnation")
     processes = []
     partial = any(field.status == "unavailable" for field in fields.values())
     try:
@@ -392,6 +414,7 @@ def observe_cgroup(
         "some kernel fields or process members unavailable or bounded"
         if partial
         else None,
+        pressure,
     )
 
 
@@ -492,6 +515,7 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
     state = server.lexical_absolute(state)
     started = time.time_ns()
     host = independent_host(state)
+    host_pressure = pressure_observation.sample()
     try:
         observer = process_identity(os.getpid())
     except (OSError, ValueError):
@@ -621,6 +645,9 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
         or observer is None
         or group.status != "observed"
         or metric_started is None
+        or host_pressure.status != "observed"
+        or group.pressure is None
+        or group.pressure.status != "observed"
         or any(
             f.status == "unavailable" for f in (*host.values(), *configuration.values())
         )
@@ -642,6 +669,7 @@ def capture(state: Path, deadline: float) -> HealthSnapshot:
         "observed" if service.status == "available" else "unavailable",
         "unknown",
         "selected-service-cgroup" if group.identity is not None else "unknown",
+        host_pressure,
     )
 
 
