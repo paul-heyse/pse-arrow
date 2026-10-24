@@ -680,7 +680,7 @@ codegen-check:
 [doc('Compare every Rust-owned generated target in one full-codegen invocation; report independent failures')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=compiler,solver", "--", "bash", "-euo", "pipefail")]
 codegen-all-check:
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --features full-codegen,force-validate --locked -- codegen --check
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen --check
 
 [group('local')]
 [doc('One resolved version per family, equal to the pins; shared packages match the evidence lockfiles')]
@@ -1035,9 +1035,9 @@ fmt:
 codegen:
     # Contracts and the canonical schema first: the full generator's package loader
     # compiles against them, so a registry change never needs a separate bootstrap.
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --no-default-features --locked -- codegen --only rust-contracts
-    "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --no-default-features --locked -- codegen --only surreal
-    scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation run --bin xtask --quiet -p xtask --features full-codegen,force-validate --locked -- codegen
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
+    scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen
     "{{ py }}" -m scripts.capabilities.reference
 
 

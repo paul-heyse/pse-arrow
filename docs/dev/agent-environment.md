@@ -154,6 +154,13 @@ declared compiler-job count.
 Explicit `--resource-class`, `PSE_RESOURCE_CLASS` and finite `PSE_MEMORY_MAX` choices
 keep their existing precedence; local mode changes recipe defaults only. Managed-primary,
 reference and timing routes keep their selected bounded allocations and isolation.
+In particular, `--resource-class compile` selects the finite 24 GiB profile even when
+`PSE_BUILD_MODE=unbounded`. It is not an uncapped compiler hint. For an ad hoc composer use
+`scripts/pse-env --recipe-default-class compile -- <command>`; for a compile aggregate
+whose recipe already enters that boundary, run the recipe directly. An extra outer wrapper
+must not impose a finite profile on the recipe's uncapped default. Two 2026-10-24 Clippy
+attempts hit this explicit 24 GiB limit; systemd's `oom-kill` records, rather than host
+memory exhaustion or a test timeout, established their interruption cause.
 Build owners conflict with live timing/reference owners. Registration, authentic
 cgroup/handoff binding, cancellation and descendant drain apply equally to both modes;
 an unobserved child still retains its owner. The ordinary canonical test observer uses
@@ -324,6 +331,14 @@ or solver context; native/thread/timing and actual canonical demands retain thei
 Per-run exclusivity never establishes cross-run service quiet. Actual service maintenance
 uses the service's covered registry cohort and lifecycle admission; database-local assertions
 retain database isolation. See blueprint §24.1 and the [Plan53 coordinator](../plans/53-test-architecture-target.md).
+
+Selected demand also controls preparation. Effect-free ordinary Rust selections reuse their
+verified nextest artifacts directly, without preparing a native worker or acquiring a store
+observer. Canonical-only selections retain the real observer and store admission; only actual
+native demand requires the receiver artifact. Managed native routes retain their worker
+requirement. Test selection, exact artifact/source checks, before-effect guards and terminal
+reconciliation still apply. Authored scientific capsules prepare for their reviewed consumer
+owners, rather than every test in a package that also contains those consumers.
 
 - `just unit-package <pkg> <filter> [args]` — a bare test-path word means `test(word)`; any
   other filterset passes through. The selection is intersected with `package(...)` over the

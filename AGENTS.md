@@ -241,6 +241,11 @@ Each of these is a real incident, not a hypothetical.
   their contracts. The environment guide owns this selection and its precedence.
   `PSE_MEMORY_MAX` explicitly selects a finite allocation and widens its ancestors coherently;
   run an ad hoc heavy command with `scripts/pse-env -- <command>`.
+  **Do not pass `--resource-class compile` merely to identify a compiler workload:** that
+  explicitly selects the finite 24 GiB profile, overriding the local uncapped default.
+  When a composed command needs a compile hint, use `--recipe-default-class compile`.
+  Recipes with their own `scripts/pse-env` entry can run directly; avoid an extra finite
+  outer wrapper around `just clippy`, `just hygiene` or another compile aggregate.
 - **uv workspaces enforce a single `requires-python`**, which is why the IDAES parity set is
   a *dependency group* with an environment marker rather than a workspace member.
 
