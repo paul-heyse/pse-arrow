@@ -672,6 +672,67 @@ and never writes global memories.
 
 ## Explicit host controls
 
+### Optional native telemetry
+
+The process host resolves telemetry once; constructing a scientific Runtime does not install
+providers. An explicit `OTEL_EXPORTER_OTLP_ENDPOINT` or the selected local service's public
+configuration enables export. `OTEL_SDK_DISABLED=true` disables it. Signal-specific OTLP
+endpoint, headers, protocol and timeout settings override their base settings; `none` disables
+a selected signal. The supported transport is HTTP/protobuf. `just telemetry configuration`
+shows effective selection, bounds and installed versions with credential values and endpoint
+paths redacted. Unavailable export does not change native admission, cancellation or results.
+
+The service state is `PSE_TELEMETRY_STATE`, otherwise `$XDG_STATE_HOME/pse/telemetry`, falling
+back to `~/.local/state/pse/telemetry`. It belongs to the telemetry service, independently of
+checkouts, `.store`, scientific data and build caches. Collector queues and OpenObserve data
+have separate directories there. Private credentials stay in protected service material;
+public configuration is not an authentication file. Setup creates an immutable configured
+generation and refuses incompatible reuse rather than silently replacing it.
+
+Explicit operations use the same owner from any attachment:
+
+```bash
+just telemetry install
+just telemetry setup
+just telemetry start
+just telemetry inspect
+just telemetry health
+just telemetry restart
+just telemetry stop
+```
+
+Installation verifies the selected native archive and executable digests. Setup validates
+Collector configuration before activation. Start, stop and restart authenticate the configured
+unit and current process incarnation; a name or reused PID alone grants no control. Setup/start
+do not enable login startup. `just telemetry enable` explicitly enables the selected user units;
+`disable` removes that selection. The operator selected login startup at final cutover and
+seven-day ordinary backend retention. The active [Plan52 checkpoint](../plans/52-agent-effectiveness-and-engineering-workflows.md#52p52q-execution-checkpoint--2026-10-24)
+owns actual activation and qualification state. Disposable acceptance generations never enable
+login startup and drain their owned services before returning to Plan54 measurements.
+
+All commands accept `--state PATH`; setup alone accepts explicit listener `--ports` JSON for
+isolated fixtures. Passive configuration/health reads install no SDK, start no service and run
+no scientific probe. Health keeps current-process recording, verified service availability and
+Collector cumulative receipt/export/queue counters separate from backend acceptance and known
+record visibility. Unsupported SDK queue/drop counters remain unavailable. A restart during a
+read invalidates attribution to the previous process. The local diagnostic readers described in
+the [diagnostic guide](simulation-diagnostics.md) remain available when telemetry fails.
+
+The ordinary environment boundary and fixed scientific worker launcher share passive native
+host selection. The private settings carrier contains secrets and is excluded from shell
+exports and environment explanations. Embedded Python/Rust SDKs share the actual process
+incarnation; real native children replace it with their own. Long-lived hosts drain providers
+after native work settles. The private one-shot native lane performs no synchronous network
+drain on scientific exit; its final batches, or all spans from a short solve, may be lost.
+Scientific join/reap/deadline semantics remain unchanged. Detailed continuity coverage and
+backend retention are separate from a healthy service or successful SDK shutdown.
+
+The repository Codex attachment forwards names of supported `OTEL_*`, `PSE_TELEMETRY_STATE`
+and `XDG_STATE_HOME` settings through its checked-in `env_vars` allowlist. It stores no secret
+values. Restart an existing attachment to change its process-owned telemetry selection.
+Full database transport continuity and general FastMCP telemetry-query exposure retain their
+separate Plan52 owners.
+
 ### Project and evidence commands
 
 `just project-build` and `just evidence-build` explicitly build dedicated operator

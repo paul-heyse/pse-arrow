@@ -140,7 +140,11 @@ operation handles and native parent locators. A shared ID is association, not a 
 SDK batching and standard Collector queues/retry own optional signal delivery. Ordinary selected
 telemetry exports coarse owner stages and safe structured diagnostics, with metric populations
 remaining defined at their performing owners. Export failure changes neither native admission nor
-execution, drain, scientific assurance or publication. A successful flush/processed count does not
+execution, drain, scientific assurance or publication. Long-lived executable and embedded Python
+hosts settle native owners before explicit provider shutdown. The private one-shot native lane
+keeps its providers for process lifetime without synchronous network drain on scientific exit;
+its final batches, or all spans from a short solve, may be absent. Native result, child join and
+reap/deadline contracts remain unchanged. A successful flush/processed count does not
 prove receipt; ingest acceptance, query visibility and crash survival remain separate claims.
 Passive effective-configuration and pipeline-health reads start no service or scientific work and
 retain unavailable, unsupported, lost, sampled, expired and unknown observations.

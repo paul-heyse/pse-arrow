@@ -56,9 +56,13 @@ executable. Explicit actions enter their existing environment/admission owner wh
 
 ### Conditional composition, tasks and telemetry
 
-Ordinary serving does not register CodeMode, the task extension or an OpenTelemetry SDK/exporter.
-Their packages are available to retained manual acceptance drivers through development dependencies;
-installation is not activation. [Plan52o's pause handoff](../plans/52o-conditional-composition-and-protocol-tasks.md#execution-checkpoint--pause-handoff-2026-10-24)
+Ordinary serving does not register CodeMode or the task extension. Telemetry is separately
+selected through the [shared process/service configuration](agent-environment.md#optional-native-telemetry):
+the executable host composes SDK providers before FastMCP startup when selected; disabled
+serving creates no SDK and imports no scientific extension. FastMCP uses its native telemetry
+mode. Logs stay off MCP stdout, fixed helpers inherit bounded W3C context, and helper shutdown
+follows their native work owners. Library import alone is not SDK activation.
+[Plan52o's pause handoff](../plans/52o-conditional-composition-and-protocol-tasks.md#execution-checkpoint--pause-handoff-2026-10-24)
 records current feasibility evidence and remaining acceptance. Its drivers under `scripts/tests/`
 are `capability_composition_inquiry`, `capability_tasks_inquiry` and `capability_telemetry_inquiry`.
 Run one explicitly with the checkout interpreter using `-m scripts.tests.<module> --output <fresh-directory>`
@@ -69,8 +73,10 @@ but it is not production task support or evidence of continued native execution 
 Current native references/readers remain the supported recovery route. Existing interface metadata
 preserves active trace/span IDs when supplied while treating export and end-to-end continuity as
 unverified. Native result/admission/drain never follows from a successful span or task response.
-A separate thorough OTel review will precede deployment; the in-memory SDK probe starts no Collector
-and establishes no Rust or database propagation.
+The retained in-memory SDK probe starts no Collector and establishes no Rust or database
+propagation. The [52p/52q execution checkpoint](../plans/52-agent-effectiveness-and-engineering-workflows.md#52p52q-execution-checkpoint--2026-10-24)
+owns subsequent process/pipeline evidence. General query tools, metric populations and actual
+database/header continuity remain with their individual Plan52 packages.
 
 ### Selected native overrides
 

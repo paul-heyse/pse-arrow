@@ -15,6 +15,23 @@ contract is blueprint §23.1; [Plan 40's checkpoint](../plans/40-simulation-perf
 records implementation and qualification limits. The interfaces below describe the implemented
 source surface; they do not establish assembled or all-context qualification.
 
+Optional shared telemetry adds coarse owner spans and selected typed diagnostic logs through
+the [native Collector/OpenObserve service](agent-environment.md#optional-native-telemetry).
+It is a diagnostic projection; these native readers remain authoritative when export fails.
+`just telemetry health` observes independently available stages without probing scientific work.
+For an already known trace, use an explicit microsecond interval:
+
+```bash
+just telemetry lookup-trace --trace-id TRACE_ID --start-us START --end-us END
+```
+
+This is a bounded live selection with normalized parent/process references, selected backend
+version/configuration and explicit partiality. It has no atomic source cut or complete-population
+guarantee. An empty answer does not distinguish nonexecution, sampling, loss or expiry. Seven-day
+ordinary retention does not establish indefinite custody; finite evidence retains its existing
+owner. Private one-shot native children do not synchronously drain export on scientific exit,
+so short solves may have no child telemetry even when their native result and checkpoint exist.
+
 A runtime's hub lists operation summaries with pagination. An exact operation reader returns
 `snapshot(Duration::from_secs(60))`, including active phases, current and cumulative metrics,
 recent counter/duration aggregates, point history, relationships, source references and
