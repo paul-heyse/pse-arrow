@@ -341,6 +341,7 @@ uuid = { version = "=1.27.0", features = ["v7"] }
 
 # ---- dev and tooling (declared here, as for runtime dependencies) ----
 proptest = "=1.11.0"
+libfuzzer-sys = "=0.4.13"
 insta = "=1.49.0"
 criterion = { version = "=0.8.2", default-features = false, features = [
   "csv_output",
