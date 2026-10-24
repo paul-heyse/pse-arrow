@@ -842,13 +842,11 @@ def observer_rust(
             effects=effects,
             on_invocation=on_invocation,
         )
-    if worker is None:
-        if not requirements or any(
-            set(item["effects"]) - {"canonical"} for item in requirements.values()
-        ):
-            raise resources.ResourceError(
-                "Native canonical execution requires its worker"
-            )
+    if worker is None and (
+        not requirements
+        or any(set(item["effects"]) - {"canonical"} for item in requirements.values())
+    ):
+        raise resources.ResourceError("Native canonical execution requires its worker")
     selected = rust_selected(inventory)
     inherited = environment.get(resources.MARKER)
     if inherited:

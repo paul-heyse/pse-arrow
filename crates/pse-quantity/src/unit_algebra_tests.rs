@@ -393,7 +393,7 @@ proptest::proptest! {
         magnitude in -1000_i32..1000, scale in 1_i32..20, origin in -500_i32..500
     ) {
         let dimension=DimensionVector::base(BaseDimension::Temperature);
-        let source=Unit {offset_to_canonical:f64::from(origin),is_affine:true,..atomic(91,"source",dimension.clone(),f64::from(scale))};
+        let source=Unit {offset_to_canonical:f64::from(origin),is_affine:true,..atomic(91,"source",dimension,f64::from(scale))};
         let target=atomic(92,"canonical",dimension,1.);
         let point=convert_spec(&source,&target,ScaleKind::Point).unwrap();
         let difference=convert_spec(&source,&target,ScaleKind::Difference).unwrap();
@@ -403,7 +403,7 @@ proptest::proptest! {
         proptest::prop_assert_eq!(f64::from(magnitude)*difference.scale+difference.offset,f64::from(magnitude*scale));
         proptest::prop_assert_eq!(point.from,source.id);
         proptest::prop_assert_eq!(point.to,target.id);
-        let mut malformed=source.clone(); malformed.scale_to_canonical=-1.;
+        let mut malformed=source.clone(); malformed.scale_to_canonical = -1.;
         proptest::prop_assert!(convert_spec(&malformed,&target,ScaleKind::Point).is_err());
     }
 }

@@ -366,7 +366,7 @@ class PreparationCurrencyTests(unittest.TestCase):
             self.assertEqual(installer.call_count, 4)
 
     def test_ineligible_reuse_never_imports_the_replaced_binary(self) -> None:
-        installed = {
+        installed: dict[str, object] = {
             "binary": "/installed/native.so",
             "sha256": "installed-transformed-bytes",
             "features": ["force-validate"],

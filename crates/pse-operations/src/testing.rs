@@ -714,6 +714,156 @@ pub fn canonical_fixture_peer(
     )
 }
 
+/// Observe the exact current source head in an isolated fixture without changing it.
+pub async fn source_problem_head(
+    store: &crate::canonical::CanonicalStore,
+    problem: &str,
+) -> Result<
+    Option<pse_model::generated::runtime::canonical_problems::Row>,
+    crate::canonical::CanonicalError,
+> {
+    let mut response = crate::canonical::bounded_query(
+        store
+            .db
+            .query("SELECT * FROM ONLY type::record('canonical_problems', $problem);")
+            .bind(("problem", problem.to_owned())),
+    )
+    .await?;
+    response
+        .take::<Option<surrealdb::types::Object>>(0)?
+        .map(crate::generated::surreal::decode_canonical_problems)
+        .transpose()
+        .map_err(Into::into)
+}
+
+/// Inspect one exact unsealed batch in a registered fixture without admitting its prefix.
+pub async fn pending_result_batch_rows(
+    store: &crate::canonical::CanonicalStore,
+    fence: &crate::canonical_execution::AttemptFence,
+    output: &str,
+    ordinal: u64,
+) -> Result<Option<u64>, crate::canonical::CanonicalError> {
+    use crate::{
+        canonical::bounded_query,
+        canonical_codec as codec,
+        canonical_execution::{result_batch_key, result_set_key},
+    };
+    let set = result_set_key(fence.attempt(), output);
+    let key = result_batch_key(fence.attempt(), &set, ordinal);
+    let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
+        .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
+    let Some(mut row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
+        return Ok(None);
+    };
+    Ok(Some(codec::decode_uint(codec::required(
+        &mut row,
+        "row_count",
+    )?)?))
+}
+
+/// Inspect actual staged file coordinates in an isolated schema-boundary control.
+pub async fn pending_result_file_coordinates(
+    store: &crate::canonical::CanonicalStore,
+    fence: &crate::canonical_execution::AttemptFence,
+    output: &str,
+    ordinal: u64,
+) -> Result<Option<(String, String)>, crate::canonical::CanonicalError> {
+    use crate::{
+        canonical::bounded_query,
+        canonical_codec as codec,
+        canonical_execution::{result_batch_key, result_set_key},
+    };
+    let set = result_set_key(fence.attempt(), output);
+    let key = result_batch_key(fence.attempt(), &set, ordinal);
+    let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
+        .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
+    let Some(mut row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
+        return Ok(None);
+    };
+    Ok(Some((
+        codec::decode_string(codec::required(&mut row, "file_instance")?)?,
+        codec::decode_string(codec::required(&mut row, "schema")?)?,
+    )))
+}
+
+/// Expire only an acknowledged current claim in a registered isolated fixture.
+/// Closure does not end a lease; terminal and compacted attempts remain ineligible.
+pub async fn expire_acknowledged_attempt(
+    store: &crate::canonical::CanonicalStore,
+    fence: &crate::canonical_execution::AttemptFence,
+) -> Result<(), crate::canonical::CanonicalError> {
+    use crate::canonical::{CanonicalError, bounded_query};
+    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
+        return Err(CanonicalError::Configuration(
+            "claim expiry requires a registered isolated fixture".into(),
+        ));
+    }
+    let generation = crate::canonical_codec::encode_uint(fence.generation())?;
+    let mut response = bounded_query(store.db.query("BEGIN; LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.phase IN ['terminal','terminal_compacted'] { THROW 'PSE_REFUSAL:fixture_expiry_claim_changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1; RETURN true; COMMIT;")
+        .bind(("run", fence.run().to_owned())).bind(("attempt", fence.attempt().to_owned())).bind(("generation",generation))).await?;
+    let index = response.num_statements().saturating_sub(2);
+    if response.take::<Option<bool>>(index)? != Some(true) {
+        return Err(CanonicalError::IncompleteResponse);
+    }
+    Ok(())
+}
+
+/// Corrupt one terminal occurrence only in its registered isolated fixture.
+pub async fn invalidate_terminal_study_outcome(
+    store: &crate::canonical::CanonicalStore,
+    study: &str,
+    occurrence: pse_model::study::OccurrenceKey,
+) -> Result<(), crate::canonical::CanonicalError> {
+    use crate::canonical::{CanonicalError, bounded_query};
+    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
+        return Err(CanonicalError::Configuration(
+            "occurrence invalidation requires a registered isolated fixture".into(),
+        ));
+    }
+    bounded_query(store.db.query("BEGIN; LET $study = SELECT * FROM ONLY type::record('canonical_studies',$study); IF $study = NONE OR !$study.terminal { THROW 'PSE_REFUSAL:fixture_study_is_not_terminal'; }; UPDATE ONLY type::record('canonical_study_points',$point) SET outcome=$outcome; COMMIT;")
+        .bind(("study", study.to_owned()))
+        .bind(("point", crate::canonical_studies::point_key(study, occurrence)))
+        .bind(("outcome", surrealdb::types::Bytes::from(vec![0xff])))).await?;
+    Ok(())
+}
+
+/// Remove one prepared source revision to exercise same-store registration refusal.
+pub async fn invalidate_prepared_revision(
+    store: &crate::canonical::CanonicalStore,
+    revision: &crate::canonical::Revision,
+) -> Result<(), crate::canonical::CanonicalError> {
+    use crate::canonical::{CanonicalError, bounded_query};
+    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
+        return Err(CanonicalError::Configuration(
+            "revision invalidation requires a registered isolated fixture".into(),
+        ));
+    }
+    bounded_query(store.db.query("DELETE ONLY type::record('canonical_revisions',$key) WHERE problem=$problem AND sequence=$sequence;")
+        .bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone())).bind(("sequence",crate::canonical_codec::encode_uint(revision.sequence)?))).await?;
+    Ok(())
+}
+
+/// Cancel the supplied operation after its first actual artifact append-group ACK.
+/// The suspended transfer must be owned by a cancellation-aware caller.
+#[cfg(any(test, feature = "test-support"))]
+pub async fn cancel_after_artifact_append_ack<F: Future>(
+    cancel: impl Fn() + Send + Sync + 'static,
+    future: F,
+) -> F::Output {
+    crate::canonical_artifacts::CANCEL_AFTER_ARTIFACT_APPEND_ACK
+        .scope(std::sync::Arc::new(cancel), future)
+        .await
+}
+
+/// Suppress the real project's successful source-activation response so a composed
+/// consumer exercises original-operation settlement. Available only in canonical fixtures.
+#[cfg(any(test, feature = "test-support"))]
+pub async fn lose_project_source_reply<F: Future>(future: F) -> F::Output {
+    crate::canonical_projects::PROJECT_REPLY_LOSS
+        .scope(true, future)
+        .await
+}
+
 #[cfg(test)]
 mod setup_observation_unit {
     #![allow(
@@ -973,154 +1123,4 @@ mod canonical_server_unit {
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         }
     }
-}
-
-/// Observe the exact current source head in an isolated fixture without changing it.
-pub async fn source_problem_head(
-    store: &crate::canonical::CanonicalStore,
-    problem: &str,
-) -> Result<
-    Option<pse_model::generated::runtime::canonical_problems::Row>,
-    crate::canonical::CanonicalError,
-> {
-    let mut response = crate::canonical::bounded_query(
-        store
-            .db
-            .query("SELECT * FROM ONLY type::record('canonical_problems', $problem);")
-            .bind(("problem", problem.to_owned())),
-    )
-    .await?;
-    response
-        .take::<Option<surrealdb::types::Object>>(0)?
-        .map(crate::generated::surreal::decode_canonical_problems)
-        .transpose()
-        .map_err(Into::into)
-}
-
-/// Inspect one exact unsealed batch in a registered fixture without admitting its prefix.
-pub async fn pending_result_batch_rows(
-    store: &crate::canonical::CanonicalStore,
-    fence: &crate::canonical_execution::AttemptFence,
-    output: &str,
-    ordinal: u64,
-) -> Result<Option<u64>, crate::canonical::CanonicalError> {
-    use crate::{
-        canonical::bounded_query,
-        canonical_codec as codec,
-        canonical_execution::{result_batch_key, result_set_key},
-    };
-    let set = result_set_key(fence.attempt(), output);
-    let key = result_batch_key(fence.attempt(), &set, ordinal);
-    let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
-        .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
-    let Some(mut row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
-        return Ok(None);
-    };
-    Ok(Some(codec::decode_uint(codec::required(
-        &mut row,
-        "row_count",
-    )?)?))
-}
-
-/// Inspect actual staged file coordinates in an isolated schema-boundary control.
-pub async fn pending_result_file_coordinates(
-    store: &crate::canonical::CanonicalStore,
-    fence: &crate::canonical_execution::AttemptFence,
-    output: &str,
-    ordinal: u64,
-) -> Result<Option<(String, String)>, crate::canonical::CanonicalError> {
-    use crate::{
-        canonical::bounded_query,
-        canonical_codec as codec,
-        canonical_execution::{result_batch_key, result_set_key},
-    };
-    let set = result_set_key(fence.attempt(), output);
-    let key = result_batch_key(fence.attempt(), &set, ordinal);
-    let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
-        .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
-    let Some(mut row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
-        return Ok(None);
-    };
-    Ok(Some((
-        codec::decode_string(codec::required(&mut row, "file_instance")?)?,
-        codec::decode_string(codec::required(&mut row, "schema")?)?,
-    )))
-}
-
-/// Expire only an acknowledged current claim in a registered isolated fixture.
-/// Closure does not end a lease; terminal and compacted attempts remain ineligible.
-pub async fn expire_acknowledged_attempt(
-    store: &crate::canonical::CanonicalStore,
-    fence: &crate::canonical_execution::AttemptFence,
-) -> Result<(), crate::canonical::CanonicalError> {
-    use crate::canonical::{CanonicalError, bounded_query};
-    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
-        return Err(CanonicalError::Configuration(
-            "claim expiry requires a registered isolated fixture".into(),
-        ));
-    }
-    let generation = crate::canonical_codec::encode_uint(fence.generation())?;
-    let mut response = bounded_query(store.db.query("BEGIN; LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.phase IN ['terminal','terminal_compacted'] { THROW 'PSE_REFUSAL:fixture_expiry_claim_changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1; RETURN true; COMMIT;")
-        .bind(("run", fence.run().to_owned())).bind(("attempt", fence.attempt().to_owned())).bind(("generation",generation))).await?;
-    let index = response.num_statements().saturating_sub(2);
-    if response.take::<Option<bool>>(index)? != Some(true) {
-        return Err(CanonicalError::IncompleteResponse);
-    }
-    Ok(())
-}
-
-/// Corrupt one terminal occurrence only in its registered isolated fixture.
-pub async fn invalidate_terminal_study_outcome(
-    store: &crate::canonical::CanonicalStore,
-    study: &str,
-    occurrence: pse_model::study::OccurrenceKey,
-) -> Result<(), crate::canonical::CanonicalError> {
-    use crate::canonical::{CanonicalError, bounded_query};
-    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
-        return Err(CanonicalError::Configuration(
-            "occurrence invalidation requires a registered isolated fixture".into(),
-        ));
-    }
-    bounded_query(store.db.query("BEGIN; LET $study = SELECT * FROM ONLY type::record('canonical_studies',$study); IF $study = NONE OR !$study.terminal { THROW 'PSE_REFUSAL:fixture_study_is_not_terminal'; }; UPDATE ONLY type::record('canonical_study_points',$point) SET outcome=$outcome; COMMIT;")
-        .bind(("study", study.to_owned()))
-        .bind(("point", crate::canonical_studies::point_key(study, occurrence)))
-        .bind(("outcome", surrealdb::types::Bytes::from(vec![0xff])))).await?;
-    Ok(())
-}
-
-/// Remove one prepared source revision to exercise same-store registration refusal.
-pub async fn invalidate_prepared_revision(
-    store: &crate::canonical::CanonicalStore,
-    revision: &crate::canonical::Revision,
-) -> Result<(), crate::canonical::CanonicalError> {
-    use crate::canonical::{CanonicalError, bounded_query};
-    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
-        return Err(CanonicalError::Configuration(
-            "revision invalidation requires a registered isolated fixture".into(),
-        ));
-    }
-    bounded_query(store.db.query("DELETE ONLY type::record('canonical_revisions',$key) WHERE problem=$problem AND sequence=$sequence;")
-        .bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone())).bind(("sequence",crate::canonical_codec::encode_uint(revision.sequence)?))).await?;
-    Ok(())
-}
-
-/// Cancel the supplied operation after its first actual artifact append-group ACK.
-/// The suspended transfer must be owned by a cancellation-aware caller.
-#[cfg(any(test, feature = "test-support"))]
-pub async fn cancel_after_artifact_append_ack<F: Future>(
-    cancel: impl Fn() + Send + Sync + 'static,
-    future: F,
-) -> F::Output {
-    crate::canonical_artifacts::CANCEL_AFTER_ARTIFACT_APPEND_ACK
-        .scope(std::sync::Arc::new(cancel), future)
-        .await
-}
-
-/// Suppress the real project's successful source-activation response so a composed
-/// consumer exercises original-operation settlement. Available only in canonical fixtures.
-#[cfg(any(test, feature = "test-support"))]
-pub async fn lose_project_source_reply<F: Future>(future: F) -> F::Output {
-    crate::canonical_projects::PROJECT_REPLY_LOSS
-        .scope(true, future)
-        .await
 }
