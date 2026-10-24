@@ -28,7 +28,7 @@ from pydantic import Field, JsonValue
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
 from scripts.capabilities.guidance import Guidance, register_guides
 from scripts.capabilities.inventory import inventory
-from scripts.capabilities import host_actions, host_queries, operations, specialists
+from scripts.capabilities import host_actions, host_queries, native, operations, qualification, specialists
 
 ROOT = Path(__file__).resolve().parents[2]
 Limit = Annotated[int, Field(ge=1, le=100)]
@@ -59,6 +59,7 @@ def bindings(root: Path, *, owner: specialists.Specialists):
     specs = []
     tools = {}
     for factory in (operations.bindings, host_queries.bindings, host_actions.bindings,
+        qualification.bindings, native.bindings,
         lambda path: specialists.bindings(path, owner=owner)):
         declared, bound = factory(root)
         if tools.keys() & bound.keys():

@@ -1,0 +1,283 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Source-only native bindings with fixed, admitted public-facade children."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import subprocess
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Annotated, Literal
+
+from fastmcp.exceptions import ToolError
+from fastmcp.tools import Tool, ToolResult
+from mcp.types import ToolAnnotations
+from pydantic import Field, JsonValue, PrivateAttr, ValidationError
+
+from scripts.capabilities.model import Capability, Contract
+from scripts.capabilities.native_schema import SchemaSet
+from scripts.capabilities.operations import ReadResult, bounded
+from scripts.capabilities.process import run_worker
+
+Positive = Annotated[int, Field(ge=1)]
+Text = Annotated[str, Field(min_length=1)]
+Row = Annotated[int, Field(ge=0, le=(1 << 64) - 1)]
+_PENDING: set[asyncio.Task[dict[str, JsonValue]]] = set()
+
+
+class Resources(Contract):
+    memory_limit_bytes: Positive = 16 << 30
+    threads: Annotated[int, Field(ge=1, le=16)] = 16
+    max_spill_bytes: Positive = 1 << 30
+
+
+class Source(Contract):
+    physical: JsonValue
+    documents: JsonValue
+    resources: Resources = Field(default_factory=Resources)
+
+
+class Preparation(Source):
+    request: JsonValue
+
+
+class Deployment(Contract):
+    state: Text
+    database: Text
+    resources: Resources = Field(default_factory=Resources)
+
+
+class Metadata(Deployment):
+    request: JsonValue
+
+
+class Select(Metadata):
+    physical: JsonValue
+
+
+class Revision(Deployment):
+    physical: JsonValue
+    revision: Text
+    logical: Annotated[list[Text], Field(min_length=1, max_length=32)]
+
+
+class RevisionPreparation(Deployment):
+    physical: JsonValue
+    revision: Text
+    request: JsonValue
+
+
+class Bundle(Contract):
+    path: Text
+    maximum_document_bytes: Annotated[int, Field(ge=1, le=16 << 20)] = 16 << 20
+
+
+class Diagnostic(Contract):
+    checkpoint: Text
+    request: JsonValue
+
+
+class Evidence(Contract):
+    path: Text
+    request: JsonValue
+
+
+class Invocation(Contract):
+    path: Text
+
+
+class Result(Deployment):
+    run: Text
+    attempt: Text
+    relation: Text
+    start: Row
+    end: Row
+    maximum_bytes: Annotated[int, Field(ge=4096, le=65536)] = 65536
+
+
+@dataclass(frozen=True)
+class Binding:
+    operation: str
+    title: str
+    request: type[Contract]
+    documents: dict[str, str]
+    receiver: str
+    description: str
+    domain: str
+    effects: str
+    output_document: str | None = None
+    prepare_import: bool = False
+
+
+BINDINGS = (
+    Binding("source_admit", "Admit original authored source", Source,
+        {"physical": "project-draft-documents", "documents": "project-draft-documents"},
+        "pse.Runtime.physical_from_documents + modeling_from_documents",
+        "Admit original raw package bytes through the native physical and modeling source loaders. JSON schemas describe the byte container; authoring.schema is guidance for applicable authored TOML sections, not a parser for TOML/.pse/Parquet. The returned local revision is an observation and cannot be reopened after this call.",
+        "projects", "Prepare native import providers through their existing owner as needed, then admit ephemeral source; no canonical database or publication.", prepare_import=True),
+    Binding("preparation_discover", "Inspect preparation availability", Preparation,
+        {"physical": "project-draft-documents", "documents": "project-draft-documents", "request": "preparation-discovery-request"},
+        "pse.ModelingPackage.preparation_discovery",
+        "Admit original supplied source and inspect exact preparation availability within the same Runtime lifetime. This passively observes availability without preparing mathematics or opening canonical storage.",
+        "projects", "Prepare native import providers through their existing owner as needed, then admit source and passively observe preparations.", "preparation-discovery-report", prepare_import=True),
+    Binding("project_select", "Select exact project source", Select,
+        {"physical": "project-draft-documents", "request": "project-select-request"},
+        "pse.Runtime.project_select",
+        "Select a branch or bookmark through its actual native receiver, freezing source and physical identities. Uses the explicitly selected existing canonical database and original physical source bytes.",
+        "projects", "Read selected canonical store; native physical admission, no publication.", "project-selection"),
+    Binding("project_metadata", "Read project metadata page", Metadata,
+        {"request": "project-metadata-request"}, "pse.Runtime.project_metadata",
+        "Read the original bounded project/draft/bookmark/savepoint/diagnostic metadata page, preserving the issuing store and owner-bound continuation.",
+        "projects", "Read explicitly selected existing canonical database; no provisioning.", "project-metadata-page"),
+    Binding("revision_source", "Inspect exact retained source revision", Revision,
+        {"physical": "project-draft-documents"}, "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
+        "Reopen the explicitly retained canonical revision with its original physical closure and read selected logical source detail. Source and binary identities remain native; a local revision token from an earlier ephemeral call cannot be used here.",
+        "projects", "Protected canonical source read and native source admission; no source edit or publication."),
+    Binding("revision_preparation_discover", "Inspect retained revision preparations", RevisionPreparation,
+        {"physical": "project-draft-documents", "request": "preparation-discovery-request"}, "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
+        "Reopen an exact retained canonical revision and passively inspect its preparation/publication headers. Durable presence preserves unchecked receiving eligibility; no numerical preparation is requested.",
+        "projects", "Protected canonical source/preparation metadata read, no numerical preparation.", "preparation-discovery-report"),
+    Binding("project_bundle_inspect", "Inspect supplied project pack offline", Bundle,
+        {}, "pse.ProjectBundle.manifest + digest",
+        "Verify and inspect a supplied copied project closure through the ordinary native bundle owner. Reads its original manifest and digest without opening a canonical database or provisioning storage.",
+        "projects", "Read and digest-check supplied project pack only.", "project-manifest"),
+    Binding("research_read", "Read original scientific research metadata", Metadata,
+        {"request": "research-read-request"}, "pse.Runtime.research_read",
+        "Read bounded immutable scientific research dataset, selection or publication metadata through the original native owner. Metadata grants no measurement or result lifetime.",
+        "projects", "Bounded read of explicitly selected canonical research metadata.", "research-read-result"),
+    Binding("diagnostic_inspect", "Inspect published diagnostic checkpoint", Diagnostic,
+        {"request": "inspection-request"}, "pse.diagnostics.inspect_checkpoint",
+        "Inspect an exact published checkpoint through native decoding and interpretation. Does not construct a Runtime, start a service, or cancel the observed subject.",
+        "diagnostics", "Read supplied native checkpoint only.", "inspection-document"),
+    Binding("evidence_inspect", "Inspect supplied frozen evidence", Evidence,
+        {"request": "frozen-inspection-request"}, "pse.diagnostics.read_evidence + inspect_frozen",
+        "Read a supplied bounded saved evidence set and interpret its immutable members at recorded source time. Embedded paths do not authorize lookup; canonical storage is not acquired.",
+        "diagnostics", "Read and interpret supplied frozen evidence only.", "frozen-inspection-document"),
+    Binding("invocation_read", "Read original native invocation evidence", Invocation,
+        {}, "pse.diagnostics.read_invocation",
+        "Decode descriptive invocation facts through the native saved-evidence reader. This grants no live result handle and does not replay the invocation.",
+        "diagnostics", "Read supplied invocation evidence only.", "invocation-evidence"),
+    Binding("result_read", "Read exact stored scientific result window", Result,
+        {}, "pse.Runtime.results",
+        "Read a bounded original run/attempt/relation row window through the protected native Arrow reader. Returns Arrow IPC stream bytes, preserving IEEE payloads, units and schema metadata. A detail bound asks for a narrower exact window; it never silently substitutes rows or attempts.",
+        "projects", "Protected read of explicitly selected canonical results; no scientific execution or publication."),
+)
+
+
+def run_child(root: Path, operation: str, arguments: dict[str, JsonValue]) -> dict[str, JsonValue]:
+    """Invoke one fixed module through the existing native environment owner."""
+    try:
+        request = json.dumps({"operation": operation, "arguments": arguments}, allow_nan=False).encode()
+    except (ValueError, TypeError):
+        return {"outcome": "malformed_invocation", "code": "pse.native.non_json_input"}
+    if len(request) > 16 << 20:
+        return {"outcome": "malformed_invocation", "code": "pse.native.request_bound"}
+    binding = next((item for item in BINDINGS if item.operation == operation), None)
+    if binding is None or binding.prepare_import:
+        return {"outcome": "malformed_invocation", "code": "pse.native.unknown_fixed_read"}
+    command = [str(root / "scripts/pse-env"), "--", str(root / ".venv/bin/python"), "-m", "scripts.capabilities.native_worker"]
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+        try:
+            completed = subprocess.run(command, input=request, stdout=output, stderr=errors, cwd=root, check=False)
+        except OSError as error:
+            return {"outcome": "prerequisite_unavailable", "code": "pse.native.child_unavailable", "cause": type(error).__name__}
+        if completed.returncode:
+            return {"outcome": "transport_failure", "code": "pse.native.child_failed", "exit_status": completed.returncode, "message": "Inspect the native environment owner; child stderr is withheld because it can include source or credentials."}
+        output.seek(0)
+        data = output.read((1 << 20) + 1)
+    if len(data) > 1 << 20:
+        return {"outcome": "incomplete_observation", "code": "pse.native.response_bound", "complete": False, "omissions": ["Native response exceeds the transport bound; narrow the selected observation."]}
+    try:
+        value = json.loads(data)
+        if not isinstance(value, dict):
+            raise ValueError("native child response must be object-root")
+        return value
+    except (ValueError, UnicodeDecodeError):
+        return {"outcome": "transport_failure", "code": "pse.native.invalid_child_response"}
+
+
+class NativeTool(Tool):
+    _root: Path = PrivateAttr()
+    _binding: Binding = PrivateAttr()
+    _schemas: SchemaSet = PrivateAttr()
+
+    async def run(self, arguments: dict[str, object]) -> ToolResult:
+        value: dict[str, JsonValue]
+        try:
+            request = self._binding.request.model_validate(arguments, strict=True)
+        except ValidationError as error:
+            value = {"outcome": "malformed_invocation", "code": "pse.native.host_envelope_refused", "fields": [{"location": list(item["loc"]), "code": item["type"]} for item in error.errors(include_input=False)[:32]]}
+        else:
+            data = request.model_dump(mode="json")
+            if self._binding.operation == "result_read" and data["end"] < data["start"]:
+                value = {"outcome": "malformed_invocation", "code": "pse.native.reversed_result_window"}
+            else:
+                data["schema_set_fingerprint"] = self._schemas.fingerprint
+                if self._binding.prepare_import:
+                    # Actions use the shared settled transport: cancellation
+                    # signals only this admitted helper and joins native drain.
+                    value = await run_worker(self._root, "native", self._binding.operation, data)
+                else:
+                    task = asyncio.create_task(asyncio.to_thread(run_child, self._root, self._binding.operation, data))
+                    _PENDING.add(task)
+                    task.add_done_callback(_PENDING.discard)
+                    # Cancelling a read detaches this observer. Its native read
+                    # and source protection finish under their existing owner.
+                    value = await asyncio.shield(task)
+        response = bounded(value, self.name)
+        return ToolResult(structured_content=response.model_dump(mode="json"))
+
+
+def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
+    schemas = SchemaSet(root)
+    specs: list[Capability] = []
+    tools: dict[str, Tool] = {}
+    for binding in BINDINGS:
+        host_schema = binding.request.model_json_schema()
+        parameters = schemas.envelope(host_schema, binding.documents, tuple(host_schema.get("required", ())))
+        contracts = {field: schemas.identity(slug) for field, slug in binding.documents.items()}
+        if binding.output_document:
+            contracts["output_document"] = schemas.identity(binding.output_document, "output")
+        name = "native_" + binding.operation
+        spec = Capability(id=name, title=binding.title, description=binding.description,
+            domain=binding.domain, family=("scientific-diagnostics" if binding.domain == "diagnostics" else "projects-revisions"), owner=binding.receiver, source="scripts/capabilities/native.py",
+            exposure="tool", effects=binding.effects,
+            prerequisites=(("Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner.",) if binding.prepare_import else ("Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers.",)),
+            workflows=(("diagnose-run",) if binding.domain == "diagnostics" else ("manage-project",)),
+            guides=("root", "tooling"))
+        tool = NativeTool(name=name, description=binding.description, parameters=parameters,
+            output_schema=ReadResult.model_json_schema(), tags=spec.tags,
+            meta={"pse.native": {"receiver": binding.receiver, "contracts": contracts, "schema_set_fingerprint": schemas.fingerprint, "authoring_guidance": ({"path": "docs/generated/schema/authoring.schema.json", "scope": "Applicable authored source sections only; native original-byte loaders own admission."} if "physical" in binding.documents else None)}},
+            annotations=ToolAnnotations(read_only_hint=not binding.prepare_import, destructive_hint=False, idempotent_hint=True, open_world_hint=False))
+        tool._root = root
+        tool._binding = binding
+        tool._schemas = schemas
+        specs.append(spec)
+        tools[name] = tool
+    def native_contract_schema(
+        slug: Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{0,95}$")],
+        direction: Literal["input", "output"] | None = None,
+        pointer: Annotated[str, Field(max_length=4096)] = "",
+    ) -> ReadResult:
+        """Read an exact generated native schema or authoring guidance with no native import, provider setup or service. Native schemas require their input/output direction; the exact authoring selector has no direction. Large roots report omissions: select an original JSON Pointer to inspect detail. Local references always retain their original root_ref scope. Authoring guidance describes applicable logical source sections; raw TOML/.pse/Parquet use native original-byte loaders."""
+        try:
+            return bounded(schemas.read(slug, direction, pointer), "native_contract_schema")
+        except (ValueError, OSError) as error:
+            raise ToolError(json.dumps({"code": "pse.native_schema.read_refused", "cause": type(error).__name__, "message": str(error)})) from error
+
+    schema_spec = Capability(
+        id="native_contract_schema", title="Read exact native schema or authoring guidance",
+        description=native_contract_schema.__doc__ or "Read generated schema",
+        domain="generation", family="generated-contracts", workflows=("change-generated-contract",),
+        guides=("root", "tooling"), owner="crates/pse-codegen/src/codegen/documents.rs",
+        source="scripts/capabilities/native.py", exposure="tool",
+        effects="Read prepared generated schema resources only; no native import, installation, build or service.",
+    )
+    schema_tool = Tool.from_function(native_contract_schema, annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False), tags=schema_spec.tags,
+        meta={"pse.native_schema": {"schema_set_fingerprint": schemas.fingerprint, "authoring_selector": {"slug": "authoring", "direction": None, "applicability": "Logical source sections only; not a native raw-bundle wire document."}}})
+    specs.append(schema_spec)
+    tools[schema_spec.id] = schema_tool
+    return tuple(specs), tools
