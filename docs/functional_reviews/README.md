@@ -8,12 +8,18 @@ inquiries retain their actual scope and semantic limitations; no production tele
 existing plan change is authorized by the review.
 
 The [Rust build-reuse tooling review](rust-build-reuse-tooling-2026-10-24.md) assesses
-sccache, cargo-shear and cargo-hakari for one local machine. It recommends sccache 0.18.0 with
-a declared version and the current incremental split. It corrects the premise that basedirs
-normalizes Rust keys across checkouts. It proposes driving cargo-shear to zero at the causes
-of its findings, with machete retired. It does not re-adopt hakari: Cargo unit graphs show
-native workspace unification holds, and the remaining host/target splits do not justify a
-workspace-hack. Its opportunities authorize no configuration or plan change.
+sccache, cargo-shear and cargo-hakari for one local machine.
+
+- **Measured findings:** fresh target directories miss about a third of a cold build,
+  because build-script `OUT_DIR` paths enter the sccache key (an upstream fix is in review).
+  Agent sessions split the cache keyspace through `CARGO_TERM_COLOR`. sccache 0.18.0 keeps
+  the Rust cache.
+- **Tested prototype:** shear reaches zero errors without changing any build selection.
+- **Recommendations:** sccache 0.18.0 as a verified binary, Cargo content fingerprints,
+  shear as the sole dependency detector in hygiene, and no hakari (its target saves 0.8% of a
+  cold build).
+
+Its opportunities authorize no configuration or plan change.
 
 The [FastMCP usability and tooling-evolution review](fastmcp-usability-and-tooling-evolution-2026-10-24.md)
 assesses the implemented single endpoint and the Python/Rust operations beneath it. It proposes

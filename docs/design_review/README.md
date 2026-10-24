@@ -31,6 +31,16 @@ independent oracles, shared helpers, assertions, boundary fidelity, isolation an
 It introduces no new principles, gates or required test mix. The two audit accounts retain
 independent baselines and one primary home per finding; plans remain the progress owners.
 
+The [Rust build-reuse review](reviews/design_review_rust-build-reuse_2026-10-24.md)
+assesses sccache, cargo-shear and cargo-hakari against measured cache, unit-graph and
+cold-build evidence, and decides Revise. It finds two cache-key problems: fresh target
+directories lose about a third of a cold build to build-script `OUT_DIR` keys (owned
+upstream), and agent sessions split the keyspace. It also finds an undeclared compiler-cache
+binary, false manifest dependencies, redundant detectors, and mtime-driven rebuilds. Its
+recommendations form one tooling plan without an ADR. The hakari retirement stands. It
+consolidates the same-day [functional review](../functional_reviews/rust-build-reuse-tooling-2026-10-24.md),
+whose probes remain the reproducible evidence.
+
 The [test architecture target review](reviews/design_review_test-architecture-target_2026-10-23.md)
 develops a coherent target and corrective changes from the holistic test audit. It accounts
 for all 48 DTA identities, including retained guarantees and withdrawn diagnoses, and connects
