@@ -170,3 +170,84 @@ def report_configuration(configuration: Path, destination: Path, profile: str, r
     junit["path"] = str(report.absolute())
     destination.write_text(tomlkit.dumps(document))
     return destination
+
+
+PYTHON_VALUE = frozenset({
+    "-m", "--markexpr", "-k", "-n", "--numprocesses", "--dist", "-o", "--override-ini",
+    "-c", "--config-file", "--rootdir", "--basetemp", "--junitxml", "--junit-xml",
+    "--maxfail", "--tb", "--capture", "--import-mode", "--log-level", "--log-cli-level",
+    "--color", "--durations", "--durations-min", "--deselect", "--ignore", "--ignore-glob",
+    "--confcutdir", "-p", "--cov", "--cov-report", "--cov-fail-under",
+    "--terminal-owner", "--max-worker-restart", "--junit-prefix", "-r",
+})
+PYTHON_FLAG = frozenset({
+    "-q", "-qq", "-v", "-vv", "-s", "-x", "--exitfirst", "--collect-only", "--collectonly",
+    "--continue-on-collection-errors", "--strict-markers", "--strict-config", "--disable-warnings",
+    "--no-header", "--no-summary", "--lf", "--last-failed", "--ff", "--failed-first",
+    "--performance", "--parity", "--producer-deployment", "--unit-only", "--no-cov",
+    "--managed-primary-route", "--managed-primary-child", "--functional-observer-child", "--pyargs",
+})
+
+
+@dataclass(frozen=True)
+class PythonInvocation:
+    marker: str
+    forwarded: tuple[str, ...]
+    opaque: tuple[str, ...]
+    targets: tuple[str, ...]
+    options: tuple[Argument, ...]
+
+    def values(self, name: str) -> tuple[str, ...]:
+        return tuple(item.value for item in self.options if item.name == name and item.value is not None)
+
+    def arguments(self, *, omit: frozenset[str] = frozenset()) -> list[str]:
+        return [part for item in self.options if item.name not in omit for part in item.argv()] + list(self.opaque)
+
+
+def append_options(arguments: Sequence[str], options: Sequence[str]) -> list[str]:
+    position = arguments.index("--") if "--" in arguments else len(arguments)
+    return [*arguments[:position], *options, *arguments[position:]]
+
+
+def python(arguments: Sequence[str]) -> PythonInvocation:
+    """Validate the supported pytest adapter before preparation, without collecting."""
+    marker = "unit or component or integration"
+    forwarded: list[str] = []
+    targets: list[str] = []
+    opaque: tuple[str, ...] = ()
+    options: list[Argument] = []
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument == "--":
+            opaque = tuple(arguments[index:])
+            targets.extend(arguments[index + 1:])
+            break
+        start = index
+        name, separator, value = argument.partition("=")
+        if not separator and len(argument) > 2 and argument[:2] in {"-m", "-k", "-n", "-o", "-c", "-p", "-r"}:
+            name, separator, value = argument[:2], "=", argument[2:]
+        if name in PYTHON_VALUE:
+            if not separator:
+                index += 1
+                if index == len(arguments) or arguments[index] == "--":
+                    raise ValueError(f"pytest {name} requires a value")
+                value = arguments[index]
+            if name in {"-m", "--markexpr"}:
+                marker = value
+            else:
+                forwarded.extend(arguments[start:index + 1])
+            options.append(Argument("--junitxml" if name == "--junit-xml" else name, value, tuple(arguments[start:index + 1])))
+        elif name in PYTHON_FLAG:
+            if separator:
+                raise ValueError(f"pytest {name} does not accept a value")
+            forwarded.append(argument)
+            options.append(Argument(name, original=(argument,)))
+        elif argument.startswith("-"):
+            raise ValueError(f"unsupported pytest scope option {argument}")
+        else:
+            forwarded.append(argument)
+            targets.append(argument)
+            options.append(Argument(argument))
+        index += 1
+    return PythonInvocation(marker, tuple(forwarded), opaque, tuple(targets), tuple(options))

@@ -17,6 +17,9 @@ from scripts import python_tests, surreal_server
 
 class PythonProcessRoutingTests(unittest.TestCase):
     def setUp(self) -> None:
+        scientific = patch.object(python_tests.scientific_inputs, "prepare_python")
+        scientific.start()
+        self.addCleanup(scientific.stop)
         width = patch.object(
             python_tests.native_tests.pse_env, "default_test_width", return_value=3
         )

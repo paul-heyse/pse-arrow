@@ -83,3 +83,22 @@ paths and retain lower-level schema/codec coverage; explicitly dispose synthetic
 combinations with no public producer without claiming equivalent public coverage.
 Optional operator evidence is independently selected and reported; its existing
 native executor is implementation evidence, not FastMCP host qualification.
+
+## Execution checkpoint — 2026-10-24
+
+The shared native/Python interpreter, structured TOML report copies, catalogue-derived
+requirements, selected-role checks, managed fixture guards and outcome reconciliation are
+integrated. Installer/codegen and strict producer build selection now prove actual Arrow
+leaves. Stale metadata/governance presence checks and inactive Rust diagnostic bodies are
+removed. Optional operator cases and component overlap/restart drivers have explicit routes.
+
+Known empty selection is a persisted not-run refusal, not uncollected scope. Fixture
+preparation failure retains selected scope with incomplete assurance before test launch.
+Typed Rust setup observations retain unknown assertion reach; Python pre-yield failures
+retain not-reached. Passed negative controls remain passed. Frozen assurance is preserved
+when later projection or cleanup fails; managed zero still requires completed reconciliation.
+
+The focused contract suite passed 331 tests against zero failures before the final native
+admission/selection joins; a subsequent 85-test changed-contract slice passed. Actual native
+compilation and public Python/operator/restart/overlap journeys are the remaining acceptance.
+No broad repository-health or benchmark campaign is selected.

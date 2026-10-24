@@ -51,7 +51,7 @@ class RestartPeerTests(unittest.TestCase):
         with (
             patch.object(boundary, "wait_record", side_effect=wait),
             patch.object(boundary.server, "config_for", return_value={}),
-            patch.object(boundary.server, "stop", side_effect=lambda *_: events.append("stop")) as stop,
+            patch.object(boundary.server, "stop", side_effect=lambda *_, **__: events.append("stop")) as stop,
             patch.object(boundary.server, "active", return_value=False),
             patch.object(boundary.server, "start", side_effect=lambda *_, **__: events.append("start")),
             patch.object(boundary.server, "unit_name", return_value="owned-fresh.service"),
@@ -62,7 +62,7 @@ class RestartPeerTests(unittest.TestCase):
             patch.object(boundary.server, "write_json", side_effect=lambda path, _: events.append(path.name)),
         ):
             boundary.restart_handshake(self.state, self.control, self.process, time.monotonic() + 5)
-        stop.assert_called_once_with(self.state, {})
+        stop.assert_called_once_with(self.state, {}, abrupt=True)
         self.assertEqual(events, [
             "ready.json", "stop", "stopped.json", "down-observed.json",
             "start", "restarted.json", "complete.json",
@@ -219,7 +219,8 @@ class RestartPeerTests(unittest.TestCase):
             patch.object(boundary.test_resources, "register", side_effect=register),
             patch.object(boundary.test_resources, "record_drain") as drain,
             patch.object(boundary.test_resources, "read_invocation", return_value={"kind": "rust"}),
-            patch.object(boundary.test_resources, "retain_reference") as retain,
+            patch.object(boundary.test_resources, "observe_peer") as peer_observation,
+            patch.object(boundary.test_resources, "observe_cleanup") as cleanup_observation,
             patch.object(boundary.server, "write_json"),
             patch.object(boundary.server, "read_json", return_value=peer),
             patch.object(boundary.server, "file_digest", return_value="a" * 64),
@@ -233,7 +234,8 @@ class RestartPeerTests(unittest.TestCase):
         self.assertEqual(launch.call_args.kwargs["env"]["PSE_SURREAL_STATE"], str(state))
         stop.assert_called_once_with(state, {})
         drain.assert_called_once_with("1" * 32)
-        retain.assert_called_once_with("1" * 32, peer["terminal"], "a" * 64)
+        peer_observation.assert_called_once_with({"test": "selected-component-peer"}, Path(peer["child"]), role="external-restart")
+        cleanup_observation.assert_called_once_with({"test": "selected-component-peer"}, [])
 
     def test_undeclared_lifecycle_demand_refuses_before_owned_creation(self) -> None:
         directory = self.directory / "never-created"

@@ -248,7 +248,17 @@ def native_inventory(log: str) -> dict:
             inventories.append(value)
     if len(inventories) != 1:
         raise ValueError("missing or ambiguous nextest enumeration")
-    return inventories[0]
+    inventory = inventories[0]
+    suites = inventory["rust-suites"]
+    if not isinstance(suites, dict):
+        raise ValueError("unsupported nextest suite catalogue")
+    for suite in suites.values():
+        if not isinstance(suite, dict) or not isinstance(suite.get("binary-id"), str) or not isinstance(suite.get("testcases"), dict):
+            raise ValueError("unsupported nextest binary catalogue")
+        for name, test in suite["testcases"].items():
+            if not isinstance(name, str) or not isinstance(test, dict) or not isinstance(test.get("filter-match"), dict) or test["filter-match"].get("status") not in {"matches", "mismatch"}:
+                raise ValueError("unsupported nextest filter-match protocol")
+    return inventory
 
 
 def native_selection(log: str) -> list[dict]:

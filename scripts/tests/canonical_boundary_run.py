@@ -64,7 +64,7 @@ def restart_handshake(
     original = native_operation.unit_observation(server.unit_name(state))
     if original.get("ActiveState") != "active" or not original.get("InvocationID"):
         raise RuntimeError("Owned restart service has no active invocation")
-    server.stop(state, server.config_for(state))
+    server.stop(state, server.config_for(state), abrupt=True)
     if server.active(state):
         raise RuntimeError("Owned restart service did not stop")
     server.write_json(control / "stopped.json", {"database": database})
@@ -191,8 +191,10 @@ def restart_journey(directory: Path, test_identity: str) -> None:
             digest = server.file_digest(terminal)
             if peer.get("terminal_sha256") != digest:
                 raise RuntimeError("Restart child terminal observation changed")
-            test_resources.retain_reference(resource, str(terminal), digest)
+            test_resources.observe_peer({"test": test_identity}, Path(str(peer["child"])), role="external-restart")
     finally:
+        cleanup_failures: list[str] = []
+        original_error = sys.exception()
         if process is not None and process.poll() is None:
             process.terminate()
             try:
@@ -202,9 +204,24 @@ def restart_journey(directory: Path, test_identity: str) -> None:
                 process.wait(timeout=10)
         # Supervisor stop authenticates the exact owned unit and proves drain.
         # Retain profile/evidence for the invocation owner; never remove unknown state.
-        server.stop(state, server.config_for(state))
         if resource is not None:
-            test_resources.record_drain(resource)
+            try:
+                test_resources.record_drain(resource)
+            except Exception as error:
+                cleanup_failures.append("peer-controls-drain")
+                print(f"Restart controls retained: {error}", file=sys.stderr)
+        try:
+            server.stop(state, server.config_for(state))
+        except Exception as error:
+            cleanup_failures.append("peer-service-stop")
+            print(f"Restart service cleanup failed: {error}", file=sys.stderr)
+        try:
+            test_resources.observe_cleanup({"test": test_identity}, cleanup_failures)
+        except Exception as error:
+            if original_error is not None:
+                original_error.add_note(f"Cleanup observation unavailable: {error}")
+            else:
+                raise
 
 
 def main() -> int:
@@ -218,12 +235,14 @@ def main() -> int:
         return rust_child(directory)
     if args.action == "operator":
         environment = dict(os.environ)
+        environment["PSE_TEST_REQUIRED_ROLES"] = ",".join(filter(None, [environment.get("PSE_TEST_REQUIRED_ROLES", ""), "operator-graph", "operator-query"]))
         environment["PSE_DIAGNOSTIC_EVIDENCE"] = str(directory)
         if args.executor is not None:
             environment["PSE_CANONICAL_TOOLS"] = str(args.executor.resolve())
         directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         return test_run.run_rust(rust_command(OPERATOR_FILTER), env=environment)
     environment = dict(os.environ)
+    environment["PSE_TEST_REQUIRED_ROLES"] = ",".join(filter(None, [environment.get("PSE_TEST_REQUIRED_ROLES", ""), "external-restart"]))
     environment["PSE_CANONICAL_RESTART_DIRECTORY"] = str(directory)
     return test_run.run_python([
         sys.executable, "-m", "pytest",

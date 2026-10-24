@@ -507,7 +507,7 @@ log_level = "INFO"
 console_output_style = "count"
 required_plugins = ["pytest-cov", "pytest-xdist"]
 markers = [
-  "test_requirements(canonical=False, roles=()): explicit owned control effects and campaign roles alongside actual fixture closure",
+  "test_requirements(canonical=False, native=False, roles=()): explicit owned control effects and campaign roles alongside actual fixture closure",
   "unit: local policy or codec logic, no native attempt or inspection store",
   "component: an owned native or storage boundary with explicit dependencies",
   "integration: long-running end-to-end",

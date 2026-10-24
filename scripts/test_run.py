@@ -92,6 +92,17 @@ def finish(
         for item in results
     }
     declaration = resources.read_invocation(path)
+    image = resources.storage().invocation_snapshot(declaration["nonce"])
+    setup_failures = image.get("setup_failures", {})
+    if not isinstance(setup_failures, dict):
+        raise ValueError("Invalid authenticated setup observations")
+    for item in results:
+        identity = str(item.get("nodeid") or (str(item["class"]) + "::" + str(item["name"])))
+        observation = setup_failures.get(identity)
+        if observation is not None and item["status"] != "passed":
+            item["failure_kind"] = "infrastructure"
+            item["assertion_reach"] = observation["assertion_reach"]
+            item["setup_stage"] = observation["stage"]
     catalog = {
         item["binary_id"] + "::" + item["name"]
         if declaration["kind"] == "rust"
@@ -128,6 +139,11 @@ def finish(
                 "owned_drain", process.get("owned_drain", "unobserved")
             ),
             "process": dict(process),
+            "setup_failures": dict(setup_failures),
+            "requirements": dict(image.get("requirements", {})),
+            "peer_invocations": dict(image.get("peer_invocations", {})),
+            "cleanup_observations": dict(image.get("cleanup_observations", {})),
+            "assurance": "pass" if check.get("status") == "passed" and not report_errors else "incomplete" if report_errors else "failure",
         },
     )
     failed = False
@@ -406,7 +422,54 @@ def execute_selected(
                 cleaning = False
         for signum, handler in previous_handlers.items():
             signal.signal(signum, handler)
-    return code
+    # Process status describes the child. The managed correctness adapter also
+    # requires complete reconciled assurance; keep both meanings available.
+    if code != 0:
+        return code
+    if not reconciled:
+        return 1
+    try:
+        image = resources.storage().invocation_snapshot(resources.read_invocation(path)["nonce"])
+        terminal = image.get("terminal", {})
+        evidence = terminal.get("evidence", {})
+        return 0 if (image["phase"] == "frozen" and terminal.get("complete") is True
+                     and evidence.get("assurance") == "pass") else 1
+    except (OSError, ValueError):
+        return 1
+
+
+def empty_selection(inventory: Mapping[str, object], source: Path | None = None) -> Path:
+    """Persist a known empty catalogue as an explicit pre-execution refusal."""
+    if rust_selected(inventory):
+        raise ValueError("Empty-selection refusal received selected tests")
+    path = resources.invocation("rust", [])
+    artifacts = {source.name: validation_receipts.digest(source)} if source is not None else {}
+    evidence = {
+        "assurance": "not-run", "selection_state": "empty", "workload_exit": None,
+        "report_errors": [], "results": [], "artifacts": artifacts,
+        "artifact_base": str(source.parent) if source is not None else None,
+        "refusal": "empty-selection", "process": {},
+    }
+    resources.finalize(path, {}, complete=True, terminal_owner="runner", terminal=evidence)
+    resources.resource_store.publish(path.with_suffix(".terminal.json"), evidence)
+    print(f"Test selection is empty; invocation: {path}", file=sys.stderr)
+    return path
+
+
+def preparation_failure(inventory: Mapping[str, object], stage: str) -> Path:
+    """Record a collector-owned failure before any selected test was launched."""
+    selected = rust_selected(inventory)
+    path = resources.invocation("rust", selected)
+    evidence = {
+        "assurance": "incomplete", "selection_state": "collected", "workload_exit": None,
+        "report_errors": [stage], "artifacts": {}, "process": {},
+        "results": [{"class": item["binary_id"], "name": item["name"], "status": "not_run", "failure_kind": "infrastructure", "assertion_reach": "not-reached"} for item in selected],
+        "setup_failures": {item["binary_id"] + "::" + item["name"]: {"kind": "infrastructure", "stage": stage, "code": "test::preparation", "assertion_reach": "not-reached", "source": "preparing-runner"} for item in selected},
+    }
+    resources.finalize(path, {}, complete=False, terminal_owner="runner", terminal=evidence)
+    resources.resource_store.publish(path.with_suffix(".terminal.json"), evidence)
+    print(f"Selected fixture preparation failed; invocation: {path}", file=sys.stderr)
+    return path
 
 
 def run_python(
@@ -416,6 +479,7 @@ def run_python(
     artifact: Mapping[str, object] | None = None,
 ) -> int:
     environment = dict(os.environ if env is None else env)
+    from scripts import test_invocation
     if resources.MARKER in environment:
         return subprocess.call(command, cwd=ROOT, env=environment)
     path = resources.invocation("python", [])
@@ -425,7 +489,7 @@ def run_python(
     environment["PSE_TEST_ENUMERATION"] = str(selection)
     return execute_selected(
         path,
-        [*command, "--junitxml=" + str(report)],
+        test_invocation.append_options(command, ["--junitxml=" + str(report)]),
         environment,
         report,
         selection=selection,
@@ -445,17 +509,18 @@ def python_observer(
     artifact: Mapping[str, object] | None = None,
 ) -> int:
     """The existing observer forwarding parent owns standalone reconciliation."""
-    if resources.MARKER in os.environ or "--terminal-owner=assessment" in extra:
+    from scripts import test_invocation
+
+    request = test_invocation.python(extra)
+    if resources.MARKER in os.environ or "assessment" in request.values("--terminal-owner"):
         return launch({})
-    destinations = [
-        Path(item.split("=", 1)[1]) for item in extra if item.startswith("--junitxml=")
-    ]
+    destinations = [Path(item) for item in request.values("--junitxml")]
     if len(destinations) > 1 or (not destinations and not default_report):
         raise ValueError("native Python execution requires one JUnit destination")
     path = resources.invocation("python", [], terminal_owner=terminal_owner)
     report = destinations[0] if destinations else path.with_suffix(".xml")
     if not destinations:
-        command.append("--junitxml=" + str(report))
+        command[:] = test_invocation.append_options(command, ["--junitxml=" + str(report)])
     selection = report.with_name(report.stem + "-selected.txt")
     forwarded = {resources.MARKER: str(path), "PSE_TEST_ENUMERATION": str(selection)}
     if artifact is not None:
@@ -534,6 +599,9 @@ def run_rust(
     ]
     fresh_inventory = inventory is None
     if inventory is None:
+        from scripts import cargo_tools
+
+        cargo_tools.selected_identity("cargo-nextest")
         if "--binaries-metadata" in command or "--cargo-metadata" in command:
             raise ValueError("Retained Rust metadata requires its prepared inventory")
         response = subprocess.run(
@@ -556,6 +624,14 @@ def run_rust(
             list(command[position + 1 :]), environment, inventory=inventory
         )
     selected = rust_selected(inventory)
+    from scripts import test_requirements
+
+    requirements = test_requirements.rust_catalog(
+        inventory, required_roles=test_requirements.required_roles(environment), validate_declarations=False
+    )
+    if not selected:
+        empty_selection(inventory)
+        return 2
     if inherited:
         path = Path(inherited)
         declaration = resources.read_invocation(path)
@@ -568,7 +644,7 @@ def run_rust(
 
         resources.publish_selection(path, selected)
     else:
-        path = resources.invocation("rust", selected)
+        path = resources.invocation("rust", selected, requirements=requirements)
     # Ordinary local unit routes enumerate here rather than through the native
     # observer. They use the same invocation preparation after actual selection.
     from scripts import scientific_inputs
