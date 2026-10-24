@@ -148,10 +148,18 @@ fn drain(dae: bool, p: &Profile) -> Report {
 fn close(a: &[Sample], b: &[Sample], relative: f64) {
     assert_eq!(a.len(), b.len(), "trajectory sample extent");
     for (x, y) in a.iter().zip(b) {
-        assert!(x.time.is_finite() && y.time.is_finite(), "nonfinite sample time");
+        assert!(
+            x.time.is_finite() && y.time.is_finite(),
+            "nonfinite sample time"
+        );
         assert_eq!(x.time, y.time, "trajectory sample correspondence");
         assert_eq!(x.state.len(), y.state.len(), "state extent at t={}", x.time);
-        assert_eq!(x.outputs.len(), y.outputs.len(), "output extent at t={}", x.time);
+        assert_eq!(
+            x.outputs.len(),
+            y.outputs.len(),
+            "output extent at t={}",
+            x.time
+        );
         assert_eq!(
             x.output_sensitivities.len(),
             y.output_sensitivities.len(),
@@ -171,8 +179,7 @@ fn close(a: &[Sample], b: &[Sample], relative: f64) {
             )
         {
             assert!(
-                u.is_finite() && v.is_finite()
-                    && (u - v).abs() <= relative * (1.0 + v.abs()),
+                u.is_finite() && v.is_finite() && (u - v).abs() <= relative * (1.0 + v.abs()),
                 "{u} vs {v} at t={}",
                 x.time
             );
@@ -235,7 +242,10 @@ fn trajectory_comparison_rejects_nonfinite_extent_time_and_wrong_level() {
     let mut repartitioned = expected.clone();
     let output = repartitioned[0].outputs.remove(0);
     repartitioned[0].state.push(output);
-    assert!(rejects(&repartitioned, &expected), "shifted quantity boundary");
+    assert!(
+        rejects(&repartitioned, &expected),
+        "shifted quantity boundary"
+    );
     for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
         for field in 0..4 {
             let mut nonfinite = expected.clone();
@@ -245,9 +255,18 @@ fn trajectory_comparison_rejects_nonfinite_extent_time_and_wrong_level() {
                 2 => nonfinite[0].outputs[0] = bad,
                 _ => nonfinite[0].output_sensitivities[0] = bad,
             }
-            assert!(rejects(&nonfinite, &expected), "nonfinite actual field {field}: {bad}");
-            assert!(rejects(&expected, &nonfinite), "nonfinite expected field {field}: {bad}");
-            assert!(rejects(&nonfinite, &nonfinite), "matching nonfinite field {field}: {bad}");
+            assert!(
+                rejects(&nonfinite, &expected),
+                "nonfinite actual field {field}: {bad}"
+            );
+            assert!(
+                rejects(&expected, &nonfinite),
+                "nonfinite expected field {field}: {bad}"
+            );
+            assert!(
+                rejects(&nonfinite, &nonfinite),
+                "matching nonfinite field {field}: {bad}"
+            );
         }
     }
 }

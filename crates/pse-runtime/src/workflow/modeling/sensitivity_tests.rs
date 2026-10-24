@@ -399,17 +399,27 @@ pub(in crate::workflow) async fn reopened_rows<R: RelationRow>(
     result: &crate::workflow::RunResult,
     name: &str,
 ) -> Vec<R> {
-    let mut stream = runtime.results(
-        result.canonical_run_key().unwrap(),
-        result.canonical_attempt_key().unwrap(),
-        name, 0, u64::MAX, pse_columnar::CancellationToken::new(),
-    ).await.unwrap();
+    let mut stream = runtime
+        .results(
+            result.canonical_run_key().unwrap(),
+            result.canonical_attempt_key().unwrap(),
+            name,
+            0,
+            u64::MAX,
+            pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
     let mut reopened = Vec::new();
     while let Some(batch) = stream.next_batch().await.unwrap() {
         let checked = pse_relations::columnar::FieldCheckedBatch::admit(
-            runtime.registry(), R::relation(runtime.registry()).unwrap(), batch,
-            &runtime.validation_context(), &pse_columnar::CancellationToken::new(),
-        ).unwrap();
+            runtime.registry(),
+            R::relation(runtime.registry()).unwrap(),
+            batch,
+            &runtime.validation_context(),
+            &pse_columnar::CancellationToken::new(),
+        )
+        .unwrap();
         reopened.extend(R::rows(&checked).unwrap());
     }
     reopened
@@ -422,9 +432,8 @@ pub(in crate::workflow) async fn reopened_rows<R: RelationRow>(
 #[tokio::test]
 async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
     let runtime = crate::workflow::durable_tests::durable_runtime();
-    let (package, mut request) = crate::workflow::durable_tests::package_on(
-        &runtime, NONLINEAR_CURVATURE,
-    ).await;
+    let (package, mut request) =
+        crate::workflow::durable_tests::package_on(&runtime, NONLINEAR_CURVATURE).await;
     request.solver.intent = SolveIntent::Optimize;
     request.solver.selection = SolverSelection::Explicit(Backend::Ipopt);
     request.bindings.demand = ["a", "b", "x", "y"].map(String::from).to_vec();
@@ -432,7 +441,12 @@ async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
     let plain = package.prepare_analysis(&request, &cancel).await.unwrap();
     let model = &plain.model.model.compiled().model;
     let [a, b, x, y] = ["a", "b", "x", "y"].map(|path| model.paths[path]);
-    let coupling = model.equations.iter().find(|row| row.lineage.path.ends_with(".coupling")).unwrap().id;
+    let coupling = model
+        .equations
+        .iter()
+        .find(|row| row.lineage.path.ends_with(".coupling"))
+        .unwrap()
+        .id;
     request.solver.numerics.requirements = [
         (NumericalTarget::Variable, a, 3.),
         (NumericalTarget::Variable, b, 5.),
@@ -440,7 +454,9 @@ async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
         (NumericalTarget::Variable, y, 7.),
         (NumericalTarget::Row, coupling, 11.),
         (NumericalTarget::Objective, SemanticId::NIL, 13.),
-    ].map(|(kind, id, scale)| curvature_requirement(kind, id, scale)).to_vec();
+    ]
+    .map(|(kind, id, scale)| curvature_requirement(kind, id, scale))
+    .to_vec();
     request.solver.numerics.kkt.stationarity = 1e-9;
     request.solver.numerics.kkt.complementarity = 1e-9;
     request.solver.numerics.linear_backward_error = 1e-9;
@@ -448,62 +464,151 @@ async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
     for (forcing, s, parameters) in [(3., 1., vec![b, a]), (18., 2., vec![a, b])] {
         request.case.values.insert("a".into(), forcing);
         request.solver.sensitivity = Some(SensitivityRequest {
-            parameters: parameters.clone(), reduced_hessian: true, propagation: None,
+            parameters: parameters.clone(),
+            reduced_hessian: true,
+            propagation: None,
         });
         let prepared = package.prepare_analysis(&request, &cancel).await.unwrap();
         let result = prepared.start().unwrap().wait().await.unwrap();
         assert!(result.usable(), "{:?}", result.report());
         let variables: Vec<solve_variables::Row> = rows(&result, "runtime.solve_variables");
-        for (target, expected) in [(x, s), (y, s*s)] {
-            let row = variables.iter().find(|row| row.symbol_id == target).unwrap();
-            assert!((row.value.unwrap()-expected).abs() < 1e-5, "{row:?}");
-            assert_eq!(row.dual_qualification, DualQualification::SensitivityCertified);
+        for (target, expected) in [(x, s), (y, s * s)] {
+            let row = variables
+                .iter()
+                .find(|row| row.symbol_id == target)
+                .unwrap();
+            assert!((row.value.unwrap() - expected).abs() < 1e-5, "{row:?}");
+            assert_eq!(
+                row.dual_qualification,
+                DualQualification::SensitivityCertified
+            );
         }
         let constraints: Vec<solve_constraints::Row> = rows(&result, "runtime.solve_constraints");
-        let constraint = constraints.iter().find(|row| row.row_id == coupling).unwrap();
-        assert!((constraint.dual.unwrap()+s*s).abs() < 1e-5, "{constraint:?}");
+        let constraint = constraints
+            .iter()
+            .find(|row| row.row_id == coupling)
+            .unwrap();
+        assert!(
+            (constraint.dual.unwrap() + s * s).abs() < 1e-5,
+            "{constraint:?}"
+        );
         assert!(constraint.equality_residual.unwrap().abs() <= constraint.tolerance.unwrap());
-        let denominator = 1. + 6.*s*s;
-        let sensitivities: Vec<parametric_sensitivities::Row> = rows(&result, "runtime.parametric_sensitivities");
+        let denominator = 1. + 6. * s * s;
+        let sensitivities: Vec<parametric_sensitivities::Row> =
+            rows(&result, "runtime.parametric_sensitivities");
         for parameter in &parameters {
             let axis = if *parameter == a { 1. } else { 2. };
             for (kind, target, expected, dual) in [
-                (NumericalTarget::Variable, x, axis/denominator, false),
-                (NumericalTarget::Variable, y, axis*2.*s/denominator, false),
-                (NumericalTarget::Row, coupling, -axis*2.*s/denominator, true),
-                (NumericalTarget::Objective, SemanticId::NIL, axis*(forcing-s), false),
+                (NumericalTarget::Variable, x, axis / denominator, false),
+                (
+                    NumericalTarget::Variable,
+                    y,
+                    axis * 2. * s / denominator,
+                    false,
+                ),
+                (
+                    NumericalTarget::Row,
+                    coupling,
+                    -axis * 2. * s / denominator,
+                    true,
+                ),
+                (
+                    NumericalTarget::Objective,
+                    SemanticId::NIL,
+                    axis * (forcing - s),
+                    false,
+                ),
             ] {
-                let row = sensitivities.iter().find(|row| row.parameter_id == *parameter && row.target_kind == kind && row.target_id == target).unwrap();
+                let row = sensitivities
+                    .iter()
+                    .find(|row| {
+                        row.parameter_id == *parameter
+                            && row.target_kind == kind
+                            && row.target_id == target
+                    })
+                    .unwrap();
                 let actual = if dual { row.dual } else { row.primal }.unwrap();
-                assert!((actual-expected).abs() < 1e-5, "{forcing}: {row:?}, expected {expected}");
+                assert!(
+                    (actual - expected).abs() < 1e-5,
+                    "{forcing}: {row:?}, expected {expected}"
+                );
             }
         }
         let hessians: Vec<reduced_hessians::Row> = rows(&result, "runtime.reduced_hessians");
         assert_eq!(hessians.len(), 1);
         let hessian = &hessians[0];
         // Interpret every matrix cell by its published identity rather than request position.
-        assert_eq!(hessian.parameters.iter().copied().collect::<std::collections::BTreeSet<_>>(), [a,b].into_iter().collect());
+        assert_eq!(
+            hessian
+                .parameters
+                .iter()
+                .copied()
+                .collect::<std::collections::BTreeSet<_>>(),
+            [a, b].into_iter().collect()
+        );
         assert_eq!(hessian.values.len(), 4);
         for (i, left) in hessian.parameters.iter().enumerate() {
             for (j, right) in hessian.parameters.iter().enumerate() {
                 let weight = if *left == a { 1. } else { 2. } * if *right == a { 1. } else { 2. };
-                let expected = weight*(1.-1./denominator);
-                assert!((hessian.values[2*i+j]-expected).abs() < 1e-5, "{hessian:?}");
+                let expected = weight * (1. - 1. / denominator);
+                assert!(
+                    (hessian.values[2 * i + j] - expected).abs() < 1e-5,
+                    "{hessian:?}"
+                );
             }
         }
         let validity: Vec<local_validity::Row> = rows(&result, "runtime.local_validity");
-        for quantity in [DerivedQuantity::ParametricSensitivity, DerivedQuantity::ReducedHessian] {
-            let row = validity.iter().find(|row| row.quantity == quantity).unwrap();
-            assert!(row.validity.certified && row.validity.reason.is_none(), "{row:?}");
-            assert_eq!((row.validity.licq, row.validity.second_order), (Some(true), Some(true)));
+        for quantity in [
+            DerivedQuantity::ParametricSensitivity,
+            DerivedQuantity::ReducedHessian,
+        ] {
+            let row = validity
+                .iter()
+                .find(|row| row.quantity == quantity)
+                .unwrap();
+            assert!(
+                row.validity.certified && row.validity.reason.is_none(),
+                "{row:?}"
+            );
+            assert_eq!(
+                (row.validity.licq, row.validity.second_order),
+                (Some(true), Some(true))
+            );
         }
         let numerics: Vec<resolved_numerics::Row> = rows(&result, "runtime.resolved_numerics");
-        for (kind, target, expected) in [(NumericalTarget::Variable,x,2.), (NumericalTarget::Variable,y,7.), (NumericalTarget::Row,coupling,11.), (NumericalTarget::Objective,SemanticId::NIL,13.)] {
-            assert_eq!(numerics.iter().find(|row| row.target_kind==kind && row.target_id==target).unwrap().coordinate_scale, expected);
+        for (kind, target, expected) in [
+            (NumericalTarget::Variable, x, 2.),
+            (NumericalTarget::Variable, y, 7.),
+            (NumericalTarget::Row, coupling, 11.),
+            (NumericalTarget::Objective, SemanticId::NIL, 13.),
+        ] {
+            assert_eq!(
+                numerics
+                    .iter()
+                    .find(|row| row.target_kind == kind && row.target_id == target)
+                    .unwrap()
+                    .coordinate_scale,
+                expected
+            );
         }
         // Lifecycle assertions are separate from the independent scientific assertions above.
-        assert_eq!(reopened_rows::<parametric_sensitivities::Row>(&runtime, &result, "runtime.parametric_sensitivities").await, sensitivities);
-        assert_eq!(reopened_rows::<reduced_hessians::Row>(&runtime, &result, "runtime.reduced_hessians").await, hessians);
-        assert_eq!(reopened_rows::<local_validity::Row>(&runtime, &result, "runtime.local_validity").await, validity);
+        assert_eq!(
+            reopened_rows::<parametric_sensitivities::Row>(
+                &runtime,
+                &result,
+                "runtime.parametric_sensitivities"
+            )
+            .await,
+            sensitivities
+        );
+        assert_eq!(
+            reopened_rows::<reduced_hessians::Row>(&runtime, &result, "runtime.reduced_hessians")
+                .await,
+            hessians
+        );
+        assert_eq!(
+            reopened_rows::<local_validity::Row>(&runtime, &result, "runtime.local_validity").await,
+            validity
+        );
     }
 }

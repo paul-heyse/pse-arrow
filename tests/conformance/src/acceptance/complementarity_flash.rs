@@ -32,25 +32,49 @@ struct FlashEvidence {
 fn independent_phase_brackets(delta: f64) {
     use datafusion::arrow::array::{Float64Array, StringArray};
     use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/reference/data/oracles/idaes-2.13/data/rpp4_pressure_oracles.parquet");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+        "../../packages/reference/data/oracles/idaes-2.13/data/rpp4_pressure_oracles.parquet",
+    );
     let reader = ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(path).unwrap())
-        .unwrap().build().unwrap();
+        .unwrap()
+        .build()
+        .unwrap();
     let mut pressures = BTreeMap::new();
     for batch in reader {
         let batch = batch.unwrap();
-        let subjects = batch.column_by_name("subject").unwrap().as_any()
-            .downcast_ref::<StringArray>().unwrap();
+        let subjects = batch
+            .column_by_name("subject")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
         for row in 0..batch.num_rows() {
-            if !matches!(subjects.value(row), "71-43-2" | "108-88-3") { continue; }
-            let value = |name| batch.column_by_name(name).unwrap().as_any()
-                .downcast_ref::<Float64Array>().unwrap().value(row);
+            if !matches!(subjects.value(row), "71-43-2" | "108-88-3") {
+                continue;
+            }
+            let value = |name| {
+                batch
+                    .column_by_name(name)
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<Float64Array>()
+                    .unwrap()
+                    .value(row)
+            };
             let saturation = |temperature: f64| {
                 let tau = 1. - temperature / value("tc");
-                value("pc") * ((value("a")*tau + value("b")*tau.powf(1.5)
-                    + value("c")*tau.powi(3) + value("d")*tau.powi(6)) / (1.-tau)).exp()
+                value("pc")
+                    * ((value("a") * tau
+                        + value("b") * tau.powf(1.5)
+                        + value("c") * tau.powi(3)
+                        + value("d") * tau.powi(6))
+                        / (1. - tau))
+                        .exp()
             };
-            pressures.insert(subjects.value(row).to_owned(), [saturation(363.), saturation(373.)]);
+            pressures.insert(
+                subjects.value(row).to_owned(),
+                [saturation(363.), saturation(373.)],
+            );
         }
     }
     assert_eq!(pressures.len(), 2);
@@ -61,21 +85,35 @@ fn independent_phase_brackets(delta: f64) {
         // separately for log-fugacity, material, beta-bound and normalization
         // residuals using their common conservative resolved upper budget.
         for (k, beta, upper) in [
-            (pressure[0]/101325. * delta.exp(), -delta, true),
-            (pressure[1]/101325. * (-delta).exp(), 1.+delta, false),
+            (pressure[0] / 101325. * delta.exp(), -delta, true),
+            (pressure[1] / 101325. * (-delta).exp(), 1. + delta, false),
         ] {
-            let denominator = 1. + beta*(k-1.);
+            let denominator = 1. + beta * (k - 1.);
             assert!(denominator > 0.);
-            let coefficient = (k-1.)/denominator;
-            let weight = 0.5 + if (coefficient >= 0.) == upper { delta } else { -delta };
-            if upper { bubble_residual_upper += weight*coefficient; }
-            else { dew_residual_lower += weight*coefficient; }
+            let coefficient = (k - 1.) / denominator;
+            let weight = 0.5
+                + if (coefficient >= 0.) == upper {
+                    delta
+                } else {
+                    -delta
+                };
+            if upper {
+                bubble_residual_upper += weight * coefficient;
+            } else {
+                dew_residual_lower += weight * coefficient;
+            }
         }
     }
     // Even the perturbed original equations cannot have a root outside these
     // brackets: the remaining normalization residual is bounded by delta.
-    assert!(bubble_residual_upper < -delta, "bubble bracket: {bubble_residual_upper}, budget {delta}");
-    assert!(dew_residual_lower > delta, "dew bracket: {dew_residual_lower}, budget {delta}");
+    assert!(
+        bubble_residual_upper < -delta,
+        "bubble bracket: {bubble_residual_upper}, budget {delta}"
+    );
+    assert!(
+        dew_residual_lower > delta,
+        "dew bracket: {dew_residual_lower}, budget {delta}"
+    );
 }
 
 fn absent_phase_bound(slack_lower: f64, residual: f64, fraction: f64, smooth: bool) -> f64 {
@@ -85,7 +123,13 @@ fn absent_phase_bound(slack_lower: f64, residual: f64, fraction: f64, smooth: bo
     // a>=slack_lower and |r|<=residual, b<=residual+eps²/(4(a-residual)).
     // Disjunctive pairs permit only the residual/fraction envelope; penalty
     // product bounds are tighter here because the independently bounded slack>1.
-    fraction + residual + if smooth { 1e-8 / (4. * (slack_lower-residual)) } else { 0. }
+    fraction
+        + residual
+        + if smooth {
+            1e-8 / (4. * (slack_lower - residual))
+        } else {
+            0.
+        }
 }
 
 fn assert_phase_regime(feed: &str, evidence: &FlashEvidence, smooth: bool) {
@@ -93,17 +137,26 @@ fn assert_phase_regime(feed: &str, evidence: &FlashEvidence, smooth: bool) {
     independent_phase_brackets(delta);
     let slack_lower = 5. - evidence.temperature_binding_budget - delta;
     let bound = absent_phase_bound(slack_lower, delta, evidence.fraction_resolution, smooth);
-    assert!(0.1 > bound, "the independent wrong-interior control must discriminate: {bound}");
+    assert!(
+        0.1 > bound,
+        "the independent wrong-interior control must discriminate: {bound}"
+    );
     let absent = match feed {
         "liquid" => evidence.vapor,
-        "vapor" => 1.-evidence.vapor,
+        "vapor" => 1. - evidence.vapor,
         "two_phase" => {
-            assert!(evidence.vapor > bound && 1.-evidence.vapor > bound, "{evidence:?}");
+            assert!(
+                evidence.vapor > bound && 1. - evidence.vapor > bound,
+                "{evidence:?}"
+            );
             return;
         }
         _ => panic!("unknown authored feed"),
     };
-    assert!(absent.is_finite() && absent.abs() <= bound, "{feed}: {evidence:?}; absent bound={bound}");
+    assert!(
+        absent.is_finite() && absent.abs() <= bound,
+        "{feed}: {evidence:?}; absent bound={bound}"
+    );
 }
 
 #[test]
@@ -112,8 +165,14 @@ fn phase_regime_envelope_rejects_interior_and_missing_slack() {
     assert!(1e-9 <= bound);
     assert!(0.1 > bound);
     assert!(std::panic::catch_unwind(|| absent_phase_bound(0., 0.001, 0.001, true)).is_err());
-    let mut evidence = FlashEvidence { vapor: 1.-1e-9, temperature: 371., temperature_allowance: 0.1,
-        temperature_binding_budget: 0.1, scalar_budget: 0.001, fraction_resolution: 0.001 };
+    let mut evidence = FlashEvidence {
+        vapor: 1. - 1e-9,
+        temperature: 371.,
+        temperature_allowance: 0.1,
+        temperature_binding_budget: 0.1,
+        scalar_budget: 0.001,
+        fraction_resolution: 0.001,
+    };
     assert_phase_regime("vapor", &evidence, true);
     evidence.vapor = 0.9;
     assert!(std::panic::catch_unwind(|| assert_phase_regime("vapor", &evidence, true)).is_err());
@@ -269,34 +328,85 @@ async fn solve_prepared(prepared: &ModelingSolvePreparation) -> FlashEvidence {
     assert!(vapor.is_finite());
     assert!(temperature.is_finite());
     let model = &report.prepared.model.model.compiled().model;
-    let row_budget = |id| numerics.targets.iter().find(|target| target.kind == NumericalTarget::Row && target.id == id)
-        .expect("every original phase row has a resolved budget").budget;
+    let row_budget = |id| {
+        numerics
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Row && target.id == id)
+            .expect("every original phase row has a resolved budget")
+            .budget
+    };
     let mut scalar_budget: f64 = 0.;
     for (suffix, count) in [(".material", 2), (".fugacity", 2), (".normalization", 1)] {
-        let rows = model.equations.iter().filter(|row| row.lineage.path.ends_with(suffix)).collect::<Vec<_>>();
+        let rows = model
+            .equations
+            .iter()
+            .filter(|row| row.lineage.path.ends_with(suffix))
+            .collect::<Vec<_>>();
         assert_eq!(rows.len(), count, "phase premise {suffix}");
-        for row in rows { scalar_budget = scalar_budget.max(row_budget(row.id)); }
+        for row in rows {
+            scalar_budget = scalar_budget.max(row_budget(row.id));
+        }
     }
     for suffix in [".liquid_disappearance", ".vapor_disappearance"] {
-        let rows = model.equations.iter().filter(|row| row.lineage.path.ends_with(suffix)).collect::<Vec<_>>();
-        assert!(!rows.is_empty(), "actual complementarity realization rows required");
-        for row in rows { scalar_budget = scalar_budget.max(row_budget(row.id)); }
+        let rows = model
+            .equations
+            .iter()
+            .filter(|row| row.lineage.path.ends_with(suffix))
+            .collect::<Vec<_>>();
+        assert!(
+            !rows.is_empty(),
+            "actual complementarity realization rows required"
+        );
+        for row in rows {
+            scalar_budget = scalar_budget.max(row_budget(row.id));
+        }
     }
     for suffix in [".beta", ".liquid_slack", ".vapor_slack"] {
-        let symbols = model.symbols.values().filter(|symbol| symbol.lineage.path.ends_with(suffix)).collect::<Vec<_>>();
+        let symbols = model
+            .symbols
+            .values()
+            .filter(|symbol| symbol.lineage.path.ends_with(suffix))
+            .collect::<Vec<_>>();
         assert_eq!(symbols.len(), 1, "phase premise {suffix}");
-        let target = numerics.targets.iter().find(|target| target.kind == NumericalTarget::Variable && target.id == symbols[0].id)
+        let target = numerics
+            .targets
+            .iter()
+            .find(|target| target.kind == NumericalTarget::Variable && target.id == symbols[0].id)
             .expect("phase variable bound budget");
         scalar_budget = scalar_budget.max(target.budget);
     }
-    let bindings = model.equations.iter().filter(|row| row.lineage.path.ends_with(".equilibrium_temperature_binding")).collect::<Vec<_>>();
+    let bindings = model
+        .equations
+        .iter()
+        .filter(|row| {
+            row.lineage
+                .path
+                .ends_with(".equilibrium_temperature_binding")
+        })
+        .collect::<Vec<_>>();
     assert_eq!(bindings.len(), 1);
     let temperature_binding_budget = row_budget(bindings[0].id);
-    let fraction_resolution = numerics.targets.iter().filter_map(|target| target.engineering.as_ref())
-        .filter(|context| context.rule_id.is_some_and(|id| id.as_id() == SemanticId::parse_hex("8a097841b11d4824b0d5041250553949").unwrap()))
-        .filter_map(|context| context.physical_allowance).reduce(f64::max)
+    let fraction_resolution = numerics
+        .targets
+        .iter()
+        .filter_map(|target| target.engineering.as_ref())
+        .filter(|context| {
+            context.rule_id.is_some_and(|id| {
+                id.as_id() == SemanticId::parse_hex("8a097841b11d4824b0d5041250553949").unwrap()
+            })
+        })
+        .filter_map(|context| context.physical_allowance)
+        .reduce(f64::max)
         .expect("authored dimensionless fraction resolution");
-    FlashEvidence { vapor, temperature, temperature_allowance, temperature_binding_budget, scalar_budget, fraction_resolution }
+    FlashEvidence {
+        vapor,
+        temperature,
+        temperature_allowance,
+        temperature_binding_budget,
+        scalar_budget,
+        fraction_resolution,
+    }
 }
 
 #[tokio::test]
@@ -323,7 +433,10 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         // Empirical agreement uses the resolved shared temperature floor.
         // Bound feasibility budgets do not guarantee forward output accuracy.
         assert!(
-            (smooth.temperature - disjunctive.temperature).abs() <= smooth.temperature_allowance.min(disjunctive.temperature_allowance),
+            (smooth.temperature - disjunctive.temperature).abs()
+                <= smooth
+                    .temperature_allowance
+                    .min(disjunctive.temperature_allowance),
             "{feed}: smooth {} K, disjunctive {} K",
             smooth.temperature,
             disjunctive.temperature
@@ -353,7 +466,10 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         let penalty = solve_prepared(&prepared).await;
         // The realizations agree within the shared physical output resolution.
         assert!(
-            (penalty.temperature - disjunctive.temperature).abs() <= penalty.temperature_allowance.min(disjunctive.temperature_allowance),
+            (penalty.temperature - disjunctive.temperature).abs()
+                <= penalty
+                    .temperature_allowance
+                    .min(disjunctive.temperature_allowance),
             "{feed}: penalty {} K, disjunctive {} K",
             penalty.temperature,
             disjunctive.temperature

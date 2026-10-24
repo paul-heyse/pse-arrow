@@ -299,7 +299,11 @@ fn assert_rows_match(
             .map(|v| values.scalars[&v.id])
             .collect();
         let nodes = program.evaluate(&columns, &auxiliary(point)).unwrap();
-        assert_eq!(program.rows.len(), evaluated.len(), "row extent at {point:?}");
+        assert_eq!(
+            program.rows.len(),
+            evaluated.len(),
+            "row extent at {point:?}"
+        );
         for (row, expected) in program.rows.iter().zip(evaluated) {
             let projected = nodes[row.expression.unwrap()];
             assert!(
@@ -341,10 +345,16 @@ fn row_comparison_rejects_missing_trailing_and_wrong_projection_rows() {
     let mut trailing = program.clone();
     trailing.rows.push(program.rows[0].clone());
     let mut wrong = program.clone();
-    let input = wrong.nodes.iter().position(|n| matches!(n, Node::Var(0))).unwrap();
+    let input = wrong
+        .nodes
+        .iter()
+        .position(|n| matches!(n, Node::Var(0)))
+        .unwrap();
     wrong.rows[0].expression = Some(input);
     for rejected in [&missing, &trailing, &wrong] {
-        assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| check(rejected))).is_err());
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| check(rejected))).is_err()
+        );
     }
 }
 

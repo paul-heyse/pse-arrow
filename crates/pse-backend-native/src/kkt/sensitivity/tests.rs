@@ -661,7 +661,12 @@ mod solved {
         let scale = SCALES[0];
         let allowance = engineering_allowance();
         assert!(close_scaled(expected, expected, scale, allowance));
-        assert!(close_scaled(expected + allowance / (2.0 * scale), expected, scale, allowance));
+        assert!(close_scaled(
+            expected + allowance / (2.0 * scale),
+            expected,
+            scale,
+            allowance
+        ));
         assert!(!close_scaled(-expected, expected, scale, allowance));
         for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             assert!(!close_scaled(bad, expected, scale, allowance));

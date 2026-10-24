@@ -31,23 +31,42 @@ class ScientificReferenceTests(unittest.TestCase):
             fixture = root / "fixture.pse"
             with patch.object(reference, "ROOT", root):
                 fixture.write_text("expect a==1.0")
-                self.assertEqual(reference.frozen_number("fixture.pse", r"a==(\d+\.\d+)"), "1.0")
+                self.assertEqual(
+                    reference.frozen_number("fixture.pse", r"a==(\d+\.\d+)"), "1.0"
+                )
                 for contents in ("expect b==1.0", "expect a==1.0; expect a==2.0"):
                     fixture.write_text(contents)
-                    with self.assertRaisesRegex(ValueError, "expected one frozen value"):
+                    with self.assertRaisesRegex(
+                        ValueError, "expected one frozen value"
+                    ):
                         reference.frozen_number("fixture.pse", r"a==(\d+\.\d+)")
 
     def test_decay_analytic_jacobian_matches_residual_directions(self) -> None:
         # Exercise non-optimal points and both parameter directions, rather than
         # trusting least_squares' success with a possibly incorrect Jacobian.
-        for point in (np.array([0.3, 0.02]), np.array([2.1, 0.6]), np.array([9.0, 4.0])):
+        for point in (
+            np.array([0.3, 0.02]),
+            np.array([2.1, 0.6]),
+            np.array([9.0, 4.0]),
+        ):
             jacobian = decay.jacobian(point)
-            for direction in (np.array([1.0, 0.0]), np.array([0.0, 1.0]), np.array([0.7, -0.2])):
+            for direction in (
+                np.array([1.0, 0.0]),
+                np.array([0.0, 1.0]),
+                np.array([0.7, -0.2]),
+            ):
                 step = 1e-6
-                finite_difference = (decay.residual(point + step * direction) - decay.residual(point - step * direction)) / (2 * step)
-                np.testing.assert_allclose(jacobian @ direction, finite_difference, rtol=1e-7, atol=1e-9)
+                finite_difference = (
+                    decay.residual(point + step * direction)
+                    - decay.residual(point - step * direction)
+                ) / (2 * step)
+                np.testing.assert_allclose(
+                    jacobian @ direction, finite_difference, rtol=1e-7, atol=1e-9
+                )
 
-    def test_cstr_filter_carries_derivative_and_antiwindup_recovers_saturation(self) -> None:
+    def test_cstr_filter_carries_derivative_and_antiwindup_recovers_saturation(
+        self,
+    ) -> None:
         initial = np.array(cstr.INITIAL)
         output, _raw, _integral, filtered_rate = cstr.controller(initial)
         self.assertLess(abs(filtered_rate), 1e-12)
