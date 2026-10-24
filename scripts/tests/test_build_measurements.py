@@ -618,7 +618,7 @@ class BuildMeasurementTests(unittest.TestCase):
     @staticmethod
     def build_source_fixture(root: Path) -> dict[str, str]:
         files = {
-            "crates/pse-compiler/src/physical_identity.rs": "h.u64(v.to_bits());\n",
+            "crates/pse-compiler/src/workspace.rs": "fn name_key_heap((text,): &(String,)) -> usize {\n    text.capacity()\n}\n",
             "crates/pse-compiler/src/lib.rs": "// Original public API.\n",
             "docs/dev/documentation.md": "Original documentation.\r\n",
         }
@@ -647,7 +647,7 @@ class BuildMeasurementTests(unittest.TestCase):
             source = build_measurements.snapshot(root, output)
             calls = []
             edits = {
-                "private-edit": "crates/pse-compiler/src/physical_identity.rs",
+                "private-edit": "crates/pse-compiler/src/workspace.rs",
                 "public-edit": "crates/pse-compiler/src/lib.rs",
                 "unrelated-edit": "docs/dev/documentation.md",
             }
@@ -669,6 +669,7 @@ class BuildMeasurementTests(unittest.TestCase):
                     f"{kind}-{repetition}"
                     for kind in (
                         "warm",
+                        "identical-touch",
                         "private-edit",
                         "restore-private",
                         "public-edit",
@@ -681,6 +682,16 @@ class BuildMeasurementTests(unittest.TestCase):
             self.assertEqual(validation.sources(source), original)
             self.assertEqual(validation.sources(root), original)
             self.assertEqual((root / ".git/index").read_bytes(), index)
+
+    def test_stale_edit_probe_refuses_before_any_sample(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            self.build_source_fixture(source)
+            (source / "crates/pse-compiler/src/workspace.rs").write_text("// owner moved\n")
+            samples = []
+            with self.assertRaisesRegex(ValueError, "exact body-edit anchor"):
+                build_measurements.build_phases(source, 3, samples.append, screen=False)
+            self.assertEqual(samples, [])
 
     def test_unrelated_edit_is_restored_when_measurement_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
