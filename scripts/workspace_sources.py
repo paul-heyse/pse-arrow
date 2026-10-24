@@ -269,12 +269,14 @@ def search(query: str, *, root: Path = ROOT, roots: tuple[str, ...] = (), roles:
     return {"version": 1, "query": query, "matching": "literal" if literal else "lexical terms", "items": items[offset:offset+limit], "next_offset": offset+limit if len(items)>offset+limit else None, "coverage": "complete selected Git paths" if complete else "partial selected Git paths", "complete": complete, "gaps": gaps, "scanned_files": scanned_files, "scanned_bytes": scanned_bytes, "membership": {key:value for key,value in membership.items() if key!="paths"}, "meaning": "source-only lexical leads; native role/scope precedence is not scientific or semantic proof; no database required"}
 
 
-def relationships(symbol: str | tuple[str, ...] = (), *, root: Path = ROOT, limit: int = 40, predicates: dict[str, str] | None = None) -> dict:
+def relationships(symbol: str | tuple[str, ...] = (), *, root: Path = ROOT, limit: int = 40, predicates: dict[str, str] | None = None, exact_paths: tuple[str, ...] = ()) -> dict:
     queries = (symbol,) if isinstance(symbol, str) else symbol
     allowed = {'declaration_kind','declaration_key','source_path','source_symbol','source_role','source_identity','generator_path','generator_symbol','output_path','direction','basis','producer'}
     if predicates is not None and (not predicates or set(predicates)-allowed or any(not isinstance(value,str) or not value or len(value)>4096 for value in predicates.values())):
         raise ValueError('exact producer predicates require declared field names and bounded literal values')
-    if (not queries and not predicates) or len(queries) > 128 or any(not value or len(value)>512 for value in queries) or not 1 <= limit <= 100:
+    if len(exact_paths)>128 or any(not isinstance(value,str) or not value or len(value)>4096 for value in exact_paths):
+        raise ValueError('bounded exact producer paths required')
+    if (not queries and not predicates and not exact_paths) or len(queries) > 128 or any(not value or len(value)>512 for value in queries) or not 1 <= limit <= 100:
         raise ValueError("bounded literal symbols/paths and limit required")
     records = []
     producers = []
@@ -302,6 +304,8 @@ def relationships(symbol: str | tuple[str, ...] = (), *, root: Path = ROOT, limi
                     break
                 if predicates and not all((producer if key=='producer' else row.get(key)) == value for key,value in predicates.items()):
                     continue
+                if exact_paths and not any(row.get(field) in exact_paths for field in ('source_path','generator_path','output_path')):
+                    continue
                 if queries and not any(query.casefold() in json.dumps(row).casefold() for query in queries):
                     continue
                 if len(records)<limit+1:
@@ -318,7 +322,7 @@ def relationships(symbol: str | tuple[str, ...] = (), *, root: Path = ROOT, limi
                             source_facts[declared] = {"path": declared, "availability": "unavailable_or_unadmitted"}
         except (ValueError, OSError, UnicodeError):
             gaps.append("unavailable_or_invalid_producer:"+relative)
-    return {"symbol": symbol if isinstance(symbol,str) else None, "queries": list(queries), "predicates":predicates, "selection_basis":"exact field conjunction" if predicates and not queries else "literal text leads over producer records", "items": records[:limit], "truncated": len(records)>limit or bool(gaps), "producers": producers, "producer_documents": documents, "current_source_facts": list(source_facts.values()), "revision": revision, "gaps": gaps, "producer_freshness":"unverified; producer declaration identity and current source bytes are distinct", "coverage": "producer-declared paths only; dynamic consumers unresolved; no inferred declaration locations", "availability": "available" if producers else "not generated; run just codegen explicitly"}
+    return {"symbol": symbol if isinstance(symbol,str) else None, "queries": list(queries), "predicates":predicates, "exact_paths":list(exact_paths), "selection_basis":"exact declared fields and paths" if not queries else "literal text leads over producer records", "items": records[:limit], "truncated": len(records)>limit or bool(gaps), "producers": producers, "producer_documents": documents, "current_source_facts": list(source_facts.values()), "revision": revision, "gaps": gaps, "producer_freshness":"unverified; producer declaration identity and current source bytes are distinct", "coverage": "producer-declared paths only; dynamic consumers unresolved; no inferred declaration locations", "availability": "available" if producers else "not generated; run just codegen explicitly"}
 
 
 def _toml(root: Path, relative: str) -> tuple[dict, dict]:

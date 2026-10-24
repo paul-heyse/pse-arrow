@@ -452,6 +452,13 @@ plan rows, and `--changed` reports the actual dirty delta. These projections exe
 work. Source-only operations do not enumerate unrequested recipe definitions or start a database.
 Readable output includes every section also returned by JSON.
 
+- `just context --concept contract-section --identity 20.5 --json` selects the stable
+  contract identity through the blueprint's section owners. `--concept decision --identity ADR-0222`
+  reads authored decision identity/state; publication scope remains separate. `--concept plan-package`
+  consumes native scope/status ownership. `--concept generated-output --identity python/pse/_native.pyi`
+  follows exact declaration–generator–specific-output records. Unknown undeclared links stay unknown.
+  `--topic`, `--role`, `--owner` and `--document` narrow owner-native populations;
+  these source-only views start no database, language server or model.
 - `just context --task docs/plans/PLAN.md#PACKAGE --path scripts/owned.py --json` composes the
   native status owner, exact selected content digests, dirty/deleted paths, bounded Git rationale
   and declared producer links. `--evidence HANDLE` adds explicit references without reading payloads.
@@ -461,6 +468,8 @@ Readable output includes every section also returned by JSON.
   Unknown declaration locations, stale generation premises and dynamic/string consumers remain
   unresolved; generated output is edited through its declared owner. `just codegen` and
   `just python-stubs` explicitly refresh their independently owned sidecars.
+  Task paths match exact declared source/generator/output fields; `--symbol` remains separately
+  labeled text discovery, rather than an inferred cross-language relationship.
 - `just context 'source freshness' --search --source-root docs/authoritative_design --source-root crates/pse-operations/src --json`
   reads bounded current source bytes and lexical excerpts with native roles/section IDs.
   `--literal`, `--source-role`, `--offset` and `--limit` narrow selection. Current, reference and

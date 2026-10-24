@@ -159,11 +159,14 @@ doc_topics = ["architecture"]
                 {'declaration_kind':'relation', 'declaration_key':'A@1','source_path':None,'generator_path':'src/shared.rs','generator_symbol':'generate','output_path':'a.rs'},
                 {'declaration_kind':'relation', 'declaration_key':'B@1','source_path':None,'generator_path':'src/shared.rs','generator_symbol':'generate','output_path':'b.rs'}]}))
         selected = sources.relationships(root=self.root, predicates={'producer':'exact-test','declaration_key':'A@1'})
-        self.assertEqual(selected['selection_basis'], 'exact field conjunction')
+        self.assertEqual(selected['selection_basis'], 'exact declared fields and paths')
         self.assertEqual([row['output_path'] for row in selected['items']], ['a.rs'])
         self.assertIsNone(selected['items'][0]['source_path'])
         absent = sources.relationships(root=self.root,predicates={'declaration_key':'A@1','output_path':'b.rs'})
         self.assertEqual(absent['items'], [])
+        path_selected = sources.relationships(root=self.root, exact_paths=('a.rs',))
+        self.assertEqual([item['declaration_key'] for item in path_selected['items']], ['A@1'])
+        self.assertEqual(sources.relationships(root=self.root, exact_paths=('a.r',))['items'], [])
         self.assertIn('unverified', selected['producer_freshness'])
 
     def test_research_packet_reconstructs_exact_pin_patch_api_and_unknown_lifetime(self) -> None:

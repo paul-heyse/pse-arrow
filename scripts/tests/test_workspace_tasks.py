@@ -98,7 +98,7 @@ class WorkspaceTasksTests(unittest.TestCase):
                 result=workspace_tasks.task_packet(None,('missing.rs',),root=root)
             self.assertEqual(result['sources'][0]['availability'],'unavailable')
             self.assertEqual(result['dirty_delta'],['D missing.rs'])
-            self.assertEqual(links.call_args.args[0],('missing.rs',))
+            self.assertEqual(links.call_args.kwargs['exact_paths'],('missing.rs',))
             self.assertIn(':(literal)missing.rs',git.call_args.args[0])
 
     def test_line_history_requires_selected_source_and_bounded_span(self) -> None:

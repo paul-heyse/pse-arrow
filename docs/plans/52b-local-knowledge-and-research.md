@@ -61,9 +61,10 @@ for unavailable persistent access, not completion of B04's persistent delivery.
 ## Work packages
 
 <a id="B01"></a>
-### B01 — Source-fresh lexical knowledge access
+### B01 — Source-fresh structured knowledge and lexical discovery
 
-Select explicit roots/roles and exclude build, environments, secrets and unrelated repositories.
+Start with exact owner-native concept identities and facets. Select explicit roots/roles for
+lexical discovery and exclude build, environments, secrets and unrelated repositories.
 Return bounded excerpts, native owners/stable section IDs, source revision or dirty-content
 identity, role/current-versus-historical basis and completeness. Respect deletions/renames and
 source changes between selection and detail read. Keep broad source membership separate from

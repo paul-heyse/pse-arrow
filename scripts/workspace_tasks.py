@@ -69,8 +69,8 @@ def task_packet(task: str | None, paths: tuple[str, ...], *, root: Path = ROOT,
             admitted.append(selected_file['path'])
         except ValueError:
             omitted.append('unadmitted requested path: '+selected_file['path'])
-    queries = tuple([*admitted, *([symbol] if symbol else [])])
-    relations = workspace_sources.relationships(queries, root=root) if queries else {'items':[], 'availability':'no admitted paths or symbols'}
+    relations = workspace_sources.relationships(root=root, exact_paths=tuple(admitted)) if admitted else {'items':[], 'availability':'no admitted paths'}
+    symbol_leads = workspace_sources.relationships(symbol, root=root) if symbol else None
     dirty = workspace_sources.git(root, "status", "--porcelain=v1", "--", *(':(literal)'+path for path in admitted)).splitlines() if admitted else []
     commits = []
     if admitted:
@@ -89,7 +89,7 @@ def task_packet(task: str | None, paths: tuple[str, ...], *, root: Path = ROOT,
     if len(evidence) > 16 or any(len(item) > 2048 for item in evidence):
         raise ValueError("select at most 16 bounded evidence handles")
     return {"schema": "workspace-task-v1", "task": task, "native_scope": rows,
-            "sources": facts, "relationships": relations, "dirty_delta": dirty,
+            "sources": facts, "relationships": relations, "symbol_leads":symbol_leads, "dirty_delta": dirty,
             "git_rationale": {"items": commits, "basis": "historical commit metadata; not current authorization",
                               "mode": history_mode, "query": history_query},
             "evidence": [{"handle": item, "basis": "caller-selected reference; payload not read"} for item in evidence],

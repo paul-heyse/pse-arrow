@@ -59,7 +59,7 @@ Extend their real operations instead of layering another system around their nam
 |---|---|
 | Source/context | Current context composes native scope and recipes; boundary search supplies text leads. 52a derives actual declaration/generator paths and task packets; it must not treat all generated files as one catalogue's outputs. |
 | Language editing | mcpls0.8.0 provides documented edit-returning operations; actual Rust/Pyrefly support is not qualified by prior navigation. A03 exposes completeness and unsupported cases before promising rename. |
-| Knowledge | Published Pagefind search exists. B01 selects a source-fresh headless lexical route; B04 supplies a separate derived development-knowledge view. Scientific research datasets/selections remain untouched. |
+| Knowledge | Published Pagefind search exists. B01 selects exact owner-native concepts with source-fresh lexical discovery; B04 accelerates those structured queries in a separate derived view. Scientific research datasets/selections remain untouched. |
 | History | The bounded retrospective scans session creation-date partitions and exact cwd, missing older active sessions/worktrees. B02 corrects discovery and logical deduplication without mandatory raw transcript ingestion. |
 | Correctness | Proptest, references, coverage and narrow Miri routes exist. 52c adds discriminating semantic challenges and scoped investigations, not a mandatory test-technique campaign. |
 | Execution | Gate-level reuse and result readers exist. D01 adds watch composition; D02 narrows recovery to completed feature combinations with honest source-bound reuse. |
@@ -143,7 +143,7 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O02 | scheduled | [A02](52a-context-navigation-and-semantic-editing.md#A02) | Declared cross-language/generator paths, with uncertain leads separate |
 | O03 | resolved | [A03](52a-context-navigation-and-semantic-editing.md#A03) | Qualified semantic edit preview and honest unsupported cases |
 | O04 | resolved | [A04](52a-context-navigation-and-semantic-editing.md#A04) | Tested structural transforms and declaration-aware changes |
-| O05 | in-progress | [B01/B05](52b-local-knowledge-and-research.md#B01) | Useful lexical retrieval plus bounded local semantic decision |
+| O05 | in-progress | [B01/B05](52b-local-knowledge-and-research.md#B01) | Structured native retrieval, lexical discovery and bounded local semantic decision |
 | O06 | resolved | [B03](52b-local-knowledge-and-research.md#B03) | Exact-version research and evolution packets |
 | O07 | in-progress | [A05](52a-context-navigation-and-semantic-editing.md#A05) | Consequences of actual design alternatives |
 | O08 | scheduled | [C01](52c-behavioral-and-scientific-verification.md#C01) | Source/coverage correspondence, missing behavior and exclusions |
@@ -205,7 +205,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | A03 | done | [52a](52a-context-navigation-and-semantic-editing.md#A03) | Real semantic-edit consumer and I01 |
 | A04 | done | [52a](52a-context-navigation-and-semantic-editing.md#A04) | Structural transforms and I02 |
 | A05 | in-progress | [52a](52a-context-navigation-and-semantic-editing.md#A05) | Supported alternative-impact comparison |
-| B01 | in-progress | [52b](52b-local-knowledge-and-research.md#B01) | Source-fresh lexical retrieval and first I03 decision |
+| B01 | in-progress | [52b](52b-local-knowledge-and-research.md#B01) | Exact source-fresh concepts, lexical discovery and first I03 decision |
 | B02 | done | [52b](52b-local-knowledge-and-research.md#B02) | Activity discovery/logical history and I04 |
 | B03 | done | [52b](52b-local-knowledge-and-research.md#B03) | Exact-version dossier with unresolved semantics |
 | B04 | in-progress | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |

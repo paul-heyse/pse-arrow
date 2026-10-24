@@ -19,11 +19,14 @@ class KnowledgeStoreTests(unittest.TestCase):
     def test_source_only_corpus_and_selected_later_range_survive_index_loss(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            path = root/'owner.rs'
+            path = root/'owner.md'
             path.write_text('\n'.join(f'line {n}' for n in range(1,401)))
             with patch.object(knowledge_store.evidence_store, 'run_native', side_effect=AssertionError('source-only operation contacted service')):
-                default = knowledge_store.corpus(('owner.rs',),root=root)
-                selected = knowledge_store.corpus(('owner.rs',),root=root,ranges={'owner.rs':(340,380)})
+                default = knowledge_store.corpus(('owner.md',),root=root)
+                selected = knowledge_store.corpus(('owner.md',),root=root,ranges={'owner.md':(340,380)})
+            self.assertEqual(selected['version'],2)
+            self.assertEqual(selected['subjects'][0]['kind'],'document')
+            self.assertTrue(all(item['subject_id']=='document:owner.md' for item in selected['excerpts']))
             self.assertNotIn('line 359', '\n'.join(item['text'] for item in default['excerpts']))
             self.assertIn('line 359', '\n'.join(item['text'] for item in selected['excerpts']))
             self.assertIn('340-380/400',selected['sources'][0]['title'])
@@ -55,6 +58,25 @@ class KnowledgeStoreTests(unittest.TestCase):
         with patch.object(knowledge_store.evidence_store,'run_native',side_effect=run):
             result=knowledge_store.native(Path('/selected'),Path('/built/tool'),['knowledge-status'],deadline=1)
         self.assertEqual(result,{'generation':'selected'})
+
+    def test_partial_domain_projection_is_refused_before_native_effects(self) -> None:
+        with patch.object(knowledge_store.workspace_domains,'project',return_value={'complete':False,'omissions':['subject bound exceeded']}):
+            with self.assertRaisesRegex(ValueError,'incomplete owner-native projection'):
+                knowledge_store.corpus(('owner.md',))
+
+    def test_shared_source_does_not_attribute_whole_document_to_section(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'owner.md').write_text('first section\nsecret elsewhere\nselected section\ncorrect clause\n')
+            fact=workspace_sources.source('owner.md',root=root)
+            subject={'id':'contract:20.5','kind':'contract','native_version':fact['digest'],'sources':[{'source_id':'owner.md','role':'metadata'}]}
+            projection={'complete':True,'source_facts':[fact],'subjects':[subject],'edges':[],'productions':[],
+                        'section_ranges':[{'subject_id':'contract:20.5','source_id':'owner.md','start_line':3,'end_line':4}]}
+            with patch.object(knowledge_store.workspace_domains,'project',return_value=projection):
+                result=knowledge_store.corpus(('owner.md',),root=root)
+            attributed=[item['text'] for item in result['excerpts'] if item['subject_id']=='contract:20.5']
+            self.assertEqual(attributed,['selected section\ncorrect clause'])
+            self.assertTrue(any(item['subject_id'] is None for item in result['excerpts']))
 
 
 if __name__ == '__main__':
