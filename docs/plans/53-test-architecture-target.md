@@ -164,7 +164,7 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 | E04 | in-progress | [53e](53e-resource-and-evidence-lifetimes.md#e04) | Custody retained; separate nonempty scratch discovery avoids full active scans and ineligible-prefix starvation |
 | E05 | in-progress | [53e](53e-resource-and-evidence-lifetimes.md#e05) | I09 resolved; selective summary/gate/source/full-export readers preserve detail, section completeness and reuse custody |
 | F01 | in-progress | [53f](53f-effect-scoped-scheduling.md#f01) | Shared exclusion/requirement meanings remove pure/residual local Python barriers; real protection retained |
-| F02 | in-progress | [53f](53f-effect-scoped-scheduling.md#f02) | I08 resolved; actual chosen service/database scope survives two separate runs |
+| F02 | in-progress | [53f](53f-effect-scoped-scheduling.md#f02) | I08 assertion inventory supports database-local scope; actual two-invocation creation/reader/maintenance acceptance remains open |
 | F03 | in-progress | [53f](53f-effect-scoped-scheduling.md#f03) | Explicit sufficient bounded local settings and role premises; canonical barrier retained |
 | G01 | in-progress | [53g](53g-qualification-and-publication.md#g01) | Functional scope/deletions complete, joined S01–S09 and selected scope-end qualification |
 | G02 | in-progress | [53g](53g-qualification-and-publication.md#g02) | Enduring owners/outcomes/current-work/retirement reconciled without other-plan closure |
@@ -690,3 +690,24 @@ normal report/invocation owners. Their JUnit outputs are `build/plan53/python-lo
 and `build/plan53/python-fixture-acceptance.xml`; canonical invocation handles above own terminal
 truth. Registry conversion and selected consumer followthrough are complete; full Plan53/scientific
 qualification and the other explicitly pending G01 journeys are not claimed by this checkpoint.
+
+### Follow-through alongside 52l — 2026-10-24
+
+The operator authorized the remaining execution approach: complete D01–D04, E01–E05,
+F01–F03 and applicable G01/G02, with bounded A04/I10 consumer work, alongside active
+52l on the same main checkout. Delivered mechanisms and authenticated unchanged-input
+evidence remain the starting point; this is not another audit or registry conversion.
+
+52l retains ownership of public typed contracts, capability adapters, native workflow/result
+inspection, its workspace wiring, manifests and generated outputs. Plan53 owns test-resource
+and protected evidence semantics, build/discovery acceptance and selected scientific consumer
+repairs. Shared files have one writer and overlapping Cargo/install operations are serialized.
+The earlier installed-extension acceptance records its original inputs; current 52l native edits
+require current admission/preparation before claiming current-source installed acceptance.
+
+First acceptance work is actual two-invocation creation/retained-reader/maintenance and an
+owned-service restart, remaining bounded registration/scratch/settlement controls, retained
+Rust local/canonical execution and preparation invalidation. E05 supplies the original selected
+reader to 52l CON02 and compares answers at the same source cut; unrelated 52l packages are
+not prerequisites. A04 retains unchanged independent references and tolerances, with no blind
+repeat of the earlier inconclusive retention census or separately unselected solver redesign.
