@@ -21,11 +21,34 @@ if TYPE_CHECKING:
     from collections.abc import Collection
 
 VERSION = 6
-SUMMARY = frozenset({"version", "mode", "baseline_failures", "complete",
-                     "required_checks_covered", "source_unchanged", "provenance_errors",
-                     "input_coverage", "evidence", "parent"})
-CHECK_SUMMARY = frozenset({"gate", "status", "role", "log", "exit_code",
-                           "evidence_kind", "resource_invocation", "process", "origin", "origin_digest"})
+SUMMARY = frozenset(
+    {
+        "version",
+        "mode",
+        "baseline_failures",
+        "complete",
+        "required_checks_covered",
+        "source_unchanged",
+        "provenance_errors",
+        "input_coverage",
+        "evidence",
+        "parent",
+    }
+)
+CHECK_SUMMARY = frozenset(
+    {
+        "gate",
+        "status",
+        "role",
+        "log",
+        "exit_code",
+        "evidence_kind",
+        "resource_invocation",
+        "process",
+        "origin",
+        "origin_digest",
+    }
+)
 
 
 def immutable(run: Path, value: dict) -> dict[str, str]:
@@ -61,15 +84,25 @@ def publish(run: Path, receipt: dict) -> None:
         raise ValueError("new assessments require the current owner codec")
     root = {key: value for key, value in receipt.items() if key in SUMMARY}
     root["scope"] = receipt["scope"]
-    root["source_cut"] = immutable(run, {key: value for key, value in receipt.items()
-                                        if key not in SUMMARY | {"scope", "checks"}})
+    root["source_cut"] = immutable(
+        run,
+        {
+            key: value
+            for key, value in receipt.items()
+            if key not in SUMMARY | {"scope", "checks"}
+        },
+    )
     root["checks"] = []
     for check in receipt["checks"]:
         summary = {key: value for key, value in check.items() if key in CHECK_SUMMARY}
         summary["detail"] = immutable(run, {"gate": check["gate"], "record": check})
         summary["population"] = {
-            "selected": len(check["selected"]) if isinstance(check.get("selected"), list) else None,
-            "reported": len(check["results"]) if isinstance(check.get("results"), list) else None,
+            "selected": len(check["selected"])
+            if isinstance(check.get("selected"), list)
+            else None,
+            "reported": len(check["results"])
+            if isinstance(check.get("results"), list)
+            else None,
             "report_errors": len(check.get("report_errors", [])),
         }
         root["checks"].append(summary)
@@ -81,7 +114,11 @@ def publish(run: Path, receipt: dict) -> None:
     if run.is_symlink() or information.st_uid != os.getuid():
         raise ValueError("assessment directory ownership is unsafe")
     temporary = run / (".checks-" + uuid.uuid4().hex + ".tmp")
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    descriptor = os.open(
+        temporary,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+        0o600,
+    )
     try:
         with os.fdopen(descriptor, "w") as stream:
             json.dump(root, stream, sort_keys=True)
@@ -103,25 +140,47 @@ def root(run: Path) -> dict:
     if not isinstance(value, dict):
         raise ValueError("invalid assessment root")
     if value.get("version") != VERSION:
-        raise ValueError("historical assessment requires explicit original export; automatic reuse refused")
-    for field, kind in (("scope", list), ("checks", list), ("complete", bool),
-                        ("source_unchanged", bool), ("baseline_failures", int), ("provenance_errors", list)):
+        raise ValueError(
+            "historical assessment requires explicit original export; automatic reuse refused"
+        )
+    for field, kind in (
+        ("scope", list),
+        ("checks", list),
+        ("complete", bool),
+        ("source_unchanged", bool),
+        ("baseline_failures", int),
+        ("provenance_errors", list),
+    ):
         if type(value.get(field)) is not kind:
             raise ValueError("invalid or missing assessment " + field)
     names = [item.get("name") for item in value["scope"] if isinstance(item, dict)]
-    if len(names) != len(value["scope"]) or any(not isinstance(name, str) for name in names) or len(set(names)) != len(names):
+    if (
+        len(names) != len(value["scope"])
+        or any(not isinstance(name, str) for name in names)
+        or len(set(names)) != len(names)
+    ):
         raise ValueError("invalid or duplicate scope gate")
     checks = value["checks"]
     recorded = [check.get("gate") for check in checks if isinstance(check, dict)]
-    if len(recorded) != len(checks) or len(set(recorded)) != len(recorded) or set(recorded) - set(names):
+    if (
+        len(recorded) != len(checks)
+        or len(set(recorded)) != len(recorded)
+        or set(recorded) - set(names)
+    ):
         raise ValueError("undeclared or duplicate recorded gate")
-    if any(not isinstance(check.get(field), str) for check in checks for field in ("gate", "status", "log")):
+    if any(
+        not isinstance(check.get(field), str)
+        for check in checks
+        for field in ("gate", "status", "log")
+    ):
         raise ValueError("invalid assessment gate summary")
     value["reader_custody"] = custody
     return value
 
 
-def selected(run: Path, image: dict, *, gates: Collection[str] = (), source: bool = False) -> dict:
+def selected(
+    run: Path, image: dict, *, gates: Collection[str] = (), source: bool = False
+) -> dict:
     """Select before acquiring detail; an empty gate set is a summary-only read."""
     result = {key: value for key, value in image.items() if key != "source_cut"}
     result["recorded_gates"] = [check["gate"] for check in image["checks"]]
@@ -135,7 +194,15 @@ def selected(run: Path, image: dict, *, gates: Collection[str] = (), source: boo
             continue
         payload = detail(run, check["detail"])
         record = payload.get("record")
-        if payload.get("gate") != check["gate"] or not isinstance(record, dict) or any(record.get(key) != value for key, value in check.items() if key in CHECK_SUMMARY):
+        if (
+            payload.get("gate") != check["gate"]
+            or not isinstance(record, dict)
+            or any(
+                record.get(key) != value
+                for key, value in check.items()
+                if key in CHECK_SUMMARY
+            )
+        ):
             raise ValueError("assessment detail differs from its gate summary")
         result["checks"].append(record)
     return result
@@ -143,7 +210,9 @@ def selected(run: Path, image: dict, *, gates: Collection[str] = (), source: boo
 
 def export(run: Path) -> dict:
     image = root(run)
-    result = selected(run, image, gates={check["gate"] for check in image["checks"]}, source=True)
+    result = selected(
+        run, image, gates={check["gate"] for check in image["checks"]}, source=True
+    )
     result.pop("recorded_gates")
     result.pop("source_cut_ref")
     result.pop("reader_custody")
@@ -160,7 +229,9 @@ def original_export(run: Path) -> dict:
     if not isinstance(value, dict):
         raise ValueError("invalid historical assessment root")
     if value.get("version") != 5:
-        raise ValueError("original export expects an unchanged historical v5 assessment")
+        raise ValueError(
+            "original export expects an unchanged historical v5 assessment"
+        )
     return value
 
 

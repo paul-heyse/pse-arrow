@@ -14,8 +14,12 @@ if TYPE_CHECKING:
 
 def publish(directory: Path, receipt: dict) -> dict:
     for key, value in {
-        "version": 6, "mode": "local", "baseline_failures": 0,
-        "complete": False, "source_unchanged": True, "provenance_errors": [],
+        "version": 6,
+        "mode": "local",
+        "baseline_failures": 0,
+        "complete": False,
+        "source_unchanged": True,
+        "provenance_errors": [],
         "scope": [{"name": check["gate"]} for check in receipt.get("checks", [])],
     }.items():
         receipt.setdefault(key, value)

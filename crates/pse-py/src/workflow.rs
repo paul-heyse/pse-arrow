@@ -810,7 +810,9 @@ impl NativeRuntime {
         runtimes: Vec<PyRef<'_, NativeRuntime>>,
         deadline_monotonic_ns: u64,
     ) -> PyResult<()> {
-        let Some(first) = runtimes.first() else { return Ok(()); };
+        let Some(first) = runtimes.first() else {
+            return Ok(());
+        };
         let owner = first.owner.clone();
         let mut stores = Vec::new();
         let mut errors = Vec::new();
@@ -820,25 +822,44 @@ impl NativeRuntime {
                 Err(error) => errors.push(format!("fixture runtime {index}: {error}")),
             }
         }
-        blocking(py, &owner, async move {
-            let tasks = stores.into_iter().enumerate().map(|(index, store)| {
-                tokio::spawn(async move {
-                    (index, store.drain_fixture_connection_before(deadline_monotonic_ns).await)
-                })
-            }).collect::<Vec<_>>();
-            for task in tasks {
-                match task.await {
-                    Ok((index, Err(error))) => errors.push(format!("fixture SDK owner {index}: {error}")),
-                    Err(error) => errors.push(format!("fixture SDK drain task: {error}")),
-                    Ok((_, Ok(()))) => {},
+        blocking(
+            py,
+            &owner,
+            async move {
+                let tasks = stores
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, store)| {
+                        tokio::spawn(async move {
+                            (
+                                index,
+                                store
+                                    .drain_fixture_connection_before(deadline_monotonic_ns)
+                                    .await,
+                            )
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                for task in tasks {
+                    match task.await {
+                        Ok((index, Err(error))) => {
+                            errors.push(format!("fixture SDK owner {index}: {error}"))
+                        }
+                        Err(error) => errors.push(format!("fixture SDK drain task: {error}")),
+                        Ok((_, Ok(()))) => {}
+                    }
                 }
-            }
-            if errors.is_empty() {
-                Ok(())
-            } else {
-                Err(pse_operations::canonical::CanonicalError::Configuration(errors.join("; ")).into())
-            }
-        }, || {})
+                if errors.is_empty() {
+                    Ok(())
+                } else {
+                    Err(
+                        pse_operations::canonical::CanonicalError::Configuration(errors.join("; "))
+                            .into(),
+                    )
+                }
+            },
+            || {},
+        )
     }
 
     /// Return passive diagnostic authority without retaining this runtime caller.

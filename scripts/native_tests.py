@@ -846,7 +846,10 @@ def ordinary_rust_capture(
 
 
 def scheduled_rust_arguments(
-    arguments: list[str], inventory: dict, requirements: dict, destination: Path,
+    arguments: list[str],
+    inventory: dict,
+    requirements: dict,
+    destination: Path,
     environment: Mapping[str, str],
 ) -> list[str]:
     """Bind the exact collected scheduling policy before retained execution."""
@@ -856,7 +859,9 @@ def scheduled_rust_arguments(
 
     request = test_invocation.rust(arguments, environment)
     configurations = request.values("--config-file")
-    source = Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    source = (
+        Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    )
     document = tomlkit.parse(source.read_text())
     # A caller-selected config may specialize policy; its group capacities must
     # be explicit instead of silently acquiring another scheduler's defaults.
@@ -864,8 +869,12 @@ def scheduled_rust_arguments(
     for requirement in requirements.values():
         group, _threads = test_requirements.scheduling(requirement)
         if group is not None and group not in groups:
-            raise ValueError(f"Selected nextest configuration lacks required group {group}")
-    test_requirements.nextest_configuration(document, request.nextest_profile, inventory, requirements)
+            raise ValueError(
+                f"Selected nextest configuration lacks required group {group}"
+            )
+    test_requirements.nextest_configuration(
+        document, request.nextest_profile, inventory, requirements
+    )
     destination.write_text(tomlkit.dumps(document))
     selected = request.arguments(omit=frozenset({"--config-file"}))
     position = selected.index("--") if "--" in selected else len(selected)
@@ -1019,7 +1028,9 @@ def _rust_capture(
         result = test_run.empty_selection(data, selected)
         raise ValueError(f"Known empty test selection; no execution: {result}")
     policy = selected.with_name(selected.stem + "-scheduling.toml")
-    execution = scheduled_rust_arguments(execution, data, requirements, policy, environment)
+    execution = scheduled_rust_arguments(
+        execution, data, requirements, policy, environment
+    )
     try:
         worker = (
             worker_binary(["--cargo-profile", profile], environment)

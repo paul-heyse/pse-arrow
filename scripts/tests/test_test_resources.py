@@ -37,6 +37,7 @@ def drain_fixture(complete: bool) -> resources.operation.DrainObservation:
 from scripts import assessment_store
 from scripts.tests import assessment_fixture
 
+
 class TestResourceTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
@@ -443,42 +444,76 @@ class TestResourceTests(unittest.TestCase):
             resources.read_invocation(self.invocation)["selected"], [{"name": names[0]}]
         )
 
-    def test_collected_membership_does_not_republish_catalogue_or_requirements(self) -> None:
+    def test_collected_membership_does_not_republish_catalogue_or_requirements(
+        self,
+    ) -> None:
         image = resources.storage().invocation_snapshot(self.invocation.stem)
         descriptor = resources.storage().path("invocation-inputs", image["descriptor"])
         before = (descriptor.read_bytes(), descriptor.stat().st_mtime_ns)
         publish = resources.resource_store.publish
         writes = []
+
         def observe(path: Path, value: object) -> None:
             writes.append(path)
             publish(path, value)
+
         with patch.object(resources.resource_store, "publish", side_effect=observe):
             self.register()
-        self.assertFalse(any(path.parent.name in {"invocation-inputs", "invocation-staging"} for path in writes))
-        compact = resources.resource_store.read(resources.storage().path("invocation-state", self.invocation.stem))
+        self.assertFalse(
+            any(
+                path.parent.name in {"invocation-inputs", "invocation-staging"}
+                for path in writes
+            )
+        )
+        compact = resources.resource_store.read(
+            resources.storage().path("invocation-state", self.invocation.stem)
+        )
         self.assertNotIn("declaration", compact)
         self.assertNotIn("requirements", compact)
         self.assertNotIn("selected", json.loads(self.invocation.read_text()))
-        self.assertEqual(before, (descriptor.read_bytes(), descriptor.stat().st_mtime_ns))
-        with self.assertRaisesRegex(resources.ResourceError, "immutable"), resources.storage().invocation_edit(self.invocation.stem) as state:
+        self.assertEqual(
+            before, (descriptor.read_bytes(), descriptor.stat().st_mtime_ns)
+        )
+        with (
+            self.assertRaisesRegex(resources.ResourceError, "immutable"),
+            resources.storage().invocation_edit(self.invocation.stem) as state,
+        ):
             state["requirements"] = {}
 
-    def test_service_cohort_covers_other_invocation_and_retained_database_reader(self) -> None:
+    def test_service_cohort_covers_other_invocation_and_retained_database_reader(
+        self,
+    ) -> None:
         first = self.register()
         resources.record_drain(first)
         second = resources.invocation("python", [{"name": "other::test"}])
         with patch.dict(os.environ, {resources.MARKER: str(second)}):
             with resources.borrow(first):
-                with patch.object(resources.storage().__class__, "active_ids", side_effect=AssertionError("global scan")):
+                with patch.object(
+                    resources.storage().__class__,
+                    "active_ids",
+                    side_effect=AssertionError("global scan"),
+                ):
                     cohort = resources.service_resources(self.state)
                     self.assertIn(first, cohort)
-                    with surreal_server.lifecycle_reservation(self.state), self.assertRaisesRegex(surreal_server.SupervisorError, "protected borrowers"):
+                    with (
+                        surreal_server.lifecycle_reservation(self.state),
+                        self.assertRaisesRegex(
+                            surreal_server.SupervisorError, "protected borrowers"
+                        ),
+                    ):
                         surreal_server.require_borrowers_drained(self.state)
         # A foreign empty registry must not establish service quiet.
-        with patch.object(resources, "registry", return_value=self.root / "foreign-registry"), self.assertRaisesRegex(resources.ResourceError, "coverage differs"):
+        with (
+            patch.object(
+                resources, "registry", return_value=self.root / "foreign-registry"
+            ),
+            self.assertRaisesRegex(resources.ResourceError, "coverage differs"),
+        ):
             resources.service_resources(self.state)
 
-    def test_projection_writes_only_membership_transitions_and_scratch_is_separate(self) -> None:
+    def test_projection_writes_only_membership_transitions_and_scratch_is_separate(
+        self,
+    ) -> None:
         resource, directory = self.report("indexed-scratch")
         store = resources.storage()
         self.assertIn(resource, store.access_ids("scratch-candidates"))
@@ -489,17 +524,28 @@ class TestResourceTests(unittest.TestCase):
         protected.mkdir(parents=True)
         (protected / "run.log").write_text("protected evidence")
         sealed = resources.register_report(protected, root=self.root)
-        self.finish_report(sealed, {"complete": True, "required_checks_covered": True}, roles={"checks.json": "receipt", "run.log": "evidence"})
+        self.finish_report(
+            sealed,
+            {"complete": True, "required_checks_covered": True},
+            roles={"checks.json": "receipt", "run.log": "evidence"},
+        )
         self.assertNotIn(sealed, store.access_ids("scratch-candidates"))
         publish = resources.resource_store.publish
         writes = []
+
         def observe(path: Path, value: object) -> None:
             writes.append(path)
             publish(path, value)
-        with patch.object(resources.resource_store, "publish", side_effect=observe), resources.resource_update(sealed):
+
+        with (
+            patch.object(resources.resource_store, "publish", side_effect=observe),
+            resources.resource_update(sealed),
+        ):
             pass
         self.assertFalse(any(path.parent.name == "active" for path in writes))
-        with patch.object(store.__class__, "active_ids", side_effect=AssertionError("global scan")):
+        with patch.object(
+            store.__class__, "active_ids", side_effect=AssertionError("global scan")
+        ):
             self.assertEqual(resources.reclaim_reports(), [])
         self.assertFalse((directory / "run.log").exists())
         self.assertTrue((protected / "run.log").exists())
@@ -916,7 +962,10 @@ class TestResourceTests(unittest.TestCase):
         )
         self.assertEqual(state["projection"], "complete")
         self.assertNotIn("terminal", state)
-        self.assertEqual(resources.storage().invocation_snapshot(path.stem)["terminal"]["outcomes"], outcomes)
+        self.assertEqual(
+            resources.storage().invocation_snapshot(path.stem)["terminal"]["outcomes"],
+            outcomes,
+        )
 
     def test_resume_settles_long_completed_prefix_without_replacing_it(self) -> None:
         path, members = self.projection_members(14)
@@ -1531,7 +1580,10 @@ class TestResourceTests(unittest.TestCase):
 
     def test_bounded_cleanup_rotates_past_undrained_reports(self) -> None:
         created = dict(self.report(f"rotation-{index}") for index in range(5))
-        reports = [(resource, created[resource]) for resource in resources.storage().access_ids("scratch-candidates")]
+        reports = [
+            (resource, created[resource])
+            for resource in resources.storage().access_ids("scratch-candidates")
+        ]
         for resource, _directory in reports[:4]:
             with resources.resource_update(resource) as record:
                 record["units"] = [{"unit": "retained.scope"}]

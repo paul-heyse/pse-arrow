@@ -24,12 +24,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import (
+    assessment_store,
     case_measure,
     native_tests,
     test_resources,
     validation,
     validation_receipts,
 )
+from scripts.tests import assessment_fixture
 from scripts.validation_scope import (
     FUNCTIONAL_SCOPES,
     GROUPS,
@@ -41,9 +43,6 @@ from scripts.validation_scope import (
     native_gate,
 )
 
-
-from scripts import assessment_store
-from scripts.tests import assessment_fixture
 
 class ValidationTests(unittest.TestCase):
     def test_functional_scopes_supply_actual_portable_producer_receipt(self) -> None:
@@ -211,6 +210,7 @@ class ValidationTests(unittest.TestCase):
                     capture_output=True,
                     env={
                         **os.environ,
+                        "PSE_TEST_RESOURCE_STATE": str(root / "registry"),
                         "OMP_NUM_THREADS": "8",
                         "OPENBLAS_NUM_THREADS": "8",
                         "MKL_NUM_THREADS": "8",
@@ -303,7 +303,9 @@ class ValidationTests(unittest.TestCase):
             self.assertNotEqual(removed["source.rs"], executable["source.rs"])
             self.assertNotEqual(removed["alias"], executable["alias"])
 
-    def test_scoped_capture_selects_before_reads_and_tracks_package_membership(self) -> None:
+    def test_scoped_capture_selects_before_reads_and_tracks_package_membership(
+        self,
+    ) -> None:
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         package = self.root / "packages/reference/fixture-projection.toml"
         package.parent.mkdir(parents=True)
@@ -329,9 +331,13 @@ class ValidationTests(unittest.TestCase):
             added.unlink()
             self.assertEqual(changed, validation.sources(self.root, scope="generation"))
         self.assertNotIn("docs/private-fixture.bin", before)
-        self.assertIn("docs/private-fixture.bin", validation.sources(self.root, scope="unknown"))
+        self.assertIn(
+            "docs/private-fixture.bin", validation.sources(self.root, scope="unknown")
+        )
 
-    def test_scoped_capture_binds_symlink_target_modes_and_local_configuration(self) -> None:
+    def test_scoped_capture_binds_symlink_target_modes_and_local_configuration(
+        self,
+    ) -> None:
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         source = self.root / "crates/alias.rs"
         source.parent.mkdir()
@@ -342,21 +348,33 @@ class ValidationTests(unittest.TestCase):
         target.write_text("second")
         after = validation.sources(self.root, scope="rust-product")
         self.assertEqual(before["crates/alias.rs"], after["crates/alias.rs"])
-        self.assertNotEqual(before["resolved:crates/alias.rs"], after["resolved:crates/alias.rs"])
+        self.assertNotEqual(
+            before["resolved:crates/alias.rs"], after["resolved:crates/alias.rs"]
+        )
         target.chmod(0o755)
         mode = validation.sources(self.root, scope="rust-product")
         self.assertNotEqual(after, mode)
         (self.root / ".envrc.local").symlink_to(target)
         local = validation.sources(self.root, scope="rust-product")
         self.assertNotEqual(mode[".envrc.local"], local[".envrc.local"])
-        self.assertIn(".envrc.local", validation.input_identity("rust-product", local, {})["files"])
+        self.assertIn(
+            ".envrc.local",
+            validation.input_identity("rust-product", local, {})["files"],
+        )
 
-    def test_aggregate_generation_uses_relations_once_and_keeps_independent_guards(self) -> None:
+    def test_aggregate_generation_uses_relations_once_and_keeps_independent_guards(
+        self,
+    ) -> None:
         names = [gate.name for gate in expand(("codegen-check",))]
         self.assertEqual(names.count("codegen-relations-check"), 1)
         self.assertNotIn("codegen-physical-check", names)
         self.assertNotIn("codegen-rust-contracts-check", names)
-        for guard in ("python-contracts-check", "python-stubs-check", "codegen-bindgen-check", "codegen-schemas-check"):
+        for guard in (
+            "python-contracts-check",
+            "python-stubs-check",
+            "codegen-bindgen-check",
+            "codegen-schemas-check",
+        ):
             self.assertIn(guard, names)
         for independent in ("codegen-physical-check", "codegen-rust-contracts-check"):
             self.assertEqual(expand((independent,))[0].name, independent)
@@ -544,8 +562,12 @@ class ValidationTests(unittest.TestCase):
             self.assertTrue((self.output / name).exists())
         self.assertEqual(manifest["pure.log"]["role"], "evidence")
         self.assertEqual(record["artifacts"], {})
-        self.assertEqual(test_resources.reclaim(resource), "no disposable report artifacts")
-        self.assertEqual(test_resources.resource_status(resource)["cleanup"], "compacted")
+        self.assertEqual(
+            test_resources.reclaim(resource), "no disposable report artifacts"
+        )
+        self.assertEqual(
+            test_resources.resource_status(resource)["cleanup"], "compacted"
+        )
         self.assertEqual(
             (self.output / "source.diff").read_bytes(), b"authored uncommitted patch"
         )

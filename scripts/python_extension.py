@@ -34,14 +34,36 @@ def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
         raise arrow_validation.ValidationError("expected Maturin develop or build")
     config = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["maturin"]
     supported = {
-        "bindings", "manifest-path", "module-name", "python-source", "python-packages",
-        "locked", "frozen", "sdist-generator", "profile", "editable-profile", "strip",
-        "auditwheel", "include", "exclude", "features", "config", "unstable-flags",
-        "all-features", "no-default-features",
+        "bindings",
+        "manifest-path",
+        "module-name",
+        "python-source",
+        "python-packages",
+        "locked",
+        "frozen",
+        "sdist-generator",
+        "profile",
+        "editable-profile",
+        "strip",
+        "auditwheel",
+        "include",
+        "exclude",
+        "features",
+        "config",
+        "unstable-flags",
+        "all-features",
+        "no-default-features",
         # Maturin 1.15 ToolMaturin packaging/metadata settings do not select
         # another Cargo root or conditional feature closure for this direct route.
-        "compatibility", "manylinux", "skip-auditwheel", "data", "sbom",
-        "include-import-lib", "generate-ci", "pgo-command", "use-base-python",
+        "compatibility",
+        "manylinux",
+        "skip-auditwheel",
+        "data",
+        "sbom",
+        "include-import-lib",
+        "generate-ci",
+        "pgo-command",
+        "use-base-python",
     }
     if unknown := set(config) - supported:
         raise arrow_validation.ValidationError(
@@ -161,7 +183,9 @@ def validated_maturin_command(
     """Prove actual Arrow leaves before invoking the unchanged installer selection."""
     root = ROOT if root is None else root
     if environment.get("MATURIN_PGO"):
-        raise arrow_validation.ValidationError("unsupported multiphase Maturin PGO selection")
+        raise arrow_validation.ValidationError(
+            "unsupported multiphase Maturin PGO selection"
+        )
     cargo = maturin_cargo_command(command, root)
 
     def capture_graph(selected: Sequence[str]) -> bytes:
@@ -217,7 +241,10 @@ def capture(
     try:
         imported = json.loads(
             subprocess.check_output(
-                [str(interpreter(environment)), "-c", program], cwd=ROOT, env=environment, text=True
+                [str(interpreter(environment)), "-c", program],
+                cwd=ROOT,
+                env=environment,
+                text=True,
             )
         )
     except (subprocess.CalledProcessError, json.JSONDecodeError) as error:
@@ -270,22 +297,50 @@ def execution_environment(
     }
 
 
-def develop_command(root: Path, mode: str, profile: str, *, environment: Mapping[str, str] | None = None, validated: bool = True) -> list[str]:
+def develop_command(
+    root: Path,
+    mode: str,
+    profile: str,
+    *,
+    environment: Mapping[str, str] | None = None,
+    validated: bool = True,
+) -> list[str]:
     """The actual Maturin correctness installer selection shared by strict capture."""
     if mode not in {"dev", "native"}:
         raise ValueError("correctness extension mode must be dev or native")
     return [
-        str((Path(environment["VIRTUAL_ENV"]) if environment is not None else root / ".venv") / "bin/maturin"),
+        str(
+            (
+                Path(environment["VIRTUAL_ENV"])
+                if environment is not None
+                else root / ".venv"
+            )
+            / "bin/maturin"
+        ),
         "develop",
         "--uv",
         "--profile",
         profile,
         "--locked",
-        *(["--features", ",".join([*(["force-validate"] if validated else []), *(["native-solvers"] if mode == "native" else [])])] if validated or mode == "native" else []),
+        *(
+            [
+                "--features",
+                ",".join(
+                    [
+                        *(["force-validate"] if validated else []),
+                        *(["native-solvers"] if mode == "native" else []),
+                    ]
+                ),
+            ]
+            if validated or mode == "native"
+            else []
+        ),
     ]
 
 
-def selected_environment(environment: Mapping[str, str] | None = None) -> dict[str, str]:
+def selected_environment(
+    environment: Mapping[str, str] | None = None,
+) -> dict[str, str]:
     """Resolve the environment once through the existing checkout owner."""
     from scripts import pse_env  # noqa: PLC0415
 
@@ -307,7 +362,9 @@ def file_identity(path: Path) -> dict[str, object]:
         "path": str(path.absolute()),
         "resolved": str(path.resolve()),
         "link": str(path.readlink()) if path.is_symlink() else None,
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest()
+        if path.is_file()
+        else None,
         "mode": path.stat().st_mode & 0o777 if path.is_file() else None,
     }
 
@@ -327,10 +384,17 @@ def environment_ensure(environment: Mapping[str, str]) -> int:
     return subprocess.call(command, cwd=ROOT, env=environment)
 
 
-PREPARATION_SESSION_ENVIRONMENT = frozenset({
-    "CODEX_SESSION_ID", "CODEX_THREAD_ID", "CODEX_TOOL_CALL_ID",
-    "DIRENV_DIFF", "DIRENV_WATCHES", "DIRENV_DIR", "DIRENV_FILE",
-})
+PREPARATION_SESSION_ENVIRONMENT = frozenset(
+    {
+        "CODEX_SESSION_ID",
+        "CODEX_THREAD_ID",
+        "CODEX_TOOL_CALL_ID",
+        "DIRENV_DIFF",
+        "DIRENV_WATCHES",
+        "DIRENV_DIR",
+        "DIRENV_FILE",
+    }
+)
 
 
 def preparation_environment_identity(environment: Mapping[str, str]) -> dict[str, str]:
@@ -343,14 +407,22 @@ def preparation_environment_identity(environment: Mapping[str, str]) -> dict[str
     """
     from scripts import native_tests  # noqa: PLC0415
 
-    return native_tests.rust_environment_identity({
-        name: value for name, value in environment.items()
-        if name not in PREPARATION_SESSION_ENVIRONMENT
-    })
+    return native_tests.rust_environment_identity(
+        {
+            name: value
+            for name, value in environment.items()
+            if name not in PREPARATION_SESSION_ENVIRONMENT
+        }
+    )
 
 
 def preparation_inputs(
-    stage: str, mode: str, profile: str, environment: Mapping[str, str], *, validated: bool
+    stage: str,
+    mode: str,
+    profile: str,
+    environment: Mapping[str, str],
+    *,
+    validated: bool,
 ) -> dict[str, object] | None:
     """Known ordinary editable inputs; unknown native providers always prepare.
 
@@ -361,14 +433,27 @@ def preparation_inputs(
 
     # Cross compilation and additional Maturin environment selection do not
     # belong to the supported ordinary editable domain. They still prepare.
-    if any(name.startswith("PYO3_CROSS") or name.startswith("MATURIN_") for name in environment):
+    if any(
+        name.startswith("PYO3_CROSS") or name.startswith("MATURIN_")
+        for name in environment
+    ):
         return None
     files = validation.sources(ROOT, scope=stage)
-    if any((ROOT / name).is_symlink() and (ROOT / name).is_dir() for name in files if not name.startswith("resolved:")):
+    if any(
+        (ROOT / name).is_symlink() and (ROOT / name).is_dir()
+        for name in files
+        if not name.startswith("resolved:")
+    ):
         return None
     generations = {}
     if mode == "native":
-        for name in ("IPOPT_DIR", "UNO_DIR", "PETSC_DIR", "PSE_ROOT_ISOLATION_DIR", "SUITESPARSE_LIBRARY_DIR"):
+        for name in (
+            "IPOPT_DIR",
+            "UNO_DIR",
+            "PETSC_DIR",
+            "PSE_ROOT_ISOLATION_DIR",
+            "SUITESPARSE_LIBRARY_DIR",
+        ):
             value = environment.get(name)
             if not value:
                 return None
@@ -379,17 +464,33 @@ def preparation_inputs(
             if not isinstance(admitted, dict) or not admitted.get("managed"):
                 return None
             generations[name] = {
-                "prefix": str(prefix), "admission": admitted,
+                "prefix": str(prefix),
+                "admission": admitted,
                 "receipt": file_identity(prefix / ".complete.json"),
             }
     selected_python = interpreter(environment)
-    configuration = json.loads(subprocess.check_output(
-        [str(selected_python), "-c", "import json,sys,sysconfig; print(json.dumps({'executable':sys.executable,'prefix':sys.prefix,'version':sys.version,'config':sysconfig.get_config_vars()}))"],
-        cwd=ROOT, env=environment, text=True,
-    ))
-    tools = {name: tool_identity(name, environment) for name in ("cargo", "rustc", "uv", "cc", "c++", "pkg-config", "clang", "mold")}
+    configuration = json.loads(
+        subprocess.check_output(
+            [
+                str(selected_python),
+                "-c",
+                "import json,sys,sysconfig; print(json.dumps({'executable':sys.executable,'prefix':sys.prefix,'version':sys.version,'config':sysconfig.get_config_vars()}))",
+            ],
+            cwd=ROOT,
+            env=environment,
+            text=True,
+        )
+    )
+    tools = {
+        name: tool_identity(name, environment)
+        for name in ("cargo", "rustc", "uv", "cc", "c++", "pkg-config", "clang", "mold")
+    }
     tools["maturin"] = file_identity(interpreter(environment).parent / "maturin")
-    sysroot = Path(subprocess.check_output(["rustc", "--print", "sysroot"], cwd=ROOT, env=environment, text=True).strip())
+    sysroot = Path(
+        subprocess.check_output(
+            ["rustc", "--print", "sysroot"], cwd=ROOT, env=environment, text=True
+        ).strip()
+    )
     for name in ("rustc", "cargo"):
         tools["toolchain-" + name] = file_identity(sysroot / "bin" / name)
     if stage == "python-stubs":
@@ -398,27 +499,50 @@ def preparation_inputs(
     for name in ("PYO3_CONFIG_FILE", "CMAKE_TOOLCHAIN_FILE", "SCCACHE_CONF"):
         if environment.get(name):
             configuration_paths.append(environment[name])
-    for name in ("PYO3_PYTHON", "RUSTC", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "CC", "CXX", "FC", "CLANG_PATH", "LLVM_CONFIG_PATH"):
+    for name in (
+        "PYO3_PYTHON",
+        "RUSTC",
+        "RUSTC_WRAPPER",
+        "RUSTC_WORKSPACE_WRAPPER",
+        "CC",
+        "CXX",
+        "FC",
+        "CLANG_PATH",
+        "LLVM_CONFIG_PATH",
+    ):
         if environment.get(name):
             executable = shutil.which(environment[name], path=environment.get("PATH"))
             if executable is None:
                 return None
             tools[name] = file_identity(Path(executable))
     return {
-        "schema": "ordinary-editable-inputs-v1", "stage": stage,
-        "mode": mode, "profile": profile, "validated": validated,
+        "schema": "ordinary-editable-inputs-v1",
+        "stage": stage,
+        "mode": mode,
+        "profile": profile,
+        "validated": validated,
         "files": files,
         "environment": preparation_environment_identity(environment),
-        "configuration": {name: file_identity(Path(name)) for name in sorted(set(configuration_paths))},
-        "interpreter": {"binary": file_identity(selected_python), "configuration": configuration,
-                        "venv": file_identity(selected_python.parent.parent / "pyvenv.cfg")},
-        "compiler": subprocess.check_output(["rustc", "-Vv"], cwd=ROOT, env=environment, text=True),
-        "tools": tools, "generations": generations,
+        "configuration": {
+            name: file_identity(Path(name)) for name in sorted(set(configuration_paths))
+        },
+        "interpreter": {
+            "binary": file_identity(selected_python),
+            "configuration": configuration,
+            "venv": file_identity(selected_python.parent.parent / "pyvenv.cfg"),
+        },
+        "compiler": subprocess.check_output(
+            ["rustc", "-Vv"], cwd=ROOT, env=environment, text=True
+        ),
+        "tools": tools,
+        "generations": generations,
     }
 
 
 def stage_receipt(stage: str, environment: Mapping[str, str]) -> Path:
-    key = hashlib.sha256(str(interpreter(environment).absolute()).encode()).hexdigest()[:20]
+    key = hashlib.sha256(str(interpreter(environment).absolute()).encode()).hexdigest()[
+        :20
+    ]
     return ROOT / "build/python-extension" / key / f"{stage}.json"
 
 
@@ -441,17 +565,25 @@ def extension_prepare(
     mode: str, profile: str, environment: Mapping[str, str], *, validated: bool = True
 ) -> int:
     """Install only when a completed supported preparation no longer applies."""
-    command = develop_command(ROOT, mode, profile, environment=environment, validated=validated)
+    command = develop_command(
+        ROOT, mode, profile, environment=environment, validated=validated
+    )
     # Refuse unsupported correctness selections before any currency shortcut.
     maturin_cargo_command(command, ROOT)
-    inputs = preparation_inputs("python-extension", mode, profile, environment, validated=validated)
+    inputs = preparation_inputs(
+        "python-extension", mode, profile, environment, validated=validated
+    )
     path = stage_receipt("extension", environment)
     try:
         installed = capture(environment, validated=validated, native=mode == "native")
     except (ValueError, OSError, subprocess.SubprocessError):
         installed = None
     previous = read_receipt(path)
-    if inputs is not None and previous == {"inputs": inputs, "artifact": installed} and installed is not None:
+    if (
+        inputs is not None
+        and previous == {"inputs": inputs, "artifact": installed}
+        and installed is not None
+    ):
         return 0
     if validated:
         command = validated_maturin_command(command, environment)
@@ -459,7 +591,9 @@ def extension_prepare(
     if result:
         return result
     installed = capture(environment, validated=validated, native=mode == "native")
-    after = preparation_inputs("python-extension", mode, profile, environment, validated=validated)
+    after = preparation_inputs(
+        "python-extension", mode, profile, environment, validated=validated
+    )
     if after != inputs:
         raise ValueError("Python extension inputs changed during preparation")
     # Bind installed/imported bytes. Maturin may legitimately transform editable
@@ -472,33 +606,69 @@ def extension_prepare(
 def stub_outputs() -> dict[str, object]:
     root = ROOT / "docs/generated/source-relationships/native-stubs"
     names = [ROOT / "python/pse/_native.pyi", *sorted(root.rglob("*"))]
-    return {str(path.relative_to(ROOT)): file_identity(path) for path in names if not path.is_dir()}
+    return {
+        str(path.relative_to(ROOT)): file_identity(path)
+        for path in names
+        if not path.is_dir()
+    }
 
 
 def stubs_prepare(
-    mode: str, profile: str, environment: Mapping[str, str], *, validated: bool = True, check: bool = False
+    mode: str,
+    profile: str,
+    environment: Mapping[str, str],
+    *,
+    validated: bool = True,
+    check: bool = False,
 ) -> int:
     """Independent declaration/tool/binary/output currency for actual API stubs."""
     artifact = capture(environment, validated=validated, native=mode == "native")
-    inputs = preparation_inputs("python-stubs", mode, profile, environment, validated=validated)
+    inputs = preparation_inputs(
+        "python-stubs", mode, profile, environment, validated=validated
+    )
     expected = {"inputs": inputs, "artifact": artifact, "outputs": stub_outputs()}
     path = stage_receipt("stubs", environment)
     if not check and inputs is not None and read_receipt(path) == expected:
         return 0
-    command = ["cargo", "run", "--bin", "xtask", "-p", "xtask", "--no-default-features", "--locked", "--", "python-stubs", *( ["--check"] if check else [])]
-    command = arrow_validation.resolve(command, run=lambda selected: capture_build_graph(selected, environment)).command
+    command = [
+        "cargo",
+        "run",
+        "--bin",
+        "xtask",
+        "-p",
+        "xtask",
+        "--no-default-features",
+        "--locked",
+        "--",
+        "python-stubs",
+        *(["--check"] if check else []),
+    ]
+    command = arrow_validation.resolve(
+        command, run=lambda selected: capture_build_graph(selected, environment)
+    ).command
     result = subprocess.call(command, cwd=ROOT, env=environment)
     if result:
         return result
-    if artifact != capture(environment, validated=validated, native=mode == "native") or inputs != preparation_inputs("python-stubs", mode, profile, environment, validated=validated):
+    if artifact != capture(
+        environment, validated=validated, native=mode == "native"
+    ) or inputs != preparation_inputs(
+        "python-stubs", mode, profile, environment, validated=validated
+    ):
         raise ValueError("Python stub inputs changed during generation")
     if inputs is not None:
-        publish_receipt(path, {"inputs": inputs, "artifact": artifact, "outputs": stub_outputs()})
+        publish_receipt(
+            path, {"inputs": inputs, "artifact": artifact, "outputs": stub_outputs()}
+        )
     return 0
 
 
 def run_stages(
-    operation: str, mode: str, profile: str, environment: Mapping[str, str], *, validated: bool = True
+    operation: str,
+    mode: str,
+    profile: str,
+    environment: Mapping[str, str],
+    *,
+    validated: bool = True,
 ) -> int:
     """Explicit compositions retain four independently callable responsibilities."""
     if operation in {"sync", "environment"}:
@@ -510,19 +680,41 @@ def run_stages(
         if result or operation == "prepare":
             return result
     if operation in {"sync", "stubs", "stubs-check"}:
-        result = stubs_prepare(mode, profile, environment, validated=validated, check=operation == "stubs-check")
+        result = stubs_prepare(
+            mode,
+            profile,
+            environment,
+            validated=validated,
+            check=operation == "stubs-check",
+        )
         if result:
             return result
     if operation in {"sync", "admit"}:
-        print(json.dumps(capture(environment, validated=validated, native=mode == "native"), sort_keys=True))
+        print(
+            json.dumps(
+                capture(environment, validated=validated, native=mode == "native"),
+                sort_keys=True,
+            )
+        )
     return 0
 
 
-def launch(operation: str, mode: str, profile: str = "dev", *, validated: bool = True) -> int:
+def launch(
+    operation: str, mode: str, profile: str = "dev", *, validated: bool = True
+) -> int:
     """One pse-env/native entry establishes every stage's effective environment."""
     environment = selected_environment()
     if mode == "auto":
-        mode = subprocess.check_output([sys.executable, "-m", "scripts.doctor", "--extension-kind"], cwd=ROOT, env=environment, text=True).strip() if interpreter(environment).is_file() else "absent"
+        mode = (
+            subprocess.check_output(
+                [sys.executable, "-m", "scripts.doctor", "--extension-kind"],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+            ).strip()
+            if interpreter(environment).is_file()
+            else "absent"
+        )
         if mode == "absent":
             mode = "dev"
     if mode not in {"dev", "native"}:
@@ -530,7 +722,18 @@ def launch(operation: str, mode: str, profile: str = "dev", *, validated: bool =
     wrapper = [str(ROOT / "scripts/pse-env"), "--recipe-default-class", "compile"]
     if mode == "native":
         wrapper.append("--native=solver,klu,isolation,uno,petsc")
-    command = [*wrapper, "--", sys.executable, "-m", "scripts.python_extension", operation, mode, profile, "--resolved", *([] if validated else ["--interactive"])]
+    command = [
+        *wrapper,
+        "--",
+        sys.executable,
+        "-m",
+        "scripts.python_extension",
+        operation,
+        mode,
+        profile,
+        "--resolved",
+        *([] if validated else ["--interactive"]),
+    ]
     return subprocess.call(command, cwd=ROOT, env=environment)
 
 
@@ -651,11 +854,24 @@ if __name__ == "__main__":
     arguments = sys.argv[1:]
     resolved = "--resolved" in arguments
     validated = "--interactive" not in arguments
-    arguments = [item for item in arguments if item not in {"--resolved", "--interactive"}]
-    if len(arguments) not in {2, 3} or arguments[0] not in {"sync", "environment", "prepare", "stubs", "stubs-check", "admit"}:
-        raise SystemExit("usage: python -m scripts.python_extension sync|environment|prepare|stubs|stubs-check|admit dev|native|auto [profile] [--interactive]")
+    arguments = [
+        item for item in arguments if item not in {"--resolved", "--interactive"}
+    ]
+    if len(arguments) not in {2, 3} or arguments[0] not in {
+        "sync",
+        "environment",
+        "prepare",
+        "stubs",
+        "stubs-check",
+        "admit",
+    }:
+        raise SystemExit(
+            "usage: python -m scripts.python_extension sync|environment|prepare|stubs|stubs-check|admit dev|native|auto [profile] [--interactive]"
+        )
     operation, mode = arguments[:2]
     profile = arguments[2] if len(arguments) == 3 else "dev"
     if resolved:
-        raise SystemExit(run_stages(operation, mode, profile, dict(os.environ), validated=validated))
+        raise SystemExit(
+            run_stages(operation, mode, profile, dict(os.environ), validated=validated)
+        )
     raise SystemExit(launch(operation, mode, profile, validated=validated))

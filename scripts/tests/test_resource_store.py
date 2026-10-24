@@ -460,30 +460,49 @@ class ExactStoreTests(unittest.TestCase):
             entry.facts["pin"] = False
         self.assertTrue(self.store.lookup(resource).facts["pin"])
 
-    def test_existing_marker_retry_settles_directory_before_exposing_authority(self) -> None:
+    def test_existing_marker_retry_settles_directory_before_exposing_authority(
+        self,
+    ) -> None:
         entry = files.Entry("d" * 32, ["/state", "db", "embedded"], {})
         synchronize = files.sync_directory
         failed = False
+
         def interrupt(path: Path) -> None:
             nonlocal failed
-            if path == self.root / "active" and self.store.path("active", entry.resource).exists() and not failed:
+            if (
+                path == self.root / "active"
+                and self.store.path("active", entry.resource).exists()
+                and not failed
+            ):
                 failed = True
                 raise OSError("injected marker directory sync")
             synchronize(path)
-        with patch.object(files, "sync_directory", side_effect=interrupt), self.assertRaisesRegex(OSError, "injected"):
+
+        with (
+            patch.object(files, "sync_directory", side_effect=interrupt),
+            self.assertRaisesRegex(OSError, "injected"),
+        ):
             self.store._save(entry)
         self.assertFalse(self.store.path("resources", entry.resource).exists())
         events = []
         settle, publish = files.settle, files.publish
+
         def settle_existing(path: Path) -> None:
             events.append(("settle", path.parent.name))
             settle(path)
+
         def expose(path: Path, value: dict) -> None:
             events.append(("publish", path.parent.name))
             publish(path, value)
-        with patch.object(files, "settle", side_effect=settle_existing), patch.object(files, "publish", side_effect=expose):
+
+        with (
+            patch.object(files, "settle", side_effect=settle_existing),
+            patch.object(files, "publish", side_effect=expose),
+        ):
             self.store._save(entry)
-        self.assertLess(events.index(("settle", "active")), events.index(("publish", "resources")))
+        self.assertLess(
+            events.index(("settle", "active")), events.index(("publish", "resources"))
+        )
 
     def test_activation_without_fence_and_unknown_active_marker_refuse(self) -> None:
         files.publish(self.root / "allocations.json", {"version": 1, "owners": {}})

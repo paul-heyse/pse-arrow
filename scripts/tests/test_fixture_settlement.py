@@ -9,8 +9,8 @@ import importlib.util
 import sys
 import tempfile
 import threading
-import types
 import time
+import types
 import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -48,10 +48,12 @@ def fixture_type() -> type[Fixture]:
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     fake_pse = types.ModuleType("pse")
-    setattr(fake_pse, "Runtime", Borrower)
+    fake_pse.Runtime = Borrower
     fake_build = types.ModuleType("pse._build")
-    setattr(fake_build, "_NativeRuntime", FixtureNativeDrain)
-    with patch.dict(sys.modules, {"pse": fake_pse, "pse._build": fake_build, spec.name: module}):
+    fake_build._NativeRuntime = FixtureNativeDrain
+    with patch.dict(
+        sys.modules, {"pse": fake_pse, "pse._build": fake_build, spec.name: module}
+    ):
         spec.loader.exec_module(module)
     return cast("type[Fixture]", module.CanonicalFixture)
 
@@ -60,7 +62,9 @@ CanonicalFixture = fixture_type()
 
 
 class FixtureSettlement(unittest.TestCase):
-    def test_failed_cache_and_close_keep_siblings_and_receiver_independent(self) -> None:
+    def test_failed_cache_and_close_keep_siblings_and_receiver_independent(
+        self,
+    ) -> None:
         events: list[str] = []
         first = Mock(spec=Borrower)
         second = Mock(spec=Borrower)
@@ -77,15 +81,27 @@ class FixtureSettlement(unittest.TestCase):
         first.close.side_effect = fail_close
         second.clear_program_cache.side_effect = lambda: events.append("second-cache")
         second.close.side_effect = lambda: events.append("second-close")
-        fixture = CanonicalFixture("state", "database", "resource", [cast("pse.Runtime", first), cast("pse.Runtime", second)])
+        fixture = CanonicalFixture(
+            "state",
+            "database",
+            "resource",
+            [cast("pse.Runtime", first), cast("pse.Runtime", second)],
+        )
         deadline = time.monotonic() + 1
         with (
-            patch.object(surreal_server, "drain_context", side_effect=lambda *_args, **_kwargs: events.append("receiver")) as physical,
+            patch.object(
+                surreal_server,
+                "drain_context",
+                side_effect=lambda *_args, **_kwargs: events.append("receiver"),
+            ) as physical,
             patch.object(test_resources, "record_drain") as recorded,
             self.assertRaises(BaseExceptionGroup) as raised,
         ):
             fixture.settle(registered_context=True, deadline=deadline)
-        self.assertEqual(events, ["first-cache", "second-cache", "first-close", "second-close", "receiver"])
+        self.assertEqual(
+            events,
+            ["first-cache", "second-cache", "first-close", "second-close", "receiver"],
+        )
         physical.assert_called_once_with(Path("state"), "database", deadline=deadline)
         recorded.assert_not_called()
         self.assertEqual(fixture.borrowers, [first])
@@ -94,11 +110,17 @@ class FixtureSettlement(unittest.TestCase):
         self.assertIn("cache refusal", str(nested.exceptions[0]))
         self.assertIn("escaped reader", str(nested.exceptions[1]))
 
-    def test_physical_failure_preserves_original_clock_on_repeated_cleanup(self) -> None:
+    def test_physical_failure_preserves_original_clock_on_repeated_cleanup(
+        self,
+    ) -> None:
         fixture = CanonicalFixture("state", "database", "resource")
         deadline = time.monotonic() + 1
         with (
-            patch.object(surreal_server, "drain_context", side_effect=KeyboardInterrupt("cancelled")) as physical,
+            patch.object(
+                surreal_server,
+                "drain_context",
+                side_effect=KeyboardInterrupt("cancelled"),
+            ) as physical,
             patch.object(test_resources, "record_drain") as recorded,
         ):
             for offered in (deadline, deadline + 90):
@@ -112,13 +134,22 @@ class FixtureSettlement(unittest.TestCase):
     def test_two_failed_owners_retain_each_error_and_never_publish_drain(self) -> None:
         fixture = CanonicalFixture("state", "database", "resource")
         with (
-            patch.object(type(fixture), "drain", side_effect=ValueError("local retained reader")),
-            patch.object(surreal_server, "drain_context", side_effect=RuntimeError("receiver unknown")),
+            patch.object(
+                type(fixture), "drain", side_effect=ValueError("local retained reader")
+            ),
+            patch.object(
+                surreal_server,
+                "drain_context",
+                side_effect=RuntimeError("receiver unknown"),
+            ),
             patch.object(test_resources, "record_drain") as recorded,
             self.assertRaises(BaseExceptionGroup) as raised,
         ):
             fixture.settle(registered_context=True)
-        self.assertEqual([str(error) for error in raised.exception.exceptions], ["local retained reader", "receiver unknown"])
+        self.assertEqual(
+            [str(error) for error in raised.exception.exceptions],
+            ["local retained reader", "receiver unknown"],
+        )
         recorded.assert_not_called()
 
     def test_complete_join_publishes_only_physical_ack_under_same_clock(self) -> None:
@@ -132,8 +163,12 @@ class FixtureSettlement(unittest.TestCase):
             fixture.settle(registered_context=True, deadline=deadline)
         recorded.assert_called_once_with("resource", units=units, deadline=deadline)
 
-    def test_sdk_stall_does_not_block_receiver_and_same_expiry_reaches_both(self) -> None:
-        fixture = CanonicalFixture("state", "database", "resource", [cast("pse.Runtime", Mock(spec=Borrower))])
+    def test_sdk_stall_does_not_block_receiver_and_same_expiry_reaches_both(
+        self,
+    ) -> None:
+        fixture = CanonicalFixture(
+            "state", "database", "resource", [cast("pse.Runtime", Mock(spec=Borrower))]
+        )
         receiver_finished = threading.Event()
         deadline = time.monotonic() + 1
 
@@ -147,8 +182,12 @@ class FixtureSettlement(unittest.TestCase):
             raise RuntimeError("retained SDK reader")
 
         with (
-            patch.object(surreal_server, "drain_context", side_effect=receiver) as native,
-            patch.object(FixtureNativeDrain, "_drain_fixture_connections", side_effect=sdk),
+            patch.object(
+                surreal_server, "drain_context", side_effect=receiver
+            ) as native,
+            patch.object(
+                FixtureNativeDrain, "_drain_fixture_connections", side_effect=sdk
+            ),
             patch.object(test_resources, "record_drain") as recorded,
             self.assertRaises(BaseExceptionGroup),
         ):
@@ -197,12 +236,20 @@ class FixtureSettlement(unittest.TestCase):
             surreal_server._STARTUP.deadline = time.monotonic() - 1
             try:
                 with (
-                    patch.object(surreal_server, "receiver_context", return_value=state),
-                    patch.object(surreal_server, "config_for", return_value={"database": "database"}),
+                    patch.object(
+                        surreal_server, "receiver_context", return_value=state
+                    ),
+                    patch.object(
+                        surreal_server,
+                        "config_for",
+                        return_value={"database": "database"},
+                    ),
                     patch.object(surreal_server.signal, "pidfd_send_signal") as signal,
                     self.assertRaises(surreal_server.DeadlineExpiredError),
                 ):
-                    surreal_server.drain_context(state, "database", deadline=time.monotonic() + 90)
+                    surreal_server.drain_context(
+                        state, "database", deadline=time.monotonic() + 90
+                    )
                 signal.assert_not_called()
             finally:
                 surreal_server._STARTUP.deadline = previous

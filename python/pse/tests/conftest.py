@@ -179,7 +179,9 @@ def canonical_substrate(
                 test_resources.require_effect(
                     {"test": request.node.nodeid}, effect="native"
                 )
-                profile = os.environ.get("PSE_TEST_EXECUTION_PROFILE", "exclusive-observer")
+                profile = os.environ.get(
+                    "PSE_TEST_EXECUTION_PROFILE", "exclusive-observer"
+                )
                 worker = os.environ.get("PSE_WORKER_BINARY")
                 if worker is None:
                     receiver = surreal_server.config_for(state).get("primary_receiver")
@@ -358,7 +360,9 @@ def _ipc_round_trip(schema: pa.Schema) -> pa.Schema:
 
 
 @pytest.fixture(scope="session")
-def local_inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSettings:
+def local_inspection_settings(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> EngineSettings:
     """Bound local constructor/metadata controls by the current observer role."""
     memory = host_admission.execution("functional")["observer_memory_bytes"]
     return EngineSettings(
@@ -370,7 +374,12 @@ def local_inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> Engin
         math_workspace_bytes=memory // 4,
         math_worker_bytes=memory // 8,
         math_artifact_bytes=memory // 16,
-        cache=CacheSettings(working_bytes=memory // 16, concurrent_loads=1, inflight_bytes=memory // 64, inspection_bytes=memory // 128),
+        cache=CacheSettings(
+            working_bytes=memory // 16,
+            concurrent_loads=1,
+            inflight_bytes=memory // 64,
+            inspection_bytes=memory // 128,
+        ),
     )
 
 

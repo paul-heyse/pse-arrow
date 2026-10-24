@@ -30,6 +30,7 @@ from scripts import (
     host_admission,
     producer_deployment,
     pse_env,
+    resource_store,
     surreal_server,
     validation,
 )
@@ -2130,8 +2131,8 @@ class NativeOperationTests(unittest.TestCase):
             self.assertEqual(evidence["exit_code"], 0)
             self.assertEqual(evidence["report_errors"], [])
             self.assertEqual(evidence["process"]["owned_drain"], "complete")
-            state = json.loads(
-                (base / "registry/invocation-state" / path.name).read_text()
+            state = resource_store.FileStore(base / "registry").invocation_snapshot(
+                path.stem
             )
             self.assertTrue(state["terminal"]["complete"])
             registrations = completed["operation"]["selected_composers"]
@@ -2219,9 +2220,9 @@ class NativeOperationTests(unittest.TestCase):
                     self.await_drain({"scope": owner})
                     path = Path(selected["invocation"])
                     self.assertFalse(path.with_suffix(".terminal.json").exists())
-                    state = json.loads(
-                        (base / "registry/invocation-state" / path.name).read_text()
-                    )
+                    state = resource_store.FileStore(
+                        base / "registry"
+                    ).invocation_snapshot(path.stem)
                     self.assertEqual(state["phase"], "open")
                     record = operation._record(Path(selected["operation"]))  # noqa: SLF001 -- assert the exact durable private operation protocol
                     self.assertEqual(
@@ -2365,9 +2366,9 @@ class NativeOperationTests(unittest.TestCase):
                     self.assertEqual(terminal["process"]["forwarded_signal"], signum)
                     self.assertEqual(terminal["process"]["owned_drain"], "complete")
                     self.assertEqual(terminal["process"]["scope"], owners[1])
-                    state = json.loads(
-                        (base / "registry/invocation-state" / path.name).read_text()
-                    )
+                    state = resource_store.FileStore(
+                        base / "registry"
+                    ).invocation_snapshot(path.stem)
                     self.assertEqual(state["phase"], "frozen")
                     self.assertFalse(state["terminal"]["complete"])
                     for owner in owners:
@@ -3880,40 +3881,70 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 self.assertIsNone(operation.current())
                 operation.admit("observation:authenticated-input", {"value": True})
                 self.assertEqual(
-                    operation.remembered("observation:authenticated-input"), {"value": True}
+                    operation.remembered("observation:authenticated-input"),
+                    {"value": True},
                 )
 
-    def test_unscoped_admission_reaches_real_descendant_but_not_foreign_or_ended_owner(self) -> None:
+    def test_unscoped_admission_reaches_real_descendant_but_not_foreign_or_ended_owner(
+        self,
+    ) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.object(operation, "scope_owner", return_value=None),
             operation.Operation(Path(directory)) as active,
         ):
-            operation.admit("prefix:selected", {"managed": True, "identity": {"generation": "sealed"}})
+            operation.admit(
+                "prefix:selected",
+                {"managed": True, "identity": {"generation": "sealed"}},
+            )
             self.assertIsNone(operation.current())
             result = subprocess.run(
-                [sys.executable, "-c", "from scripts import native_operation as n; import json; print(json.dumps({'admission':n.remembered('prefix:selected'),'scoped':n.current() is not None}))"],
-                cwd=cache.ROOT, env=dict(os.environ), capture_output=True, text=True,
-                timeout=10, check=True,
+                [
+                    sys.executable,
+                    "-c",
+                    "from scripts import native_operation as n; import json; print(json.dumps({'admission':n.remembered('prefix:selected'),'scoped':n.current() is not None}))",
+                ],
+                cwd=cache.ROOT,
+                env=dict(os.environ),
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True,
             )
-            self.assertEqual(json.loads(result.stdout), {
-                "admission": {"managed": True, "identity": {"generation": "sealed"}},
-                "scoped": False,
-            })
+            self.assertEqual(
+                json.loads(result.stdout),
+                {
+                    "admission": {
+                        "managed": True,
+                        "identity": {"generation": "sealed"},
+                    },
+                    "scoped": False,
+                },
+            )
             original = operation._record(active.path)  # noqa: SLF001 -- mutate the exact owner protocol to exercise identity refusal
             changed = {**original, "start": "different-process-start"}
             operation.write_json(active.path, changed)
             self.assertIsNone(operation.remembered("prefix:selected"))
-            foreign = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+            foreign = subprocess.Popen(
+                [sys.executable, "-c", "import time; time.sleep(30)"]
+            )
             try:
-                changed.update(pid=foreign.pid, start=operation.start_identity(foreign.pid))
+                changed.update(
+                    pid=foreign.pid, start=operation.start_identity(foreign.pid)
+                )
                 operation.write_json(active.path, changed)
-                self.assertIsNone(operation.owner_record(), "a live sibling is not this process's admission owner")
+                self.assertIsNone(
+                    operation.owner_record(),
+                    "a live sibling is not this process's admission owner",
+                )
                 self.assertIsNone(operation.remembered("prefix:selected"))
             finally:
                 foreign.terminate()
                 foreign.wait(timeout=10)
-            self.assertIsNone(operation.remembered("prefix:selected"), "an ended owner cannot grant admission")
+            self.assertIsNone(
+                operation.remembered("prefix:selected"),
+                "an ended owner cannot grant admission",
+            )
             operation.write_json(active.path, original)
 
     def test_native_entry_rejects_forged_marker_and_preserves_arguments(self) -> None:

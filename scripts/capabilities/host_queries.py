@@ -116,8 +116,13 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         )
 
     def assessment_read(
-        directory: str, gate: str | None = None, failures: bool = False, tail: Tail = 0,
-        source_detail: bool = False, full_export: bool = False, historical: bool = False,
+        directory: str,
+        gate: str | None = None,
+        failures: bool = False,
+        tail: Tail = 0,
+        source_detail: bool = False,
+        full_export: bool = False,
+        historical: bool = False,
     ) -> ReadResult:
         """Read a selected assessment while borrowing its original report and reused origins. Qualification, incomplete scope and native causes survive; no printed-path scraping."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
@@ -127,8 +132,13 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         return owner_read(
             "assessment_read",
             lambda: validation_result.read_assessment(
-                Path(directory), gate=gate, failures=failures, tail=tail,
-                source_detail=source_detail, full_export=full_export, historical=historical,
+                Path(directory),
+                gate=gate,
+                failures=failures,
+                tail=tail,
+                source_detail=source_detail,
+                full_export=full_export,
+                historical=historical,
             ),
         )
 

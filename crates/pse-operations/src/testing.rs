@@ -18,14 +18,22 @@ pub(crate) struct SettlementDeadline {
     monotonic_ns: u64,
 }
 impl SettlementDeadline {
-    pub(crate) fn new(local: tokio::time::Instant) -> Result<Self, crate::canonical::CanonicalError> {
+    pub(crate) fn new(
+        local: tokio::time::Instant,
+    ) -> Result<Self, crate::canonical::CanonicalError> {
         // Read CLOCK_MONOTONIC first: sampling skew can only shorten the offer.
         let now = crate::canonical::transport::monotonic_nanoseconds()?;
-        let remaining = u64::try_from(local.saturating_duration_since(tokio::time::Instant::now()).as_nanos())
-            .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
+        let remaining = u64::try_from(
+            local
+                .saturating_duration_since(tokio::time::Instant::now())
+                .as_nanos(),
+        )
+        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
         Ok(Self {
             local,
-            monotonic_ns: now.checked_add(remaining).ok_or_else(|| crate::canonical::CanonicalError::Configuration("fixture deadline overflow".into()))?,
+            monotonic_ns: now.checked_add(remaining).ok_or_else(|| {
+                crate::canonical::CanonicalError::Configuration("fixture deadline overflow".into())
+            })?,
         })
     }
 }
@@ -42,7 +50,10 @@ where
     let mut tasks = Vec::new();
     for (name, future) in siblings {
         tasks.push(tokio::spawn(async move {
-            (name, crate::canonical::transport::within_clock(deadline, future).await)
+            (
+                name,
+                crate::canonical::transport::within_clock(deadline, future).await,
+            )
         }));
     }
     let mut failures = Vec::new();
@@ -50,13 +61,15 @@ where
         match task.await {
             Ok((name, Err(error))) => failures.push(format!("{name}: {error}")),
             Err(error) => failures.push(format!("fixture drain task: {error}")),
-            Ok((_, Ok(()))) => {},
+            Ok((_, Ok(()))) => {}
         }
     }
     if failures.is_empty() {
         Ok(())
     } else {
-        Err(crate::canonical::CanonicalError::Configuration(failures.join("; ")))
+        Err(crate::canonical::CanonicalError::Configuration(
+            failures.join("; "),
+        ))
     }
 }
 
@@ -106,36 +119,64 @@ impl FixtureLifetime {
                 })?
         })
     }
-    pub(crate) fn settlement_deadline(&self, offered: tokio::time::Instant, retain: bool) -> Result<SettlementDeadline, crate::canonical::CanonicalError> {
+    pub(crate) fn settlement_deadline(
+        &self,
+        offered: tokio::time::Instant,
+        retain: bool,
+    ) -> Result<SettlementDeadline, crate::canonical::CanonicalError> {
         let mut retained = self.settlement.lock().map_err(|_| {
-            crate::canonical::CanonicalError::Configuration("fixture settlement clock poisoned".into())
+            crate::canonical::CanonicalError::Configuration(
+                "fixture settlement clock poisoned".into(),
+            )
         })?;
         match *retained {
             Some(previous) if previous.local <= offered => Ok(previous),
             _ => {
                 let deadline = SettlementDeadline::new(offered)?;
-                if retain { *retained = Some(deadline); }
+                if retain {
+                    *retained = Some(deadline);
+                }
                 Ok(deadline)
             }
         }
     }
-    pub(crate) async fn drain_connections(&self, deadline: SettlementDeadline) -> Result<(), crate::canonical::CanonicalError> {
-        let peers = self.peers.lock().map_err(|_| {
-            crate::canonical::CanonicalError::Configuration("fixture peer owner poisoned".into())
-        }).map(|peers| peers.clone());
+    pub(crate) async fn drain_connections(
+        &self,
+        deadline: SettlementDeadline,
+    ) -> Result<(), crate::canonical::CanonicalError> {
+        let peers = self
+            .peers
+            .lock()
+            .map_err(|_| {
+                crate::canonical::CanonicalError::Configuration(
+                    "fixture peer owner poisoned".into(),
+                )
+            })
+            .map(|peers| peers.clone());
         let mut stores = vec![self.store.clone()];
         let peer_error = match peers {
-            Ok(peers) => { stores.extend(peers); None },
+            Ok(peers) => {
+                stores.extend(peers);
+                None
+            }
             Err(error) => Some(error),
         };
-        let siblings = stores.into_iter().enumerate().map(|(index, store)| {
-            (format!("fixture connection {index}"), async move { store.drain_fixture_connection().await })
-        }).collect();
+        let siblings = stores
+            .into_iter()
+            .enumerate()
+            .map(|(index, store)| {
+                (format!("fixture connection {index}"), async move {
+                    store.drain_fixture_connection().await
+                })
+            })
+            .collect();
         let drained = join_settlement(deadline.local, siblings).await;
         match (peer_error, drained) {
             (None, result) => result,
             (Some(error), Ok(())) => Err(error),
-            (Some(error), Err(other)) => Err(crate::canonical::CanonicalError::Configuration(format!("{error}; {other}"))),
+            (Some(error), Err(other)) => Err(crate::canonical::CanonicalError::Configuration(
+                format!("{error}; {other}"),
+            )),
         }
     }
     /// Join SDK owners and the separately supervised receiver. Native progress
@@ -146,15 +187,23 @@ impl FixtureLifetime {
         deadline: SettlementDeadline,
     ) -> Result<(), crate::canonical::CanonicalError> {
         let resource = self.resource.clone();
-        let native = tokio::task::spawn_blocking(move || resource_bridge_until(
-            "drain",
-            &serde_json::json!({"resource": resource, "physical_only": true}),
-            deadline,
-        ));
+        let native = tokio::task::spawn_blocking(move || {
+            resource_bridge_until(
+                "drain",
+                &serde_json::json!({"resource": resource, "physical_only": true}),
+                deadline,
+            )
+        });
         let (current, peers, native) = tokio::join!(
             async {
                 match current {
-                    Some(store) => crate::canonical::transport::within_clock(deadline.local, store.drain_fixture_connection()).await,
+                    Some(store) => {
+                        crate::canonical::transport::within_clock(
+                            deadline.local,
+                            store.drain_fixture_connection(),
+                        )
+                        .await
+                    }
                     None => Ok(()),
                 }
             },
@@ -162,22 +211,37 @@ impl FixtureLifetime {
             native,
         );
         let mut errors = Vec::new();
-        if let Err(error) = current { errors.push(format!("current fixture: {error}")); }
-        if let Err(error) = peers { errors.push(format!("retained fixture owners: {error}")); }
+        if let Err(error) = current {
+            errors.push(format!("current fixture: {error}"));
+        }
+        if let Err(error) = peers {
+            errors.push(format!("retained fixture owners: {error}"));
+        }
         let units = match native {
-            Ok(Ok(output)) => output.get("units").filter(|value| value.is_array()).cloned().ok_or_else(|| crate::canonical::CanonicalError::IncompleteResponse),
+            Ok(Ok(output)) => output
+                .get("units")
+                .filter(|value| value.is_array())
+                .cloned()
+                .ok_or_else(|| crate::canonical::CanonicalError::IncompleteResponse),
             Ok(Err(error)) => Err(error),
-            Err(error) => Err(crate::canonical::CanonicalError::Configuration(format!("fixture native drain task: {error}"))),
+            Err(error) => Err(crate::canonical::CanonicalError::Configuration(format!(
+                "fixture native drain task: {error}"
+            ))),
         };
-        if let Err(error) = &units { errors.push(format!("native receiver: {error}")); }
+        if let Err(error) = &units {
+            errors.push(format!("native receiver: {error}"));
+        }
         if !errors.is_empty() {
-            return Err(crate::canonical::CanonicalError::Configuration(errors.join("; ")));
+            return Err(crate::canonical::CanonicalError::Configuration(
+                errors.join("; "),
+            ));
         }
         resource_bridge_until(
             "record-drain",
             &serde_json::json!({"resource": self.resource, "units": units?}),
             deadline,
-        ).map(|_| ())
+        )
+        .map(|_| ())
     }
     pub(crate) fn retain_peer(
         &self,
@@ -208,10 +272,11 @@ impl Drop for FixtureLifetime {
         let result = std::thread::scope(|scope| {
             scope
                 .spawn(|| {
-                    let offered = crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
+                    let offered = crate::canonical::transport::original_deadline(
+                        crate::canonical::REQUEST_TIMEOUT,
+                    );
                     let deadline = self.settlement_deadline(offered, true)?;
                     self.executor.block_on(self.settle(None, deadline))
-
                 })
                 .join()
                 .unwrap_or_else(|_| {
@@ -238,7 +303,11 @@ pub(crate) fn resource_bridge(
     action: &str,
     input: &serde_json::Value,
 ) -> Result<serde_json::Value, crate::canonical::CanonicalError> {
-    let budget = std::time::Duration::from_secs(if matches!(action, "drain" | "record-drain") { 50 } else { 60 });
+    let budget = std::time::Duration::from_secs(if matches!(action, "drain" | "record-drain") {
+        50
+    } else {
+        60
+    });
     let deadline = SettlementDeadline::new(crate::canonical::transport::original_deadline(budget))?;
     resource_bridge_until(action, input, deadline)
 }
@@ -282,9 +351,8 @@ pub(crate) fn resource_bridge_until(
     if matches!(action, "drain" | "record-drain") {
         input["deadline_monotonic_ns"] = deadline.monotonic_ns.into();
     }
-    let input = serde_json::to_vec(&input).map_err(|error| {
-        crate::canonical::CanonicalError::Configuration(error.to_string())
-    })?;
+    let input = serde_json::to_vec(&input)
+        .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
     let output = execute_resource_bridge(command, input, deadline.local)?;
     if !output.status.success() {
         return Err(crate::canonical::CanonicalError::Configuration(format!(
@@ -304,36 +372,55 @@ fn execute_resource_bridge(
     deadline: tokio::time::Instant,
 ) -> Result<std::process::Output, crate::canonical::CanonicalError> {
     std::thread::scope(|scope| {
-        scope.spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()
-                .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
-            runtime.block_on(crate::canonical::transport::within_clock(deadline, async {
-                use tokio::io::AsyncWriteExt;
-                if tokio::time::Instant::now() >= deadline {
-                    return Err(crate::canonical::CanonicalError::Timeout);
-                }
-                let mut child = tokio::process::Command::from(command)
-                    .kill_on_drop(true)
-                    .stdin(std::process::Stdio::piped())
-                    .stdout(std::process::Stdio::piped())
-                    .stderr(std::process::Stdio::piped())
-                    .spawn()
-                    .map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
-                let mut stdin = child.stdin.take().ok_or_else(|| {
-                    crate::canonical::CanonicalError::Configuration("fixture registry input unavailable".into())
-                })?;
-                // Read stdout/stderr concurrently with input: a helper producing
-                // diagnostics must not deadlock before accepting its request.
-                let write = async move {
-                    stdin.write_all(&input).await?;
-                    drop(stdin);
-                    Ok::<(), std::io::Error>(())
-                };
-                let (written, output) = tokio::join!(write, child.wait_with_output());
-                written.map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))?;
-                output.map_err(|error| crate::canonical::CanonicalError::Configuration(error.to_string()))
-            }))
-        }).join().map_err(|_| crate::canonical::CanonicalError::Configuration("fixture bridge executor panicked".into()))?
+        scope
+            .spawn(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|error| {
+                        crate::canonical::CanonicalError::Configuration(error.to_string())
+                    })?;
+                runtime.block_on(crate::canonical::transport::within_clock(deadline, async {
+                    use tokio::io::AsyncWriteExt;
+                    if tokio::time::Instant::now() >= deadline {
+                        return Err(crate::canonical::CanonicalError::Timeout);
+                    }
+                    let mut child = tokio::process::Command::from(command)
+                        .kill_on_drop(true)
+                        .stdin(std::process::Stdio::piped())
+                        .stdout(std::process::Stdio::piped())
+                        .stderr(std::process::Stdio::piped())
+                        .spawn()
+                        .map_err(|error| {
+                            crate::canonical::CanonicalError::Configuration(error.to_string())
+                        })?;
+                    let mut stdin = child.stdin.take().ok_or_else(|| {
+                        crate::canonical::CanonicalError::Configuration(
+                            "fixture registry input unavailable".into(),
+                        )
+                    })?;
+                    // Read stdout/stderr concurrently with input: a helper producing
+                    // diagnostics must not deadlock before accepting its request.
+                    let write = async move {
+                        stdin.write_all(&input).await?;
+                        drop(stdin);
+                        Ok::<(), std::io::Error>(())
+                    };
+                    let (written, output) = tokio::join!(write, child.wait_with_output());
+                    written.map_err(|error| {
+                        crate::canonical::CanonicalError::Configuration(error.to_string())
+                    })?;
+                    output.map_err(|error| {
+                        crate::canonical::CanonicalError::Configuration(error.to_string())
+                    })
+                }))
+            })
+            .join()
+            .map_err(|_| {
+                crate::canonical::CanonicalError::Configuration(
+                    "fixture bridge executor panicked".into(),
+                )
+            })?
     })
 }
 
@@ -629,23 +716,34 @@ pub fn canonical_fixture_peer(
 
 #[cfg(test)]
 mod setup_observation_unit {
-    #![allow(clippy::unwrap_used, clippy::panic, reason = "fixture settlement controls assert exact owner outcomes")]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::panic,
+        reason = "fixture settlement controls assert exact owner outcomes"
+    )]
     #[tokio::test]
     async fn settlement_collects_sibling_errors_without_renewing_clock() {
         use crate::canonical::CanonicalError;
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(40);
         let completed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let siblings = (0..3).map(|index| {
-            let completed = completed.clone();
-            (format!("sibling {index}"), async move {
-                match index {
-                    0 => Err(CanonicalError::Configuration("first refused".into())),
-                    1 => std::future::pending::<Result<(), CanonicalError>>().await,
-                    _ => { completed.store(true, std::sync::atomic::Ordering::Release); Ok(()) },
-                }
+        let siblings = (0..3)
+            .map(|index| {
+                let completed = completed.clone();
+                (format!("sibling {index}"), async move {
+                    match index {
+                        0 => Err(CanonicalError::Configuration("first refused".into())),
+                        1 => std::future::pending::<Result<(), CanonicalError>>().await,
+                        _ => {
+                            completed.store(true, std::sync::atomic::Ordering::Release);
+                            Ok(())
+                        }
+                    }
+                })
             })
-        }).collect();
-        let error = super::join_settlement(deadline, siblings).await.unwrap_err();
+            .collect();
+        let error = super::join_settlement(deadline, siblings)
+            .await
+            .unwrap_err();
         assert!(completed.load(std::sync::atomic::Ordering::Acquire));
         assert!(error.to_string().contains("first refused"));
         assert!(error.to_string().contains("sibling 1"));
@@ -658,17 +756,22 @@ mod setup_observation_unit {
         let (started, start) = tokio::sync::oneshot::channel();
         let (release, resume) = tokio::sync::oneshot::channel();
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(1);
-        let joining = tokio::spawn(super::join_settlement(deadline, vec![("owned child".into(), async move {
-            started.send(()).unwrap();
-            resume.await.unwrap();
-            completed.notify_one();
-            Ok(())
-        })]));
+        let joining = tokio::spawn(super::join_settlement(
+            deadline,
+            vec![("owned child".into(), async move {
+                started.send(()).unwrap();
+                resume.await.unwrap();
+                completed.notify_one();
+                Ok(())
+            })],
+        ));
         start.await.unwrap();
         joining.abort();
         let _ = joining.await;
         release.send(()).unwrap();
-        tokio::time::timeout_at(deadline, finished.notified()).await.unwrap();
+        tokio::time::timeout_at(deadline, finished.notified())
+            .await
+            .unwrap();
     }
 
     #[test]
@@ -676,10 +779,20 @@ mod setup_observation_unit {
         let mut command = std::process::Command::new("/bin/sh");
         // The child fills stdout before reading stdin. Neither pipe may block
         // the outer expiry, and helper death never constitutes native drain.
-        command.args(["-c", "while :; do printf 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'; done"]);
+        command.args([
+            "-c",
+            "while :; do printf 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'; done",
+        ]);
         let started = std::time::Instant::now();
-        let result = super::execute_resource_bridge(command, vec![0; 1024 * 1024], tokio::time::Instant::now() + std::time::Duration::from_millis(50));
-        assert!(matches!(result, Err(crate::canonical::CanonicalError::Timeout)));
+        let result = super::execute_resource_bridge(
+            command,
+            vec![0; 1024 * 1024],
+            tokio::time::Instant::now() + std::time::Duration::from_millis(50),
+        );
+        assert!(matches!(
+            result,
+            Err(crate::canonical::CanonicalError::Timeout)
+        ));
         assert!(started.elapsed() < std::time::Duration::from_secs(2));
     }
 
@@ -688,9 +801,18 @@ mod setup_observation_unit {
         let directory = tempfile::tempdir().unwrap();
         let witness = directory.path().join("started");
         let mut command = std::process::Command::new("/bin/sh");
-        command.args(["-c", "touch -- \"$1\"", "fixture-bridge"]).arg(&witness);
-        let result = super::execute_resource_bridge(command, Vec::new(), tokio::time::Instant::now() - std::time::Duration::from_millis(1));
-        assert!(matches!(result, Err(crate::canonical::CanonicalError::Timeout)));
+        command
+            .args(["-c", "touch -- \"$1\"", "fixture-bridge"])
+            .arg(&witness);
+        let result = super::execute_resource_bridge(
+            command,
+            Vec::new(),
+            tokio::time::Instant::now() - std::time::Duration::from_millis(1),
+        );
+        assert!(matches!(
+            result,
+            Err(crate::canonical::CanonicalError::Timeout)
+        ));
         assert!(!witness.exists());
     }
 

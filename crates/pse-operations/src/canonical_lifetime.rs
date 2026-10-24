@@ -349,29 +349,46 @@ impl PhysicalLifetime {
                     // disconnect, while the clients themselves are independent.
                     super::transport::within_clock(deadline, readers()).await?;
                     let (ordinary_done, activation_done) = {
-                        let state = owner.physical.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                        let state = owner
+                            .physical
+                            .state
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
                         (state.ordinary_drained, state.activation_drained)
                     };
                     let ordinary_drain = async {
                         if !ordinary_done {
                             super::transport::within_clock(deadline, ordinary()).await?;
-                            owner.physical.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).ordinary_drained = true;
+                            owner
+                                .physical
+                                .state
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .ordinary_drained = true;
                         }
                         Ok::<(), CanonicalError>(())
                     };
                     let activation_drain = async {
                         if !activation_done {
                             super::transport::within_clock(deadline, activation()).await?;
-                            owner.physical.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).activation_drained = true;
+                            owner
+                                .physical
+                                .state
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .activation_drained = true;
                         }
                         Ok::<(), CanonicalError>(())
                     };
                     match tokio::join!(ordinary_drain, activation_drain) {
                         (Ok(()), Ok(())) => Ok(()),
                         (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error),
-                        (Err(ordinary), Err(activation)) => Err(CanonicalError::Configuration(format!("ordinary driver: {ordinary}; activation driver: {activation}"))),
+                        (Err(ordinary), Err(activation)) => Err(CanonicalError::Configuration(
+                            format!("ordinary driver: {ordinary}; activation driver: {activation}"),
+                        )),
                     }
-                }.await;
+                }
+                .await;
                 owner.complete(result);
             });
         }
@@ -616,11 +633,15 @@ mod tests {
     #[tokio::test]
     async fn failed_first_driver_still_settles_second_and_retains_each_error() {
         let caller = ConnectionAccess::default();
-        let error = caller.physical.close(
-            || async { Ok(()) },
-            || async { Err(CanonicalError::Configuration("ordinary refusal".into())) },
-            || async { Err(CanonicalError::Configuration("activation refusal".into())) },
-        ).await.unwrap_err();
+        let error = caller
+            .physical
+            .close(
+                || async { Ok(()) },
+                || async { Err(CanonicalError::Configuration("ordinary refusal".into())) },
+                || async { Err(CanonicalError::Configuration("activation refusal".into())) },
+            )
+            .await
+            .unwrap_err();
         let detail = error.to_string();
         assert!(detail.contains("ordinary refusal"));
         assert!(detail.contains("activation refusal"));
@@ -633,11 +654,18 @@ mod tests {
         let completed = Arc::new(AtomicBool::new(false));
         let second = completed.clone();
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(40);
-        let result = super::super::transport::operation_scope(deadline.into_std(), caller.physical.close(
-            || async { Ok(()) },
-            || async { std::future::pending::<Result<(), CanonicalError>>().await },
-            move || async move { second.store(true, Ordering::Release); Ok(()) },
-        )).await;
+        let result = super::super::transport::operation_scope(
+            deadline.into_std(),
+            caller.physical.close(
+                || async { Ok(()) },
+                || async { std::future::pending::<Result<(), CanonicalError>>().await },
+                move || async move {
+                    second.store(true, Ordering::Release);
+                    Ok(())
+                },
+            ),
+        )
+        .await;
         assert!(result.is_err());
         assert!(completed.load(Ordering::Acquire));
         let state = caller.physical.state.lock().unwrap();
@@ -650,11 +678,18 @@ mod tests {
     #[tokio::test]
     async fn failed_reader_prerequisite_preserves_both_clients() {
         let caller = ConnectionAccess::default();
-        let result = caller.physical.close(
-            || async { Err(CanonicalError::Configuration("escaped protected reader".into())) },
-            || async { panic!("ordinary disconnect before reader settlement") },
-            || async { panic!("activation disconnect before reader settlement") },
-        ).await;
+        let result = caller
+            .physical
+            .close(
+                || async {
+                    Err(CanonicalError::Configuration(
+                        "escaped protected reader".into(),
+                    ))
+                },
+                || async { panic!("ordinary disconnect before reader settlement") },
+                || async { panic!("activation disconnect before reader settlement") },
+            )
+            .await;
         assert!(result.is_err());
         let state = caller.physical.state.lock().unwrap();
         assert!(!state.ordinary_drained && !state.activation_drained);
@@ -665,20 +700,24 @@ mod tests {
     async fn physical_child_preserves_exact_longer_enclosing_settlement_offer() {
         let caller = ConnectionAccess::default();
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(60);
-        super::super::transport::operation_scope(deadline.into_std(), caller.physical.close(
-            move || async move {
-                assert_eq!(super::super::transport::current_deadline(), Some(deadline));
-                Ok(())
-            },
-            move || async move {
-                assert_eq!(super::super::transport::current_deadline(), Some(deadline));
-                Ok(())
-            },
-            move || async move {
-                assert_eq!(super::super::transport::current_deadline(), Some(deadline));
-                Ok(())
-            },
-        )).await.unwrap();
+        super::super::transport::operation_scope(
+            deadline.into_std(),
+            caller.physical.close(
+                move || async move {
+                    assert_eq!(super::super::transport::current_deadline(), Some(deadline));
+                    Ok(())
+                },
+                move || async move {
+                    assert_eq!(super::super::transport::current_deadline(), Some(deadline));
+                    Ok(())
+                },
+                move || async move {
+                    assert_eq!(super::super::transport::current_deadline(), Some(deadline));
+                    Ok(())
+                },
+            ),
+        )
+        .await
+        .unwrap();
     }
-
 }

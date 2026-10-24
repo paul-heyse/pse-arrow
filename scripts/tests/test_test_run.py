@@ -475,7 +475,7 @@ class TerminalComposerTests(unittest.TestCase):
             cancellation.assert_called_once()
             self.assertEqual(cancellation.call_args.args, (signal.SIGTERM, 110.0))
         self.assertEqual(code, 0 if phase == "before-ack" else 1)
-        state = files.read(store.path("invocation-state", path.stem))
+        state = store.invocation_snapshot(path.stem)
         self.assertTrue(state["terminal"]["complete"])
         self.assertEqual(state["terminal"]["evidence"]["workload_exit"], 0)
         self.assertEqual(state["terminal"]["evidence"]["report_errors"], [])
@@ -702,34 +702,74 @@ class OrdinaryRustScientificInputTests(unittest.TestCase):
             }
         }
 
-    def test_fresh_local_selection_prepares_once_and_executes_retained_metadata(self) -> None:
+    def test_fresh_local_selection_prepares_once_and_executes_retained_metadata(
+        self,
+    ) -> None:
         inventory = self.inventory()
+
         def prepare(command, provenance, selection, environment, **options):
             self.assertEqual(command, ["cargo", "nextest", "run", "-p", "pse-compiler"])
-            self.assertEqual(options, {"effects": "native-local", "package_scope": True, "canonical": False})
+            self.assertEqual(
+                options,
+                {"effects": "native-local", "package_scope": True, "canonical": False},
+            )
             selection.write_text(json.dumps(inventory))
             self.captured = provenance.with_suffix(".scientific.json")
             self.captured.write_text(json.dumps(self.capsule))
             self.events.append("prepare")
-            return ["--binaries-metadata", "/retained/binaries.json", "--cargo-metadata", "/retained/cargo.json"], None
+            return [
+                "--binaries-metadata",
+                "/retained/binaries.json",
+                "--cargo-metadata",
+                "/retained/cargo.json",
+            ], None
 
         with (
             patch.object(test_run.validation, "fresh_output", return_value=self.root),
-            patch.object(native_tests, "ordinary_rust_capture", side_effect=prepare) as prepared,
-            patch.object(native_tests, "rust_fixture_bindings", side_effect=lambda *_args: {scientific_inputs.ROLE: str(self.captured)}),
-            patch.object(native_tests, "prepared_rust_inventory", side_effect=lambda _args, _env, **kwargs: kwargs["inventory"]) as admitted,
+            patch.object(
+                native_tests, "ordinary_rust_capture", side_effect=prepare
+            ) as prepared,
+            patch.object(
+                native_tests,
+                "rust_fixture_bindings",
+                side_effect=lambda *_args: {scientific_inputs.ROLE: str(self.captured)},
+            ),
+            patch.object(
+                native_tests,
+                "prepared_rust_inventory",
+                side_effect=lambda _args, _env, **kwargs: kwargs["inventory"],
+            ) as admitted,
             patch.object(test_run, "execute_selected", return_value=7) as execution,
-            patch.object(test_run, "observer_rust", side_effect=AssertionError("local observer acquisition")),
-            patch.object(test_run.subprocess, "run", side_effect=AssertionError("fallback list/build")),
+            patch.object(
+                test_run,
+                "observer_rust",
+                side_effect=AssertionError("local observer acquisition"),
+            ),
+            patch.object(
+                test_run.subprocess,
+                "run",
+                side_effect=AssertionError("fallback list/build"),
+            ),
         ):
-            self.assertEqual(test_run.run_rust(["cargo", "nextest", "run", "-p", "pse-compiler"], env=self.environment, effects="native-local", package_scope=True), 7)
+            self.assertEqual(
+                test_run.run_rust(
+                    ["cargo", "nextest", "run", "-p", "pse-compiler"],
+                    env=self.environment,
+                    effects="native-local",
+                    package_scope=True,
+                ),
+                7,
+            )
         prepared.assert_called_once()
         admitted.assert_called_once()
         run = execution.call_args.args[1]
         self.assertIn("--binaries-metadata", run)
         self.assertIn("--cargo-metadata", run)
         self.assertNotIn("-p", run)
-        self.assertEqual(execution.call_args.kwargs["details"]["scientific_inputs"]["path"], str(self.captured))
+        self.assertEqual(
+            execution.call_args.kwargs["details"]["scientific_inputs"]["path"],
+            str(self.captured),
+        )
 
     def test_retained_inventory_uses_prepared_input_without_listing_or_recapture(
         self,
@@ -790,7 +830,6 @@ class OrdinaryRustScientificInputTests(unittest.TestCase):
             execute.call_args.kwargs["details"]["scientific_inputs"]["sha256"],
             hashlib.sha256(capsule.read_bytes()).hexdigest(),
         )
-
 
 
 if __name__ == "__main__":

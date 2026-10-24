@@ -2215,14 +2215,21 @@ impl CanonicalStore {
     /// Join physical owners of an isolated fixture under its original same-host
     /// monotonic expiry. Logical caller close alone does not establish this fact.
     #[doc(hidden)]
-    pub async fn drain_fixture_connection_before(&self, expiry_monotonic_ns: u64) -> Result<(), CanonicalError> {
+    pub async fn drain_fixture_connection_before(
+        &self,
+        expiry_monotonic_ns: u64,
+    ) -> Result<(), CanonicalError> {
         if !self.database.starts_with("canonical_test_") {
-            return Err(CanonicalError::Configuration("physical fixture drain requires an isolated database".into()));
+            return Err(CanonicalError::Configuration(
+                "physical fixture drain requires an isolated database".into(),
+            ));
         }
         // Sampling the local instant first can only shorten the mapped offer.
         let sampled = tokio::time::Instant::now();
         let now = transport::monotonic_nanoseconds()?;
-        if expiry_monotonic_ns <= now { return Err(CanonicalError::Timeout); }
+        if expiry_monotonic_ns <= now {
+            return Err(CanonicalError::Timeout);
+        }
         let deadline = sampled + std::time::Duration::from_nanos(expiry_monotonic_ns - now);
         self.drain_connection_until(deadline).await
     }
@@ -2236,9 +2243,13 @@ impl CanonicalStore {
     /// Only private initialization or final fixture ownership establishes that
     /// no caller can escape. Ordinary disconnect keeps its live-activity refusal.
     async fn drain_owned_connection(&self) -> Result<(), CanonicalError> {
-        self.drain_connection_until(original_deadline(REQUEST_TIMEOUT)).await
+        self.drain_connection_until(original_deadline(REQUEST_TIMEOUT))
+            .await
     }
-    async fn drain_connection_until(&self, deadline: tokio::time::Instant) -> Result<(), CanonicalError> {
+    async fn drain_connection_until(
+        &self,
+        deadline: tokio::time::Instant,
+    ) -> Result<(), CanonicalError> {
         within_clock(deadline, async {
             self.result_read_drain.close_and_drain().await?;
             self.db
@@ -2273,7 +2284,9 @@ impl CanonicalStore {
             ));
         }
         let mut removed = match &self.fixture_lifetime {
-            Some(lifetime) => Some(within_clock(deadline.local, async { Ok(lifetime.removed.lock().await) }).await?),
+            Some(lifetime) => Some(
+                within_clock(deadline.local, async { Ok(lifetime.removed.lock().await) }).await?,
+            ),
             None => None,
         };
         if removed.as_deref().is_some_and(|removed| *removed) {

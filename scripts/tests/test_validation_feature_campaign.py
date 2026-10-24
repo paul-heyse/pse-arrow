@@ -39,7 +39,9 @@ class FeatureCampaignTests(unittest.TestCase):
                 return_value={"complete": "compiler-native-fixture"},
             ),
             patch.object(
-                campaign.validation, "sources", side_effect=lambda _root, **_kwargs: dict(self.source)
+                campaign.validation,
+                "sources",
+                side_effect=lambda _root, **_kwargs: dict(self.source),
             ),
             patch.object(
                 campaign,

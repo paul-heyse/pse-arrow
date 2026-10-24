@@ -214,6 +214,7 @@ def sources(root: Path, *, scope: str | None = None) -> dict[str, str]:
     link identity retained by whole-source archives.
     """
     from scripts.validation_scope import includes_input  # noqa: PLC0415
+
     names = git(
         root,
         "ls-files",
@@ -237,13 +238,21 @@ def sources(root: Path, *, scope: str | None = None) -> dict[str, str]:
             data = b"absent"
         result[name] = hashlib.sha256(data).hexdigest()
         if scope is not None and path.is_symlink() and path.is_file():
-            resolved = str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()
+            resolved = (
+                str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()
+            )
             result["resolved:" + name] = hashlib.sha256(resolved).hexdigest()
     if scope is not None and includes_input(scope, ".envrc.local"):
         local = root / ".envrc.local"
-        data = b"symlink:" + os.fsencode(local.readlink()) if local.is_symlink() else b"absent"
+        data = (
+            b"symlink:" + os.fsencode(local.readlink())
+            if local.is_symlink()
+            else b"absent"
+        )
         if local.is_file():
-            data += str(local.stat().st_mode & 0o777).encode() + b":" + local.read_bytes()
+            data += (
+                str(local.stat().st_mode & 0o777).encode() + b":" + local.read_bytes()
+            )
         result[".envrc.local"] = hashlib.sha256(data).hexdigest()
     return result
 
@@ -584,6 +593,7 @@ def execute(
 
 def checkpoint(output: Path, receipt: dict) -> None:
     from scripts import assessment_store  # noqa: PLC0415
+
     assessment_store.publish(output, receipt)
     failures = [
         {"gate": check["gate"], **result}
@@ -1348,6 +1358,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"validation interrupted; partial evidence: {output}", flush=True)
         return 128 + RECEIVED_SIGNAL
     from scripts import assessment_store  # noqa: PLC0415
+
     checks = assessment_store.root(output)["checks"]
     unsuccessful = [
         check["gate"] for check in checks if not validation_receipts.qualified(check)

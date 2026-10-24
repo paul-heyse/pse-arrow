@@ -92,7 +92,9 @@ def selected_result(
     tail: int,
     origins: dict[str, Path],
 ) -> dict:
-    recorded = set(receipt.get("recorded_gates", [check["gate"] for check in receipt["checks"]]))
+    recorded = set(
+        receipt.get("recorded_gates", [check["gate"] for check in receipt["checks"]])
+    )
     checks = []
     for check in receipt["checks"]:
         if gate is not None and gate != check["gate"]:
@@ -135,8 +137,14 @@ def selected_result(
 
 
 def read_assessment(
-    run: Path, *, gate: str | None = None, failures: bool = False, tail: int = 0,
-    source_detail: bool = False, full_export: bool = False, historical: bool = False,
+    run: Path,
+    *,
+    gate: str | None = None,
+    failures: bool = False,
+    tail: int = 0,
+    source_detail: bool = False,
+    full_export: bool = False,
+    historical: bool = False,
 ) -> dict:
     """Read authentic selected assessment detail while its owners remain borrowed."""
     if tail < 0:
@@ -151,9 +159,16 @@ def read_assessment(
             receipt = {**receipt, "original_inspection": True, "automatic_reuse": False}
         else:
             image = assessment_store.root(run)
-            names = {check["gate"] for check in image["checks"]
-                     if full_export or gate == check["gate"] or failures and not qualified(check)}
-            receipt = assessment_store.selected(run, image, gates=names, source=source_detail or full_export)
+            names = {
+                check["gate"]
+                for check in image["checks"]
+                if full_export
+                or gate == check["gate"]
+                or (failures and not qualified(check))
+            }
+            receipt = assessment_store.selected(
+                run, image, gates=names, source=source_detail or full_export
+            )
         if gate is not None and gate not in {item["name"] for item in receipt["scope"]}:
             raise UnknownGateError(f"gate {gate!r} is not in this run's scope")
         origins: dict[str, Path] = {}
@@ -323,8 +338,13 @@ def main(argv: list[str] | None = None) -> int:
         )
     try:
         result = read_assessment(
-            args.run_path, gate=args.gate, failures=args.failures, tail=args.tail,
-            source_detail=args.source_detail, full_export=args.full_export, historical=args.historical,
+            args.run_path,
+            gate=args.gate,
+            failures=args.failures,
+            tail=args.tail,
+            source_detail=args.source_detail,
+            full_export=args.full_export,
+            historical=args.historical,
         )
     except UnknownGateError as error:
         parser.error(str(error))

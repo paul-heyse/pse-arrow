@@ -1921,10 +1921,34 @@ fn nested_implicit_keeps_complete_layout_for_an_ignored_function_argument() {
     );
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
-    let model = workspace.specialize_modeling(root, InstanceId::from_id(SemanticId::NIL), Bindings::default(), Limits::default()).unwrap();
-    let q = model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".q")).unwrap().id;
-    assert!(inner.descriptor.spec().inputs.iter().any(|port| port.id == q));
-    assert!(inner.residuals.iter().all(|residual| residual.body.math.input_count() == 3));
+    let model = workspace
+        .specialize_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    let q = model
+        .symbols
+        .values()
+        .find(|symbol| symbol.lineage.path.ends_with(".q"))
+        .unwrap()
+        .id;
+    assert!(
+        inner
+            .descriptor
+            .spec()
+            .inputs
+            .iter()
+            .any(|port| port.id == q)
+    );
+    assert!(
+        inner
+            .residuals
+            .iter()
+            .all(|residual| residual.body.math.input_count() == 3)
+    );
 }
 #[test]
 fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {

@@ -16,9 +16,9 @@ import json
 import os
 import re
 import time
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from collections.abc import Generator, Sequence
 
 from scripts import host_admission as host
 from scripts import native_operation as operation
@@ -41,7 +41,11 @@ def directory(path: Path) -> Generator[int, None, None]:
     descriptor = os.open(path.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
     try:
         for part in path.parts[1:]:
-            following = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=descriptor)
+            following = os.open(
+                part,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=descriptor,
+            )
             os.close(descriptor)
             descriptor = following
         information = os.fstat(descriptor)
@@ -58,9 +62,13 @@ def read_image(path: Path, remaining: int) -> bytes:
 
 
 def read_file(parent: int, name: str, remaining: int) -> bytes:
-    descriptor = os.open(name, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+    descriptor = os.open(
+        name, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent
+    )
     with os.fdopen(descriptor, "rb") as stream:
-        host.validate_private_file(os.fstat(stream.fileno()), "original conversion image")
+        host.validate_private_file(
+            os.fstat(stream.fileno()), "original conversion image"
+        )
         if os.fstat(stream.fileno()).st_size > remaining:
             raise files.StoreError("Explicit conversion byte bound exceeded")
         data = stream.read(remaining + 1)
@@ -71,15 +79,39 @@ def read_file(parent: int, name: str, remaining: int) -> bytes:
 
 def validate_transition(value: dict) -> None:
     activation = value.get("original_activation")
-    if value.get("version") != 1 or value.get("phase") not in {"pending", "complete"} or not isinstance(activation, dict) or activation.get("version") != 2 or activation.get("format") != "exact-resource-files" or not isinstance(activation.get("migration"), str) or DIGEST.fullmatch(activation["migration"]) is None:
+    if (
+        value.get("version") != 1
+        or value.get("phase") not in {"pending", "complete"}
+        or not isinstance(activation, dict)
+        or activation.get("version") != 2
+        or activation.get("format") != "exact-resource-files"
+        or not isinstance(activation.get("migration"), str)
+        or DIGEST.fullmatch(activation["migration"]) is None
+    ):
         raise files.StoreError("Unknown conversion recovery authority")
     services = value.get("services")
-    if not isinstance(services, list) or any(not isinstance(item, str) or not Path(item).is_absolute() or ".." in Path(item).parts or any(parent.is_symlink() for parent in (Path(item), *Path(item).parents)) for item in services):
+    if not isinstance(services, list) or any(
+        not isinstance(item, str)
+        or not Path(item).is_absolute()
+        or ".." in Path(item).parts
+        or any(parent.is_symlink() for parent in (Path(item), *Path(item).parents))
+        for item in services
+    ):
         raise files.StoreError("Invalid conversion service authority")
     sources = value.get("sources")
     if "sources" not in value and value["phase"] == "pending":
         return
-    if not isinstance(sources, dict) or len(sources) > MAX_IMAGES or any(not isinstance(name, str) or SOURCE.fullmatch(name) is None or not isinstance(digest, str) or DIGEST.fullmatch(digest) is None for name, digest in sources.items()):
+    if (
+        not isinstance(sources, dict)
+        or len(sources) > MAX_IMAGES
+        or any(
+            not isinstance(name, str)
+            or SOURCE.fullmatch(name) is None
+            or not isinstance(digest, str)
+            or DIGEST.fullmatch(digest) is None
+            for name, digest in sources.items()
+        )
+    ):
         raise files.StoreError("Invalid conversion source authority")
 
 
@@ -117,39 +149,74 @@ def processes(deadline: float, proc: Path = Path("/proc")) -> list[dict]:
                 raise files.StoreError("Conversion process command bound exceeded")
             after = (entry / "stat").read_text().rsplit(")", 1)[1].split()
             if before[19] != after[19]:
-                raise files.StoreError("Process identity changed during conversion cohort discovery")
+                raise files.StoreError(
+                    "Process identity changed during conversion cohort discovery"
+                )
             if not command:
-                raise files.StoreError("Unresolved live process command during conversion cohort discovery")
-            result.append({"pid": int(entry.name), "start": before[19], "argv": os.fsdecode(command).rstrip("\0").split("\0")})
+                raise files.StoreError(
+                    "Unresolved live process command during conversion cohort discovery"
+                )
+            result.append(
+                {
+                    "pid": int(entry.name),
+                    "start": before[19],
+                    "argv": os.fsdecode(command).rstrip("\0").split("\0"),
+                }
+            )
         except (FileNotFoundError, ProcessLookupError) as error:
             try:
                 survivor = (entry / "stat").read_text().rsplit(")", 1)[1].split()
             except (FileNotFoundError, ProcessLookupError):
                 continue
             except (OSError, IndexError, UnicodeError) as unresolved:
-                raise files.StoreError("Unresolved disappearing process during conversion cohort discovery: " + entry.name) from unresolved
+                raise files.StoreError(
+                    "Unresolved disappearing process during conversion cohort discovery: "
+                    + entry.name
+                ) from unresolved
             if survivor[0] not in {"Z", "X"}:
-                raise files.StoreError("Unresolved live process during conversion cohort discovery: " + entry.name) from error
+                raise files.StoreError(
+                    "Unresolved live process during conversion cohort discovery: "
+                    + entry.name
+                ) from error
         except (OSError, IndexError, UnicodeError) as error:
-            raise files.StoreError("Unresolved live process during conversion cohort discovery: " + entry.name) from error
+            raise files.StoreError(
+                "Unresolved live process during conversion cohort discovery: "
+                + entry.name
+            ) from error
         if len(result) > MAX_IMAGES:
             raise files.StoreError("Conversion process discovery bound exceeded")
     return result
 
 
 def capability_endpoint(argv: list[str]) -> bool:
-    if not argv or re.fullmatch(r"python(?:[0-9]+(?:\.[0-9]+)*)?", Path(argv[0]).name) is None:
+    if (
+        not argv
+        or re.fullmatch(r"python(?:[0-9]+(?:\.[0-9]+)*)?", Path(argv[0]).name) is None
+    ):
         return False
     for index, argument in enumerate(argv[1:], 1):
         if argument == "-m":
-            return index + 1 < len(argv) and (argv[index + 1] == "scripts.capabilities" or argv[index + 1].startswith("scripts.capabilities."))
+            return index + 1 < len(argv) and (
+                argv[index + 1] == "scripts.capabilities"
+                or argv[index + 1].startswith("scripts.capabilities.")
+            )
         if argument.startswith("-m"):
-            return argument[2:] == "scripts.capabilities" or argument[2:].startswith("scripts.capabilities.")
+            return argument[2:] == "scripts.capabilities" or argument[2:].startswith(
+                "scripts.capabilities."
+            )
         if argument == "-c" or argument == "-" or not argument.startswith("-"):
-            return Path(argument).parts[-3:] == ("scripts", "capabilities", "__main__.py")
+            return Path(argument).parts[-3:] == (
+                "scripts",
+                "capabilities",
+                "__main__.py",
+            )
         if argument in {"-W", "-X", "--check-hash-based-pycs"}:
             # These consume a value; refuse ambiguous parsing rather than miss a module.
-            return any(item == "scripts.capabilities" or item.startswith("scripts.capabilities.") for item in argv[index + 1:])
+            return any(
+                item == "scripts.capabilities"
+                or item.startswith("scripts.capabilities.")
+                for item in argv[index + 1 :]
+            )
     return False
 
 
@@ -160,8 +227,15 @@ def validate_originals(values: dict[str, bytes]) -> None:
             raise files.StoreError("Invalid original conversion image")
         if name.startswith("invocation-state/"):
             header = values.get("invocations/" + Path(name).name)
-            if value.get("version") != 2 or not isinstance(value.get("declaration"), dict) or header is None or json.loads(header) != value["declaration"]:
-                raise files.StoreError("Original invocation header/state conflict; conversion refused")
+            if (
+                value.get("version") != 2
+                or not isinstance(value.get("declaration"), dict)
+                or header is None
+                or json.loads(header) != value["declaration"]
+            ):
+                raise files.StoreError(
+                    "Original invocation header/state conflict; conversion refused"
+                )
 
 
 def images(root: Path, deadline: float) -> dict[str, bytes]:
@@ -172,18 +246,17 @@ def images(root: Path, deadline: float) -> dict[str, bytes]:
             (root / family).lstat()
         except FileNotFoundError:
             continue
-        with directory(root / family) as parent:
-            with os.scandir(parent) as entries:
-                for entry in entries:
-                    host.remaining(deadline, 1)
-                    name = family + "/" + entry.name
-                    if SOURCE.fullmatch(name) is None:
-                        continue  # terminal/capture siblings are not replaced
-                    if len(result) >= MAX_IMAGES:
-                        raise files.StoreError("Explicit conversion image bound exceeded")
-                    data = read_file(parent, entry.name, MAX_BYTES - size)
-                    size += len(data)
-                    result[name] = data
+        with directory(root / family) as parent, os.scandir(parent) as entries:
+            for entry in entries:
+                host.remaining(deadline, 1)
+                name = family + "/" + entry.name
+                if SOURCE.fullmatch(name) is None:
+                    continue  # terminal/capture siblings are not replaced
+                if len(result) >= MAX_IMAGES:
+                    raise files.StoreError("Explicit conversion image bound exceeded")
+                data = read_file(parent, entry.name, MAX_BYTES - size)
+                size += len(data)
+                result[name] = data
     return result
 
 
@@ -193,7 +266,9 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
     peers = processes(deadline)
     for peer in peers:
         if capability_endpoint(peer["argv"]):
-            raise files.StoreError(f"Live capability endpoint pid={peer['pid']} start={peer['start']}; loaded reader generation is unproved; conversion refused")
+            raise files.StoreError(
+                f"Live capability endpoint pid={peer['pid']} start={peer['start']}; loaded reader generation is unproved; conversion refused"
+            )
     snapshot = host.readonly_snapshot(deadline=deadline)
     allocation = host.inherit(os.environ, deadline=deadline)
     own_group = operation.process_group(os.getpid())
@@ -202,64 +277,115 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
         # Workload scopes can spawn writers even after their coordinator exits.
         for unit, binding in owner["units"].items():
             if unit.endswith(".scope"):
-                if allocation is not None and allocation.nonce == nonce and isinstance(binding.get("group"), str) and (own_group == binding["group"] or own_group.startswith(binding["group"] + "/")):
+                if (
+                    allocation is not None
+                    and allocation.nonce == nonce
+                    and isinstance(binding.get("group"), str)
+                    and (
+                        own_group == binding["group"]
+                        or own_group.startswith(binding["group"] + "/")
+                    )
+                ):
                     for peer in peers:
                         if peer["pid"] == os.getpid():
                             continue
                         try:
                             group = operation.process_group(peer["pid"])
                             if operation.start_identity(peer["pid"]) != peer["start"]:
-                                raise files.StoreError("Process identity changed during conversion scope discovery")
+                                raise files.StoreError(
+                                    "Process identity changed during conversion scope discovery"
+                                )
                         except (FileNotFoundError, ProcessLookupError):
                             continue
                         except (OSError, ValueError) as error:
-                            raise files.StoreError("Unresolved conversion scope peer") from error
-                        if group == binding["group"] or group.startswith(binding["group"] + "/"):
-                            raise files.StoreError(f"Other live conversion scope member pid={peer['pid']} start={peer['start']}; conversion refused")
+                            raise files.StoreError(
+                                "Unresolved conversion scope peer"
+                            ) from error
+                        if group == binding["group"] or group.startswith(
+                            binding["group"] + "/"
+                        ):
+                            raise files.StoreError(
+                                f"Other live conversion scope member pid={peer['pid']} start={peer['start']}; conversion refused"
+                            )
                     continue
                 if host.caller_alive(owner):
-                    raise files.StoreError("Active admitted writer cohort; conversion refused")
+                    raise files.StoreError(
+                        "Active admitted writer cohort; conversion refused"
+                    )
                 scopes[unit] = {"unit": unit, **binding}
     for name, data in values.items():
         value = json.loads(data)
         facts = value.get("facts", {}) if name.startswith("resources/") else value
-        owners = [facts.get("producer"), facts.get("composer"), facts,
-                  facts.get("creation_borrower"), facts.get("cleaner"),
-                  *facts.get("borrows", {}).values()]
+        owners = [
+            facts.get("producer"),
+            facts.get("composer"),
+            facts,
+            facts.get("creation_borrower"),
+            facts.get("cleaner"),
+            *facts.get("borrows", {}).values(),
+        ]
         for owner in owners:
             if not isinstance(owner, dict):
                 continue
             if resources.borrower_alive(owner):
-                raise files.StoreError("Live exact metadata writer/reader; conversion refused")
-            if "boot" not in owner and type(owner.get("pid")) is int and isinstance(owner.get("start"), str):
+                raise files.StoreError(
+                    "Live exact metadata writer/reader; conversion refused"
+                )
+            if (
+                "boot" not in owner
+                and type(owner.get("pid")) is int
+                and isinstance(owner.get("start"), str)
+            ):
                 try:
                     if operation.start_identity(owner["pid"]) == owner["start"]:
-                        raise files.StoreError("Unresolved original process identity; conversion refused")
+                        raise files.StoreError(
+                            "Unresolved original process identity; conversion refused"
+                        )
                 except FileNotFoundError:
                     pass
             scope = owner.get("scope")
             if isinstance(scope, dict):
                 scopes[str(scope.get("unit"))] = scope
         for bound in facts.get("units", []):
-            if isinstance(bound, dict) and str(bound.get("unit", "")).endswith(".scope"):
+            if isinstance(bound, dict) and str(bound.get("unit", "")).endswith(
+                ".scope"
+            ):
                 scopes[bound["unit"]] = bound
     for scope in scopes.values():
         observation = operation.drained({"scope": scope}, deadline=deadline)
         if not observation.complete:
-            raise files.StoreError("Writer descendants are unobserved: " + observation.diagnostic())
+            raise files.StoreError(
+                "Writer descendants are unobserved: " + observation.diagnostic()
+            )
 
 
 def archive(path: Path, data: bytes) -> None:
     files.protected(path.parent)
     with directory(path.parent) as parent:
         try:
-            descriptor = os.open(path.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=parent)
+            descriptor = os.open(
+                path.name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                0o600,
+                dir_fd=parent,
+            )
         except FileExistsError:
-            descriptor = os.open(path.name, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+            descriptor = os.open(
+                path.name,
+                os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=parent,
+            )
             with os.fdopen(descriptor, "rb") as stream:
-                host.validate_private_file(os.fstat(stream.fileno()), "original conversion image")
-                if os.fstat(stream.fileno()).st_size != len(data) or stream.read(len(data) + 1) != data:
-                    raise files.StoreError("Original conversion image differs; retain fenced recovery")
+                host.validate_private_file(
+                    os.fstat(stream.fileno()), "original conversion image"
+                )
+                if (
+                    os.fstat(stream.fileno()).st_size != len(data)
+                    or stream.read(len(data) + 1) != data
+                ):
+                    raise files.StoreError(
+                        "Original conversion image differs; retain fenced recovery"
+                    ) from None
                 os.fsync(stream.fileno())
         else:
             with os.fdopen(descriptor, "wb") as stream:
@@ -271,15 +397,20 @@ def archive(path: Path, data: bytes) -> None:
 
 def service_association(facts: dict, deadline: float) -> tuple[Path | None, str | None]:
     from scripts import surreal_server  # noqa: PLC0415
+
     state = Path(facts["state"])
-    if not state.is_absolute() or any(path.is_symlink() for path in (state, *state.parents)):
+    if not state.is_absolute() or any(
+        path.is_symlink() for path in (state, *state.parents)
+    ):
         raise files.StoreError("Original service path ownership is ambiguous")
     if (state / "config.json").is_file():
         return surreal_server.service_directory(state, deadline=deadline), None
     # Missing configuration cannot prove that a retired receiver was a standalone
     # service. Keep an explicitly uncovered possible cohort, never a quiet answer.
     parts = state.parts
-    possible = Path(*parts[:parts.index(".receivers")]) if ".receivers" in parts else state
+    possible = (
+        Path(*parts[: parts.index(".receivers")]) if ".receivers" in parts else state
+    )
     return None, str(possible)
 
 
@@ -296,18 +427,35 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
         if transition is not None:
             validate_transition(transition)
         if transition is None:
-            if activation.get("version") != 2 or activation.get("format") != "exact-resource-files":
-                raise files.StoreError("Only the authenticated v2 owner can be converted")
+            if (
+                activation.get("version") != 2
+                or activation.get("format") != "exact-resource-files"
+            ):
+                raise files.StoreError(
+                    "Only the authenticated v2 owner can be converted"
+                )
             source = images(root, deadline)
             validate_originals(source)
             quiescent(source, deadline)  # no effects before this complete cohort check
-            transition = {"version": 1, "phase": "pending", "original_activation": activation,
-                          "services": [str(path.absolute()) for path in services]}
+            transition = {
+                "version": 1,
+                "phase": "pending",
+                "original_activation": activation,
+                "services": [str(path.absolute()) for path in services],
+            }
             validate_transition(transition)
-            if files.read(root / "allocations.json") != {"version": 2, "format": "legacy-refusal", "migration": activation["migration"]}:
-                raise files.StoreError("Original registry lacks its durable legacy-writer fence")
+            if files.read(root / "allocations.json") != {
+                "version": 2,
+                "format": "legacy-refusal",
+                "migration": activation["migration"],
+            }:
+                raise files.StoreError(
+                    "Original registry lacks its durable legacy-writer fence"
+                )
             files.publish(transition_path, transition)
-            files.publish(root / "activation.json", {"version": 0, "format": "conversion-pending"})
+            files.publish(
+                root / "activation.json", {"version": 0, "format": "conversion-pending"}
+            )
         elif transition.get("phase") == "complete":
             store.ensure(deadline)
             return activation
@@ -316,50 +464,91 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
         if "sources" not in transition:
             source = images(root, deadline)
             validate_originals(source)
-            quiescent(source, deadline)  # catch an already-admitted writer crossing the fence
+            quiescent(
+                source, deadline
+            )  # catch an already-admitted writer crossing the fence
             for name, data in source.items():
                 archive(root / "original-v2" / name, data)
-            transition["sources"] = {name: hashlib.sha256(data).hexdigest() for name, data in source.items()}
+            transition["sources"] = {
+                name: hashlib.sha256(data).hexdigest() for name, data in source.items()
+            }
             files.publish(transition_path, transition)
         else:
             source = originals(root, transition, deadline)
             quiescent(source, deadline)
-        converted = files.digest({"sources": transition["sources"], "activation": transition["original_activation"]})
+        converted = files.digest(
+            {
+                "sources": transition["sources"],
+                "activation": transition["original_activation"],
+            }
+        )
         for name, data in source.items():
             host.remaining(deadline, 1)
             if not name.startswith("invocation-state/"):
                 continue
             nonce = Path(name).stem
             original = json.loads(data)
-            if original.get("version") != 2 or not isinstance(original.get("declaration"), dict):
-                raise files.StoreError("Unknown original invocation authority; conversion fenced")
+            if original.get("version") != 2 or not isinstance(
+                original.get("declaration"), dict
+            ):
+                raise files.StoreError(
+                    "Unknown original invocation authority; conversion fenced"
+                )
             declaration = dict(original["declaration"])
             header = json.loads(source["invocations/" + nonce + ".json"])
             if header != declaration:
-                raise files.StoreError("Original invocation header/state conflict; conversion fenced")
-            declaration.update(version=2, terminal_owner=declaration.get("terminal_owner", "runner"))
-            state = {**original, "version": 3, "declaration": declaration,
-                     "original_codec": "exact-resource-files-invocation-v2",
-                     "requirement_policy": 1,
-                     "conversion": converted}
+                raise files.StoreError(
+                    "Original invocation header/state conflict; conversion fenced"
+                )
+            declaration.update(
+                version=2, terminal_owner=declaration.get("terminal_owner", "runner")
+            )
+            state = {
+                **original,
+                "version": 3,
+                "declaration": declaration,
+                "original_codec": "exact-resource-files-invocation-v2",
+                "requirement_policy": 1,
+                "conversion": converted,
+            }
             if state["phase"] == "open":
                 state["phase"] = "unresolved"
             requirements = state.get("requirements")
             selected = declaration.get("selected", [])
-            identities = {item["binary_id"] + "::" + item["name"] if declaration.get("kind") == "rust" else item["name"] for item in selected}
-            state["collected"] = isinstance(requirements, dict) and set(requirements) == identities and (
-                declaration.get("kind") == "rust" or "collection_owner" in declaration or bool(selected)
+            identities = {
+                item["binary_id"] + "::" + item["name"]
+                if declaration.get("kind") == "rust"
+                else item["name"]
+                for item in selected
+            }
+            state["collected"] = (
+                isinstance(requirements, dict)
+                and set(requirements) == identities
+                and (
+                    declaration.get("kind") == "rust"
+                    or "collection_owner" in declaration
+                    or bool(selected)
+                )
             )
             if not state["collected"]:
-                state["original_basis"] = "unqualified; original facts retained without invented requirements"
+                state["original_basis"] = (
+                    "unqualified; original facts retained without invented requirements"
+                )
             with store.lock("invocations", nonce, deadline):
                 current = files.read(root / name)
                 if current.get("version") not in {2, 3}:
-                    raise files.StoreError("Original invocation changed during fenced conversion")
+                    raise files.StoreError(
+                        "Original invocation changed during fenced conversion"
+                    )
                 if current.get("version") == 2 and current != original:
-                    raise files.StoreError("Original invocation changed during fenced conversion")
+                    raise files.StoreError(
+                        "Original invocation changed during fenced conversion"
+                    )
                 store._publish_invocation(nonce, state)
-                files.publish(store.path("invocations", nonce), resources.invocation_locator(declaration))
+                files.publish(
+                    store.path("invocations", nonce),
+                    resources.invocation_locator(declaration),
+                )
         service_roots = {Path(value) for value in transition.get("services", [])}
         for name, data in source.items():
             if not name.startswith("resources/"):
@@ -369,7 +558,9 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
             with store.lock("resources", identity, deadline):
                 current = files.read(root / name)
                 if current.get("version") not in {2, 3}:
-                    raise files.StoreError("Unknown resource changed during fenced conversion")
+                    raise files.StoreError(
+                        "Unknown resource changed during fenced conversion"
+                    )
                 facts = dict(original["facts"])
                 expected = {**original, "version": current["version"]}
                 if current["version"] == 3 and facts.get("kind") != "evidence":
@@ -378,9 +569,18 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
                             facts[key] = current["facts"][key]
                     expected["facts"] = facts
                 if current != expected:
-                    raise files.StoreError("Resource changed during fenced conversion; retain recovery")
-                prior = files.Entry(identity, current["identity"], current["facts"], current["phase"])
-                entry = files.Entry(identity, current["identity"], dict(current["facts"]), current["phase"])
+                    raise files.StoreError(
+                        "Resource changed during fenced conversion; retain recovery"
+                    )
+                prior = files.Entry(
+                    identity, current["identity"], current["facts"], current["phase"]
+                )
+                entry = files.Entry(
+                    identity,
+                    current["identity"],
+                    dict(current["facts"]),
+                    current["phase"],
+                )
                 if entry.facts.get("kind") != "evidence":
                     owner, unresolved = service_association(entry.facts, deadline)
                     if owner is not None:
@@ -389,26 +589,41 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
                     else:
                         entry.facts["unresolved_service"] = unresolved
                 store._save(entry, prior=prior)
-        activation = {**transition["original_activation"], "version": 3, "conversion": converted}
+        activation = {
+            **transition["original_activation"],
+            "version": 3,
+            "conversion": converted,
+        }
         # Service coverage is bound before activation. Old generations' payloads,
         # terminal identities and sealed report bytes have not been rewritten.
         identity = root.resolve().stat()
         from scripts import surreal_server  # noqa: PLC0415
+
         for owner in service_roots:
             if owner.is_dir():
                 with surreal_server.state_lock(owner, deadline=deadline):
-                    files.publish(owner / ".resource-owner" / "registry.json", {
-                        "version": 1, "registry": str(root.resolve()),
-                        "identity": [identity.st_dev, identity.st_ino], "activation": activation,
-                    })
+                    files.publish(
+                        owner / ".resource-owner" / "registry.json",
+                        {
+                            "version": 1,
+                            "registry": str(root.resolve()),
+                            "identity": [identity.st_dev, identity.st_ino],
+                            "activation": activation,
+                        },
+                    )
         files.publish(root / "activation.json", activation)
-        files.publish(transition_path, {**transition, "phase": "complete", "conversion": converted})
+        files.publish(
+            transition_path,
+            {**transition, "phase": "complete", "conversion": converted},
+        )
         return activation
 
 
 def original(root: Path, nonce: str) -> dict:
     if not resources.IDENTIFIER.fullmatch(nonce):
-        raise files.StoreError("Original inspection requires an exact invocation identity")
+        raise files.StoreError(
+            "Original inspection requires an exact invocation identity"
+        )
     with directory(root):
         pass
     transition = files.read(root / "format-transition.json")

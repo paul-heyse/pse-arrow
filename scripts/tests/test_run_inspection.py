@@ -79,7 +79,9 @@ class RunInspectionTests(unittest.TestCase):
             tail=tail,
         )
 
-    def test_collected_empty_selection_is_known_before_terminal_publication(self) -> None:
+    def test_collected_empty_selection_is_known_before_terminal_publication(
+        self,
+    ) -> None:
         self.path = test_resources.invocation("rust", [])
         self.assertEqual(self.read()["selection_state"], "uncollected")
         test_resources.publish_selection(self.path, [])
@@ -142,7 +144,9 @@ class RunInspectionTests(unittest.TestCase):
         self.assertIn("outside selected catalog", result["report_errors"][0])
         state_path = self.registry / "invocation-state" / self.path.name
         image = json.loads(state_path.read_text())
-        detail_path = self.registry / "invocation-terminals" / (image["terminal_ref"] + ".json")
+        detail_path = (
+            self.registry / "invocation-terminals" / (image["terminal_ref"] + ".json")
+        )
         detail = resource_store.read(detail_path)
         detail["terminal"]["complete"] = True
         resource_store.publish(detail_path, detail)

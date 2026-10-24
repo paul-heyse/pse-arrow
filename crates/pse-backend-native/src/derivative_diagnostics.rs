@@ -603,9 +603,21 @@ mod tests {
             // independent offset exercises cancellation in value differences.
             oracle.offset = 10_000_000.;
             oracle.jacobian_scale = jacobian_scale;
-            analyze(Box::new(oracle), vec![1., 1.], Normalization::identity(2, 1), Policy {
-                perturbation, relative_tolerance: 1e-4, maximum_cells: 4,
-            }, Execution::new(pse_diagnostics::Cancellation::new(false), &Default::default())).unwrap()
+            analyze(
+                Box::new(oracle),
+                vec![1., 1.],
+                Normalization::identity(2, 1),
+                Policy {
+                    perturbation,
+                    relative_tolerance: 1e-4,
+                    maximum_cells: 4,
+                },
+                Execution::new(
+                    pse_diagnostics::Cancellation::new(false),
+                    &Default::default(),
+                ),
+            )
+            .unwrap()
         };
         let cancelled = run(1e-6, 1.);
         assert!(cancelled.complete);

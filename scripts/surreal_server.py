@@ -9295,13 +9295,16 @@ def restore(
             # An interrupted first publication can leave its established local
             # registry binding. Verify that exact owner; never import a backup's
             # resource authority or infer coverage for a previously live state.
-            if binding.is_symlink() or not binding.is_dir() or set(binding.iterdir()) != {
-                binding / "registry.json"
-            }:
+            if (
+                binding.is_symlink()
+                or not binding.is_dir()
+                or set(binding.iterdir()) != {binding / "registry.json"}
+            ):
                 raise SupervisorError("Unknown restore resource authority retained")
             test_resources.service_registry_binding(state)
         if any(
-            path.name not in {".supervisor.lock", "lifecycle-owner.json", ".resource-owner"}
+            path.name
+            not in {".supervisor.lock", "lifecycle-owner.json", ".resource-owner"}
             and not metadata_write_scratch(path, state)
             for path in state.iterdir()
         ):

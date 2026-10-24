@@ -1861,10 +1861,20 @@ fn expanded_region_inputs(
     region: &SelectedRegion,
     suppliers: &BTreeMap<SemanticId, BTreeSet<SemanticId>>,
 ) -> Result<BTreeSet<SemanticId>> {
-    let mut pending = region.reads.numeric.union(&region.reads.guards).copied().collect::<Vec<_>>();
+    let mut pending = region
+        .reads
+        .numeric
+        .union(&region.reads.guards)
+        .copied()
+        .collect::<Vec<_>>();
     for slot in &region.inputs {
-        let binding = region.bindings.iter().find(|binding| binding.local == *slot)
-            .ok_or_else(|| CompileError::Missing("implicit complete input correspondence".into()))?;
+        let binding = region
+            .bindings
+            .iter()
+            .find(|binding| binding.local == *slot)
+            .ok_or_else(|| {
+                CompileError::Missing("implicit complete input correspondence".into())
+            })?;
         pending.push(binding.actual);
     }
     Ok(expanded_supplier_reads(pending, suppliers))

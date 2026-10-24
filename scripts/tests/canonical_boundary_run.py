@@ -77,8 +77,14 @@ def wait_record(
 
 
 def restart_handshake(
-    state: Path, control: Path, process: subprocess.Popen[bytes], deadline: float,
-    *, controls_resource: str, test_identity: str, selection: Mapping[str, object],
+    state: Path,
+    control: Path,
+    process: subprocess.Popen[bytes],
+    deadline: float,
+    *,
+    controls_resource: str,
+    test_identity: str,
+    selection: Mapping[str, object],
 ) -> None:
     """Only the freshly owned profile may be stopped; peer ACKs bound each phase."""
     ready = wait_record(control, "ready.json", process, deadline)
@@ -92,8 +98,13 @@ def restart_handshake(
         server.lifecycle_reservation(state, purpose="maintenance", deadline=deadline),
     ):
         restart_cohort(
-            state, control, process, deadline, database,
-            controls_resource=controls_resource, test_identity=test_identity,
+            state,
+            control,
+            process,
+            deadline,
+            database,
+            controls_resource=controls_resource,
+            test_identity=test_identity,
             selection=selection,
         )
         original = native_operation.unit_observation(server.unit_name(state))
@@ -113,7 +124,9 @@ def restart_handshake(
             or not restarted.get("InvocationID")
             or restarted["InvocationID"] == original["InvocationID"]
         ):
-            raise RuntimeError("Owned restart did not produce a fresh server invocation")
+            raise RuntimeError(
+                "Owned restart did not produce a fresh server invocation"
+            )
         server.write_json(control / "restarted.json", {"database": database})
     # The peer removes its fixture before completing. That cleanup must enter
     # ordinary context admission after the guarded restart releases its owner.
@@ -130,15 +143,22 @@ def restart_handshake(
 
 
 def restart_cohort(
-    state: Path, control: Path, process: subprocess.Popen[bytes], deadline: float,
-    database: str, *, controls_resource: str, test_identity: str,
+    state: Path,
+    control: Path,
+    process: subprocess.Popen[bytes],
+    deadline: float,
+    database: str,
+    *,
+    controls_resource: str,
+    test_identity: str,
     selection: Mapping[str, object],
 ) -> None:
     """Authenticate the two intentional borrowers under lifecycle admission."""
     if (
         server.service_directory(state, deadline=deadline) != state
         or control != state / "restart-control"
-        or server.startup_selection(server.config_for(state, deadline=deadline)) != selection
+        or server.startup_selection(server.config_for(state, deadline=deadline))
+        != selection
     ):
         raise RuntimeError("Owned restart service selection changed")
     marker = os.environ.get(test_resources.MARKER)
@@ -183,18 +203,23 @@ def restart_cohort(
                 or producer.get("pid") != process.pid
                 or not test_resources.borrower_alive(producer)
             ):
-                raise RuntimeError("Restart child invocation belongs to another process")
+                raise RuntimeError(
+                    "Restart child invocation belongs to another process"
+                )
     resources = test_resources.service_resources(state, deadline=deadline)
     child_test = selected[0]["binary_id"] + "::" + RESTART_TEST
     children = [
-        identity for identity, record in resources.items()
+        identity
+        for identity, record in resources.items()
         if record.get("invocation") == child["nonce"]
         and record.get("test") == child_test
         and record.get("database") == database
         and record.get("kind") == "database"
     ]
     if len(children) != 1 or set(resources) != {controls_resource, *children}:
-        raise RuntimeError("Restart service has an unrelated or unresolved borrower cohort")
+        raise RuntimeError(
+            "Restart service has an unrelated or unresolved borrower cohort"
+        )
     for identity, invocation, test, kind in (
         (controls_resource, parent_nonce, parent_test, "controls"),
         (children[0], child["nonce"], child_test, "database"),
@@ -214,12 +239,16 @@ def restart_cohort(
             or record.get("references") != {}
             or record.get("borrows") != {}
             or not test_resources.borrower_alive(record)
-            or (creation is not None and creation != {
-                key: record.get(key) for key in ("pid", "start", "boot")
-            })
+            or (
+                creation is not None
+                and creation
+                != {key: record.get(key) for key in ("pid", "start", "boot")}
+            )
             or (kind == "controls" and record.get("directory") != str(control))
         ):
-            raise RuntimeError("Restart borrower does not match its authenticated owning cohort")
+            raise RuntimeError(
+                "Restart borrower does not match its authenticated owning cohort"
+            )
 
 
 def rust_child(execution: Path) -> int:
@@ -362,8 +391,13 @@ def restart_journey(directory: Path, test_identity: str) -> None:
             )
             deadline = time.monotonic() + 360
             restart_handshake(
-                state, control, process, deadline, controls_resource=resource,
-                test_identity=test_identity, selection=selection,
+                state,
+                control,
+                process,
+                deadline,
+                controls_resource=resource,
+                test_identity=test_identity,
+                selection=selection,
             )
             code = process.wait(timeout=max(0.001, deadline - time.monotonic()))
             if code:

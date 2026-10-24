@@ -156,7 +156,9 @@ class FileStore:
         activation = self.root / "activation.json"
         transition = self.root / "format-transition.json"
         if transition.exists() and read(transition).get("phase") != "complete":
-            raise StoreError("Resource format conversion remains fenced; resume explicit recovery")
+            raise StoreError(
+                "Resource format conversion remains fenced; resume explicit recovery"
+            )
         if activation.exists():
             selected = read(activation)
             if (
@@ -165,7 +167,9 @@ class FileStore:
                 or not isinstance(selected.get("migration"), str)
                 or not re.fullmatch(r"[a-f0-9]{64}", selected["migration"])
             ):
-                raise StoreError("Resource registry requires explicit quiescent format conversion")
+                raise StoreError(
+                    "Resource registry requires explicit quiescent format conversion"
+                )
             if read(self.root / "allocations.json") != {
                 "version": 2,
                 "format": "legacy-refusal",
@@ -230,7 +234,13 @@ class FileStore:
 
     def _save(self, entry: Entry, *, prior: Entry | None = None) -> None:
         previous_path = self.path("resources", entry.resource)
-        previous = prior if prior is not None else self._entry(entry.resource) if previous_path.exists() else None
+        previous = (
+            prior
+            if prior is not None
+            else self._entry(entry.resource)
+            if previous_path.exists()
+            else None
+        )
         markers = self._markers(entry)
         old_markers = self._markers(previous) if previous is not None else set()
         # Access precedes active authority, while departure publishes authority
@@ -265,14 +275,25 @@ class FileStore:
             return set()
         paths = {self.path("active", entry.resource)}
         facts = entry.facts
-        if facts.get("kind") != "evidence" and isinstance(facts.get("service_owner"), str):
+        if facts.get("kind") != "evidence" and isinstance(
+            facts.get("service_owner"), str
+        ):
             cohort = digest(facts["service_owner"])
             paths.add(self.path("service-access/" + cohort, entry.resource))
-        elif facts.get("kind") != "evidence" and isinstance(facts.get("unresolved_service"), str):
-            paths.add(self.path("uncovered-service-access/" + digest(facts["unresolved_service"]), entry.resource))
+        elif facts.get("kind") != "evidence" and isinstance(
+            facts.get("unresolved_service"), str
+        ):
+            paths.add(
+                self.path(
+                    "uncovered-service-access/" + digest(facts["unresolved_service"]),
+                    entry.resource,
+                )
+            )
         settled = (
-            facts.get("drained") is True and facts.get("pin") is False
-            and facts.get("references") == {} and facts.get("borrows") == {}
+            facts.get("drained") is True
+            and facts.get("pin") is False
+            and facts.get("references") == {}
+            and facts.get("borrows") == {}
             and not facts.get("creation_borrower")
             and (facts.get("disposition") == "pass" or facts.get("explicit_release"))
             and facts.get("cleanup") in {"retained", "removing"}
@@ -286,7 +307,11 @@ class FileStore:
         return paths
 
     def access_ids(
-        self, family: str, *, limit: int | None = None, after: str = "",
+        self,
+        family: str,
+        *,
+        limit: int | None = None,
+        after: str = "",
         deadline: float | None = None,
     ) -> list[str]:
         """Read only a covered cohort; bounded sweeps do not sort its full population."""
@@ -304,7 +329,11 @@ class FileStore:
             for entry in entries:
                 host.remaining(deadline, 1)
                 name = entry.name
-                if not name.endswith(".json") or not IDENTIFIER.fullmatch(name[:-5]) or entry.is_symlink():
+                if (
+                    not name.endswith(".json")
+                    or not IDENTIFIER.fullmatch(name[:-5])
+                    or entry.is_symlink()
+                ):
                     raise StoreError("Unknown resource discovery access path")
                 identity = name[:-5]
                 if found:
@@ -459,12 +488,16 @@ class FileStore:
         if reference is None:
             inputs = read(self.path("invocation-staging", nonce))
         else:
-            if not isinstance(reference, str) or not re.fullmatch(r"[a-f0-9]{64}", reference):
+            if not isinstance(reference, str) or not re.fullmatch(
+                r"[a-f0-9]{64}", reference
+            ):
                 raise StoreError("Invalid collected invocation reference")
             inputs = read(self.path("invocation-inputs", reference))
             if digest(inputs) != reference:
                 raise StoreError("Collected invocation digest mismatch")
-        if inputs.get("nonce") != nonce or not isinstance(inputs.get("declaration"), dict):
+        if inputs.get("nonce") != nonce or not isinstance(
+            inputs.get("declaration"), dict
+        ):
             raise StoreError("Invocation input association mismatch")
         state["declaration"] = inputs["declaration"]
         state["requirements"] = inputs.get("requirements", {})
@@ -478,19 +511,34 @@ class FileStore:
             state["terminal"] = value["terminal"]
         return state
 
-    def _publish_invocation(self, nonce: str, state: dict, *, deadline: float | None = None) -> None:
+    def _publish_invocation(
+        self, nonce: str, state: dict, *, deadline: float | None = None
+    ) -> None:
         from scripts import test_requirements  # noqa: PLC0415
+
         deadline = clock(deadline)
         host.remaining(deadline, 1)
         inputs = {
             "version": 1,
-            "policy_version": state.get("requirement_policy", test_requirements.POLICY_VERSION),
+            "policy_version": state.get(
+                "requirement_policy", test_requirements.POLICY_VERSION
+            ),
             "nonce": nonce,
             "declaration": state["declaration"],
             "requirements": state.get("requirements", {}),
         }
-        coordination = {key: value for key, value in state.items()
-                        if key not in {"declaration", "requirements", "requirement_policy", "collected", "terminal"}}
+        coordination = {
+            key: value
+            for key, value in state.items()
+            if key
+            not in {
+                "declaration",
+                "requirements",
+                "requirement_policy",
+                "collected",
+                "terminal",
+            }
+        }
         coordination["version"] = 3
         reference = state.get("descriptor")
         if reference is not None:
@@ -540,7 +588,6 @@ class FileStore:
         deadline = clock(deadline)
         self.ensure(deadline)
         with self.lock("invocations", nonce, deadline):
-            path = self.path("invocation-state", nonce)
             state = self._invocation_view(nonce)
             yield state
             self._publish_invocation(nonce, state, deadline=deadline)

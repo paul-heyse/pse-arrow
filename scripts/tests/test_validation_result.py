@@ -18,11 +18,9 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from typing import TextIO
 
-from scripts import test_resources, validation, validation_result
-
-
-from scripts import assessment_store
+from scripts import assessment_store, test_resources, validation, validation_result
 from scripts.tests import assessment_fixture
+
 
 class ValidationResultTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -111,7 +109,9 @@ class ValidationResultTests(unittest.TestCase):
         ):
             self.assertIn(text, human)
 
-    def test_explicit_source_and_full_exports_read_only_the_requested_payloads(self) -> None:
+    def test_explicit_source_and_full_exports_read_only_the_requested_payloads(
+        self,
+    ) -> None:
         self.record["source_files"] = {"source/model.pse": "frozen-input"}
         self.record["environment"] = {"CONTROL": "original"}
         self.record["scope"].append({"name": "failed", "role": "required"})
@@ -122,22 +122,39 @@ class ValidationResultTests(unittest.TestCase):
         original = assessment_store.detail
         with patch.object(assessment_store, "detail", wraps=original) as read:
             source = self.result("--source-detail")
-            self.assertEqual([call.args[1] for call in read.call_args_list], [image["source_cut"]])
-        self.assertEqual(source["assessment"]["source_files"], self.record["source_files"])
-        self.assertTrue(all("results" not in check["record"] for check in source["checks"]))
+            self.assertEqual(
+                [call.args[1] for call in read.call_args_list], [image["source_cut"]]
+            )
+        self.assertEqual(
+            source["assessment"]["source_files"], self.record["source_files"]
+        )
+        self.assertTrue(
+            all("results" not in check["record"] for check in source["checks"])
+        )
         with patch.object(assessment_store, "detail", wraps=original) as read:
             full = self.result("--full-export")
-            self.assertEqual([call.args[1] for call in read.call_args_list],
-                             [image["source_cut"], *(check["detail"] for check in image["checks"])])
-        self.assertEqual([check["record"] for check in full["checks"]], self.record["checks"])
+            self.assertEqual(
+                [call.args[1] for call in read.call_args_list],
+                [image["source_cut"], *(check["detail"] for check in image["checks"])],
+            )
+        self.assertEqual(
+            [check["record"] for check in full["checks"]], self.record["checks"]
+        )
         self.assertEqual(full["assessment"]["environment"], self.record["environment"])
         with patch.object(assessment_store, "detail", wraps=original) as read:
             failed = self.result("--failures")
-            self.assertEqual([call.args[1] for call in read.call_args_list], [image["checks"][1]["detail"]])
-        self.assertEqual(failed["checks"][0]["record"]["report_errors"], ["original failure"])
+            self.assertEqual(
+                [call.args[1] for call in read.call_args_list],
+                [image["checks"][1]["detail"]],
+            )
+        self.assertEqual(
+            failed["checks"][0]["record"]["report_errors"], ["original failure"]
+        )
         self.assertNotIn("source_files", failed["assessment"])
 
-    def test_historical_cli_requires_explicit_export_and_preserves_original_bytes(self) -> None:
+    def test_historical_cli_requires_explicit_export_and_preserves_original_bytes(
+        self,
+    ) -> None:
         run = self.root / "build" / "historical"
         run.mkdir(parents=True)
         assessment_fixture.publish(run, self.record)
@@ -155,18 +172,24 @@ class ValidationResultTests(unittest.TestCase):
                 self.assertEqual(code, 1)
                 self.assertIn("error", json.loads(output))
         original = assessment_store.original_export
+
         def protected(path: Path) -> dict:
             self.assertTrue(test_resources.resource_status(resource)["borrows"])
             return original(path)
+
         with patch.object(assessment_store, "original_export", side_effect=protected):
-            code, output, error = self.invoke("--historical", "--full-export", "--json", run=run)
+            code, output, error = self.invoke(
+                "--historical", "--full-export", "--json", run=run
+            )
         self.assertEqual((code, error), (0, ""))
         result = json.loads(output)
         self.assertEqual(result["assessment"]["version"], 5)
         self.assertTrue(result["assessment"]["original_inspection"])
         self.assertFalse(result["assessment"]["automatic_reuse"])
         self.assertEqual(result["assessment"]["source_files"], legacy["source_files"])
-        self.assertEqual((checkpoint.read_bytes(), checkpoint.stat().st_mtime_ns), before)
+        self.assertEqual(
+            (checkpoint.read_bytes(), checkpoint.stat().st_mtime_ns), before
+        )
         self.assertEqual(test_resources.resource_status(resource)["borrows"], {})
         self.assertEqual(test_resources.resource_status(resource)["references"], {})
 
@@ -338,7 +361,8 @@ class ValidationResultTests(unittest.TestCase):
     def test_read_has_no_runner_cleanup_or_checkpoint_effects(self) -> None:
         before = {
             path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in self.run_directory.rglob("*") if path.is_file()
+            for path in self.run_directory.rglob("*")
+            if path.is_file()
         }
         with (
             patch.object(validation, "execute", side_effect=AssertionError("executed")),
@@ -362,7 +386,8 @@ class ValidationResultTests(unittest.TestCase):
             self.result("--gate", "unit")
         after = {
             path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in self.run_directory.rglob("*") if path.is_file()
+            for path in self.run_directory.rglob("*")
+            if path.is_file()
         }
         self.assertEqual(after, before)
 
@@ -392,9 +417,7 @@ class ValidationResultTests(unittest.TestCase):
             return observe(path, lines)
 
         with (
-            patch.object(
-                assessment_store, "root", side_effect=guarded_receipt
-            ),
+            patch.object(assessment_store, "root", side_effect=guarded_receipt),
             patch.object(
                 validation_result, "file_observation", side_effect=guarded_payload
             ),

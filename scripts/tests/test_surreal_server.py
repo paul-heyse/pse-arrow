@@ -7179,7 +7179,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with self.assertRaises(server.SupervisorError):
             server.start(restored, config)
 
-    def test_restore_establishes_destination_registry_instead_of_backup_authority(self) -> None:
+    def test_restore_establishes_destination_registry_instead_of_backup_authority(
+        self,
+    ) -> None:
         backup = self.backup_fixture()
         source_binding = server.read_json(self.state / ".resource-owner/registry.json")
         restored = self.root / "restored"
@@ -7190,28 +7192,43 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         ):
             server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
             self.assertEqual(server.test_resources.service_resources(restored), {})
-        destination_binding = server.read_json(restored / ".resource-owner/registry.json")
+        destination_binding = server.read_json(
+            restored / ".resource-owner/registry.json"
+        )
         self.assertEqual(destination_binding["registry"], str(registry))
         self.assertNotEqual(destination_binding, source_binding)
-        self.assertEqual(server.read_json(self.state / ".resource-owner/registry.json"), source_binding)
+        self.assertEqual(
+            server.read_json(self.state / ".resource-owner/registry.json"),
+            source_binding,
+        )
 
-    def test_backup_requires_source_registry_coverage_before_freezing_payloads(self) -> None:
+    def test_backup_requires_source_registry_coverage_before_freezing_payloads(
+        self,
+    ) -> None:
         config = self.initialized()
         (self.state / ".resource-owner/registry.json").unlink()
         destination = self.root / "unpublished-backup"
         with (
             patch.object(server, "freeze_payloads") as freeze,
-            self.assertRaisesRegex(server.test_resources.ResourceError, "coverage is unestablished"),
+            self.assertRaisesRegex(
+                server.test_resources.ResourceError, "coverage is unestablished"
+            ),
         ):
             server.backup(self.state, config, destination)
         freeze.assert_not_called()
         self.assertFalse(destination.exists())
 
-    def test_restore_recovery_requires_original_destination_registry_before_copy(self) -> None:
+    def test_restore_recovery_requires_original_destination_registry_before_copy(
+        self,
+    ) -> None:
         backup = self.backup_fixture()
         restored = self.root / "restored"
         with (
-            patch.object(server, "recover_maintenance", side_effect=OSError("interrupted publication")),
+            patch.object(
+                server,
+                "recover_maintenance",
+                side_effect=OSError("interrupted publication"),
+            ),
             self.assertRaisesRegex(OSError, "interrupted publication"),
         ):
             server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
@@ -7223,14 +7240,23 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 if changed:
                     binding_path.write_bytes(binding)
                     binding_path.chmod(0o600)
-                    selection = patch.dict(os.environ, {"PSE_TEST_RESOURCE_STATE": str(self.root / "another-registry")})
+                    selection = patch.dict(
+                        os.environ,
+                        {
+                            "PSE_TEST_RESOURCE_STATE": str(
+                                self.root / "another-registry"
+                            )
+                        },
+                    )
                 else:
                     binding_path.unlink()
                     selection = contextlib.nullcontext()
                 with (
                     selection,
                     patch.object(server, "complete_backup_copy") as copy,
-                    self.assertRaisesRegex(server.test_resources.ResourceError, "coverage"),
+                    self.assertRaisesRegex(
+                        server.test_resources.ResourceError, "coverage"
+                    ),
                 ):
                     server.recover_maintenance(restored, [])
                 copy.assert_not_called()
@@ -7429,7 +7455,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         binding = (restored / ".resource-owner/registry.json").read_bytes()
         with self.native_maintenance():
             server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
-        self.assertEqual((restored / ".resource-owner/registry.json").read_bytes(), binding)
+        self.assertEqual(
+            (restored / ".resource-owner/registry.json").read_bytes(), binding
+        )
         self.assertEqual(scratch.read_bytes(), b'{"partial before atomic replace')
         self.assertFalse(server.config_for(restored).get("derived_rebuild_pending"))
 

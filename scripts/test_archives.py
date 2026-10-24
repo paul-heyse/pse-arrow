@@ -341,6 +341,7 @@ def seal(
     scratch: list[str],
 ) -> None:
     from scripts import assessment_store  # noqa: PLC0415
+
     assessment_store.publish(directory, receipt)
     roles = {
         str(path.relative_to(directory)): "evidence"
@@ -616,7 +617,9 @@ def replay(directory: Path, output: Path) -> dict:
     ):
         environment.pop(name, None)
     resource = new_output(output)
-    with test_resources.reference_report(directory, output / "checks.json", full_integrity=True):
+    with test_resources.reference_report(
+        directory, output / "checks.json", full_integrity=True
+    ):
         manifest = json.loads((directory / "archive.json").read_text())
         preflight(manifest, directory, environment)
         fixture_manifest = stage_inputs(

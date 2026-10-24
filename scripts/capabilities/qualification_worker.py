@@ -116,8 +116,11 @@ def execute(operation: str, document: str) -> dict[str, object]:
         with test_resources.borrow_report(output):
             image = assessment_store.root(output)
             summaries = {check["gate"]: check for check in image["checks"]}
-            failed = {check["gate"] for check in image["checks"]
-                      if check["status"] in {"failed", "interrupted", "blocked"}}
+            failed = {
+                check["gate"]
+                for check in image["checks"]
+                if check["status"] in {"failed", "interrupted", "blocked"}
+            }
             receipt = assessment_store.selected(output, image, gates=failed)
     checks = receipt.get("checks", [])
     if any(check.get("status") == "interrupted" for check in checks):
@@ -137,27 +140,42 @@ def execute(operation: str, document: str) -> dict[str, object]:
         "contextual_changes": {
             "status": "not_hydrated" if receipt else "unavailable",
             "source_cut_ref": receipt.get("source_cut_ref"),
-            "reader": {"capability": "assessment_read", "directory": str(output),
-                       "source_detail": True},
+            "reader": {
+                "capability": "assessment_read",
+                "directory": str(output),
+                "source_detail": True,
+            },
         },
         "scope": receipt.get("scope", []),
         "checks": [
             {
-                **{key: check.get(key) for key in (
-                    "gate",
-                    "status",
-                    "exit_code",
-                    "evidence_kind",
-                    "resource_invocation",
-                    "process",
-                )},
-                **{key: check[key] for key in (
-                    "report_errors", "spawn_error", "dependencies",
-                    "changed_source", "changed_environment",
-                ) if key in check},
+                **{
+                    key: check.get(key)
+                    for key in (
+                        "gate",
+                        "status",
+                        "exit_code",
+                        "evidence_kind",
+                        "resource_invocation",
+                        "process",
+                    )
+                },
+                **{
+                    key: check[key]
+                    for key in (
+                        "report_errors",
+                        "spawn_error",
+                        "dependencies",
+                        "changed_source",
+                        "changed_environment",
+                    )
+                    if key in check
+                },
                 "detail": summaries[check["gate"]]["detail"],
                 "population": summaries[check["gate"]]["population"],
-                "detail_status": "hydrated" if check["gate"] in failed else "not_hydrated",
+                "detail_status": "hydrated"
+                if check["gate"] in failed
+                else "not_hydrated",
             }
             for check in checks
         ],

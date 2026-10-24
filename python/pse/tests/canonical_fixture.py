@@ -33,9 +33,14 @@ class CanonicalFixture:
         ephemeral: bool = False,
     ) -> pse.Runtime:
         if self._settlement_clock:
-            raise RuntimeError("Canonical fixture settlement has closed runtime admission")
+            raise RuntimeError(
+                "Canonical fixture settlement has closed runtime admission"
+            )
         if not ephemeral:
-            test_resources.require_effect({"test": os.environ.get("PYTEST_CURRENT_TEST", "").rsplit(" (", 1)[0]}, effect="native")
+            test_resources.require_effect(
+                {"test": os.environ.get("PYTEST_CURRENT_TEST", "").rsplit(" (", 1)[0]},
+                effect="native",
+            )
         runtime = pse.Runtime(
             settings,
             substrate=self.state,
@@ -76,7 +81,9 @@ class CanonicalFixture:
         if errors:
             raise BaseExceptionGroup("Canonical fixture caller cleanup failed", errors)
 
-    def settle(self, *, registered_context: bool, deadline: float | None = None) -> None:
+    def settle(
+        self, *, registered_context: bool, deadline: float | None = None
+    ) -> None:
         # Logical caller close and the native receiver are separate owners.
         # Continue physical settlement after a caller failure, but publish drain
         # only when every required owner acknowledged settlement.
@@ -90,18 +97,24 @@ class CanonicalFixture:
         # Start native settlement before joining SDK clients. The native owner
         # receives the identical expiry; an SDK reader cannot consume its chance
         # to progress. A late/unknown native result never publishes registry drain.
-        completion: queue.Queue[tuple[list[dict[str, str]], BaseException | None]] = queue.Queue(maxsize=1)
+        completion: queue.Queue[tuple[list[dict[str, str]], BaseException | None]] = (
+            queue.Queue(maxsize=1)
+        )
 
         def drain_receiver() -> None:
             try:
-                units = surreal_server.drain_context(Path(self.state), self.database, deadline=deadline)
+                units = surreal_server.drain_context(
+                    Path(self.state), self.database, deadline=deadline
+                )
             except BaseException as error:
                 completion.put(([], error))
             else:
                 completion.put((units, None))
 
         if registered_context:
-            threading.Thread(target=drain_receiver, name="fixture-native-drain", daemon=True).start()
+            threading.Thread(
+                target=drain_receiver, name="fixture-native-drain", daemon=True
+            ).start()
         try:
             _NativeRuntime._drain_fixture_connections(
                 [runtime._handle for runtime in borrowers],
@@ -114,9 +127,15 @@ class CanonicalFixture:
         if registered_context:
             while True:
                 try:
-                    units, failure = completion.get(timeout=max(0, deadline - time.monotonic()))
+                    units, failure = completion.get(
+                        timeout=max(0, deadline - time.monotonic())
+                    )
                 except queue.Empty:
-                    errors.append(TimeoutError("Native fixture drain remains unknown at original expiry"))
+                    errors.append(
+                        TimeoutError(
+                            "Native fixture drain remains unknown at original expiry"
+                        )
+                    )
                     break
                 except BaseException as error:
                     # Repeated cancellation retains the same offer. The native
@@ -127,5 +146,7 @@ class CanonicalFixture:
                     errors.append(failure)
                 break
         if errors:
-            raise BaseExceptionGroup("Canonical fixture physical settlement incomplete", errors)
+            raise BaseExceptionGroup(
+                "Canonical fixture physical settlement incomplete", errors
+            )
         test_resources.record_drain(self.resource, units=units, deadline=deadline)

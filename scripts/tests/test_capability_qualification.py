@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[2]
 from scripts import assessment_store, test_resources, validation_result
 from scripts.tests import assessment_fixture
 
+
 class QualificationSelectionTests(unittest.TestCase):
     def test_actual_owner_expansions_and_input_distinctions(self) -> None:
         self.assertEqual(subject.AssessmentSelection().gates(), comprehensive("dev"))
@@ -130,8 +131,14 @@ class QualificationSelectionTests(unittest.TestCase):
                         "spawn_error": "native receiver refused startup",
                         "process": {"owned_drain": "complete"},
                     },
-                    {"gate": "passed-control", "status": "passed", "report_errors": [],
-                     "results": [{"nodeid": str(i), "status": "passed"} for i in range(10000)]},
+                    {
+                        "gate": "passed-control",
+                        "status": "passed",
+                        "report_errors": [],
+                        "results": [
+                            {"nodeid": str(i), "status": "passed"} for i in range(10000)
+                        ],
+                    },
                 ],
             }
 
@@ -159,8 +166,12 @@ class QualificationSelectionTests(unittest.TestCase):
                 patch.object(worker, "ROOT", root),
                 patch.object(worker.validation, "fresh_output", side_effect=fresh),
                 patch.object(worker.validation, "run_gates", side_effect=run),
-                patch.object(test_resources, "registry", return_value=root / "registry"),
-                patch.object(assessment_store, "detail", wraps=assessment_store.detail) as details,
+                patch.object(
+                    test_resources, "registry", return_value=root / "registry"
+                ),
+                patch.object(
+                    assessment_store, "detail", wraps=assessment_store.detail
+                ) as details,
                 patch.object(
                     worker.validation,
                     "main",
@@ -181,8 +192,12 @@ class QualificationSelectionTests(unittest.TestCase):
             checks = result["checks"]
             assert isinstance(checks, list)
             self.assertEqual(checks[0]["status"], "failed")
-            self.assertEqual(checks[0]["report_errors"], native["checks"][0]["report_errors"])
-            self.assertEqual(checks[0]["spawn_error"], "native receiver refused startup")
+            self.assertEqual(
+                checks[0]["report_errors"], native["checks"][0]["report_errors"]
+            )
+            self.assertEqual(
+                checks[0]["spawn_error"], "native receiver refused startup"
+            )
             self.assertEqual(checks[0]["detail_status"], "hydrated")
             self.assertEqual(checks[1]["detail_status"], "not_hydrated")
             self.assertEqual(checks[1]["population"]["reported"], 10000)
@@ -193,8 +208,12 @@ class QualificationSelectionTests(unittest.TestCase):
             self.assertEqual(changes["status"], "not_hydrated")
             self.assertEqual(set(changes["source_cut_ref"]), {"sha256"})
             self.assertTrue(changes["reader"]["source_detail"])
-            with patch.object(test_resources, "registry", return_value=root / "registry"):
-                selected = validation_result.read_assessment(output, gate="compilation-check")
+            with patch.object(
+                test_resources, "registry", return_value=root / "registry"
+            ):
+                selected = validation_result.read_assessment(
+                    output, gate="compilation-check"
+                )
             self.assertEqual(
                 selected["checks"][0]["record"]["report_errors"],
                 native["checks"][0]["report_errors"],

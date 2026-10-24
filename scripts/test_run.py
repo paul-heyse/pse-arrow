@@ -666,15 +666,20 @@ def run_rust(
         provenance = output / "native.json"
         selection = output / "native-selected.json"
         execution, _worker = native_tests.ordinary_rust_capture(
-            run, provenance, selection, environment,
-            effects=effects, package_scope=package_scope, canonical=False,
+            run,
+            provenance,
+            selection,
+            environment,
+            effects=effects,
+            package_scope=package_scope,
+            canonical=False,
         )
         environment.update(native_tests.rust_fixture_bindings(provenance, environment))
         environment.update(
             PSE_NATIVE_PROVENANCE=str(provenance),
             PSE_NATIVE_SELECTION=str(selection),
         )
-        run = [*run[:position + 1], *execution]
+        run = [*run[: position + 1], *execution]
         inventory = validation_receipts.native_inventory(selection.read_text())
     inventory = native_tests.prepared_rust_inventory(
         run[position + 1 :], environment, inventory=inventory

@@ -459,16 +459,33 @@ impl Runtime {
     /// An active continuation could still attach a late owner, so it remains
     /// protective rather than being omitted from a physical-drain claim.
     #[doc(hidden)]
-    pub fn fixture_connection_owners(&self) -> Result<Vec<pse_operations::canonical::CanonicalStore>, WorkflowError> {
-        let state = self.caller.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    pub fn fixture_connection_owners(
+        &self,
+    ) -> Result<Vec<pse_operations::canonical::CanonicalStore>, WorkflowError> {
+        let state = self
+            .caller
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if !state.closed {
-            return Err(contract("fixture physical drain requires logical caller close"));
+            return Err(contract(
+                "fixture physical drain requires logical caller close",
+            ));
         }
         if state.active != 0 {
-            return Err(pse_operations::canonical::CanonicalError::ConnectionBusy { activities: state.active }.into());
+            return Err(pse_operations::canonical::CanonicalError::ConnectionBusy {
+                activities: state.active,
+            }
+            .into());
         }
-        if state.stores.iter().any(|store| !store.database().starts_with("canonical_test_")) {
-            return Err(contract("fixture physical drain requires isolated canonical owners"));
+        if state
+            .stores
+            .iter()
+            .any(|store| !store.database().starts_with("canonical_test_"))
+        {
+            return Err(contract(
+                "fixture physical drain requires isolated canonical owners",
+            ));
         }
         Ok(state.stores.clone())
     }

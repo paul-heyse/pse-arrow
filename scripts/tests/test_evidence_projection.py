@@ -154,7 +154,9 @@ class EvidenceProjectionTests(unittest.TestCase):
         self.finish([])
         path = self.registry / "invocation-state" / self.path.name
         state = resource_store.read(path)
-        detail_path = self.registry / "invocation-terminals" / (state["terminal_ref"] + ".json")
+        detail_path = (
+            self.registry / "invocation-terminals" / (state["terminal_ref"] + ".json")
+        )
         detail = resource_store.read(detail_path)
         detail["terminal"]["complete"] = False
         resource_store.publish(detail_path, detail)

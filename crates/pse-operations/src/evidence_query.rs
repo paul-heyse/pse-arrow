@@ -72,30 +72,52 @@ pub enum EvidenceSection {
 impl EvidenceSection {
     fn name(self) -> &'static str {
         match self {
-            Self::Contexts => "contexts", Self::DeclaredLinks => "declared_links",
-            Self::LinkedActions => "linked_actions", Self::Populations => "populations",
-            Self::Association => "association", Self::CaptureCosts => "capture_costs",
+            Self::Contexts => "contexts",
+            Self::DeclaredLinks => "declared_links",
+            Self::LinkedActions => "linked_actions",
+            Self::Populations => "populations",
+            Self::Association => "association",
+            Self::CaptureCosts => "capture_costs",
             Self::InvocationDistributions => "invocation_distributions",
-            Self::ReportedStatistics => "reported_statistics", Self::Comparability => "comparability",
+            Self::ReportedStatistics => "reported_statistics",
+            Self::Comparability => "comparability",
         }
     }
     fn allowed(self, operation: EvidenceOperation) -> bool {
         match self {
             Self::Contexts => true,
-            Self::DeclaredLinks | Self::LinkedActions => matches!(operation, EvidenceOperation::Diagnostics),
+            Self::DeclaredLinks | Self::LinkedActions => {
+                matches!(operation, EvidenceOperation::Diagnostics)
+            }
             _ => matches!(operation, EvidenceOperation::Measurements),
         }
     }
     fn query(self) -> Option<&'static str> {
         Some(match self {
-            Self::Contexts => "SELECT DISTINCT e.generation,e.context_id,e.context_json FROM evidence e JOIN (SELECT DISTINCT generation,context_id FROM selected WHERE context_id IS NOT NULL) s ON e.generation=s.generation AND e.context_id=s.context_id WHERE e.kind='context' ORDER BY e.generation,e.context_id,e.context_json",
-            Self::DeclaredLinks => "SELECT generation,member,link_relation,link_target,status FROM evidence WHERE kind='declared_link' AND (generation IN (SELECT DISTINCT generation FROM selected WHERE kind='diagnostic_tool') OR link_target IN (SELECT detail_ref FROM selected WHERE kind='diagnostic_tool')) ORDER BY generation,member",
-            Self::LinkedActions => "SELECT l.generation AS referring_generation, d.generation AS diagnostic_generation, d.status AS tool_outcome FROM evidence l JOIN selected d ON l.link_target=d.detail_ref WHERE l.kind='declared_link' AND l.link_relation='diagnostic_action' AND d.kind='diagnostic_tool' ORDER BY referring_generation,diagnostic_generation,tool_outcome",
-            Self::Populations => "SELECT generation,member,context_id,population_id,status FROM selected WHERE kind='measurement_population' ORDER BY generation,member",
-            Self::Association => "SELECT generation,population_id,status FROM selected WHERE kind='measurement_association' ORDER BY generation,member",
-            Self::CaptureCosts => "SELECT generation,population_id,value_ns,status FROM selected WHERE kind='capture_cost' ORDER BY generation,member",
-            Self::InvocationDistributions => "SELECT generation,context_id,population_id,status,count(*) AS invocation_count,count(value_ns) AS timed_invocations,min(value_ns) AS min_ns,max(value_ns) AS max_ns,avg(value_ns) AS mean_ns FROM selected WHERE kind='harness_invocation' GROUP BY generation,context_id,population_id,status ORDER BY generation,context_id,population_id,status",
-            Self::ReportedStatistics => "SELECT generation,context_id,population_id,member,status,value_ns FROM selected WHERE kind='measurement_summary' ORDER BY generation,member",
+            Self::Contexts => {
+                "SELECT DISTINCT e.generation,e.context_id,e.context_json FROM evidence e JOIN (SELECT DISTINCT generation,context_id FROM selected WHERE context_id IS NOT NULL) s ON e.generation=s.generation AND e.context_id=s.context_id WHERE e.kind='context' ORDER BY e.generation,e.context_id,e.context_json"
+            }
+            Self::DeclaredLinks => {
+                "SELECT generation,member,link_relation,link_target,status FROM evidence WHERE kind='declared_link' AND (generation IN (SELECT DISTINCT generation FROM selected WHERE kind='diagnostic_tool') OR link_target IN (SELECT detail_ref FROM selected WHERE kind='diagnostic_tool')) ORDER BY generation,member"
+            }
+            Self::LinkedActions => {
+                "SELECT l.generation AS referring_generation, d.generation AS diagnostic_generation, d.status AS tool_outcome FROM evidence l JOIN selected d ON l.link_target=d.detail_ref WHERE l.kind='declared_link' AND l.link_relation='diagnostic_action' AND d.kind='diagnostic_tool' ORDER BY referring_generation,diagnostic_generation,tool_outcome"
+            }
+            Self::Populations => {
+                "SELECT generation,member,context_id,population_id,status FROM selected WHERE kind='measurement_population' ORDER BY generation,member"
+            }
+            Self::Association => {
+                "SELECT generation,population_id,status FROM selected WHERE kind='measurement_association' ORDER BY generation,member"
+            }
+            Self::CaptureCosts => {
+                "SELECT generation,population_id,value_ns,status FROM selected WHERE kind='capture_cost' ORDER BY generation,member"
+            }
+            Self::InvocationDistributions => {
+                "SELECT generation,context_id,population_id,status,count(*) AS invocation_count,count(value_ns) AS timed_invocations,min(value_ns) AS min_ns,max(value_ns) AS max_ns,avg(value_ns) AS mean_ns FROM selected WHERE kind='harness_invocation' GROUP BY generation,context_id,population_id,status ORDER BY generation,context_id,population_id,status"
+            }
+            Self::ReportedStatistics => {
+                "SELECT generation,context_id,population_id,member,status,value_ns FROM selected WHERE kind='measurement_summary' ORDER BY generation,member"
+            }
             Self::Comparability => return None,
         })
     }
@@ -112,8 +134,13 @@ pub struct EvidenceSectionSelection {
 }
 impl EvidenceSectionSelection {
     fn validate(self) -> Result<(), EvidenceError> {
-        if self.limit == 0 || self.limit > 10000 || self.offset.checked_add(self.limit + 1).is_none() {
-            return Err(invalid("section limit must be 1..=10000 and offset must not overflow"));
+        if self.limit == 0
+            || self.limit > 10000
+            || self.offset.checked_add(self.limit + 1).is_none()
+        {
+            return Err(invalid(
+                "section limit must be 1..=10000 and offset must not overflow",
+            ));
         }
         Ok(())
     }
@@ -269,7 +296,10 @@ impl EvidenceAnalysis {
                 if fact.kind == "context"
                     && let (Some(id), Some(value)) = (&fact.context_id, &fact.context_json)
                 {
-                    contexts.insert((generation.clone(), id.clone()), serde_json::from_str(value).map_err(invalid)?);
+                    contexts.insert(
+                        (generation.clone(), id.clone()),
+                        serde_json::from_str(value).map_err(invalid)?,
+                    );
                 }
                 builder.push(fact.to_row(&generation)?).map_err(invalid)?;
             }
@@ -311,7 +341,10 @@ impl EvidenceAnalysis {
         for (section, selection) in &question.sections {
             selection.validate()?;
             if !section.allowed(question.operation) {
-                return Err(invalid(format!("section {} does not belong to this evidence operation", section.name())));
+                return Err(invalid(format!(
+                    "section {} does not belong to this evidence operation",
+                    section.name()
+                )));
             }
         }
         for text in [&question.crate_name, &question.context_id, &question.status]
@@ -385,31 +418,58 @@ impl EvidenceAnalysis {
         let mut output = serde_json::json!({"operation":question.operation,"denominator":denominator,"rows":rows,"truncated":truncated,"limit":limit,"history":self.history,"sources":self.sources(observations),"detail_access":"separate explicit owner or supplied-copy selection"});
         output["sections"] = serde_json::json!({});
         if matches!(question.operation, EvidenceOperation::Diagnostics) {
-            output["association_rule"] = "declared exact references only; absent correspondence is unknown".into();
+            output["association_rule"] =
+                "declared exact references only; absent correspondence is unknown".into();
         }
         if matches!(question.operation, EvidenceOperation::Measurements) {
             let selected_contexts = json_rows(&self.sql("SELECT DISTINCT generation,context_id FROM selected WHERE kind IN ('criterion_sample','measurement_population','measurement_association','capture_cost','harness_invocation','measurement_summary') AND context_id IS NOT NULL ORDER BY generation,context_id").await?)?;
-            let contexts = selected_contexts.iter().map(|row| {
-                Ok((row["generation"].as_str().ok_or_else(|| invalid("selected generation identity"))?.to_owned(), row["context_id"].as_str().ok_or_else(|| invalid("selected context identity"))?.to_owned()))
-            }).collect::<Result<BTreeSet<_>, EvidenceError>>()?;
+            let contexts = selected_contexts
+                .iter()
+                .map(|row| {
+                    Ok((
+                        row["generation"]
+                            .as_str()
+                            .ok_or_else(|| invalid("selected generation identity"))?
+                            .to_owned(),
+                        row["context_id"]
+                            .as_str()
+                            .ok_or_else(|| invalid("selected context identity"))?
+                            .to_owned(),
+                    ))
+                })
+                .collect::<Result<BTreeSet<_>, EvidenceError>>()?;
             let missing_context = json_rows(&self.sql("SELECT count(*) AS samples_without_context FROM selected WHERE kind='criterion_sample' AND context_id IS NULL").await?)?;
             let selection = question.sections.get(&EvidenceSection::Comparability);
             let assessment = self.comparability(&contexts, selection)?;
             output["comparability_assessment"] = assessment.summary;
-            output["comparability_assessment"]["samples_without_context"] = missing_context.first()
+            output["comparability_assessment"]["samples_without_context"] = missing_context
+                .first()
                 .and_then(|row| row.get("samples_without_context"))
-                .ok_or_else(|| invalid("measurement context denominator is unavailable"))?.clone();
-            if let Some(selection) = selection && let Some(detail) = assessment.detail {
-                output["sections"]["comparability"] = selection.metadata(detail.rows.len(), detail.truncated);
+                .ok_or_else(|| invalid("measurement context denominator is unavailable"))?
+                .clone();
+            if let Some(selection) = selection
+                && let Some(detail) = assessment.detail
+            {
+                output["sections"]["comparability"] =
+                    selection.metadata(detail.rows.len(), detail.truncated);
                 output["comparability"] = detail.rows.into();
             }
             output["scope"] = "actual supplied CSV samples per original source/context/population; no invocation-membership, regression or causality inference".into();
         }
         for (section, selection) in &question.sections {
-            let Some(query) = section.query() else { continue; };
-            let batches = self.context.sql(query).await.map_err(invalid)?
-                .limit(selection.offset, Some(selection.limit + 1)).map_err(invalid)?
-                .collect().await.map_err(invalid)?;
+            let Some(query) = section.query() else {
+                continue;
+            };
+            let batches = self
+                .context
+                .sql(query)
+                .await
+                .map_err(invalid)?
+                .limit(selection.offset, Some(selection.limit + 1))
+                .map_err(invalid)?
+                .collect()
+                .await
+                .map_err(invalid)?;
             let mut rows = json_rows(&batches)?;
             let truncated = rows.len() > selection.limit;
             rows.truncate(selection.limit);
@@ -430,18 +490,36 @@ impl EvidenceAnalysis {
         contexts: &BTreeSet<(String, String)>,
         selection: Option<&EvidenceSectionSelection>,
     ) -> Result<ComparabilityAssessment, EvidenceError> {
-        let fields = ["workload", "input", "revision", "build", "profile", "features", "provider", "isa", "capture", "source", "environment", "host"];
+        let fields = [
+            "workload",
+            "input",
+            "revision",
+            "build",
+            "profile",
+            "features",
+            "provider",
+            "isa",
+            "capture",
+            "source",
+            "environment",
+            "host",
+        ];
         let mut unknown_contexts = 0;
         let mut rows = Vec::new();
         // Assess every selected context; display limits cannot turn an unknown
         // condition outside the requested page into a known comparison basis.
         for (index, (generation, context_id)) in contexts.iter().enumerate() {
-            let value = self.contexts.get(&(generation.clone(), context_id.clone()))
+            let value = self
+                .contexts
+                .get(&(generation.clone(), context_id.clone()))
                 .ok_or_else(|| invalid("selected context declaration is unavailable"))?;
             let unknown: Vec<_> = fields.iter().filter(|key| value[**key].is_null()).collect();
-            if !unknown.is_empty() { unknown_contexts += 1; }
+            if !unknown.is_empty() {
+                unknown_contexts += 1;
+            }
             if let Some(selection) = selection
-                && index >= selection.offset && rows.len() <= selection.limit
+                && index >= selection.offset
+                && rows.len() <= selection.limit
             {
                 rows.push(serde_json::json!({"generation":generation,"context_id":context_id,"context":value,"unknown_fields":unknown,"comparable":unknown.is_empty(),"aggregation_scope":"one original source/context/population; unknown conditions never merged across sources"}));
             }
@@ -452,9 +530,11 @@ impl EvidenceAnalysis {
             rows.truncate(selection.limit);
             SectionPage { rows, truncated }
         });
-        Ok(ComparabilityAssessment { summary: assessment, detail })
+        Ok(ComparabilityAssessment {
+            summary: assessment,
+            detail,
+        })
     }
-
 }
 /// Convert only the finite query result scalar types. No text re-parsing of source facts.
 fn json_rows(batches: &[RecordBatch]) -> Result<Vec<serde_json::Value>, EvidenceError> {
@@ -523,8 +603,14 @@ fn json_rows(batches: &[RecordBatch]) -> Result<Vec<serde_json::Value>, Evidence
 mod tests {
     use super::*;
     use crate::evidence::EvidenceFact;
-    fn sections(values: &[EvidenceSection], limit: usize) -> BTreeMap<EvidenceSection, EvidenceSectionSelection> {
-        values.iter().map(|section| (*section, EvidenceSectionSelection { limit, offset: 0 })).collect()
+    fn sections(
+        values: &[EvidenceSection],
+        limit: usize,
+    ) -> BTreeMap<EvidenceSection, EvidenceSectionSelection> {
+        values
+            .iter()
+            .map(|section| (*section, EvidenceSectionSelection { limit, offset: 0 }))
+            .collect()
     }
     fn source(id: &str) -> EvidenceSnapshot {
         let mut facts = Vec::new();
@@ -671,7 +757,14 @@ mod tests {
             .ask(
                 &EvidenceQuestion {
                     operation: EvidenceOperation::Diagnostics,
-                    sections: sections(&[EvidenceSection::Contexts, EvidenceSection::DeclaredLinks, EvidenceSection::LinkedActions], 1024),
+                    sections: sections(
+                        &[
+                            EvidenceSection::Contexts,
+                            EvidenceSection::DeclaredLinks,
+                            EvidenceSection::LinkedActions,
+                        ],
+                        1024,
+                    ),
                     ..Default::default()
                 },
                 &[],
@@ -733,7 +826,14 @@ mod tests {
             .ask(
                 &EvidenceQuestion {
                     operation: EvidenceOperation::Diagnostics,
-                    sections: sections(&[EvidenceSection::Contexts, EvidenceSection::DeclaredLinks, EvidenceSection::LinkedActions], 1024),
+                    sections: sections(
+                        &[
+                            EvidenceSection::Contexts,
+                            EvidenceSection::DeclaredLinks,
+                            EvidenceSection::LinkedActions,
+                        ],
+                        1024,
+                    ),
                     context_id: Some("first".into()),
                     ..Default::default()
                 },
@@ -793,7 +893,10 @@ mod tests {
             .ask(
                 &EvidenceQuestion {
                     operation: EvidenceOperation::Measurements,
-                    sections: sections(&[EvidenceSection::Populations, EvidenceSection::Association], 1024),
+                    sections: sections(
+                        &[EvidenceSection::Populations, EvidenceSection::Association],
+                        1024,
+                    ),
                     ..Default::default()
                 },
                 &[],
@@ -809,21 +912,44 @@ mod tests {
         assert_eq!(result["rows"][0]["mean_ns"], 20.0);
         assert_eq!(result["populations"][0]["status"], "censored");
         assert_eq!(result["association"][0]["status"], "unavailable");
-        assert_eq!(result["comparability_assessment"]["context_basis"], "unavailable");
-        assert_eq!(result["comparability_assessment"]["samples_without_context"], 4);
+        assert_eq!(
+            result["comparability_assessment"]["context_basis"],
+            "unavailable"
+        );
+        assert_eq!(
+            result["comparability_assessment"]["samples_without_context"],
+            4
+        );
     }
     #[tokio::test]
     async fn optional_sections_are_explicit_independently_bounded_and_continuable() {
         let mut snapshot = source("sections");
         snapshot.facts.extend((0..4).map(|index| EvidenceFact {
-            member: format!("link:{index}"), kind: "declared_link".into(), status: "declared".into(),
-            link_relation: Some("diagnostic_action".into()), link_target: Some("sha256:action".into()),
+            member: format!("link:{index}"),
+            kind: "declared_link".into(),
+            status: "declared".into(),
+            link_relation: Some("diagnostic_action".into()),
+            link_target: Some("sha256:action".into()),
             ..Default::default()
         }));
-        snapshot.facts.push(EvidenceFact { member: "action".into(), kind: "diagnostic_tool".into(), status: "tool_failure".into(), detail_ref: Some("sha256:action".into()), ..Default::default() });
-        snapshot.expected_members = snapshot.facts.iter().map(|fact| fact.member.clone()).collect();
+        snapshot.facts.push(EvidenceFact {
+            member: "action".into(),
+            kind: "diagnostic_tool".into(),
+            status: "tool_failure".into(),
+            detail_ref: Some("sha256:action".into()),
+            ..Default::default()
+        });
+        snapshot.expected_members = snapshot
+            .facts
+            .iter()
+            .map(|fact| fact.member.clone())
+            .collect();
         let mut analysis = EvidenceAnalysis::new(vec![snapshot], false).unwrap();
-        let mut question = EvidenceQuestion { operation: EvidenceOperation::Diagnostics, limit: Some(1), ..Default::default() };
+        let mut question = EvidenceQuestion {
+            operation: EvidenceOperation::Diagnostics,
+            limit: Some(1),
+            ..Default::default()
+        };
         let minimal = analysis.ask(&question, &[]).await.unwrap();
         assert!(minimal.get("declared_links").is_none());
         assert!(minimal.get("contexts").is_none());
@@ -835,60 +961,119 @@ mod tests {
         assert_eq!(first["sections"]["declared_links"]["next_offset"], 1);
         assert_eq!(first["sections"]["declared_links"]["truncated"], true);
         assert!(first.get("linked_actions").is_none());
-        question.sections.get_mut(&EvidenceSection::DeclaredLinks).unwrap().offset = 1;
+        question
+            .sections
+            .get_mut(&EvidenceSection::DeclaredLinks)
+            .unwrap()
+            .offset = 1;
         let second = analysis.ask(&question, &[]).await.unwrap();
-        assert_ne!(first["declared_links"][0]["member"], second["declared_links"][0]["member"]);
+        assert_ne!(
+            first["declared_links"][0]["member"],
+            second["declared_links"][0]["member"]
+        );
         assert_eq!(second["sections"]["declared_links"]["offset"], 1);
         assert_eq!(second["denominator"], first["denominator"]);
-        question.sections.insert(EvidenceSection::LinkedActions, EvidenceSectionSelection { limit: 8, offset: 0 });
+        question.sections.insert(
+            EvidenceSection::LinkedActions,
+            EvidenceSectionSelection {
+                limit: 8,
+                offset: 0,
+            },
+        );
         let independent = analysis.ask(&question, &[]).await.unwrap();
         assert_eq!(independent["linked_actions"].as_array().unwrap().len(), 4);
-        assert_eq!(independent["sections"]["linked_actions"]["truncated"], false);
+        assert_eq!(
+            independent["sections"]["linked_actions"]["truncated"],
+            false
+        );
         assert_eq!(independent["sections"]["declared_links"]["truncated"], true);
     }
 
     #[tokio::test]
     async fn section_requests_refuse_invalid_bounds_or_operation_without_silent_omission() {
         let mut analysis = EvidenceAnalysis::new(vec![source("bounds")], false).unwrap();
-        let mut question = EvidenceQuestion { sections: sections(&[EvidenceSection::CaptureCosts], 1), ..Default::default() };
+        let mut question = EvidenceQuestion {
+            sections: sections(&[EvidenceSection::CaptureCosts], 1),
+            ..Default::default()
+        };
         assert!(analysis.ask(&question, &[]).await.is_err());
         question.operation = EvidenceOperation::Measurements;
-        question.sections.get_mut(&EvidenceSection::CaptureCosts).unwrap().limit = 0;
+        question
+            .sections
+            .get_mut(&EvidenceSection::CaptureCosts)
+            .unwrap()
+            .limit = 0;
         assert!(analysis.ask(&question, &[]).await.is_err());
-        question.sections.get_mut(&EvidenceSection::CaptureCosts).unwrap().limit = 1;
-        question.sections.get_mut(&EvidenceSection::CaptureCosts).unwrap().offset = usize::MAX;
+        question
+            .sections
+            .get_mut(&EvidenceSection::CaptureCosts)
+            .unwrap()
+            .limit = 1;
+        question
+            .sections
+            .get_mut(&EvidenceSection::CaptureCosts)
+            .unwrap()
+            .offset = usize::MAX;
         assert!(analysis.ask(&question, &[]).await.is_err());
     }
 
     #[tokio::test]
     async fn original_codec_labels_remain_distinct_for_historical_and_current_imports() {
-        for codec in ["exact-resource-files-invocation-v2", "exact-resource-files-invocation-v3", "assessment-v5", "assessment-v6"] {
+        for codec in [
+            "exact-resource-files-invocation-v2",
+            "exact-resource-files-invocation-v3",
+            "assessment-v5",
+            "assessment-v6",
+        ] {
             let mut snapshot = source(codec);
             snapshot.codec = codec.into();
             let mut analysis = EvidenceAnalysis::new(vec![snapshot], false).unwrap();
-            let result = analysis.ask(&EvidenceQuestion::default(), &[]).await.unwrap();
+            let result = analysis
+                .ask(&EvidenceQuestion::default(), &[])
+                .await
+                .unwrap();
             assert_eq!(result["sources"][0]["codec"], codec);
         }
     }
 
     #[tokio::test]
     async fn large_subsidiary_population_continues_beyond_the_old_fixed_cap() {
-        let sources = (0..3).map(|index| {
-            let mut snapshot = source(&format!("costs:{index}"));
-            snapshot.codec = "process-cost-v5".into();
-            snapshot.facts = (0..4000).map(|row| EvidenceFact {
-                member: format!("cost:{row:05}"), kind: "capture_cost".into(), status: "recorded".into(), value_ns: Some(f64::from(row)), ..Default::default()
-            }).collect();
-            snapshot.expected_members = snapshot.facts.iter().map(|fact| fact.member.clone()).collect();
-            snapshot
-        }).collect();
+        let sources = (0..3)
+            .map(|index| {
+                let mut snapshot = source(&format!("costs:{index}"));
+                snapshot.codec = "process-cost-v5".into();
+                snapshot.facts = (0..4000)
+                    .map(|row| EvidenceFact {
+                        member: format!("cost:{row:05}"),
+                        kind: "capture_cost".into(),
+                        status: "recorded".into(),
+                        value_ns: Some(f64::from(row)),
+                        ..Default::default()
+                    })
+                    .collect();
+                snapshot.expected_members = snapshot
+                    .facts
+                    .iter()
+                    .map(|fact| fact.member.clone())
+                    .collect();
+                snapshot
+            })
+            .collect();
         let mut analysis = EvidenceAnalysis::new(sources, false).unwrap();
-        let mut question = EvidenceQuestion { operation: EvidenceOperation::Measurements, sections: sections(&[EvidenceSection::CaptureCosts], 10000), ..Default::default() };
+        let mut question = EvidenceQuestion {
+            operation: EvidenceOperation::Measurements,
+            sections: sections(&[EvidenceSection::CaptureCosts], 10000),
+            ..Default::default()
+        };
         let first = analysis.ask(&question, &[]).await.unwrap();
         assert_eq!(first["capture_costs"].as_array().unwrap().len(), 10000);
         assert_eq!(first["sections"]["capture_costs"]["truncated"], true);
         assert_eq!(first["sections"]["capture_costs"]["next_offset"], 10000);
-        question.sections.get_mut(&EvidenceSection::CaptureCosts).unwrap().offset = 10000;
+        question
+            .sections
+            .get_mut(&EvidenceSection::CaptureCosts)
+            .unwrap()
+            .offset = 10000;
         let last = analysis.ask(&question, &[]).await.unwrap();
         assert_eq!(last["capture_costs"].as_array().unwrap().len(), 2000);
         assert_eq!(last["sections"]["capture_costs"]["truncated"], false);
@@ -903,52 +1088,146 @@ mod tests {
         snapshot.facts.clear();
         for (index, id) in ["a-known", "z-unknown"].iter().enumerate() {
             let mut context = serde_json::Map::new();
-            for field in ["workload", "input", "revision", "build", "profile", "features", "provider", "isa", "capture", "source", "environment", "host", "mode", "process"] {
+            for field in [
+                "workload",
+                "input",
+                "revision",
+                "build",
+                "profile",
+                "features",
+                "provider",
+                "isa",
+                "capture",
+                "source",
+                "environment",
+                "host",
+                "mode",
+                "process",
+            ] {
                 context.insert(field.into(), serde_json::json!("declared"));
             }
-            if index == 1 { context.insert("host".into(), serde_json::Value::Null); }
-            snapshot.facts.push(EvidenceFact { member: format!("context:{id}"), kind: "context".into(), status: "declared".into(), context_id: Some((*id).into()), context_json: Some(serde_json::Value::Object(context).to_string()), ..Default::default() });
-            snapshot.facts.push(EvidenceFact { member: format!("sample:{id}"), kind: "criterion_sample".into(), status: "measured".into(), context_id: Some((*id).into()), population_id: Some("original".into()), sample_id: Some((*id).into()), value_ns: Some(1.0), ..Default::default() });
+            if index == 1 {
+                context.insert("host".into(), serde_json::Value::Null);
+            }
+            snapshot.facts.push(EvidenceFact {
+                member: format!("context:{id}"),
+                kind: "context".into(),
+                status: "declared".into(),
+                context_id: Some((*id).into()),
+                context_json: Some(serde_json::Value::Object(context).to_string()),
+                ..Default::default()
+            });
+            snapshot.facts.push(EvidenceFact {
+                member: format!("sample:{id}"),
+                kind: "criterion_sample".into(),
+                status: "measured".into(),
+                context_id: Some((*id).into()),
+                population_id: Some("original".into()),
+                sample_id: Some((*id).into()),
+                value_ns: Some(1.0),
+                ..Default::default()
+            });
         }
-        snapshot.expected_members = snapshot.facts.iter().map(|fact| fact.member.clone()).collect();
+        snapshot.expected_members = snapshot
+            .facts
+            .iter()
+            .map(|fact| fact.member.clone())
+            .collect();
         let mut analysis = EvidenceAnalysis::new(vec![snapshot], false).unwrap();
-        let question = EvidenceQuestion { operation: EvidenceOperation::Measurements, limit: Some(1), sections: sections(&[EvidenceSection::Comparability], 1), ..Default::default() };
+        let question = EvidenceQuestion {
+            operation: EvidenceOperation::Measurements,
+            limit: Some(1),
+            sections: sections(&[EvidenceSection::Comparability], 1),
+            ..Default::default()
+        };
         let result = analysis.ask(&question, &[]).await.unwrap();
         assert_eq!(result["comparability"][0]["context_id"], "a-known");
         assert_eq!(result["comparability"][0]["comparable"], true);
         assert_eq!(result["sections"]["comparability"]["truncated"], true);
         assert_eq!(result["comparability_assessment"]["selected_contexts"], 2);
         assert_eq!(result["comparability_assessment"]["unknown_contexts"], 1);
-        assert_eq!(result["comparability_assessment"]["cross_source_comparability"], "not_established");
+        assert_eq!(
+            result["comparability_assessment"]["cross_source_comparability"],
+            "not_established"
+        );
         let mut minimal = question;
         minimal.sections.clear();
         let without_detail = analysis.ask(&minimal, &[]).await.unwrap();
         assert!(without_detail.get("comparability").is_none());
-        assert_eq!(without_detail["comparability_assessment"], result["comparability_assessment"]);
+        assert_eq!(
+            without_detail["comparability_assessment"],
+            result["comparability_assessment"]
+        );
     }
 
     #[tokio::test]
     async fn selected_contexts_join_exact_generation_when_sources_reuse_a_context_spelling() {
-        let sources = ["selected", "other"].into_iter().map(|id| {
-            let mut snapshot = source(id);
-            for fact in &mut snapshot.facts {
-                fact.crate_name = Some(id.into());
-                fact.context_id = Some("same-spelling".into());
-            }
-            let mut context = serde_json::Map::new();
-            for field in ["workload", "input", "revision", "build", "profile", "features", "provider", "isa", "capture", "source", "environment", "host", "mode", "process"] {
-                context.insert(field.into(), serde_json::Value::Null);
-            }
-            context.insert("capture".into(), serde_json::json!({"original":id}));
-            snapshot.facts.push(EvidenceFact { member: "context".into(), kind: "context".into(), status: "declared".into(), context_id: Some("same-spelling".into()), context_json: Some(serde_json::Value::Object(context).to_string()), ..Default::default() });
-            snapshot.expected_members = snapshot.facts.iter().map(|fact| fact.member.clone()).collect();
-            snapshot
-        }).collect();
+        let sources = ["selected", "other"]
+            .into_iter()
+            .map(|id| {
+                let mut snapshot = source(id);
+                for fact in &mut snapshot.facts {
+                    fact.crate_name = Some(id.into());
+                    fact.context_id = Some("same-spelling".into());
+                }
+                let mut context = serde_json::Map::new();
+                for field in [
+                    "workload",
+                    "input",
+                    "revision",
+                    "build",
+                    "profile",
+                    "features",
+                    "provider",
+                    "isa",
+                    "capture",
+                    "source",
+                    "environment",
+                    "host",
+                    "mode",
+                    "process",
+                ] {
+                    context.insert(field.into(), serde_json::Value::Null);
+                }
+                context.insert("capture".into(), serde_json::json!({"original":id}));
+                snapshot.facts.push(EvidenceFact {
+                    member: "context".into(),
+                    kind: "context".into(),
+                    status: "declared".into(),
+                    context_id: Some("same-spelling".into()),
+                    context_json: Some(serde_json::Value::Object(context).to_string()),
+                    ..Default::default()
+                });
+                snapshot.expected_members = snapshot
+                    .facts
+                    .iter()
+                    .map(|fact| fact.member.clone())
+                    .collect();
+                snapshot
+            })
+            .collect();
         let mut analysis = EvidenceAnalysis::new(sources, false).unwrap();
-        let result = analysis.ask(&EvidenceQuestion { crate_name: Some("selected".into()), sections: sections(&[EvidenceSection::Contexts], 10), ..Default::default() }, &[]).await.unwrap();
+        let result = analysis
+            .ask(
+                &EvidenceQuestion {
+                    crate_name: Some("selected".into()),
+                    sections: sections(&[EvidenceSection::Contexts], 10),
+                    ..Default::default()
+                },
+                &[],
+            )
+            .await
+            .unwrap();
         assert_eq!(result["contexts"].as_array().unwrap().len(), 1);
-        assert_eq!(result["contexts"][0]["generation"], result["rows"][0]["generation"]);
-        assert!(result["contexts"][0]["context_json"].as_str().unwrap().contains("selected"));
+        assert_eq!(
+            result["contexts"][0]["generation"],
+            result["rows"][0]["generation"]
+        );
+        assert!(
+            result["contexts"][0]["context_json"]
+                .as_str()
+                .unwrap()
+                .contains("selected")
+        );
     }
-
 }

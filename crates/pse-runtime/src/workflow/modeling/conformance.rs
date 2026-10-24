@@ -2350,24 +2350,32 @@ mod tests {
         let token_member = id(2);
         let source = id(3);
         let target = id(4);
-        let error = |layer| WorkflowError::Math(MathRuntimeError::Math(
-            pse_math::MathError::Instance {
+        let error = |layer| {
+            WorkflowError::Math(MathRuntimeError::Math(pse_math::MathError::Instance {
                 instance: id(5),
                 checked_sources: BTreeMap::from([(token_source, source)]),
                 checked_members: BTreeMap::from([(token_member, target)]),
                 occurrences: BTreeMap::new(),
                 cause: Box::new(pse_math::MathError::Validity(Box::new(ValidityLineage {
-                    layer, source: token_source, form: None, sets: vec![],
-                    variables: vec![], members: vec![token_member],
+                    layer,
+                    source: token_source,
+                    form: None,
+                    sets: vec![],
+                    variables: vec![],
+                    members: vec![token_member],
                 }))),
-            },
-        ));
+            }))
+        };
         let closure = error(ModelingValidityLayer::Closure);
         assert!(range_rejected(&closure, source, target));
         assert!(!range_rejected(&closure, token_source, token_member));
         assert!(!range_rejected(&closure, id(6), target));
         assert!(!range_rejected(&closure, source, id(6)));
-        assert!(!range_rejected(&error(ModelingValidityLayer::Form), source, target));
+        assert!(!range_rejected(
+            &error(ModelingValidityLayer::Form),
+            source,
+            target
+        ));
     }
     #[derive(Clone, Default, Debug)]
     struct ProbeState {

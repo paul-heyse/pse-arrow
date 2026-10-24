@@ -97,15 +97,25 @@ pub(crate) fn monotonic_nanoseconds() -> Result<u64, super::CanonicalError> {
     {
         let clock = rustix::time::clock_gettime_dynamic(rustix::time::DynamicClockId::Known(
             rustix::time::ClockId::Monotonic,
-        )).map_err(|error| super::CanonicalError::Configuration(error.to_string()))?;
-        u64::try_from(clock.tv_sec).ok()
+        ))
+        .map_err(|error| super::CanonicalError::Configuration(error.to_string()))?;
+        u64::try_from(clock.tv_sec)
+            .ok()
             .and_then(|secs| secs.checked_mul(1_000_000_000))
-            .and_then(|secs| u64::try_from(clock.tv_nsec).ok().and_then(|ns| secs.checked_add(ns)))
-            .ok_or_else(|| super::CanonicalError::Configuration("fixture monotonic clock overflow".into()))
+            .and_then(|secs| {
+                u64::try_from(clock.tv_nsec)
+                    .ok()
+                    .and_then(|ns| secs.checked_add(ns))
+            })
+            .ok_or_else(|| {
+                super::CanonicalError::Configuration("fixture monotonic clock overflow".into())
+            })
     }
     #[cfg(not(target_os = "linux"))]
     {
-        Err(super::CanonicalError::Configuration("fixture same-host deadlines require the Linux monotonic clock".into()))
+        Err(super::CanonicalError::Configuration(
+            "fixture same-host deadlines require the Linux monotonic clock".into(),
+        ))
     }
 }
 

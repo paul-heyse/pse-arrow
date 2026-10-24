@@ -25,10 +25,8 @@ from scripts import (
     test_resources,
     test_run,
 )
-
-
-from scripts import assessment_store
 from scripts.tests import assessment_fixture
+
 
 class EvidenceSourceTests(unittest.TestCase):
     def setUp(self) -> None:

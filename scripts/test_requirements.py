@@ -49,66 +49,150 @@ CANONICAL_NATIVE = Requirement(
 # namespaces are local; the before-effects guard refuses undeclared acquisition.
 RUST_OWNERS = {
     "pse-operations": {
-        **{prefix: CANONICAL for prefix in (
-            "canonical::canonical_server_unit::", "canonical_analyses::race_tests::",
-            "canonical_analyses::canonical_analyses_server_unit::",
-            "canonical_artifacts::canonical_artifact_tests::", "canonical_capability_tests::",
-            "canonical_contexts::tests::", "canonical_execution::canonical_execution_server_unit::",
-            "canonical_explanations::server_tests::", "canonical_files::catalog_controls::",
-            "canonical_history::canonical_history_tests::", "canonical_lifecycle::canonical_lifecycle_tests::",
-            "canonical_projects::tests::", "canonical_results::canonical_results_server_unit::",
-            "canonical_result_retention::canonical_result_retention_server_unit::",
-            "canonical_retention::canonical_server_unit::", "canonical_retention::canonical_server_unit_exact_conflicts::",
-            "canonical_selection::canonical_server_unit::", "canonical_staging::canonical_server_unit::",
-            "canonical_studies::canonical_studies_server_unit::", "canonical_study_module_tests::",
-            "testing::canonical_server_unit::",
-        )},
+        **dict.fromkeys(
+            (
+                "canonical::canonical_server_unit::",
+                "canonical_analyses::race_tests::",
+                "canonical_analyses::canonical_analyses_server_unit::",
+                "canonical_artifacts::canonical_artifact_tests::",
+                "canonical_capability_tests::",
+                "canonical_contexts::tests::",
+                "canonical_execution::canonical_execution_server_unit::",
+                "canonical_explanations::server_tests::",
+                "canonical_files::catalog_controls::",
+                "canonical_history::canonical_history_tests::",
+                "canonical_lifecycle::canonical_lifecycle_tests::",
+                "canonical_projects::tests::",
+                "canonical_results::canonical_results_server_unit::",
+                "canonical_result_retention::canonical_result_retention_server_unit::",
+                "canonical_retention::canonical_server_unit::",
+                "canonical_retention::canonical_server_unit_exact_conflicts::",
+                "canonical_selection::canonical_server_unit::",
+                "canonical_staging::canonical_server_unit::",
+                "canonical_studies::canonical_studies_server_unit::",
+                "canonical_study_module_tests::",
+                "testing::canonical_server_unit::",
+            ),
+            CANONICAL,
+        ),
     },
     "pse-runtime": {
-        **{f"workflow::{owner}::": CANONICAL_NATIVE for owner in (
-            "analyses", "artifacts", "caller_lifetime_tests", "connected_results",
-            "data_documents_tests", "durable", "durable_tests", "physical_cache",
-            "project_portability", "projects", "projects_consumer_tests",
-            "result_snapshot::result_pruning_tests", "result_projection", "study_tests", "study_workbench::canonical_tests",
-            "study_observation", "study_operation_admission_tests", "worker_tests",
-        )},
-        **{prefix: CANONICAL_NATIVE for prefix in (
-            "math::portable::canonical_deployment_tests::",
-            "math::portable::canonical_portable_body_tests::",
-            "workflow::modeling::canonical::", "workflow::modeling::project_comparison::",
-            "workflow::modeling::sensitivity_tests::", "workflow::fitting::covariance_tests::",
-            "workflow::live_simulation::tests::canonical_",
-        )},
-        **{f"math::{owner}::": NATIVE for owner in (
-            "initialization", "modeling", "native_child", "prediction", "solves", "staged", "surrogate", "tests",
-        )},
-        **{f"workflow::{owner}::": NATIVE for owner in (
-            "fitting", "modeling", "simulation_results", "live_simulation", "run", "results",
-        )},
+        **{
+            f"workflow::{owner}::": CANONICAL_NATIVE
+            for owner in (
+                "analyses",
+                "artifacts",
+                "caller_lifetime_tests",
+                "connected_results",
+                "data_documents_tests",
+                "durable",
+                "durable_tests",
+                "physical_cache",
+                "project_portability",
+                "projects",
+                "projects_consumer_tests",
+                "result_snapshot::result_pruning_tests",
+                "result_projection",
+                "study_tests",
+                "study_workbench::canonical_tests",
+                "study_observation",
+                "study_operation_admission_tests",
+                "worker_tests",
+            )
+        },
+        **dict.fromkeys(
+            (
+                "math::portable::canonical_deployment_tests::",
+                "math::portable::canonical_portable_body_tests::",
+                "workflow::modeling::canonical::",
+                "workflow::modeling::project_comparison::",
+                "workflow::modeling::sensitivity_tests::",
+                "workflow::fitting::covariance_tests::",
+                "workflow::live_simulation::tests::canonical_",
+            ),
+            CANONICAL_NATIVE,
+        ),
+        **{
+            f"math::{owner}::": NATIVE
+            for owner in (
+                "initialization",
+                "modeling",
+                "native_child",
+                "prediction",
+                "solves",
+                "staged",
+                "surrogate",
+                "tests",
+            )
+        },
+        **{
+            f"workflow::{owner}::": NATIVE
+            for owner in (
+                "fitting",
+                "modeling",
+                "simulation_results",
+                "live_simulation",
+                "run",
+                "results",
+            )
+        },
         "worker::": CANONICAL_NATIVE,
         "managed_primary_": CANONICAL_NATIVE,
     },
     "pse-backend-native": {
-        **{f"{owner}::": NATIVE for owner in (
-            "kinsol::tests", "kinsol::native_build_tests", "ipopt::tests", "uno", "petsc", "root_isolation",
-            "dynamics", "highs", "clarabel_tests", "restart_tests", "scip_tests",
-            "l1_tests", "pounce_convex_tests", "measurement_tests", "solver_tests",
-        )},
+        **{
+            f"{owner}::": NATIVE
+            for owner in (
+                "kinsol::tests",
+                "kinsol::native_build_tests",
+                "ipopt::tests",
+                "uno",
+                "petsc",
+                "root_isolation",
+                "dynamics",
+                "highs",
+                "clarabel_tests",
+                "restart_tests",
+                "scip_tests",
+                "l1_tests",
+                "pounce_convex_tests",
+                "measurement_tests",
+                "solver_tests",
+            )
+        },
     },
-    "pse-tests-conformance": {"acceptance::": CANONICAL_NATIVE, "native_profiles::": NATIVE},
+    "pse-tests-conformance": {
+        "acceptance::": CANONICAL_NATIVE,
+        "native_profiles::": NATIVE,
+    },
 }
 
 # These Python owners actually construct durable Runtime/worker contexts. Merely
 # requesting an isolated database in a new module does not imply native demand.
-PYTHON_DURABLE_OWNERS = frozenset({
-    "test_projects.py", "test_project_portability.py", "test_study_workbench.py",
-    "test_project_contexts.py", "test_project_cli.py", "test_modeling_strategies.py",
-    "test_preparation_discovery.py", "test_studies.py", "test_modeling_run.py",
-    "test_solve_settings_projection.py", "test_modeling_kernel.py", "test_plan14_acceptance.py",
-    "test_review_workflows.py", "test_scientific_boundary_adoption.py", "test_live_simulation.py",
-    "test_canonical_results.py", "test_native_workflow.py", "test_lifecycle.py",
-    "test_research.py", "test_capability_adapters.py",
-})
+PYTHON_DURABLE_OWNERS = frozenset(
+    {
+        "test_projects.py",
+        "test_project_portability.py",
+        "test_study_workbench.py",
+        "test_project_contexts.py",
+        "test_project_cli.py",
+        "test_modeling_strategies.py",
+        "test_preparation_discovery.py",
+        "test_studies.py",
+        "test_modeling_run.py",
+        "test_solve_settings_projection.py",
+        "test_modeling_kernel.py",
+        "test_plan14_acceptance.py",
+        "test_review_workflows.py",
+        "test_scientific_boundary_adoption.py",
+        "test_live_simulation.py",
+        "test_canonical_results.py",
+        "test_native_workflow.py",
+        "test_lifecycle.py",
+        "test_research.py",
+        "test_capability_adapters.py",
+    }
+)
 
 RUST_FIXTURES = {
     "PSE_NATIVE_LANE_EXECUTABLE": (
@@ -171,7 +255,11 @@ def rust(binary: str, name: str) -> Requirement:
         base = CANONICAL_NATIVE
     if any(role.startswith("operator-") for role in peers):
         fixtures += ("PSE_CANONICAL_TOOLS",)
-    if package == "pse-runtime" and name == "workflow::tests::workflow_durability_selection_uses_this_deployment":
+    if (
+        package == "pse-runtime"
+        and name
+        == "workflow::tests::workflow_durability_selection_uses_this_deployment"
+    ):
         base = CANONICAL_NATIVE
     if package == "pse-operations" and name in {
         "canonical::maintenance::tests::generated_maintenance_pages_fence_generations_and_replay_exact_effects",
@@ -193,7 +281,11 @@ def rust(binary: str, name: str) -> Requirement:
 
 
 def python(
-    fixtures: Sequence[str], *, no_allocation: bool = False, roles: Sequence[str] = (), owner: str = ""
+    fixtures: Sequence[str],
+    *,
+    no_allocation: bool = False,
+    roles: Sequence[str] = (),
+    owner: str = "",
 ) -> Requirement:
     canonical = "canonical_substrate" in fixtures
     if canonical and no_allocation:
@@ -209,17 +301,33 @@ def python_item(item: pytest.Item) -> Requirement:
     roles = tuple(declared.kwargs.get("roles", ())) if declared else ()
     if item.get_closest_marker("managed_primary") is not None:
         roles += ("managed-primary",)
-    no_allocation = "no_canonical_allocation" in getattr(item, "fixturenames", ()) or item.get_closest_marker("no_canonical_allocation") is not None
-    base = python(getattr(item, "fixturenames", ()), no_allocation=no_allocation, roles=roles, owner=item.nodeid.split("::", 1)[0])
+    no_allocation = (
+        "no_canonical_allocation" in getattr(item, "fixturenames", ())
+        or item.get_closest_marker("no_canonical_allocation") is not None
+    )
+    base = python(
+        getattr(item, "fixturenames", ()),
+        no_allocation=no_allocation,
+        roles=roles,
+        owner=item.nodeid.split("::", 1)[0],
+    )
     if declared and declared.kwargs.get("canonical"):
         if no_allocation:
             raise ValueError("Effect-free test declares canonical controls")
         base = Requirement(("canonical",), ("owned-controls",), "canonical", roles)
     if declared and declared.kwargs.get("native"):
-        base = Requirement(tuple(sorted({*base.effects, "native"})), base.fixtures, "scientific", tuple(sorted({*base.roles, "native"})), base.exclusion)
+        base = Requirement(
+            tuple(sorted({*base.effects, "native"})),
+            base.fixtures,
+            "scientific",
+            tuple(sorted({*base.roles, "native"})),
+            base.exclusion,
+        )
     exclusion = declared.kwargs.get("exclusion") if declared else None
     if exclusion:
-        base = Requirement(base.effects, base.fixtures, base.capacity, base.roles, exclusion)
+        base = Requirement(
+            base.effects, base.fixtures, base.capacity, base.roles, exclusion
+        )
     return base
 
 
@@ -245,7 +353,12 @@ def pytest_group(requirement: Mapping[str, object]) -> str | None:
     return "scientific-owner" if requirement.get("capacity") == "scientific" else None
 
 
-def nextest_configuration(configuration: dict, profile: str, inventory: Mapping[str, object], requirements: Mapping[str, Mapping[str, object]]) -> None:
+def nextest_configuration(
+    configuration: dict,
+    profile: str,
+    inventory: Mapping[str, object],
+    requirements: Mapping[str, Mapping[str, object]],
+) -> None:
     """Apply catalogue-bound scheduling to a per-run copy of repository config."""
     import re  # noqa: PLC0415
 
@@ -266,7 +379,9 @@ def nextest_configuration(configuration: dict, profile: str, inventory: Mapping[
             identity = binary + "::" + name
             observed.add(identity)
             if identity not in requirements:
-                raise ValueError("Scheduling requirements differ from selected catalogue")
+                raise ValueError(
+                    "Scheduling requirements differ from selected catalogue"
+                )
             requirement = requirements[identity]
             group, threads = scheduling(requirement)
             if group is None:
@@ -274,7 +389,9 @@ def nextest_configuration(configuration: dict, profile: str, inventory: Mapping[
             if "/" in name or "/" in binary:
                 raise ValueError("Unsupported nextest scheduling test identity")
             override = tomlkit.table()
-            override["filter"] = f"binary_id(/^{re.escape(binary)}$/) & test(/^{re.escape(name)}$/)"
+            override["filter"] = (
+                f"binary_id(/^{re.escape(binary)}$/) & test(/^{re.escape(name)}$/)"
+            )
             override["test-group"] = group
             override["threads-required"] = threads
             overrides.append(override)

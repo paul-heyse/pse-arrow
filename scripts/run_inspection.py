@@ -316,9 +316,7 @@ def product_result(
         "selected_count": len(selected),
         "selection_state": evidence.get(
             "selection_state",
-            "collected"
-            if state["collected"]
-            else "uncollected",
+            "collected" if state["collected"] else "uncollected",
         ),
         "refusal": evidence.get("refusal"),
         "subjects": subjects[offset : offset + limit],

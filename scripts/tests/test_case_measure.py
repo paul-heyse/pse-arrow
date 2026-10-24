@@ -15,24 +15,28 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import (
+    assessment_store,
     case_measure,
+    resource_store,
     scientific_inputs,
     surreal_server,
     test_resources,
     validation,
 )
+from scripts.tests import assessment_fixture
 from scripts.validation_scope import Gate
 
-
-from scripts import assessment_store, resource_store
-from scripts.tests import assessment_fixture
 
 class CaseMeasurementTests(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        self.enterContext(patch.object(test_resources, "registry", return_value=self.root / "registry"))
+        self.enterContext(
+            patch.object(
+                test_resources, "registry", return_value=self.root / "registry"
+            )
+        )
 
     def reference(self) -> dict:
         return {
@@ -98,7 +102,9 @@ class CaseMeasurementTests(unittest.TestCase):
             consumed["reported_provenance_errors"], report["provenance_errors"]
         )
 
-    def test_historical_functional_reference_is_not_promoted_to_current_evidence(self) -> None:
+    def test_historical_functional_reference_is_not_promoted_to_current_evidence(
+        self,
+    ) -> None:
         report = self.reference()
         self.consume(report)
         path = self.root / "checks.json"
