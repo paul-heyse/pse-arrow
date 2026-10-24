@@ -3,6 +3,9 @@
 
 //! Shared diagnostic vocabulary and lossless native engine causes.
 
+#[doc(hidden)]
+pub use miette as __miette;
+
 mod document;
 pub use document::ClosedDuration;
 mod cancellation;
@@ -154,7 +157,7 @@ macro_rules! impl_diagnostic {
             }
         }
         const _: fn() = || {
-            fn require_traits<T: miette::Diagnostic + std::error::Error>() {}
+            fn require_traits<T: $crate::__miette::Diagnostic + std::error::Error>() {}
             require_traits::<$ty>();
         };
         #[allow(
@@ -194,51 +197,51 @@ macro_rules! impl_diagnostic {
             }
         }
         #[allow(unreachable_patterns, clippy::unnecessary_wraps, reason = "projection macro supports both exhaustive and partially delegated variant maps")]
-        impl miette::Diagnostic for $ty {
+        impl $crate::__miette::Diagnostic for $ty {
             fn code<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
                 $crate::TypedDiagnostic::diagnostic_code(self)
                     .map(|code| -> Box<dyn std::fmt::Display> { Box::new(code) })
             }
-            fn severity(&self) -> Option<miette::Severity> {
+            fn severity(&self) -> Option<$crate::__miette::Severity> {
                 self.diagnostic_forward()
-                    .and_then(miette::Diagnostic::severity)
+                    .and_then($crate::__miette::Diagnostic::severity)
             }
             fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
                 let $h = self;
                 let own: Option<Box<dyn std::fmt::Display + 'a>> = $help;
-                own.or_else(|| self.diagnostic_forward().and_then(miette::Diagnostic::help))
+                own.or_else(|| self.diagnostic_forward().and_then($crate::__miette::Diagnostic::help))
             }
             fn url<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
-                self.diagnostic_forward().and_then(miette::Diagnostic::url)
+                self.diagnostic_forward().and_then($crate::__miette::Diagnostic::url)
             }
-            fn source_code(&self) -> Option<&dyn miette::SourceCode> {
+            fn source_code(&self) -> Option<&dyn $crate::__miette::SourceCode> {
                 self.diagnostic_forward()
-                    .and_then(miette::Diagnostic::source_code)
+                    .and_then($crate::__miette::Diagnostic::source_code)
             }
-            fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
+            fn labels(&self) -> Option<Box<dyn Iterator<Item = $crate::__miette::LabeledSpan> + '_>> {
                 self.diagnostic_forward()
-                    .and_then(miette::Diagnostic::labels)
+                    .and_then($crate::__miette::Diagnostic::labels)
             }
             fn related<'a>(
                 &'a self,
-            ) -> Option<Box<dyn Iterator<Item = &'a dyn miette::Diagnostic> + 'a>> {
+            ) -> Option<Box<dyn Iterator<Item = &'a dyn $crate::__miette::Diagnostic> + 'a>> {
                 let $r = self;
                 let own: Option<Box<dyn Iterator<Item = &'a dyn $crate::TypedDiagnostic> + 'a>> =
                     $related;
                 own.map(|children| {
-                    { let related: Box<dyn Iterator<Item = &dyn miette::Diagnostic>> = Box::new(children.map(|child| -> &dyn miette::Diagnostic { child })); related }
+                    { let related: Box<dyn Iterator<Item = &dyn $crate::__miette::Diagnostic>> = Box::new(children.map(|child| -> &dyn $crate::__miette::Diagnostic { child })); related }
                 })
                 .or_else(|| {
                     self.diagnostic_forward()
-                        .and_then(miette::Diagnostic::related)
+                        .and_then($crate::__miette::Diagnostic::related)
                 })
             }
-            fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
+            fn diagnostic_source(&self) -> Option<&dyn $crate::__miette::Diagnostic> {
                 let $s = self;
-                let own: Option<&dyn miette::Diagnostic> = $source;
+                let own: Option<&dyn $crate::__miette::Diagnostic> = $source;
                 own.or_else(|| {
                     self.diagnostic_forward()
-                        .map(|child| -> &dyn miette::Diagnostic { child })
+                        .map(|child| -> &dyn $crate::__miette::Diagnostic { child })
                 })
             }
         }

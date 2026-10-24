@@ -13,22 +13,22 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 
 [dependencies]
-pse-authoring.workspace = true
 pse-columnar.workspace = true
 pse-engine.workspace = true
 pse-diagnostics.workspace = true
-async-trait.workspace = true
 datafusion.workspace = true
 datafusion-common.workspace = true
 pse-relations.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

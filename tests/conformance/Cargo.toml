@@ -14,6 +14,9 @@ authors.workspace = true
 # A test family is never published.
 publish = false
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 
@@ -24,10 +27,8 @@ force-validate = [
   "pse-engine/force-validate",
   "pse-operations/force-validate",
   "pse-relations/force-validate",
-  "pse-rules/force-validate",
   "pse-runtime/force-validate",
   "pse-schema/force-validate",
-  "pse-testkit/force-validate",
 ]
 native-acceptance = ["pse-runtime/native-solvers", "dep:faer", "dep:clarabel"]
 native-profiles = [
@@ -50,7 +51,6 @@ diffsol = { workspace = true, optional = true }
 bytes.workspace = true
 pse-diagnostics.workspace = true
 pse-admission.workspace = true
-object_store.workspace = true
 pse-runtime.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
 pse-modeling.workspace = true
@@ -59,13 +59,10 @@ pse-compiler.workspace = true
 pse-structural.workspace = true
 pse-backend-native.workspace = true
 pse-engine.workspace = true
-pse-rules.workspace = true
-url.workspace = true
 pse-math.workspace = true
 pse-model.workspace = true
 pse-kernels.workspace = true
 pse-columnar.workspace = true
-pse-testkit.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
@@ -73,8 +70,10 @@ pse-quantity = { workspace = true, features = ["fixtures"] }
 parquet.workspace = true
 datafusion.workspace = true
 tokio.workspace = true
-proptest.workspace = true
 tempfile.workspace = true
-serde.workspace = true
 serde_json.workspace = true
-serde-saphyr.workspace = true
+
+# Shared tests/support/{plan14,workflow_runtime}.rs supplies these actual uses.
+# cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
+[package.metadata.cargo-shear]
+ignored = ["pse-admission", "pse-engine", "pse-operations", "pse-schema", "tempfile"]

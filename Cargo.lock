@@ -6160,7 +6160,6 @@ version = "0.0.1"
 dependencies = [
  "bytes",
  "datafusion",
- "miette",
  "parquet",
  "pse-authoring",
  "pse-columnar",
@@ -6176,7 +6175,6 @@ dependencies = [
  "pse-testkit",
  "serde",
  "serde-saphyr",
- "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -6188,7 +6186,6 @@ name = "pse-authoring"
 version = "0.0.1"
 dependencies = [
  "insta",
- "miette",
  "petgraph",
  "proptest",
  "pse-diagnostics",
@@ -6276,18 +6273,15 @@ dependencies = [
  "pse-operations",
  "pse-quantity",
  "pse-relations",
- "pse-rules",
  "pse-runtime",
  "pse-schema",
  "pse-testkit",
- "serde",
  "serde-saphyr",
  "serde_json",
  "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "url",
 ]
 
 [[package]]
@@ -6329,7 +6323,6 @@ dependencies = [
 name = "pse-columnar"
 version = "0.0.1"
 dependencies = [
- "allocation-counter",
  "arrow",
  "arrow-array",
  "arrow-buffer",
@@ -6340,7 +6333,6 @@ dependencies = [
  "datafusion-execution",
  "futures-util",
  "miette",
- "proptest",
  "pse-diagnostics",
  "pse-ids",
  "serde",
@@ -6354,7 +6346,6 @@ dependencies = [
 name = "pse-compiler"
 version = "0.0.1"
 dependencies = [
- "miette",
  "once_cell",
  "petgraph",
  "pse-authoring",
@@ -6427,7 +6418,6 @@ version = "0.0.1"
 dependencies = [
  "blake3",
  "hex",
- "miette",
  "proptest",
  "pse-diagnostics",
  "schemars",
@@ -6514,7 +6504,6 @@ dependencies = [
 name = "pse-modeling"
 version = "0.0.1"
 dependencies = [
- "miette",
  "petgraph",
  "pse-authoring",
  "pse-diagnostics",
@@ -6595,7 +6584,6 @@ dependencies = [
  "pse-diagnostics",
  "pse-engine",
  "pse-ids",
- "pse-kernels",
  "pse-model",
  "pse-modeling",
  "pse-operations",
@@ -6609,14 +6597,12 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "url",
 ]
 
 [[package]]
 name = "pse-quantity"
 version = "0.0.1"
 dependencies = [
- "miette",
  "proptest",
  "pse-diagnostics",
  "pse-ids",
@@ -6642,7 +6628,6 @@ dependencies = [
  "datafusion-functions-nested",
  "datafusion-optimizer",
  "datafusion-physical-expr",
- "miette",
  "pse-columnar",
  "pse-diagnostics",
  "pse-ids",
@@ -6660,11 +6645,8 @@ dependencies = [
 name = "pse-rules"
 version = "0.0.1"
 dependencies = [
- "async-trait",
  "datafusion",
  "datafusion-common",
- "miette",
- "pse-authoring",
  "pse-columnar",
  "pse-diagnostics",
  "pse-engine",
@@ -6700,7 +6682,6 @@ dependencies = [
  "miette",
  "nalgebra 0.35.0",
  "ndarray 0.16.1",
- "object_store",
  "parquet",
  "petgraph",
  "proptest",
@@ -6721,10 +6702,8 @@ dependencies = [
  "pse-operations",
  "pse-quantity",
  "pse-relations",
- "pse-rules",
  "pse-schema",
  "pse-structural",
- "pse-testkit",
  "quick_cache",
  "rayon",
  "rpds",
@@ -6742,7 +6721,6 @@ dependencies = [
  "tracing",
  "tracing-perfetto-sdk-schema",
  "tracing-subscriber",
- "url",
  "uuid",
 ]
 
@@ -6759,7 +6737,6 @@ dependencies = [
  "arrow-select",
  "datafusion-common",
  "hex",
- "miette",
  "pse-columnar",
  "pse-diagnostics",
  "pse-ids",
@@ -6775,7 +6752,6 @@ dependencies = [
 name = "pse-structural"
 version = "0.0.1"
 dependencies = [
- "miette",
  "petgraph",
  "pounce-presolve",
  "pse-diagnostics",
@@ -6827,9 +6803,7 @@ dependencies = [
  "faer",
  "highs",
  "highs-sys",
- "object_store",
  "parquet",
- "proptest",
  "pse-admission",
  "pse-authoring",
  "pse-backend-native",
@@ -6845,18 +6819,13 @@ dependencies = [
  "pse-operations",
  "pse-quantity",
  "pse-relations",
- "pse-rules",
  "pse-runtime",
  "pse-schema",
  "pse-structural",
- "pse-testkit",
- "serde",
- "serde-saphyr",
  "serde_json",
  "sundials-sys",
  "tempfile",
  "tokio",
- "url",
 ]
 
 [[package]]
@@ -6865,19 +6834,15 @@ version = "0.0.1"
 dependencies = [
  "arrow",
  "datafusion",
- "pse-authoring",
  "pse-columnar",
  "pse-engine",
  "pse-ids",
  "pse-relations",
- "pse-runtime",
  "pse-schema",
  "pse-testkit",
  "serde_json",
  "tempfile",
  "tokio",
- "tracing-subscriber",
- "url",
 ]
 
 [[package]]
@@ -6887,12 +6852,9 @@ dependencies = [
  "cargo_metadata",
  "ignore",
  "proc-macro2",
- "pse-codegen",
  "pse-schema",
  "regex",
  "semver",
- "serde_json",
- "sha2 0.11.0",
  "syn 3.0.5",
  "toml",
 ]
@@ -6903,20 +6865,15 @@ version = "0.0.1"
 dependencies = [
  "arrow",
  "datafusion",
- "miette",
- "object_store",
  "pse-columnar",
  "pse-diagnostics",
  "pse-engine",
- "pse-ids",
  "pse-relations",
  "pse-runtime",
  "pse-schema",
- "pse-testkit",
  "serde_json",
  "tempfile",
  "tokio",
- "url",
 ]
 
 [[package]]
@@ -10374,7 +10331,6 @@ dependencies = [
  "miette",
  "nalgebra 0.35.0",
  "parquet",
- "prettyplease 0.3.0",
  "pse-admission",
  "pse-authoring",
  "pse-backend-native",

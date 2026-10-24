@@ -24,7 +24,6 @@ strum.workspace = true
 # The member spellings as a JSON Schema inside boundary documents (ADR-0116 Outcome 7).
 schemars.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 
 [features]
 # Generated projection of the selected reference YAML packages (blueprint §8.2,

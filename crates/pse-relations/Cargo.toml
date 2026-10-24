@@ -13,6 +13,9 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 
@@ -36,7 +39,6 @@ serde_json.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 
 [features]
 # Arrow's full array validation, exposed so it can be switched on for tests and CI only

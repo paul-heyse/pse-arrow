@@ -14,25 +14,25 @@ authors.workspace = true
 # A test family is never published.
 publish = false
 
+[lib]
+doctest = false
+test = false
+
 [lints]
 workspace = true
 
 [dev-dependencies]
-url.workspace = true
 pse-columnar.workspace = true
 pse-testkit.workspace = true
 pse-engine.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
-pse-runtime.workspace = true
-pse-authoring.workspace = true
 arrow.workspace = true
 datafusion.workspace = true
 tokio.workspace = true
 tempfile.workspace = true
 serde_json.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dependencies]
 
@@ -42,7 +42,12 @@ force-validate = [
   "pse-columnar/force-validate",
   "pse-engine/force-validate",
   "pse-relations/force-validate",
-  "pse-runtime/force-validate",
   "pse-schema/force-validate",
   "pse-testkit/force-validate",
 ]
+
+# tests/support/native_session.rs uses pse-testkit; pushdown_vs_unpruned links oracle.rs.
+# cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
+[package.metadata.cargo-shear]
+ignored = ["pse-testkit"]
+ignored-paths = ["src/oracle.rs"]

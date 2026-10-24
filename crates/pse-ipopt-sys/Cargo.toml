@@ -17,6 +17,9 @@ publish.workspace = true
 links = "ipopt"
 build = "build.rs"
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 

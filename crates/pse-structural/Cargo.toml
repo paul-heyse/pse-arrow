@@ -13,6 +13,9 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 
@@ -27,7 +30,6 @@ pse-diagnostics.workspace = true
 petgraph.workspace = true
 rustworkx-core.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 serde.workspace = true
 
 [dev-dependencies]

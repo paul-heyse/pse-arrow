@@ -23,7 +23,6 @@ pub const PROFILE: &str = env!("PSE_PROFILE");
 #[cfg(all(target_os = "linux", target_env = "gnu"))]
 mod loader_scope;
 
-#[path = "../identity.rs"]
 pub mod identity;
 pub use identity::{
     DEPLOYMENT_RECEIPT_VERSION, DeploymentAssociation, FileObservation, LOCAL_RUNTIME_VERSION,
