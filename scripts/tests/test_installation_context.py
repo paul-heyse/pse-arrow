@@ -80,6 +80,46 @@ class InstallationContextTests(unittest.TestCase):
             self.assertNotEqual(before, context.tree(selected))
             self.assertNotEqual(absent, before)
 
+    def test_freshness_configuration_preserves_syntax_equivalence_and_policy_identity(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "workspace"
+            (root / ".cargo").mkdir(parents=True)
+            selected = root / ".cargo/config.toml"
+            original = (
+                '[build]\njobs=16\nfingerprint="content"\n'
+                '[unstable]\nchecksum-freshness=true\n'
+            )
+            selected.write_text(original)
+            env = {"HOME": temporary, "CARGO_HOME": str(Path(temporary) / "cargo-home")}
+            before, raw, _ = context.configuration(root, env)
+            selected.write_text(
+                '# same declarations\n[unstable]\nchecksum-freshness = true\n'
+                '[build]\nfingerprint = "content"\njobs = 16\n'
+            )
+            equivalent, reformatted, _ = context.configuration(root, env)
+            self.assertEqual(context.identity(before), context.identity(equivalent))
+            self.assertNotEqual(raw, reformatted)
+            for changed in (
+                original.replace('fingerprint="content"', 'fingerprint="mtime"'),
+                original.replace("checksum-freshness=true", "checksum-freshness=false"),
+            ):
+                with self.subTest(configuration=changed):
+                    selected.write_text(changed)
+                    after, _, _ = context.configuration(root, env)
+                    self.assertNotEqual(context.identity(before), context.identity(after))
+            for unknown in (
+                original.replace("fingerprint=", "future-fingerprint="),
+                original.replace("checksum-freshness=", "future-checksum-freshness="),
+            ):
+                with self.subTest(configuration=unknown):
+                    selected.write_text(unknown)
+                    with self.assertRaisesRegex(
+                        context.ContextError, "Unsupported Cargo configuration"
+                    ):
+                        context.configuration(root, env)
+
     def test_controlled_environment_drops_unknown_variables_and_refuses_unknown_cargo_controls(
         self,
     ) -> None:
@@ -97,16 +137,15 @@ class InstallationContextTests(unittest.TestCase):
         self.assertEqual(
             selected, {"HOME": "/home/test", "PATH": "/usr/bin", "CC": "clang"}
         )
-        with (
-            patch(
-                "scripts.pse_env.compose",
-                return_value={"CARGO_UNDERSTOOD_IN_FUTURE": "value"},
-            ),
-            self.assertRaisesRegex(
-                context.ContextError, "Unsupported Cargo environment"
-            ),
-        ):
-            context.controlled_environment(root, {})
+        for variable in ("CARGO_UNDERSTOOD_IN_FUTURE", "CARGO_BUILD_FINGERPRINT"):
+            with (
+                self.subTest(variable=variable),
+                patch("scripts.pse_env.compose", return_value={variable: "value"}),
+                self.assertRaisesRegex(
+                    context.ContextError, "Unsupported Cargo environment"
+                ),
+            ):
+                context.controlled_environment(root, {})
 
     def test_literal_tool_path_with_spaces_and_changed_executable_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

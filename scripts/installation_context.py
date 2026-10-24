@@ -127,8 +127,9 @@ CONFIG_KEYS = {
         "rustflags",
         "rustdocflags",
         "incremental",
+        "fingerprint",
     },
-    "unstable": {"feature-unification", "fine-grain-locking"},
+    "unstable": {"feature-unification", "fine-grain-locking", "checksum-freshness"},
     "resolver": {"feature-unification"},
     "future-incompat-report": {"frequency"},
 }
