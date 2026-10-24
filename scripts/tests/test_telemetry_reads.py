@@ -9,11 +9,11 @@ import io
 import json
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import ExitStack, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import cast
 from unittest.mock import patch
 
 from scripts import telemetry, telemetry_process, telemetry_query, telemetry_service
@@ -26,13 +26,21 @@ PRIVATE_SENTINEL = "fixture-private-response-and-credential"
 
 
 def mapping(value: object) -> dict[str, object]:
-    assert isinstance(value, dict)
-    return cast("dict[str, object]", value)
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        raise AssertionError("Expected a string-keyed object")
+    return {key: item for key, item in value.items() if isinstance(key, str)}
 
 
 def records(value: object) -> list[dict[str, object]]:
-    assert isinstance(value, list)
+    if not isinstance(value, list):
+        raise TypeError("Expected a list of objects")
     return [mapping(item) for item in value]
+
+
+def text(value: object) -> str:
+    if not isinstance(value, str):
+        raise TypeError("Expected a string")
+    return value
 
 
 class TelemetryReadTests(unittest.TestCase):
@@ -47,8 +55,12 @@ class TelemetryReadTests(unittest.TestCase):
         class Handler(BaseHTTPRequestHandler):
             def answer(self) -> None:
                 body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-                case.requests.append((self.command, self.path, body, self.headers.get("Authorization")))
-                code, response = case.routes.get(self.path, (404, b"unknown fixture route"))
+                case.requests.append(
+                    (self.command, self.path, body, self.headers.get("Authorization"))
+                )
+                code, response = case.routes.get(
+                    self.path, (404, b"unknown fixture route")
+                )
                 self.send_response(code)
                 self.send_header("Content-Length", str(len(response)))
                 self.end_headers()
@@ -60,12 +72,14 @@ class TelemetryReadTests(unittest.TestCase):
             def do_POST(self) -> None:
                 self.answer()
 
-            def log_message(self, _format: str, *_arguments: object) -> None:
+            def log_message(self, format: str, *_arguments: object) -> None:
                 pass
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.server.daemon_threads = True
-        thread = threading.Thread(target=lambda: self.server.serve_forever(poll_interval=0.05), daemon=True)
+        thread = threading.Thread(
+            target=lambda: self.server.serve_forever(poll_interval=0.05), daemon=True
+        )
         thread.start()
         self.addCleanup(self.close_server, thread)
         self.base = f"http://127.0.0.1:{self.server.server_port}"
@@ -77,15 +91,38 @@ class TelemetryReadTests(unittest.TestCase):
             "streams": {"traces": "pse_traces"},
             "backend_http_endpoint": self.base,
         }
-        self.services = {
+        self.services: dict[str, dict[str, object]] = {
             "collector": {
                 "active_state": "active",
-                "process": {"pid": 1234, "start_time_ticks": 4321, "boot_id": "fixture-boot", "incarnation": "fixture-process"},
+                "process": {
+                    "pid": 1234,
+                    "start_time_ticks": 4321,
+                    "boot_id": "fixture-boot",
+                    "incarnation": "fixture-process",
+                },
                 "ownership": "verified",
             }
         }
-        self.services["openobserve"] = {"active_state": "active", "ownership": "verified", "process": {"pid": 2345, "start_ticks": 5432, "invocation_id": "backend-incarnation"}}
-        self.inspected = {"status": "configured", "configuration": self.configuration, "services": self.services, "retention_days": 7, "versions": {"openobserve": "1.1.2"}, "endpoints": {"collector_health": self.base + "/", "collector_metrics": self.base + "/metrics"}}
+        self.services["openobserve"] = {
+            "active_state": "active",
+            "ownership": "verified",
+            "process": {
+                "pid": 2345,
+                "start_ticks": 5432,
+                "invocation_id": "backend-incarnation",
+            },
+        }
+        self.inspected = {
+            "status": "configured",
+            "configuration": self.configuration,
+            "services": self.services,
+            "retention_days": 7,
+            "versions": {"openobserve": "1.1.2"},
+            "endpoints": {
+                "collector_health": self.base + "/",
+                "collector_metrics": self.base + "/metrics",
+            },
+        }
 
     def close_server(self, thread: threading.Thread) -> None:
         self.server.shutdown()
@@ -93,26 +130,65 @@ class TelemetryReadTests(unittest.TestCase):
         thread.join()
 
     def lookup(self, *, limit: int = 10) -> dict[str, object]:
-        with patch.object(telemetry_service, "inspect", return_value=self.inspected), patch.object(telemetry_service, "backend_access", return_value=(self.base, {"Authorization": "Basic " + PRIVATE_SENTINEL})):
-            return telemetry_query.lookup_trace(self.state, TRACE_ID, start_time_us=100, end_time_us=200, limit=limit)
+        with (
+            patch.object(telemetry_service, "inspect", return_value=self.inspected),
+            patch.object(
+                telemetry_service,
+                "backend_access",
+                return_value=(
+                    self.base,
+                    {"Authorization": "Basic " + PRIVATE_SENTINEL},
+                ),
+            ),
+        ):
+            return telemetry_query.lookup_trace(
+                self.state, TRACE_ID, start_time_us=100, end_time_us=200, limit=limit
+            )
 
     def observe_health(self) -> dict[str, object]:
         with patch.object(telemetry_service, "inspect", return_value=self.inspected):
             return telemetry.health(self.state)
 
     def test_failed_service_inspection_preserves_local_reader(self) -> None:
-        with patch.object(telemetry_service, "inspect", side_effect=telemetry_service.TelemetryServiceError("private detail")), patch.object(telemetry_process, "local_status", return_value={"status": "disabled"}):
+        with (
+            patch.object(
+                telemetry_service,
+                "inspect",
+                side_effect=telemetry_service.TelemetryServiceError("private detail"),
+            ),
+            patch.object(
+                telemetry_process, "local_status", return_value={"status": "disabled"}
+            ),
+        ):
             answer = telemetry.health(self.state)
         self.assertEqual(mapping(answer["producer"])["status"], "disabled")
-        self.assertEqual(mapping(answer["service"])["reason"], "selected_service_inspection_failed")
+        self.assertEqual(
+            mapping(answer["service"])["reason"], "selected_service_inspection_failed"
+        )
         self.assertEqual(mapping(answer["pipeline"])["status"], "unavailable")
         self.assertNotIn("private detail", json.dumps(answer))
         self.assertEqual(self.requests, [])
 
-    def test_restarted_collector_counters_are_not_attributed_to_old_incarnation(self) -> None:
-        self.routes.update({"/": (200, b"ok"), "/healthz": (200, b"ok"), "/metrics": (200, b"otelcol_exporter_sent_spans_total 7\n")})
-        changed = {**self.inspected, "services": {**self.services, "collector": {**self.services["collector"], "process": {"pid": 9876}}}}
-        with patch.object(telemetry_service, "inspect", side_effect=[self.inspected, changed]):
+    def test_restarted_collector_counters_are_not_attributed_to_old_incarnation(
+        self,
+    ) -> None:
+        self.routes.update(
+            {
+                "/": (200, b"ok"),
+                "/healthz": (200, b"ok"),
+                "/metrics": (200, b"otelcol_exporter_sent_spans_total 7\n"),
+            }
+        )
+        changed = {
+            **self.inspected,
+            "services": {
+                **self.services,
+                "collector": {**self.services["collector"], "process": {"pid": 9876}},
+            },
+        }
+        with patch.object(
+            telemetry_service, "inspect", side_effect=[self.inspected, changed]
+        ):
             answer = telemetry.health(self.state)
         pipeline = mapping(answer["pipeline"])
         self.assertEqual(mapping(pipeline["collector"])["status"], "stale")
@@ -122,11 +198,23 @@ class TelemetryReadTests(unittest.TestCase):
 
     def test_configuration_command_honors_explicit_state(self) -> None:
         self.state.mkdir()
-        (self.state / "configuration.json").write_text(json.dumps({"schema_version": 1, "configuration_id": "explicit-selection", "otlp_http_endpoint": self.base}))
+        (self.state / "configuration.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "configuration_id": "explicit-selection",
+                    "otlp_http_endpoint": self.base,
+                }
+            )
+        )
         output = io.StringIO()
         with redirect_stdout(output), patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(telemetry.main(["configuration", "--state", str(self.state)]), 0)
-        self.assertEqual(json.loads(output.getvalue())["configuration_id"], "explicit-selection")
+            self.assertEqual(
+                telemetry.main(["configuration", "--state", str(self.state)]), 0
+            )
+        self.assertEqual(
+            json.loads(output.getvalue())["configuration_id"], "explicit-selection"
+        )
 
     def test_id_time_and_limit_validation_precedes_backend(self) -> None:
         cases = (
@@ -142,24 +230,100 @@ class TelemetryReadTests(unittest.TestCase):
             {"limit": 1001},
             {"limit": True},
         )
-        with patch.object(telemetry_service, "inspect", side_effect=AssertionError("validation entered service")), patch.object(telemetry_service, "backend_access", side_effect=AssertionError("validation entered backend")):
+        with (
+            patch.object(
+                telemetry_service,
+                "inspect",
+                side_effect=AssertionError("validation entered service"),
+            ),
+            patch.object(
+                telemetry_service,
+                "backend_access",
+                side_effect=AssertionError("validation entered backend"),
+            ),
+        ):
             for changed in cases:
-                values = {"trace_id": TRACE_ID, "start_time_us": 100, "end_time_us": 200, "limit": 10, **changed}
+                values = {
+                    "trace_id": TRACE_ID,
+                    "start_time_us": 100,
+                    "end_time_us": 200,
+                    "limit": 10,
+                    **changed,
+                }
                 with self.subTest(changed=changed), self.assertRaises(ValueError):
-                    telemetry_query.lookup_trace(self.state, cast("str", values["trace_id"]), start_time_us=cast("int", values["start_time_us"]), end_time_us=cast("int", values["end_time_us"]), limit=cast("int", values["limit"]))
+                    telemetry_query.lookup_trace(
+                        self.state,
+                        values["trace_id"],  # pyrefly: ignore [bad-argument-type] -- intentional invalid API input
+                        start_time_us=values["start_time_us"],  # pyrefly: ignore [bad-argument-type] -- intentional invalid API input
+                        end_time_us=values["end_time_us"],  # pyrefly: ignore [bad-argument-type] -- intentional invalid API input
+                        limit=values["limit"],  # pyrefly: ignore [bad-argument-type] -- intentional invalid API input
+                    )
         self.assertEqual(self.requests, [])
 
     def test_stream_and_organization_injection_refused_before_http(self) -> None:
-        for field, invalid in (("organization", "default/other"), ("streams", {"traces": "pse_traces; DROP TABLE facts"})):
-            with self.subTest(field=field), patch.object(telemetry_service, "inspect", return_value={**self.inspected, "configuration": {**self.configuration, field: invalid}}), patch.object(telemetry_service, "backend_access", side_effect=AssertionError("invalid identifiers reached backend")), self.assertRaises(ValueError):
-                telemetry_query.lookup_trace(self.state, TRACE_ID, start_time_us=100, end_time_us=200)
+        for field, invalid in (
+            ("organization", "default/other"),
+            ("streams", {"traces": "pse_traces; DROP TABLE facts"}),
+        ):
+            with (
+                self.subTest(field=field),
+                patch.object(
+                    telemetry_service,
+                    "inspect",
+                    return_value={
+                        **self.inspected,
+                        "configuration": {**self.configuration, field: invalid},
+                    },
+                ),
+                patch.object(
+                    telemetry_service,
+                    "backend_access",
+                    side_effect=AssertionError("invalid identifiers reached backend"),
+                ),
+                self.assertRaises(ValueError),
+            ):
+                telemetry_query.lookup_trace(
+                    self.state, TRACE_ID, start_time_us=100, end_time_us=200
+                )
         self.assertEqual(self.requests, [])
 
     def test_actual_search_query_interval_and_normalized_references(self) -> None:
-        self.routes[self.search] = (200, json.dumps({"hits": [{"trace_id": TRACE_ID, "span_id": SPAN_ID, "reference_parent_span_id": PARENT_SPAN_ID, "reference_parent_trace_id": PARENT_TRACE_ID, "service_service_instance_id": "producer-incarnation", "operation_name": "owner.dispatch", "_timestamp": 125, "unselected_payload": PRIVATE_SENTINEL}], "total": 999999}).encode())
+        self.routes[self.search] = (
+            200,
+            json.dumps(
+                {
+                    "hits": [
+                        {
+                            "trace_id": TRACE_ID,
+                            "span_id": SPAN_ID,
+                            "reference_parent_span_id": PARENT_SPAN_ID,
+                            "reference_parent_trace_id": PARENT_TRACE_ID,
+                            "service_service_instance_id": "producer-incarnation",
+                            "operation_name": "owner.dispatch",
+                            "_timestamp": 125,
+                            "unselected_payload": PRIVATE_SENTINEL,
+                        }
+                    ],
+                    "total": 999999,
+                }
+            ).encode(),
+        )
         answer = self.lookup()
         self.assertEqual(answer["status"], "available")
-        self.assertEqual(answer["records"], [{"trace_id": TRACE_ID, "span_id": SPAN_ID, "parent_span_id": PARENT_SPAN_ID, "parent_trace_id": PARENT_TRACE_ID, "service_instance_id": "producer-incarnation", "operation_name": "owner.dispatch", "timestamp_us": 125}])
+        self.assertEqual(
+            answer["records"],
+            [
+                {
+                    "trace_id": TRACE_ID,
+                    "span_id": SPAN_ID,
+                    "parent_span_id": PARENT_SPAN_ID,
+                    "parent_trace_id": PARENT_TRACE_ID,
+                    "service_instance_id": "producer-incarnation",
+                    "operation_name": "owner.dispatch",
+                    "timestamp_us": 125,
+                }
+            ],
+        )
         method, target, content, authorization = self.requests[0]
         self.assertEqual(method, "POST")
         self.assertEqual(target, self.search)
@@ -169,26 +333,42 @@ class TelemetryReadTests(unittest.TestCase):
         self.assertEqual(document["query"]["end_time"], 200)
         self.assertEqual(document["query"]["size"], 10)
         self.assertEqual(document["query"]["from"], 0)
-        self.assertIn("FROM pse_traces WHERE trace_id = '" + TRACE_ID + "'", document["query"]["sql"])
+        self.assertIn(
+            "FROM pse_traces WHERE trace_id = '" + TRACE_ID + "'",
+            document["query"]["sql"],
+        )
         self.assertIn("ORDER BY _timestamp,span_id", document["query"]["sql"])
         self.assertFalse(answer["complete"])
         self.assertIsNone(answer["population_total"])
         source = mapping(answer["source"])
         self.assertEqual(source["configuration_id"], "fixture-generation")
         self.assertEqual(source["retention_days"], 7)
-        self.assertIn("no atomic snapshot", source["source_cut"])
+        self.assertIn("no atomic snapshot", text(source["source_cut"]))
         self.assertNotIn(PRIVATE_SENTINEL, json.dumps(answer))
 
     def test_partial_empty_and_row_limit_never_claim_complete_population(self) -> None:
         cases = (
             ({"hits": []}, 10, "empty", "bounded_live_selection"),
             ({"hits": [{"span_id": SPAN_ID}]}, 1, "available", "row_limit_reached"),
-            ({"hits": [{"span_id": SPAN_ID}], "is_partial": True}, 10, "partial", "backend_partial"),
-            ({"hits": [], "function_error": PRIVATE_SENTINEL}, 10, "partial", "backend_partial"),
+            (
+                {"hits": [{"span_id": SPAN_ID}], "is_partial": True},
+                10,
+                "partial",
+                "backend_partial",
+            ),
+            (
+                {"hits": [], "function_error": PRIVATE_SENTINEL},
+                10,
+                "partial",
+                "backend_partial",
+            ),
         )
         for payload, limit, status, coverage in cases:
             with self.subTest(status=status, coverage=coverage):
-                self.routes[self.search] = (200, json.dumps({"total": 1000000, **payload}).encode())
+                self.routes[self.search] = (
+                    200,
+                    json.dumps({"total": 1000000, **payload}).encode(),
+                )
                 answer = self.lookup(limit=limit)
                 self.assertEqual(answer["status"], status)
                 self.assertEqual(answer["coverage"], coverage)
@@ -196,21 +376,35 @@ class TelemetryReadTests(unittest.TestCase):
                 self.assertEqual(answer["row_limit"], limit)
                 self.assertFalse(answer["complete"])
                 self.assertIsNone(answer["population_total"])
-                self.assertIn("not observed", answer["missing_record_meaning"])
+                self.assertIn("not observed", text(answer["missing_record_meaning"]))
                 self.assertNotIn(PRIVATE_SENTINEL, json.dumps(answer))
 
     def test_refusal_bad_json_shape_and_response_bound_do_not_leak_bodies(self) -> None:
         cases = (
             (403, PRIVATE_SENTINEL.encode(), "backend_refused"),
             (200, ("not JSON: " + PRIVATE_SENTINEL).encode(), "backend_read_failed"),
-            (200, json.dumps({"hits": PRIVATE_SENTINEL}).encode(), "backend_read_failed"),
-            (200, json.dumps({"hits": [PRIVATE_SENTINEL]}).encode(), "backend_read_failed"),
+            (
+                200,
+                json.dumps({"hits": PRIVATE_SENTINEL}).encode(),
+                "backend_read_failed",
+            ),
+            (
+                200,
+                json.dumps({"hits": [PRIVATE_SENTINEL]}).encode(),
+                "backend_read_failed",
+            ),
             (200, json.dumps({"hits": [{}, {}]}).encode(), "backend_read_failed"),
-            (200, json.dumps({"hits": [], "padding": PRIVATE_SENTINEL * 100}).encode(), "backend_read_failed"),
+            (
+                200,
+                json.dumps({"hits": [], "padding": PRIVATE_SENTINEL * 100}).encode(),
+                "backend_read_failed",
+            ),
         )
         with patch.object(telemetry_query, "MAX_RESPONSE_BYTES", 512):
             for code, response, reason in cases:
-                with self.subTest(code=code, reason=reason, response_size=len(response)):
+                with self.subTest(
+                    code=code, reason=reason, response_size=len(response)
+                ):
                     self.routes[self.search] = (code, response)
                     answer = self.lookup(limit=1)
                     self.assertEqual(answer["status"], "unavailable")
@@ -219,18 +413,46 @@ class TelemetryReadTests(unittest.TestCase):
                     self.assertFalse(answer["complete"])
                     self.assertNotIn(PRIVATE_SENTINEL, json.dumps(answer))
 
-    def test_missing_service_health_is_passive_and_preserves_unknown_meaning(self) -> None:
+    def test_missing_service_health_is_passive_and_preserves_unknown_meaning(
+        self,
+    ) -> None:
         with ExitStack() as stack:
-            for name in ("setup", "install", "start", "restart", "enable", "_systemctl"):
-                stack.enter_context(patch.object(telemetry_service, name, side_effect=AssertionError("passive health performed effects")))
-            stack.enter_context(patch.object(telemetry_process, "bootstrap", side_effect=AssertionError("passive health initialized SDK")))
-            stack.enter_context(patch.object(telemetry_process, "_ACTIVE", None))
-            answer = telemetry.health(self.state, environment={"PSE_TELEMETRY_STATE": str(self.state)})
-        self.assertEqual(answer["pipeline"], {"status": "unavailable", "reason": "telemetry_not_configured"})
+            for name in (
+                "setup",
+                "install",
+                "start",
+                "restart",
+                "enable",
+                "_systemctl",
+            ):
+                stack.enter_context(
+                    patch.object(
+                        telemetry_service,
+                        name,
+                        side_effect=AssertionError("passive health performed effects"),
+                    )
+                )
+            stack.enter_context(
+                patch.object(
+                    telemetry_process,
+                    "bootstrap",
+                    side_effect=AssertionError("passive health initialized SDK"),
+                )
+            )
+            stack.enter_context(patch("scripts.telemetry_process._STATE.active", None))
+            answer = telemetry.health(
+                self.state, environment={"PSE_TELEMETRY_STATE": str(self.state)}
+            )
+        self.assertEqual(
+            answer["pipeline"],
+            {"status": "unavailable", "reason": "telemetry_not_configured"},
+        )
         self.assertEqual(mapping(answer["producer"])["status"], "not_initialized")
         self.assertEqual(mapping(answer["producer"])["queue_occupancy"], "unavailable")
         self.assertEqual(mapping(answer["delivery"])["backend_acceptance"], "unknown")
-        self.assertEqual(mapping(answer["delivery"])["query_visibility"], "not_exercised")
+        self.assertEqual(
+            mapping(answer["delivery"])["query_visibility"], "not_exercised"
+        )
         self.assertEqual(self.requests, [])
         self.assertFalse(self.state.exists())
 
@@ -245,12 +467,14 @@ class TelemetryReadTests(unittest.TestCase):
         self.assertEqual(self.requests, [])
 
     def test_total_deadline_bounds_slow_headers_and_body(self) -> None:
-        import time
-        for mode in ("headers", "body"):
-            stopping = threading.Event()
+        def drip_handler(mode: str, stopping: threading.Event) -> type[BaseHTTPRequestHandler]:
             class Drip(BaseHTTPRequestHandler):
                 def do_GET(self) -> None:
-                    data = b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n" if mode == "headers" else b"x" * 1000
+                    data = (
+                        b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n"
+                        if mode == "headers"
+                        else b"x" * 1000
+                    )
                     try:
                         if mode == "body":
                             self.send_response(200)
@@ -263,15 +487,24 @@ class TelemetryReadTests(unittest.TestCase):
                                 break
                     except (OSError, ConnectionError):
                         pass
-                def log_message(self, *_arguments: object) -> None:
+
+                def log_message(self, format: str, *_arguments: object) -> None:
                     pass
-            server = ThreadingHTTPServer(("127.0.0.1", 0), Drip)
+
+            return Drip
+
+        for mode in ("headers", "body"):
+            stopping = threading.Event()
+            server = ThreadingHTTPServer(("127.0.0.1", 0), drip_handler(mode, stopping))
             server.daemon_threads = True
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
                 started = time.monotonic()
-                with patch.object(telemetry_query, "TIMEOUT_SECONDS", 0.15), self.assertRaises(OSError):
+                with (
+                    patch.object(telemetry_query, "TIMEOUT_SECONDS", 0.15),
+                    self.assertRaises(OSError),
+                ):
                     telemetry_query.request(f"http://127.0.0.1:{server.server_port}/")
                 self.assertLess(time.monotonic() - started, 1)
             finally:
@@ -280,15 +513,17 @@ class TelemetryReadTests(unittest.TestCase):
                 server.server_close()
                 thread.join(2)
 
-    def test_failed_health_stage_does_not_erase_independent_samples_or_identity(self) -> None:
+    def test_failed_health_stage_does_not_erase_independent_samples_or_identity(
+        self,
+    ) -> None:
         self.routes["/healthz"] = (503, PRIVATE_SENTINEL.encode())
         self.routes["/"] = (200, b"ok")
-        metrics = '''# TYPE otelcol_exporter_sent_spans_total counter
+        metrics = """# TYPE otelcol_exporter_sent_spans_total counter
     otelcol_exporter_sent_spans_total{exporter="otlphttp/openobserve",service_instance_id="collector-incarnation"} 3
     otelcol_exporter_queue_size{exporter="otlphttp/openobserve"} 2
     otelcol_receiver_refused_spans_total{receiver="otlp"} NaN
     unrelated_metric{secret="not-selected"} 999
-'''
+"""
         self.routes["/metrics"] = (200, metrics.encode())
         answer = self.observe_health()
         stages = mapping(answer["pipeline"])
@@ -299,12 +534,23 @@ class TelemetryReadTests(unittest.TestCase):
         self.assertEqual(delivery["configuration_id"], "fixture-generation")
         self.assertEqual(delivery["process"], self.services["collector"]["process"])
         self.assertEqual(len(records(delivery["samples"])), 2)
-        samples = {str(sample["name"]): sample for sample in records(delivery["samples"])}
+        samples = {
+            str(sample["name"]): sample for sample in records(delivery["samples"])
+        }
         self.assertEqual(samples["otelcol_exporter_sent_spans_total"]["value"], 3)
-        self.assertEqual(mapping(samples["otelcol_exporter_sent_spans_total"]["labels"])["service_instance_id"], "collector-incarnation")
-        self.assertEqual(delivery["query_visibility"], "not_established_by_exporter_counters")
+        self.assertEqual(
+            mapping(samples["otelcol_exporter_sent_spans_total"]["labels"])[
+                "service_instance_id"
+            ],
+            "collector-incarnation",
+        )
+        self.assertEqual(
+            delivery["query_visibility"], "not_established_by_exporter_counters"
+        )
         self.assertEqual(mapping(answer["delivery"])["backend_acceptance"], "unknown")
-        self.assertEqual(mapping(answer["delivery"])["query_visibility"], "not_exercised")
+        self.assertEqual(
+            mapping(answer["delivery"])["query_visibility"], "not_exercised"
+        )
         self.assertNotIn(PRIVATE_SENTINEL, json.dumps(answer))
         self.assertNotIn("unrelated_metric", json.dumps(answer))
 
@@ -315,7 +561,13 @@ class TelemetryReadTests(unittest.TestCase):
             (503, PRIVATE_SENTINEL.encode()),
             (200, b"\xff"),
             (200, b"otelcol_exporter_sent_spans_total{bad syntax 3"),
-            (200, "\n".join(f'otelcol_exporter_sent_spans_total{{worker="{index}"}} 1' for index in range(257)).encode()),
+            (
+                200,
+                "\n".join(
+                    f'otelcol_exporter_sent_spans_total{{worker="{index}"}} 1'
+                    for index in range(257)
+                ).encode(),
+            ),
         )
         for code, response in cases:
             with self.subTest(code=code, bytes=len(response)):
@@ -324,15 +576,38 @@ class TelemetryReadTests(unittest.TestCase):
                 stages = mapping(answer["pipeline"])
                 self.assertEqual(mapping(stages["backend"])["status"], "responding")
                 self.assertEqual(mapping(stages["collector"])["status"], "refused")
-                self.assertEqual(mapping(stages["collector_delivery"])["status"], "unavailable")
-                self.assertNotIn("samples", stages["collector_delivery"])
-                self.assertEqual(mapping(answer["delivery"])["backend_acceptance"], "unknown")
+                self.assertEqual(
+                    mapping(stages["collector_delivery"])["status"], "unavailable"
+                )
+                self.assertNotIn("samples", mapping(stages["collector_delivery"]))
+                self.assertEqual(
+                    mapping(answer["delivery"])["backend_acceptance"], "unknown"
+                )
                 self.assertNotIn(PRIVATE_SENTINEL, json.dumps(answer))
 
     def test_cli_invalid_lookup_has_useful_safe_diagnostic(self) -> None:
         stream = io.StringIO()
-        with redirect_stdout(stream), patch.object(telemetry_service, "inspect", side_effect=AssertionError("invalid CLI selected backend")):
-            code = telemetry.main(["lookup-trace", "--state", str(self.state), "--trace-id", PRIVATE_SENTINEL, "--start-us", "100", "--end-us", "200"])
+        with (
+            redirect_stdout(stream),
+            patch.object(
+                telemetry_service,
+                "inspect",
+                side_effect=AssertionError("invalid CLI selected backend"),
+            ),
+        ):
+            code = telemetry.main(
+                [
+                    "lookup-trace",
+                    "--state",
+                    str(self.state),
+                    "--trace-id",
+                    PRIVATE_SENTINEL,
+                    "--start-us",
+                    "100",
+                    "--end-us",
+                    "200",
+                ]
+            )
         self.assertEqual(code, 1)
         answer = json.loads(stream.getvalue())
         self.assertEqual(answer["code"], "pse.telemetry.operation_refused")
@@ -342,11 +617,20 @@ class TelemetryReadTests(unittest.TestCase):
 
     def test_cli_missing_service_health_is_successful_diagnostic_read(self) -> None:
         stream = io.StringIO()
-        with redirect_stdout(stream), patch.object(telemetry_process, "bootstrap", side_effect=AssertionError("CLI health initialized SDK")):
+        with (
+            redirect_stdout(stream),
+            patch.object(
+                telemetry_process,
+                "bootstrap",
+                side_effect=AssertionError("CLI health initialized SDK"),
+            ),
+        ):
             code = telemetry.main(["health", "--state", str(self.state)])
         self.assertEqual(code, 0)
         answer = json.loads(stream.getvalue())
-        self.assertEqual(mapping(answer["pipeline"])["reason"], "telemetry_not_configured")
+        self.assertEqual(
+            mapping(answer["pipeline"])["reason"], "telemetry_not_configured"
+        )
         self.assertEqual(mapping(answer["delivery"])["backend_acceptance"], "unknown")
         self.assertFalse(self.state.exists())
 

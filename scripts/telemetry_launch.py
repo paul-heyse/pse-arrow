@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Resolve private native-host telemetry launch settings through the shared owner."""
+
 from __future__ import annotations
 
 import json
@@ -18,7 +19,9 @@ STATUS = "PSE_TELEMETRY_CONFIGURATION_STATUS"
 def configure(root: Path, environment: dict[str, str]) -> None:
     """Passive resolution only; no SDK installation or scientific/service setup."""
     try:
-        settings = resolve_process("pse-native-host", root=root, environment=environment)
+        settings = resolve_process(
+            "pse-native-host", root=root, environment=environment
+        )
     except (OSError, ValueError, UnicodeError):
         environment.pop(SETTINGS, None)
         environment[STATUS] = "initialization_refused"
@@ -29,4 +32,6 @@ def configure(root: Path, environment: dict[str, str]) -> None:
     else:
         # Private carrier is omitted by pse-env --print and --explain.
         # The receiving Rust executable mints its own process incarnation.
-        environment[SETTINGS] = json.dumps(settings.native_settings(), separators=(",", ":"), allow_nan=False)
+        environment[SETTINGS] = json.dumps(
+            settings.native_settings(), separators=(",", ":"), allow_nan=False
+        )

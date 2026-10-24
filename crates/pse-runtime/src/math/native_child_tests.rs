@@ -416,6 +416,53 @@ fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
 // integrated selector. Never discover a stale PATH binary or build one within a test.
 #[tokio::test]
 async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
+    // Ambient exporter selection alone does not initialize a test process host.
+    // The external acceptance driver explicitly selects this composition and supplies
+    // an independently chosen W3C parent. Ordinary scientific runs keep their baseline.
+    let telemetry = if std::env::var("PSE_NATIVE_TELEMETRY_ACCEPTANCE").as_deref() == Ok("1") {
+        Some(
+            std::thread::Builder::new()
+                .name("native-child-acceptance-telemetry".into())
+                .spawn(|| {
+                    crate::tooling::telemetry::Host::from_environment(
+                        "pse-native-parent-acceptance",
+                    )
+                })
+                .unwrap()
+                .join()
+                .unwrap()
+                .unwrap()
+                .expect("telemetry acceptance explicitly requires enabled resolved host settings"),
+        )
+    } else {
+        None
+    };
+    if let Some(host) = telemetry {
+        let carrier = crate::tooling::telemetry::Carrier::from_json(
+            &std::env::var("PSE_NATIVE_TELEMETRY_ACCEPTANCE_PARENT")
+                .expect("telemetry acceptance supplies an independent bounded W3C parent"),
+        )
+        .unwrap();
+        let span = carrier.operation_span("native.child.actual_acceptance");
+        tracing::Instrument::instrument(actual_portable_native_root_fixture(), span).await;
+        // Every original solve result, reservation and actual process-reap assertion
+        // above has settled before optional parent-host SDK teardown. Export failure
+        // is a separate diagnostic fact and cannot rewrite that scientific outcome.
+        let shutdown = std::thread::Builder::new()
+            .name("native-child-acceptance-telemetry-shutdown".into())
+            .spawn(move || host.shutdown())
+            .unwrap()
+            .join()
+            .unwrap();
+        if shutdown.is_err() {
+            tracing::warn!(target: "pse.telemetry.diagnostic", code = "telemetry.acceptance.shutdown_failed", "optional acceptance export shutdown failed after native settlement");
+        }
+    } else {
+        actual_portable_native_root_fixture().await;
+    }
+}
+
+async fn actual_portable_native_root_fixture() {
     let executable = std::env::var_os("PSE_NATIVE_LANE_EXECUTABLE")
         .expect("integrator supplies exact built pse-native-lane executable");
     let (service, _) = super::super::tests::service_with_policy(
@@ -429,21 +476,37 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
     let baseline = service.pool.reserved();
     let child = NativeChild::qualify(executable, 128 << 20).unwrap();
     for target in [2.0, 4.0, 2.0] {
-        let mut input = source();
-        input.parameters[0] = target;
-        let handle = service
-            .solve_portable_root(input, child.clone(), Cancellation::default(), None)
-            .unwrap();
-        let (result, lease) = handle.finish().await.unwrap();
-        assert_ne!(result.child_pid, std::process::id());
-        assert!(result.refusal.is_none(), "{:?}", result.refusal);
-        assert!((result.proposal.as_ref().unwrap()[0] - target).abs() < 1e-8);
-        assert!(
-            !Path::new(&format!("/proc/{}", result.child_pid)).exists(),
-            "result cannot precede actual child reap"
+        // These are acceptance references issued by the actual reaped result, not
+        // guessed process associations or replacement scientific identifiers.
+        let case = tracing::info_span!(
+            "pse.native.child.acceptance.case",
+            acceptance.target = target,
+            native.child.pid = tracing::field::Empty,
+            native.attempt = tracing::field::Empty,
         );
-        drop((result, lease));
-        assert_eq!(service.pool.reserved(), baseline);
+        tracing::Instrument::instrument(
+            async {
+                let mut input = source();
+                input.parameters[0] = target;
+                let handle = service
+                    .solve_portable_root(input, child.clone(), Cancellation::default(), None)
+                    .unwrap();
+                let (result, lease) = handle.finish().await.unwrap();
+                assert_ne!(result.child_pid, std::process::id());
+                assert!(result.refusal.is_none(), "{:?}", result.refusal);
+                assert!((result.proposal.as_ref().unwrap()[0] - target).abs() < 1e-8);
+                assert!(
+                    !Path::new(&format!("/proc/{}", result.child_pid)).exists(),
+                    "result cannot precede actual child reap"
+                );
+                case.record("native.child.pid", result.child_pid);
+                case.record("native.attempt", tracing::field::display(result.attempt));
+                drop((result, lease));
+                assert_eq!(service.pool.reserved(), baseline);
+            },
+            case.clone(),
+        )
+        .await;
     }
 }
 

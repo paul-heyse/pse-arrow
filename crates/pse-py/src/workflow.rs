@@ -502,13 +502,21 @@ pub(crate) fn blocking_native_call<T: Send>(
             if signal.is_none()
                 && let Err(error) = py.check_signals()
             {
-                pse_runtime::tooling::telemetry::lifecycle(&telemetry, "native.cancel.requested", "python.native_pull");
+                pse_runtime::tooling::telemetry::lifecycle(
+                    &telemetry,
+                    "native.cancel.requested",
+                    "python.native_pull",
+                );
                 cancel();
                 signal = Some(error);
             }
         };
         let joined = py.detach(|| worker.join());
-        pse_runtime::tooling::telemetry::lifecycle(&telemetry, "native.drain.settled", "python.native_pull");
+        pse_runtime::tooling::telemetry::lifecycle(
+            &telemetry,
+            "native.drain.settled",
+            "python.native_pull",
+        );
         if signal.is_none()
             && let Err(error) = py.check_signals()
         {

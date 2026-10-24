@@ -25,8 +25,8 @@ mod diagnostics;
 mod documents;
 mod enums;
 mod identities;
-mod telemetry;
 mod inspection;
+mod telemetry;
 mod workflow;
 
 /// Captured build provenance projected from its Rust-owned document.

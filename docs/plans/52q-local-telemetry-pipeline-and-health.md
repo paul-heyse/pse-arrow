@@ -330,6 +330,13 @@ real sealed endpoint projection, retains local diagnostics on service-inspection
 slow headers/body by a total deadline and invalidates process attribution if a service restarts
 during the read.
 
+**Tested:** after the scope-end Python typing/lint repairs and cross-version-safe SDK diagnostic
+redaction, the same driver with `--output /tmp/pse-plan52pq-final-failures-20261024-f812 --timeout 90
+--case delivery_failures --case retry_expiry` passed both selected cases, zero failures against zero.
+This rechecked actual credential rejection, stopped ingress, explicit retry exhaustion, restored
+query visibility and authenticated cleanup. It did not rerun the earlier retention/overflow/storage
+cases or establish native scientific outcome preservation.
+
 **Interface-checked, TQ05:** the selected Collector file exporter cannot replace the finite
 capture contract. Its alpha interchange/default truncation and optional rotation do not supply
 this application's selected-service activation/restoration, exact child drain, sealed publication

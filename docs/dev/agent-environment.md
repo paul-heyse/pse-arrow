@@ -694,6 +694,14 @@ a selected signal. The supported transport is HTTP/protobuf. `just telemetry con
 shows effective selection, bounds and installed versions with credential values and endpoint
 paths redacted. Unavailable export does not change native admission, cancellation or results.
 
+Both SDK transports apply the resolved header selection at their public HTTP-client seam;
+an SDK's ambient-header merge cannot add authentication afterward. Python's owned requests
+session also disables ambient proxy/netrc authentication and uses uncompressed protobuf.
+Exporter/transport diagnostics are classified and redacted before their stderr handlers;
+application log payloads remain the application's responsibility. Exported `process.pid` is
+an integer; embedded Python and Rust share the actual PID and service incarnation while
+retaining their distinct SDK language/scope attributes.
+
 The service state is `PSE_TELEMETRY_STATE`, otherwise `$XDG_STATE_HOME/pse/telemetry`, falling
 back to `~/.local/state/pse/telemetry`. It belongs to the telemetry service, independently of
 checkouts, `.store`, scientific data and build caches. Collector queues and OpenObserve data

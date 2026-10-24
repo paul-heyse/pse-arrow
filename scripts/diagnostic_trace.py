@@ -325,7 +325,14 @@ def main() -> int:
     commands.add_parser("install").add_argument(
         "tool",
         nargs="?",
-        choices=("trace-processor", "mcpls", "rr", "sccache", "otelcol-contrib", "openobserve"),
+        choices=(
+            "trace-processor",
+            "mcpls",
+            "rr",
+            "sccache",
+            "otelcol-contrib",
+            "openobserve",
+        ),
         default="trace-processor",
     )
     inspect = commands.add_parser("query")

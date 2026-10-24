@@ -166,5 +166,5 @@ _diagnostic_render_analysis = _native.diagnostic_render_analysis
 _diagnostic_review_arrow = _native.diagnostic_review_arrow
 
 # Explicit telemetry host composition; no provider is installed by package import.
-_telemetry_initialize = _native._telemetry_initialize
-_telemetry_shutdown = _native._telemetry_shutdown
+_telemetry_initialize = _native._telemetry_initialize  # noqa: SLF001 -- this module owns the private compiled boundary.
+_telemetry_shutdown = _native._telemetry_shutdown  # noqa: SLF001 -- this module owns the private compiled boundary.

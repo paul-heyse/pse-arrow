@@ -411,32 +411,35 @@ impl MathService {
         let operation = self
             .frontier_flights
             .load_owned(key.clone(), move |control| {
-                telemetry.run("model.specialization.producer", population.run(async move {
-                    let producer_deadline = producer_deadline?;
-                    if let Some(frontier) = service.modeling_cache.frontier(&key) {
-                        return Ok(frontier);
-                    }
-                    let mut frontier = service
-                        .plan_frontier_controlled(
-                            workspace,
-                            revision,
-                            key.root,
-                            key.instance,
-                            key.bindings.clone(),
-                            key.limits,
-                            control,
-                            Some(producer_deadline),
-                        )
-                        .await
-                        .map_err(producer_failure)?;
-                    frontier.key = Some(key.clone());
-                    frontier.generation = generation;
-                    let frontier = Arc::new(frontier);
-                    service
-                        .modeling_cache
-                        .retain_frontier(generation, key, frontier.clone());
-                    Ok(frontier)
-                }))
+                telemetry.run(
+                    "model.specialization.producer",
+                    population.run(async move {
+                        let producer_deadline = producer_deadline?;
+                        if let Some(frontier) = service.modeling_cache.frontier(&key) {
+                            return Ok(frontier);
+                        }
+                        let mut frontier = service
+                            .plan_frontier_controlled(
+                                workspace,
+                                revision,
+                                key.root,
+                                key.instance,
+                                key.bindings.clone(),
+                                key.limits,
+                                control,
+                                Some(producer_deadline),
+                            )
+                            .await
+                            .map_err(producer_failure)?;
+                        frontier.key = Some(key.clone());
+                        frontier.generation = generation;
+                        let frontier = Arc::new(frontier);
+                        service
+                            .modeling_cache
+                            .retain_frontier(generation, key, frontier.clone());
+                        Ok(frontier)
+                    }),
+                )
             });
         tokio::pin!(operation);
         tokio::select! {
@@ -552,30 +555,34 @@ impl MathService {
         let operation =
             self.basis_flights
                 .load_owned((key.clone(), source_premises.clone()), move |control| {
-                    telemetry.run("compiler.materialization.producer", population.run(async move {
-                        let producer_deadline = producer_deadline?;
-                        if let Some(basis) = service.modeling_cache.basis(&key)
-                            && basis.source_premises == source_premises
-                        {
-                            return Ok(basis);
-                        }
-                        let model = service
-                            .complete_frontier_controlled(
-                                workspace,
-                                frontier,
-                                control,
-                                Some(producer_deadline),
-                            )
-                            .await
-                            .map_err(producer_failure)?;
-                        let basis = Arc::new(PreparedBasis::new(&service, model, source_premises)?);
-                        // Immutable local mathematics retains complete source premises. Durable
-                        // import/recording permissions remain with their actual adapters.
-                        service
-                            .modeling_cache
-                            .retain_basis(generation, key, basis.clone());
-                        Ok(basis)
-                    }))
+                    telemetry.run(
+                        "compiler.materialization.producer",
+                        population.run(async move {
+                            let producer_deadline = producer_deadline?;
+                            if let Some(basis) = service.modeling_cache.basis(&key)
+                                && basis.source_premises == source_premises
+                            {
+                                return Ok(basis);
+                            }
+                            let model = service
+                                .complete_frontier_controlled(
+                                    workspace,
+                                    frontier,
+                                    control,
+                                    Some(producer_deadline),
+                                )
+                                .await
+                                .map_err(producer_failure)?;
+                            let basis =
+                                Arc::new(PreparedBasis::new(&service, model, source_premises)?);
+                            // Immutable local mathematics retains complete source premises. Durable
+                            // import/recording permissions remain with their actual adapters.
+                            service
+                                .modeling_cache
+                                .retain_basis(generation, key, basis.clone());
+                            Ok(basis)
+                        }),
+                    )
                 });
         tokio::pin!(operation);
         tokio::select! {

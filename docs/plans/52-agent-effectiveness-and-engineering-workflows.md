@@ -596,10 +596,10 @@ inquiry and I13 remains the operator-view decision; this table does not duplicat
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
 | TQ01 | open | [TEL12](52r-operational-metrics-and-diagnostic-integration.md#TEL12), [TEL13](52s-telemetry-queries-and-agent-investigations.md#TEL13) | Qualify actual normalized query/reset/histogram/exemplar behavior and required claims. The direct fixture establishes pointer retention only; retain limited semantics or change the specific mechanism/backend if a required stronger consumer cannot be served. |
-| TQ02 | open | [TEL08](52q-local-telemetry-pipeline-and-health.md#TEL08) | Actual Collector/backend restart, queue expiry/overflow, storage failure and retention outcomes; query visibility is not crash durability. |
+| TQ02 | resolved | [TEL08](52q-local-telemetry-pipeline-and-health.md#TEL08) | [52q's outcome](52q-local-telemetry-pipeline-and-health.md#targeted-execution-outcome--2026-10-24) establishes the selected restart, retry-exhaustion, overflow, storage-startup refusal and controlled query-retention envelope. Runtime ENOSPC/corruption and universal crash durability remain unestablished, not implied support. |
 | TQ03 | open | [TEL15](52s-telemetry-queries-and-agent-investigations.md#TEL15) | Compare existing CPU/Perfetto/native capture with optional supported Pyroscope/eBPF/experimental context observation for one unresolved question; record adopted mechanism or sufficient existing route and revisit trigger. |
 | TQ04 | open | [TEL17](52s-telemetry-queries-and-agent-investigations.md#TEL17) | Demonstrate a useful exact condition/watch and OpenObserve OSS fit, or retain headless health/query reads with a consumer-based revisit; no automatic intervention or MCP scheduler follows. |
-| TQ05 | open | [TEL08](52q-local-telemetry-pipeline-and-health.md#TEL08), [TEL16](52s-telemetry-queries-and-agent-investigations.md#TEL16) | Determine whether standard finite collection/file export preserves current bounds, identities, restoration, losses and sealed evidence consumers. Delete the custom sink only after equivalent supported consumers qualify; file output alone is insufficient. |
+| TQ05 | resolved | [TEL08](52q-local-telemetry-pipeline-and-health.md#TEL08), [TEL16](52s-telemetry-queries-and-agent-investigations.md#TEL16) | [52q's disposition](52q-local-telemetry-pipeline-and-health.md#targeted-execution-outcome--2026-10-24) retains the existing finite capture: the selected standard file exporter does not supply its activation/restoration, drain, sealed publication and retained-reader contract. Revisit substitution only with a concrete composition closing those obligations; TEL16 still owns new custody integration. |
 
 ## Package state and execution route
 
@@ -964,6 +964,32 @@ need no placeholder ADR. TEL13 contributes only bounded known-record lookup/erro
 needed by pipeline/recovery consumers; its broader package and TEL14 remain open. F02/I11 and TEL16
 keep actual database continuity and new offline-custody integration. TQ05 may retain the existing
 finite capture for its distinct contract if standard collection is not equivalent.
+
+Shared process composition, native carriers/owner stages, owned services, independent health and
+bounded known-record reads are implemented. The actual service routing/recovery/retention and
+separately selected delivery-failure cases are recorded in [52q's outcome](52q-local-telemetry-pipeline-and-health.md#targeted-execution-outcome--2026-10-24).
+Independent review corrected private-child shutdown on the scientific reap path, Python lifecycle
+log correlation and real health endpoint/deadline attribution. The private one-shot child now keeps
+process-lifetime providers without network drain on exit; short-child telemetry may be entirely
+absent. Native join/reap/deadline contracts are unchanged. The bounded finite capture remains for
+its distinct preservation contract; broader database continuity and retrieval/custody work retain
+their owners above.
+
+Committed main through `00bab8d45` has been integrated, including dependency pruning and build
+tooling. Shared telemetry implementation is committed as `db8baeaaf`; the linked force-validated
+extension, generated actual-API stubs and 65 focused Python checks passed. A fresh actual pipeline
+case also rechecked signal delivery, restart recovery and controlled retention after the final
+Python HTTP-client fixes. Linked native boundary/child acceptance and scope-end checks remain
+in progress; these focused passes do not close those obligations. The maintainer additionally
+selected full workstation CPU use: `dbd959332` removes ordinary four-core allocations, defaults
+Cargo to 32 logical jobs, supplies 16 physical runner lanes and uses all 32 SMT CPUs in quota/
+affinity. The live native-compiler launch and 430 combined capacity/environment/supervisor tests
+passed. Native numerical demand weights and exclusions retain their separate meanings. Initial
+native acceptance compilation was deliberately interrupted to replace its accidental four-core
+placement; no scientific test failure is inferred. Final heavy native qualification awaits disk
+space; the existing compilation artifacts are preserved. Permanent
+service activation, merge to main and worktree removal remain deferred to the maintainer's Plan54
+completion/cutover signal. No telemetry service from isolated acceptance remains active.
 
 ### OpenTelemetry authoring checkpoint — 2026-10-24
 

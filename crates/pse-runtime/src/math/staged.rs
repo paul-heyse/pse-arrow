@@ -1577,7 +1577,9 @@ impl NativeSession {
                     }
                     Err(error) => Err(error.into()),
                 });
-                if let Err(error) = &outcome { crate::tooling::telemetry::diagnostic(error, "native.session.execute"); }
+                if let Err(error) = &outcome {
+                    crate::tooling::telemetry::diagnostic(error, "native.session.execute");
+                }
                 drop(context);
                 drop(_dispatch);
                 if let Some(context) = &observation {

@@ -205,6 +205,14 @@ the real server/module parent chain remain F02 acceptance, not a TEL03 fixture's
 Own provider shutdown outside a runtime thread needed for export. Test the resolved HTTP feature
 closure and selected host/current-thread runtime cases; a builder compiling is insufficient.
 Coarse spans/aggregation must keep network IO and blocking SDK shutdown out of native callbacks.
+
+The private one-shot lane is also inside its parent's scientific process-reap deadline. Its
+providers therefore remain process-owned statics with no synchronous network drain on exit;
+the original native join, cancellation, process reap and deadline checks are unchanged. Final
+batches, or all spans from a short solve, can be lost. Missing child records leave export
+continuity unestablished. Long-lived workers and embedded Python retain explicit provider
+shutdown after native work settles. This is a delivery-coverage limit, not permission to move
+scientific deadlines or treat parent-only spans as child continuity.
 Acceptance covers Python→PyO3→Rust and native-child edges, task/thread hops, fallible parent
 attachment, missing/malformed carrier, linked fan-in and operation continuation after caller end.
 Use independently chosen parent/link expectations and actual fixed consumer paths, alongside small

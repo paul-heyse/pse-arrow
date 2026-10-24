@@ -5,7 +5,10 @@
     unsafe_code,
     reason = "ADR-0185 controlled native child composition root consumes only the private inherited socket role"
 )]
-#[allow(clippy::print_stderr, reason = "private process host retains telemetry refusal on stderr")]
+#[allow(
+    clippy::print_stderr,
+    reason = "private process host retains telemetry refusal on stderr"
+)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args().skip(1);
     if args.next().as_deref() != Some("--private-native-root") {
@@ -25,7 +28,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let carrier = match std::env::var(pse_runtime::tooling::telemetry::CHILD_CARRIER_ENV) {
         Ok(value) => match pse_runtime::tooling::telemetry::Carrier::from_json(&value) {
             Ok(carrier) => carrier,
-            Err(_) => { eprintln!("pse-telemetry: native-child-carrier-invalid"); Default::default() }
+            Err(_) => {
+                eprintln!("pse-telemetry: native-child-carrier-invalid");
+                Default::default()
+            }
         },
         Err(_) => Default::default(),
     };

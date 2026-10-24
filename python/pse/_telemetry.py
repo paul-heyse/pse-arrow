@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING
 
 import msgspec
 
 from pse._build import _telemetry_initialize, _telemetry_shutdown
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 
 class NativeTelemetryLifetime:
@@ -25,6 +28,12 @@ class NativeTelemetryLifetime:
                 _telemetry_shutdown()
 
 
-def initialize(settings: Mapping[str, object], carrier_injector: Callable[[], dict[str, str]]) -> NativeTelemetryLifetime:
+def initialize(
+    settings: Mapping[str, object], carrier_injector: Callable[[], dict[str, str]]
+) -> NativeTelemetryLifetime:
     """The native owner samples the injector at execution ingress before detach."""
-    return NativeTelemetryLifetime(_telemetry_initialize(msgspec.json.encode(dict(settings)).decode(), carrier_injector))
+    return NativeTelemetryLifetime(
+        _telemetry_initialize(
+            msgspec.json.encode(dict(settings)).decode(), carrier_injector
+        )
+    )
