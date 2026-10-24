@@ -1,5 +1,12 @@
 # Functional opportunity reviews
 
+The [OpenTelemetry and agent-observability review](opentelemetry-and-agent-observability-2026-10-24.md)
+assesses shared Python/Rust/database telemetry and structured access through the single FastMCP
+endpoint. It develops twenty opportunities, a proposed Collector/OpenObserve architecture,
+native propagation seams, alternatives and rule impacts. Isolated SDK and disposable backend
+inquiries retain their actual scope and semantic limitations; no production telemetry or
+existing plan change is authorized by the review.
+
 The [Rust build-reuse tooling review](rust-build-reuse-tooling-2026-10-24.md) assesses
 sccache, cargo-shear and cargo-hakari for one local machine. It recommends sccache 0.18.0 with
 a declared version and the current incremental split. It corrects the premise that basedirs
