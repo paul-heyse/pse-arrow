@@ -312,7 +312,10 @@ def main(argv: list[str] | None = None) -> int:
         command, description = codex_session.session_description(
             state=None, database=False, rust=False, python=False,
             require_database=False, require_rust=False,
-            arguments=["-a", "never", "--disable", "shell_tool", "exec", "--json", "--ephemeral", "--sandbox", "read-only", "--color", "never", "-"],
+            # Only this explicit acceptance journey preapproves its one authorized
+            # action wrapper. Native actions keep effectful annotations; ordinary
+            # sessions retain inherited operator approval policy.
+            arguments=["-c", 'mcp_servers.pse-capabilities.tools.capabilities_invoke_action.approval_mode="approve"', "-a", "never", "--disable", "shell_tool", "exec", "--json", "--ephemeral", "--sandbox", "read-only", "--color", "never", "-"],
         )
         output = validation.fresh_output(ROOT, output, "capability-codex")
     except (OSError, ValueError) as error:

@@ -66,6 +66,17 @@ class ObservedContent(Middleware):
 
 
 class PresentationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_content_projections_are_truthfully_read_only(self) -> None:
+        async with Client(self.server) as client:
+            tools = await client.list_tools()
+        projections = [tool for tool in tools if tool.name in PROJECTIONS]
+        self.assertEqual({tool.name for tool in projections}, PROJECTIONS)
+        for tool in projections:
+            self.assertIsNotNone(tool.annotations)
+            assert tool.annotations is not None
+            self.assertTrue(tool.annotations.read_only_hint)
+            self.assertFalse(tool.annotations.destructive_hint)
+
     async def asyncSetUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

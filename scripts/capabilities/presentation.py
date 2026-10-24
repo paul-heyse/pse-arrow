@@ -11,16 +11,47 @@ from typing import TYPE_CHECKING
 
 from fastmcp.exceptions import PromptError, ResourceError
 from fastmcp.prompts import Prompt
-from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools
+from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools, Transform
+from mcp.types import ToolAnnotations
 
 from scripts.capabilities.catalogue import Catalogue
 from scripts.capabilities.guidance import Guidance
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from fastmcp import FastMCP
+    from fastmcp.server.transforms import GetToolNext
+    from fastmcp.tools import Tool
+    from fastmcp.utilities.versions import VersionSpec
 
 MAX_PROMPT_BYTES = 256 * 1024
 CAPABILITY_TEMPLATE = "pse://capabilities/{capability}"
+CONTENT_TOOLS = frozenset({"list_resources", "read_resource", "list_prompts", "get_prompt"})
+
+
+class ContentAnnotations(Transform):
+    """Describe the effects of this endpoint's pure content projections.
+
+    Framework prompt projections have no default effect annotations. Preserve
+    their actual dispatch and schemas, adding only the truthful local contract.
+    This transform never changes action-tool annotations or host permissions.
+    """
+
+    @staticmethod
+    def annotate(tool: Tool) -> Tool:
+        if tool.name not in CONTENT_TOOLS:
+            return tool
+        return tool.model_copy(update={"annotations": ToolAnnotations(
+            readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False,
+        )})
+
+    async def list_tools(self, tools: Sequence[Tool]) -> Sequence[Tool]:
+        return [self.annotate(tool) for tool in tools]
+
+    async def get_tool(self, name: str, call_next: GetToolNext, *, version: VersionSpec | None = None) -> Tool | None:
+        tool = await call_next(name, version=version)
+        return self.annotate(tool) if tool is not None else None
 
 
 @dataclass(frozen=True)
@@ -105,4 +136,5 @@ def register(
     # visibility, authorization and middleware for both native and tool clients.
     server.add_transform(ResourcesAsTools(server))
     server.add_transform(PromptsAsTools(server))
+    server.add_transform(ContentAnnotations())
     return Presentation(workflow_keys)
