@@ -16,6 +16,7 @@ from unittest.mock import Mock, patch
 
 from scripts.tests import canonical_boundary_run as boundary
 from scripts.tests import plan30_context_overlap_run as overlap
+from scripts.tests import plan50_database_fixture as database_fixture
 
 
 class RestartPeerTests(unittest.TestCase):
@@ -150,17 +151,45 @@ class RestartPeerTests(unittest.TestCase):
         (self.directory / "python-native.json").write_text("{}")
         with (
             patch.object(sys, "argv", ["overlap", "python-child", str(self.directory)]),
-            patch.dict(os.environ, {"PSE_TEST_EXECUTION_PROFILE": "exclusive-observer"}),
+            patch.dict(os.environ, {"PSE_TEST_EXECUTION_PROFILE": "exclusive-observer", "PSE_TEST_REQUIRED_ROLES": "context-overlap"}),
             patch.object(overlap.host_admission, "inherit", return_value=object()),
             patch.object(overlap.native_tests, "python_native_binary", return_value=self.directory / "native.so"),
             patch.object(overlap.producer_deployment, "file_observation", return_value={}),
             patch.object(overlap.test_run, "run_python", return_value=0) as run,
         ):
             self.assertEqual(overlap.main(), 0)
+            self.assertEqual(os.environ.get("PSE_TEST_REQUIRED_ROLES"), "context-overlap")
         command = run.call_args.args[0]
         self.assertIn(str(overlap.ROOT / "scripts/tests/test_plan30_context_overlap.py"), command)
         self.assertEqual(command[command.index("-m", 3) + 1], "component")
         self.assertEqual(command[command.index("-n") + 1], "0")
+
+    def test_database_driver_runs_api_and_operator_as_separate_selections(self) -> None:
+        tool = self.directory / "xtask"
+        tool.touch()
+        arguments = [
+            "database-fixture", "--query-only", "--state", str(self.state),
+            "--tool-root", str(self.directory), "--evidence", str(self.directory / "evidence"),
+            "--initializer", str(tool),
+        ]
+        with (
+            patch.object(sys, "argv", arguments),
+            patch.object(database_fixture.subprocess, "call", side_effect=[0, 7]) as run,
+        ):
+            self.assertEqual(database_fixture.main(), 7)
+        self.assertEqual(run.call_count, 2)
+        api, operator = [call.args[0] for call in run.call_args_list]
+        self.assertIn("test(canonical_candidates_inspection) | test(canonical_graph_explanation)", api)
+        self.assertIn("scripts.tests.canonical_boundary_run", operator)
+        self.assertIn("operator", operator)
+        self.assertEqual(operator[-2:], ["--executor", str(tool)])
+        self.assertNotIn("PSE_CANONICAL_TOOLS", run.call_args_list[0].kwargs["env"])
+        with (
+            patch.object(sys, "argv", arguments),
+            patch.object(database_fixture.subprocess, "call", return_value=3) as run,
+        ):
+            self.assertEqual(database_fixture.main(), 3)
+        run.assert_called_once()
 
     def test_selected_operator_missing_prerequisite_fails_within_budget(self) -> None:
         environment = dict(os.environ)
@@ -198,6 +227,10 @@ class RestartPeerTests(unittest.TestCase):
             self.assertTrue(control.is_dir())
             events.append("created")
 
+        def setup(_):
+            self.assertNotIn("CMAKE_TOOLCHAIN_FILE", os.environ)
+            state.mkdir()
+
         self.process.wait.return_value = 0
         self.process.poll.return_value = 0
         parent = str(self.directory / "parent-invocation.json")
@@ -209,8 +242,10 @@ class RestartPeerTests(unittest.TestCase):
         with (
             patch.dict(os.environ, {boundary.test_resources.MARKER: parent}),
             patch.object(boundary, "ROOT", self.directory),
+            patch.object(boundary.reference_run, "freeze_initializer", return_value=initializer),
+            patch.object(boundary.native_operation, "environment", side_effect=lambda _, env: {**env, "CMAKE_TOOLCHAIN_FILE": "selected-native-toolchain"}),
             patch.object(boundary.native_tests, "ordinary_rust_capture", return_value=(["prepared"], self.directory / "worker")),
-            patch.object(boundary.server, "setup", side_effect=lambda _: state.mkdir()),
+            patch.object(boundary.server, "setup", side_effect=setup),
             patch.object(boundary.server, "initialize"),
             patch.object(boundary.server, "config_for", return_value={}),
             patch.object(boundary.server, "start"),
@@ -228,10 +263,11 @@ class RestartPeerTests(unittest.TestCase):
             patch.object(boundary, "restart_handshake", side_effect=handshake),
         ):
             boundary.restart_journey(directory, "selected-component-peer")
-        require.assert_called_once_with({"test": "selected-component-peer"}, effect="canonical")
+        self.assertEqual([call.kwargs["effect"] for call in require.call_args_list], ["canonical", "native"])
         self.assertEqual(events, ["registered", "created"])
         self.assertNotIn(boundary.test_resources.MARKER, launch.call_args.kwargs["env"])
         self.assertEqual(launch.call_args.kwargs["env"]["PSE_SURREAL_STATE"], str(state))
+        self.assertEqual(launch.call_args.kwargs["env"]["CMAKE_TOOLCHAIN_FILE"], "selected-native-toolchain")
         stop.assert_called_once_with(state, {})
         drain.assert_called_once_with("1" * 32)
         peer_observation.assert_called_once_with({"test": "selected-component-peer"}, Path(peer["child"]), role="external-restart")

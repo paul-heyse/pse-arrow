@@ -772,6 +772,8 @@ def observer_rust(
         on_invocation(invocation)
     forwarded = {
         **fixtures,
+        **({"PSE_TEST_REQUIRED_ROLES": environment["PSE_TEST_REQUIRED_ROLES"]}
+           if "PSE_TEST_REQUIRED_ROLES" in environment else {}),
         resources.MARKER: str(invocation),
         "PSE_NATIVE_PROVENANCE": str(provenance),
         "PSE_NATIVE_SELECTION": str(selection),

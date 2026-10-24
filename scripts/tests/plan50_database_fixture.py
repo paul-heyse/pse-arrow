@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from scripts import test_resources
@@ -38,10 +39,8 @@ def main() -> int:
     environment = {
         **os.environ,
         "PSE_SURREAL_STATE": str(args.state),
-        "PSE_DIAGNOSTIC_EVIDENCE": str(args.evidence / "canonical"),
-        "PSE_CANONICAL_TOOLS": str(args.initializer.resolve(strict=True)),
     }
-    return subprocess.call(
+    code = subprocess.call(
         [
             str(ROOT / "scripts/pse-env"),
             "--native",
@@ -53,6 +52,20 @@ def main() -> int:
             "test(canonical_candidates_inspection) | test(canonical_graph_explanation)",
             "--features",
             "pse-operations/canonical-tests",
+        ],
+        env=environment,
+        cwd=ROOT,
+    )
+    if code:
+        return code
+    # The substantive API assertions and optional operator evidence have distinct
+    # selected invocations. Neither can silently stand in for the other.
+    return subprocess.call(
+        [
+            str(ROOT / "scripts/pse-env"), "--native", "--store", "--",
+            sys.executable, "-m", "scripts.tests.canonical_boundary_run", "operator",
+            str(args.evidence / "canonical" / "operator"),
+            "--executor", str(args.initializer.resolve(strict=True)),
         ],
         env=environment,
         cwd=ROOT,
