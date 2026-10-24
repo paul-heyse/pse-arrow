@@ -47,6 +47,18 @@ class InvocationTests(unittest.TestCase):
             with self.subTest(arguments=arguments), self.assertRaises(ValueError):
                 test_invocation.rust(arguments, {})
 
+    def test_historical_target_remap_survives_native_report_configuration(self) -> None:
+        request = test_invocation.rust([
+            "--binaries-metadata", "/archive/binaries.json",
+            "--cargo-metadata", "/archive/cargo.json",
+            "--target-dir-remap", "/extracted/target",
+            "--workspace-remap", "/extracted/workspace", "-E", "test(real)",
+        ], {})
+        self.assertEqual(request.values("--target-dir-remap"), ("/extracted/target",))
+        self.assertIn("--target-dir-remap", request.listing())
+        self.assertIn("--target-dir-remap", request.preparation()[0])
+        self.assertNotIn("--target-dir-remap", request.graph())
+
     def test_report_copy_preserves_custom_repository_and_lower_priority_tool_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -75,7 +75,7 @@ class ArchiveRequest(BaseModel):
 
     output: str = Field(min_length=1)
     package: str = Field(min_length=1)
-    filter: str = Field(min_length=1)
+    filter: str = Field(min_length=1, description="Native nextest filter expression, for example test(checksum). Bare words are not expressions on this archival route.")
     test: str | None = Field(default=None, min_length=1)
     lib: bool = False
     features: str = ""

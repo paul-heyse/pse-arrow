@@ -43,7 +43,7 @@ RUN_FLAG = frozenset({
 SELECT_VALUE = frozenset({
     "--filter-expr", "--profile", "--config-file", "--tool-config-file", "--list-type",
     "--partition", "--archive-file", "--binaries-metadata", "--cargo-metadata",
-    "--workspace-remap", "--run-ignored", "--skip", "--color",
+    "--workspace-remap", "--target-dir-remap", "--run-ignored", "--skip", "--color",
 })
 SELECT_FLAG = frozenset({
     "--ignored", "--include-ignored", "--ignore-default-filter", "--no-deps", "--exact",
