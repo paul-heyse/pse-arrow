@@ -467,7 +467,7 @@ class ConfigurationTests(unittest.TestCase):
                     "validate_cache_binary",
                     side_effect=lambda _root, value: Path(value),
                 ),
-                patch.object(doctor, "run", return_value=(0, "sccache 0.18.0")) as run,
+                patch.object(doctor, "run", return_value=(0, "sccache 0.19.0")) as run,
             ):
                 check = doctor.check_compiler_cache()
                 self.assertTrue(check.ok, check.detail)
@@ -478,7 +478,7 @@ class ConfigurationTests(unittest.TestCase):
     def test_doctor_rejects_non_elf_override_before_executing_it(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             override = Path(directory) / "sccache"
-            override.write_text("#!/bin/sh\nprintf 'sccache 0.18.0\\n'\n")
+            override.write_text("#!/bin/sh\nprintf 'sccache 0.19.0\\n'\n")
             override.chmod(0o755)
             with (
                 patch.object(diagnostic_trace, "verify_binary"),
@@ -490,7 +490,7 @@ class ConfigurationTests(unittest.TestCase):
                         "PSE_SCCACHE_BINARY": str(override),
                     },
                 ),
-                patch.object(doctor, "run", return_value=(0, "sccache 0.18.0")) as run,
+                patch.object(doctor, "run", return_value=(0, "sccache 0.19.0")) as run,
             ):
                 check = doctor.check_compiler_cache()
             self.assertFalse(check.ok)

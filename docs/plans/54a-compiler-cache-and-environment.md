@@ -32,11 +32,10 @@ sufficient to verify a prebuilt non-Cargo binary.
 
 ## A01 — Declare, install and actually select the pinned tools
 
-Extend the existing diagnostic-tool declaration with sccache 0.18.0, the official
+Extend the existing diagnostic-tool declaration with sccache 0.19.0, the official
 x86_64-unknown-linux-musl archive, its selected member and verified archive SHA-256.
-The source review reports archive digest
-45f1447fbe231e3037bde351ef70677dd212216c8d62ae7ca409fecc4d6acc89;
-verify it against the downloaded official asset before publishing the declaration. Use the
+The verified official archive digest is
+aa73c7270c997894038c0d8f0d297865f57569e1687883322bc431713d4bb9dd. Use the
 existing versioned diagnostic-tool installation machinery, extending its supported tool
 names/bootstrap route as needed. Do not create an independent installer or cargo-install
 pin for the same binary. Record installed executable identity through that owner so doctor
@@ -59,17 +58,17 @@ generation, without killing another operation's daemon or flushing the shared ca
 use per-build full archive verification; installation/doctor establish the managed asset,
 and the existing executable-generation checks protect actual use.
 
-sccache 0.18 retains Rust cache-key version 6; the original review measured compatibility
-on its selected Rust probe. C-family key version changes from 12 to 13. This makes old
-C/C++ compiler-cache entries unavailable to new matching invocations; it is not an instruction
-to delete existing native preparations or force an otherwise unnecessary rebuild. Backend
-features of the installed release must support the selected local cache/client-side path.
+sccache 0.19 uses Rust cache-key version 7 and C-family version 13. Populate new Rust
+entries under the selected release; no compatibility with earlier Rust keys is assumed.
+This is not an instruction to clear shared caches, delete native preparations or force an
+otherwise unnecessary Cargo rebuild. The selected official executable supports local disk
+storage and client-side compilation.
 
 **Acceptance, proposed:** extend the existing diagnostic installation/bootstrap/doctor and
 scripts/tests/test_build_environment.py controls for a valid managed install, missing tool,
 wrong version or changed installed bytes, competing PATH binary, explicit real-binary
 override, disabled/custom wrapper, and nested environment composition. Execute the actual
-selected 0.18.0 binary with just build-cache-probe: one eligible miss then hit and incremental
+selected 0.19.0 binary with just build-cache-probe: one eligible miss then hit and incremental
 pass-through on a disposable endpoint. This establishes transport/selection, not workspace
 benefit. Run just ready after installing/changing the selected tool as the environment route
 requires. No wholesale dependency update or shared cache clearing is part of A01.
@@ -77,9 +76,9 @@ requires. No wholesale dependency update or shared cache clearing is part of A01
 ## A02 — Preserve compiler ownership under logging and mode changes
 
 Fix CB09 at both build_environment.configure and compiler_cache.supervised_compile.
-The tagged [sccache configuration](https://github.com/mozilla/sccache/blob/v0.18.0/src/config.rs#L1412-L1419)
+The tagged [sccache configuration](https://github.com/mozilla/sccache/blob/v0.19.0/src/config.rs#L1412-L1419)
 checks presence of LOGGING_ENV, defined as
-[SCCACHE_LOG](https://github.com/mozilla/sccache/blob/v0.18.0/src/lib.rs#L60-L62),
+[SCCACHE_LOG](https://github.com/mozilla/sccache/blob/v0.19.0/src/lib.rs#L60-L62),
 before enabling client-side compilation. An empty SCCACHE_LOG also disables it. A configured
 distributed scheduler disables it too. SCCACHE_ERROR_LOG is separately restricted by the
 repository's existing policy; do not misdescribe the two variables as identical upstream
@@ -116,7 +115,7 @@ must receive the updated environment; deleting configuration does not change exi
 processes. Preserve explicit human presentation choices, and distinguish their requested
 semantics from repository-created defaults when reporting key differences.
 
-The exact [Rust key construction](https://github.com/mozilla/sccache/blob/v0.18.0/src/compiler/rust.rs#L1554-L1595)
+The exact [Rust key construction](https://github.com/mozilla/sccache/blob/v0.19.0/src/compiler/rust.rs#L1839-L1882)
 hashes dep-info environment inputs and almost all CARGO_* variables. CARGO_TERM_COLOR and
 CARGO_TARGET_DIR are not excluded. Inspect actual equivalent caller inputs to identify
 other repository-created accidental differences, but do not add a blanket environment
@@ -143,49 +142,34 @@ below do not close the remaining series packages or qualify scientific/product w
 
 ## Verification and Outcome — 2026-10-24
 
-**Implemented:** A01 uses the existing diagnostic installer and a versioned managed path,
-never implicit PATH discovery for the default. The downloaded official archive matches the
-SHA-256 above; its extracted executable matches the declared binary SHA-256
-973cb15f6a986d84ca334bbed3bbe2eb8f1ee8fd81bf9e115b8539a293bf8d59.
-The executable digest is declared beside the archive rather than recorded in another mutable
-receipt. Installation and doctor verify those bytes; ordinary cache admission reuses its
-existing digest calculation to reject drift before service allocation. Explicit foreground
-probes bypass service admission and are not evidence that every control command verifies bytes.
-The declaration also pins cargo-shear 1.14.0; it was already installed at that version.
-No lockfile or dependency graph changed.
+**Implemented:** the selected tool is sccache 0.19.0 through the existing versioned installer.
+The declared official archive digest is verified above; executable SHA-256 is
+0b44834be857e21b026f7db49a7762023fedb5eb5ed60725a66f698d8d79a34b.
+Installation/doctor verify the managed bytes, and ordinary service admission reuses its
+existing digest calculation to refuse drift before allocation. Explicit foreground probes
+bypass that service-admission boundary. cargo-shear remains exactly 1.14.0.
 
-**Implemented:** A02 shares one logging/scheduler eligibility decision at environment
-composition, ordinary managed entry and final launch. Automatic fallback preserves logging
-settings; explicit caching refuses incompatible modes. A03 removes CARGO_TERM_COLOR from both
-agent defaults while preserving explicit callers. Enduring operation/selection guidance lives
-in the [build-performance](../dev/build-performance.md) and
-[environment](../dev/agent-environment.md) guides. Existing sessions retain inherited values.
+**Implemented:** shared mode eligibility covers logging and scheduler controls at environment
+composition and final managed launch. Automatic direct fallback preserves caller settings;
+explicit cache requests refuse unsupported modes. Both agent defaults leave CARGO_TERM_COLOR
+unset, with explicit caller values preserved. Current guidance lives in the
+[build-performance](../dev/build-performance.md) and [environment](../dev/agent-environment.md)
+guides. Existing sessions require refresh.
 
-**Tested:** zero-failure baseline; current Linux host, pinned nightly, actual sccache 0.18.0:
+**Tested:** zero-failure baseline, current Linux host and pinned nightly, actual sccache 0.19.0:
 
-- `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_diagnostic_trace scripts.tests.test_setup.ConfigurationTests scripts.tests.test_cargo_tools scripts.tests.test_build_environment.BuildEnvironmentTests scripts.tests.test_compiler_cache scripts.tests.test_build_cache_probe scripts.tests.test_pse_env.PseEnvTests scripts.tests.test_semantic_navigation scripts.tests.test_codex_session` — 106 passed, zero failures. Covers installer archive/member/byte controls, missing/default/override/disabled/custom selections, nested composition, logging/scheduler refusals, ownership fixtures and adjacent consumers.
-- Independent implementation review found doctor would execute a non-ELF override that the compiler boundary rejected. Both now use the same stdlib-only real-executable validator. `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_setup.ConfigurationTests` after the final doctor integration — 14 passed, zero failures, including refusal before override execution.
-- Scope-end Ruff inspection of the eight changed Python files initially reported eight findings (configuration error handling, bootstrap import placement and type-only/test imports). Corrected all eight without weakening the checks. `scripts/pse-env -- .venv/bin/ruff check scripts/build_environment.py scripts/compiler_cache.py scripts/diagnostic_trace.py scripts/doctor.py scripts/tests/test_build_environment.py scripts/tests/test_compiler_cache.py scripts/tests/test_diagnostic_trace.py scripts/tests/test_setup.py` — passed, zero findings. `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_build_environment.BuildEnvironmentTests scripts.tests.test_compiler_cache scripts.tests.test_setup.ConfigurationTests` — 42 passed, zero failures after these changes, including unsupported configuration table shapes using the same fallback/refusal contract.
-- `just diagnostic-tools sccache` — passed; actual official binary installed through the declared owner. `just build-cache-probe` — passed; one eligible Rust miss then hit and incremental pass-through on a disposable foreground endpoint, zero cache errors.
-- `just ready` — passed, zero failures; compiler-cache doctor reports the verified managed default. Evidence: `build/assessment/20261024T195248.125584Z-ready-3187178-7e515f/`.
-- `scripts/pse-env -- .venv/bin/python /tmp/pse-real-cache-acceptance.py` — four isolated real-binary control groups passed, zero failures. Empty/nonempty SCCACHE_LOG refused with status 125 before service descriptors; repeat compilation produced one miss and one hit. Observed rustc processing the requested source in the caller's cgroup, separate from the daemon. SIGTERM returned 143, drained observed descendants and left the daemon alive. Cleanup stopped only the probe's service, removed its authenticated unit and released its allocation.
-- `scripts/pse-env -- .venv/bin/python /tmp/pse-a03-callers.py` — passed, zero failures. A real terminal PTY populated a private foreground cache; a fresh ephemeral Codex CLI session invoked the same pinned rustc selection and reused it. Exact argv and relevant CARGO environment matched, CARGO_TERM_COLOR absent in both, terminal TTY true and agent TTY false; final statistics one miss/one hit, zero errors. Only the launch parent dropped the old inherited repository default; the helper did not scrub caller CARGO inputs. Both repository config defaults were removed; a fresh Claude runtime was not separately exercised.
+- `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_diagnostic_trace scripts.tests.test_setup.ConfigurationTests` — 24 passed, zero failures, including verified install/default/override controls.
+- `just diagnostic-tools sccache` and `just build-cache-probe` — passed; eligible Rust one miss/one hit and incremental pass-through, zero cache errors.
+- `just ready` — passed, zero failures; doctor selected the verified managed default. Evidence: `build/assessment/20261024T200730.588851Z-ready-3240367-9090bc/`.
+- `scripts/pse-env -- .venv/bin/python /tmp/pse-real-cache-acceptance.py` — four real isolated control groups passed, zero failures. Empty/nonempty SCCACHE_LOG refused before service descriptors; repeated compilation produced one miss/one hit. Actual rustc processing the requested source remained in the caller's allocation, outside the daemon's allocation. SIGTERM returned 143 and drained observed descendants while the daemon survived. Owned service/unit/allocation cleanup completed.
+- `scripts/pse-env -- .venv/bin/python /tmp/pse-a03-callers.py` — passed, zero failures. Actual terminal PTY and fresh ephemeral Codex session selected 0.19.0, with identical rustc argv and relevant CARGO inputs. CARGO_TERM_COLOR was absent in both; final statistics one miss/one hit, zero cache errors. The private server was reaped. A fresh Claude runtime was not separately exercised.
 
-Probe scripts and bounded receipts are retained under `build/assessment/plan54a-20261024/`.
-The first ownership observer failed because it scanned only a process's main-thread child
-list. Its diagnostic is retained; scanning every thread's children corrected the observer.
-A subsequent stricter observation selected rustc processing the requested source, excluding
-compiler-discovery subprocesses. This was an acceptance-probe correction, not a product repair.
+Current scripts/receipts are retained under `build/assessment/plan54a-20261024/`; superseded
+active version evidence was replaced. Tagged 0.19 source retains SCCACHE_LOG-presence and
+scheduler restrictions. Its Rust dep-info is generated locally. Client-side statistics can
+show compile_requests=0 while requests_executed=2; measurements use actual hit/miss counters
+and executed requests rather than treating compile_requests as a universal denominator.
 
-**Measured:** controlled eligible invocation reuse only. No complete-workflow timing, cache
-economics, relocation support, workspace speedup or twofold benefit is claimed. F01/OUT_DIR,
-Cargo freshness/dependency changes, campaign target normalization, strict shear adoption and
-assembled qualification remain with 54b–54d. Scope-end hygiene and comprehensive product
-qualification are not run here; D02 owns joined series acceptance.
-
-**Tested:** `just turn-end` passed with zero failures (ADR index and formatting); evidence
-`build/assessment/20261024T195559.129698Z-turn-end-3200205-462645/` after the scoped repairs.
-`just docs` published 653 chapters with scoped search; `scripts/pse-env --docs -- python3 -m scripts.document_lifecycle validate`
-passed with zero errors and 1,355 native scope items validated in the concurrent working tree.
-No completed document is retired: this companion is consumed by active 54b–54d and the
-coordinator, while the broader source reviews retain unresolved work.
+**Measured:** eligible controlled reuse only. No workspace speedup, relocation remedy or
+whole-product qualification is claimed. The remaining 54b–54d scope owns actual graph/freshness,
+cache economics and joined qualification. This companion remains for those active readers.

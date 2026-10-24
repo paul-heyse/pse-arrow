@@ -94,7 +94,7 @@ class DiagnosticBinaryTests(unittest.TestCase):
         self.environment = {"HOME": str(self.root)}
         self.binary = b"pinned executable bytes"
         self.spec = {
-            "version": "0.18.0",
+            "version": "0.19.0",
             "url": "https://example.test/sccache.tar.gz",
             "sha256": "",
             "binary_sha256": hashlib.sha256(self.binary).hexdigest(),
@@ -130,11 +130,11 @@ class DiagnosticBinaryTests(unittest.TestCase):
         with patch.dict("os.environ", {"XDG_DATA_HOME": "/ambient/not-selected"}):
             selected = trace.binary_path("sccache", self.environment)
         self.assertEqual(
-            selected, self.root / ".local/share/pse/tools/sccache/0.18.0/sccache"
+            selected, self.root / ".local/share/pse/tools/sccache/0.19.0/sccache"
         )
         self.assertEqual(
             trace.binary_path("sccache", {"XDG_DATA_HOME": str(self.root)}),
-            self.root / "pse/tools/sccache/0.18.0/sccache",
+            self.root / "pse/tools/sccache/0.19.0/sccache",
         )
 
     def test_verified_install_reused_and_changed_bytes_refused(self) -> None:

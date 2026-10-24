@@ -2,10 +2,10 @@
 # Copyright (c) 2026 Paul Heyse
 # Explicit optional tools; installation is never a passive diagnostic side effect.
 [sccache]
-version = "0.18.0"
-url = "https://github.com/mozilla/sccache/releases/download/v0.18.0/sccache-v0.18.0-x86_64-unknown-linux-musl.tar.gz"
-sha256 = "45f1447fbe231e3037bde351ef70677dd212216c8d62ae7ca409fecc4d6acc89"
-binary_sha256 = "973cb15f6a986d84ca334bbed3bbe2eb8f1ee8fd81bf9e115b8539a293bf8d59"
+version = "0.19.0"
+url = "https://github.com/mozilla/sccache/releases/download/v0.19.0/sccache-v0.19.0-x86_64-unknown-linux-musl.tar.gz"
+sha256 = "aa73c7270c997894038c0d8f0d297865f57569e1687883322bc431713d4bb9dd"
+binary_sha256 = "0b44834be857e21b026f7db49a7762023fedb5eb5ed60725a66f698d8d79a34b"
 member = "sccache"
 archive = "tar.gz"
 
