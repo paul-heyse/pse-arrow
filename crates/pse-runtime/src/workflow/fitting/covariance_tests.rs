@@ -1107,3 +1107,113 @@ fn covariance_policy_preserves_exact_evidence_and_backsolve_refusals() {
     }
     assert!(finite_covariance_policy(&[1., 0., 0., 2.]).is_ok());
 }
+
+/// An explicit state variable and nonlinear equality retain constraint curvature
+/// in the fit KKT system. No polynomial substitution removes that boundary.
+#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+async fn nonlinear_state_fit_package(
+    runtime: crate::workflow::Runtime,
+    observed_x: f64,
+) -> crate::workflow::ModelingPackage {
+    let mut physical = crate::workflow::tests::physical();
+    physical.preconditions = Arc::new(
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
+    );
+    let mut source = pse_authoring::language::parse(
+        "package nonlinear_fit { def Root {
+            param x: Scalar = 0.8; var y: Scalar;
+            eq state: y - x*x == 0;
+            annotation start y(0.7);
+            annotation engineering_scale y(kind=magnitude,value=7);
+        } }",
+        id(20), pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    ).unwrap();
+    let root = source.iter().find(|row| row.name=="Root").unwrap().declaration_id;
+    source.extend(measured_rows(&[
+        (id(40), "Scalar", Some(observed_x), Some(1.)),
+        (id(41), "Scalar", Some(0.), Some(1.)),
+    ]));
+    let mut declarations = FitDeclarations::default();
+    declarations.fits.push(serde_json::from_value(serde_json::json!({
+        "fit_id":id(32),
+        "parameters":[{"symbol_id":id(A),"fixed":false,"value":0.8,"lower":null,"upper":null,"scale":2.0}],
+        "experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(A),"path":"x"}]}],
+        "observations":[
+            {"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(41),"experiment_id":id(33),"output_path":"y","time":null,"included":true,"importance":1.0},
+            {"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(40),"experiment_id":id(33),"output_path":"x","time":null,"included":true,"importance":1.0}
+        ]
+    })).unwrap());
+    runtime.modeling_package(source, physical).await.unwrap()
+        .with_fit_declarations(declarations).await.unwrap()
+}
+
+/// Half absolute-sigma RSS gives exact information 1+6s² after the
+/// lambda=-s² state constraint curvature. Response-only information is 1+4s².
+/// The two nonzero-residual optima distinguish both formulas and a stale point.
+#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[tokio::test]
+async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
+    use pse_relations::generated::runtime::{fit_observations, local_validity};
+    use crate::workflow::modeling::sensitivity_tests::reopened_rows;
+    let runtime = crate::workflow::durable_tests::durable_runtime();
+    for (observed_x, s) in [(3., 1.), (18., 2.)] {
+        let package = nonlinear_state_fit_package(runtime.clone(), observed_x).await;
+        for (hessian, approximation, information) in [
+            (HessianMode::Exact, CovarianceApproximation::Exact, 1.+6.*s*s),
+            (HessianMode::GaussNewton, CovarianceApproximation::GaussNewton, 1.+4.*s*s),
+        ] {
+            let mut controls = profile(hessian, None);
+            controls.solver.numerics.kkt.stationarity = 1e-9;
+            controls.solver.numerics.kkt.complementarity = 1e-9;
+            controls.solver.numerics.linear_backward_error = 1e-9;
+            controls.solver.numerics.supplier_action_accuracy = 1e-9;
+            controls.solver.numerics.engineering_relative_fraction = 1e-7;
+            let prepared = package.prepare_fit(
+                id(32).into(), controls, compiler_profile(), Default::default(),
+                &crate::CancelSource::new(),
+            ).await.unwrap();
+            assert_eq!(prepared.problem.bounds.len(), 2, "one parameter plus one explicit state");
+            assert_eq!(prepared.problem.bounds[0], (f64::NEG_INFINITY, f64::INFINITY));
+            let result = prepared.start().unwrap().wait().await.unwrap();
+            assert!(result.usable(), "{:?}", result.report());
+            let fitted = report(&result);
+            assert!(fitted.estimate_qualified(), "{fitted:?}");
+            assert_eq!(fitted.rank, Some(1));
+            assert_eq!(fitted.constraint_values.len(), 1);
+            assert!(fitted.constraint_values[0].abs() < 1e-6, "{fitted:?}");
+            let predictions = fit_observations::Row::rows(&result.table("runtime.fit_observations").unwrap()).unwrap();
+            for (observation, expected) in [(id(40),s), (id(41),s*s)] {
+                let row = predictions.iter().find(|row| row.observation_id==observation).unwrap();
+                assert!((row.prediction.unwrap()-expected).abs() < 1e-5, "{row:?}");
+            }
+            let expected_objective = 0.5*(s-observed_x).powi(2)+0.5*s.powi(4);
+            assert!((fitted.objective.unwrap()-expected_objective).abs() < 1e-5);
+            // Scientific covariance assertion, independently of serialization/readback.
+            let covariance = fitted.covariance.as_ref().unwrap();
+            assert_eq!(covariance.approximation, approximation);
+            assert_eq!(covariance.parameters, vec![id(A)]);
+            assert_eq!(covariance.scales, vec![2.]);
+            let variance = covariance.values.as_ref().unwrap();
+            assert_eq!(variance.len(), 1);
+            assert!((variance[0]-1./information).abs() < 1e-5, "{observed_x} {hessian:?}: {covariance:?}");
+            let published = parameter_covariances::Row::rows(&result.table("runtime.parameter_covariances").unwrap()).unwrap();
+            assert_eq!(published.len(), 1);
+            assert_eq!(published[0].approximation, approximation);
+            assert_eq!(published[0].parameters, vec![id(A)]);
+            assert_eq!(published[0].values, *variance);
+            let validity_rows = validity(&result);
+            let validity = validity_rows.iter().find(|row| row.quantity==DerivedQuantity::ParameterCovariance).unwrap();
+            assert!(validity.validity.certified && validity.validity.reason.is_none(), "{validity:?}");
+            assert_eq!(validity.validity.second_order, (hessian==HessianMode::Exact).then_some(true));
+            if hessian==HessianMode::Exact {
+                assert_eq!(validity.validity.licq, Some(true));
+                assert_eq!(validity.validity.strict_complementarity, Some(true));
+            }
+            // Durable lifecycle is checked separately from the analytic formula.
+            assert_eq!(reopened_rows::<parameter_covariances::Row>(&runtime, &result, "runtime.parameter_covariances").await, published);
+            assert_eq!(reopened_rows::<local_validity::Row>(&runtime, &result, "runtime.local_validity").await, validity_rows);
+            assert_eq!(reopened_rows::<fit_observations::Row>(&runtime, &result, "runtime.fit_observations").await, predictions);
+        }
+    }
+}

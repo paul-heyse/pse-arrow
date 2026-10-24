@@ -1847,3 +1847,183 @@ fn completed_provider_values(
         hessians: completed.hessians.to_vec(),
     })
 }
+
+/// Closed-form roots at A=1309/3600, B=1/20. This oracle differentiates
+/// F(Z,A,B)=Z³-(1-B)Z²+(A-3B²-2B)Z-AB+B²+B³ directly. It never
+/// reads an implicit provider jet or a production derivative program.
+fn independent_pr_coordinate_jet(z: f64) -> ([f64; 2], [[f64; 2]; 2]) {
+    let a = 1309. / 3600.;
+    let b = 1. / 20.;
+    let fz = 3.*z*z - 2.*(1.-b)*z + a - 3.*b*b - 2.*b;
+    let first = [-(z-b)/fz, -(z*z-(6.*b+2.)*z-a+2.*b+3.*b*b)/fz];
+    let fzz = 6.*z - 2.*(1.-b);
+    let fzp = [1., 2.*z-6.*b-2.];
+    let fpp = [[0., -1.], [-1., -6.*z+2.+6.*b]];
+    let mut second = [[0.; 2]; 2];
+    for i in 0..2 {
+        for j in 0..2 {
+            second[i][j] = -(fzz*first[i]*first[j]+fzp[i]*first[j]+fzp[j]*first[i]+fpp[i][j])/fz;
+        }
+    }
+    // A=A0+.2u+.3v+.4uv; B=B0-.1u+.7v+.2u².
+    let map = [[0.2, 0.3], [-0.1, 0.7]];
+    let map_second = [[[0.,0.4],[0.4,0.]], [[0.4,0.],[0.,0.]]];
+    let mut gradient = [0.; 2];
+    let mut hessian = [[0.; 2]; 2];
+    for i in 0..2 {
+        gradient[i] = first[0]*map[0][i]+first[1]*map[1][i];
+        for j in 0..2 {
+            for p in 0..2 {
+                hessian[i][j] += first[p]*map_second[p][i][j];
+                for q in 0..2 {
+                    hessian[i][j] += second[p][q]*map[p][i]*map[q][j];
+                }
+            }
+        }
+    }
+    (gradient, hessian)
+}
+
+/// Two selected PR roots enter distinct authored rows and a nonlinear product.
+/// Unequal A/B coordinate maps, outer coefficients and keyed row/column
+/// permutations make root swaps, wrong bindings and omitted mixed terms observable.
+#[tokio::test]
+async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() -> TestResult<()> {
+    let source = "package pr_curvature {
+        fn cubic(z:Scalar,a:Scalar,b:Scalar)->Scalar = z*z*z-(1-b)*z*z+(a-3*b*b-2*b)*z-a*b+b*b+b*b*b;
+        def Root {
+            var v: Scalar; var u: Scalar;
+            let attraction: Scalar = 1309/3600 + 0.2*u + 0.3*v + 0.4*u*v;
+            let covolume: Scalar = 0.05 - 0.1*u + 0.7*v + 0.2*u*u;
+            implicit liquid select branch(z<0.2) {
+                var z: Scalar; eq root: cubic(z,attraction,covolume)==0;
+                annotation bounds z(0.06,0.12); annotation start z(0.085);
+            }
+            implicit vapor select branch(z>0.4) {
+                var z: Scalar; eq root: cubic(z,attraction,covolume)==0;
+                annotation bounds z(0.45,0.55); annotation start z(0.5);
+            }
+            realize liquid_policy on liquid using nested;
+            realize vapor_policy on vapor using nested;
+            eq mixed: (2+u)*liquid.z + (3+v)*vapor.z + liquid.z*vapor.z == 0;
+            eq other: 5*liquid.z - 7*vapor.z + u*v == 0;
+            annotation start u(0); annotation start v(0);
+        }
+    }";
+    let authored = pse_authoring::language::parse(
+        source, SemanticId::from_bytes([153;16]),
+        pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default(),
+    )?;
+    let root = authored.iter().find(|row| row.name=="Root").unwrap().declaration_id;
+    let runtime = crate::workflow::tests::runtime_with(256<<20, 16<<20, 1<<30);
+    let package = runtime.modeling_package(authored, crate::workflow::tests::physical()).await?;
+    let cancel = crate::CancelSource::new();
+    let mut solver = crate::workflow::tests::profile();
+    solver.intent = SolveIntent::Root;
+    solver.selection = pse_backend_native::solve::SolverSelection::Explicit(pse_backend_native::solve::Backend::Kinsol);
+    // Independent, predeclared numerical precision for the analytic witness.
+    solver.numerics.supplier_action_accuracy = 1e-10;
+    solver.numerics.linear_backward_error = 1e-10;
+    solver.numerics.engineering_relative_fraction = 1e-10;
+    let analysis = ModelingAnalysis {
+        root, instance: pse_modeling::specialize::root_instance(root),
+        bindings: Bindings::default(), limits: Limits::default(), case: Default::default(),
+        order: DerivativeOrder::Second, compiler: crate::workflow::tests::compiler_profile(),
+        solver, numerical: Default::default(),
+    };
+    let prepared = package.prepare_analysis(&analysis, &cancel).await?;
+    let model = &prepared.model.model.compiled().model;
+    let coordinate_ids = [model.paths["u"],model.paths["v"]];
+    let row_ids = ["mixed","other"].map(|path| model.equations.iter().find(|row| row.lineage.path.ends_with(&format!(".{path}"))).unwrap().id);
+    assert_eq!(prepared.providers.len(), 2, "both actual implicit bindings must survive");
+    let l = (27.-281_f64.sqrt())/120.;
+    let v = 0.5;
+    let (dl, hl) = independent_pr_coordinate_jet(l);
+    let (dv, hv) = independent_pr_coordinate_jet(v);
+    let expected_values = [2.*l+3.*v+l*v, 5.*l-7.*v];
+    let mut expected_jacobian = [[0.;2];2];
+    let mut expected_hessians = [[[0.;2];2];2];
+    for i in 0..2 {
+        let eu = f64::from(i==0);
+        let ev = f64::from(i==1);
+        expected_jacobian[0][i] = (2.+v)*dl[i]+(3.+l)*dv[i]+eu*l+ev*v;
+        expected_jacobian[1][i] = 5.*dl[i]-7.*dv[i];
+        for j in 0..2 {
+            expected_hessians[0][i][j] = (2.+v)*hl[i][j]+(3.+l)*hv[i][j]
+                + dl[i]*dv[j]+dv[i]*dl[j]
+                +eu*dl[j]+f64::from(j==0)*dl[i]
+                +ev*dv[j]+f64::from(j==1)*dv[i];
+            expected_hessians[1][i][j] = 5.*hl[i][j]-7.*hv[i][j]+f64::from(i!=j);
+        }
+    }
+    let service = package.runtime.shared.math();
+    for (row_order, column_order) in [([0,1],[1,0]), ([1,0],[0,1])] {
+        let selected_rows = row_order.map(|i| row_ids[i]).to_vec();
+        let selected_columns = column_order.map(|i| coordinate_ids[i]).to_vec();
+        let executable = service.prepare_modeling_function_products(
+            package.numerical_workspace()?, prepared.model.model.clone(),
+            selected_rows, selected_columns, DerivativeOrder::Second,
+            vec![pse_math::jets::ProductKind::WeightedHessianAction], analysis.compiler, &cancel,
+        ).await?;
+        let providers = prepared.providers.clone();
+        let base = prepared.model.values.clone();
+        let controls = analysis.solver.controls.clone();
+        let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
+        let job_service = service.clone();
+        let handle = service.submit_construction(
+            1, crate::math::ConstructionEstimate::Opaque(worker_allowance),
+            crate::math::Submission::ephemeral(), move |flag, _| {
+                let execution = Execution::new(flag, &controls);
+                let scope = execution.scope()?;
+                let budget = WorkerBudget::new(worker_allowance);
+                let mut owned = job_service.worker(executable, &providers, scope, &budget)?;
+                let worker = owned.worker();
+                let constraints = worker.constraints(&base)?.to_vec();
+                let mut jacobian = [[0.;2];2];
+                let actual = worker.jacobian(&base)?;
+                for column in 0..2 {
+                    for (row,value) in actual.row_idx_of_col(column).zip(actual.val_of_col(column)) {
+                        jacobian[row][column]=*value;
+                    }
+                }
+                let weights = row_order.map(|row| [2.,-3.][row]);
+                let actual = worker.hessian(&base, 0., &weights)?;
+                let mut hessian = [[0.;2];2];
+                let mut entries = 0;
+                for column in 0..2 {
+                    for (row,value) in actual.row_idx_of_col(column).zip(actual.val_of_col(column)) {
+                        assert!(row>=column, "native sparse Hessian stores the lower triangle");
+                        entries+=1;
+                        hessian[row][column]=*value;
+                        hessian[column][row]=*value;
+                    }
+                }
+                assert_eq!(entries,3, "both diagonals and the mixed coordinate are present");
+                let direction = column_order.map(|i| [0.3,-0.7][i]);
+                let mut action = [0.;2];
+                worker.hessian_product(&base, 0., &weights, &direction, &mut action)?;
+                Ok(((constraints,jacobian,hessian,action),0))
+            },
+        )?;
+        let ((values,jacobian,hessian,action), _owner) = handle.finish().await?;
+        // Numerical outputs alone are compared to the closed-form oracle. No
+        // production primitive jet participates in the expected assembly.
+        let close = |actual:f64, expected:f64| {
+            assert!((actual-expected).abs() <= 1e-6*(1.+expected.abs()), "{actual} != {expected}");
+        };
+        for i in 0..2 {
+            close(values[i],expected_values[row_order[i]]);
+            for j in 0..2 {
+                close(jacobian[i][j],expected_jacobian[row_order[i]][column_order[j]]);
+                let expected = 2.*expected_hessians[0][column_order[i]][column_order[j]]
+                    -3.*expected_hessians[1][column_order[i]][column_order[j]];
+                close(hessian[i][j],expected);
+            }
+            let expected_action = (0..2).map(|j| {
+                (2.*expected_hessians[0][column_order[i]][j]-3.*expected_hessians[1][column_order[i]][j])*[0.3,-0.7][j]
+            }).sum::<f64>();
+            close(action[i],expected_action);
+        }
+    }
+    Ok(())
+}
