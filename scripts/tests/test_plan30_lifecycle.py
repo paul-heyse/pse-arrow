@@ -15,7 +15,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -25,6 +25,7 @@ from unittest.mock import MagicMock, patch
 
 from scripts import host_admission, native_operation, test_resources
 from scripts import surreal_server as server
+from scripts.tests.server_receipt_fixture import ServerReceipt, fixture_build_context, fixture_receipt
 from scripts.tests import surreal_fixture_check
 from scripts.tests.test_surrealism_module import fixture_module
 
@@ -46,17 +47,16 @@ def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
     )
 
 
-class ServerFixture(TypedDict):
+class ServerFixture(ServerReceipt):
     """Mutable selected-server receipt used by the lifecycle controls."""
 
     binary: str
     binary_sha256: str
-    inputs: dict[str, object]
-    surrealmx_version: str
 
 
 class Plan30LifecycleTests(unittest.TestCase):
     def setUp(self) -> None:
+        fixture_build_context(self)
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
@@ -84,8 +84,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             "server": ServerFixture(
                 binary=str(self.root / "surreal"),
                 binary_sha256="1" * 64,
-                inputs=server.surreal_source.inputs(),
-                surrealmx_version="1.0.0",
+                **fixture_receipt(),
             ),
             "unit_materialized": True,
         }

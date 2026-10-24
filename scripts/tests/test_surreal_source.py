@@ -13,19 +13,28 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import surreal_source as source
+from scripts.tests.server_receipt_fixture import fixture_receipt, fixture_context
 
 
 class SourceAdmissionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        selected = patch.object(source, "build_context", return_value=(fixture_context(), {"fixture": True}, {}))
+        selected.start()
+        self.addCleanup(selected.stop)
+
     def test_changed_binary_is_refused_before_rebuild_or_execution(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
-            directory = Path(scratch)
+            directory = Path(scratch) / source.installation_name(Path(scratch))
+            directory.mkdir()
             binary = directory / "source/target/release/surreal"
             binary.parent.mkdir(parents=True)
             binary.write_bytes(b"changed executable")
+            (binary.parents[2] / "Cargo.lock").write_text("fixture lock")
             (directory / "release.json").write_text(
                 json.dumps(
                     {
-                        "inputs": source.inputs(),
+                        **fixture_receipt(Path(scratch)),
+                        "lockfile_sha256": source.digest(binary.parents[2] / "Cargo.lock"),
                         "binary_sha256": "0" * 64,
                     }
                 )
@@ -40,7 +49,8 @@ class SourceAdmissionTests(unittest.TestCase):
 
     def test_changed_patch_inputs_refuse_cached_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
-            directory = Path(scratch)
+            directory = Path(scratch) / source.installation_name(Path(scratch))
+            directory.mkdir()
             (directory / "release.json").write_text(json.dumps({"inputs": {}}))
             with (
                 patch.object(source, "verify_source") as verify,
@@ -83,20 +93,41 @@ class SourceAdmissionTests(unittest.TestCase):
         with patch.object(source, "FEATURES", "storage-mem,cli,mcp"):
             self.assertNotEqual(source.installation_name(), prior)
 
-    def test_changed_patch_toolchain_or_flags_select_new_installation(self) -> None:
+    def test_changed_patches_or_effective_context_select_new_installation(self) -> None:
         prior = source.installation_name()
         actual_digest = source.digest
-        for selected in (
-            *(source.INPUTS / name for name in source.PATCHES),
-            source.ROOT / "rust-toolchain.toml",
-            source.ROOT / ".cargo/config.toml",
-        ):
-
+        for selected in (source.INPUTS / name for name in source.PATCHES):
             def changed(path: Path, selected: Path = selected) -> str:
                 return "0" * 64 if path == selected else actual_digest(path)
-
             with patch.object(source, "digest", side_effect=changed):
                 self.assertNotEqual(source.installation_name(), prior)
+        with patch.object(source, "build_context", return_value=({"schema": "changed-effective-context"}, {"fixture": True}, {})):
+            self.assertNotEqual(source.installation_name(), prior)
+
+    def test_complete_receipt_uses_effective_key_and_preserves_original_raw_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory=Path(temporary)/source.installation_name(Path(temporary)); directory.mkdir()
+            binary=directory/"source/target/release/surreal"
+            binary.parent.mkdir(parents=True);binary.write_bytes(b"admitted")
+            lock=directory/"source/Cargo.lock";lock.write_text("lock")
+            receipt={**fixture_receipt(Path(temporary)), "binary_sha256":source.digest(binary), "lockfile_sha256":source.digest(lock)}
+            (directory/"release.json").write_text(json.dumps(receipt))
+            with patch.object(source,"verify_source"), patch.object(source,"command") as execute:
+                self.assertEqual(source.install(directory),receipt)
+            execute.assert_not_called()
+            incomplete={key:value for key,value in receipt.items() if key!="schema"}
+            self.assertFalse(source.admitted_receipt(incomplete))
+
+    def test_passive_receipt_checks_do_not_probe_compilers_or_native_trees(self) -> None:
+        receipt=fixture_receipt()
+        with patch.object(source,"build_context",side_effect=AssertionError("passive compiler scan")):
+            self.assertTrue(source.admitted_receipt(receipt))
+        with patch.object(source,"build_context",side_effect=AssertionError("full launch scan")):
+            with self.assertRaisesRegex(AssertionError,"full launch scan"):
+                source.admitted_receipt(receipt,revalidate=True)
+
+    def test_installation_namespace_is_an_executable_input(self) -> None:
+        self.assertNotEqual(source.installation_name(Path("/one")),source.installation_name(Path("/two")))
 
 
 if __name__ == "__main__":

@@ -13,11 +13,15 @@ import hashlib
 import json
 import os
 import platform
+import sys
 import subprocess
 import tarfile
 import tempfile
+import tomllib
 import urllib.request
 from pathlib import Path
+
+from scripts import installation_context, pse_env
 
 VERSION = "3.3.4"
 REVISION = "1ac2b1dba7cd177621a4cf5d507caebeb2414395"
@@ -55,7 +59,7 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(source, "sha256").hexdigest()
 
 
-def inputs() -> dict[str, object]:
+def source_inputs() -> dict[str, object]:
     patches = {name: digest(INPUTS / name) for name in PATCHES}
     metadata = (
         "pse.mx.1.0.0."
@@ -69,8 +73,6 @@ def inputs() -> dict[str, object]:
         "surrealism_sdk_version": SURREALISM_SDK,
         "patches": patches,
         "build_metadata": metadata,
-        "cargo_config_sha256": digest(ROOT / ".cargo/config.toml"),
-        "toolchain_sha256": digest(ROOT / "rust-toolchain.toml"),
         "features": FEATURES,
         "profile": PROFILE,
         "build_config": BUILD_CONFIG,
@@ -80,19 +82,75 @@ def inputs() -> dict[str, object]:
     }
 
 
-def installation_name() -> str:
-    identity = hashlib.sha256(json.dumps(inputs(), sort_keys=True).encode()).hexdigest()
-    return f"v{VERSION}-mx{ENGINE}-{identity[:20]}"
+RECEIPT_SCHEMA = "surreal-source-release-v2"
 
 
-def command(arguments: list[str], *, log_path: Path | None = None) -> str:
+def build_context() -> tuple[dict, dict, dict[str, str]]:
+    try:
+        environment = installation_context.controlled_environment(ROOT)
+        context, provenance = installation_context.capture(ROOT, environment)
+    except (installation_context.ContextError, pse_env.BoundaryError, OSError, subprocess.CalledProcessError) as error:
+        raise BuildError(f"Cannot close server build context: {error}") from error
+    return context, provenance, environment
+
+
+def inputs(tool_root: Path | None = None) -> dict[str, object]:
+    context, _, _ = build_context()
+    return {**source_inputs(), "build_context": context,
+            "installation_namespace": str((ROOT if tool_root is None else tool_root).resolve())}
+
+
+def effective_key(selected: dict[str, object]) -> str:
+    return installation_context.identity(selected)
+
+
+def admitted_receipt(receipt: dict, selected: dict[str, object] | None = None, *, revalidate: bool = False) -> bool:
+    """Old incomplete receipts are never silently promoted to safe equivalence."""
+    if (receipt.get("schema") != RECEIPT_SCHEMA
+        or receipt.get("surrealmx_version") != ENGINE
+        or not receipt.get("raw_provenance")
+        or not receipt.get("lockfile_sha256")
+        or not isinstance(receipt.get("inputs"), dict)
+        or not isinstance(receipt["inputs"].get("installation_namespace"), str)):
+        return False
+    recorded = receipt["inputs"]
+    if selected is None and not revalidate:
+        # A passive consumer authenticates the already-built generation. It does
+        # not ask the compiler/native toolchain to requalify a running server.
+        context = recorded.get("build_context")
+        if not isinstance(context, dict) or context.get("schema") != installation_context.SCHEMA:
+            return False
+        if any(not context.get(name) for name in ("configuration", "toolchain_declaration", "tools", "toolchain", "native", "owners")):
+            return False
+        try:
+            configs, _, _ = installation_context.configuration(ROOT, {"HOME": os.environ.get("HOME", str(Path.home())), **({"CARGO_HOME": os.environ["CARGO_HOME"]} if "CARGO_HOME" in os.environ else {})})
+            declaration = installation_context.canonical(tomllib.loads((ROOT / "rust-toolchain.toml").read_text()))
+        except (OSError, ValueError):
+            return False
+        return (receipt.get("effective_key") == effective_key(recorded)
+                and {key: value for key, value in recorded.items() if key not in {"build_context", "installation_namespace"}} == source_inputs()
+                and context["configuration"] == configs
+                and context["toolchain_declaration"] == declaration)
+    current = inputs(Path(recorded["installation_namespace"])) if selected is None else selected
+    return receipt.get("effective_key") == effective_key(current) and recorded == current
+
+
+def installation_name(tool_root: Path | None = None) -> str:
+    return name_for(inputs(tool_root))
+
+
+def name_for(selected: dict[str, object]) -> str:
+    return f"v{VERSION}-mx{ENGINE}-effective-v1-{effective_key(selected)[:20]}"
+
+
+def command(arguments: list[str], *, log_path: Path | None = None, environment: dict[str, str] | None = None, stream: bool = False) -> str:
     # Cargo invokes the repository compiler-cache wrapper from the acquired
     # source cwd. The interactive Codex shell hook would unload its selected
     # environment there. Children keep the environment already owned by pse-env.
-    environment = dict(os.environ)
+    environment = dict(os.environ) if environment is None else environment.copy()
     environment.pop("BASH_ENV", None)
     environment["SURREAL_BUILD_VERSION"] = VERSION
-    environment["SURREAL_BUILD_METADATA"] = str(inputs()["build_metadata"])
+    environment["SURREAL_BUILD_METADATA"] = str(source_inputs()["build_metadata"])
     with (
         log_path.open("ab") if log_path is not None else contextlib.nullcontext()
     ) as log:
@@ -101,8 +159,8 @@ def command(arguments: list[str], *, log_path: Path | None = None) -> str:
             cwd=ROOT,
             env=environment,
             text=True,
-            stdout=log if log is not None else subprocess.PIPE,
-            stderr=subprocess.STDOUT if log is not None else subprocess.PIPE,
+            stdout=log if log is not None else None if stream else subprocess.PIPE,
+            stderr=subprocess.STDOUT if log is not None else None if stream else subprocess.PIPE,
             check=False,
         )
     if result.returncode:
@@ -207,17 +265,23 @@ def acquire_diskann(source: Path, scratch: Path) -> None:
 
 
 def install(directory: Path) -> dict[str, object]:
-    selected = inputs()
+    context, provenance, environment = build_context()
+    selected = {**source_inputs(), "build_context": context,
+                "installation_namespace": str(directory.parent.resolve())}
+    if directory.name != name_for(selected):
+        raise BuildError("Installer directory differs from its effective namespace; select installation_name(tool_root)")
     receipt_path = directory / "release.json"
     source = directory / "source"
     binary = source / "target" / PROFILE / "surreal"
     if receipt_path.exists():
         receipt = json.loads(receipt_path.read_text())
-        if receipt.get("inputs") != selected:
+        if not admitted_receipt(receipt, selected):
             raise BuildError(
-                "Installed server inputs changed; use its new input directory"
+                "Installed server inputs changed or receipt is incomplete; use its new input directory"
             )
         verify_source(source)
+        if receipt.get("lockfile_sha256") != digest(source / "Cargo.lock"):
+            raise BuildError("Installed server lockfile differs from its admitted receipt")
         if not binary.is_file() or receipt.get("binary_sha256") != digest(binary):
             raise BuildError(
                 "Installed server binary differs from its admitted receipt"
@@ -252,33 +316,27 @@ def install(directory: Path) -> dict[str, object]:
             )
             pending.rename(source)
     verify_source(source)
+    # The supervised child closes its environment *after* pse-env composition,
+    # before Cargo/build scripts execute. This prevents local/caller injection.
+    request = directory / "build-request.json"
+    request.write_text(json.dumps({"inputs": selected, "effective_key": effective_key(selected)}, sort_keys=True) + "\n")
     command(
-        [
-            str(ROOT / "scripts/pse-env"),
-            "--resource-class",
-            "compile",
-            "--",
-            "cargo",
-            "build",
-            "--manifest-path",
-            str(source / "Cargo.toml"),
-            "--locked",
-            "--no-default-features",
-            "--features",
-            FEATURES,
-            "--profile",
-            PROFILE,
-            "--bin",
-            "surreal",
-            *[argument for value in BUILD_CONFIG for argument in ("--config", value)],
-        ],
+        [str(ROOT / "scripts/pse-env"), "--recipe-default-class", "compile", "--",
+         str(ROOT / ".venv/bin/python"), "-m", "scripts.surreal_source", "--build", str(directory)],
         log_path=directory / "build.log",
+        environment=environment,
     )
+    after_context, _, _ = build_context()
+    if {**source_inputs(), "build_context": after_context, "installation_namespace": str(directory.parent.resolve())} != selected:
+        raise BuildError("Server build inputs changed during compilation; receipt refused")
     actual = command([str(binary), "version"]).strip()
     if VERSION not in actual or str(selected["build_metadata"]) not in actual:
         raise BuildError("Built executable version differs from its pinned source")
     command([str(binary), "module", "build", "--help"])
     receipt: dict[str, object] = {
+        "schema": RECEIPT_SCHEMA,
+        "effective_key": effective_key(selected),
+        "raw_provenance": provenance,
         "version": VERSION,
         "surrealmx_version": ENGINE,
         "surrealism_sdk_version": SURREALISM_SDK,
@@ -296,3 +354,24 @@ def install(directory: Path) -> dict[str, object]:
         os.fsync(output.fileno())
     temporary.replace(receipt_path)
     return receipt
+
+
+def build_child(directory: Path) -> None:
+    request = json.loads((directory / "build-request.json").read_text())
+    context, _, environment = build_context()
+    selected = {**source_inputs(), "build_context": context, "installation_namespace": str(directory.parent.resolve())}
+    if request != {"inputs": selected, "effective_key": effective_key(selected)}:
+        raise BuildError("Installer child context differs from selected build inputs")
+    source = directory / "source"
+    verify_source(source)
+    command(["cargo", "build", "--manifest-path", str(source / "Cargo.toml"),
+             "--locked", "--no-default-features", "--features", FEATURES,
+             "--profile", PROFILE, "--bin", "surreal",
+             *[argument for value in BUILD_CONFIG for argument in ("--config", value)]],
+            environment=environment, stream=True)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3 or sys.argv[1] != "--build":
+        raise SystemExit("internal installer usage: --build DIRECTORY")
+    build_child(Path(sys.argv[2]).resolve())

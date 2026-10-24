@@ -13,6 +13,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
+
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
 from scripts.tests import canonical_recovery_science as science
@@ -434,6 +436,7 @@ class ScientificRecoveryControls(unittest.TestCase):
 
 class CanonicalRecoveryProfileTests(unittest.TestCase):
     def setUp(self) -> None:
+        fixture_build_context(self)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
@@ -460,7 +463,7 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
                 return_value={
                     "version": server.surreal_source.VERSION,
                     "surrealmx_version": server.surreal_source.ENGINE,
-                    "inputs": server.surreal_source.inputs(),
+                    **fixture_receipt(),
                     "binary": "/unused",
                     "binary_sha256": "1" * 64,
                     "archive_sha256": "fixture",
@@ -684,6 +687,7 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
 
 class CanonicalRecoveryPlacementTests(unittest.TestCase):
     def setUp(self) -> None:
+        fixture_build_context(self)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)

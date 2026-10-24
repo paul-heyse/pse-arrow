@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 from unittest.mock import MagicMock, patch
 
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
+
 from scripts import (
     build_environment,
     build_measurements,
@@ -394,6 +396,7 @@ class NativeOperationTests(unittest.TestCase):
                 operation.original_cancellation_clock(invalid)
 
     def setUp(self) -> None:
+        fixture_build_context(self)
         # Each fixture supplies its own admission owner, including when this
         # suite runs inside a real assessment operation.
         environment = {
@@ -4313,7 +4316,7 @@ child.wait()
                     "owner": surreal_server.OWNER,
                     "profile_version": 3,
                     "server": {
-                        "inputs": surreal_server.surreal_source.inputs(),
+                        **fixture_receipt(),
                         "surrealmx_version": "1.0.0",
                         "binary_sha256": "1" * 64,
                     },

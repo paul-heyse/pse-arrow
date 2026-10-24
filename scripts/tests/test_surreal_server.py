@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call, patch
 
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
+
 from scripts import host_admission as host
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
@@ -1349,6 +1351,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         stopped.assert_called_once()
 
     def setUp(self) -> None:
+        fixture_build_context(self)
         self.scratch = tempfile.TemporaryDirectory()
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
@@ -1444,7 +1447,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 return_value={
                     "version": "3.3.4",
                     "surrealmx_version": "1.0.0",
-                    "inputs": server.surreal_source.inputs(),
+                    **fixture_receipt(),
                     "binary": str(binary),
                     "binary_sha256": server.file_digest(binary),
                     "upstream_revision": server.surreal_source.REVISION,
@@ -1795,7 +1798,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         server.write_json(self.state / "config.json", old)
         with self.assertRaisesRegex(server.SupervisorError, "admitted source-built"):
             server.config_for(self.state)
-        current = {**old_server, "inputs": server.surreal_source.inputs()}
+        current = {**old_server, **fixture_receipt()}
         with (
             patch.object(server, "install", return_value=current),
             patch.object(server, "all_contexts_drained"),
