@@ -3,7 +3,7 @@ title: "Plan 52: Agent effectiveness and engineering workflows"
 status: in-progress
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
 scenario_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
@@ -23,6 +23,8 @@ Q01–Q06/RC01–RC05 have separate source-qualified routes below. The latter re
 the earlier discovery review's optional developer-server/Typer/CLI-first framing; it does not
 create another backlog from that earlier review. Meaningful alternatives retain explicit dispositions.
 A scheduled opportunity is not a defect finding, and authoring is not implementation acceptance.
+The [usability review](../functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md)
+adds its own O01–O17/RC01–RC03 below, without replacing either earlier source's identities.
 
 The operator authorized this plan series and explicitly accepted RC01–RC09 on 2026-10-23,
 with the review's conditions intact. This coordinator owns package progress, opportunity
@@ -35,6 +37,11 @@ subsequently authorized E01–E04 and their necessary integration fixes. Other p
 packages remain planned. On 2026-10-24 the maintainer authorized authoring
 52i–52k and reconciling this series to the selected unified FastMCP target. That instruction
 does not authorize implementing the new interface.
+
+Subsequent 52i/52j/52k execution checkpoints below own their actual authorization and delivery.
+On 2026-10-24 the maintainer authorized authoring 52l–52o and integrating the usability review
+into remaining Plan52 scope. RC01 was explicitly accepted for planning; RC02/RC03 were selected
+for investigation only. This authoring instruction does not authorize their production delivery.
 
 **Interface-checked baseline:** `cbda2efc6` on main. Plans49–51's delivered functionality and
 prior qualification remain at their current owners; the review is their evidence-informed
@@ -118,9 +125,44 @@ parallel production route. Buf descriptor-to-JSON-Schema remains an unqualified 
 not scheduled infrastructure. OpenAPI/FastAPI providers, dynamic schema conversion and custom
 core-schema hooks are conditional on a real existing representation/API and fidelity checks.
 Tasks/Docket, CodeMode, sampling, MCP Apps, experimental Skills and custom extensions have no
-selected need. Ordinary resources/prompts/skill providers fit the target. OTel, response bounds,
+selected need at that authoring baseline. The subsequent usability extension below explicitly
+schedules conditional CodeMode/tasks/operator interaction inquiries without adopting them.
+Ordinary resources/prompts/skill providers fit the target. OTel, response bounds,
 selective preparation and proxy providers have concrete owned routes in 52i–52k. The library
 mechanism decisions remain explained there and in the source review rather than another register.
+
+### Usability foundation assessment and combined target — 2026-10-24
+
+**Interface-checked:** this amendment starts from completed CAP/ADP/MCP delivery and the usability
+review's recorded baseline, refreshed against `deeb37cc4` and inspected concurrent Plan53 reader/
+worker edits. The preparation commit separates Python stages; in-progress reader changes are
+not promoted to verified prerequisites. Implementation must refresh these owner contracts before
+migrating their consumers. Core3.4, Heuristics1.0, Test Assessment1.2 and relevant Process
+Simulator1.5 constraints apply. No broad diagnostic audit or product campaign was run for authoring.
+
+The present endpoint has meaningful foundations: exact discovery, generated native schemas,
+strict host validation, source fences, fixed workers, original handles and lazy specialists.
+Its query callable does not express every owner facet; generic bounded responses can alter payload
+structure after acquisition; full guide delivery and sibling import closures amplify ordinary
+selection/change. These are new evolution targets rather than reasons to reopen earlier Outcomes.
+52l improves requests/results/diagnostics at their authorities; 52m improves exact guidance,
+ownership and operation availability; 52n exposes selected preparation, authentic progress and
+preview release. 52o compares optional composition/tasks only after useful ordinary operations exist.
+
+Keep scientific schema/version/admission with Rust and generators, host tooling contracts with
+their Pydantic owners, and original outcome/custody/drain with native readers. Typed family responses
+do not imply a universal envelope. Push selected detail upstream while retaining mandatory source,
+denominator/ambiguity/completeness facts. Use actual fixed-worker declarations and coherent serving
+sources instead of name guesses or an incomplete dependency whitelist. No automatic build-on-read,
+silent eviction, generic JSON query language, global retry/cache/response-limiting middleware or
+duplicate scheduler/store/server is selected. Library mechanisms and precise limits live with the
+packages in 52l–52o and the review, including candidates not selected for adoption.
+
+Plan53d owns independent environment/extension/stub preparation and Plan53e E05 protected assessment
+readers/custody. 52n consumes the former; F01/52l migrate relevant selected-answer consumers with the
+latter. Actual owner contracts, callers and evidence determine readiness, not a whole-plan completion
+barrier. F02/I11 trace continuity, F03's separate selection, I14's shutdown inquiry and C04's denied
+coverage-guided acceptance remain independently owned. No interface improvement silently closes them.
 
 ### Shared meanings and physical composition
 
@@ -175,10 +217,14 @@ slice through its actual route before dependent implementation; routine tooling 
 | [52e](52e-reproducible-experiments-and-isolation.md) | Historical replay, database fixtures, regression experiments and optional isolation |
 | [52f](52f-evidence-analysis-and-trace-correlation.md) | Explicit outcome comparisons and finite end-to-end trace investigation |
 | [52g](52g-agent-and-operator-workflows.md) | Agent-facing composition, skill discovery/evaluation, integration and optional operator UI |
-| [52h](52h-qualification-and-publication.md) | Actual-consumer reconciliation across 52a–52k, assembled acceptance, scope-end checks and publication |
+| [52h](52h-qualification-and-publication.md) | Actual-consumer reconciliation across 52a–52o, assembled acceptance, scope-end checks and publication |
 | [52i](52i-canonical-capabilities-and-progressive-reveal.md) | Canonical exposure model, exact navigation, deterministic reveal and progressive instructions |
 | [52j](52j-native-contracts-and-tool-adaptation.md) | Native schema/admission fidelity, host contracts, whole-repository tool adaptation and retirement |
 | [52k](52k-unified-entry-point-and-derived-interfaces.md) | One attachment, lazy integration, loaded revisions, derived consumers and interface observation |
+| [52l](52l-typed-requests-results-and-diagnostics.md) | Constructible domain requests, typed selected answers, recoverable diagnostics and shape-first scientific result inquiry |
+| [52m](52m-progressive-guidance-and-operation-availability.md) | Compact progressive guidance, accurate owners, operation dependencies/restart and supporting instruction resources |
+| [52n](52n-readiness-progress-and-edit-lifecycles.md) | Selected readiness/preparation, authentic early progress/handles and explicit preview release |
+| [52o](52o-conditional-composition-and-protocol-tasks.md) | Conditional exact-discovery read composition and task-protocol inquiries, with explicit adoption decisions |
 
 Plans50–51 remain completed foundations. Their qualified interfaces are reusable; their counts
 are not Plan52 acceptance. Plan32 retains document/artifact lifecycle ownership. Plan40a–d's
@@ -361,6 +407,59 @@ or product integration. Preserve failed/inconclusive evidence and update depende
 
 
 
+## Usability rule decisions
+
+These identities belong only to the
+[usability review's rule implications](../functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md#decision-and-rule-implications).
+On 2026-10-24 the operator explicitly selected **RC01; investigate RC02/RC03**. Review approval,
+authoring and favorable feasibility evidence do not independently authorize either conditional adoption.
+
+| Decision | Disposition | Work owner | Accepted consequence and route |
+|---|---|---|---|
+| RC01 | scheduled | [FND00](#FND00), [52l](52l-typed-requests-results-and-diagnostics.md), [52m](52m-progressive-guidance-and-operation-availability.md) | Accepted for planning on 2026-10-24: evolve request/result/error/instruction contracts with actual callers and derived reference. Preserve Rust scientific authority. Internal tooling uses ordinary changes; actual protected public boundary/diagnostic changes use the existing ADR/design route before dependent implementation. Acceptance is not publication of those changes. |
+| RC02 | deferred | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Investigation selected on 2026-10-24; model-authored execution adoption is not accepted. Present the exact execution-eligibility/effect policy if a real read-composition consumer warrants it. Until then retain fixed typed calls and their native authority. |
+| RC03 | deferred | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Investigation selected on 2026-10-24; task lifecycle adoption is not accepted. Present actual outer dispatch, native ownership, negotiated host/loss/reconnect semantics if foreground/native observation is inadequate. Existing foreground behavior remains the baseline. |
+
+## Usability opportunity dispositions
+
+All O identities in this table refer exclusively to the usability review. Scheduled means planned
+capability or inquiry work, not delivered functionality. Each row has one primary disposition owner;
+linked consumers retain their own implementation and acceptance. Required inquiry outcomes may be
+supported alternatives or conditional non-adoption; they cannot erase required ordinary capabilities.
+
+| Opportunity | Disposition | Work owner | Required behavior or disposition |
+|---|---|---|---|
+| O01 | scheduled | [CON01](52l-typed-requests-results-and-diagnostics.md#CON01) | Owner-defined meaningful query alternatives/facets, executable first-request examples and actual caller migration. |
+| O02 | scheduled | [CON02](52l-typed-requests-results-and-diagnostics.md#CON02) | Typed selected host answers with truthful serialized schemas, source/population/completeness and explicit optional detail. |
+| O03 | scheduled | [NAV01](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact attributable selection receipts, deliberate complete guide reads and declared useful workflow steps. |
+| O04 | scheduled | [CON03](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner-native diagnostic/recovery projection, structural decode paths where useful, original admission and settlement authority. |
+| O05 | scheduled | [NAV02](52m-progressive-guidance-and-operation-availability.md#NAV02) | Accurate module/package/worker owners and local extension through actual declarations; unresolved leads remain uncertain. |
+| O06 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Coordinate demand-shaped native evidence/assessment readers with 53e E05; CON02 migrates other relevant host-reader consumers. Preserve denominator/ambiguity and protected continuation, not JSON-after-truncation queries. |
+| O07 | scheduled | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 shape-first result inquiry selects a useful protected schema/field/row route; exact IPC and physical meaning remain intact. |
+| O08 | scheduled | [LIFE01](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected passive/live readiness and explicit preparation consumers of actual Plan53d stages, with no duplicate build authority. |
+| O09 | scheduled | [NAV03](52m-progressive-guidance-and-operation-availability.md#NAV03) | Relevant operation/worker dependency and restart boundaries, coherent source capture, unaffected operation availability. |
+| O10 | scheduled | [LIFE02](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic early owner handles/stages, bounded foreground wire progress where supported and native-reader fallback. |
+| O11 | scheduled | [LIFE03](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Explicit preview retention status/release; preserve siblings and admitted work through actual settlement/reconciliation. |
+| O12 | scheduled | [G01](52g-agent-and-operator-workflows.md#G01) | Meaningful recurring typed compositions using F01/native kernels; G02 actual workflow consumer. F03 remains separately selectable. |
+| O13 | scheduled | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Coherent supporting skill resources and U02 exact completion/provider decision for a real consumer, with visibility and lazy source contracts. |
+| O14 | scheduled | [G03](52g-agent-and-operator-workflows.md#G03) | Independent schema/example/error/completeness tests and representative actual-agent evaluation; H02 owns assembled host/native qualification. |
+| O15 | scheduled | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | U03 bounded read-only composition inquiry; RC02 still required for production adoption. Compare typed/small reads first. |
+| O16 | scheduled | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | U04 detach/reconnect inquiry after LIFE02; RC03 still required for infrastructure adoption. No second scheduler/outcome truth. |
+| O17 | scheduled | [G05](52g-agent-and-operator-workflows.md#G05) | Extend I13 to typed headless resources versus prompts/elicitation/Apps for a concrete operator decision, retaining ordinary access and native interpretation. |
+
+## Usability inquiries
+
+These U identities are new; existing I13 owns operator interaction and I14 owns endpoint shutdown.
+Inquiry closure records its evidence and consequence here. Conditional implementation is added only
+after its actual selection; non-adoption must identify the supported route and observable revisit need.
+
+| Inquiry | State | Owner | Decision / completion evidence |
+|---|---|---|---|
+| U01 | open | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | Protected shape-first scientific inspection: compare schema-only/current IPC with native field projection using a real wide typed result and independently expected physical answer. Resolve the actual boundary/decision route before native API changes. |
+| U02 | open | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Supporting-resource provider lifecycle and exact prompt/resource completion: inspect source coherence/lazy behavior and actual host consumer. Completion/provider non-adoption can close that candidate with supported explicit resources/schema vocabulary and a concrete trigger. |
+| U03 | open | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Compare ad hoc immutable-read composition with typed/small reads; test exact discovery versus actual execution eligibility and full lifecycle limits. No CodeMode adoption before RC02 selection and actual host/native acceptance. |
+| U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Determine an unmet detach/reconnect consumer after foreground progress/native handles; if present, settle outer wrapper dispatch, negotiation, native loss/cancellation/drain mapping before RC03 selection. No backend infrastructure is selected by this inquiry. |
+
 ## Package state and execution route
 
 This is the single package progress table. The companion links explain prerequisites and
@@ -422,6 +521,19 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | MCP03 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded source/worker/schema fences and scoped guidance restart controls delivered; Q06 resolved |
 | MCP04 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Complete composed reference generated and checked; Q05 resolved with selected CLI deferral |
 | MCP05 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Bounded interface diagnostics/correlation retain original native outcomes and authentic result owners; see 52k Outcome |
+| CON01 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON01) | Meaningful query requests, independent examples and real callers |
+| CON02 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Typed selected answer families and actual serialization schemas |
+| CON03 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe actionable owner diagnostics and preserved native admission |
+| CON04 | planned | [52l](52l-typed-requests-results-and-diagnostics.md#CON04) | U01 result-shape inquiry, selected useful owner route and its actual consumers |
+| NAV01 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV01) | Compact progressive selection/guidance and declared workflow steps |
+| NAV02 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV02) | Actual module/package/operation ownership and local extension |
+| NAV03 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV03) | Operation-shaped dependency/restart fences and unaffected reads |
+| NAV04 | planned | [52m](52m-progressive-guidance-and-operation-availability.md#NAV04) | Supporting instruction resources and U02 exact assistance disposition |
+| LIFE01 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected readiness and explicit owner preparation consumers |
+| LIFE02 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic progress/early handles with attached cancellation/drain and reader fallback |
+| LIFE03 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
+| OPT01 | planned | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | U03 bounded CodeMode comparison/disposition; production delivery only if separately selected |
+| OPT02 | planned | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | U04 task-protocol need/disposition; infrastructure/delivery only if separately selected |
 
 <a id="FND00"></a>
 ### FND00 — Decision and declaration readiness
@@ -436,7 +548,8 @@ within contracts need neither. Do not create placeholder ADRs for every RC row.
 Publish changed architecture only through the explicit design-edit route and revision row.
 Record which prerequisite is merely designed versus declared, integrated and exercised. This
 package is incremental: B04's schema does not block A01's source-only task packet or D01's watch.
-The original and unified-interface accepted rule tables are distinct sources. If a new rule
+The original, unified-interface and usability rule tables are distinct sources. Usability RC01
+is accepted for planning while RC02/RC03 authorize investigation only. If a new rule
 impact appears beyond them, present that exact consequence before
 fixing the dependent target. Acceptance is the required decision/declaration in place and its
 actual consumer consuming it, not completion of a generic paperwork milestone.
@@ -468,6 +581,18 @@ G02/G03 evaluate assembled real workflows; F01/F02 retain broader evidence/trace
 MCP04 supplies generated references and the conditional CLI revisit decision. H01 reconciles all required and conditional scope before
 H02–H04. These are contract/evidence dependencies, not whole-document serial barriers. Preserve
 C04's separately recorded denied execution boundary; interface work does not authorize retry.
+
+For usability evolution, begin independent CON01/CON03, NAV01/NAV02 and LIFE03 slices from delivered
+foundations. CON02 consumes actual selected-reader contracts (including 53e E05/F01) for each migrated
+family, not an entire Plan53 milestone. CON04 settles U01 before changing native result boundaries.
+NAV03 uses actual operation/worker ownership and lightweight contract separation; NAV04 consumes
+NAV01's coherent resource index. LIFE01 consumes actual Plan53d stages and CON03 remedies; LIFE02
+bridges issued native references with CON02/CON03 presentation without changing native ownership.
+G01/G02 compose real operations and G03 evaluates the resulting instructions/requests/results.
+OPT01 follows useful CON01/CON02/F01 selected reads; OPT02 follows LIFE02's foreground/native comparison.
+G05/I13 separately assesses operator views. Conditional non-adoption does not block ordinary delivery;
+H01 still reconciles every inquiry and any explicitly selected additional implementation before H02–H04.
+No new entire-companion barrier, repeated broad campaign or second completion ledger is introduced.
 
 Shared source files are a separate coordination concern from logical dependencies. Give one
 writer the registry/manifest changes, another the current tooling owner only when editing can

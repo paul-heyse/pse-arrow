@@ -2512,7 +2512,7 @@ heading = "Package state and execution route"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
-id_pattern = '^((?:FND|CAP|ADP|MCP|A|B|C|D|E|F|G|H)[0-9]+)\b'
+id_pattern = '^((?:FND|CAP|ADP|MCP|CON|NAV|LIFE|OPT|A|B|C|D|E|F|G|H)[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
 owner_column = 2
@@ -2592,6 +2592,93 @@ id_pattern = '^(Q[0-9]+)\b'
 status_profile = "finding"
 status_column = 1
 owner_column = 2
+
+# The usability review has its own reused source IDs and native coordinator tables.
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "usability-rules"
+heading = "Usability rule decisions"
+headers = [
+  "Decision",
+  "Disposition",
+  "Work owner",
+  "Accepted consequence and route",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(RC[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "usability-opportunities"
+heading = "Usability opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required behavior or disposition",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "usability-inquiries"
+heading = "Usability inquiries"
+headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(U[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::NAV03"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::NAV02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::NAV04"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::NAV01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::LIFE01"
+to = "docs/plans/53-test-architecture-target.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::LIFE01"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CON03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CON02"
+to = "docs/plans/53-test-architecture-target.md::package-state::E05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::OPT01"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CON01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::OPT01"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::CON02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::OPT02"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::LIFE02"
+kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::A05"

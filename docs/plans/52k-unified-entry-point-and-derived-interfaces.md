@@ -11,6 +11,15 @@ doc_topics: [current-work, environment, design, diagnostics, documentation]
 
 # Plan 52k: Unified entry point and derived interfaces
 
+## Subsequent usability extension
+
+Completed MCP delivery and Q01–Q06 remain at their recorded Outcome. New guidance/dependency
+availability work belongs to [52m](52m-progressive-guidance-and-operation-availability.md),
+lifecycle extensions to [52n](52n-readiness-progress-and-edit-lifecycles.md), and conditional
+CodeMode/task inquiries to [52o](52o-conditional-composition-and-protocol-tasks.md). Inquiry is not
+adoption or a reopening of MCP acceptance; the separate I14 shutdown inquiry retains its coordinator
+owner.
+
 ## Execution checkpoint — 2026-10-24
 
 The maintainer authorized execution and then selected direct work on main because Plan53

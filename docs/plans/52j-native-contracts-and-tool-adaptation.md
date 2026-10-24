@@ -11,6 +11,14 @@ doc_topics: [current-work, design, environment, libraries, diagnostics]
 
 # Plan 52j: Native contracts and tool adaptation
 
+## Subsequent usability extension
+
+Completed ADP delivery remains at its recorded Outcome. New request/result/diagnostic and scientific
+shape-first inspection work belongs to [52l](52l-typed-requests-results-and-diagnostics.md);
+readiness, authentic early progress and preview release belong to
+[52n](52n-readiness-progress-and-edit-lifecycles.md). Native scientific schema and admission
+authority stay with their existing owners.
+
 ## Prerequisite delivery — 2026-10-24
 
 The [52i Outcome](52i-canonical-capabilities-and-progressive-reveal.md#verification-and-outcome--2026-10-24)

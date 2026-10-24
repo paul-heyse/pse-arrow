@@ -11,6 +11,13 @@ doc_topics: [current-work, design, libraries, storage, environment]
 
 # Plan 52b: Local knowledge and research
 
+## Subsequent usability extension
+
+The usability extension [52l CON01/CON02](52l-typed-requests-results-and-diagnostics.md#CON01) owns
+richer constructible query alternatives and typed selected answers over these existing
+source/knowledge owners. It does not introduce semantic retrieval, change native knowledge authority
+or reopen this companion's recorded Outcome.
+
 ## Target, baseline and authority
 
 **Proposed:** retrieve the relevant current source, rationale, exact-version library evidence

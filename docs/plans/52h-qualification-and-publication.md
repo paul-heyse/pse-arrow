@@ -3,7 +3,7 @@ title: "Plan 52h: Qualification and publication"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, documentation, design]
@@ -54,6 +54,13 @@ not production lane/parameter counts or a full Cartesian product of tools/config
 | Lazy service failure | Compiler/admission/store unavailable leaves source/offline reads reachable; selected specialist acquisition retains identity, cancellation and owned shutdown without eager launch. |
 | Loaded interface edit | Relevant handler/schema/guide edit requires coherent snapshot/restart, unrelated source edits remain independently inspectable, restart supplies matching new definitions. |
 | Derived consumers | Reference signatures match canonical components; any adopted Cyclopts CLI includes hidden families, activates exact target on fresh connection and preserves null/empty/default/refusal semantics. |
+| Construct a first useful request | An unfamiliar agent uses CON01's schemas/examples for representative concept alternatives and receives independently expected facts or an actionable structural/contextual refusal. |
+| Selected answer and recovery | CON02/CON03 preserve mandatory source/population/completeness, distinguish omitted optional detail from incomplete population, retain safe nested error paths and original native recovery authority. |
+| Scientific shape before export | CON04's selected owner route inspects a real wide protected result and independently checked fields/rows, preserving exact IPC and units/basis/validity/nonfinite meaning. |
+| Focused reveal and availability | NAV selection returns attributable resource references; full guidance remains accessible. Unrelated coverage edits leave unrelated reads available; actual handler/schema/worker changes refuse before effects and recover on fresh attachment. |
+| Selected preparation and authentic progress | LIFE01 consumes actual owner preparation stages; LIFE02 exposes an issued handle before final return, supported wire progress and original-reader fallback. Observer/action cancellation and drain remain distinct. |
+| Retained edit release | LIFE03 inspects/reclaims one explicit preview's capacity, preserves siblings and admitted apply/reconciliation, and never implies rollback or successful application. |
+| Conditional framework behavior | Only adopted CodeMode/tasks/completion/Apps paths require their actual host execution/negotiation/rendering; eligibility, loss/re-entry, native identity and drain assertions remain independent. |
 
 Actual Rust/Python/public CLI paths matter where delivered behavior crosses them. A host-only
 composition does not need native solver compilation; a claim about native callback lifetime or
@@ -90,9 +97,13 @@ acceptance or automatically add a Plan53 qualification obligation.
 <a id="H01"></a>
 ### H01 — Reconcile actual scope, consumers and inquiry outcomes
 
-Inspect delivered producers/consumers against 52a–52k. Reconcile the original review's O01–O30/
-RC01–RC09 and the unified-interface review's O01–O10/Q01–Q06/RC01–RC05 at their distinct coordinator
-tables. Preserve resolved I12 as direction selection, not host delivery. Required derived reference
+Inspect delivered producers/consumers against 52a–52o. Reconcile the original review's O01–O30/
+RC01–RC09, the unified-interface review's O01–O10/Q01–Q06/RC01–RC05 and the usability review's
+O01–O17/RC01–RC03/U01–U04 at their distinct coordinator tables. Preserve RC01's accepted planning
+direction versus published changes and RC02/RC03's investigation-only selections. Conditional
+CodeMode/task/provider/completion/operator-view outcomes need supported alternatives and observable
+revisit triggers, or actual selected delivery and acceptance. Preserve resolved I12 as direction
+selection, not host delivery. Required derived reference
 and conditional CLI decisions differ. Actual CAP05 classification plus ADP05 caller migration
 must cover all current agent-tool families; a few representative wrappers do not close that scope.
 Confirm that every required capability is implemented, each conditional inquiry is settled with
@@ -114,6 +125,12 @@ MCP02's actual Codex support cannot be replaced with an in-process client probe.
 native expected outcomes for adapter checks, actual specialist lifetime consumers and Q06 relevant
 restart evidence. Cross-family representative assembled journeys supplement exhaustive migration
 reconciliation; they are not a Cartesian campaign over every operation/configuration.
+For usability O14, reuse independent contract examples from CON/G03 while exercising actual
+Codex request→selected answer→next inspection. Native outcomes must agree with original readers.
+Actual notification/negotiation/rendering is required for any host-dependent feature claimed;
+unsupported hosts retain explicit supported ordinary paths. Selected optional infrastructure adds
+its required acceptance here, while inquiry-only/non-adoption outcomes require no production task
+backend, CodeMode or App deployment. Do not launch a broad campaign per companion.
 Choose current recipes and [qualification guidance](../dev/validation-assessment.md) for actual
 Rust/default/native/Python/host/offline contexts. Reuse applicable valid evidence only through
 its existing source-bound contract; historical replay is not current-source qualification.
@@ -153,6 +170,12 @@ revision row; accepted ADRs are immutable. Accepted RC directions are not accept
 Publish real supported/unsupported model, bridge, replay, instrumentation and trace boundaries.
 Include the one-endpoint attachment/reveal procedure, native versus host schema ownership,
 loaded-revision/restart policy, cheap read/effectful admission split and actual CLI adoption/fidelity.
+Publish actual CON/NAV/LIFE contracts: valid query examples, serialized answer/completeness meanings,
+safe remedies, shape-first scientific access, compact guide retrieval, relevant restart boundaries,
+selected preparation, progress fallback and preview release/in-flight retention. Record conditional
+CodeMode/tasks/completion/operator-view dispositions and supported host limits without treating
+framework availability as adoption. Public scientific boundary changes use §21.1/§21.5/§23.2's
+actual decision route; internal host tooling evolution needs no placeholder ADR.
 Remove replaced session attachments, parsers and instructions only after their consumers migrate;
 retain useful native interfaces and source owners. Do not maintain a duplicate developer interface.
 
@@ -166,11 +189,12 @@ series was authored or because another plan's number is lower.
 
 ## Current verification boundary
 
-**Interface-checked:** source owners and prior Outcomes establish the baseline and feasible
-integration seams described in this series. **Proposed:** remaining production packages, inquiry results and acceptance
-above, including
-all CAP/ADP/MCP packages. Recorded 52a–52e focused deliveries retain their separate Outcomes;
-this expanded qualification does not revoke or broaden them. Documentation validation/publication
-establishes plan usability
-only. No product tests, model/service probes, compiler campaign or scientific qualification was
-run to author these documents; actual authoring checks are reported in the handoff.
+**Interface-checked:** source owners and prior Outcomes establish the baseline and integration
+seams described here. CAP/ADP/MCP delivery is recorded at the completed 52i–52k Outcomes and
+coordinator; those packages are not proposed remaining implementation. **Proposed:** remaining
+F/G/H work, CON/NAV/LIFE delivery and U/OPT inquiry outcomes or explicitly selected optional
+delivery. Recorded 52a–52e deliveries and C04's separately denied acceptance retain their exact
+boundaries; this expanded qualification does not revoke or broaden them. Documentation validation
+and publication establish document usability only. No new product tests, model/service probes,
+compiler campaign or scientific qualification was run to author these amendments; actual
+authoring checks are reported in the handoff.

@@ -11,6 +11,14 @@ doc_topics: [current-work, design, environment, documentation, libraries]
 
 # Plan 52i: Canonical capabilities and progressive reveal
 
+## Subsequent usability extension
+
+Completed CAP delivery remains at its recorded Outcome. New compact guidance, accurate owner
+discovery, supporting resources and operation-aligned availability belong to
+[52m](52m-progressive-guidance-and-operation-availability.md); selected readiness consumers belong
+to [52n](52n-readiness-progress-and-edit-lifecycles.md). The new packages evolve these foundations
+rather than reopen CAP progress.
+
 ## Purpose and foundation
 
 **Implemented:** make every agent-facing capability discoverable through one structured FastMCP

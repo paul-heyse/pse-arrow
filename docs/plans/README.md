@@ -17,7 +17,7 @@ Plan52 retains its separate capability scope and delivered foundations.
 captures the original O01–O30/RC01–RC09 and the unified-interface review's separately scoped
 O01–O10/Q01–Q06/RC01–RC05, with accepted target directions and delivered source-only interface foundations.
 Its coordinator owns scheduled packages, conditional inquiries and cross-plan boundaries;
-companions 52a–52k develop context/editing, knowledge, verification, execution, experiments,
+companions 52a–52o develop context/editing, knowledge, verification, execution, experiments,
 evidence/tracing, agent/operator workflows, canonical capabilities/reveal, native contracts/tool
 adaptation and one FastMCP attachment with derived consumers. The coordinator links the new
 [52i](52i-canonical-capabilities-and-progressive-reveal.md),
@@ -46,6 +46,17 @@ closes MCP01–MCP05 and Q01–Q06; the selected CLI deferral retains its concre
 trigger. F/G/H retain broader evidence/tracing, assembled agent workflows and series qualification.
 Launch guidance lives in the
 [capability interface guide](../dev/capability-interface.md).
+The [usability amendment](52-agent-effectiveness-and-engineering-workflows.md#usability-opportunity-dispositions)
+captures all seventeen opportunities from the subsequent FastMCP review. New
+[52l](52l-typed-requests-results-and-diagnostics.md),
+[52m](52m-progressive-guidance-and-operation-availability.md),
+[52n](52n-readiness-progress-and-edit-lifecycles.md) and
+[52o](52o-conditional-composition-and-protocol-tasks.md) develop meaningful typed contracts,
+focused guidance/availability, readiness/progress/edit lifetimes and conditional composition/tasks.
+Existing 52f/52g retain comparison, recurring workflow, agent-evaluation and operator-view ownership;
+52h reconciles the expanded scope. The coordinator records RC01's accepted planning direction and
+RC02/RC03's investigation-only selection, consumes Plan53's actual preparation/protected-reader
+contracts, and preserves completed CAP/ADP/MCP Outcomes. Authoring does not establish new delivery.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

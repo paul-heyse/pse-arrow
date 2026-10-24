@@ -11,6 +11,14 @@ doc_topics: [current-work, design, environment, preparation]
 
 # Plan 52a: Context, navigation and semantic editing
 
+## Subsequent usability extension
+
+New preview-capacity inspection and explicit release belong to [52n
+LIFE03](52n-readiness-progress-and-edit-lifecycles.md#LIFE03); operation-aligned language
+availability belongs to [52m NAV03](52m-progressive-guidance-and-operation-availability.md#NAV03).
+These prospective extensions preserve this companion's recorded edit acceptance and admitted-work
+obligations.
+
 ## Target and foundation
 
 **Proposed:** help Codex identify the right owner, recover a decision, assess a design change and

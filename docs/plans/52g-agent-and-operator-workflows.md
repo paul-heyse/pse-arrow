@@ -3,7 +3,7 @@ title: "Plan 52g: Agent and operator workflows"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, environment, design, diagnostics, documentation]
@@ -55,6 +55,12 @@ remains separate from F03 and is not implicitly selected by plan amendment.
 
 ## Work packages
 
+The [usability review](../functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md)
+extends the remaining workflows: O12 has its primary disposition in G01, O14 in G03 and O17 in G05.
+52l–52n own the new request/result/diagnostic, guidance/dependency and lifecycle implementations.
+52o owns conditional CodeMode/task inquiries; neither is implicitly adopted by these workflows.
+The coordinator retains all source-qualified opportunity and inquiry state.
+
 <a id="G01"></a>
 ### G01 — Thin action/result composition and first consumers
 
@@ -75,12 +81,24 @@ G01 verifies that composed consumers retain the shared meanings. If a command's
 structured interface changes, migrate its actual callers in the same package. Host-only outputs
 stay with host owners; public Rust/Python documents use the existing catalogue/generators.
 
+For usability O12, identify recurring coherent questions such as selected invocation investigation
+or explicit baseline/candidate comparison. Compare a typed owner-native composed operation with the
+existing small calls; expose new operations only where intent and semantic ownership justify them.
+Reuse F01's pairing and original readers, retaining source cuts, unavailable/stale members and
+independently complete sections. Shared immutable preparation needs an actual owner guarantee;
+one RPC does not imply atomic observation. Do not introduce a general DAG, automatic next-action
+agent or prompt-owned scientific/qualification interpretation. Optional F03 remains separately selected.
+
 Acceptance: a fresh selected-store Codex session traverses context→targeted command→handle→watch→
 real result, including environment-shaped failure, unsupported capability and truncated detail.
 Configured/available/attached/exercised remain distinguishable. A command exit, process return,
 test result, resource drain and scientific outcome are not collapsed into a single success bit.
 The workflow is usable before knowledge models or operator UI. Remove replaced ad hoc output
 parsing once consumers use real structured results.
+
+Include independently expected composed answers and partial/stale-member cases, using CON02's
+actual serialization contract. LIFE01/LIFE02 supply explicit selected preparation and authentic early
+handles/progress; observer loss is not native settlement or permission to replay an attached action.
 
 <a id="G02"></a>
 ### G02 — Unified agent workflow integration
@@ -105,6 +123,13 @@ an exposed list alone does not qualify integration. Source-only use survives una
 services. Two attachments retain independent reveal/context, and reconnect never replays effects.
 A selected CLI consumer, if any, uses MCP04's faithful derivative rather than another interface.
 No measured productivity claim is required; behavioral observations and support limits are required.
+
+Consume NAV01's compact instruction-resource index and CON01's meaningful request alternatives
+in the real workflow. An unfamiliar agent should construct a valid request from advertised examples,
+obtain a useful selected answer and follow an authentic next inspection. Qualify whichever ordinary
+revealed-tool or canonical-invoker route the host actually uses. Native preparation/custody contracts
+remain Plan53's; adopting an optional 52o route adds its actual-host/effect assertions here without
+creating another endpoint or replacing native outcomes with task status.
 
 <a id="G03"></a>
 ### G03 — Progressive instructions and representative agent evaluation
@@ -135,6 +160,19 @@ authority route; improve presentation without silently changing governance. CAP/
 serving separate from this package's actual-agent evaluation. Actual Codex access is required for
 behavior claims; preserve bounded prompts/observations when an evaluation is incomplete.
 
+For usability O14, pair these agent tasks with focused independent contract expectations: first-valid
+examples, tagged branches, absent/null/empty values, nested diagnostic paths, escaped JSON Pointers,
+reference-resource scope, input/output direction and complete/partial/unavailable serialized answers.
+CON packages own their local tests; G03 evaluates whether those contracts and NAV guidance work together.
+Use adopted `jsonschema.Draft202012Validator.check_schema()`/`iter_errors()` where appropriate;
+schema acceptance is not native scientific eligibility. Adopted proptest can cover relevant Rust
+properties without a new framework quota. Do not derive all semantic expectations from the producer.
+
+Actual Codex evidence is necessary for host refresh, progress notifications and any selected
+completion/task/App behavior; in-process clients prove their own path only. Correlate selected
+operation, serving revision, original handle and acquisition stage when they answer a real question.
+Keep raw arguments, duplicate telemetry stores and F02's unresolved propagation edge outside this work.
+
 <a id="G04"></a>
 ### G04 — Ownership-aware integration and closeout assistance
 
@@ -161,9 +199,22 @@ closeout readers only when the native view actually replaces them.
 ### G05 — Optional operator investigation view
 
 Resolve I13 around one concrete F01 baseline/candidate investigation. First deliver readable
-headless comparison and standalone scientific plots. If interaction helps Paul filter outcomes,
-see missing members and inspect linked source/evidence, use a small local static interactive page
-or notebook consuming the same typed data. No mandatory daemon or simulator product frontend.
+headless comparison and standalone scientific plots. For usability O17, compare ordinary typed
+parameters/resources with parameterized prompts, elicitation and structured FastMCPApp/Prefab
+tables/forms/charts, as well as a small local static interactive page or notebook. Select interaction
+only where it helps Paul filter outcomes, see missing members, inspect linked evidence or make a
+specific decision. All views consume the same typed owner data/APIs; no mandatory daemon, simulator
+product frontend, new HTTP/OAuth system or generic database writer follows from framework availability.
+
+Use the [FastMCP4.1.3 Apps contract](https://github.com/PrefectHQ/fastmcp/blob/v4.1.3/docs/apps/overview.mdx)
+for fixed typed components when the decision is known. Actual host rendering must be demonstrated;
+successful tool transport is insufficient. Modern
+[elicitation](https://github.com/PrefectHQ/fastmcp/blob/v4.1.3/docs/servers/elicitation.mdx) returns
+`InputRequiredResult` and answers initiate a fresh invocation through the pipeline. Gather missing
+choices before effects; preserve needed request identity and prevent an effectful prefix from running
+again on re-entry. Prefer ordinary parameters when sufficient, and add no confirmation ceremony for
+already-authorized work. A preview or physical-result view must preserve its native interpretation
+and LIFE03's exact retained-handle semantics rather than infer authority from UI state.
 
 SurrealDB Studio remains a useful schema/query consumer. It must not become a second schema
 writer or the authority for scientific results. Typed local queries/APIs, including

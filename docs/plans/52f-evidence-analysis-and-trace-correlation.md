@@ -3,7 +3,7 @@ title: "Plan 52f: Evidence analysis and trace correlation"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, diagnostics, performance, storage]
@@ -53,6 +53,23 @@ is separately selectable F03 below, per the operator's 2026-10-24 choice. It is 
 close F01, original Plan53 or the originally selected Plan52 target. No new companion is needed:
 comparison semantics and finite inquiry preparation already belong to this owner.
 
+## Usability extension integration
+
+The [usability review's O06](../functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md#O06)
+adds demand-shaped reader consumers to F01, coordinated with 53e E05 rather than a parallel reader
+project. [52l CON02](52l-typed-requests-results-and-diagnostics.md#CON02) owns typed host-family
+presentation and migration of other relevant readers. Select answer sections and predicates at
+the original owner before hydration/serialization where supported; mandatory population/ambiguity
+work can legitimately remain global. Protected continuation and independent section completeness
+must survive both native/offline and canonical consumers. Generic JSON queries over curtailed results
+and schema-blind response trimming are not alternatives to that contract.
+
+[O12](../functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md#O12) gives F01 a
+recurring comparison consumer composed under G01/G02, without moving pairing semantics into a prompt
+or MCP callback. One call does not establish one atomic source cut. F03 remains separately selectable;
+CodeMode evaluation under 52o does not adopt its finite multi-question analysis. Interface progress
+and correlation from 52n/G03 do not settle F02's distinct trace-continuity inquiry.
+
 ## Work packages
 
 <a id="F01"></a>
@@ -93,6 +110,12 @@ analysis and indexed same-cut results agree; duplicate import does not double ou
 Qualify one real canonical request/result read with the same independent expected pairs and
 source cut as the native/offline reader, preserving per-section completeness, bounded details and unsupported association. Include large optional sections and a compact selected answer whose essential claims survive the host result bound. Delete replaced heuristic comparison parsers once their
 callers move; historical source results remain unchanged.
+
+Exercise an actual large protected source with a complete selected answer, independent full
+denominator/ambiguity expectations, omitted optional sections and a stale/released continuation.
+Retain original source membership and versioned custody/read semantics through 53e E05. Migrate
+the comparison's actual canonical/resource callers with CON02's truthful serialized response;
+do not advertise the complete native schema for a payload changed by a generic walker.
 
 <a id="F02"></a>
 ### F02 — Finite application-to-server trace seam
