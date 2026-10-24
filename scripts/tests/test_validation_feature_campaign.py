@@ -73,6 +73,16 @@ class FeatureCampaignTests(unittest.TestCase):
             self.assertEqual(campaign.run(self.root,self.root/'second','combinations',resume_from=first,environment={}),0)
         self.assertEqual(len(self.executed),6)
 
+    def test_direct_recipe_uses_existing_assessment_owner(self) -> None:
+        selected=self.root/"assessment"
+        with patch.dict(campaign.os.environ,{},clear=True), patch.object(campaign.validation,"fresh_output",return_value=selected), patch.object(campaign.validation,"run_gates",return_value=0) as owner, patch.object(campaign,"run") as execute:
+            self.assertEqual(campaign.main(["combinations"]),0)
+        execute.assert_not_called()
+        call=owner.call_args
+        self.assertEqual(call.args[:2],(campaign.ROOT,selected))
+        self.assertEqual(call.args[2][0].name,"features-combinations")
+        self.assertEqual(call.args[2][0].input_scope,"rust-product")
+
 
 if __name__=='__main__':
     unittest.main()
