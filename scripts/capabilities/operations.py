@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import math
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, TypeVar, overload
 
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool
@@ -14,6 +14,11 @@ from mcp.types import ToolAnnotations
 from pydantic import Field, JsonValue, TypeAdapter
 
 from scripts.capabilities.model import Capability, Contract
+from scripts.capabilities import read_contracts
+from scripts.capabilities.diagnostics import refusal
+from scripts.workspace_domain_contracts import ConceptQuery
+
+T = TypeVar("T")
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -131,89 +136,87 @@ def bounded(result: object, operation: str) -> ReadResult:
     return response
 
 
-def owner_read(operation: str, read: Callable[[], object]) -> ReadResult:
+@overload
+def owner_read(operation: str, read: Callable[[], object]) -> ReadResult: ...
+
+
+@overload
+def owner_read(operation: str, read: Callable[[], dict], *, project: Callable[[dict], T]) -> T: ...
+
+
+def owner_read(operation: str, read: Callable[[], object], *, project: Callable[[dict], object] | None = None) -> object:
     try:
         value = read()
     except (ValueError, OSError) as error:
         code = (
             "input_refused" if isinstance(error, ValueError) else "source_unavailable"
         )
-        raise ToolError(
-            json.dumps(
-                {
-                    "code": "pse.workspace." + code,
-                    "operation": operation,
-                    "cause": type(error).__name__,
-                    "message": str(error),
-                },
-                sort_keys=True,
-            )
-        ) from error
+        raise refusal("pse.workspace." + code, operation=operation) from error
+    if project is not None:
+        if not isinstance(value, dict):
+            raise TypeError("host owner must return an object")
+        return project(value)
     return bounded(value, operation)
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     def workspace_task_context(
         task: str | None = None, paths: PathList | None = None
-    ) -> ReadResult:
+    ) -> read_contracts.TaskContextResult | read_contracts.DetailRefused:
         """Read an exact task/package and selected source paths. Derived facts retain native status, source protection and omissions; no work is executed."""
         from scripts.workspace_tasks import task_packet  # noqa: PLC0415
 
         return owner_read(
             "workspace_task_context",
             lambda: task_packet(task, tuple(paths or ()), root=root),
+            project=read_contracts.task_context,
         )
 
-    def workspace_concepts_query(
-        concept: str,
-        identity: str | None = None,
-        document: str | None = None,
-        limit: Bound = 20,
-        offset: Offset = 0,
-    ) -> ReadResult:
-        """Query exact owner-native concepts and identities. No similarity or lexical fallback; incomplete source relationships remain explicit."""
+    def workspace_concepts_query(request: ConceptQuery) -> read_contracts.ConceptQueryResult | read_contracts.DetailRefused:
+        """Query exact owner-defined concept alternatives, facets and original references.
+
+        The concept tag selects required identity/origin/reference fields. Owner examples describe
+        valid first requests; unknown native identities and unsupported adapters retain native truth.
+        No similarity, lexical fallback or source/service preparation is performed.
+        """
         from scripts.workspace_domains import query  # noqa: PLC0415
 
         return owner_read(
-            "workspace_concepts_query",
-            lambda: query(
-                concept,
-                identity,
-                root=root,
-                document=document,
-                limit=limit,
-                offset=offset,
-            ),
+            "workspace_concepts_query", lambda: query(request, root=root),
+            project=read_contracts.concept_query,
         )
 
     def workspace_producer_relationships(
         paths: PathList, limit: Bound = 40
-    ) -> ReadResult:
+    ) -> read_contracts.ProducerRelationshipsResult | read_contracts.DetailRefused:
         """Find declared producer relationships for exact source/output paths. Unknown edges are not evidence of no impact; generated files name edit owners."""
         from scripts.workspace_sources import relationships  # noqa: PLC0415
 
         return owner_read(
             "workspace_producer_relationships",
             lambda: relationships(root=root, exact_paths=tuple(paths), limit=limit),
+            project=read_contracts.producer_relationships,
         )
 
-    def workspace_recipe_describe(recipe: str) -> ReadResult:
+    def workspace_recipe_describe(recipe: str) -> read_contracts.RecipeDescriptionResult | read_contracts.DetailRefused:
         """Describe an exact public recipe from its current declaration, including native grammar and limitations. This never runs that recipe."""
         from scripts.capabilities.inventory import describe_recipe  # noqa: PLC0415
 
         return owner_read(
-            "workspace_recipe_describe", lambda: describe_recipe(root, recipe)
+            "workspace_recipe_describe", lambda: describe_recipe(root, recipe),
+            project=read_contracts.recipe_description,
         )
 
     def workspace_inventory(
         offset: Offset = 0, limit: Bound = 50, kind: str | None = None
-    ) -> ReadResult:
+    ) -> read_contracts.InventoryResult | read_contracts.DetailRefused:
         """Explicitly inspect current public recipe/script/native/skill entry points. This bounded read never executes the discovered operations."""
         from scripts.capabilities.inventory import inspect_entrypoints  # noqa: PLC0415
 
         return owner_read(
             "workspace_inventory",
             lambda: inspect_entrypoints(root, offset=offset, limit=limit, kind=kind),
+            project=read_contracts.inventory,
         )
 
     rows = (

@@ -163,7 +163,7 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
                     "tail": 0,
                 },
             },
-            {"operation": "product_run_read", "payload": native},
+            {"result": {"operation": "product_run_read", "payload": native}},
         ),
         ("capabilities_reset", {}, {"capabilities": []}),
         (
@@ -384,6 +384,16 @@ class CodexEvidenceTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "exact authorized"):
             check.assess(altered, self.output, self.guide)
+
+    def test_product_reader_requires_actual_typed_wrapper_without_text_fallback(self) -> None:
+        native = {"operation": "product_run_read", "payload": self.native}
+        text = [{"type": "text", "text": json.dumps(native)}]
+        self.assertEqual(check.decoded_result({"structured_content": {"result": native}, "content": text}, operation="product_run_read"), native)
+        for structured in (None, native, {"result": native, "other": True}):
+            with self.subTest(structured=structured), self.assertRaises((ValueError, TypeError)):
+                check.decoded_result({"structured_content": structured, "content": text}, operation="product_run_read")
+        action = {"operation": "rust_test_run", "result": {"exit_code": 0}}
+        self.assertEqual(check.decoded_result({"structured_content": action}, operation="rust_test_run"), action)
 
     def test_timeout_drain_reaps_owned_direct_process(self) -> None:
         process = subprocess.Popen(

@@ -165,6 +165,28 @@ class RunInspectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "selected catalog"):
             self.read(subject="invented")
 
+    def test_selection_detail_is_hydrated_only_after_subject_paging(self) -> None:
+        self.freeze()
+        original = run_inspection.resolve
+        requests = []
+
+        class Requirements(dict):
+            def get(self, identity: str, default: object = None) -> object:
+                requests.append(identity)
+                return super().get(identity, default)
+
+        def resolve(handle: str, registry: Path | None) -> tuple:
+            root, declaration, state = original(handle, registry)
+            state["terminal"]["evidence"]["requirements"] = Requirements({"suite::one": ["first"], "suite::two": ["second"]})
+            return root, declaration, state
+
+        with patch.object(run_inspection, "resolve", side_effect=resolve):
+            selected = self.read(offset=1, limit=1)
+        self.assertEqual(requests, ["suite::two"])
+        self.assertEqual(selected["page"]["subject_count"], 2)
+        self.assertEqual(selected["selected_count"], 2)
+        self.assertEqual(selected["subjects"][0]["requirements"], ["second"])
+
     def test_detached_metadata_does_not_initialize_or_modify_registry(self) -> None:
         before = {p: p.read_bytes() for p in self.registry.rglob("*") if p.is_file()}
         with patch.object(
@@ -216,6 +238,32 @@ class RunInspectionTests(unittest.TestCase):
         log.symlink_to(self.root / "outside")
         (self.root / "outside").write_text("not owned")
         self.assertEqual(self.read(tail=1)["payloads"][0]["status"], "unavailable")
+
+    def test_artifact_page_is_selected_before_protected_tail_hydration(self) -> None:
+        directory = self.root / "build" / "paged-report"
+        directory.mkdir(parents=True)
+        artifacts = {}
+        for name in ("first.log", "second.log", "third.log"):
+            path = directory / name
+            path.write_text(name + "\n")
+            artifacts[name] = test_resources.file_digest(path)
+        test_resources.register_report(directory, root=self.root)
+        self.freeze(artifacts=artifacts, artifact_base=str(directory))
+        original = run_inspection.artifact_observation
+        observed = []
+
+        def inspect(path: Path, *args: object) -> dict:
+            observed.append(path.name)
+            return original(path, *args)
+
+        with patch.object(run_inspection, "artifact_observation", side_effect=inspect):
+            result = self.read(offset=1, limit=1, tail=1)
+        self.assertEqual(observed, ["second.log"])
+        self.assertEqual(result["artifacts"], {"second.log": artifacts["second.log"]})
+        self.assertEqual(result["payloads"][0]["tail"], ["second.log"])
+        self.assertEqual(result["page"]["artifact_count"], 3)
+        self.assertEqual(result["page"]["next_offset"], 2)
+        self.assertEqual(result["page"]["subject_count"], 2)
 
     def test_product_payload_requires_current_owner_but_metadata_remains_readable(
         self,

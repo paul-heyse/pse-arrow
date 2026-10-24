@@ -14,7 +14,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from scripts import evidence_store, resource_store, workspace_domains, workspace_sources
+from scripts import evidence_store, resource_store, workspace_domain_contracts, workspace_domains, workspace_sources
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,7 +28,11 @@ def corpus(
     ranges: dict[str, tuple[int, int]] | None = None,
     concept: str | None = None,
     identity: str | None = None,
+    excerpt_offset: int = 0,
+    excerpt_limit: int | None = None,
 ) -> dict:
+    if excerpt_offset < 0 or (excerpt_limit is not None and not 1 <= excerpt_limit <= 100) or (excerpt_offset and excerpt_limit is None):
+        raise ValueError("excerpt offset requires a positive selected limit in 1..100")
     if (
         len(paths) > 64
         or len(set(paths)) != len(paths)
@@ -40,7 +44,12 @@ def corpus(
             "select 1..64 distinct repository sources OR one exact concept identity"
         )
     projection = (
-        workspace_domains.query(concept, identity, root=root, limit=100)
+        workspace_domains.query(
+            workspace_domain_contracts.parse_query(
+                {"concept": concept, "identity": identity, "limit": 100}
+            ),
+            root=root,
+        )
         if concept
         else workspace_domains.project(paths, root=root)
     )
@@ -49,6 +58,7 @@ def corpus(
             "incomplete owner-native projection: " + "; ".join(projection["omissions"])
         )
     sources, excerpts = [], []
+    excerpt_total = 0
     facts = projection["source_facts"]
     if concept:
         facts = [
@@ -129,22 +139,30 @@ def corpus(
         )
         for subject_id, first, last in selections:
             for start in range(first - 1, last, 40):
+                selected_lines = lines[start : min(start + 40, last)]
+                if not any(line.strip() for line in selected_lines):
+                    continue
+                index = excerpt_total
+                excerpt_total += 1
+                if excerpt_limit is not None and not excerpt_offset <= index < excerpt_offset + excerpt_limit:
+                    continue
+                encoded = "\n".join(selected_lines).encode("utf-8")
                 text = (
-                    "\n".join(lines[start : min(start + 40, last)])
-                    .encode("utf-8")[:16000]
+                    encoded[:16000]
                     .decode("utf-8", errors="ignore")
                 )
-                if text.strip():
-                    excerpts.append(
-                        {
-                            "id": f"{identity}#{subject_id or 'unattributed'}:L{start + 1}",
-                            "source_id": identity,
-                            "subject_id": subject_id,
-                            "text": text,
-                            "locator": f"repo:{identity}#L{start + 1}",
-                            "basis": "text",
-                        }
-                    )
+                excerpts.append(
+                    {
+                        "id": f"{identity}#{subject_id or 'unattributed'}:L{start + 1}",
+                        "source_id": identity,
+                        "subject_id": subject_id,
+                        "text": text,
+                        "locator": f"repo:{identity}#L{start + 1}",
+                        "basis": "text",
+                    }
+                )
+                if excerpt_limit is not None:
+                    excerpts[-1]["text_complete"] = len(encoded) <= 16000
     result = {
         "version": 2,
         "expected_active": expected_active,
@@ -154,6 +172,15 @@ def corpus(
         "edges": projection["edges"],
         "productions": projection["productions"],
     }
+    if excerpt_limit is not None:
+        if references:
+            raise ValueError("selected excerpts cannot be combined with imported reference populations")
+        result["excerpt_page"] = {
+            "offset": excerpt_offset,
+            "limit": excerpt_limit,
+            "total": excerpt_total,
+            "next_offset": excerpt_offset + excerpt_limit if excerpt_offset + excerpt_limit < excerpt_total else None,
+        }
     if references:
         if set(references) != {
             "sources",
@@ -258,15 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         selected.add_argument("--path", action="append", default=[])
         selected.add_argument(
             "--concept",
-            choices=(
-                "document",
-                "decision",
-                "contract-section",
-                "plan-package",
-                "declaration",
-                "generator",
-                "generated-output",
-            ),
+            choices=workspace_domain_contracts.SOURCE_CONCEPTS,
         )
         selected.add_argument(
             "--identity", help="exact native identity; mutually exclusive with --path"

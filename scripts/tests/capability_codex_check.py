@@ -68,13 +68,18 @@ def array_value(value: object) -> list[object]:
     return value
 
 
-def decoded_result(result: object) -> dict[str, object]:
+def decoded_result(result: object, *, operation: str) -> dict[str, object]:
     """Decode the actual MCP result, including framework text projections."""
     envelope = object_value(result)
     if envelope.get("is_error") is True or envelope.get("isError") is True:
         raise ValueError("host recorded an MCP error result")
     structured = envelope.get("structured_content", envelope.get("structuredContent"))
-    if isinstance(structured, dict) and set(structured) != {"result"}:
+    if operation == "product_run_read":
+        selected = object_value(structured)
+        if set(selected) != {"result"}:
+            raise ValueError("typed product reader requires its published host wrapper")
+        return object_value(selected["result"])
+    if isinstance(structured, dict):
         return structured
     blocks = array_value(envelope.get("content"))
     if len(blocks) != 1:
@@ -161,12 +166,16 @@ def transcript(path: Path) -> list[Call]:
                     raise ValueError("host call changed identity or arguments")
                 if item.get("status") != "completed" or item.get("error") is not None:
                     raise ValueError("canonical MCP call did not complete successfully")
+                arguments = object_value(item.get("arguments"))
+                operation = arguments.get("capability") if tool in {"capabilities_invoke_read", "capabilities_invoke_action"} else tool
+                if not isinstance(operation, str):
+                    raise ValueError("invocation wrapper omitted its exact capability")
                 call = Call(
                     index,
                     identity,
                     tool,
-                    object_value(item.get("arguments")),
-                    decoded_result(item.get("result")),
+                    arguments,
+                    decoded_result(item.get("result"), operation=operation),
                 )
                 if (
                     call.tool == "capabilities_invoke_action"

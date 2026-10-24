@@ -14,7 +14,8 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from scripts.capabilities.model import Capability
-from scripts.capabilities.operations import ReadResult, owner_read
+from scripts.capabilities.operations import owner_read
+from scripts.capabilities import read_contracts as answers
 
 Limit = Annotated[int, Field(ge=1, le=100)]
 Offset = Annotated[int, Field(ge=0)]
@@ -24,7 +25,7 @@ Paths = Annotated[list[str], Field(max_length=64)]
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
-    def environment_explain() -> ReadResult:
+    def environment_explain() -> answers.EnvironmentResult | answers.DetailRefused:
         """Observe checkout/tool placement without evaluating local shell, building or allocating work. Credentials are not request fields."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             pse_env,
@@ -33,13 +34,16 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         return owner_read(
             "environment_explain",
             lambda: pse_env.operation_description(root, os.environ, None),
+            project=answers.environment,
         )
 
     def knowledge_source_corpus(
         paths: Paths | None = None,
         concept: str | None = None,
         identity: str | None = None,
-    ) -> ReadResult:
+        excerpt_offset: Offset = 0,
+        excerpt_limit: Limit = 8,
+    ) -> answers.KnowledgeResult | answers.DetailRefused:
         """Read exact source-native concepts OR explicit source paths with original attribution. No store, ranked search or session scan. Missing and empty selections retain the owner's refusal."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             knowledge_store,
@@ -48,8 +52,10 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         return owner_read(
             "knowledge_source_corpus",
             lambda: knowledge_store.corpus(
-                tuple(paths or ()), root=root, concept=concept, identity=identity
+                tuple(paths or ()), root=root, concept=concept, identity=identity,
+                excerpt_offset=excerpt_offset, excerpt_limit=excerpt_limit
             ),
+            project=answers.knowledge,
         )
 
     def document_scope_query(
@@ -58,7 +64,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         | None = None,
         offset: Offset = 0,
         limit: Limit = 20,
-    ) -> ReadResult:
+    ) -> answers.DocumentScopeResult | answers.DetailRefused:
         """Page actual document-owned scope and exact optional state/path filters. This projection neither schedules work nor authorizes edits, decisions or retirement."""
         from fnmatch import (  # noqa: PLC0415 -- lazy operation owner.
             fnmatchcase,
@@ -86,7 +92,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 "next_offset": offset + limit if offset + limit < len(items) else None,
             }
 
-        return owner_read("document_scope_query", read)
+        return owner_read("document_scope_query", read, project=answers.document_scope)
 
     def product_run_read(
         invocation: str,
@@ -96,7 +102,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         offset: Offset = 0,
         limit: Limit = 20,
         tail: Tail = 0,
-    ) -> ReadResult:
+    ) -> answers.ProductRunResult | answers.DetailRefused:
         """Read one authentic invocation and selected subjects, independent workload/assurance/drain and protected detail. Reader success is not a product pass; no rerun or implicit retry."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             run_inspection,
@@ -113,6 +119,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 limit=limit,
                 tail=tail,
             ),
+            project=answers.product_run,
         )
 
     def assessment_read(
@@ -123,7 +130,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         source_detail: bool = False,
         full_export: bool = False,
         historical: bool = False,
-    ) -> ReadResult:
+    ) -> answers.AssessmentResult | answers.DetailRefused:
         """Read a selected assessment while borrowing its original report and reused origins. Qualification, incomplete scope and native causes survive; no printed-path scraping."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             validation_result,
@@ -140,6 +147,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 full_export=full_export,
                 historical=historical,
             ),
+            project=answers.assessment,
         )
 
     async def workload_watch(
@@ -148,13 +156,13 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         registry: str | None = None,
         cursor: str | None = None,
         max_wait: Wait = 0,
-    ) -> ReadResult:
+    ) -> answers.WorkloadWatchResult | answers.DetailRefused:
         """Detached bounded observation of one exact native owner. Cursor is bound to its selection; cancelling this read never cancels, drains or settles the subject."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             activity_watch,
         )
 
-        def read() -> ReadResult:
+        def read() -> answers.WorkloadWatchResult | answers.DetailRefused:
             selected = activity_watch.selection(
                 kind, handle, Path(registry) if registry is not None else None
             )
@@ -163,11 +171,12 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 lambda: activity_watch.watch(
                     selected, cursor=cursor, max_wait=max_wait
                 ),
+                project=answers.watch,
             )
 
         return await asyncio.to_thread(read)
 
-    def storage_observe() -> ReadResult:
+    def storage_observe() -> answers.StorageResult | answers.DetailRefused:
         """Observe configured store identities only, without recursive size traversal, reclamation or an assertion of disposable storage."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             build_storage,
@@ -185,6 +194,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 ),
                 "reclamation_authorized": False,
             },
+            project=answers.storage,
         )
 
     def library_source_packet(
@@ -194,7 +204,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         target: str | None = None,
         cargo_metadata: str | None = None,
         rustdoc: str | None = None,
-    ) -> ReadResult:
+    ) -> answers.LibraryResult | answers.DetailRefused:
         """Read an exact dependency pin/lock and selected source/API evidence. Supplied build metadata keeps its provenance and unknowns; this never resolves packages, downloads, compiles or infers missing library capability."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             workspace_sources,
@@ -211,9 +221,10 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 cargo_metadata=cargo_metadata,
                 rustdoc=rustdoc,
             ),
+            project=answers.library,
         )
 
-    def coverage_correspondence_read(directory: str, base: str) -> ReadResult:
+    def coverage_correspondence_read(directory: str, base: str) -> answers.CoverageResult | answers.DetailRefused:
         """Inspect a retained coverage capture against an exact Git base. Verify captured report/population digests and retain source freshness, uncovered regions and correspondence limits; coverage is not behavioral adequacy."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             coverage_correspondence,
@@ -222,6 +233,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         return owner_read(
             "coverage_correspondence_read",
             lambda: coverage_correspondence.inspect(root / directory, base),
+            project=answers.coverage,
         )
 
     entries = (

@@ -20,22 +20,11 @@ from scripts import (
     evidence_projection,
     evidence_sources,
     workspace_sources,
+    workspace_domain_contracts,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-CONCEPTS = {
-    "document": "document",
-    "contract-section": "contract",
-    "decision": "decision",
-    "plan-package": "plan_package",
-    "declaration": "declaration",
-    "generator": "generator",
-    "generated-output": "generated_artifact",
-    "evidence-reference": "evidence_reference",
-    "diagnostic": "diagnostic",
-    "experiment": "experiment",
-    "research-question": "research_question",
-}
+CONCEPTS = workspace_domain_contracts.CONCEPTS
 
 
 def _identity(kind: str, native: str) -> str:
@@ -675,28 +664,12 @@ def _discovery(root: Path, prefixes: tuple[str, ...]) -> tuple[list[str], list[s
 
 
 def _selected_reference(
-    projection: _Projection, kind: str, selection: dict | None
+    projection: _Projection, kind: str, selection: dict
 ) -> None:
-    if not selection:
-        projection.unknowns.append(
-            "no explicit original evidence adapter selection; reference discovery not implemented"
-        )
-        return
-    adapter = selection.get("adapter")
-    if adapter not in {"invocation", "diagnostic", "assessment"}:
-        projection.unknowns.append(
-            "unsupported original evidence adapter/codec: "
-            + str(selection.get("codec", adapter))
-        )
-        return
+    adapter = selection["adapter"]
     if kind == "experiment":
         projection.unknowns.append(
             "experiment concept adapter not implemented; generic evidence is not a new experiment lifecycle"
-        )
-        return
-    if kind == "diagnostic" and adapter != "diagnostic":
-        projection.unknowns.append(
-            "diagnostic concept requires the original diagnostic adapter"
         )
         return
     path = selection.get("path")
@@ -799,48 +772,71 @@ def _selected_reference(
         projection.omissions.append("selected evidence member bound exceeded")
 
 
+def _select_query_context(result: dict, items: list[dict]) -> None:
+    """Retain selected subjects and declared context, never unrelated page payloads.
+
+    Semantic relationship closure carries native status/dependencies and decision
+    supersession. Container/owner links add their direct context without expanding
+    into unrelated sibling sections. Producer triples remain indivisible.
+    """
+    selected = {item["id"] for item in items}
+    semantic_relations = {"depends_on", "status_owned_by", "superseded_by"}
+    while True:
+        related = selected | {
+            endpoint
+            for edge in result["edges"]
+            if edge["relation"] in semantic_relations
+            and (edge["from"] in selected or edge["to"] in selected)
+            for endpoint in (edge["from"], edge["to"])
+        }
+        if related == selected:
+            break
+        selected = related
+    productions = [
+        row for row in result["productions"]
+        if selected.intersection((row["declaration_id"], row["generator_id"], row["artifact_id"]))
+    ]
+    selected.update(
+        row[field] for row in productions
+        for field in ("declaration_id", "generator_id", "artifact_id")
+    )
+    edges = [
+        edge for edge in result["edges"]
+        if edge["from"] in selected or edge["to"] in selected
+    ]
+    selected.update(endpoint for edge in edges for endpoint in (edge["from"], edge["to"]))
+    result["subjects"] = [row for row in result["subjects"] if row["id"] in selected]
+    result["edges"] = edges
+    result["productions"] = productions
+    result["section_ranges"] = [row for row in result["section_ranges"] if row["subject_id"] in selected]
+    production_ids = {row["id"] for row in productions}
+    result["native_facts"] = [
+        row for row in result["native_facts"]
+        if row.get("subject_id") in selected or row.get("production_id") in production_ids
+    ]
+
+
 def query(
-    concept: str,
-    identity: str | None = None,
+    request: workspace_domain_contracts.ConceptQuery,
     *,
     root: Path = ROOT,
-    topics: tuple[str, ...] = (),
-    role: str | None = None,
-    owner: str | None = None,
-    document: str | None = None,
-    origin: str | None = None,
-    question: str | None = None,
-    selected_reference: dict | None = None,
-    publication_scope: str | None = None,
-    native_status: str | None = None,
-    limit: int = 20,
-    offset: int = 0,
 ) -> dict:
-    """Exact conjunction over native identities/facets; no lexical ranking fallback."""
-    if (
-        concept not in CONCEPTS
-        or not 1 <= limit <= 100
-        or offset < 0
-        or len(topics) > 16
-    ):
-        raise ValueError("select a supported concept and bounded exact query")
-    if identity is not None and (
-        not isinstance(identity, str) or not identity or len(identity) > 4096
-    ):
-        raise ValueError("native identity must be a bounded exact string")
+    """Exact conjunction over an owner-validated request; no ranking fallback."""
+    request = workspace_domain_contracts.parse_query(request)
+    concept = request.concept
+    identity = getattr(request, "identity", None)
+    topics = getattr(request, "topics", [])
+    role = getattr(request, "role", None)
+    owner = getattr(request, "owner", None)
+    document = getattr(request, "document", None)
+    publication_scope = getattr(request, "publication_scope", None)
+    native_status = getattr(request, "native_status", None)
+    limit, offset = request.limit, request.offset
     projection = _Projection(root, 256)
     kind = CONCEPTS[concept]
-    if concept == "research-question":
-        if (
-            identity is None
-            or origin not in {"user-question", "agent-interpretation"}
-            or not isinstance(question, str)
-            or not question.strip()
-            or len(question) > 4096
-        ):
-            raise ValueError(
-                "research question requires explicit caller identity and user-question/agent-interpretation origin"
-            )
+    if isinstance(request, workspace_domain_contracts.ResearchQuestionQuery):
+        origin = request.origin
+        question = request.question
         subject = _subject(kind, identity, "caller", question, basis=origin)
         source_id = (
             "caller-input:"
@@ -877,8 +873,14 @@ def query(
         projection.unknowns.append(
             "question has no newly invented lifecycle; answers/support links require explicit owner declarations"
         )
-    elif concept in {"experiment", "diagnostic", "evidence-reference"}:
-        _selected_reference(projection, kind, selected_reference)
+    elif isinstance(request, (
+        workspace_domain_contracts.ExperimentQuery,
+        workspace_domain_contracts.DiagnosticQuery,
+        workspace_domain_contracts.EvidenceReferenceQuery,
+    )):
+        _selected_reference(
+            projection, kind, request.selected_reference.model_dump(exclude_none=True)
+        )
     elif concept in {"declaration", "generator", "generated-output"}:
         if identity is None:
             raise ValueError("producer concept requires an exact native identity")
@@ -1031,6 +1033,14 @@ def query(
         items=candidates[offset : offset + limit],
         next_offset=offset + limit if len(candidates) > offset + limit else None,
     )
+    result["population"] = {
+        "matched_count": len(candidates),
+        "returned_count": len(result["items"]),
+        "offset": offset,
+        "limit": limit,
+        "complete": result["complete"],
+    }
+    _select_query_context(result, result["items"])
     result["adapter_status"] = (
         "not_implemented"
         if concept == "experiment"

@@ -17,9 +17,10 @@ from unittest.mock import patch
 
 from fastmcp import Client, FastMCP
 from fastmcp.server.transforms import ResourcesAsTools
+from jsonschema import Draft202012Validator
 
 from scripts import docs
-from scripts.capabilities import reference
+from scripts.capabilities import host_queries, operations, reference
 from scripts.capabilities.catalogue import Catalogue
 from scripts.capabilities.model import Capability
 from scripts.capabilities.server import build
@@ -60,6 +61,31 @@ class ReferenceTests(unittest.TestCase):
         )
         self.assertIn("AGENTS.md](../../../AGENTS.md)", content)
         self.assertNotIn(str(ROOT), content)
+
+    def test_all_host_families_publish_valid_wrapped_serialization_schemas(self) -> None:
+        _, workspace_tools = operations.bindings(ROOT)
+        _, host_tools = host_queries.bindings(ROOT)
+        tools = {**workspace_tools, **host_tools}
+        self.assertEqual(len(tools), 14)
+        for identity, tool in tools.items():
+            with self.subTest(operation=identity):
+                schema = tool.output_schema
+                self.assertIsInstance(schema, dict)
+                if not isinstance(schema, dict):
+                    self.fail("typed host output schema absent")
+                Draft202012Validator.check_schema(schema)
+                self.assertEqual(schema["type"], "object")
+                self.assertEqual(schema["required"], ["result"])
+                self.assertIn("anyOf", schema["properties"]["result"])
+                refusal = {"result": {
+                    "operation": identity, "outcome": "detail-refused", "complete": False,
+                    "omissions": ["Selected detail exceeds the encoded bound."],
+                    "encoded_bytes": 200000, "maximum_bytes": 131072,
+                    "remedy": "Narrow the original owner selection.",
+                }}
+                validator = Draft202012Validator(schema)
+                validator.validate(refusal)
+                self.assertFalse(validator.is_valid(refusal["result"]))
 
     def test_schema_links_publish_without_copying_generated_json_assets(self) -> None:
         content = reference.render(build())

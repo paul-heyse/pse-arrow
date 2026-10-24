@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
+from jsonschema import Draft202012Validator
 
 from scripts.capabilities.server import build
 
@@ -33,7 +34,9 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             )
         ).structured_content
         assert result is not None
-        return result
+        tool = next(tool for tool in await self.client.list_tools() if tool.name == name)
+        Draft202012Validator(tool.output_schema).validate(result)
+        return result["result"]
 
     async def test_environment_observation_contains_no_credentials_or_admission(
         self,
@@ -92,6 +95,24 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             result = await self.call("library_source_packet", {"package": "fastmcp"})
         self.assertIn("4.1.3", json.dumps(result))
         self.assertIn("pyproject.toml", json.dumps(result))
+
+    async def test_watch_unavailable_snapshot_keeps_gap_cursor_and_unavailable_meaning(self) -> None:
+        from scripts import activity_watch
+        value = activity_watch.watch({"kind": "unit", "handle": "selected.scope"}, max_wait=0, observe=lambda selected, deadline: {"state": "observation-unavailable", "error": "owner unavailable", "result_reference": None})
+        with patch.object(activity_watch, "watch", return_value=value):
+            result = await self.call("workload_watch", {"kind": "unit", "handle": "selected.scope"})
+        self.assertEqual(result["answer"]["population"], "unavailable")
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["payload"]["cursor"], value["cursor"])
+        self.assertIn("no replay guarantee", result["payload"]["reconciliation"]["gap"])
+
+    async def test_unavailable_coverage_population_remains_null_not_empty_observation(self) -> None:
+        value = {"schema": "changed-source-coverage-v1", "capture": "/selected/capture", "fresh": False, "status": "stale-or-unsuccessful", "population": None, "population_status": "unavailable", "exclusions": "generated/", "regions": [], "selection": "conservative dependency reach remains authoritative", "limits": ["coverage is not assertion adequacy"]}
+        with patch("scripts.coverage_correspondence.inspect", return_value=value):
+            result = await self.call("coverage_correspondence_read", {"directory": "selected/capture", "base": "HEAD"})
+        self.assertIsNone(result["payload"]["population"])
+        self.assertEqual(result["answer"]["population"], "partial")
+        self.assertEqual(result["payload"]["limits"], value["limits"])
 
     async def test_coverage_capture_requires_actual_structured_owner_evidence(
         self,

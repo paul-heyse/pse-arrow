@@ -19,6 +19,7 @@ from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool, ToolResult
+from jsonschema import Draft202012Validator
 from mcp import MCPError
 from pydantic import ValidationError
 
@@ -56,6 +57,14 @@ def object_value(value: object) -> dict:
 
 def content(result: CallToolResult | ToolResult) -> dict:
     return object_value(result.structured_content)
+
+
+def host_content(result: CallToolResult | ToolResult) -> dict:
+    """Typed host-return unions have one framework-owned object wrapper."""
+    structured = content(result)
+    if set(structured) != {"result"}:
+        raise TypeError("Expected the published host answer wrapper")
+    return object_value(structured["result"])
 
 
 def fixture(
@@ -263,7 +272,7 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(selected["callable_tools"], ["workspace_task_context"])
         self.assertTrue(selected["instructions"])
-        actual = content(
+        actual = host_content(
             await self.client.call_tool(
                 "workspace_task_context",
                 {
@@ -279,7 +288,7 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
             [item["native_id"] for item in actual["payload"]["native_scope"]], ["CAP01"]
         )
         self.assertFalse(
-            any("text" in source for source in actual["payload"]["sources"])
+            any(source.get("text") is not None for source in actual["payload"]["sources"])
         )
         self.assertNotIn("pse._native", sys.modules)
         self.assertTrue(await self.refused("workspace_task_context", {"task": 12}))
@@ -304,10 +313,10 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
             "capabilities_select",
             {"capabilities": ["workspace_producer_relationships"]},
         )
-        direct = content(
+        direct = host_content(
             await self.client.call_tool("workspace_producer_relationships", arguments)
         )
-        compatible = content(
+        compatible = host_content(
             await self.client.call_tool(
                 "capabilities_invoke_read",
                 {
@@ -402,7 +411,7 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
         await self.client.call_tool(
             "capabilities_select", {"capabilities": ["workspace_recipe_describe"]}
         )
-        actual = content(
+        actual = host_content(
             await self.client.call_tool(
                 "workspace_recipe_describe", {"recipe": "labels-sync"}
             )
@@ -495,13 +504,47 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
         )
         result = await self.client.call_tool(
             "workspace_concepts_query",
-            {"concept": "not-a-native-concept"},
+            {"request": {"concept": "plan-package", "identity": "CON01"}},
             raise_on_error=False,
         )
         self.assertTrue(result.is_error)
         text = " ".join(item.text for item in result.content if hasattr(item, "text"))
         self.assertIn("pse.workspace.input_refused", text)
-        self.assertIn("ValueError", text)
+        diagnostic = json.loads(text)
+        self.assertEqual(diagnostic["stage"], "owner_read")
+        self.assertTrue(diagnostic["remedy"])
+        self.assertNotIn("CON01", text)
+        self.assertNotIn("cause", diagnostic)
+
+    async def test_tagged_concept_request_returns_schema_conformant_selected_answer(self) -> None:
+        await self.client.call_tool("capabilities_select", {"capabilities": ["workspace_concepts_query"]})
+        tool = self.runtime.catalogue.tools["workspace_concepts_query"]
+        request = {"request": {
+            "concept": "research-question", "identity": "RQ-host-contract",
+            "origin": "user-question", "question": "Which owner declares this field?",
+        }}
+        Draft202012Validator(tool.parameters).validate(request)
+        result = await self.client.call_tool("workspace_concepts_query", request)
+        self.assertIsNotNone(tool.output_schema)
+        Draft202012Validator(tool.output_schema).validate(content(result))
+        answer = host_content(result)
+        self.assertEqual(answer["operation"], "workspace_concepts_query")
+        self.assertTrue(answer["complete"])
+        self.assertEqual(answer["answer"]["population"], "complete")
+        selected = answer["payload"]["items"]
+        self.assertEqual(len(selected), 1)
+        self.assertEqual(selected[0]["native_id"], "RQ-host-contract")
+        self.assertEqual(selected[0]["basis"], "user-question")
+        self.assertEqual(selected[0]["label"], "Which owner declares this field?")
+        for invalid in (
+            {"concept": "research-question", "identity": "RQ-host-contract"},
+            {"concept": "diagnostic", "selected_reference": None},
+            {"concept": "decision", "topics": [""]},
+            {"concept": "not-a-native-concept"},
+        ):
+            with self.subTest(request=invalid):
+                self.assertTrue(await self.refused("workspace_concepts_query", {"request": invalid}))
+        self.assertTrue(await self.refused("workspace_concepts_query", {"concept": "decision"}))
 
     async def test_notifications_do_not_claim_rollback_after_commit(self) -> None:
         original = server.save_visibility_rules
@@ -575,7 +618,7 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                         "capabilities_select",
                         {"capabilities": ["workspace_task_context"]},
                     )
-                    actual = content(
+                    actual = host_content(
                         await client.call_tool(
                             "capabilities_invoke_read",
                             {
@@ -634,7 +677,7 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                     },
                     BOOTSTRAP,
                 )
-                actual = content(
+                actual = host_content(
                     await first.call_tool(
                         "workspace_producer_relationships",
                         {"paths": ["python/pse/_native.pyi"], "limit": 3},

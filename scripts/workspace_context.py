@@ -14,6 +14,7 @@ from scripts import (
     document_lifecycle,
     document_metadata,
     session_retrospective,
+    workspace_domain_contracts,
     workspace_domains,
     workspace_sources,
     workspace_tasks,
@@ -345,22 +346,25 @@ def main(argv: list[str] | None = None) -> int:
             identity = args.identity or (
                 args.task if args.concept == "plan-package" else None
             )
-            result = workspace_domains.query(
-                args.concept,
-                identity,
-                root=ROOT,
-                topics=tuple(args.topic),
-                role=args.role,
-                owner=args.owner,
-                document=args.document,
-                origin=args.origin,
-                question=args.query if args.concept == "research-question" else None,
-                selected_reference=reference,
-                publication_scope=args.publication_scope,
-                native_status=args.native_status,
-                limit=args.limit,
-                offset=args.offset,
+            supplied = {
+                "concept": args.concept,
+                "identity": identity,
+                "topics": args.topic or None,
+                "role": args.role,
+                "owner": args.owner,
+                "document": args.document,
+                "origin": args.origin,
+                "question": args.query if args.query else None,
+                "selected_reference": reference,
+                "publication_scope": args.publication_scope,
+                "native_status": args.native_status,
+                "limit": args.limit,
+                "offset": args.offset,
+            }
+            request = workspace_domain_contracts.parse_query(
+                {key: value for key, value in supplied.items() if value is not None}
             )
+            result = workspace_domains.query(request, root=ROOT)
         except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
             parser.exit(1, f"context: exact concept unavailable: {error}\n")
         print(json.dumps(result, sort_keys=True, indent=None if args.json else 2))

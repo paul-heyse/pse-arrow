@@ -170,6 +170,8 @@ def product_result(
     limit: int = 100,
     tail: int = 0,
 ) -> dict:
+    if offset < 0 or limit < 1 or tail < 0:
+        raise ValueError("offset/tail must be nonnegative and limit positive")
     root, declaration, state = resolve(handle, registry)
     frozen = state.get("terminal") if state["phase"] == "frozen" else None
     evidence = frozen.get("evidence", {}) if frozen else {}
@@ -182,23 +184,29 @@ def product_result(
         raise ValueError("frozen results differ from selected catalog")
     if subject is not None and subject not in catalog:
         raise ValueError("subject is not in the selected catalog")
-    subjects = [
-        {
-            "identity": identity,
-            "selection": item,
-            "outcome": outcomes.get(identity, "unreported"),
-            "requirements": evidence.get(
-                "requirements", state.get("requirements", {})
-            ).get(identity),
-        }
-        for identity, item in zip(catalog, selected, strict=True)
+    # Preserve global catalogue/outcome checks above and the matched denominator,
+    # but hydrate requirements and selection records only for the requested page.
+    matched = [
+        index for index, identity in enumerate(catalog)
         if (subject is None or subject == identity)
         and (not failures or outcomes.get(identity) != "pass")
+    ]
+    subjects = [
+        {
+            "identity": catalog[index],
+            "selection": selected[index],
+            "outcome": outcomes.get(catalog[index], "unreported"),
+            "requirements": evidence.get(
+                "requirements", state.get("requirements", {})
+            ).get(catalog[index]),
+        }
+        for index in matched[offset : offset + limit]
     ]
     # Metadata references are intentionally not hydrated by the ordinary view.
     artifacts = evidence.get("artifacts", {})
     if not isinstance(artifacts, dict):
         raise TypeError("invalid frozen artifact references")
+    selected_artifacts = dict(list(artifacts.items())[offset : offset + limit])
     resources = []
     store = resource_store.FileStore(root)
     for identity, member in list(state["members"].items())[offset : offset + limit]:
@@ -232,7 +240,7 @@ def product_result(
             borrowed: dict[
                 Path, tuple[test_resources.ResourceRecord | None, str | None]
             ] = {}
-            for name, reference in artifacts.items():
+            for name, reference in selected_artifacts.items():
                 if not isinstance(name, str) or not isinstance(reference, str):
                     continue  # binary/extension association is metadata, not a log
                 path = Path(name)
@@ -319,7 +327,7 @@ def product_result(
             "collected" if state["collected"] else "uncollected",
         ),
         "refusal": evidence.get("refusal"),
-        "subjects": subjects[offset : offset + limit],
+        "subjects": subjects,
         "selected_unreported": unreported[offset : offset + limit],
         "selected_unreported_count": len(unreported),
         "report_rows": evidence.get("results", [])[offset : offset + limit],
@@ -329,27 +337,36 @@ def product_result(
         "peer_invocations": {
             key: value
             for key, value in evidence.get("peer_invocations", {}).items()
-            if key in {item["identity"] for item in subjects[offset : offset + limit]}
+            if key in {item["identity"] for item in subjects}
         },
         "cleanup_observations": {
             key: value
             for key, value in evidence.get("cleanup_observations", {}).items()
-            if key in {item["identity"] for item in subjects[offset : offset + limit]}
+            if key in {item["identity"] for item in subjects}
         },
         "setup_failures": {
             key: value
             for key, value in evidence.get("setup_failures", {}).items()
-            if key in {item["identity"] for item in subjects[offset : offset + limit]}
+            if key in {item["identity"] for item in subjects}
         },
         "process": evidence.get("process", {}),
         "owned_drain": evidence.get("owned_drain", "unobserved"),
-        "artifacts": artifacts,
+        "artifacts": selected_artifacts,
         "payloads": payloads,
         "resources": resources,
         "page": {
             "offset": offset,
             "limit": limit,
-            "subject_count": len(subjects),
+            "subject_count": len(matched),
             "resource_count": len(state["members"]),
+            "artifact_count": len(artifacts),
+            "diagnostic_count": len(state.get("diagnostic_actions", [])),
+            "report_row_count": len(evidence.get("results", [])),
+            "unreported_count": len(unreported),
+            "next_offset": offset + limit if offset + limit < max(
+                len(matched), len(state["members"]), len(artifacts),
+                len(state.get("diagnostic_actions", [])),
+                len(evidence.get("results", [])), len(unreported),
+            ) else None,
         },
     }

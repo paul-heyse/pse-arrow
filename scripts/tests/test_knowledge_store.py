@@ -216,7 +216,11 @@ class KnowledgeStoreTests(unittest.TestCase):
                 result = knowledge_store.corpus(
                     concept="contract-section", identity="20.5", root=root
                 )
-            self.assertEqual(query.call_args.args, ("contract-section", "20.5"))
+            self.assertEqual(len(query.call_args.args), 1)
+            request = query.call_args.args[0]
+            self.assertEqual(request.concept, "contract-section")
+            self.assertEqual(request.identity, "20.5")
+            self.assertEqual(request.limit, 100)
             self.assertIn(
                 "line 359", "\n".join(item["text"] for item in result["excerpts"])
             )
