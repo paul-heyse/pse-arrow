@@ -154,3 +154,25 @@ def test_standalone_current_operation_can_be_projected_and_promoted_explicitly()
     )
     with pytest.raises(msgspec.ValidationError, match="version"):
         codec.decode_json(codec.encode_json(body), documents.OperationId)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"{}",
+        b'{"version":999,"secret":"credential-sentinel"}',
+        b'{"version":1,"version":1}',
+    ],
+)
+def test_version_refusal_preserves_native_structural_report(payload: bytes) -> None:
+    with pytest.raises(msgspec.ValidationError) as caught:
+        codec.decode_json(payload, documents.CanonicalGraphRequest)
+    original = caught.value.__cause__
+    assert original is not None
+    report = getattr(original, "report", None)
+    assert report is not None
+    assert report.decode_location.stage == "header"
+    assert report.decode_location.category == "data"
+    assert report.source_locations == ()
+    assert "credential-sentinel" not in report.message

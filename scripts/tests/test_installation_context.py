@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Typed syntax equivalence and closed-context refusal controls."""
+# ruff: noqa: PT009, PT027 -- stdlib unittest controls
 
 from __future__ import annotations
 

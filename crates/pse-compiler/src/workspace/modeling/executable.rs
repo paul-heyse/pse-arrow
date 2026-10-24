@@ -1632,7 +1632,36 @@ impl CompilerWorkspace {
         self.db.cancel = cancel;
         let live_keys = frontier.body_requests().collect::<BTreeSet<_>>();
         let frontier_bytes = frontier.retained_bytes();
-        self.admit_live_root(live_keys.len(), frontier_bytes)?;
+        // These extents belong to the complete owned frontier, independently of
+        // resident query history. An oversize incoming root cannot be made to fit
+        // by discarding a generation, and must not initiate a rotation.
+        if !self.live_root_fits(live_keys.len().max(self.limits.query_values), frontier_bytes) {
+            return Err(CompileError::Limit("live root working set"));
+        }
+        let (mut capacity, mut count, mut working) =
+            self.live_root_working_set(live_keys.len(), frontier_bytes);
+        let mut rotated = false;
+        if !self.live_root_fits(count.max(capacity), working) {
+            // Only this route holds no generation-local request/catalog handles.
+            // Rebuild reconstructs the current admitted revision and immutable
+            // inputs; escaped products and attached pure-body retention survive.
+            // Preserve the current environment check before a rebuild can refresh
+            // that inventory from the initialized library environment.
+            if frontier.environment != *self.inventory.environment(&self.db) {
+                return Err(CompileError::from(MathError::Contract(
+                    "modeling frontier has a different immutable compiler inventory".into(),
+                )));
+            }
+            self.rebuild(self.inputs.clone())?;
+            rotated = true;
+            (capacity, count, working) = self.live_root_working_set(live_keys.len(), frontier_bytes);
+        }
+        // One receiving generation at most. Required source/context extent and
+        // the entire incoming frontier still face the unchanged finite policy.
+        if !self.live_root_fits(count.max(capacity), working) {
+            return Err(CompileError::Limit("live root working set"));
+        }
+        self.accept_live_root(capacity, working);
         // Completion consumes immutable owned instructions. Allocation owners may
         // contain interior accounting state, but cancellation cannot expose a partly
         // constructed product; non-cancellation panics are rethrown by Salsa.
@@ -1799,7 +1828,16 @@ impl CompilerWorkspace {
                 .collect();
             self.retain_live_root(bodies, frontier_bytes);
         }
-        self.trim_queries()?;
+        if rotated {
+            self.db.trigger_lru_eviction();
+            // A cancellation or typed admission refusal remains the actual
+            // failure even if its partial query keys exceed retention policy.
+            if result.is_ok() && self.retention_exceeded() {
+                return Err(CompileError::Limit("live root working set"));
+            }
+        } else {
+            self.trim_queries()?;
+        }
         result
     }
 

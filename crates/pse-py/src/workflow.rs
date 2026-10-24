@@ -2523,6 +2523,28 @@ impl NativeRuntime {
             self.owner.clone(),
         ))
     }
+    /// Inspect original protected result shape or bounded readable selected cells.
+    fn inspect_result(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ResultInspectionRequest>,
+    ) -> PyResult<documents::DocumentValue<native::ResultInspectionDocument>> {
+        let connection_stop = CancelSource::new();
+        let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
+        let value = blocking(
+            py,
+            &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move {
+                recording.inspect_result(request.0, operation_cancel).await
+            }),
+            || {
+                connection_stop.cancel();
+                cancel.cancel();
+            },
+        )?;
+        Ok(documents::DocumentValue(value))
+    }
     /// Stream one exact canonical run/attempt's scientific relation after restart.
     /// Half-open row coordinates select recorded coverage without substituting
     /// another attempt's values. Late failures remain on the Arrow stream.

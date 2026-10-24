@@ -13,9 +13,13 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 from unittest.mock import patch
 
-from scripts import workspace_context, workspace_tasks
+from scripts import workspace_context, workspace_sources, workspace_tasks
 
 
 class WorkspaceTasksTests(unittest.TestCase):
@@ -37,12 +41,10 @@ class WorkspaceTasksTests(unittest.TestCase):
                 "state": "open",
                 "status_owner": owner,
             }
-            from scripts import workspace_sources
-
             original = workspace_sources.source
 
-            def selected(relative: str, **options: object) -> dict:
-                result = original(relative, **options)
+            def selected(relative: str, *, root: Path = workspace_sources.ROOT, revision: str | None = None, max_bytes: int = 4 << 20, expected_digest: str | None = None) -> dict:
+                result = original(relative, root=root, revision=revision, max_bytes=max_bytes, expected_digest=expected_digest)
                 if relative == plan:
                     result["owner"] = owner
                 return result
@@ -90,13 +92,24 @@ class WorkspaceTasksTests(unittest.TestCase):
                 result["exclusions"],
             )
 
-    def test_requested_missing_source_is_a_population_gap_not_an_exclusion(self) -> None:
+    def test_requested_missing_source_is_a_population_gap_not_an_exclusion(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            with patch.object(workspace_tasks.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")):
+            with patch.object(
+                workspace_tasks.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ):
                 result = workspace_tasks.task_packet(None, ("missing.rs",), root=root)
             self.assertFalse(result["population_complete"])
-            self.assertTrue(any("selected source unavailable" in item for item in result["omissions"]))
+            self.assertTrue(
+                any(
+                    "selected source unavailable" in item
+                    for item in result["omissions"]
+                )
+            )
             self.assertIn("dynamic consumers unresolved", result["unknowns"])
             self.assertEqual(result["sources"][0]["availability"], "unavailable")
 
@@ -110,8 +123,11 @@ class WorkspaceTasksTests(unittest.TestCase):
             (root / plan).write_text("# Old plan\n")
             (root / external).write_text("# Canonical status owner\n")
 
-            def aggregate(selected_root, policy, **options):
-                options["read_source"](external)
+            def aggregate(_selected_root: Path, _policy: dict, *, documents: set[str] | None = None, read_source: Callable[[str], bytes] | None = None) -> list[dict]:
+                del documents
+                if read_source is None:
+                    self.fail("Expected the original selected source reader")
+                read_source(external)
                 (root / plan).write_text("# Changed after native parsing\n")
                 return [{"document": plan, "native_id": "A01", "state": "open"}]
 
@@ -173,7 +189,7 @@ class WorkspaceTasksTests(unittest.TestCase):
             with patch.object(
                 workspace_tasks,
                 "task_packet",
-                side_effect=lambda task, paths, **kwargs: {"selected": paths},
+                side_effect=lambda _task, paths, **_kwargs: {"selected": paths},
             ):
                 result = workspace_tasks.alternatives(question, root=root)
             self.assertEqual(

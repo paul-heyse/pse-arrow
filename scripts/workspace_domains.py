@@ -19,8 +19,8 @@ from scripts import (
     document_metadata,
     evidence_projection,
     evidence_sources,
-    workspace_sources,
     workspace_domain_contracts,
+    workspace_sources,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,10 +93,11 @@ class _Projection:
                         item["path"], root=self.root, expected_digest=item["digest"]
                     )
                     self.facts[item["path"]] = policy
-            return fact
         except (OSError, UnicodeError, ValueError) as error:
             self.omissions.append(f"source unavailable: {path}: {error}")
             return None
+        else:
+            return fact
 
     def contribute(self, subject: dict, fact: dict, role: str) -> None:
         contributor = {"source_id": fact["path"], "role": role}
@@ -438,7 +439,7 @@ def _packages(
             "plan_package",
             key,
             row.get("owner", row["document"]),
-            row.get("label", row.get("native_id", key)),
+            row.get("label") or row.get("native_id") or key,
             version=fact["digest"],
         )
         subject.update(
@@ -663,9 +664,7 @@ def _discovery(root: Path, prefixes: tuple[str, ...]) -> tuple[list[str], list[s
     ], [] if selected["complete"] else ["native document discovery bound exhausted"]
 
 
-def _selected_reference(
-    projection: _Projection, kind: str, selection: dict
-) -> None:
+def _selected_reference(projection: _Projection, kind: str, selection: dict) -> None:
     adapter = selection["adapter"]
     if kind == "experiment":
         projection.unknowns.append(
@@ -793,26 +792,37 @@ def _select_query_context(result: dict, items: list[dict]) -> None:
             break
         selected = related
     productions = [
-        row for row in result["productions"]
-        if selected.intersection((row["declaration_id"], row["generator_id"], row["artifact_id"]))
+        row
+        for row in result["productions"]
+        if selected.intersection(
+            (row["declaration_id"], row["generator_id"], row["artifact_id"])
+        )
     ]
     selected.update(
-        row[field] for row in productions
+        row[field]
+        for row in productions
         for field in ("declaration_id", "generator_id", "artifact_id")
     )
     edges = [
-        edge for edge in result["edges"]
+        edge
+        for edge in result["edges"]
         if edge["from"] in selected or edge["to"] in selected
     ]
-    selected.update(endpoint for edge in edges for endpoint in (edge["from"], edge["to"]))
+    selected.update(
+        endpoint for edge in edges for endpoint in (edge["from"], edge["to"])
+    )
     result["subjects"] = [row for row in result["subjects"] if row["id"] in selected]
     result["edges"] = edges
     result["productions"] = productions
-    result["section_ranges"] = [row for row in result["section_ranges"] if row["subject_id"] in selected]
+    result["section_ranges"] = [
+        row for row in result["section_ranges"] if row["subject_id"] in selected
+    ]
     production_ids = {row["id"] for row in productions}
     result["native_facts"] = [
-        row for row in result["native_facts"]
-        if row.get("subject_id") in selected or row.get("production_id") in production_ids
+        row
+        for row in result["native_facts"]
+        if row.get("subject_id") in selected
+        or row.get("production_id") in production_ids
     ]
 
 
@@ -835,6 +845,7 @@ def query(
     projection = _Projection(root, 256)
     kind = CONCEPTS[concept]
     if isinstance(request, workspace_domain_contracts.ResearchQuestionQuery):
+        identity = request.identity
         origin = request.origin
         question = request.question
         subject = _subject(kind, identity, "caller", question, basis=origin)
@@ -873,11 +884,14 @@ def query(
         projection.unknowns.append(
             "question has no newly invented lifecycle; answers/support links require explicit owner declarations"
         )
-    elif isinstance(request, (
-        workspace_domain_contracts.ExperimentQuery,
-        workspace_domain_contracts.DiagnosticQuery,
-        workspace_domain_contracts.EvidenceReferenceQuery,
-    )):
+    elif isinstance(
+        request,
+        (
+            workspace_domain_contracts.ExperimentQuery,
+            workspace_domain_contracts.DiagnosticQuery,
+            workspace_domain_contracts.EvidenceReferenceQuery,
+        ),
+    ):
         _selected_reference(
             projection, kind, request.selected_reference.model_dump(exclude_none=True)
         )

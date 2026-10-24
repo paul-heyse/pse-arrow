@@ -15,6 +15,7 @@ from scripts import thermodynamic_campaign
 
 import pse
 from pse import codec
+from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import documents
 from pse.contracts.documents import (
     BoundaryDiagnosticOutput,
@@ -829,17 +830,18 @@ def test_native_study_version_precedes_nested_current_decode(
     # Malformed current fields precede the header at the actual native boundary.
     historical = msgspec.json.encode({"points": "retired shape", "version": version})
     handle = package._handle
-    pattern = (
-        rf"unsupported version {version} \(current: 8\)"
+    native_call = (
+        handle.admit_study
         if operation == "admit_study"
-        else "explicit readmission is required"
+        else runtime._handle.start_study
     )
-    if operation == "admit_study":
-        with pytest.raises(pse.InspectionError, match=pattern):
-            handle.admit_study(historical)
-    else:
-        with pytest.raises(pse.InspectionError, match=pattern):
-            runtime._handle.start_study(historical)
+    with pytest.raises(pse.InspectionError) as caught:
+        native_call(historical)
+    location = caught.value.report.decode_location
+    assert location is not None
+    assert location.stage == "header"
+    assert location.category == "data"
+    assert "retired shape" not in caught.value.report.message
 
 
 @pytest.mark.component
@@ -1017,7 +1019,6 @@ def test_flash_sweep_prepares_structure_once_per_lane(
     runtime = canonical_substrate.runtime(engine_settings, ephemeral=ephemeral)
     reference = Path(__file__).resolve().parents[3] / "packages/reference"
 
-    from pse._scientific_inputs import family_packages, package_documents
 
     physical_documents = package_documents(reference / "physical")
     assert physical_documents is not None

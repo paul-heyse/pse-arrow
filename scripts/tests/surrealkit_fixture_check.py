@@ -225,7 +225,8 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
             else:
                 raise AssertionError("SIGINT did not interrupt population setup")
         pending = resources.resource_status(interrupted)
-        assert pending["pin"] is True and pending["drained"] is False
+        assert pending['pin'] is True
+        assert pending['drained'] is False
         assert pending["tool_population"]["phase"] == "population_submitted"
         try:
             tool.fixture(interrupted)

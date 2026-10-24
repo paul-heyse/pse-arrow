@@ -18,6 +18,101 @@ import os
 import re
 import time
 from pathlib import Path
+from typing import NotRequired, TypedDict, Unpack, cast
+
+
+class HistorySelection(TypedDict):
+    roots: list[str]
+    checkouts: list[str]
+    since: str
+    until: str
+    query_digest: str | None
+    record_limit: int
+
+
+class HistoryDirectory(TypedDict):
+    root: int
+    path: str
+    position: int
+    identity: NotRequired[list[int]]
+
+
+class HistoryRecord(TypedDict, total=False):
+    offset: int
+    end: int
+    timestamp: str
+    role: str
+    record_type: str | None
+    digest: str
+    content_digest: str
+    message_role: str
+    call_id: str
+    explicit_origin: str
+    tool: str
+    classes: list[str]
+    output_digest: str
+    match: bool
+    match_character_offset: int
+    root: int
+    relative: str
+    identity: list[int]
+    session_id: str
+    originating_session_id: str
+    inherited_sources: list[HistoryRecord]
+
+
+class HistoryHeader(TypedDict):
+    session_id: str
+    parent_session_id: str | None
+    direct: bool
+
+
+class HistorySource(TypedDict):
+    root: int
+    relative: str
+    identity: list[int]
+    offset: int
+    records: list[HistoryRecord]
+    gaps: list[str]
+    done: bool
+    generation: int
+    session_id: NotRequired[str]
+    parent_session_id: NotRequired[str | None]
+    direct: NotRequired[bool]
+    skipping: NotRequired[bool]
+
+
+class HistoryCheckpoint(TypedDict):
+    schema: str
+    selection: HistorySelection
+    until: str
+    frontier: list[HistoryDirectory]
+    sources: list[HistorySource]
+    discovery_complete: bool
+    read_complete: bool
+    generation: int
+    discovery_gaps: list[str]
+
+
+class InspectOptions(TypedDict, total=False):
+    hours: float
+    now: dt.datetime | None
+    related_checkouts: tuple[Path, ...]
+    archived_sessions: Path | None
+    continuation: dict | None
+    max_entries: int
+    max_files: int
+    max_bytes: int
+    max_records: int
+    max_record_bytes: int
+    seconds: float
+
+
+def _read_header(raw: bytes, maximum: int, checkouts: set[str], relative: str) -> HistoryHeader:
+    if not raw.endswith(b"\n") or len(raw) > maximum:
+        raise ValueError("oversized_or_partial_header")
+    return _header(json.loads(raw), checkouts, relative)
+
 
 _SCHEMA = "session-retrospective-v2"
 _ERRORS = (
@@ -53,13 +148,14 @@ def _path(roots: list[Path], root: int, relative: str) -> Path:
 
 def _stamp(value: object) -> dt.datetime | None:
     try:
-        stamp = dt.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        return stamp if stamp.tzinfo else None
+        stamp = dt.datetime.fromisoformat(str(value))
     except ValueError:
         return None
+    else:
+        return stamp if stamp.tzinfo else None
 
 
-def _header(item: dict, checkouts: set[str], fallback: str) -> dict:
+def _header(item: dict, checkouts: set[str], fallback: str) -> HistoryHeader:
     payload = item.get("payload", {})
     if item.get("type") != "session_meta" or not isinstance(payload, dict):
         raise ValueError("missing session metadata")
@@ -83,7 +179,7 @@ def _header(item: dict, checkouts: set[str], fallback: str) -> dict:
     }
 
 
-def _association(sources: list[dict]) -> dict[str, str]:
+def _association(sources: list[HistorySource]) -> dict[str, str]:
     selected = {
         source["session_id"]: "explicit_checkout_or_workspace"
         for source in sources
@@ -101,23 +197,25 @@ def _association(sources: list[dict]) -> dict[str, str]:
         selected.update(additions)
 
 
-def _origin(source: dict, parents: dict) -> str:
+def _origin(source: HistorySource, parents: dict[str, str | None]) -> str:
     origin = source["session_id"]
     seen = set()
-    while parents.get(origin) and origin not in seen:
+    parent = parents.get(origin)
+    while parent and origin not in seen:
         seen.add(origin)
-        origin = parents[origin]
+        origin = parent
+        parent = parents.get(origin)
     return origin
 
 
 def _observation(
-    item: dict, source: dict, start: int, end: int, query: str | None
-) -> dict:
+    item: dict, _source: HistorySource, start: int, end: int, query: str | None
+) -> HistoryRecord:
     payload = item.get("payload", {})
     if not isinstance(payload, dict):
         payload = {}
     role = str(payload.get("type") or item.get("type"))
-    record = {
+    record: HistoryRecord = {
         "offset": start,
         "end": end,
         "timestamp": item["timestamp"],
@@ -213,7 +311,7 @@ def inspect(
     if now.tzinfo is None:
         raise ValueError("history interval needs timezone-aware timestamps")
     since = now - dt.timedelta(hours=hours)
-    selection = {
+    selection: HistorySelection = {
         "roots": [str(root) for root in roots],
         "checkouts": sorted(checkouts),
         "since": since.isoformat(),
@@ -227,7 +325,7 @@ def inspect(
             or continuation.get("selection") != selection
         ):
             raise ValueError("history continuation belongs to another selection")
-        state = copy.deepcopy(continuation)
+        state: HistoryCheckpoint = cast("HistoryCheckpoint", copy.deepcopy(continuation))
         if state["discovery_complete"] and state["read_complete"]:
             state["frontier"] = [
                 {"root": i, "path": ".", "position": 0} for i in range(len(roots))
@@ -303,7 +401,7 @@ def inspect(
                         if existing and existing["identity"] == identity:
                             existing["generation"] = state["generation"]
                             continue
-                        source = {
+                        source: HistorySource = {
                             "root": key[0],
                             "relative": key[1],
                             "identity": identity,
@@ -317,9 +415,8 @@ def inspect(
                             with source_path.open("rb") as stream:
                                 raw = stream.readline(max_record_bytes + 1)
                             read_bytes += len(raw)
-                            if not raw.endswith(b"\n") or len(raw) > max_record_bytes:
-                                raise ValueError("oversized_or_partial_header")
-                            source.update(_header(json.loads(raw), checkouts, relative))
+                            header = _read_header(raw, max_record_bytes, checkouts, relative)
+                            source.update(session_id=header["session_id"], parent_session_id=header["parent_session_id"], direct=header["direct"])
                         except (ValueError, TypeError, AttributeError) as error:
                             source["gaps"] = [
                                 "oversized_or_partial_header"
@@ -417,13 +514,13 @@ def inspect(
         )
     tools: collections.Counter[str] = collections.Counter()
     classes: collections.Counter[str] = collections.Counter()
-    seen = {}
+    seen: dict[tuple[object, ...], HistoryRecord] = {}
     duplicates = records = 0
-    hits = []
-    projected = []
+    hits: list[HistoryRecord] = []
+    projected: list[dict[str, object]] = []
     # A new child call originates in that child. Only a matching call actually
     # present in an ancestor (or explicit record provenance) proves inheritance.
-    calls = {}
+    calls: dict[tuple[str, str], set[str]] = {}
     parents = {
         source["session_id"]: source.get("parent_session_id")
         for source in current_sources
@@ -436,12 +533,15 @@ def inspect(
                     (_origin(source, parents), record["call_id"]), set()
                 ).add(source["session_id"])
 
-    def call_origin(source: dict, record: dict) -> str:
+    def call_origin(source: HistorySource, record: HistoryRecord) -> str:
         if record.get("explicit_origin"):
             return record["explicit_origin"]
         origin = source["session_id"]
-        candidates = calls.get((_origin(source, parents), record.get("call_id")), set())
-        ancestor = origin
+        call = record.get("call_id")
+        if call is None:
+            return origin
+        candidates = calls.get((_origin(source, parents), call), set())
+        ancestor: str | None = origin
         visited = set()
         while ancestor and ancestor not in visited:
             visited.add(ancestor)
@@ -450,7 +550,7 @@ def inspect(
             ancestor = parents.get(ancestor)
         return origin
 
-    def ancestry_depth(source: dict) -> int:
+    def ancestry_depth(source: HistorySource) -> int:
         session = source.get("session_id")
         ancestors = set()
         while session and session not in ancestors:
@@ -488,7 +588,7 @@ def inspect(
                 if call
                 else (session, source["root"], source["relative"], record["offset"])
             )
-            locator = {
+            locator: HistoryRecord = {
                 "root": source["root"],
                 "relative": source["relative"],
                 "identity": source["identity"],
@@ -556,7 +656,7 @@ def inspect(
     }
 
 
-def recall(sessions: Path, checkout: Path, query: str, **options: object) -> dict:
+def recall(sessions: Path, checkout: Path, query: str, **options: Unpack[InspectOptions]) -> dict:
     """Find selected literal rationale text, returning exact attribution, not text."""
     return inspect(sessions, checkout, query=query, **options)
 

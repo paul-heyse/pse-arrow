@@ -1322,7 +1322,8 @@ def test_scientific_reduction_cli_preserves_selected_domain_issue(
     reduced = result.reduced.model_documents[0]["models/fixed.pse"]
     assert len(reduced) < len(text)
     assert "spare_eq" not in reduced
-    assert "log(x)" in reduced and "annotation start x(-1);" in reduced
+    assert "log(x)" in reduced
+    assert "annotation start x(-1);" in reduced
     assert result.attempts[0].disposition == "preserved"
     for mapping in result.correspondence:
         assert (

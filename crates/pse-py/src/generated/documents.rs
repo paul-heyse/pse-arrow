@@ -217,6 +217,13 @@ impl crate::documents::DocumentType for pse_runtime::workflow::DeclarationInvent
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType for pse_model::document::DecodeLocation {
+    const INPUT_NAME: &'static str = "DecodeLocation";
+    const OUTPUT_NAME: &'static str = "DecodeLocation";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
 impl crate::documents::DocumentType for pse_runtime::observation_detail::DetailDocument {
     const INPUT_NAME: &'static str = "DetailDocument";
     const OUTPUT_NAME: &'static str = "DetailDocumentOutput";
@@ -1253,6 +1260,20 @@ impl crate::documents::DocumentType for pse_runtime::workflow::ResearchSelection
 impl crate::documents::DocumentType for pse_runtime::ResourceReport {
     const INPUT_NAME: &'static str = "ResourceReport";
     const OUTPUT_NAME: &'static str = "ResourceReportOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ResultInspectionDocument {
+    const INPUT_NAME: &'static str = "ResultInspectionDocument";
+    const OUTPUT_NAME: &'static str = "ResultInspectionDocument";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::ResultInspectionRequest {
+    const INPUT_NAME: &'static str = "ResultInspectionRequest";
+    const OUTPUT_NAME: &'static str = "ResultInspectionRequestOutput";
     const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;

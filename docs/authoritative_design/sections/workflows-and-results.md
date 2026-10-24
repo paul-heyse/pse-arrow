@@ -511,6 +511,19 @@ mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
+> Decision: [ADR-0224](../../adr/0224-native-result-inspection.md) (proposed;
+> maintainer-authorized Plan52l native inspection extension).
+
+`Runtime::inspect_result` observes one exact protected canonical run/attempt/relation through
+the existing reader. Schema pages expose the admitted registry interpretation, immutable manifest,
+original field metadata and recorded-row population without pulling result batches; they do not
+independently validate stored IPC. Selected readable rows retain original coordinates, terminal
+selection and all non-value context, including original unit/basis/quality fields. Scalar variants
+retain exact IEEE bits, validity and explicit unsupported/extent states. Finite selection and
+encoded-response limits refuse without substituting facts. Original-batch validation, protection,
+allocation and cancellation/drain remain native; exact Arrow IPC remains the complete data path.
+Inspection grants no scientific usability or publication authority.
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Exact statistics over admitted batches, bound to payload/schema/interpretation, replace scalar row locators. DataFusion conservative pruning and residual-before-limit preserve full protected decode, original coordinates and scientific bits. Explicit conic/recycle/block-initialization strategies retain their nondurable lifecycle exception.
@@ -1445,6 +1458,10 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 
+`ResultInspectionRequest` and its tagged schema/values/refusal document are Rust-owned members of
+the directional catalogue under ADR-0224. PyO3 and Python's `Runtime.inspect_result` consume the
+generated records; MCP composes their original schemas rather than mirroring scientific fields.
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Strict registry enums/identity metadata and one direction-qualified document catalogue
@@ -1581,6 +1598,13 @@ storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule e
 does not prove the consumer registered the extension types.
 
 ### 21.5 Python contracts
+
+Under ADR-0224, native JSON decoding retains typed header/body/trailing phase, category,
+line/column and structural path precision through `DiagnosticReport.decode_location`. The shared
+streaming header owner checks versions and duplicate headers before current body decoding;
+successful decode checks trailing input. Generated Python version admission retains an explicit
+native cause. Map keys/variant values may be supplied data and are filtered at public host views;
+decode paths do not masquerade as revision-bound authored-source spans.
 
 > Supplement: [ADR-0191](../../adr/0191-explicit-scalar-compiled-evaluation.md) (proposed; Plan 41e carries explicit evaluator selection through versioned study preparation).
 

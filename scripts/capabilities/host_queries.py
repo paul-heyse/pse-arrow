@@ -13,9 +13,9 @@ from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
+from scripts.capabilities import read_contracts as answers
 from scripts.capabilities.model import Capability
 from scripts.capabilities.operations import owner_read
-from scripts.capabilities import read_contracts as answers
 
 Limit = Annotated[int, Field(ge=1, le=100)]
 Offset = Annotated[int, Field(ge=0)]
@@ -52,8 +52,12 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         return owner_read(
             "knowledge_source_corpus",
             lambda: knowledge_store.corpus(
-                tuple(paths or ()), root=root, concept=concept, identity=identity,
-                excerpt_offset=excerpt_offset, excerpt_limit=excerpt_limit
+                tuple(paths or ()),
+                root=root,
+                concept=concept,
+                identity=identity,
+                excerpt_offset=excerpt_offset,
+                excerpt_limit=excerpt_limit,
             ),
             project=answers.knowledge,
         )
@@ -224,7 +228,9 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             project=answers.library,
         )
 
-    def coverage_correspondence_read(directory: str, base: str) -> answers.CoverageResult | answers.DetailRefused:
+    def coverage_correspondence_read(
+        directory: str, base: str
+    ) -> answers.CoverageResult | answers.DetailRefused:
         """Inspect a retained coverage capture against an exact Git base. Verify captured report/population digests and retain source freshness, uncovered regions and correspondence limits; coverage is not behavioral adequacy."""
         from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             coverage_correspondence,

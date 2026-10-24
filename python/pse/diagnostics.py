@@ -103,6 +103,7 @@ from pse.contracts.documents import (
     ProcessCheckpoint,
     ProcessCheckpointOutput,
     ProcessLocatorOutput,
+    ReductionCommandRequest,
     ReproducerCommandRequest,
     ReproducerCommandRequestOutput,
     ReproducerExtractionRequest,
@@ -1185,7 +1186,6 @@ def _review_command(args: argparse.Namespace) -> int:
         )
         return 0 if reproduced else 1
     elif args.command == "reduce":
-        from pse.contracts.documents import ReductionCommandRequest
 
         command = _read_review_request(args.request, ReductionCommandRequest)
         runtime = _diagnostic_runtime(command.runtime)

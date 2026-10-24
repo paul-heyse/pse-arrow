@@ -320,6 +320,16 @@ Closed numerical/qualification rules are validated at authored admission. Rust, 
 relations, durable termination documents and Python reports retain the same structured envelope.
 `DiagnosticReport.envelope()` exposes the complete document, including nested causes.
 
+> Supplement: [ADR-0224](../../adr/0224-native-result-inspection.md) (proposed;
+> maintainer-authorized Plan52l typed native decode/inspection extension).
+
+The agent interface projects safe native codes, stages, schema-declared structural locations,
+related/context populations and authentic issued recovery references through the existing report
+bridge. Original source-bearing messages remain private; rendered exception text supplies no new
+classification, path or retry permission. Explicit wrapping preserves the native cause. Host input,
+selection, stale-interface, prerequisite and unsettled-action failures provide bounded remedies;
+an interrupted edit with a retained preview points to its original reconciliation reader.
+
 Initialization uses its declared scientific attempt policy and exhaustive native-stop
 projections. Durable retry additionally reads operation and publication-effect state; a
 transient infrastructure code alone cannot authorize repeating an unknown publication effect.
@@ -502,6 +512,15 @@ design-change tracking are owned by
 [§24.4](design-change-workflow.md#section-24-4).
 
 ### 24.1 Test layers
+
+Agent tooling's exact concept requests and selected host answers have their own Pydantic owners,
+separate from Rust scientific schemas. Tagged alternatives declare meaningful required fields;
+named answer families distinguish source population completeness, optional detail, unknowns and
+deliberately excluded work. Selection reaches original readers before optional text/detail
+construction where supported. The final encoded-size safeguard refuses intact instead of dropping
+required fields. Generated MCP reference and actual callers consume the same declarations; no
+semantic search, duplicate query authority or retry service is introduced. See the
+[capability interface guide](../../dev/capability-interface.md) for the actual transport wrappers.
 
 > Decision: [ADR-0219](../../adr/0219-selected-development-evidence.md) (proposed; maintainer-authorized Plan51d target).
 

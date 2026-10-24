@@ -14,6 +14,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from scripts import preflight, pse_env, validation, validation_receipts
+from scripts.capabilities.diagnostics import safe_path
 from scripts.capabilities.qualification import (
     AssessmentRequest,
     CompilationRequest,
@@ -214,15 +215,28 @@ def main(argv: list[str] | None = None) -> int:
         detail: dict[str, object] = {
             "code": "pse.qualification." + operation + ".refused",
             "cause": type(error).__name__,
-            "message": str(error),
+            "stage": "qualification",
+            "message": "The selected qualification request could not be served; supplied values are redacted.",
+            "remedy": "Inspect the original assessment owner and any issued receipt before deciding whether another action is safe. No automatic retry or effect settlement is inferred.",
         }
         if isinstance(error, ValidationError):
             detail["code"] = "pse.qualification.input_refused"
             detail["message"] = "Invalid host selection; supplied values omitted."
-            detail["fields"] = error.errors(include_input=False, include_context=False)
+            detail["stage"] = "input"
+            detail["field_count"] = error.error_count()
+            detail["fields"] = [
+                {"loc": safe_path(list(item["loc"]), frozenset()), "type": item["type"]}
+                for item in error.errors(include_input=False, include_context=False)[
+                    :16
+                ]
+            ]
         elif isinstance(error, pse_env.BoundaryError):
             detail["code"] = "pse.qualification.prerequisite_unavailable"
             detail["exit_code"] = pse_env.FAILURE
+            detail["stage"] = "preparation"
+            detail["remedy"] = (
+                "Explicitly inspect and prepare the required environment, then inspect any original owner receipt before repeating work. No automatic retry is inferred."
+            )
         response = {"error": detail}
     with Path(destination).open("x") as output:
         json.dump(response, output)

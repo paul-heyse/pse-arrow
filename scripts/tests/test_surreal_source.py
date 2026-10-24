@@ -269,21 +269,21 @@ class SourceAdmissionTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), original)
 
     def test_ordinary_missing_package_never_compiles(self) -> None:
-        with tempfile.TemporaryDirectory() as scratch:
-            with (
-                patch.object(
-                    source,
-                    "install",
-                    side_effect=AssertionError("implicit compilation"),
-                ),
-                patch.object(
-                    source, "build_context", side_effect=AssertionError("compiler scan")
-                ),
-                self.assertRaisesRegex(
-                    server.SupervisorError, "explicitly run build-server"
-                ),
-            ):
-                server.install(None, Path(scratch))
+        with (
+            tempfile.TemporaryDirectory() as scratch,
+            patch.object(
+                source,
+                "install",
+                side_effect=AssertionError("implicit compilation"),
+            ),
+            patch.object(
+                source, "build_context", side_effect=AssertionError("compiler scan")
+            ),
+            self.assertRaisesRegex(
+                server.SupervisorError, "explicitly run build-server"
+            ),
+        ):
+            server.install(None, Path(scratch))
 
     def test_published_selection_refuses_corruption_without_fallback_or_compilation(
         self,
@@ -354,7 +354,8 @@ class SourceAdmissionTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "immutable_surreal_source_fixture", generation / "scripts/surreal_source.py"
         )
-        assert spec is not None and spec.loader is not None
+        assert spec is not None
+        assert spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module, generation

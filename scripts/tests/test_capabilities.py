@@ -288,7 +288,10 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
             [item["native_id"] for item in actual["payload"]["native_scope"]], ["CAP01"]
         )
         self.assertFalse(
-            any(source.get("text") is not None for source in actual["payload"]["sources"])
+            any(
+                source.get("text") is not None
+                for source in actual["payload"]["sources"]
+            )
         )
         self.assertNotIn("pse._native", sys.modules)
         self.assertTrue(await self.refused("workspace_task_context", {"task": 12}))
@@ -516,13 +519,21 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("CON01", text)
         self.assertNotIn("cause", diagnostic)
 
-    async def test_tagged_concept_request_returns_schema_conformant_selected_answer(self) -> None:
-        await self.client.call_tool("capabilities_select", {"capabilities": ["workspace_concepts_query"]})
+    async def test_tagged_concept_request_returns_schema_conformant_selected_answer(
+        self,
+    ) -> None:
+        await self.client.call_tool(
+            "capabilities_select", {"capabilities": ["workspace_concepts_query"]}
+        )
         tool = self.runtime.catalogue.tools["workspace_concepts_query"]
-        request = {"request": {
-            "concept": "research-question", "identity": "RQ-host-contract",
-            "origin": "user-question", "question": "Which owner declares this field?",
-        }}
+        request = {
+            "request": {
+                "concept": "research-question",
+                "identity": "RQ-host-contract",
+                "origin": "user-question",
+                "question": "Which owner declares this field?",
+            }
+        }
         Draft202012Validator(tool.parameters).validate(request)
         result = await self.client.call_tool("workspace_concepts_query", request)
         self.assertIsNotNone(tool.output_schema)
@@ -543,8 +554,56 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
             {"concept": "not-a-native-concept"},
         ):
             with self.subTest(request=invalid):
-                self.assertTrue(await self.refused("workspace_concepts_query", {"request": invalid}))
-        self.assertTrue(await self.refused("workspace_concepts_query", {"concept": "decision"}))
+                self.assertTrue(
+                    await self.refused("workspace_concepts_query", {"request": invalid})
+                )
+        self.assertTrue(
+            await self.refused("workspace_concepts_query", {"concept": "decision"})
+        )
+
+    async def test_actual_tagged_input_diagnostics_redact_values_and_unknown_field_names(
+        self,
+    ) -> None:
+        await self.client.call_tool(
+            "capabilities_select", {"capabilities": ["workspace_concepts_query"]}
+        )
+        redaction_marker = "credential-value-must-not-escape"
+        unknown = "credential-field-name-must-not-escape"
+        result = await self.client.call_tool(
+            "workspace_concepts_query",
+            {
+                "request": {
+                    "concept": "research-question",
+                    "identity": 7,
+                    "origin": "user-question",
+                    "question": redaction_marker,
+                    unknown: redaction_marker,
+                }
+            },
+            raise_on_error=False,
+        )
+        self.assertTrue(result.is_error)
+        text = " ".join(item.text for item in result.content if hasattr(item, "text"))
+        self.assertNotIn(redaction_marker, text)
+        self.assertNotIn(unknown, text)
+        diagnostic = json.loads(text)
+        self.assertEqual(diagnostic["code"], "pse.capabilities.input_refused")
+        self.assertEqual(diagnostic["stage"], "input_validation")
+        self.assertTrue(diagnostic["remedy"])
+        locations = diagnostic["locations"]
+        self.assertTrue(
+            any(
+                item["path"][-1] == "identity" and item["code"] == "string_type"
+                for item in locations
+            )
+        )
+        self.assertTrue(
+            any(
+                item["path"][-1] == "<redacted-key>"
+                and item["code"] == "extra_forbidden"
+                for item in locations
+            )
+        )
 
     async def test_notifications_do_not_claim_rollback_after_commit(self) -> None:
         original = server.save_visibility_rules

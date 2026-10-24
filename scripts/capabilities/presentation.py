@@ -14,6 +14,8 @@ from fastmcp.prompts import Prompt
 from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools, Transform
 from mcp.types import ToolAnnotations
 
+from scripts.capabilities.diagnostics import refusal
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -91,7 +93,7 @@ def register(server: FastMCP, catalogue: Catalogue, guidance: Guidance) -> Prese
             return dict(catalogue.describe(capability, include_schema=True))
         except ValueError as error:
             raise ResourceError(
-                "pse.capabilities.unknown_capability: " + str(error)
+                str(refusal("pse.capabilities.unknown_capability"))
             ) from error
 
     async def workflow_content(workflow: str) -> str:
@@ -112,7 +114,7 @@ def register(server: FastMCP, catalogue: Catalogue, guidance: Guidance) -> Prese
             instructions = guidance.instruction_bundle(selection.guides)
         except ValueError as error:
             raise PromptError(
-                "pse.capabilities.guidance_unavailable: " + str(error)
+                str(refusal("pse.capabilities.guidance_unavailable"))
             ) from error
         result = {
             "revision": catalogue.revision,

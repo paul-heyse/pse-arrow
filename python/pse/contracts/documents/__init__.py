@@ -35,6 +35,12 @@ CopiedExecutionStatus = Literal["running", "completed", "failed", "cancelled", "
 
 CopiedObservationPolicy = Literal["off", "contract", "diagnostic"]
 
+DecodeCategory = Literal["io", "syntax", "data", "eof"]
+
+DecodePathStatus = Literal["tracked_prefix", "unavailable"]
+
+DecodeStage = Literal["header", "body", "trailing"]
+
 DerivativeOrder = Literal["value", "first", "second"]
 
 DetailEnd = Literal["window_elapsed", "owner_finished", "stopped", "writer_failed"]
@@ -120,6 +126,12 @@ ReproductionStatusBody = Literal["original_failure_reproduced", "related_diagnos
 RequiredFact = Literal["model", "input", "effective_settings", "physical_coordinates", "invocation", "operation_evidence"]
 
 RequirementStatus = Literal["available", "missing"]
+
+ResultCellUnavailable = Literal["unsupported_storage", "value_extent"]
+
+ResultFloatClass = Literal["finite", "nan", "positive_infinity", "negative_infinity"]
+
+ResultInspectionRefusal = Literal["selection", "unknown_field", "manifest_changed", "context_extent", "response_extent"]
 
 ReviewAttemptSelection = Literal["current", "retained"]
 
@@ -7144,6 +7156,67 @@ class DeclarationInventoryOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.declarations),))
+
+
+class DecodeLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original JSON decode facts, with no authored source identity or offending input value."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original serde_json classification.
+    category: DecodeCategory
+    #: Original serde_json column; zero is possible immediately after a newline.
+    column: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original one-based line; zero remains possible for unlocated custom errors.
+    line: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original tracked structural segments; object keys need a privacy-filtered projection.
+    path: tuple[DecodePathSegment, ...]
+    #: Precision actually established by the adapter.
+    path_status: DecodePathStatus
+    #: Actual native decode phase.
+    stage: DecodeStage
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.category), v.scalar_key(self.column), v.scalar_key(self.line), v.sequence_key(v.record_key)(self.path), v.scalar_key(self.path_status), v.scalar_key(self.stage),))
+
+
+class DecodePathSegmentMap(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="map"):
+    """A JSON object key. It may be caller-supplied, not a declared schema property."""
+
+    #: Original key; public diagnostic projections must filter undeclared keys.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class DecodePathSegmentSequence(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="sequence"):
+    """A zero-based array position."""
+
+    #: Original array position.
+    index: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.index),))
+
+
+class DecodePathSegmentUnknown(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unknown"):
+    """The adapter could not identify this path segment."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class DecodePathSegmentVariant(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="variant"):
+    """A variant identified by the actual Serde decoder."""
+
+    #: Original decoder-observed variant; apply the same filtering as object keys.
+    variant: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.variant),))
 
 
 class DependencyOrdering(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="ordering"):
@@ -22318,6 +22391,285 @@ class RestartBarrierValue(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.scalar_key(self.value),))
 
 
+class ResultInspectionCellBinary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="binary"):
+    """Complete bounded bytes; fixed-width semantic identities retain their original field metadata."""
+
+    #: Lowercase exact hexadecimal bytes.
+    hex: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.hex),))
+
+
+class ResultInspectionCellBoolean(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="boolean"):
+    """Exact Boolean storage."""
+
+    #: Original value.
+    value: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ResultInspectionCellFloat32(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="float32"):
+    """IEEE binary32, retaining NaN payloads and signed zero."""
+
+    #: Exact original IEEE bits.
+    bits: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit original IEEE classification.
+    class_: ResultFloatClass = msgspec.field(name="class")
+    #: Convenient finite value; absent exactly for a nonfinite observation.
+    finite_value: float | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bits), v.scalar_key(self.class_), v.optional_key(v.scalar_key)(self.finite_value),))
+
+
+class ResultInspectionCellFloat64(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="float64"):
+    """IEEE binary64, retaining NaN payloads and signed zero."""
+
+    #: Exact original IEEE bits.
+    bits: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit original IEEE classification.
+    class_: ResultFloatClass = msgspec.field(name="class")
+    #: Convenient finite value; absent exactly for a nonfinite observation.
+    finite_value: float | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bits), v.scalar_key(self.class_), v.optional_key(v.scalar_key)(self.finite_value),))
+
+
+class ResultInspectionCellInteger(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="integer"):
+    """Signed integer; original width and temporal/quantity semantics remain in the field."""
+
+    #: Exact original integer.
+    value: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ResultInspectionCellNull(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="null"):
+    """Original validity bit is false; distinct from nonfinite and unsupported storage."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ResultInspectionCellText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="text"):
+    """Complete bounded UTF-8 text; never a truncated prefix."""
+
+    #: Original complete text.
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ResultInspectionCellUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unavailable"):
+    """The exact value remains available through the protected Arrow IPC reader."""
+
+    #: Why the readable view cannot present the original cell.
+    reason: ResultCellUnavailable
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reason),))
+
+
+class ResultInspectionCellUnsigned(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unsigned"):
+    """Unsigned integer with no lossy floating-point conversion."""
+
+    #: Exact original integer.
+    value: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ResultInspectionDocumentRefused(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="refused"):
+    """The finite readable request cannot produce a truthful complete answer of this shape."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Existing exact IPC route, not a newly issued read handle.
+    guidance: str
+    #: Typed refusal; no required fields were silently discarded.
+    reason: ResultInspectionRefusal
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.guidance), v.scalar_key(self.reason),))
+
+
+class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="schema"):
+    """A page of the complete original field inventory, without reading Arrow rows."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Complete original field population, independent of this page.
+    field_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected original descriptors.
+    fields: tuple[ResultInspectionField, ...]
+    #: Actual immutable closure digest, suitable for expected_manifest.
+    manifest: str
+    #: Next original field offset; absent only on the final page.
+    next: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Zero-based original field offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Recorded rows intersecting the selected range; holes are not invented.
+    recorded_rows: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original schema metadata including contract version/fingerprint.
+    schema_metadata: dict[str, str]
+    #: Exact original source/terminal/range; usability remains Unknown.
+    selection: PackResultSelectionOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.field_count), v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.manifest), v.optional_key(v.scalar_key)(self.next), v.scalar_key(self.offset), v.scalar_key(self.recorded_rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.record_key(self.selection),))
+
+
+class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="values"):
+    """Readable bounded original scalar observations; exact IPC remains the bulk interface."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Every non-value-role original field not already selected; no name heuristics.
+    context_fields: tuple[ResultInspectionField, ...]
+    #: Actual immutable closure digest.
+    manifest: str
+    #: Exact next original coordinate, preserving holes; repeat with start=next_row.
+    next_row: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Every selected and context cell was representable, independent of scientific usability.
+    readable_complete: bool
+    #: Recorded rows intersecting the complete selected range, not just the returned prefix.
+    recorded_rows: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original row observations in source order.
+    rows: tuple[ResultInspectionRow, ...]
+    #: Original schema metadata including quantity/context checks and fingerprint.
+    schema_metadata: dict[str, str]
+    #: Exact original descriptors, in requested order.
+    selected_fields: tuple[ResultInspectionField, ...]
+    #: Exact original source/terminal/range; usability remains Unknown.
+    selection: PackResultSelectionOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.context_fields), v.scalar_key(self.manifest), v.optional_key(v.scalar_key)(self.next_row), v.scalar_key(self.readable_complete), v.scalar_key(self.recorded_rows), v.sequence_key(v.record_key)(self.rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.sequence_key(v.record_key)(self.selected_fields), v.record_key(self.selection),))
+
+
+class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual original Arrow field, including nested datatype/field metadata."""
+
+    #: Original Arrow datatype using arrow_schema's own JSON encoding, including nested fields.
+    datatype_json: str
+    #: Position in the original complete relation schema.
+    index: Annotated[int, msgspec.Meta(ge=0)]
+    #: Every original outer field metadata entry, including quantity and extension semantics.
+    metadata: dict[str, str]
+    #: Exact original field name.
+    name: str
+    #: Original outer field nullability.
+    nullable: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.datatype_json), v.scalar_key(self.index), v.mapping_key(v.scalar_key, v.scalar_key)(self.metadata), v.scalar_key(self.name), v.scalar_key(self.nullable),))
+
+
+class ResultInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Select one exact immutable result; schema discovery does not read its Arrow rows."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original terminal attempt.
+    attempt: str
+    #: Exclusive original row coordinate.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Optional closure digest returned by an earlier discovery; mismatch refuses.
+    expected_manifest: str | None = None
+    #: Qualified original scientific relation.
+    relation: str
+    #: Original canonical run, never a latest-run alias.
+    run: str
+    #: Inclusive original row coordinate.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded schema page or readable scalar selection.
+    view: ResultInspectionView
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.scalar_key(self.end), v.optional_key(v.scalar_key)(self.expected_manifest), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
+
+
+class ResultInspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Select one exact immutable result; schema discovery does not read its Arrow rows."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact original terminal attempt.
+    attempt: str
+    #: Exclusive original row coordinate.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Optional closure digest returned by an earlier discovery; mismatch refuses.
+    expected_manifest: str | None = None
+    #: Qualified original scientific relation.
+    relation: str
+    #: Original canonical run, never a latest-run alias.
+    run: str
+    #: Inclusive original row coordinate.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded schema page or readable scalar selection.
+    view: ResultInspectionView
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.scalar_key(self.end), v.optional_key(v.scalar_key)(self.expected_manifest), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
+
+
+class ResultInspectionRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original row; selected cells and independently retained context use descriptor order."""
+
+    #: Cells in context_fields order; all original non-value-role columns are retained.
+    context: tuple[ResultInspectionCell, ...]
+    #: False when context storage is unavailable: do not infer complete physical interpretation.
+    context_complete: bool
+    #: Exact original coordinate, including across missing recorded ranges.
+    source_row: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cells in the selected_fields descriptor order.
+    values: tuple[ResultInspectionCell, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.context), v.scalar_key(self.context_complete), v.scalar_key(self.source_row), v.sequence_key(v.record_key)(self.values),))
+
+
+class ResultInspectionViewSchema(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="schema"):
+    """Page the original field inventory without decoding any result batch."""
+
+    #: At most sixteen original fields.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Zero-based original field position.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset),))
+
+
+class ResultInspectionViewValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="values"):
+    """Read selected original scalar fields together with all declared non-value context."""
+
+    #: One to eight unique exact original field names.
+    fields: tuple[str, ...]
+    #: At most sixteen original rows; continuation retains source coordinates.
+    maximum_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.fields), v.scalar_key(self.maximum_rows),))
+
+
 class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One bounded cleanup operation after explicit run retirement."""
 
@@ -28565,6 +28917,8 @@ CovarianceOrigin = CovarianceOriginQualifiedFit | CovarianceOriginExternal
 
 CovarianceOriginOutput = CovarianceOriginOutputQualifiedFit | CovarianceOriginOutputExternal
 
+DecodePathSegment = DecodePathSegmentMap | DecodePathSegmentSequence | DecodePathSegmentVariant | DecodePathSegmentUnknown
+
 Dependency = DependencyOrdering | DependencyUsableResult
 
 DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFixAtStart | DiscreteInitializationFixAt
@@ -28678,6 +29032,12 @@ ResearchReadResult = ResearchReadResultDatasets | ResearchReadResultDataset | Re
 ResearchReadResultOutput = ResearchReadResultOutputDatasets | ResearchReadResultOutputDataset | ResearchReadResultOutputSelection
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
+
+ResultInspectionCell = ResultInspectionCellNull | ResultInspectionCellBoolean | ResultInspectionCellInteger | ResultInspectionCellUnsigned | ResultInspectionCellFloat32 | ResultInspectionCellFloat64 | ResultInspectionCellText | ResultInspectionCellBinary | ResultInspectionCellUnavailable
+
+ResultInspectionDocument = ResultInspectionDocumentSchema | ResultInspectionDocumentValues | ResultInspectionDocumentRefused
+
+ResultInspectionView = ResultInspectionViewSchema | ResultInspectionViewValues
 
 SeedAvailability = SeedAvailabilityUnresolved | SeedAvailabilityCompatible | SeedAvailabilityAbsent | SeedAvailabilityIncompatible | SeedAvailabilityInternalFailure
 
@@ -29103,6 +29463,15 @@ __all__ = [
     "DeclarationEditOutput",
     "DeclarationInventory",
     "DeclarationInventoryOutput",
+    "DecodeCategory",
+    "DecodeLocation",
+    "DecodePathSegment",
+    "DecodePathSegmentMap",
+    "DecodePathSegmentSequence",
+    "DecodePathSegmentUnknown",
+    "DecodePathSegmentVariant",
+    "DecodePathStatus",
+    "DecodeStage",
     "Dependency",
     "DependencyOrdering",
     "DependencyUsableResult",
@@ -30027,6 +30396,30 @@ __all__ = [
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",
+    "ResultCellUnavailable",
+    "ResultFloatClass",
+    "ResultInspectionCell",
+    "ResultInspectionCellBinary",
+    "ResultInspectionCellBoolean",
+    "ResultInspectionCellFloat32",
+    "ResultInspectionCellFloat64",
+    "ResultInspectionCellInteger",
+    "ResultInspectionCellNull",
+    "ResultInspectionCellText",
+    "ResultInspectionCellUnavailable",
+    "ResultInspectionCellUnsigned",
+    "ResultInspectionDocument",
+    "ResultInspectionDocumentRefused",
+    "ResultInspectionDocumentSchema",
+    "ResultInspectionDocumentValues",
+    "ResultInspectionField",
+    "ResultInspectionRefusal",
+    "ResultInspectionRequest",
+    "ResultInspectionRequestOutput",
+    "ResultInspectionRow",
+    "ResultInspectionView",
+    "ResultInspectionViewSchema",
+    "ResultInspectionViewValues",
     "ResultReclamationPage",
     "ReviewAttemptSelection",
     "ReviewContextDocument",
@@ -30371,4 +30764,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+SCHEMA_SET_FINGERPRINT = "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"

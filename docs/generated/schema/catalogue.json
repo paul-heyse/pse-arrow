@@ -715,6 +715,30 @@
     },
     {
       "direction": "input",
+      "exported_name": "DecodeLocation",
+      "name": "DecodeLocation",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_model :: document :: DecodeLocation",
+      "schema_path": "docs/generated/schema/decode-location.input.schema.json",
+      "schema_sha256": "91320642011afa5fd3f58693582e17973f54f51812a468e8200e7e571b2accf7",
+      "slug": "decode-location",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "output",
+      "exported_name": "DecodeLocation",
+      "name": "DecodeLocation",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_model :: document :: DecodeLocation",
+      "schema_path": "docs/generated/schema/decode-location.output.schema.json",
+      "schema_sha256": "91320642011afa5fd3f58693582e17973f54f51812a468e8200e7e571b2accf7",
+      "slug": "decode-location",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "input",
       "exported_name": "DetailDocument",
       "name": "DetailDocument",
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
@@ -4014,6 +4038,42 @@
       "wire": "FlatV1"
     },
     {
+      "direction": "output",
+      "exported_name": "ResultInspectionDocument",
+      "name": "ResultInspectionDocument",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
+      "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
+      "schema_sha256": "e72dcf8045888452b98354aa981ba7f0bc3a1109f6a07ebafb5da813042f0bcc",
+      "slug": "result-inspection-document",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "input",
+      "exported_name": "ResultInspectionRequest",
+      "name": "ResultInspectionRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
+      "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
+      "schema_sha256": "fb0431325e5ee50f1704f3921c3d636e4503a0c3d902e9b36492b3132105e2fa",
+      "slug": "result-inspection-request",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "output",
+      "exported_name": "ResultInspectionRequestOutput",
+      "name": "ResultInspectionRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
+      "schema_path": "docs/generated/schema/result-inspection-request.output.schema.json",
+      "schema_sha256": "fc8ad61ccb41a6098e28d29d54baccd1c242f3a6b4a178583b6e3095134ad456",
+      "slug": "result-inspection-request",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
       "direction": "input",
       "exported_name": "ResultReclamationPage",
       "name": "ResultReclamationPage",
@@ -5250,6 +5310,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+  "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
   "version": 1
 }

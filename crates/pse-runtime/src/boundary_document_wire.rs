@@ -210,7 +210,9 @@ impl<T, const N: u32> VersionedValue<T, N> {
 ///
 /// # Errors
 /// A missing, duplicate, malformed or unsupported header is refused.
-pub fn check_header<const N: u32>(bytes: &[u8]) -> Result<(), serde_json::Error> {
+pub fn check_header<const N: u32>(
+    bytes: &[u8],
+) -> Result<(), pse_model::document::JsonDecodeError> {
     check_required_header(bytes, "document_version", N)
 }
 
@@ -223,48 +225,8 @@ pub fn check_required_header(
     bytes: &[u8],
     field: &'static str,
     expected: u32,
-) -> Result<(), serde_json::Error> {
-    struct Header {
-        field: &'static str,
-        expected: u32,
-    }
-    impl<'de> Visitor<'de> for Header {
-        type Value = ();
-        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(
-                formatter,
-                "an object with required {} {}",
-                self.field, self.expected
-            )
-        }
-        fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<(), A::Error> {
-            let mut seen = false;
-            while let Some(key) = map.next_key::<String>()? {
-                if key == self.field {
-                    if seen {
-                        return Err(A::Error::duplicate_field(self.field));
-                    }
-                    seen = true;
-                    let version = map.next_value::<u32>()?;
-                    if version != self.expected {
-                        return Err(A::Error::custom(format!(
-                            "unsupported {} {version} (current: {})",
-                            self.field, self.expected
-                        )));
-                    }
-                } else {
-                    let _: serde::de::IgnoredAny = map.next_value()?;
-                }
-            }
-            if !seen {
-                return Err(A::Error::missing_field(self.field));
-            }
-            Ok(())
-        }
-    }
-    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-    serde::de::Deserializer::deserialize_map(&mut deserializer, Header { field, expected })?;
-    deserializer.end()
+) -> Result<(), pse_model::document::JsonDecodeError> {
+    pse_model::document::check_required_header(bytes, field, expected)
 }
 
 /// The actual standalone encoding selected once by the boundary catalogue.
@@ -303,16 +265,18 @@ impl Wire {
     pub fn decode_slice<T: serde::de::DeserializeOwned>(
         self,
         bytes: &[u8],
-    ) -> Result<T, serde_json::Error> {
+    ) -> Result<T, pse_model::document::JsonDecodeError> {
         match self {
-            Self::Native => serde_json::from_slice(bytes),
+            Self::Native => pse_model::document::decode_json(bytes),
             Self::FlatV1 => {
                 check_header::<1>(bytes)?;
-                serde_json::from_slice::<Versioned<T, 1>>(bytes).map(|document| document.body)
+                pse_model::document::decode_json::<Versioned<T, 1>>(bytes)
+                    .map(|document| document.body)
             }
             Self::ValueV1 => {
                 check_header::<1>(bytes)?;
-                serde_json::from_slice::<VersionedValue<T, 1>>(bytes).map(|document| document.value)
+                pse_model::document::decode_json::<VersionedValue<T, 1>>(bytes)
+                    .map(|document| document.value)
             }
         }
     }
@@ -353,6 +317,46 @@ mod tests {
                         .is_err()
                 );
             }
+        }
+    }
+
+    #[test]
+    fn standalone_wire_decode_reports_nested_paths_and_keeps_trailing_refusal() {
+        use pse_model::document::{DecodeCategory, DecodePathSegment, DecodeStage};
+        #[derive(Debug, serde::Deserialize)]
+        struct Nested {
+            #[serde(rename = "rows")]
+            _rows: Vec<Strict>,
+        }
+        let bytes = br#"{"document_version":1,"rows":[{"value":"private-value"}]}"#;
+        let error = Wire::FlatV1.decode_slice::<Nested>(bytes).unwrap_err();
+        assert_eq!(error.location().stage, DecodeStage::Body);
+        assert_eq!(error.location().category, DecodeCategory::Data);
+        assert_eq!(
+            error.location().path,
+            vec![
+                DecodePathSegment::Map { key: "rows".into() },
+                DecodePathSegment::Sequence { index: 0 },
+                DecodePathSegment::Map {
+                    key: "value".into()
+                },
+            ]
+        );
+        assert!(!error.to_string().contains("private-value"));
+        for (wire, bytes) in [
+            (Wire::Native, br#"{"value":7} null"#.as_slice()),
+            (
+                Wire::FlatV1,
+                br#"{"document_version":1,"value":7} null"#.as_slice(),
+            ),
+            (
+                Wire::ValueV1,
+                br#"{"document_version":1,"value":{"value":7}} null"#.as_slice(),
+            ),
+        ] {
+            let error = wire.decode_slice::<Strict>(bytes).unwrap_err();
+            assert_eq!(error.location().stage, DecodeStage::Trailing);
+            assert_eq!(error.location().category, DecodeCategory::Syntax);
         }
     }
 
@@ -446,9 +450,11 @@ mod tests {
         optional: bool,
     }
 
-    fn read<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, serde_json::Error> {
+    fn read<T: serde::de::DeserializeOwned>(
+        bytes: &[u8],
+    ) -> Result<T, pse_model::document::JsonDecodeError> {
         check_header::<1>(bytes)?;
-        serde_json::from_slice(bytes)
+        pse_model::document::decode_json(bytes)
     }
 
     #[test]
@@ -490,7 +496,16 @@ mod tests {
         let error =
             read::<Versioned<Strict, 1>>(br#"{"value":"historical shape","document_version":2}"#)
                 .unwrap_err();
-        assert!(error.to_string().contains("unsupported document_version 2"));
+        assert!(
+            error
+                .inner()
+                .to_string()
+                .contains("unsupported document_version 2")
+        );
+        assert_eq!(
+            error.location().stage,
+            pse_model::document::DecodeStage::Header
+        );
         assert!(!error.to_string().contains("historical shape"));
         #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
         #[serde(deny_unknown_fields)]

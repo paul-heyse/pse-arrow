@@ -482,7 +482,7 @@ class ExactStoreTests(unittest.TestCase):
             patch.object(files, "sync_directory", side_effect=interrupt),
             self.assertRaisesRegex(OSError, "injected"),
         ):
-            self.store._save(entry)
+            self.store._save(entry)  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         self.assertFalse(self.store.path("resources", entry.resource).exists())
         events = []
         settle, publish = files.settle, files.publish
@@ -499,7 +499,7 @@ class ExactStoreTests(unittest.TestCase):
             patch.object(files, "settle", side_effect=settle_existing),
             patch.object(files, "publish", side_effect=expose),
         ):
-            self.store._save(entry)
+            self.store._save(entry)  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         self.assertLess(
             events.index(("settle", "active")), events.index(("publish", "resources"))
         )
@@ -524,13 +524,13 @@ class ExactStoreTests(unittest.TestCase):
             patch.object(files, "publish", side_effect=interrupt_arrival),
             self.assertRaisesRegex(OSError, "authority unpublished"),
         ):
-            self.store._save(entry)
+            self.store._save(entry)  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         self.assertEqual(self.store.access_ids(family), [resource])
         with self.assertRaises(FileNotFoundError):
             self.store.lookup(resource)
 
         # Retrying settles the existing protective path before authority appears.
-        self.store._save(entry)
+        self.store._save(entry)  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         self.assertEqual(self.store.lookup(resource), entry)
         unlink = Path.unlink
 

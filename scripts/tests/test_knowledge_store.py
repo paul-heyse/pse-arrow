@@ -8,6 +8,10 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import TextIO
 from unittest.mock import patch
 
 from scripts import knowledge_store, workspace_sources
@@ -109,9 +113,13 @@ class KnowledgeStoreTests(unittest.TestCase):
         self,
     ) -> None:
         def run(
-            state: Path, tool: Path, arguments: list[str], **options: object
+            _state: Path, _tool: Path, arguments: list[str], *, deadline: float,
+            stdout: TextIO | None = None,
         ) -> int:
-            options["stdout"].write('{"generation":"selected"}')
+            del deadline
+            if stdout is None:
+                self.fail("Expected the original output stream")
+            stdout.write('{"generation":"selected"}')
             self.assertEqual(arguments, ["knowledge-status"])
             return 0
 

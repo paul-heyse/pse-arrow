@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import tempfile
 import unittest
@@ -170,9 +171,7 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
         root = Path(__file__).resolve().parents[2]
         owner = specialists.Specialists(root)
         redacted_value = "must-not-leak-password"
-        token = specialists.base64.b64encode(
-            ("pse-selection:" + redacted_value).encode()
-        ).decode()
+        token = base64.b64encode(("pse-selection:" + redacted_value).encode()).decode()
         selected = Mock(selection_fence="a" * 64)
         selected.authorization.return_value = {"Authorization": "Basic " + token}
         owner.selected = selected
@@ -242,7 +241,8 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
                         raise_on_error=False,
                     )
                     self.assertTrue(wrong.is_error)
-                    self.assertIn("source version differs", text_content(wrong))
+                    self.assertIn("pse.specialist.refused", text_content(wrong))
+                    self.assertIn("source identity", text_content(wrong))
                     response = await client.call_tool(
                         "navigation_rename_preview",
                         {
@@ -414,7 +414,9 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             payload = structured(result)["payload"]
             self.assertEqual(payload["native"], native)
             self.assertIsNone(payload["preview"])
-            self.assertIn("incomplete server result", payload["preview_refusal"])
+            self.assertEqual(
+                payload["preview_refusal"]["code"], "pse.specialist.preview_unavailable"
+            )
             self.assertFalse(structured(result)["complete"])
             await owner.close()
 
@@ -442,7 +444,7 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
                 owner.retain_preview(foreign_preview)
             handle = owner.retain_preview(preview)["preview_sha256"]
             for refused in ("0" * 64, ("1" if handle[0] != "1" else "2") + handle[1:]):
-                with self.assertRaisesRegex(Exception, "unknown edit preview digest"):
+                with self.assertRaisesRegex(Exception, "pse.specialist.refused"):
                     await tools["edit_preview_apply"].run(
                         {"preview_sha256": refused, "receipt": "receipt.json"}
                     )
@@ -459,7 +461,7 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             retained = vars(owner)["_previews"]
             with (
                 patch.dict(retained, {handle: b"{}"}),
-                self.assertRaisesRegex(Exception, "digest mismatch"),
+                self.assertRaisesRegex(Exception, "pse.specialist.refused"),
             ):
                 await tools["edit_preview_apply"].run(
                     {"preview_sha256": handle, "receipt": "receipt.json"}
@@ -479,7 +481,7 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             await other.close()
             self.assertFalse(retained)
             self.assertEqual(vars(owner)["_preview_bytes"], 0)
-            with self.assertRaisesRegex(Exception, "closed"):
+            with self.assertRaisesRegex(Exception, "pse.specialist.refused"):
                 await tools["edit_preview_read"].run({"preview_sha256": handle})
 
     async def test_preview_capacity_refusal_preserves_issued_handles_and_has_no_effects(
@@ -578,12 +580,16 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             )
             handle = owner.retain_preview(preview)["preview_sha256"]
             for receipt in ("sample.py", "consumer.py", "target/receipt.json"):
-                with self.assertRaisesRegex(Exception, "overwrite|protected"):
+                with self.assertRaisesRegex(
+                    Exception, "pse.specialist.edit_apply_unsettled"
+                ):
                     await tools["edit_preview_apply"].run(
                         {"preview_sha256": handle, "receipt": receipt}
                     )
             (root / "consumer.py").write_text("# concurrent edit\n")
-            with self.assertRaisesRegex(Exception, "stale preview basis"):
+            with self.assertRaisesRegex(
+                Exception, "pse.specialist.edit_apply_unsettled"
+            ):
                 await tools["edit_preview_apply"].run(
                     {"preview_sha256": handle, "receipt": "receipt.json"}
                 )
@@ -601,7 +607,9 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             )
             (root / "consumer.py").write_text("import sample\n")
             (root / "sample.py").write_text("x=7\n")
-            with self.assertRaisesRegex(Exception, "stale preview basis"):
+            with self.assertRaisesRegex(
+                Exception, "pse.specialist.edit_apply_unsettled"
+            ):
                 await tools["edit_preview_apply"].run(
                     {"preview_sha256": handle, "receipt": "receipt.json"}
                 )
@@ -638,11 +646,17 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch.object(semantic_edits, "_write", side_effect=interrupted),
-                self.assertRaisesRegex(Exception, "second-write interruption"),
+                self.assertRaisesRegex(
+                    Exception, "pse.specialist.edit_apply_unsettled"
+                ) as caught,
             ):
                 await tools["edit_preview_apply"].run(
                     {"preview_sha256": handle, "receipt": "receipt.json"}
                 )
+            failure = json.loads(str(caught.exception))
+            self.assertEqual(failure["recovery"]["preview_sha256"], handle)
+            self.assertNotIn("second-write interruption", str(caught.exception))
+            self.assertIn("edit_preview_reconcile", failure["remedy"])
             receipt = json.loads((root / "receipt.json").read_text())
             self.assertFalse(receipt["complete"])
             self.assertEqual(receipt["preview_sha256"], handle)

@@ -1,6 +1,6 @@
 ---
 title: "Plan 52l: Typed requests, results and diagnostics"
-status: draft
+status: in-progress
 date: 2026-10-24
 adrs: [ADR-0224]
 review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
@@ -12,6 +12,23 @@ doc_topics: [current-work, design, libraries, diagnostics, validation]
 # Plan 52l: Typed requests, results and diagnostics
 
 ## Execution checkpoint — 2026-10-24
+
+The functional CON01–CON04 implementation is now present, with targeted host/consumer checks;
+native and scope-end qualification remain incomplete. The maintainer requested cancellation of
+the active Cargo checks and continuation in a parallel worktree, including the other agent's
+active uncommitted Plan53 changes in the checkpoint before moving. This is an integration
+checkpoint, not completion or acceptance of either plan. The parallel branch will periodically
+integrate main and return validated slices without transferring Plan53 scope ownership.
+
+The native decoder's six model tests passed. Host integration and independent composed-schema
+checks exercised tagged queries, typed answers, privacy and exact IPC transport. Runtime test
+preparation correctly refused a changing source/configuration cut before execution; it must be
+rerun on stable inputs. The correctness extension compiled and installed, but its import requires
+regeneration of the current directional catalogue before qualification. Generated contracts,
+stubs/reference and actual fresh Codex acceptance remain to be finalized. Initial scope-end
+checks exposed both new contract findings and pre-existing/concurrently changing tooling
+findings; no zero-warning or full qualification claim is made. Broad fixes must respect active
+ownership and preserve original test discriminators, native outcomes and source fencing.
 
 The maintainer authorized CON01–CON04 and selected the compact readable physical-value view
 alongside schema discovery and exact IPC. ADR-0224 records the native inspection/diagnostic

@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `239c691ec1d2decb130ead7cfdc61f715d2fe355789f52d1ed0da699e565e15a`.
+Catalogue content revision: `ddc56a7a96979cadd6a0d11dccf089b23ca1e8dc006760ec708e7244acb5edbf`.
 
 ## Domains
 
@@ -1018,6 +1018,10 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
         "default": false,
         "type": "boolean"
       },
+      "full_export": {
+        "default": false,
+        "type": "boolean"
+      },
       "gate": {
         "anyOf": [
           {
@@ -1028,6 +1032,14 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
           }
         ],
         "default": null
+      },
+      "historical": {
+        "default": false,
+        "type": "boolean"
+      },
+      "source_detail": {
+        "default": false,
+        "type": "boolean"
       },
       "tail": {
         "default": 0,
@@ -1044,36 +1056,344 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
   "name": "assessment_read",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "AssessmentCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/$defs/FileObservation"
+            },
+            "type": "array"
+          },
+          "log": {
+            "$ref": "#/$defs/FileObservation"
+          },
+          "origin_path": {
+            "type": "string"
+          },
+          "qualified": {
+            "type": "boolean"
+          },
+          "record": {
+            "$ref": "#/$defs/AssessmentRecord"
+          }
+        },
+        "required": [
+          "record",
+          "qualified",
+          "origin_path",
+          "log",
+          "artifacts"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "AssessmentPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "assessment": {
+            "$ref": "#/$defs/AssessmentSummary"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/$defs/AssessmentCheck"
+            },
+            "type": "array"
+          },
+          "record_path": {
+            "type": "string"
+          },
+          "run_path": {
+            "type": "string"
+          },
+          "scope": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "unattempted_scope": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_path",
+          "record_path",
+          "assessment",
+          "scope",
+          "checks",
+          "unattempted_scope"
+        ],
+        "type": "object"
+      },
+      "AssessmentRecord": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "evidence_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "gate": {
+            "type": "string"
+          },
+          "log": {
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "gate",
+          "status",
+          "log"
+        ],
+        "type": "object"
+      },
+      "AssessmentResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "assessment_read",
+            "default": "assessment_read",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/AssessmentPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "AssessmentSummary": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "baseline_failures": {
+            "type": "integer"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "source_unchanged": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "complete",
+          "source_unchanged",
+          "baseline_failures"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "FileObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "recorded_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "status": {
+            "type": "string"
+          },
+          "tail": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "status",
+          "tail"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "OwnerRecord": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/AssessmentResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Assessment Read"
 }
@@ -2013,36 +2333,242 @@ Exact callable component key: `tool:coverage_correspondence_read@`. The followin
   "name": "coverage_correspondence_read",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "CoveragePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "capture": {
+            "type": "string"
+          },
+          "exclusions": {
+            "type": "string"
+          },
+          "fresh": {
+            "type": "boolean"
+          },
+          "limits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "population": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/CoveredSubject"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "population_status": {
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "selection": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema",
+          "capture",
+          "fresh",
+          "status",
+          "population",
+          "population_status",
+          "exclusions",
+          "regions",
+          "selection",
+          "limits"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "CoverageResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "coverage_correspondence_read",
+            "default": "coverage_correspondence_read",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/CoveragePayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "CoveredSubject": {
+        "additionalProperties": false,
+        "properties": {
+          "binary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "failed",
+              "not-run",
+              "passed"
+            ],
+            "type": "string"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "binary",
+          "test",
+          "outcome"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "OwnerRecord": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CoverageResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Coverage Correspondence Read"
 }
@@ -3263,36 +3789,275 @@ Exact callable component key: `tool:document_scope_query@`. The following is the
   "name": "document_scope_query",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
-      },
-      "payload": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
         },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "DocumentScopePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ScopeItem"
+            },
+            "type": "array"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_at": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "observed_at",
+          "operation",
+          "authority",
+          "items",
+          "total",
+          "offset",
+          "next_offset"
+        ],
+        "type": "object"
+      },
+      "DocumentScopeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "document_scope_query",
+            "default": "document_scope_query",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/DocumentScopePayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "ScopeItem": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "document": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "native_cells": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "native_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "native_state": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "raw_status": {
+            "type": "string"
+          },
+          "relationships": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_line": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          },
+          "status_basis": {
+            "type": "string"
+          },
+          "status_owner": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "document",
+          "kind",
+          "source",
+          "source_line",
+          "raw_status",
+          "state",
+          "native_state",
+          "status_owner",
+          "status_basis",
+          "owner",
+          "native_cells",
+          "relationships"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DocumentScopeResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Document Scope Query"
 }
@@ -3859,36 +4624,322 @@ Exact callable component key: `tool:environment_explain@`. The following is the 
   "name": "environment_explain",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "Choice": {
+        "additionalProperties": false,
+        "properties": {
+          "local_unresolved": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "value",
+          "source",
+          "local_unresolved"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "EnvironmentPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "build_context": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "checkout": {
+            "type": "string"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "compiler": {
+            "additionalProperties": {
+              "$ref": "#/$defs/Choice"
+            },
+            "type": "object"
+          },
+          "interpreter": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "local_configuration": {
+            "type": "string"
+          },
+          "native_capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "native_runtime_choices": {
+            "additionalProperties": {
+              "$ref": "#/$defs/Choice"
+            },
+            "type": "object"
+          },
+          "path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "placement": {
+            "$ref": "#/$defs/Placement"
+          },
+          "providers": {
+            "additionalProperties": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "object"
+          },
+          "python_package": {
+            "type": "string"
+          },
+          "refusals": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "selection_status": {
+            "type": "string"
+          },
+          "target_directory": {
+            "type": "string"
+          },
+          "tools": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "kind",
+          "selection_status",
+          "checkout",
+          "interpreter",
+          "python_package",
+          "path",
+          "tools",
+          "compiler",
+          "target_directory",
+          "native_capabilities",
+          "providers",
+          "native_runtime_choices",
+          "placement",
+          "command",
+          "build_context",
+          "local_configuration",
+          "refusals"
+        ],
+        "type": "object"
+      },
+      "EnvironmentResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "environment_explain",
+            "default": "environment_explain",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/EnvironmentPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "OwnerRecord": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
+        "type": "object"
+      },
+      "Placement": {
+        "additionalProperties": false,
+        "properties": {
+          "admission": {
+            "type": "string"
+          },
+          "memory_request": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resource_class": {
+            "type": "string"
+          },
+          "slice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "slice",
+          "resource_class",
+          "memory_request",
+          "admission"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/EnvironmentResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Environment Explain"
 }
@@ -4564,6 +5615,17 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
         ],
         "default": null
       },
+      "excerpt_limit": {
+        "default": 8,
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "excerpt_offset": {
+        "default": 0,
+        "minimum": 0,
+        "type": "integer"
+      },
       "identity": {
         "anyOf": [
           {
@@ -4596,36 +5658,353 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
   "name": "knowledge_source_corpus",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
-      },
-      "payload": {
+      "ConceptSubject": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "native_id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "native_id",
+          "owner"
+        ],
+        "type": "object"
+      },
+      "CorpusExcerpt": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "text_complete": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "subject_id",
+          "text",
+          "locator",
+          "basis"
+        ],
+        "type": "object"
+      },
+      "CorpusSource": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "basis": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "locator": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version_digest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "locator",
+          "version_digest",
+          "basis",
+          "title",
+          "status"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "ExcerptPage": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "offset",
+          "limit",
+          "total",
+          "next_offset"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "KnowledgePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "excerpt_page": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExcerptPage"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "excerpts": {
+            "items": {
+              "$ref": "#/$defs/CorpusExcerpt"
+            },
+            "type": "array"
+          },
+          "expected_active": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "productions": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/$defs/CorpusSource"
+            },
+            "type": "array"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/$defs/ConceptSubject"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "expected_active",
+          "sources",
+          "excerpts",
+          "subjects",
+          "edges",
+          "productions"
+        ],
+        "type": "object"
+      },
+      "KnowledgeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "knowledge_source_corpus",
+            "default": "knowledge_source_corpus",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/KnowledgePayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "OwnerRecord": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/KnowledgeResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Knowledge Source Corpus"
 }
@@ -4820,36 +6199,298 @@ Exact callable component key: `tool:library_source_packet@`. The following is th
   "name": "library_source_packet",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "JsonValue": {},
+      "LibraryPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "declaration": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "declaration_location": {
+            "type": "string"
+          },
+          "declared_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ecosystem": {
+            "type": "string"
+          },
+          "effects": {
+            "type": "string"
+          },
+          "exact_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "feature_basis": {
+            "type": "string"
+          },
+          "local_sources": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "observed_closure": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "package": {
+            "type": "string"
+          },
+          "patches": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "population_complete": {
+            "type": "boolean"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "resolved": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "resolved_package": {
+            "type": "string"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rustdoc": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selected_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source_cut": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "unresolved": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "package",
+          "resolved_package",
+          "ecosystem",
+          "declaration",
+          "declaration_location",
+          "exact_version",
+          "resolved",
+          "selected_features",
+          "declared_features",
+          "feature_basis",
+          "target",
+          "observed_closure",
+          "rustdoc",
+          "patches",
+          "local_sources",
+          "references",
+          "source_cut",
+          "revision",
+          "population_complete",
+          "unresolved",
+          "unknowns",
+          "effects"
+        ],
+        "type": "object"
+      },
+      "LibraryResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "library_source_packet",
+            "default": "library_source_packet",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/LibraryPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "OwnerRecord": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/LibraryResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Library Source Packet"
 }
@@ -4903,7 +6544,7 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
         "direction": null,
         "slug": "authoring"
       },
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -5038,7 +6679,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
           "schema_path": "docs/generated/schema/inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "d4b6a513342de415c86ffcffa24d6874d2848d9d5314ea7e5bd8b4b82b77c0ad",
           "slug": "inspection-document",
           "version": 3,
@@ -5051,7 +6692,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionRequest",
           "schema_path": "docs/generated/schema/inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "d9b91fb3481af8a0396509f645a33d50752ac2577c6a6b3dc701356dab55d16a",
           "slug": "inspection-request",
           "version": 2,
@@ -5059,7 +6700,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         }
       },
       "receiver": "pse.diagnostics.inspect_checkpoint",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -5193,7 +6834,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:inspection-request:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
@@ -5258,7 +6899,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:inspection-request:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:inspection-request:input"
       }
     },
     "required": [
@@ -5369,7 +7010,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
           "schema_path": "docs/generated/schema/frozen-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "437b297bb6926a5888c85d007f406ff9696cfd425870f7a3a171b03571626a79",
           "slug": "frozen-inspection-document",
           "version": 1,
@@ -5382,7 +7023,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionRequest",
           "schema_path": "docs/generated/schema/frozen-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "a9bdc3183ed66ba9252fe3d4586d8b8b21dfeb0607c99fd7df04ef9a51a3ef68",
           "slug": "frozen-inspection-request",
           "version": 1,
@@ -5390,7 +7031,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.read_evidence + inspect_frozen",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -5639,7 +7280,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
             ]
           }
         },
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:frozen-inspection-request:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:frozen-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
@@ -5679,7 +7320,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:frozen-inspection-request:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:frozen-inspection-request:input"
       }
     },
     "required": [
@@ -5790,7 +7431,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: invocation :: InvocationEvidenceDocument",
           "schema_path": "docs/generated/schema/invocation-evidence.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "513b0d130552259de59f3ab1575423c5b4b56cd3123ee249df6e93aabf2285b8",
           "slug": "invocation-evidence",
           "version": 2,
@@ -5798,7 +7439,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         }
       },
       "receiver": "pse.diagnostics.read_invocation",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -5927,7 +7568,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -5940,7 +7581,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -5953,7 +7594,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -5966,7 +7607,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -5974,7 +7615,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
         }
       },
       "receiver": "pse.ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -6576,7 +8217,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -6630,7 +8271,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -6670,13 +8311,13 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -6797,7 +8438,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectManifest",
           "schema_path": "docs/generated/schema/project-manifest.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "afcf6d813ebe9d5488cda86d5df827416faf129419c05527ce1aba6d53d9aa78",
           "slug": "project-manifest",
           "version": 1,
@@ -6805,7 +8446,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
         }
       },
       "receiver": "pse.ProjectBundle.manifest + digest",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -6938,7 +8579,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataPage",
           "schema_path": "docs/generated/schema/project-metadata-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "247bcbf54ba1f8787e71f6e84fcd093b719a27f83b18dc7730bf0a9f14119c9c",
           "slug": "project-metadata-page",
           "version": 1,
@@ -6951,7 +8592,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataRequest",
           "schema_path": "docs/generated/schema/project-metadata-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "5f252f295e44801126cafb6f147efdade00a0c618978098dbe75d854481614cd",
           "slug": "project-metadata-request",
           "version": 1,
@@ -6959,7 +8600,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         }
       },
       "receiver": "pse.Runtime.project_metadata",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -7037,7 +8678,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-metadata-request:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-metadata-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact owner and optional continuation for a bounded live metadata listing.",
@@ -7085,7 +8726,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-metadata-request:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-metadata-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -7208,7 +8849,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelection",
           "schema_path": "docs/generated/schema/project-selection.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "94c26dbd186b231b086e6e37d8dd6df5a0d4b00655a6e8f4d95a498e8b3f37d9",
           "slug": "project-selection",
           "version": 1,
@@ -7221,7 +8862,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -7234,7 +8875,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelectRequest",
           "schema_path": "docs/generated/schema/project-select-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "393a032a9136db4e6aaa0ae0168ed9aafc244c47bb9207f48d340763164d5284",
           "slug": "project-select-request",
           "version": 1,
@@ -7242,7 +8883,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         }
       },
       "receiver": "pse.Runtime.project_select",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -7283,7 +8924,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -7365,7 +9006,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-select-request:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-select-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit navigation command transport.",
@@ -7398,10 +9039,10 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-select-request:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-select-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -7526,7 +9167,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadResult",
           "schema_path": "docs/generated/schema/research-read-result.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "edf625447db75b6278030fd28171b9b009aa21cb85ff16c05108e3c33f99e8b4",
           "slug": "research-read-result",
           "version": 1,
@@ -7539,7 +9180,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
           "schema_path": "docs/generated/schema/research-read-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
           "slug": "research-read-request",
           "version": 1,
@@ -7547,7 +9188,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         }
       },
       "receiver": "pse.Runtime.research_read",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -7588,7 +9229,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
       },
       "research-read-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:research-read-request:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:research-read-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "Exact discovery and selected detail commands; metadata does not retain payloads.",
         "oneOf": [
@@ -7702,7 +9343,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:research-read-request:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:research-read-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -7768,6 +9409,1058 @@ Exact callable component key: `tool:native_research_read@`. The following is the
 
 - Native `request`: [docs/generated/schema/research-read-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/research-read-request.input.schema.json).
 
+### `native_result_inspect` — Inspect protected scientific result shape or readable selected values
+
+Exposure: **tool**. Owner: `pse.Runtime.inspect_result`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Inspect an exact protected run/attempt/relation. Schema view does not acquire data batches. Values view selects bounded fields and rows natively, retains original identity, units, basis and quality context, and represents null/nonfinite/unsupported cells explicitly. Exact original Arrow IPC remains native_result_read. No scientific usability is inferred.",
+  "domain": "projects",
+  "effects": "Protected read of the explicitly selected existing canonical result; no execution, provision or publication.",
+  "exposure": "tool",
+  "family": "projects-revisions",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_result_inspect",
+  "owner": "pse.Runtime.inspect_result",
+  "prerequisites": [
+    "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
+  ],
+  "reason": "",
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Inspect protected scientific result shape or readable selected values",
+  "work_owner": null,
+  "workflows": [
+    "manage-project"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_result_inspect@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_result_inspect",
+        "domain:projects",
+        "family:projects-revisions",
+        "workflow:manage-project"
+      ]
+    },
+    "pse.native": {
+      "authoring_guidance": null,
+      "contracts": {
+        "output_document": {
+          "direction": "output",
+          "exported_name": "ResultInspectionDocument",
+          "name": "ResultInspectionDocument",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
+          "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_sha256": "e72dcf8045888452b98354aa981ba7f0bc3a1109f6a07ebafb5da813042f0bcc",
+          "slug": "result-inspection-document",
+          "version": 1,
+          "wire": "FlatV1"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "ResultInspectionRequest",
+          "name": "ResultInspectionRequest",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
+          "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_sha256": "fb0431325e5ee50f1704f3921c3d636e4503a0c3d902e9b36492b3132105e2fa",
+          "slug": "result-inspection-request",
+          "version": 1,
+          "wire": "FlatV1"
+        }
+      },
+      "receiver": "pse.Runtime.inspect_result",
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Inspect an exact protected run/attempt/relation. Schema view does not acquire data batches. Values view selects bounded fields and rows natively, retains original identity, units, basis and quality context, and represents null/nonfinite/unsupported cells explicitly. Exact original Arrow IPC remains native_result_read. No scientific usability is inferred.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "Resources": {
+        "additionalProperties": false,
+        "properties": {
+          "max_spill_bytes": {
+            "default": 1073741824,
+            "minimum": 1,
+            "title": "Max Spill Bytes",
+            "type": "integer"
+          },
+          "memory_limit_bytes": {
+            "default": 17179869184,
+            "minimum": 1,
+            "title": "Memory Limit Bytes",
+            "type": "integer"
+          },
+          "threads": {
+            "default": 16,
+            "maximum": 16,
+            "minimum": 1,
+            "title": "Threads",
+            "type": "integer"
+          }
+        },
+        "title": "Resources",
+        "type": "object"
+      },
+      "result-inspection-request": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "ResultInspectionView": {
+            "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Page the original field inventory without decoding any result batch.",
+                "properties": {
+                  "kind": {
+                    "const": "schema",
+                    "type": "string"
+                  },
+                  "limit": {
+                    "description": "At most sixteen original fields.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "offset": {
+                    "description": "Zero-based original field position.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "offset",
+                  "limit"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Read selected original scalar fields together with all declared non-value context.",
+                "properties": {
+                  "fields": {
+                    "description": "One to eight unique exact original field names.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "kind": {
+                    "const": "values",
+                    "type": "string"
+                  },
+                  "maximum_rows": {
+                    "description": "At most sixteen original rows; continuation retains source coordinates.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "fields",
+                  "maximum_rows"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:result-inspection-request:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Select one exact immutable result; schema discovery does not read its Arrow rows.",
+        "properties": {
+          "attempt": {
+            "description": "Exact original terminal attempt.",
+            "type": "string"
+          },
+          "document_version": {
+            "const": 1,
+            "default": 1,
+            "type": "integer"
+          },
+          "end": {
+            "description": "Exclusive original row coordinate.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "expected_manifest": {
+            "default": null,
+            "description": "Optional closure digest returned by an earlier discovery; mismatch refuses.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "relation": {
+            "description": "Qualified original scientific relation.",
+            "type": "string"
+          },
+          "run": {
+            "description": "Original canonical run, never a latest-run alias.",
+            "type": "string"
+          },
+          "start": {
+            "description": "Inclusive original row coordinate.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "view": {
+            "$ref": "#/$defs/ResultInspectionView",
+            "description": "Bounded schema page or readable scalar selection."
+          }
+        },
+        "required": [
+          "run",
+          "attempt",
+          "relation",
+          "start",
+          "end",
+          "view",
+          "document_version"
+        ],
+        "title": "ResultInspectionRequest",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "database": {
+        "minLength": 1,
+        "title": "Database",
+        "type": "string"
+      },
+      "request": {
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:result-inspection-request:input"
+      },
+      "resources": {
+        "$ref": "#/$defs/Resources"
+      },
+      "state": {
+        "minLength": 1,
+        "title": "State",
+        "type": "string"
+      }
+    },
+    "required": [
+      "state",
+      "database",
+      "request"
+    ],
+    "title": "ResultInspection",
+    "type": "object"
+  },
+  "name": "native_result_inspect",
+  "outputSchema": {
+    "$defs": {
+      "PackResultPredicateOutput": {
+        "additionalProperties": false,
+        "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
+        "properties": {
+          "maximum_bits": {
+            "description": "Optional upper predicate endpoint as exact IEEE-754 bits.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "minimum_bits": {
+            "description": "Optional lower predicate endpoint as exact IEEE-754 bits.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "missing": {
+            "description": "Original missing-value predicate, independent of empty output.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "output": {
+            "description": "Original scientific output owner identity.",
+            "type": "string"
+          },
+          "partition": {
+            "description": "Exact original selected output partition.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "output",
+          "partition",
+          "minimum_bits",
+          "maximum_bits",
+          "missing"
+        ],
+        "type": "object"
+      },
+      "PackResultSelectionOutput": {
+        "additionalProperties": false,
+        "description": "Exact original result lineage and range, including independent usability.",
+        "properties": {
+          "attempt": {
+            "description": "Exact original attempt identity; retries never substitute another attempt.",
+            "type": "string"
+          },
+          "field": {
+            "description": "Optional original field/output selection; schema remains the original typed relation.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "predicate": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PackResultPredicateOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exact original output predicate; absent for the whole selected relation."
+          },
+          "relation": {
+            "description": "Qualified original registry relation name.",
+            "type": "string"
+          },
+          "row_end": {
+            "description": "Exclusive original row coordinate, before selected filtering.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "row_start": {
+            "description": "Inclusive original row coordinate, before selected filtering.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "run": {
+            "description": "Original canonical run identity; never a current-run alias.",
+            "type": "string"
+          },
+          "schema_version": {
+            "description": "Original registry relation schema version, independent of IPC transport encoding.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "terminal_class": {
+            "description": "Original closed attempt classification, independent of publication.",
+            "type": "string"
+          },
+          "usability": {
+            "$ref": "#/$defs/PackScientificState",
+            "description": "Original scientific product usability, never upgraded by copying."
+          }
+        },
+        "required": [
+          "run",
+          "attempt",
+          "relation",
+          "schema_version",
+          "row_start",
+          "row_end",
+          "field",
+          "terminal_class",
+          "predicate",
+          "usability"
+        ],
+        "type": "object"
+      },
+      "PackScientificState": {
+        "description": "Scientific usability recorded by the producer; publication never upgrades it.",
+        "oneOf": [
+          {
+            "const": "unknown",
+            "description": "Original scientific usability was not established.",
+            "type": "string"
+          },
+          {
+            "const": "usable",
+            "description": "Original authority admitted this selected product as usable.",
+            "type": "string"
+          },
+          {
+            "const": "partial",
+            "description": "Original selected scientific product has partial coverage.",
+            "type": "string"
+          },
+          {
+            "const": "failed",
+            "description": "Original scientific work failed; export may still complete.",
+            "type": "string"
+          },
+          {
+            "const": "unusable",
+            "description": "Original product is retained but lacks scientific use permission.",
+            "type": "string"
+          }
+        ]
+      },
+      "ResultCellUnavailable": {
+        "description": "Unavailable readable detail never becomes a null or a normalized scientific value.",
+        "oneOf": [
+          {
+            "const": "unsupported_storage",
+            "description": "This view deliberately does not reinterpret nested, dictionary or specialized storage.",
+            "type": "string"
+          },
+          {
+            "const": "value_extent",
+            "description": "Complete text/bytes exceed the readable cell allowance; no prefix is returned.",
+            "type": "string"
+          }
+        ]
+      },
+      "ResultFloatClass": {
+        "description": "IEEE classification independent of exact bit payload and scientific usability.",
+        "oneOf": [
+          {
+            "const": "finite",
+            "description": "Includes positive and negative zero, whose exact bits remain distinct.",
+            "type": "string"
+          },
+          {
+            "const": "nan",
+            "description": "A NaN; payload/sign bits remain available.",
+            "type": "string"
+          },
+          {
+            "const": "positive_infinity",
+            "description": "Positive IEEE infinity.",
+            "type": "string"
+          },
+          {
+            "const": "negative_infinity",
+            "description": "Negative IEEE infinity.",
+            "type": "string"
+          }
+        ]
+      },
+      "ResultInspectionCell": {
+        "description": "Exact scalar storage observation. Field metadata and row context retain its interpretation.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Original validity bit is false; distinct from nonfinite and unsupported storage.",
+            "properties": {
+              "kind": {
+                "const": "null",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Exact Boolean storage.",
+            "properties": {
+              "kind": {
+                "const": "boolean",
+                "type": "string"
+              },
+              "value": {
+                "description": "Original value.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Signed integer; original width and temporal/quantity semantics remain in the field.",
+            "properties": {
+              "kind": {
+                "const": "integer",
+                "type": "string"
+              },
+              "value": {
+                "description": "Exact original integer.",
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Unsigned integer with no lossy floating-point conversion.",
+            "properties": {
+              "kind": {
+                "const": "unsigned",
+                "type": "string"
+              },
+              "value": {
+                "description": "Exact original integer.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "IEEE binary32, retaining NaN payloads and signed zero.",
+            "properties": {
+              "bits": {
+                "description": "Exact original IEEE bits.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "class": {
+                "$ref": "#/$defs/ResultFloatClass",
+                "description": "Explicit original IEEE classification."
+              },
+              "finite_value": {
+                "description": "Convenient finite value; absent exactly for a nonfinite observation.",
+                "format": "float",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "kind": {
+                "const": "float32",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "bits",
+              "finite_value",
+              "class"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "IEEE binary64, retaining NaN payloads and signed zero.",
+            "properties": {
+              "bits": {
+                "description": "Exact original IEEE bits.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "class": {
+                "$ref": "#/$defs/ResultFloatClass",
+                "description": "Explicit original IEEE classification."
+              },
+              "finite_value": {
+                "description": "Convenient finite value; absent exactly for a nonfinite observation.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "kind": {
+                "const": "float64",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "bits",
+              "finite_value",
+              "class"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Complete bounded UTF-8 text; never a truncated prefix.",
+            "properties": {
+              "kind": {
+                "const": "text",
+                "type": "string"
+              },
+              "value": {
+                "description": "Original complete text.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Complete bounded bytes; fixed-width semantic identities retain their original field metadata.",
+            "properties": {
+              "hex": {
+                "description": "Lowercase exact hexadecimal bytes.",
+                "type": "string"
+              },
+              "kind": {
+                "const": "binary",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "hex"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "The exact value remains available through the protected Arrow IPC reader.",
+            "properties": {
+              "kind": {
+                "const": "unavailable",
+                "type": "string"
+              },
+              "reason": {
+                "$ref": "#/$defs/ResultCellUnavailable",
+                "description": "Why the readable view cannot present the original cell."
+              }
+            },
+            "required": [
+              "kind",
+              "reason"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ResultInspectionField": {
+        "additionalProperties": false,
+        "description": "Actual original Arrow field, including nested datatype/field metadata.",
+        "properties": {
+          "datatype_json": {
+            "description": "Original Arrow datatype using arrow_schema's own JSON encoding, including nested fields.",
+            "type": "string"
+          },
+          "index": {
+            "description": "Position in the original complete relation schema.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Every original outer field metadata entry, including quantity and extension semantics.",
+            "type": "object"
+          },
+          "name": {
+            "description": "Exact original field name.",
+            "type": "string"
+          },
+          "nullable": {
+            "description": "Original outer field nullability.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "index",
+          "name",
+          "datatype_json",
+          "nullable",
+          "metadata"
+        ],
+        "type": "object"
+      },
+      "ResultInspectionRefusal": {
+        "description": "Explicit finite-view refusal, independent of native source errors or scientific outcomes.",
+        "oneOf": [
+          {
+            "const": "selection",
+            "description": "Request bounds, duplicate fields or empty selections cannot describe this finite view.",
+            "type": "string"
+          },
+          {
+            "const": "unknown_field",
+            "description": "A requested physical field is not declared by the original relation.",
+            "type": "string"
+          },
+          {
+            "const": "manifest_changed",
+            "description": "The caller's discovery digest names another immutable closure.",
+            "type": "string"
+          },
+          {
+            "const": "context_extent",
+            "description": "Original context cannot fit the finite readable view.",
+            "type": "string"
+          },
+          {
+            "const": "response_extent",
+            "description": "Complete required descriptors/values exceed the encoded answer allowance.",
+            "type": "string"
+          }
+        ]
+      },
+      "ResultInspectionRow": {
+        "additionalProperties": false,
+        "description": "One original row; selected cells and independently retained context use descriptor order.",
+        "properties": {
+          "context": {
+            "description": "Cells in context_fields order; all original non-value-role columns are retained.",
+            "items": {
+              "$ref": "#/$defs/ResultInspectionCell"
+            },
+            "type": "array"
+          },
+          "context_complete": {
+            "description": "False when context storage is unavailable: do not infer complete physical interpretation.",
+            "type": "boolean"
+          },
+          "source_row": {
+            "description": "Exact original coordinate, including across missing recorded ranges.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "values": {
+            "description": "Cells in the selected_fields descriptor order.",
+            "items": {
+              "$ref": "#/$defs/ResultInspectionCell"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_row",
+          "values",
+          "context",
+          "context_complete"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "description": "Original protected inspection outcome. Copying does not upgrade scientific usability.",
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "description": "A page of the complete original field inventory, without reading Arrow rows.",
+                    "properties": {
+                      "document_version": {
+                        "const": 1,
+                        "default": 1,
+                        "type": "integer"
+                      },
+                      "field_count": {
+                        "description": "Complete original field population, independent of this page.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "fields": {
+                        "description": "Selected original descriptors.",
+                        "items": {
+                          "$ref": "#/$defs/ResultInspectionField"
+                        },
+                        "type": "array"
+                      },
+                      "kind": {
+                        "const": "schema",
+                        "type": "string"
+                      },
+                      "manifest": {
+                        "description": "Actual immutable closure digest, suitable for expected_manifest.",
+                        "type": "string"
+                      },
+                      "next": {
+                        "description": "Next original field offset; absent only on the final page.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "offset": {
+                        "description": "Zero-based original field offset.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "recorded_rows": {
+                        "description": "Recorded rows intersecting the selected range; holes are not invented.",
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "schema_metadata": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Original schema metadata including contract version/fingerprint.",
+                        "type": "object"
+                      },
+                      "selection": {
+                        "$ref": "#/$defs/PackResultSelectionOutput",
+                        "description": "Exact original source/terminal/range; usability remains Unknown."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "selection",
+                      "manifest",
+                      "schema_metadata",
+                      "field_count",
+                      "offset",
+                      "fields",
+                      "next",
+                      "recorded_rows",
+                      "document_version"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "description": "Readable bounded original scalar observations; exact IPC remains the bulk interface.",
+                    "properties": {
+                      "context_fields": {
+                        "description": "Every non-value-role original field not already selected; no name heuristics.",
+                        "items": {
+                          "$ref": "#/$defs/ResultInspectionField"
+                        },
+                        "type": "array"
+                      },
+                      "document_version": {
+                        "const": 1,
+                        "default": 1,
+                        "type": "integer"
+                      },
+                      "kind": {
+                        "const": "values",
+                        "type": "string"
+                      },
+                      "manifest": {
+                        "description": "Actual immutable closure digest.",
+                        "type": "string"
+                      },
+                      "next_row": {
+                        "description": "Exact next original coordinate, preserving holes; repeat with start=next_row.",
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "readable_complete": {
+                        "description": "Every selected and context cell was representable, independent of scientific usability.",
+                        "type": "boolean"
+                      },
+                      "recorded_rows": {
+                        "description": "Recorded rows intersecting the complete selected range, not just the returned prefix.",
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "rows": {
+                        "description": "Original row observations in source order.",
+                        "items": {
+                          "$ref": "#/$defs/ResultInspectionRow"
+                        },
+                        "type": "array"
+                      },
+                      "schema_metadata": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Original schema metadata including quantity/context checks and fingerprint.",
+                        "type": "object"
+                      },
+                      "selected_fields": {
+                        "description": "Exact original descriptors, in requested order.",
+                        "items": {
+                          "$ref": "#/$defs/ResultInspectionField"
+                        },
+                        "type": "array"
+                      },
+                      "selection": {
+                        "$ref": "#/$defs/PackResultSelectionOutput",
+                        "description": "Exact original source/terminal/range; usability remains Unknown."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "selection",
+                      "manifest",
+                      "schema_metadata",
+                      "selected_fields",
+                      "context_fields",
+                      "recorded_rows",
+                      "rows",
+                      "next_row",
+                      "readable_complete",
+                      "document_version"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "description": "The finite readable request cannot produce a truthful complete answer of this shape.",
+                    "properties": {
+                      "document_version": {
+                        "const": 1,
+                        "default": 1,
+                        "type": "integer"
+                      },
+                      "guidance": {
+                        "description": "Existing exact IPC route, not a newly issued read handle.",
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "refused",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "$ref": "#/$defs/ResultInspectionRefusal",
+                        "description": "Typed refusal; no required fields were silently discarded."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "reason",
+                      "guidance",
+                      "document_version"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "properties": {
+                  "document_version": {
+                    "const": 1,
+                    "default": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "document_version"
+                ],
+                "title": "ResultInspectionDocument"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Result Inspect"
+}
+```
+
+- Native `output_document`: [docs/generated/schema/result-inspection-document.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/result-inspection-document.output.schema.json).
+
+- Native `request`: [docs/generated/schema/result-inspection-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/result-inspection-request.input.schema.json).
+
 ### `native_result_read` — Read exact stored scientific result window
 
 Exposure: **tool**. Owner: `pse.Runtime.results`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
@@ -7816,7 +10509,7 @@ Exact callable component key: `tool:native_result_read@`. The following is the r
       "authoring_guidance": null,
       "contracts": {},
       "receiver": "pse.Runtime.results",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -8018,7 +10711,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -8031,7 +10724,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -8044,7 +10737,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -8052,7 +10745,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -8654,7 +11347,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -8708,7 +11401,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -8753,10 +11446,10 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -8890,7 +11583,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -8898,7 +11591,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -8939,7 +11632,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -8994,7 +11687,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         "type": "array"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -9124,7 +11817,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -9137,7 +11830,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361",
+          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -9145,7 +11838,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
         }
       },
       "receiver": "pse.Runtime.physical_from_documents + modeling_from_documents",
-      "schema_set_fingerprint": "blake3:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361"
+      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
     }
   },
   "annotations": {
@@ -9186,7 +11879,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input",
+        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -9226,10 +11919,10 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:e8402c5c9d03bb14983030e4bda8ff6215b1c074c319f30ec6a968050dba4361:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -11920,36 +14613,440 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
   "name": "product_run_read",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "InvocationOwner": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "properties": {
+          "association": {
+            "type": "string"
+          },
+          "liveness": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "association",
+          "liveness"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "OwnerRecord": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
+        "type": "object"
+      },
+      "ProductPage": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_count": {
+            "type": "integer"
+          },
+          "diagnostic_count": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "report_row_count": {
+            "type": "integer"
+          },
+          "resource_count": {
+            "type": "integer"
+          },
+          "subject_count": {
+            "type": "integer"
+          },
+          "unreported_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "offset",
+          "limit",
+          "subject_count",
+          "resource_count",
+          "artifact_count",
+          "diagnostic_count",
+          "report_row_count",
+          "unreported_count",
+          "next_offset"
+        ],
+        "type": "object"
+      },
+      "ProductPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "assurance": {
+            "type": "string"
+          },
+          "cleanup_observations": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "composer": {
+            "$ref": "#/$defs/InvocationOwner"
+          },
+          "diagnostic_actions": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "invocation": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "observation_mode": {
+            "type": "string"
+          },
+          "owned_drain": {
+            "type": "string"
+          },
+          "page": {
+            "$ref": "#/$defs/ProductPage"
+          },
+          "payloads": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "peer_invocations": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "process": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "producer": {
+            "$ref": "#/$defs/InvocationOwner"
+          },
+          "refusal": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "report_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "report_rows": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "run_kind": {
+            "type": "string"
+          },
+          "run_path": {
+            "type": "string"
+          },
+          "selected_count": {
+            "type": "integer"
+          },
+          "selected_unreported": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "selected_unreported_count": {
+            "type": "integer"
+          },
+          "selection_state": {
+            "type": "string"
+          },
+          "setup_failures": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/$defs/ProductSubject"
+            },
+            "type": "array"
+          },
+          "terminal": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProductTerminal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "terminal_identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "terminal_status": {
+            "type": "string"
+          },
+          "workload_exit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "registry",
+          "invocation",
+          "run_kind",
+          "run_path",
+          "observation_mode",
+          "phase",
+          "terminal_status",
+          "terminal_identity",
+          "terminal",
+          "lifecycle",
+          "producer",
+          "composer",
+          "diagnostic_actions",
+          "selected_count",
+          "selection_state",
+          "refusal",
+          "subjects",
+          "selected_unreported",
+          "selected_unreported_count",
+          "report_rows",
+          "report_errors",
+          "workload_exit",
+          "assurance",
+          "peer_invocations",
+          "cleanup_observations",
+          "setup_failures",
+          "process",
+          "owned_drain",
+          "artifacts",
+          "payloads",
+          "resources",
+          "page"
+        ],
+        "type": "object"
+      },
+      "ProductRunResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "product_run_read",
+            "default": "product_run_read",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ProductPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "ProductSubject": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "requirements": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "selection": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        "required": [
+          "identity",
+          "selection",
+          "outcome",
+          "requirements"
+        ],
+        "type": "object"
+      },
+      "ProductTerminal": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "complete"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ProductRunResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Product Run Read"
 }
@@ -13133,36 +16230,267 @@ Exact callable component key: `tool:storage_observe@`. The following is the regi
   "name": "storage_observe",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
-      },
-      "payload": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
         },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "StorageItem": {
+        "additionalProperties": false,
+        "properties": {
+          "active_use": {
+            "type": "string"
+          },
+          "alias_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "allocated_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "apparent_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "reclaimable_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolved_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "resource_identity": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "alias",
+              "metadata-only",
+              "unavailable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "ownership",
+          "active_use",
+          "resource_identity",
+          "reclaimable_bytes",
+          "status"
+        ],
+        "type": "object"
+      },
+      "StoragePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/StorageItem"
+            },
+            "type": "array"
+          },
+          "reclamation_authorized": {
+            "const": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "reclamation_authorized"
+        ],
+        "type": "object"
+      },
+      "StorageResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "storage_observe",
+            "default": "storage_observe",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/StoragePayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/StorageResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Storage Observe"
 }
@@ -13362,36 +16690,568 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
   "name": "workload_watch",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "InvocationOwner": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "properties": {
+          "association": {
+            "type": "string"
+          },
+          "liveness": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "association",
+          "liveness"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "OwnerRecord": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
+        "type": "object"
+      },
+      "ProductPage": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_count": {
+            "type": "integer"
+          },
+          "diagnostic_count": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "report_row_count": {
+            "type": "integer"
+          },
+          "resource_count": {
+            "type": "integer"
+          },
+          "subject_count": {
+            "type": "integer"
+          },
+          "unreported_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "offset",
+          "limit",
+          "subject_count",
+          "resource_count",
+          "artifact_count",
+          "diagnostic_count",
+          "report_row_count",
+          "unreported_count",
+          "next_offset"
+        ],
+        "type": "object"
+      },
+      "ProductPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "assurance": {
+            "type": "string"
+          },
+          "cleanup_observations": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "composer": {
+            "$ref": "#/$defs/InvocationOwner"
+          },
+          "diagnostic_actions": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "invocation": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "observation_mode": {
+            "type": "string"
+          },
+          "owned_drain": {
+            "type": "string"
+          },
+          "page": {
+            "$ref": "#/$defs/ProductPage"
+          },
+          "payloads": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "peer_invocations": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "process": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "producer": {
+            "$ref": "#/$defs/InvocationOwner"
+          },
+          "refusal": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "report_errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "report_rows": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "resources": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "run_kind": {
+            "type": "string"
+          },
+          "run_path": {
+            "type": "string"
+          },
+          "selected_count": {
+            "type": "integer"
+          },
+          "selected_unreported": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "selected_unreported_count": {
+            "type": "integer"
+          },
+          "selection_state": {
+            "type": "string"
+          },
+          "setup_failures": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/$defs/ProductSubject"
+            },
+            "type": "array"
+          },
+          "terminal": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProductTerminal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "terminal_identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "terminal_status": {
+            "type": "string"
+          },
+          "workload_exit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "registry",
+          "invocation",
+          "run_kind",
+          "run_path",
+          "observation_mode",
+          "phase",
+          "terminal_status",
+          "terminal_identity",
+          "terminal",
+          "lifecycle",
+          "producer",
+          "composer",
+          "diagnostic_actions",
+          "selected_count",
+          "selection_state",
+          "refusal",
+          "subjects",
+          "selected_unreported",
+          "selected_unreported_count",
+          "report_rows",
+          "report_errors",
+          "workload_exit",
+          "assurance",
+          "peer_invocations",
+          "cleanup_observations",
+          "setup_failures",
+          "process",
+          "owned_drain",
+          "artifacts",
+          "payloads",
+          "resources",
+          "page"
+        ],
+        "type": "object"
+      },
+      "ProductSubject": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "requirements": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "selection": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        "required": [
+          "identity",
+          "selection",
+          "outcome",
+          "requirements"
+        ],
+        "type": "object"
+      },
+      "ProductTerminal": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "complete"
+        ],
+        "type": "object"
+      },
+      "WatchPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "mode": {
+            "const": "detached-no-write",
+            "type": "string"
+          },
+          "observed_unix_ns": {
+            "type": "integer"
+          },
+          "reason": {
+            "enum": [
+              "changed",
+              "timeout"
+            ],
+            "type": "string"
+          },
+          "reconciliation": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/$defs/WatchSelection"
+          },
+          "snapshot": {
+            "$ref": "#/$defs/WatchSnapshot"
+          }
+        },
+        "required": [
+          "mode",
+          "selection",
+          "changed",
+          "reason",
+          "cursor",
+          "revision",
+          "observed_unix_ns",
+          "reconciliation",
+          "snapshot"
+        ],
+        "type": "object"
+      },
+      "WatchSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "admission_directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "handle": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "run",
+              "attempt",
+              "unit"
+            ],
+            "type": "string"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "handle"
+        ],
+        "type": "object"
+      },
+      "WatchSnapshot": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "result_reference": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProductPayload"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "result_reference"
+        ],
+        "type": "object"
+      },
+      "WorkloadWatchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "workload_watch",
+            "default": "workload_watch",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/WatchPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/WorkloadWatchResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Workload Watch"
 }
@@ -13403,7 +17263,7 @@ Exposure: **tool**. Owner: `scripts/workspace_domains.py`. Declaration source: [
 
 ```json
 {
-  "description": "Query exact owner-native concepts and identities. No similarity or lexical fallback; incomplete source relationships remain explicit.",
+  "description": "Query exact owner-defined concept alternatives, facets and original references.\n\nThe concept tag selects required identity/origin/reference fields. Owner examples describe\nvalid first requests; unknown native identities and unsupported adapters retain native truth.\nNo similarity, lexical fallback or source/service preparation is performed.",
   "domain": "workspace",
   "effects": "Read selected source/Git/metadata only; no build, installation, service startup or native execution.",
   "exposure": "tool",
@@ -13448,85 +17308,1523 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Query exact owner-native concepts and identities. No similarity or lexical fallback; incomplete source relationships remain explicit.",
+  "description": "Query exact owner-defined concept alternatives, facets and original references.\n\nThe concept tag selects required identity/origin/reference fields. Owner examples describe\nvalid first requests; unknown native identities and unsupported adapters retain native truth.\nNo similarity, lexical fallback or source/service preparation is performed.",
   "inputSchema": {
+    "$defs": {
+      "ContractSectionQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "contract-section",
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "description": "Exact stable section ID.",
+            "examples": [
+              "20.5"
+            ],
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_status": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "publication_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Current",
+                  "Reference",
+                  "History"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "topics": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "DecisionQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "decision",
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Authored ADR identity, independent of filename; omit for faceted discovery.",
+            "examples": [
+              "ADR-0101"
+            ]
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_status": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "publication_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Current",
+                  "Reference",
+                  "History"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "topics": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept"
+        ],
+        "type": "object"
+      },
+      "DeclarationQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "declaration",
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "description": "Exact declaration key, optionally qualified by declaration kind.",
+            "examples": [
+              "relation:alpha@1"
+            ],
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_status": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "publication_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Current",
+                  "Reference",
+                  "History"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "topics": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "DiagnosticQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "diagnostic",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "selected_reference": {
+            "$ref": "#/$defs/DiagnosticReference"
+          }
+        },
+        "required": [
+          "concept",
+          "selected_reference"
+        ],
+        "type": "object"
+      },
+      "DiagnosticReference": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter": {
+            "const": "diagnostic",
+            "type": "string"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "member": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "description": "Explicit original evidence path or issued handle.",
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adapter",
+          "path"
+        ],
+        "type": "object"
+      },
+      "DocumentQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "document",
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Exact repository document path; omit for faceted discovery.",
+            "examples": [
+              "docs/README.md"
+            ]
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_status": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "publication_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Current",
+                  "Reference",
+                  "History"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "topics": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept"
+        ],
+        "type": "object"
+      },
+      "EvidenceReferenceQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "evidence-reference",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "selected_reference": {
+            "$ref": "#/$defs/OriginalReference"
+          }
+        },
+        "required": [
+          "concept",
+          "selected_reference"
+        ],
+        "type": "object"
+      },
+      "ExperimentQuery": {
+        "additionalProperties": false,
+        "description": "Constructible explicit selection; experiment adapter remains unimplemented.",
+        "properties": {
+          "concept": {
+            "const": "experiment",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "selected_reference": {
+            "$ref": "#/$defs/OriginalReference"
+          }
+        },
+        "required": [
+          "concept",
+          "selected_reference"
+        ],
+        "type": "object"
+      },
+      "GeneratedOutputQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "generated-output",
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "description": "Exact generated output path.",
+            "examples": [
+              "src/generated/alpha.rs"
+            ],
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_status": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "publication_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Current",
+                  "Reference",
+                  "History"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "topics": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "GeneratorQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "generator",
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "description": "Exact generator path, optionally #symbol.",
+            "examples": [
+              "src/generator.rs#emit"
+            ],
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_status": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "publication_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Current",
+                  "Reference",
+                  "History"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "topics": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "OriginalReference": {
+        "additionalProperties": false,
+        "description": "Explicit original-owner reference; never scan arbitrary historical payloads.",
+        "properties": {
+          "adapter": {
+            "enum": [
+              "invocation",
+              "diagnostic",
+              "assessment"
+            ],
+            "type": "string"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "member": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "description": "Explicit original evidence path or issued handle.",
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adapter",
+          "path"
+        ],
+        "type": "object"
+      },
+      "PlanPackageQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "plan-package",
+            "type": "string"
+          },
+          "document": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "identity": {
+            "description": "Native ScopeItem ID or document#package, including the selected document.",
+            "examples": [
+              "docs/plans/52-agent-effectiveness-and-engineering-workflows.md#CON01"
+            ],
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_status": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "publication_scope": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Current",
+                  "Reference",
+                  "History"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "role": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "topics": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          }
+        },
+        "required": [
+          "concept",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "ResearchQuestionQuery": {
+        "additionalProperties": false,
+        "properties": {
+          "concept": {
+            "const": "research-question",
+            "type": "string"
+          },
+          "identity": {
+            "description": "Caller-owned exact question identity.",
+            "examples": [
+              "RQ-7"
+            ],
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "origin": {
+            "enum": [
+              "user-question",
+              "agent-interpretation"
+            ],
+            "type": "string"
+          },
+          "question": {
+            "description": "Explicit question or interpretation text.",
+            "examples": [
+              "Which result contract owns this field?"
+            ],
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          }
+        },
+        "required": [
+          "concept",
+          "identity",
+          "origin",
+          "question"
+        ],
+        "type": "object"
+      }
+    },
     "additionalProperties": false,
     "properties": {
-      "concept": {
-        "type": "string"
-      },
-      "document": {
-        "anyOf": [
+      "request": {
+        "discriminator": {
+          "mapping": {
+            "contract-section": "#/$defs/ContractSectionQuery",
+            "decision": "#/$defs/DecisionQuery",
+            "declaration": "#/$defs/DeclarationQuery",
+            "diagnostic": "#/$defs/DiagnosticQuery",
+            "document": "#/$defs/DocumentQuery",
+            "evidence-reference": "#/$defs/EvidenceReferenceQuery",
+            "experiment": "#/$defs/ExperimentQuery",
+            "generated-output": "#/$defs/GeneratedOutputQuery",
+            "generator": "#/$defs/GeneratorQuery",
+            "plan-package": "#/$defs/PlanPackageQuery",
+            "research-question": "#/$defs/ResearchQuestionQuery"
+          },
+          "propertyName": "concept"
+        },
+        "oneOf": [
           {
-            "type": "string"
+            "$ref": "#/$defs/DocumentQuery"
           },
           {
-            "type": "null"
-          }
-        ],
-        "default": null
-      },
-      "identity": {
-        "anyOf": [
-          {
-            "type": "string"
+            "$ref": "#/$defs/ContractSectionQuery"
           },
           {
-            "type": "null"
+            "$ref": "#/$defs/DecisionQuery"
+          },
+          {
+            "$ref": "#/$defs/PlanPackageQuery"
+          },
+          {
+            "$ref": "#/$defs/DeclarationQuery"
+          },
+          {
+            "$ref": "#/$defs/GeneratorQuery"
+          },
+          {
+            "$ref": "#/$defs/GeneratedOutputQuery"
+          },
+          {
+            "$ref": "#/$defs/EvidenceReferenceQuery"
+          },
+          {
+            "$ref": "#/$defs/DiagnosticQuery"
+          },
+          {
+            "$ref": "#/$defs/ExperimentQuery"
+          },
+          {
+            "$ref": "#/$defs/ResearchQuestionQuery"
           }
-        ],
-        "default": null
-      },
-      "limit": {
-        "default": 20,
-        "maximum": 100,
-        "minimum": 1,
-        "type": "integer"
-      },
-      "offset": {
-        "default": 0,
-        "minimum": 0,
-        "type": "integer"
+        ]
       }
     },
     "required": [
-      "concept"
+      "request"
     ],
     "type": "object"
   },
   "name": "workspace_concepts_query",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "ConceptPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_status": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ConceptSubject"
+            },
+            "type": "array"
+          },
+          "native_facts": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "population": {
+            "$ref": "#/$defs/ConceptPopulation"
+          },
+          "productions": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "query": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "section_ranges": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "source_facts": {
+            "items": {
+              "$ref": "#/$defs/SourceFact"
+            },
+            "type": "array"
+          },
+          "subjects": {
+            "items": {
+              "$ref": "#/$defs/ConceptSubject"
+            },
+            "type": "array"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "subjects",
+          "edges",
+          "productions",
+          "source_facts",
+          "section_ranges",
+          "native_facts",
+          "complete",
+          "omissions",
+          "unknowns",
+          "coverage",
+          "query",
+          "items",
+          "next_offset",
+          "adapter_status",
+          "population"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "ConceptPopulation": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "matched_count": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "returned_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "matched_count",
+          "returned_count",
+          "offset",
+          "limit",
+          "complete"
+        ],
+        "type": "object"
+      },
+      "ConceptQueryResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "workspace_concepts_query",
+            "default": "workspace_concepts_query",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/ConceptPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "ConceptSubject": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "native_id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "native_id",
+          "owner"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "OwnerRecord": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
+        "type": "object"
+      },
+      "SourceFact": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only when explicitly selected at the original source owner."
+          }
+        },
+        "required": [
+          "path"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ConceptQueryResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Workspace Concepts Query"
 }
@@ -13613,36 +18911,266 @@ Exact callable component key: `tool:workspace_inventory@`. The following is the 
   "name": "workspace_inventory",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "Entrypoint": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "properties": {
+          "capability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "classification": {
+            "type": "string"
+          },
+          "identity": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "work_owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "identity",
+          "source",
+          "capability",
+          "classification",
+          "work_owner",
+          "reason"
+        ],
         "type": "object"
+      },
+      "InventoryPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "classification_owner": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "execution": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/Entrypoint"
+            },
+            "type": "array"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "source_inventory": {
+            "type": "string"
+          },
+          "source_review": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "totals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "unclassified_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema",
+          "source_inventory",
+          "source_review",
+          "classification_owner",
+          "items",
+          "offset",
+          "total",
+          "next_offset",
+          "totals",
+          "unclassified_counts",
+          "complete",
+          "omissions",
+          "coverage",
+          "execution"
+        ],
+        "type": "object"
+      },
+      "InventoryResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "workspace_inventory",
+            "default": "workspace_inventory",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/InventoryPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {}
+    },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/InventoryResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
       }
     },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Workspace Inventory"
 }
@@ -13723,36 +19251,333 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
   "name": "workspace_producer_relationships",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "JsonValue": {},
+      "OwnerRecord": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
+        "type": "object"
+      },
+      "ProducerRelationshipsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "workspace_producer_relationships",
+            "default": "workspace_producer_relationships",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/RelationshipsPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "RelationshipsPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "type": "string"
+          },
+          "coverage": {
+            "default": "no admitted paths",
+            "type": "string"
+          },
+          "current_source_facts": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/SourceFact"
+            },
+            "type": "array"
+          },
+          "exact_paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "predicates": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/$defs/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "producer_documents": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "producer_freshness": {
+            "default": "unobserved",
+            "type": "string"
+          },
+          "producers": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "queries": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "selection_basis": {
+            "default": "no admitted paths",
+            "type": "string"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "truncated": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "availability"
+        ],
+        "type": "object"
+      },
+      "SourceFact": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only when explicitly selected at the original source owner."
+          }
+        },
+        "required": [
+          "path"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ProducerRelationshipsResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Workspace Producer Relationships"
 }
@@ -13823,36 +19648,274 @@ Exact callable component key: `tool:workspace_recipe_describe@`. The following i
   "name": "workspace_recipe_describe",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "JsonValue": {},
+      "OwnerRecord": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
+        "type": "object"
+      },
+      "RecipeDescriptionResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "workspace_recipe_describe",
+            "default": "workspace_recipe_describe",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/RecipePayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "RecipePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "body": {
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "capability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "classification": {
+            "type": "string"
+          },
+          "contract": {
+            "type": "string"
+          },
+          "definition_route": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "dependencies": {
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "description": {
+            "type": "string"
+          },
+          "execution": {
+            "type": "string"
+          },
+          "leaf_contracts": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "leaf_schema_complete": {
+            "type": "boolean"
+          },
+          "leaf_sources_omitted": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "outer_parameters": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/$defs/OwnerRecord"
+          },
+          "source_coherence": {
+            "type": "string"
+          },
+          "source_coherence_reason": {
+            "type": "string"
+          },
+          "source_inventory": {
+            "type": "string"
+          },
+          "source_review": {
+            "type": "string"
+          },
+          "usage_route": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "work_owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "schema",
+          "name",
+          "description",
+          "source",
+          "outer_parameters",
+          "attributes",
+          "body",
+          "dependencies",
+          "leaf_contracts",
+          "leaf_sources_omitted",
+          "leaf_schema_complete",
+          "source_coherence",
+          "source_coherence_reason",
+          "contract",
+          "usage_route",
+          "definition_route",
+          "source_inventory",
+          "source_review",
+          "execution",
+          "capability",
+          "classification",
+          "work_owner",
+          "reason"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/RecipeDescriptionResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Workspace Recipe Describe"
 }
@@ -13943,36 +20006,567 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "workspace_task_context",
   "outputSchema": {
     "$defs": {
-      "JsonValue": {}
-    },
-    "additionalProperties": false,
-    "properties": {
-      "complete": {
-        "type": "boolean"
-      },
-      "omissions": {
-        "items": {
-          "type": "string"
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
         },
-        "type": "array"
+        "required": [
+          "population"
+        ],
+        "type": "object"
       },
-      "operation": {
-        "type": "string"
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
       },
-      "payload": {
+      "GitRationale": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "basis",
+          "mode",
+          "query"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "OwnerRecord": {
         "additionalProperties": {
           "$ref": "#/$defs/JsonValue"
         },
+        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "properties": {},
+        "type": "object"
+      },
+      "RelationshipsPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "type": "string"
+          },
+          "coverage": {
+            "default": "no admitted paths",
+            "type": "string"
+          },
+          "current_source_facts": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/SourceFact"
+            },
+            "type": "array"
+          },
+          "exact_paths": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "gaps": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "predicates": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/$defs/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "producer_documents": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "producer_freshness": {
+            "default": "unobserved",
+            "type": "string"
+          },
+          "producers": {
+            "default": [],
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "queries": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "selection_basis": {
+            "default": "no admitted paths",
+            "type": "string"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "truncated": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "availability"
+        ],
+        "type": "object"
+      },
+      "ScopeItem": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "document": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "native_cells": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "native_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "native_state": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "raw_status": {
+            "type": "string"
+          },
+          "relationships": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_line": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          },
+          "status_basis": {
+            "type": "string"
+          },
+          "status_owner": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "document",
+          "kind",
+          "source",
+          "source_line",
+          "raw_status",
+          "state",
+          "native_state",
+          "status_owner",
+          "status_basis",
+          "owner",
+          "native_cells",
+          "relationships"
+        ],
+        "type": "object"
+      },
+      "SourceFact": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only when explicitly selected at the original source owner."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "TaskContextPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "type": "string"
+          },
+          "dirty_delta": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "exclusions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "git_rationale": {
+            "$ref": "#/$defs/GitRationale"
+          },
+          "native_scope": {
+            "items": {
+              "$ref": "#/$defs/ScopeItem"
+            },
+            "type": "array"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "population_complete": {
+            "type": "boolean"
+          },
+          "relationships": {
+            "$ref": "#/$defs/RelationshipsPayload"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/$defs/SourceFact"
+            },
+            "type": "array"
+          },
+          "symbol_leads": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RelationshipsPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "task",
+          "population_complete",
+          "unknowns",
+          "exclusions",
+          "native_scope",
+          "sources",
+          "relationships",
+          "symbol_leads",
+          "dirty_delta",
+          "git_rationale",
+          "evidence",
+          "omissions",
+          "authority"
+        ],
+        "type": "object"
+      },
+      "TaskContextResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "workspace_task_context",
+            "default": "workspace_task_context",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/TaskContextPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
         "type": "object"
       }
     },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TaskContextResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
     "required": [
-      "operation",
-      "complete",
-      "omissions",
-      "payload"
+      "result"
     ],
-    "type": "object"
+    "type": "object",
+    "x-fastmcp-wrap-result": true
   },
   "title": "Workspace Task Context"
 }

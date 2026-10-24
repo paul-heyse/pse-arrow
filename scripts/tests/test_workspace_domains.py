@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Exact semantic owners, independent identities and declared production triples."""
 
-# ruff: noqa: PT009 -- stdlib host controls
+# ruff: noqa: PT009, PT027 -- stdlib unittest controls
 from __future__ import annotations
 
 import contextlib
@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 from scripts import active_diagnostics, workspace_context
 from scripts import workspace_domains as domains
-from scripts.workspace_domain_contracts import parse_query
+from scripts.workspace_domain_contracts import DecisionQuery, parse_query
 
 
 class WorkspaceDomainTests(unittest.TestCase):
@@ -179,7 +179,9 @@ kind = "depends-on"
     def test_authored_decision_identity_and_proposed_status_are_not_filename_or_scope(
         self,
     ) -> None:
-        result = domains.query(parse_query({'concept': 'decision', 'identity': 'ADR-0101'}), root=self.root)
+        result = domains.query(
+            parse_query({"concept": "decision", "identity": "ADR-0101"}), root=self.root
+        )
         self.assertTrue(result["complete"], result["omissions"])
         self.assertEqual(len(result["items"]), 1)
         item = result["items"][0]
@@ -206,11 +208,28 @@ kind = "depends-on"
             )
         )
         self.assertEqual(
-            domains.query(parse_query({'concept': 'decision', 'identity': 'ADR-9999'}), root=self.root)["items"], []
+            domains.query(
+                parse_query({"concept": "decision", "identity": "ADR-9999"}),
+                root=self.root,
+            )["items"],
+            [],
         )
 
     def test_exact_metadata_facets_are_conjunctive_and_case_sensitive(self) -> None:
-        selected = domains.query(parse_query({'concept': 'decision', 'identity': 'ADR-0101', 'topics': ['design'], 'role': 'decision', 'owner': 'docs/README.md', 'publication_scope': 'Current', 'native_status': 'proposed'}), root=self.root)
+        selected = domains.query(
+            parse_query(
+                {
+                    "concept": "decision",
+                    "identity": "ADR-0101",
+                    "topics": ["design"],
+                    "role": "decision",
+                    "owner": "docs/README.md",
+                    "publication_scope": "Current",
+                    "native_status": "proposed",
+                }
+            ),
+            root=self.root,
+        )
         self.assertEqual(len(selected["items"]), 1)
         for options in (
             {"topics": ["design", "runtime"]},
@@ -220,16 +239,22 @@ kind = "depends-on"
         ):
             with self.subTest(options=options):
                 self.assertEqual(
-                    domains.query(parse_query({'concept': 'decision', 'identity': 'ADR-0101', **options}), root=self.root)[
-                        "items"
-                    ],
+                    domains.query(
+                        parse_query(
+                            {"concept": "decision", "identity": "ADR-0101", **options}
+                        ),
+                        root=self.root,
+                    )["items"],
                     [],
                 )
 
     def test_stable_contract_owner_range_and_interpretation_inputs_are_exact(
         self,
     ) -> None:
-        result = domains.query(parse_query({'concept': 'contract-section', 'identity': '20.5'}), root=self.root)
+        result = domains.query(
+            parse_query({"concept": "contract-section", "identity": "20.5"}),
+            root=self.root,
+        )
         self.assertEqual(result["items"][0]["native_id"], "20.5")
         selected = next(
             row for row in result["section_ranges"] if row.get("section_id") == "20.5"
@@ -265,7 +290,10 @@ kind = "depends-on"
         self,
     ) -> None:
         identity = "docs/plans/support.md::work::A01"
-        result = domains.query(parse_query({'concept': 'plan-package', 'identity': identity}), root=self.root)
+        result = domains.query(
+            parse_query({"concept": "plan-package", "identity": identity}),
+            root=self.root,
+        )
         self.assertTrue(result["complete"], result["omissions"])
         item = result["items"][0]
         self.assertEqual(item["native_state"], "open")
@@ -277,7 +305,12 @@ kind = "depends-on"
         self.assertTrue(
             any(edge["relation"] == "status_owned_by" for edge in result["edges"])
         )
-        direct = domains.query(parse_query({'concept': 'plan-package', 'identity': 'docs/plans/coordinator.md#A02'}), root=self.root)
+        direct = domains.query(
+            parse_query(
+                {"concept": "plan-package", "identity": "docs/plans/coordinator.md#A02"}
+            ),
+            root=self.root,
+        )
         self.assertTrue(
             any(
                 edge["relation"] == "depends_on" and edge["to"].endswith("::A01")
@@ -294,7 +327,10 @@ kind = "depends-on"
     def test_shared_generator_preserves_specific_declaration_output_triples(
         self,
     ) -> None:
-        result = domains.query(parse_query({'concept': 'generator', 'identity': 'src/generator.rs#emit'}), root=self.root)
+        result = domains.query(
+            parse_query({"concept": "generator", "identity": "src/generator.rs#emit"}),
+            root=self.root,
+        )
         self.assertTrue(result["complete"], result["omissions"])
         self.assertEqual(len(result["items"]), 1)
         pairs = {
@@ -314,12 +350,23 @@ kind = "depends-on"
             },
         )
         self.assertEqual(result["edges"], [])
-        alpha = domains.query(parse_query({'concept': 'generated-output', 'identity': 'src/generated/alpha.rs'}), root=self.root)
+        alpha = domains.query(
+            parse_query(
+                {"concept": "generated-output", "identity": "src/generated/alpha.rs"}
+            ),
+            root=self.root,
+        )
         self.assertEqual(len(alpha["productions"]), 1)
         self.assertEqual(
-            domains.query(parse_query({'concept': 'generated-output', 'identity': 'src/generated/Alpha.rs'}), root=self.root)[
-                "items"
-            ],
+            domains.query(
+                parse_query(
+                    {
+                        "concept": "generated-output",
+                        "identity": "src/generated/Alpha.rs",
+                    }
+                ),
+                root=self.root,
+            )["items"],
             [],
         )
         self.assertTrue(
@@ -350,7 +397,15 @@ kind = "depends-on"
             )
         policy += '\n[[relationships]]\nfrom = "docs/plans/intermediate.md::findings::F01"\nto = "docs/plans/final.md::findings::F01"\nkind = "status-owned-by"\n'
         policy_path.write_text(policy)
-        result = domains.query(parse_query({'concept': 'plan-package', 'identity': 'docs/plans/support.md::work::A01'}), root=self.root)
+        result = domains.query(
+            parse_query(
+                {
+                    "concept": "plan-package",
+                    "identity": "docs/plans/support.md::work::A01",
+                }
+            ),
+            root=self.root,
+        )
         item = result["items"][0]
         self.assertEqual(item["native_state"], "complete")
         self.assertTrue(
@@ -384,14 +439,14 @@ kind = "depends-on"
         )
 
     def test_native_scope_parser_uses_captured_document_bytes(self) -> None:
-        projection = domains._Projection(self.root, 256)
+        projection = domains._Projection(self.root, 256)  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         path = "docs/plans/coordinator.md"
         captured = projection.fact(path)
         self.assertIsNotNone(captured)
         self.write(
             path, (self.root / path).read_text().replace("A01 | Open", "A01 | Done")
         )
-        domains._packages(projection, {path})
+        domains._packages(projection, {path})  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         package = projection.subjects["plan_package:" + path + "::packages::A01"]
         self.assertEqual(package["native_state"], "open")
         result = projection.result()
@@ -401,8 +456,12 @@ kind = "depends-on"
     def test_producer_rows_cannot_be_attached_to_changed_sidecar_bytes(self) -> None:
         owner = domains.workspace_sources.relationships
 
-        def changed_after_owner_read(*args: object, **kwargs: object) -> dict:
-            result = owner(*args, **kwargs)
+        def changed_after_owner_read(
+            symbol: str | tuple[str, ...] = (), *, root: Path = domains.ROOT,
+            limit: int = 40, predicates: dict[str, str] | None = None,
+            exact_paths: tuple[str, ...] = (),
+        ) -> dict:
+            result = owner(symbol, root=root, limit=limit, predicates=predicates, exact_paths=exact_paths)
             path = (
                 self.root
                 / "docs/generated/source-relationships/fixture/relationships.json"
@@ -415,7 +474,12 @@ kind = "depends-on"
             "relationships",
             side_effect=changed_after_owner_read,
         ):
-            result = domains.query(parse_query({'concept': 'generator', 'identity': 'src/generator.rs#emit'}), root=self.root)
+            result = domains.query(
+                parse_query(
+                    {"concept": "generator", "identity": "src/generator.rs#emit"}
+                ),
+                root=self.root,
+            )
         self.assertFalse(result["complete"])
         self.assertEqual(result["items"], [])
         self.assertTrue(
@@ -446,28 +510,42 @@ kind = "depends-on"
             {"source_id": "docs/README.md", "role": "metadata"}, decision["sources"]
         )
         self.assertIn("text", result["source_facts"][0])
-        missing = domains.query(parse_query({'concept': 'contract-section', 'identity': '55.99'}), root=self.root)
+        missing = domains.query(
+            parse_query({"concept": "contract-section", "identity": "55.99"}),
+            root=self.root,
+        )
         self.assertEqual(missing["items"], [])
         self.assertTrue(
             any("qualification-evidence" in value for value in missing["unknowns"])
         )
 
-    def test_malformed_evidence_selection_is_refused_before_payload_access(self) -> None:
+    def test_malformed_evidence_selection_is_refused_before_payload_access(
+        self,
+    ) -> None:
         with patch.object(
             domains.evidence_sources,
             "diagnostic_snapshot",
             side_effect=AssertionError("unexpected original payload read"),
         ):
             for selection in (
-                {"codec": "unrecognized-native-codec", "path": "/untrusted/history.json"},
+                {
+                    "codec": "unrecognized-native-codec",
+                    "path": "/untrusted/history.json",
+                },
                 {"adapter": "unrecognized", "path": "/untrusted/history.json"},
                 {"adapter": "diagnostic", "path": None},
                 {"adapter": "diagnostic", "path": ""},
             ):
                 with self.subTest(selection=selection), self.assertRaises(ValueError):
-                    domains.query(parse_query({
-                        "concept": "evidence-reference", "selected_reference": selection,
-                    }), root=self.root)
+                    domains.query(
+                        parse_query(
+                            {
+                                "concept": "evidence-reference",
+                                "selected_reference": selection,
+                            }
+                        ),
+                        root=self.root,
+                    )
 
     def test_original_diagnostic_action_keeps_codec_authority_and_native_member_without_lifecycle(
         self,
@@ -486,7 +564,10 @@ kind = "depends-on"
         )
         selection = {"adapter": "diagnostic", "path": str(action)}
         snapshot = domains.evidence_sources.diagnostic_snapshot(action)
-        result = domains.query(parse_query({'concept': 'diagnostic', 'selected_reference': selection}), root=self.root)
+        result = domains.query(
+            parse_query({"concept": "diagnostic", "selected_reference": selection}),
+            root=self.root,
+        )
         self.assertEqual(len(result["items"]), 1)
         self.assertTrue(result["complete"], result["omissions"])
         diagnostic = result["items"][0]
@@ -494,7 +575,15 @@ kind = "depends-on"
         self.assertEqual(diagnostic["native_version"], snapshot["snapshot_digest"])
         self.assertIsNone(diagnostic["native_state"])
         self.assertIsNone(diagnostic["state_basis"])
-        reference = domains.query(parse_query({'concept': 'evidence-reference', 'selected_reference': {**selection, 'member': 'action'}}), root=self.root)["items"][0]
+        reference = domains.query(
+            parse_query(
+                {
+                    "concept": "evidence-reference",
+                    "selected_reference": {**selection, "member": "action"},
+                }
+            ),
+            root=self.root,
+        )["items"][0]
         self.assertEqual(
             reference["evidence"],
             {
@@ -506,18 +595,53 @@ kind = "depends-on"
             },
         )
         self.assertEqual(
-            domains.query(parse_query({'concept': 'diagnostic', 'selected_reference': {**selection, 'member': 'target'}}), root=self.root)["items"],
+            domains.query(
+                parse_query(
+                    {
+                        "concept": "diagnostic",
+                        "selected_reference": {**selection, "member": "target"},
+                    }
+                ),
+                root=self.root,
+            )["items"],
             [],
         )
         self.assertEqual(
-            domains.query(parse_query({'concept': 'evidence-reference', 'selected_reference': {**selection, 'codec': 'other'}}), root=self.root)["items"],
+            domains.query(
+                parse_query(
+                    {
+                        "concept": "evidence-reference",
+                        "selected_reference": {**selection, "codec": "other"},
+                    }
+                ),
+                root=self.root,
+            )["items"],
             [],
         )
 
     def test_question_identity_origin_and_source_version_are_explicit(self) -> None:
         with self.assertRaises(ValueError):
-            domains.query(parse_query({'concept': 'research-question', 'identity': 'RQ-7', 'question': 'Which layout?'}), root=self.root)
-        result = domains.query(parse_query({'concept': 'research-question', 'identity': 'RQ-7', 'question': 'Which layout?', 'origin': 'user-question'}), root=self.root)
+            domains.query(
+                parse_query(
+                    {
+                        "concept": "research-question",
+                        "identity": "RQ-7",
+                        "question": "Which layout?",
+                    }
+                ),
+                root=self.root,
+            )
+        result = domains.query(
+            parse_query(
+                {
+                    "concept": "research-question",
+                    "identity": "RQ-7",
+                    "question": "Which layout?",
+                    "origin": "user-question",
+                }
+            ),
+            root=self.root,
+        )
         item = result["items"][0]
         self.assertEqual(item["basis"], "user-question")
         self.assertIsNone(item["native_state"])
@@ -528,23 +652,80 @@ kind = "depends-on"
     def test_independently_authored_requests_execute_every_concept_branch(self) -> None:
         action = self.root / "selected-diagnostic"
         action.mkdir(mode=0o700)
-        active_diagnostics.publish(action, {
-            "schema": active_diagnostics.SCHEMA, "action": "control",
-            "status": "tool_failure", "target_outcome": "unknown", "invocation": None,
-        })
+        active_diagnostics.publish(
+            action,
+            {
+                "schema": active_diagnostics.SCHEMA,
+                "action": "control",
+                "status": "tool_failure",
+                "target_outcome": "unknown",
+                "invocation": None,
+            },
+        )
         reference = {"adapter": "diagnostic", "path": str(action)}
         cases = (
-            ({"concept": "document", "identity": "docs/README.md"}, "document", "available"),
+            (
+                {"concept": "document", "identity": "docs/README.md"},
+                "document",
+                "available",
+            ),
             ({"concept": "decision", "identity": "ADR-0101"}, "decision", "available"),
-            ({"concept": "contract-section", "identity": "20.5"}, "contract", "available"),
-            ({"concept": "plan-package", "identity": "docs/plans/coordinator.md#A01"}, "plan_package", "available"),
-            ({"concept": "declaration", "identity": "relation:alpha@1"}, "declaration", "available"),
-            ({"concept": "generator", "identity": "src/generator.rs#emit"}, "generator", "available"),
-            ({"concept": "generated-output", "identity": "src/generated/alpha.rs"}, "generated_artifact", "available"),
-            ({"concept": "diagnostic", "selected_reference": reference}, "diagnostic", "available"),
-            ({"concept": "evidence-reference", "selected_reference": {**reference, "member": "action"}}, "evidence_reference", "available"),
-            ({"concept": "experiment", "selected_reference": reference}, "experiment", "not_implemented"),
-            ({"concept": "research-question", "identity": "RQ-2", "origin": "agent-interpretation", "question": "Which package is open?"}, "research_question", "available"),
+            (
+                {"concept": "contract-section", "identity": "20.5"},
+                "contract",
+                "available",
+            ),
+            (
+                {
+                    "concept": "plan-package",
+                    "identity": "docs/plans/coordinator.md#A01",
+                },
+                "plan_package",
+                "available",
+            ),
+            (
+                {"concept": "declaration", "identity": "relation:alpha@1"},
+                "declaration",
+                "available",
+            ),
+            (
+                {"concept": "generator", "identity": "src/generator.rs#emit"},
+                "generator",
+                "available",
+            ),
+            (
+                {"concept": "generated-output", "identity": "src/generated/alpha.rs"},
+                "generated_artifact",
+                "available",
+            ),
+            (
+                {"concept": "diagnostic", "selected_reference": reference},
+                "diagnostic",
+                "available",
+            ),
+            (
+                {
+                    "concept": "evidence-reference",
+                    "selected_reference": {**reference, "member": "action"},
+                },
+                "evidence_reference",
+                "available",
+            ),
+            (
+                {"concept": "experiment", "selected_reference": reference},
+                "experiment",
+                "not_implemented",
+            ),
+            (
+                {
+                    "concept": "research-question",
+                    "identity": "RQ-2",
+                    "origin": "agent-interpretation",
+                    "question": "Which package is open?",
+                },
+                "research_question",
+                "available",
+            ),
         )
         for supplied, kind, status in cases:
             with self.subTest(concept=supplied["concept"]):
@@ -558,78 +739,204 @@ kind = "depends-on"
                     self.assertTrue(result["source_facts"])
                 else:
                     self.assertEqual(result["items"], [])
-                    self.assertIn("experiment concept adapter not implemented", " ".join(result["unknowns"]))
+                    self.assertIn(
+                        "experiment concept adapter not implemented",
+                        " ".join(result["unknowns"]),
+                    )
 
     def test_required_and_optional_request_fields_have_distinct_meanings(self) -> None:
-        for concept in ("contract-section", "plan-package", "declaration", "generator", "generated-output"):
-            for fields in ({}, {"identity": None}, {"identity": ""}, {"identity": "  "}):
-                with self.subTest(concept=concept, fields=fields), self.assertRaises(ValueError):
+        for concept in (
+            "contract-section",
+            "plan-package",
+            "declaration",
+            "generator",
+            "generated-output",
+        ):
+            for fields in (
+                {},
+                {"identity": None},
+                {"identity": ""},
+                {"identity": "  "},
+            ):
+                with (
+                    self.subTest(concept=concept, fields=fields),
+                    self.assertRaises(ValueError),
+                ):
                     parse_query({"concept": concept, **fields})
         for concept in ("diagnostic", "evidence-reference", "experiment"):
-            for fields in ({}, {"selected_reference": None}, {"selected_reference": {}}):
-                with self.subTest(concept=concept, fields=fields), self.assertRaises(ValueError):
+            for fields in (
+                {},
+                {"selected_reference": None},
+                {"selected_reference": {}},
+            ):
+                with (
+                    self.subTest(concept=concept, fields=fields),
+                    self.assertRaises(ValueError),
+                ):
                     parse_query({"concept": concept, **fields})
         for fields in (
-            {"identity": None}, {"origin": None}, {"origin": "inferred"},
-            {"question": None}, {"question": ""}, {"question": "  "},
+            {"identity": None},
+            {"origin": None},
+            {"origin": "inferred"},
+            {"question": None},
+            {"question": ""},
+            {"question": "  "},
         ):
             with self.subTest(fields=fields), self.assertRaises(ValueError):
-                parse_query({"concept": "research-question", "identity": "Q1", "origin": "user-question", "question": "Which owner?", **fields})
+                parse_query(
+                    {
+                        "concept": "research-question",
+                        "identity": "Q1",
+                        "origin": "user-question",
+                        "question": "Which owner?",
+                        **fields,
+                    }
+                )
         absent = domains.query(parse_query({"concept": "decision"}), root=self.root)
-        explicit_null = domains.query(parse_query({"concept": "decision", "identity": None}), root=self.root)
+        explicit_null = domains.query(
+            parse_query({"concept": "decision", "identity": None}), root=self.root
+        )
         self.assertEqual(absent["items"], explicit_null["items"])
         self.assertEqual(len(absent["items"]), 2)
         with self.assertRaises(ValueError):
             parse_query({"concept": "decision", "identity": ""})
         for fields in (
-            {"topics": None}, {"topics": [""]}, {"topics": ["x"] * 17},
-            {"role": ""}, {"owner": ""}, {"document": ""},
-            {"publication_scope": "current"}, {"native_status": ""},
-            {"limit": 0}, {"limit": True}, {"offset": -1},
-            {"origin": "user-question"}, {"semantic_query": "owner"},
+            {"topics": None},
+            {"topics": [""]},
+            {"topics": ["x"] * 17},
+            {"role": ""},
+            {"owner": ""},
+            {"document": ""},
+            {"publication_scope": "current"},
+            {"native_status": ""},
+            {"limit": 0},
+            {"limit": True},
+            {"offset": -1},
+            {"origin": "user-question"},
+            {"semantic_query": "owner"},
         ):
             with self.subTest(fields=fields), self.assertRaises(ValueError):
                 parse_query({"concept": "decision", **fields})
-        self.assertEqual(parse_query({"concept": "decision", "topics": []}).topics, [])
+        empty_topics = parse_query({"concept": "decision", "topics": []})
+        if not isinstance(empty_topics, DecisionQuery):
+            self.fail("Expected the decision request alternative")
+        self.assertEqual(empty_topics.topics, [])
         with self.assertRaises(ValueError):
-            parse_query({"concept": "diagnostic", "selected_reference": {"adapter": "assessment", "path": "owned"}})
+            parse_query(
+                {
+                    "concept": "diagnostic",
+                    "selected_reference": {"adapter": "assessment", "path": "owned"},
+                }
+            )
         with self.assertRaises(ValueError):
-            parse_query({"concept": "research-question", "identity": "Q1", "origin": "user-question", "question": "Why?", "topics": []})
+            parse_query(
+                {
+                    "concept": "research-question",
+                    "identity": "Q1",
+                    "origin": "user-question",
+                    "question": "Why?",
+                    "topics": [],
+                }
+            )
         with self.assertRaises(ValueError):
             parse_query({"concept": "not-declared"})
 
     def test_reference_and_question_cli_construct_owner_requests(self) -> None:
         reference = self.root / "reference.json"
-        reference.write_text(json.dumps({"adapter": "diagnostic", "path": "not-read-for-experiment"}))
+        reference.write_text(
+            json.dumps({"adapter": "diagnostic", "path": "not-read-for-experiment"})
+        )
         for args, expected in (
-            (["--concept", "research-question", "--identity", "RQ-cli", "--origin", "user-question", "Which contract?"], "available"),
-            (["--concept", "experiment", "--native-reference", str(reference)], "not_implemented"),
+            (
+                [
+                    "--concept",
+                    "research-question",
+                    "--identity",
+                    "RQ-cli",
+                    "--origin",
+                    "user-question",
+                    "Which contract?",
+                ],
+                "available",
+            ),
+            (
+                ["--concept", "experiment", "--native-reference", str(reference)],
+                "not_implemented",
+            ),
         ):
-            with self.subTest(args=args), patch.object(workspace_context, "ROOT", self.root), contextlib.redirect_stdout(io.StringIO()) as output:
+            with (
+                self.subTest(args=args),
+                patch.object(workspace_context, "ROOT", self.root),
+                contextlib.redirect_stdout(io.StringIO()) as output,
+            ):
                 self.assertEqual(workspace_context.main([*args, "--json"]), 0)
-                self.assertEqual(json.loads(output.getvalue())["adapter_status"], expected)
+                self.assertEqual(
+                    json.loads(output.getvalue())["adapter_status"], expected
+                )
 
-    def test_query_pagination_retains_global_population_and_only_selected_context(self) -> None:
-        result = domains.query(parse_query({"concept": "decision", "limit": 1}), root=self.root)
-        self.assertEqual(result["population"], {
-            "matched_count": 2, "returned_count": 1, "offset": 0, "limit": 1, "complete": True,
-        })
+    def test_query_pagination_retains_global_population_and_only_selected_context(
+        self,
+    ) -> None:
+        result = domains.query(
+            parse_query({"concept": "decision", "limit": 1}), root=self.root
+        )
+        self.assertEqual(
+            result["population"],
+            {
+                "matched_count": 2,
+                "returned_count": 1,
+                "offset": 0,
+                "limit": 1,
+                "complete": True,
+            },
+        )
         self.assertEqual(result["next_offset"], 1)
         # Both decisions are genuinely related by authored supersession.
-        self.assertEqual({row["native_id"] for row in result["subjects"] if row["kind"] == "decision"}, {"ADR-0004", "ADR-0101"})
-        last = domains.query(parse_query({"concept": "decision", "offset": 2, "limit": 1}), root=self.root)
+        self.assertEqual(
+            {
+                row["native_id"]
+                for row in result["subjects"]
+                if row["kind"] == "decision"
+            },
+            {"ADR-0004", "ADR-0101"},
+        )
+        last = domains.query(
+            parse_query({"concept": "decision", "offset": 2, "limit": 1}),
+            root=self.root,
+        )
         self.assertEqual(last["population"]["matched_count"], 2)
         self.assertEqual(last["population"]["returned_count"], 0)
-        for field in ("items", "subjects", "edges", "productions", "section_ranges", "native_facts", "source_facts"):
+        for field in (
+            "items",
+            "subjects",
+            "edges",
+            "productions",
+            "section_ranges",
+            "native_facts",
+            "source_facts",
+        ):
             self.assertEqual(last[field], [], field)
         self.assertIsNone(last["next_offset"])
-        declaration = domains.query(parse_query({"concept": "declaration", "identity": "relation:alpha@1"}), root=self.root)
+        declaration = domains.query(
+            parse_query({"concept": "declaration", "identity": "relation:alpha@1"}),
+            root=self.root,
+        )
         self.assertEqual(len(declaration["productions"]), 1)
-        self.assertEqual({row["native_id"] for row in declaration["subjects"]}, {
-            "relation:alpha@1", "src/generator.rs#emit", "src/generated/alpha.rs",
-        })
+        self.assertEqual(
+            {row["native_id"] for row in declaration["subjects"]},
+            {
+                "relation:alpha@1",
+                "src/generator.rs#emit",
+                "src/generated/alpha.rs",
+            },
+        )
         self.assertFalse(any("text" in fact for fact in declaration["source_facts"]))
-        self.assertTrue(all(row.get("producer_row", {}).get("declaration_key") != "beta@1" for row in declaration["native_facts"]))
+        self.assertTrue(
+            all(
+                row.get("producer_row", {}).get("declaration_key") != "beta@1"
+                for row in declaration["native_facts"]
+            )
+        )
 
     def test_subject_bound_is_explicit_incomplete(self) -> None:
         result = domains.project(

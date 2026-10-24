@@ -60,6 +60,16 @@ def task_packet(
     rows = []
     omitted = []
     native_inputs = {}
+
+    def read_native(relative: str) -> bytes:
+        if relative not in native_inputs:
+            if len(native_inputs) >= 30:
+                raise ValueError("native task source bound exceeded")
+            native_inputs[relative] = workspace_sources.source(
+                relative, root=root
+            )
+        return native_inputs[relative]["text"].encode("utf-8")
+
     if task:
         plan, separator, native_id = task.partition("#")
         fact = workspace_sources.source(plan, root=root)
@@ -67,16 +77,6 @@ def task_packet(
             raise ValueError("named task must belong to a retained plan")
         selected.extend([plan, fact["owner"]])
         try:
-
-            def read_native(relative: str) -> bytes:
-                if relative not in native_inputs:
-                    if len(native_inputs) >= 30:
-                        raise ValueError("native task source bound exceeded")
-                    native_inputs[relative] = workspace_sources.source(
-                        relative, root=root
-                    )
-                return native_inputs[relative]["text"].encode("utf-8")
-
             for relative in (
                 plan,
                 fact["owner"].partition("#")[0],
@@ -105,7 +105,8 @@ def task_packet(
     facts = _files(tuple(dict.fromkeys(selected)), root)
     omitted.extend(
         "selected source unavailable: " + fact["path"]
-        for fact in facts if fact.get("availability") == "unavailable"
+        for fact in facts
+        if fact.get("availability") == "unavailable"
     )
     by_path = {fact["path"]: fact for fact in facts}
     if any(
@@ -126,11 +127,19 @@ def task_packet(
             admitted.append(selected_file["path"])
         except ValueError:
             omitted.append("unadmitted requested path: " + selected_file["path"])
-    relations = (
+    relations: dict[str, object] = (
         workspace_sources.relationships(root=root, exact_paths=tuple(admitted))
         if admitted
         else {"items": [], "availability": "no admitted paths"}
     )
+    supplied_gaps = relations.get("gaps", [])
+    if not isinstance(supplied_gaps, list):
+        raise TypeError("producer relationship gaps must be a list")
+    relationship_gaps: list[str] = []
+    for gap in supplied_gaps:
+        if not isinstance(gap, str):
+            raise TypeError("producer relationship gaps must contain strings")
+        relationship_gaps.append(gap)
     symbol_leads = (
         workspace_sources.relationships(symbol, root=root) if symbol else None
     )
@@ -191,8 +200,10 @@ def task_packet(
             {"handle": item, "basis": "caller-selected reference; payload not read"}
             for item in evidence
         ],
-        "population_complete": not omitted and not relations.get("truncated", False) and not relations.get("gaps", []),
-        "omissions": omitted + relations.get("gaps", []),
+        "population_complete": not omitted
+        and not relations.get("truncated", False)
+        and not relationship_gaps,
+        "omissions": omitted + relationship_gaps,
         "unknowns": ["dynamic consumers unresolved"],
         "exclusions": ["database and session history not required or opened"],
         "authority": "native source/status owners retain authority; task packet is derived",

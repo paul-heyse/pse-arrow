@@ -200,6 +200,30 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(identity=unknown), self.assertRaises(MCPError):
                 await self.client.read_resource("pse://capabilities/" + unknown)
 
+    async def test_resource_and_prompt_refusals_keep_codes_without_raw_exception_text(
+        self,
+    ) -> None:
+        with patch.object(
+            self.catalogue,
+            "describe",
+            side_effect=ValueError("PRIVATE SOURCE password=value"),
+        ), self.assertRaises(MCPError) as failure:
+            await self.client.read_resource("pse://capabilities/owned_read")
+        self.assertIn("pse.capabilities.unknown_capability", str(failure.exception))
+        self.assertNotIn("PRIVATE SOURCE", str(failure.exception))
+        self.assertNotIn("password", str(failure.exception))
+        await self.select()
+        with patch.object(
+            self.guidance,
+            "instruction_bundle",
+            side_effect=ValueError("PRIVATE SOURCE password=value"),
+        ), self.assertRaises(MCPError) as failure:
+            await self.client.get_prompt("workflow_inspect")
+        self.assertIn("pse.capabilities.guidance_unavailable", str(failure.exception))
+        self.assertNotIn("PRIVATE SOURCE", str(failure.exception))
+        self.assertNotIn("password", str(failure.exception))
+        self.assertEqual(self.calls, 0)
+
     async def test_native_guide_and_projected_guide_keep_identical_owned_content(
         self,
     ) -> None:

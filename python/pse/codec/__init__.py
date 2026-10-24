@@ -229,6 +229,28 @@ def _check_version_headers(
         expected = getattr(info.cls, "_pse_required_version", None)
         if expected is not None:
             field = getattr(info.cls, "_pse_required_version_field", "version")
+            if original is not None:
+                try:
+                    _check_document_header(bytes(original), field, expected)
+                except ValueError as error:
+                    if field not in value:
+                        message = (
+                            f"Missing required document version - at `{path}.{field}`"
+                        )
+                    else:
+                        version = msgspec.json.decode(value[field], type=object)
+                        if (
+                            not isinstance(version, int)
+                            or isinstance(version, bool)
+                            or version != expected
+                        ):
+                            message = (
+                                f"Unsupported document version (current: {expected}) "
+                                f"- at `{path}.{field}`"
+                            )
+                        else:
+                            message = f"{error} - at `{path}.{field}`"
+                    raise msgspec.ValidationError(message) from error
             if field not in value:
                 message = f"Missing required document version - at `{path}.{field}`"
                 raise msgspec.ValidationError(message)
@@ -245,12 +267,6 @@ def _check_version_headers(
                     f"- at `{path}.{field}`"
                 )
                 raise msgspec.ValidationError(message)
-            if original is not None:
-                try:
-                    _check_document_header(bytes(original), field, expected)
-                except ValueError as error:
-                    message = f"{error} - at `{path}.{field}`"
-                    raise msgspec.ValidationError(message) from error
         for field in info.fields:
             if field.encode_name in value:
                 _check_version_headers(

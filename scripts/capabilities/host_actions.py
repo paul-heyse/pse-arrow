@@ -75,7 +75,9 @@ def failure(operation: str, error: Exception) -> ToolError:
             {
                 "code": "pse.host." + operation + ".refused",
                 "cause": type(error).__name__,
-                "message": str(error),
+                "stage": "host_action",
+                "message": "The selected host request could not be served; supplied values are redacted.",
+                "remedy": "Inspect the original owner and any issued output before deciding whether another action is safe. No automatic retry or rollback is inferred.",
             }
         )
     )

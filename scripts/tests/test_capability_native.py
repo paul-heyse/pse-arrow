@@ -7,27 +7,27 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import base64
+import contextlib
 import copy
 import hashlib
+import io
 import json
 import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from jsonschema import Draft202012Validator
+from pydantic import JsonValue
 
 from scripts.capabilities import native, native_worker
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.server import build
-
-if TYPE_CHECKING:
-    from pydantic import JsonValue
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -41,6 +41,12 @@ def object_value(value: JsonValue) -> dict[str, JsonValue]:
 def list_value(value: JsonValue) -> list[JsonValue]:
     if not isinstance(value, list):
         raise TypeError("expected a JSON array")
+    return value
+
+
+def text_value(value: JsonValue) -> str:
+    if not isinstance(value, str):
+        raise TypeError("expected an exact text value")
     return value
 
 
@@ -178,6 +184,74 @@ def preparation_request(root: str) -> dict[str, JsonValue]:
     }
 
 
+class IntactNativeResultTests(unittest.TestCase):
+    """Transport controls; these byte fixtures do not claim scientific eligibility."""
+
+    def test_large_encoded_result_survives_worker_and_host_without_null_replacement(
+        self,
+    ) -> None:
+        original = bytes(range(256)) * 128
+        encoded = base64.b64encode(original).decode("ascii")
+        self.assertGreater(len(encoded), 16 << 10)
+        value = {
+            "outcome": "observed",
+            "run": "selected-run",
+            "attempt": "selected-attempt",
+            "relation": "selected-relation",
+            "start": 0,
+            "end": 1,
+            "rows": 1,
+            "encoding": "arrow-ipc-stream-base64",
+            "bytes": len(original),
+            "chunks": [encoded],
+        }
+        with (
+            patch.object(
+                native_worker, "worker_request", return_value=("result_read", {})
+            ),
+            patch.object(native_worker, "execute", return_value=value),
+            contextlib.redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(native_worker.main([]), 0)
+        worker_answer = json.loads(output.getvalue())
+        self.assertEqual(worker_answer, value)
+        response = native.intact_result(worker_answer, "native_result_read")
+        self.assertTrue(response.complete)
+        self.assertEqual(response.omissions, [])
+        self.assertEqual(response.payload, value)
+        self.assertEqual(
+            base64.b64decode("".join(text_value(chunk) for chunk in list_value(response.payload["chunks"])), validate=True),
+            original,
+        )
+
+    def test_oversized_selected_document_is_refused_as_a_whole(self) -> None:
+        document: dict[str, JsonValue] = {
+            "outcome": "observed",
+            "document": {"required_identity": "selected", "detail": "x" * (121 << 10)},
+        }
+        response = native.intact_result(document, "native_result_inspect")
+        self.assertFalse(response.complete)
+        self.assertEqual(response.payload["outcome"], "detail_refused")
+        self.assertEqual(response.payload["code"], "pse.native.result_detail_bound")
+        self.assertTrue(response.payload["remedy"])
+        self.assertNotIn("document", response.payload)
+        self.assertNotIn(None, response.payload.values())
+        self.assertLess(len(response.model_dump_json().encode()), 128 << 10)
+
+    def test_original_native_incomplete_observation_keeps_its_omission(self) -> None:
+        value: dict[str, JsonValue] = {
+            "outcome": "incomplete_observation",
+            "complete": False,
+            "omissions": ["Native selected row window exceeds its bound."],
+            "code": "pse.native.result_detail_bound",
+            "rows_copied": 0,
+        }
+        response = native.intact_result(value, "native_result_read")
+        self.assertEqual(response.payload, value)
+        self.assertFalse(response.complete)
+        self.assertEqual(response.omissions, value["omissions"])
+
+
 class NativeSchemaTests(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
@@ -215,6 +289,140 @@ class NativeSchemaTests(unittest.TestCase):
             ),
             "#/$defs/ProjectReference",
         )
+
+    def test_result_inspection_registration_uses_original_directional_rust_contracts(
+        self,
+    ) -> None:
+        tool = self.tools["native_result_inspect"]
+        facts = object_value(at(tool.meta, "pse.native"))
+        self.assertEqual(facts["receiver"], "pse.Runtime.inspect_result")
+        self.assertEqual(at(facts, "contracts", "request", "direction"), "input")
+        self.assertEqual(
+            at(facts, "contracts", "request", "slug"), "result-inspection-request"
+        )
+        self.assertEqual(
+            at(facts, "contracts", "output_document", "direction"), "output"
+        )
+        embedded = copy.deepcopy(
+            at(tool.parameters, "$defs", "result-inspection-request")
+        )
+        embedded = object_value(embedded)
+        embedded.pop("$id")
+        self.assertEqual(
+            embedded, self.schemas.document("result-inspection-request", "input")
+        )
+        self.assertEqual(
+            native.ResultInspection.model_fields["request"].annotation, JsonValue
+        )
+        output = tool.output_schema
+        self.assertIsNotNone(output)
+        if output is None:
+            self.fail("inspection output schema absent")
+        Draft202012Validator.check_schema(output)
+        original = self.schemas.document("result-inspection-document", "output")
+        definitions = original.pop("$defs", {})
+        self.assertEqual(
+            at(output, "properties", "payload", "oneOf", 0, "properties", "document"),
+            original,
+        )
+        self.assertEqual(at(output, "$defs"), definitions)
+        refusal = native.intact_result(
+            {"outcome": "native_refusal", "code": "owner-issued-code"},
+            "native_result_inspect",
+        )
+        Draft202012Validator(output).validate(refusal.model_dump(mode="json"))
+        self.assertNotIn("result", output["properties"])
+
+    def test_inspection_generated_request_and_actual_composed_output_contract(
+        self,
+    ) -> None:
+        request: dict[str, JsonValue] = {
+            "document_version": 1,
+            "run": "selected-run",
+            "attempt": "selected-attempt",
+            "relation": "selected-relation",
+            "start": 0,
+            "end": 1,
+            "expected_manifest": None,
+            "view": {"kind": "schema", "offset": 0, "limit": 2},
+        }
+        arguments: dict[str, JsonValue] = {
+            "state": "/selected/store",
+            "database": "existing",
+            "request": request,
+        }
+        validator = Draft202012Validator(self.tools["native_result_inspect"].parameters)
+        validator.validate(arguments)
+        for view in (
+            {"kind": "invented"},
+            {"kind": "schema", "offset": -1, "limit": 2},
+            {"kind": "schema", "offset": 0, "limit": 2, "unknown": True},
+        ):
+            invalid = copy.deepcopy(arguments)
+            object_value(at(invalid, "request"))["view"] = JSON_OBJECT.validate_python(view)
+            self.assertFalse(validator.is_valid(invalid))
+        document = {
+            "document_version": 1,
+            "kind": "refused",
+            "reason": "selection",
+            "guidance": "Use the existing exact Arrow IPC route.",
+        }
+        observed = {"outcome": "observed", "document": document}
+
+        async def exercise() -> None:
+            runtime = build(ROOT)
+            tool = runtime.catalogue.tools["native_result_inspect"]
+            schema = tool.output_schema
+            if schema is None:
+                self.fail("Expected the original inspection output schema")
+            async with Client(runtime.server) as client:
+                await client.call_tool(
+                    "capabilities_select", {"capabilities": ["native_result_inspect"]}
+                )
+                with patch.object(native, "run_child", return_value=observed) as child:
+                    result = await client.call_tool("native_result_inspect", arguments)
+                self.assertEqual(child.call_args.args[:2], (ROOT, "result_inspect"))
+                self.assertEqual(child.call_args.args[2]["request"], request)
+                Draft202012Validator(schema).validate(
+                    result.structured_content
+                )
+                self.assertEqual(at(result.structured_content, "payload"), observed)
+                self.assertEqual(
+                    at(result.structured_content, "operation"), "native_result_inspect"
+                )
+                invalid_output = copy.deepcopy(result.structured_content)
+                object_value(at(invalid_output, "payload", "document"))["reason"] = (
+                    "invented"
+                )
+                self.assertFalse(
+                    Draft202012Validator(schema).is_valid(invalid_output)
+                )
+
+        asyncio.run(exercise())
+
+    def test_native_result_tool_preserves_exact_selected_ipc(self) -> None:
+        encoded = base64.b64encode(bytes(range(256)) * 128).decode("ascii")
+        selected = {
+            "outcome": "observed",
+            "encoding": "arrow-ipc-stream-base64",
+            "chunks": [encoded],
+        }
+        with patch.object(native, "run_child", return_value=selected):
+            result = asyncio.run(
+                self.tools["native_result_read"].run(
+                    {
+                        "state": "/selected/store",
+                        "database": "existing",
+                        "run": "selected-run",
+                        "attempt": "selected-attempt",
+                        "relation": "selected-relation",
+                        "start": 0,
+                        "end": 1,
+                    }
+                )
+            )
+        self.assertEqual(at(result.structured_content, "payload"), selected)
+        self.assertTrue(at(result.structured_content, "complete"))
 
     def test_embedded_resources_resolve_tagged_refs_and_reject_unknown_variants(
         self,

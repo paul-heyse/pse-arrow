@@ -5,26 +5,46 @@
 The records below describe host views, not scientific admission schemas. Opaque
 owner declarations are explicitly named fields, rather than the primary answer.
 """
+
 from __future__ import annotations
 
 import json
 from typing import Literal, TypeVar
 
-from pydantic import ConfigDict, Field, JsonValue
+from pydantic import ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
 from scripts.capabilities.model import Contract as BaseContract
 
 
 class Contract(BaseContract):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True, serialize_by_alias=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        frozen=True,
+        validate_default=True,
+        serialize_by_alias=True,
+    )
+
 
 MAX_ANSWER_BYTES = 128 * 1024
 
 
+JSON_RECORD = TypeAdapter(dict[str, JsonValue])
+
+
 class OwnerRecord(Contract):
-    """An original owner record whose extensible vocabulary is not redefined here."""
-    model_config = ConfigDict(extra="allow", strict=True, frozen=True, serialize_by_alias=True)
-    __pydantic_extra__: dict[str, JsonValue] = Field(init=False)
+    """Original owner vocabulary; extensions must remain real JSON values."""
+
+    model_config = ConfigDict(
+        extra="allow", strict=True, frozen=True, serialize_by_alias=True
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def json_record(cls, value: object) -> object:
+        # BaseModel owns its mutable private storage annotation. Validate the
+        # original wire record rather than illegally narrow that inherited slot.
+        return JSON_RECORD.validate_python(value)
 
 
 class ScopeItem(Contract):
@@ -53,22 +73,25 @@ class SourceFact(OwnerRecord):
     role: str | None = None
     scope: str | None = None
     owner: str | None = None
-    text: str | None = Field(default=None, description="Only when explicitly selected at the original source owner.")
+    text: str | None = Field(
+        default=None,
+        description="Only when explicitly selected at the original source owner.",
+    )
 
 
 class RelationshipsPayload(Contract):
     symbol: str | None = None
-    queries: list[str] = []
+    queries: list[str] = Field(default_factory=list)
     predicates: dict[str, JsonValue] | None = None
-    exact_paths: list[str] = []
+    exact_paths: list[str] = Field(default_factory=list)
     selection_basis: str = "no admitted paths"
     items: list[OwnerRecord]
     truncated: bool = False
-    producers: list[JsonValue] = []
-    producer_documents: list[JsonValue] = []
-    current_source_facts: list[SourceFact] = []
+    producers: list[JsonValue] = Field(default_factory=list)
+    producer_documents: list[JsonValue] = Field(default_factory=list)
+    current_source_facts: list[SourceFact] = Field(default_factory=list)
     revision: str | None = None
-    gaps: list[str] = []
+    gaps: list[str] = Field(default_factory=list)
     producer_freshness: str = "unobserved"
     coverage: str = "no admitted paths"
     availability: str
@@ -386,6 +409,13 @@ class WatchSnapshot(OwnerRecord):
     run: ProductPayload | None = None
 
 
+class WatchReconciliation(Contract):
+    source: str
+    history: str
+    gap: str
+    previous_observed_unix_ns: int | None
+
+
 class WatchPayload(Contract):
     mode: Literal["detached-no-write"]
     selection: WatchSelection
@@ -394,7 +424,7 @@ class WatchPayload(Contract):
     cursor: str
     revision: str
     observed_unix_ns: int
-    reconciliation: OwnerRecord
+    reconciliation: WatchReconciliation
     snapshot: WatchSnapshot
 
 
@@ -466,9 +496,10 @@ class CoveragePayload(Contract):
 
 class AnswerState(Contract):
     """Reader completeness is independent of the observed workload's outcome."""
+
     population: Literal["complete", "partial", "unavailable"]
     detail: Literal["selected", "omitted"] = "selected"
-    reasons: list[str] = []
+    reasons: list[str] = Field(default_factory=list)
 
 
 class DetailRefused(Contract):
@@ -481,8 +512,14 @@ class DetailRefused(Contract):
     remedy: str = "Narrow the original owner's selection or use its explicit protected export; no facts were truncated."
 
 
+class ReadAnswer(Contract):
+    """Common operation identity required by the final-size safeguard."""
+
+    operation: str
+
+
 # Separate output families keep native facts discoverable in actual MCP schemas.
-class TaskContextResult(Contract):
+class TaskContextResult(ReadAnswer):
     operation: Literal["workspace_task_context"] = "workspace_task_context"
     complete: bool
     omissions: list[str]
@@ -490,7 +527,7 @@ class TaskContextResult(Contract):
     payload: TaskContextPayload
 
 
-class ConceptQueryResult(Contract):
+class ConceptQueryResult(ReadAnswer):
     operation: Literal["workspace_concepts_query"] = "workspace_concepts_query"
     complete: bool
     omissions: list[str]
@@ -498,15 +535,17 @@ class ConceptQueryResult(Contract):
     payload: ConceptPayload
 
 
-class ProducerRelationshipsResult(Contract):
-    operation: Literal["workspace_producer_relationships"] = "workspace_producer_relationships"
+class ProducerRelationshipsResult(ReadAnswer):
+    operation: Literal["workspace_producer_relationships"] = (
+        "workspace_producer_relationships"
+    )
     complete: bool
     omissions: list[str]
     answer: AnswerState
     payload: RelationshipsPayload
 
 
-class RecipeDescriptionResult(Contract):
+class RecipeDescriptionResult(ReadAnswer):
     operation: Literal["workspace_recipe_describe"] = "workspace_recipe_describe"
     complete: bool
     omissions: list[str]
@@ -514,7 +553,7 @@ class RecipeDescriptionResult(Contract):
     payload: RecipePayload
 
 
-class InventoryResult(Contract):
+class InventoryResult(ReadAnswer):
     operation: Literal["workspace_inventory"] = "workspace_inventory"
     complete: bool
     omissions: list[str]
@@ -522,7 +561,7 @@ class InventoryResult(Contract):
     payload: InventoryPayload
 
 
-class EnvironmentResult(Contract):
+class EnvironmentResult(ReadAnswer):
     operation: Literal["environment_explain"] = "environment_explain"
     complete: bool
     omissions: list[str]
@@ -530,7 +569,7 @@ class EnvironmentResult(Contract):
     payload: EnvironmentPayload
 
 
-class KnowledgeResult(Contract):
+class KnowledgeResult(ReadAnswer):
     operation: Literal["knowledge_source_corpus"] = "knowledge_source_corpus"
     complete: bool
     omissions: list[str]
@@ -538,7 +577,7 @@ class KnowledgeResult(Contract):
     payload: KnowledgePayload
 
 
-class DocumentScopeResult(Contract):
+class DocumentScopeResult(ReadAnswer):
     operation: Literal["document_scope_query"] = "document_scope_query"
     complete: bool
     omissions: list[str]
@@ -546,7 +585,7 @@ class DocumentScopeResult(Contract):
     payload: DocumentScopePayload
 
 
-class ProductRunResult(Contract):
+class ProductRunResult(ReadAnswer):
     operation: Literal["product_run_read"] = "product_run_read"
     complete: bool
     omissions: list[str]
@@ -554,7 +593,7 @@ class ProductRunResult(Contract):
     payload: ProductPayload
 
 
-class AssessmentResult(Contract):
+class AssessmentResult(ReadAnswer):
     operation: Literal["assessment_read"] = "assessment_read"
     complete: bool
     omissions: list[str]
@@ -562,7 +601,7 @@ class AssessmentResult(Contract):
     payload: AssessmentPayload
 
 
-class WorkloadWatchResult(Contract):
+class WorkloadWatchResult(ReadAnswer):
     operation: Literal["workload_watch"] = "workload_watch"
     complete: bool
     omissions: list[str]
@@ -570,7 +609,7 @@ class WorkloadWatchResult(Contract):
     payload: WatchPayload
 
 
-class StorageResult(Contract):
+class StorageResult(ReadAnswer):
     operation: Literal["storage_observe"] = "storage_observe"
     complete: bool
     omissions: list[str]
@@ -578,7 +617,7 @@ class StorageResult(Contract):
     payload: StoragePayload
 
 
-class LibraryResult(Contract):
+class LibraryResult(ReadAnswer):
     operation: Literal["library_source_packet"] = "library_source_packet"
     complete: bool
     omissions: list[str]
@@ -586,7 +625,7 @@ class LibraryResult(Contract):
     payload: LibraryPayload
 
 
-class CoverageResult(Contract):
+class CoverageResult(ReadAnswer):
     operation: Literal["coverage_correspondence_read"] = "coverage_correspondence_read"
     complete: bool
     omissions: list[str]
@@ -594,98 +633,254 @@ class CoverageResult(Contract):
     payload: CoveragePayload
 
 
-Result = TypeVar("Result", bound=Contract)
+Result = TypeVar("Result", bound=ReadAnswer)
 
 
-def finish_read(result_type: type[Result], payload: object, *, population: Literal["complete", "partial", "unavailable"] = "complete", reasons: list[str] | None = None, detail_omitted: bool = False) -> Result | DetailRefused:
+def finish_read(
+    result_type: type[Result],
+    payload: object,
+    *,
+    population: Literal["complete", "partial", "unavailable"] = "complete",
+    reasons: list[str] | None = None,
+    detail_omitted: bool = False,
+) -> Result | DetailRefused:
     """Validate one selected answer, then refuse oversize without changing its facts."""
     omissions = list(dict.fromkeys(reasons or []))
-    result = result_type.model_validate({"complete": population == "complete" and not detail_omitted, "omissions": omissions, "answer": {"population": population, "detail": "omitted" if detail_omitted else "selected", "reasons": omissions}, "payload": payload})
-    size = len(json.dumps(result.model_dump(mode="json"), ensure_ascii=True, allow_nan=False, separators=(",", ":")).encode())
+    result = result_type.model_validate(
+        {
+            "complete": population == "complete" and not detail_omitted,
+            "omissions": omissions,
+            "answer": {
+                "population": population,
+                "detail": "omitted" if detail_omitted else "selected",
+                "reasons": omissions,
+            },
+            "payload": payload,
+        }
+    )
+    size = len(
+        json.dumps(
+            result.model_dump(mode="json"),
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode()
+    )
     if size > MAX_ANSWER_BYTES:
-        return DetailRefused(operation=str(getattr(result, "operation")), omissions=["Selected answer exceeds the encoded response bound; no partial payload was substituted."], encoded_bytes=size)
+        return DetailRefused(
+            operation=str(result.operation),
+            omissions=[
+                "Selected answer exceeds the encoded response bound; no partial payload was substituted."
+            ],
+            encoded_bytes=size,
+        )
     return result
 
 
-def task_context(value: dict) -> TaskContextResult | DetailRefused:
-    return finish_read(TaskContextResult, value, population="complete" if value["population_complete"] else "partial", reasons=value["omissions"])
+def task_context(value: object) -> TaskContextResult | DetailRefused:
+    selected = TaskContextPayload.model_validate(value)
+    return finish_read(
+        TaskContextResult,
+        selected,
+        population="complete" if selected.population_complete else "partial",
+        reasons=selected.omissions,
+    )
 
 
-def concept_query(value: dict) -> ConceptQueryResult | DetailRefused:
-    state = "unavailable" if value["adapter_status"] == "not_implemented" else "partial" if not value["complete"] or value["next_offset"] is not None or value["population"]["offset"] > 0 else "complete"
-    return finish_read(ConceptQueryResult, value, population=state, reasons=value["omissions"])
+def concept_query(value: object) -> ConceptQueryResult | DetailRefused:
+    selected = ConceptPayload.model_validate(value)
+    state = (
+        "unavailable"
+        if selected.adapter_status == "not_implemented"
+        else "partial"
+        if not selected.complete
+        or selected.next_offset is not None
+        or selected.population.offset > 0
+        else "complete"
+    )
+    return finish_read(
+        ConceptQueryResult, selected, population=state, reasons=selected.omissions
+    )
 
 
-def producer_relationships(value: dict) -> ProducerRelationshipsResult | DetailRefused:
-    return finish_read(ProducerRelationshipsResult, value, population="partial" if value.get("truncated") else "unavailable" if value["availability"] != "available" else "complete", reasons=value.get("gaps", []))
+def producer_relationships(value: object) -> ProducerRelationshipsResult | DetailRefused:
+    selected = RelationshipsPayload.model_validate(value)
+    return finish_read(
+        ProducerRelationshipsResult,
+        selected,
+        population="partial"
+        if selected.truncated
+        else "unavailable"
+        if selected.availability != "available"
+        else "complete",
+        reasons=selected.gaps,
+    )
 
 
-def recipe_description(value: dict) -> RecipeDescriptionResult | DetailRefused:
-    return finish_read(RecipeDescriptionResult, value, detail_omitted=bool(value["leaf_sources_omitted"]), reasons=["Additional leaf sources are available at their original owner."] if value["leaf_sources_omitted"] else [])
+def recipe_description(value: object) -> RecipeDescriptionResult | DetailRefused:
+    selected = RecipePayload.model_validate(value)
+    return finish_read(
+        RecipeDescriptionResult,
+        selected,
+        detail_omitted=bool(selected.leaf_sources_omitted),
+        reasons=["Additional leaf sources are available at their original owner."]
+        if selected.leaf_sources_omitted
+        else [],
+    )
 
 
-def inventory(value: dict) -> InventoryResult | DetailRefused:
-    return finish_read(InventoryResult, value, population="partial" if not value["complete"] or value["next_offset"] is not None or value["offset"] else "complete", reasons=value["omissions"])
+def inventory(value: object) -> InventoryResult | DetailRefused:
+    selected = InventoryPayload.model_validate(value)
+    return finish_read(
+        InventoryResult,
+        selected,
+        population="partial"
+        if not selected.complete or selected.next_offset is not None or selected.offset
+        else "complete",
+        reasons=selected.omissions,
+    )
 
 
-def environment(value: dict) -> EnvironmentResult | DetailRefused:
-    return finish_read(EnvironmentResult, value, population="partial" if value["local_configuration"] == "unresolved: not executed" else "complete", reasons=value["refusals"])
+def environment(value: object) -> EnvironmentResult | DetailRefused:
+    selected = EnvironmentPayload.model_validate(value)
+    return finish_read(
+        EnvironmentResult,
+        selected,
+        population="partial"
+        if selected.local_configuration == "unresolved: not executed"
+        else "complete",
+        reasons=selected.refusals,
+    )
 
 
-def knowledge(value: dict) -> KnowledgeResult | DetailRefused:
-    page = value.get("excerpt_page")
-    partial = page is not None and (page["offset"] > 0 or page["next_offset"] is not None)
-    omitted = any(item.get("text_complete") is False for item in value["excerpts"])
-    reasons = []
+def knowledge(value: object) -> KnowledgeResult | DetailRefused:
+    selected = KnowledgePayload.model_validate(value)
+    page = selected.excerpt_page
+    partial = page is not None and (
+        page.offset > 0 or page.next_offset is not None
+    )
+    omitted = any(item.text_complete is False for item in selected.excerpts)
+    reasons: list[str] = []
     if partial:
-        reasons.append("Only selected source excerpts are returned; source and subject attribution retain the inspected population.")
+        reasons.append(
+            "Only selected source excerpts are returned; source and subject attribution retain the inspected population."
+        )
     if omitted:
-        reasons.append("An excerpt exceeded the original owner's 16KiB text bound; inspect its attributable source for full bytes.")
-    return finish_read(KnowledgeResult, value, population="partial" if partial else "complete", detail_omitted=omitted, reasons=reasons)
+        reasons.append(
+            "An excerpt exceeded the original owner's 16KiB text bound; inspect its attributable source for full bytes."
+        )
+    return finish_read(
+        KnowledgeResult,
+        selected,
+        population="partial" if partial else "complete",
+        detail_omitted=omitted,
+        reasons=reasons,
+    )
 
 
-def document_scope(value: dict) -> DocumentScopeResult | DetailRefused:
-    return finish_read(DocumentScopeResult, value, population="partial" if value["offset"] or value["next_offset"] is not None else "complete")
+def document_scope(value: object) -> DocumentScopeResult | DetailRefused:
+    selected = DocumentScopePayload.model_validate(value)
+    return finish_read(
+        DocumentScopeResult,
+        selected,
+        population="partial"
+        if selected.offset or selected.next_offset is not None
+        else "complete",
+    )
 
 
-def product_run(value: dict) -> ProductRunResult | DetailRefused:
-    page = value["page"]
-    incomplete = value["terminal_status"] != "available" or bool(value["selected_unreported_count"]) or value["selection_state"] != "collected"
-    paged = page["offset"] > 0 or page["next_offset"] is not None
-    reasons = []
+def product_run(value: object) -> ProductRunResult | DetailRefused:
+    selected = ProductPayload.model_validate(value)
+    page = selected.page
+    incomplete = (
+        selected.terminal_status != "available"
+        or bool(selected.selected_unreported_count)
+        or selected.selection_state != "collected"
+    )
+    paged = page.offset > 0 or page.next_offset is not None
+    reasons: list[str] = []
     if incomplete:
-        reasons.append("The original invocation has missing terminal, collection or subject evidence; reader success is not a workload pass.")
+        reasons.append(
+            "The original invocation has missing terminal, collection or subject evidence; reader success is not a workload pass."
+        )
     if paged:
-        reasons.append("The answer contains the selected subject/resource page; global counts remain authoritative.")
-    return finish_read(ProductRunResult, value, population="partial" if incomplete or paged else "complete", reasons=reasons)
+        reasons.append(
+            "The answer contains the selected subject/resource page; global counts remain authoritative."
+        )
+    return finish_read(
+        ProductRunResult,
+        selected,
+        population="partial" if incomplete or paged else "complete",
+        reasons=reasons,
+    )
 
 
-def assessment(value: dict) -> AssessmentResult | DetailRefused:
-    summary = value["assessment"]
-    partial = not summary["complete"] or bool(value["unattempted_scope"])
-    omitted = any("detail" in check["record"] for check in value["checks"])
-    reasons = []
+def assessment(value: object) -> AssessmentResult | DetailRefused:
+    selected = AssessmentPayload.model_validate(value)
+    summary = selected.assessment
+    partial = not summary.complete or bool(selected.unattempted_scope)
+    omitted = any(check.record.detail is not None for check in selected.checks)
+    reasons: list[str] = []
     if partial:
-        reasons.append("The original assessment reports incomplete or unattempted scope; reader success is not qualification.")
+        reasons.append(
+            "The original assessment reports incomplete or unattempted scope; reader success is not qualification."
+        )
     if omitted:
-        reasons.append("Unselected check bodies remain at their protected owner; retained summary records carry their exact detail references.")
-    return finish_read(AssessmentResult, value, population="partial" if partial else "complete", detail_omitted=omitted, reasons=reasons)
+        reasons.append(
+            "Unselected check bodies remain at their protected owner; retained summary records carry their exact detail references."
+        )
+    return finish_read(
+        AssessmentResult,
+        selected,
+        population="partial" if partial else "complete",
+        detail_omitted=omitted,
+        reasons=reasons,
+    )
 
 
-def watch(value: dict) -> WorkloadWatchResult | DetailRefused:
-    unavailable = value["snapshot"]["state"] == "observation-unavailable"
-    return finish_read(WorkloadWatchResult, value, population="unavailable" if unavailable else "partial", reasons=[value["reconciliation"]["gap"]])
+def watch(value: object) -> WorkloadWatchResult | DetailRefused:
+    selected = WatchPayload.model_validate(value)
+    unavailable = selected.snapshot.state == "observation-unavailable"
+    return finish_read(
+        WorkloadWatchResult,
+        selected,
+        population="unavailable" if unavailable else "partial",
+        reasons=[selected.reconciliation.gap],
+    )
 
 
-def storage(value: dict) -> StorageResult | DetailRefused:
-    StoragePayload.model_validate(value)
-    absent = [item for item in value["items"] if item["status"] == "unavailable"]
-    return finish_read(StorageResult, value, population="unavailable" if absent and len(absent) == len(value["items"]) else "partial" if absent else "complete", reasons=["Some configured stores could not be observed."] if absent else [])
+def storage(value: object) -> StorageResult | DetailRefused:
+    selected = StoragePayload.model_validate(value)
+    absent = [item for item in selected.items if item.status == "unavailable"]
+    return finish_read(
+        StorageResult,
+        selected,
+        population="unavailable"
+        if absent and len(absent) == len(selected.items)
+        else "partial"
+        if absent
+        else "complete",
+        reasons=["Some configured stores could not be observed."] if absent else [],
+    )
 
 
-def library(value: dict) -> LibraryResult | DetailRefused:
-    return finish_read(LibraryResult, value, population="complete" if value["population_complete"] else "partial", reasons=value["unresolved"])
+def library(value: object) -> LibraryResult | DetailRefused:
+    selected = LibraryPayload.model_validate(value)
+    return finish_read(
+        LibraryResult,
+        selected,
+        population="complete" if selected.population_complete else "partial",
+        reasons=selected.unresolved,
+    )
 
 
-def coverage(value: dict) -> CoverageResult | DetailRefused:
-    return finish_read(CoverageResult, value, population="complete" if value["fresh"] and value["population_status"] == "observed" else "partial", reasons=value["limits"])
+def coverage(value: object) -> CoverageResult | DetailRefused:
+    selected = CoveragePayload.model_validate(value)
+    return finish_read(
+        CoverageResult,
+        selected,
+        population="complete"
+        if selected.fresh and selected.population_status == "observed"
+        else "partial",
+        reasons=selected.limits,
+    )

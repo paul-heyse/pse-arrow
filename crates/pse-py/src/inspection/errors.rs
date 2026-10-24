@@ -93,6 +93,7 @@ pub(crate) struct DiagnosticReport {
     causes: Vec<DiagnosticCauseDocument>,
     contexts: Vec<DiagnosticContextDocument>,
     related: Vec<DiagnosticReport>,
+    decode_location: Option<pse_model::document::DecodeLocation>,
 }
 /// Adapters retain source-owned semantic projection without dynamic error classification.
 pub(crate) trait ReportSource: TypedDiagnostic {
@@ -124,6 +125,9 @@ pub(crate) trait ReportSource: TypedDiagnostic {
     fn report_contexts(&self) -> Vec<DiagnosticContextDocument> {
         Vec::new()
     }
+    fn report_decode_location(&self) -> Option<pse_model::document::DecodeLocation> {
+        None
+    }
     fn report_related(&self) -> Option<Vec<DiagnosticReport>> {
         None
     }
@@ -146,6 +150,15 @@ semantic_report_source!(
 impl ReportSource for pse_runtime::workflow::WorkflowError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         DiagnosticProjection::boundary_diagnostic(self, DiagnosticStage::Workflow)
+    }
+    fn report_decode_location(&self) -> Option<pse_model::document::DecodeLocation> {
+        match self {
+            Self::DocumentDecode(error) => Some(error.location().clone()),
+            Self::Shared(error) => error.report_decode_location(),
+            Self::StudyCreationUnsettled { source, .. }
+            | Self::ArtifactTransferUnsettled { source, .. } => source.report_decode_location(),
+            _ => None,
+        }
     }
     fn report_analysis_key(&self) -> Option<String> {
         match self {
@@ -225,6 +238,14 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
             }
             _ => false,
         }
+    }
+}
+impl ReportSource for pse_model::document::JsonDecodeError {
+    fn report_boundary(&self) -> BoundaryDiagnostic {
+        pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
+    }
+    fn report_decode_location(&self) -> Option<pse_model::document::DecodeLocation> {
+        Some(self.location().clone())
     }
 }
 impl ReportSource for pse_runtime::RuntimeError {
@@ -336,6 +357,7 @@ impl DiagnosticReport {
         report.message = error.to_string();
         report.help = error.help().map(|help| help.to_string());
         report.contexts = error.report_contexts();
+        report.decode_location = error.report_decode_location();
         report.analysis_key = error.report_analysis_key();
         report.artifact_key = error.report_artifact_key();
         report.artifact_intent = error.report_artifact_intent();
@@ -384,6 +406,7 @@ impl DiagnosticReport {
         }
         Self {
             boundary: None,
+            decode_location: None,
             analysis_key: None,
             artifact_key: None,
             artifact_intent: None,
@@ -410,6 +433,11 @@ impl DiagnosticReport {
 }
 #[pymethods]
 impl DiagnosticReport {
+    /// Structural JSON decoding facts, distinct from authored scientific source locations.
+    #[getter]
+    fn decode_location(&self) -> Option<DocumentValue<pse_model::document::DecodeLocation>> {
+        self.decode_location.clone().map(DocumentValue)
+    }
     /// Exact original settlement document; inactive content remains inaccessible.
     #[getter]
     fn artifact_intent(

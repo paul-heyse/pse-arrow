@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,7 +36,9 @@ from scripts.capabilities import (
 )
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
 from scripts.capabilities.coherence import LOADED, Interface, install
+from scripts.capabilities.diagnostics import refusal as safe_refusal
 from scripts.capabilities.guidance import Guidance, register_guides
+from scripts.capabilities.input_diagnostics import InputDiagnostics
 from scripts.capabilities.inventory import inventory
 
 if TYPE_CHECKING:
@@ -67,8 +68,8 @@ response does not undo an action; inspect its authentic native handle before dec
 """
 
 
-def refusal(code: str, error: ValueError) -> ToolError:
-    return ToolError(json.dumps({"code": code, "message": str(error)}, sort_keys=True))
+def refusal(code: str, _error: ValueError) -> ToolError:
+    return safe_refusal(code)
 
 
 def bindings(
@@ -336,9 +337,7 @@ def build(root: Path = ROOT) -> Runtime:
             or tool.annotations is None
             or tool.annotations.read_only_hint is not True
         ):
-            raise ToolError(
-                "pse.capabilities.read_binding_required: select an actual read-only canonical tool"
-            )
+            raise safe_refusal("pse.capabilities.read_binding_required")
         # Public FastMCP dispatch retains visibility, context, strict FunctionTool
         # input validation, middleware, original result and future native admission.
         return await server.call_tool(capability, arguments)
@@ -361,11 +360,10 @@ def build(root: Path = ROOT) -> Runtime:
             or tool.annotations is None
             or tool.annotations.read_only_hint is not False
         ):
-            raise ToolError(
-                "pse.capabilities.action_binding_required: select an actual canonical action"
-            )
+            raise safe_refusal("pse.capabilities.action_binding_required")
         return await server.call_tool(capability, arguments)
 
+    server.add_middleware(InputDiagnostics(server))
     interface = install(server, LOADED, catalogue)
     observation.install(
         server,

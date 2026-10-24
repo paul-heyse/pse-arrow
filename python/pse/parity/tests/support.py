@@ -14,6 +14,7 @@ from types import MappingProxyType
 import pyarrow as pa
 
 import pse
+from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import documents as contract_documents
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
@@ -97,7 +98,6 @@ class ParityContext:
     def reference_documents(self) -> tuple[Mapping[str, bytes], ...]:
         """Immutable library source bytes; no admitted model packages or results."""
         if self._reference_documents is None:
-            from pse._scientific_inputs import family_packages
 
             self._reference_documents = tuple(
                 MappingProxyType(p) for p in family_packages("parity")
@@ -132,8 +132,6 @@ def package(
 
 def documents(path: Path, *, all_files: bool = False) -> Mapping[str, bytes]:
     """An immutable snapshot of original document bytes, by relative path."""
-    from pse._scientific_inputs import package_documents
-
     captured = package_documents(path)
     if captured is not None:
         return MappingProxyType(captured)

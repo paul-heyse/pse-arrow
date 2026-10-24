@@ -15,6 +15,8 @@ from pathlib import Path
 
 from pydantic import JsonValue, ValidationError
 
+from scripts.capabilities.diagnostics import safe_path
+
 
 def invoke(operation: str, document: str) -> dict[str, JsonValue]:
     if operation == "archive":
@@ -46,11 +48,20 @@ def main(argv: list[str] | None = None) -> int:
         detail: dict[str, object] = {
             "code": "pse.host." + operation + ".refused",
             "cause": type(error).__name__,
-            "message": str(error),
+            "stage": "host_action",
+            "message": "The selected host request could not be served; supplied values are redacted.",
+            "remedy": "Inspect the original owner and any issued output before deciding whether another action is safe. No automatic retry or rollback is inferred.",
         }
         if isinstance(error, ValidationError):
             detail["message"] = "Invalid host request; supplied values omitted."
-            detail["fields"] = error.errors(include_input=False, include_context=False)
+            detail["stage"] = "input"
+            detail["field_count"] = error.error_count()
+            detail["fields"] = [
+                {"loc": safe_path(list(item["loc"]), frozenset()), "type": item["type"]}
+                for item in error.errors(include_input=False, include_context=False)[
+                    :16
+                ]
+            ]
         response = {"error": detail}
     with Path(destination).open("x") as output:
         json.dump(response, output)

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Activity membership, resumable coverage, provenance and selected reads."""
 
-# ruff: noqa: PT009 -- stdlib setup controls
+# ruff: noqa: PT009, PT027 -- stdlib unittest controls
 from __future__ import annotations
 
 import datetime as dt

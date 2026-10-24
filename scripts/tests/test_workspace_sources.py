@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Independent source questions, freshness cuts and research provenance."""
 
-# ruff: noqa: PT009 -- stdlib setup controls
+# ruff: noqa: PT009, PT027 -- stdlib unittest controls
 from __future__ import annotations
 
 import hashlib
@@ -164,7 +164,7 @@ scope = "History"
         limited = sources.search("stale", root=self.root, max_bytes=8)
         self.assertFalse(limited["complete"])
         self.assertTrue(limited["gaps"])
-        output = sources._command(
+        output = sources._command(  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
             self.root,
             [sys.executable, "-c", "print('x'*2000000)"],
             max_bytes=100,
@@ -172,7 +172,7 @@ scope = "History"
         )
         self.assertFalse(output["complete"])
         self.assertEqual(len(output["stdout"]), 100)
-        timed = sources._command(
+        timed = sources._command(  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
             self.root,
             [sys.executable, "-c", "import time; time.sleep(2)"],
             seconds=0.01,
@@ -307,14 +307,16 @@ doc_topics = ["architecture"]
         self.write("docs/selected.md", "---\nstatus: proposed\n---\n# Selected\n")
         original = sources.docs.document_scope
 
-        def changing_scope(path, status, site):
+        def changing_scope(path: Path, status: str, site: dict) -> str | None:
             target = self.root / "docs/site.toml"
             target.write_text(target.read_text() + "\n# changed during selection\n")
             return original(path, status, site)
 
-        with patch.object(sources.docs, "document_scope", side_effect=changing_scope):
-            with self.assertRaisesRegex(ValueError, "metadata interpretation changed"):
-                sources.source("docs/selected.md", root=self.root)
+        with (
+            patch.object(sources.docs, "document_scope", side_effect=changing_scope),
+            self.assertRaisesRegex(ValueError, "metadata interpretation changed"),
+        ):
+            sources.source("docs/selected.md", root=self.root)
 
     def test_research_packet_reconstructs_exact_pin_patch_api_and_unknown_lifetime(
         self,
@@ -354,7 +356,9 @@ doc_topics = ["architecture"]
 
     def test_missing_requested_library_reference_is_a_real_population_gap(self) -> None:
         self.cargo()
-        packet = sources.library_packet("sample", root=self.root, references=("missing.rs",))
+        packet = sources.library_packet(
+            "sample", root=self.root, references=("missing.rs",)
+        )
         self.assertFalse(packet["population_complete"])
         self.assertIn("reference_unavailable:missing.rs", packet["unresolved"])
         self.assertIn("lifetimes", packet["unknowns"][0])
@@ -433,10 +437,9 @@ doc_topics = ["architecture"]
         self,
     ) -> None:
         self.cargo()
-        digest = lambda path: hashlib.sha256(
-            (self.root / path).read_bytes()
-        ).hexdigest()
-        context = {
+        def digest(path: str) -> str:
+            return hashlib.sha256((self.root / path).read_bytes()).hexdigest()
+        context: dict = {
             "target": "chosen-target",
             "features": ["fast"],
             "manifest_digest": digest("Cargo.toml"),

@@ -22,6 +22,38 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
     guide = "# Plan execution\nPrepare the approach; do not execute implementation.\n"
     root_instructions = "# Original workflow instructions\n"
     (output / "AGENTS.md").write_text(root_instructions)
+    source = output / check.SOURCE_DOCUMENT
+    source.parent.mkdir(parents=True)
+    source_text = "---\nstatus: current\ndoc_role: reference\ndoc_owner: docs/README.md\n---\n# Source owner\n"
+    source.write_text(source_text)
+    concept_description = {
+        "input_schema": {"type": "object", "required": ["request"]},
+        "output_schema": {"type": "object", "required": ["result"]},
+    }
+    concept_answer = {
+        "result": {
+            "operation": "workspace_concepts_query",
+            "complete": True,
+            "answer": {"population": "complete"},
+            "payload": {
+                "adapter_status": "available",
+                "items": [
+                    {
+                        "id": "document:docs/README.md",
+                        "kind": "document",
+                        "native_id": "docs/README.md",
+                        "native_state": "current",
+                        "publication_scope": "Reference",
+                        "document_role": "reference",
+                        "owner": "docs/README.md",
+                        "native_version": hashlib.sha256(
+                            source_text.encode()
+                        ).hexdigest(),
+                    }
+                ],
+            },
+        }
+    }
     native = {
         "invocation": "a" * 32,
         "registry": "/registry",
@@ -117,6 +149,11 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
             description,
         ),
         (
+            "capabilities_describe",
+            {"capability": "workspace_concepts_query", "include_schema": True},
+            concept_description,
+        ),
+        (
             "capabilities_select",
             {"workflows": [check.WORKFLOW], "capabilities": ["skill-plan-execution"]},
             {"capabilities": ["skill-plan-execution"]},
@@ -135,6 +172,20 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
             "get_prompt",
             {"name": "workflow_" + check.WORKFLOW},
             rendered(check.WORKFLOW),
+        ),
+        (
+            "capabilities_invoke_read",
+            {
+                "capability": "workspace_concepts_query",
+                "arguments": {
+                    "request": {
+                        "concept": "document",
+                        "identity": check.SOURCE_DOCUMENT,
+                        "limit": 1,
+                    }
+                },
+            },
+            concept_answer,
         ),
         ("capabilities_reset", {}, {"capabilities": []}),
         (
@@ -239,7 +290,7 @@ class CodexEvidenceTests(unittest.TestCase):
         self.assertEqual(outcome["selected_count"], 1)
         self.assertEqual(outcome["failures"], 0)
         self.assertEqual(outcome["passed"], 1)
-        self.assertEqual(len(check.object_value(outcome["stages"])), 17)
+        self.assertEqual(len(check.object_value(outcome["stages"])), 19)
         self.assertEqual(authentic, self.native)
         reader.assert_called_once_with(
             self.native["run_path"], registry=Path("/registry"), limit=10
@@ -258,11 +309,14 @@ class CodexEvidenceTests(unittest.TestCase):
                 self.transcript(events), self.output, self.guide
             )
         self.assertEqual(outcome["passed"], 1)
-        selected_start, selected_done = events[10:12]
-        events[6:12] = [
+        concept_start, concept_done = events[10:12]
+        selected_start, selected_done = events[12:14]
+        events[6:14] = [
             skill_start,
             action_start,
             action_done,
+            concept_start,
+            concept_done,
             selected_start,
             selected_done,
             skill_done,
@@ -385,15 +439,67 @@ class CodexEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exact authorized"):
             check.assess(altered, self.output, self.guide)
 
-    def test_product_reader_requires_actual_typed_wrapper_without_text_fallback(self) -> None:
+    def test_product_reader_requires_actual_typed_wrapper_without_text_fallback(
+        self,
+    ) -> None:
         native = {"operation": "product_run_read", "payload": self.native}
         text = [{"type": "text", "text": json.dumps(native)}]
-        self.assertEqual(check.decoded_result({"structured_content": {"result": native}, "content": text}, operation="product_run_read"), native)
+        self.assertEqual(
+            check.decoded_result(
+                {"structured_content": {"result": native}, "content": text},
+                operation="product_run_read",
+            ),
+            native,
+        )
         for structured in (None, native, {"result": native, "other": True}):
-            with self.subTest(structured=structured), self.assertRaises((ValueError, TypeError)):
-                check.decoded_result({"structured_content": structured, "content": text}, operation="product_run_read")
+            with (
+                self.subTest(structured=structured),
+                self.assertRaises((ValueError, TypeError)),
+            ):
+                check.decoded_result(
+                    {"structured_content": structured, "content": text},
+                    operation="product_run_read",
+                )
         action = {"operation": "rust_test_run", "result": {"exit_code": 0}}
-        self.assertEqual(check.decoded_result({"structured_content": action}, operation="rust_test_run"), action)
+        self.assertEqual(
+            check.decoded_result(
+                {"structured_content": action}, operation="rust_test_run"
+            ),
+            action,
+        )
+
+    def test_source_concept_request_and_native_identity_cannot_be_substituted(
+        self,
+    ) -> None:
+        calls = self.transcript(self.events)
+        concept = next(
+            call for call in calls if call.operation == "workspace_concepts_query"
+        )
+        original = copy.deepcopy(concept.operation_arguments)
+        concept.operation_arguments["request"] = {
+            "concept": "document",
+            "identity": "docs/other.md",
+            "limit": 1,
+        }
+        with self.assertRaisesRegex(ValueError, "exact tagged source request"):
+            check.assess(calls, self.output, self.guide)
+        concept.operation_arguments.update(original)
+        selected = check.object_value(
+            check.array_value(check.object_value(concept.result["payload"])["items"])[0]
+        )
+        for key, replacement in (
+            ("native_state", "accepted"),
+            ("native_version", "0" * 64),
+            ("native_id", "docs/other.md"),
+        ):
+            old = selected[key]
+            selected[key] = replacement
+            with (
+                self.subTest(field=key),
+                self.assertRaisesRegex(ValueError, "independently observed source"),
+            ):
+                check.assess(calls, self.output, self.guide)
+            selected[key] = old
 
     def test_timeout_drain_reaps_owned_direct_process(self) -> None:
         process = subprocess.Popen(

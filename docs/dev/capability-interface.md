@@ -157,11 +157,31 @@ Linked shared-library skills outside the checkout retain native access rather th
 checkout-contained resource. Owned process skills are served as lazy instruction resources; retrieving
 one does not activate or execute its workflow.
 
-Read results retain original payloads and independent completeness/omission meanings. Nested
-truncation, source gaps and response limits cannot become a complete result. Large/raw detail stays
-with selected source owners; narrow or page the request when detail is omitted. Native source status
-is not inferred from a process exit or a tool transport success. Expected owner refusals retain a
-structured operation/code/cause; unexpected failures retain the server's masking policy.
+Host context, concepts, relationships, recipe, inventory, environment, source corpus, document scope,
+run, assessment, watch, storage, library and coverage readers publish named response schemas.
+Their FastMCP structured output is `{"result": <typed answer or detail refusal>}`. Bootstrap,
+specialist and native operations retain their described shapes; inspect the actual output schema.
+`answer.population` distinguishes complete, partial and unavailable source populations;
+`answer.detail` distinguishes selected from omitted optional detail. Deliberately excluded work
+and unknown knowledge are separate from missing source populations. A successful reader never
+upgrades the observed workload's outcome, assurance or drain.
+
+Selected excerpts, subject pages and artifact tails reach their original reader before text/detail
+construction. Global counts and original source attribution remain explicit. Oversize answers return
+a typed `detail-refused` outcome with no substituted partial payload. Large/raw detail stays with
+selected source owners; narrow or page the request or use the original protected export.
+
+`workspace_concepts_query` takes one owner-defined tagged `request`. For example:
+
+```json
+{"request":{"concept":"document","identity":"docs/README.md"}}
+```
+
+Document/decision discovery also supports conjunctive metadata facets. Research questions require
+their identity, origin and question; evidence/diagnostic queries require an explicit
+`selected_reference` naming the original adapter and path. Describe the capability to obtain every
+alternative and its required fields. Missing, null, empty and inapplicable fields retain their
+declared meanings; there is no compatibility argument bag or similarity fallback.
 
 ## Loaded contracts and lifetime
 
@@ -208,8 +228,25 @@ The original runner owns selection, force-validation, source/configuration fenci
 
 Ephemeral source admission ends with its child lifetime and does not return a reopenable model
 handle. Durable reads name the exact canonical deployment/revision/run/attempt and preserve native
-source protection. Result windows carry bounded Arrow IPC bytes rather than per-row scientific
-JSON. Larger windows must be narrowed using the same protected native identity.
+source protection. `native_result_read` preserves exact bounded Arrow IPC bytes. Larger windows
+must be narrowed using the same protected native identity.
+
+`native_result_inspect` accepts the generated `ResultInspectionRequest`: exact run, attempt,
+relation, half-open `start`/`end`, optional `expected_manifest` and a tagged `view`. A
+`{"kind":"schema","offset":0,"limit":8}` view returns original field descriptors, metadata,
+manifest and recorded-row population without pulling data batches. A
+`{"kind":"values","fields":["value"],"maximum_rows":4}` view returns selected scalar cells plus
+all original non-value context columns, including identities, units, basis and quality where the
+original relation supplies them. Inspect the schema first for exact field names. Both views retain
+the original terminal selection; scientific usability stays unknown rather than being inferred.
+
+Readable cells preserve original widths through their field descriptors and exact floating bits,
+with explicit null, finite/nonfinite and unavailable distinctions. Unsupported nested/storage or
+oversized cells report unavailable with `readable_complete=false`; they are never normalized into
+zero or null. Pages retain original coordinates, including coverage holes. Unknown fields, changed
+manifests and finite response/context limits refuse explicitly. The native protected reader still
+validates original batches before selected-cell transport; this is not a projected-storage decode
+or a measured speed claim. Exact Arrow IPC remains the complete scientific data path.
 
 Read cancellation detaches the observer; its protected native operation finishes under its owner.
 Action cancellation signals only the owned helper and waits for its native drain. Diagnostic
@@ -231,6 +268,14 @@ connection. Root VIEWER credentials restrict exploratory queries; canonical proj
 retain their separate native admission. Database tooling is not agent memory.
 
 ## Interface diagnostics
+
+Input and selection refusals expose stable codes, stage, safe locations and an owner-appropriate
+remedy. Public structural paths retain schema-declared keys and indexes; arbitrary map keys and
+variant values are redacted. Native decode reports retain header/body/trailing phase, JSON category,
+line/column and tracked path precision, separately from authored-source spans. Related/context
+counts and authentic native recovery identities survive explicit wrapping. Supplied messages,
+credentials and arbitrary exception text are not echoed or parsed to invent classifications.
+An issued recovery identity means inspect that owner's unsettled work; it grants no automatic retry.
 
 Tool, resource and prompt responses carry bounded `_meta["pse.observation"]` correlation alongside
 their unchanged native content and owner metadata. Nested canonical invocation shares the same

@@ -12,7 +12,6 @@ class Worker:
     module: str
     operations: frozenset[str]
     environment: tuple[str, ...] = ()
-    redact_diagnostics: bool = False
 
 
 WORKERS = {
@@ -45,6 +44,5 @@ WORKERS = {
         "scripts.capabilities.native_worker",
         frozenset({"source_admit", "preparation_discover"}),
         ("--native=solver,klu,isolation,uno,petsc",),
-        redact_diagnostics=True,
     ),
 }

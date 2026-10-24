@@ -12,7 +12,7 @@ from scripts import assertion_sensitivity as sensitivity
 
 
 class SensitivityTests(unittest.TestCase):
-    def test_both_phases_keep_validated_compile_flags_and_only_test_gets_filter(self):
+    def test_both_phases_keep_validated_compile_flags_and_only_test_gets_filter(self) -> None:
         common, tests = sensitivity.split_arguments(
             [
                 "--locked",
@@ -46,7 +46,7 @@ class SensitivityTests(unittest.TestCase):
             ["-Factual/force-validate"],
         )
 
-    def test_copy_bypass_and_missing_values_are_refused(self):
+    def test_copy_bypass_and_missing_values_are_refused(self) -> None:
         for args in (
             ["--target-dir", "/original/target"],
             ["--manifest-path", "/original/Cargo.toml"],
@@ -56,7 +56,7 @@ class SensitivityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 sensitivity.split_arguments(args)
 
-    def test_actual_protocol_baseline_and_mutants_have_distinct_outcomes(self):
+    def test_actual_protocol_baseline_and_mutants_have_distinct_outcomes(self) -> None:
         baseline = {
             "scenario": "Baseline",
             "summary": "Success",
@@ -92,7 +92,7 @@ class SensitivityTests(unittest.TestCase):
         self.assertEqual(status, "setup-failed")
         self.assertEqual(rows[0]["classification"], "setup-failed")
 
-    def test_unknown_protocol_or_no_challenge_is_not_positive_evidence(self):
+    def test_unknown_protocol_or_no_challenge_is_not_positive_evidence(self) -> None:
         for value in (
             {},
             {"outcomes": []},
@@ -110,7 +110,7 @@ class SensitivityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 sensitivity.decode_outcomes(value)
 
-    def test_cli_default_uses_fresh_output_owner(self):
+    def test_cli_default_uses_fresh_output_owner(self) -> None:
         with patch.object(sensitivity, "run", return_value=0) as selected:
             self.assertEqual(
                 sensitivity.main(["crates/actual/src/lib.rs", "--", "-p", "actual"]), 0

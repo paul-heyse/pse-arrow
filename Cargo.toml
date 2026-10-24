@@ -184,6 +184,7 @@ serde = { version = "=1.0.229", features = ["derive", "rc"] }
 # Manifest and extension-metadata JSON only (blueprint §4.3): never a hash input, never
 # relation data. Identity framing lives in pse-ids (blueprint §5.3).
 serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
+serde_path_to_error = "=0.1.20"
 # JSON Schema (draft 2020-12) of the Rust-owned boundary documents, derived from their
 # serde types; the generator publishes the schemas and the Python msgspec types from them
 # (ADR-0116 Outcome 7).

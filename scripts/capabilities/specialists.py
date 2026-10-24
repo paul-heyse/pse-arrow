@@ -10,7 +10,6 @@ sessions without transferring ownership of an AnyIO cancel scope across tasks.
 from __future__ import annotations
 
 import asyncio
-import base64
 import contextlib
 import hashlib
 import json
@@ -116,13 +115,20 @@ class HierarchyItem(Contract):
 
 
 def refusal(operation: str, error: Exception) -> ToolError:
+    remedy = (
+        "Use an exact retained preview digest from this endpoint. A closed, foreign or invalid handle requires a new reviewed preview; no apply or replay is inferred."
+        if operation.startswith("edit_preview_")
+        else "Inspect the selected provider/source identity and operation schema. Correct input or explicitly prepare the provider; no retry or effects are inferred."
+    )
     return ToolError(
         json.dumps(
             {
                 "code": "pse.specialist.refused",
                 "operation": operation,
                 "cause": type(error).__name__,
-                "message": str(error),
+                "stage": "specialist_selection",
+                "message": "The selected specialist request was refused; supplied values are redacted.",
+                "remedy": remedy,
             }
         )
     )
@@ -487,22 +493,15 @@ class Specialists:
         return await self.languages[language].invoke(action)
 
     def transport_failure(self, operation: str, error: Exception) -> ToolError:
-        message = str(error)
-        if self.selected is not None:
-            authorization = self.selected.authorization().get("Authorization", "")
-            if authorization:
-                token = authorization.removeprefix("Basic ")
-                password = base64.b64decode(token).decode().partition(":")[2]
-                for secret in (authorization, token, password):
-                    if secret:
-                        message = message.replace(secret, "[redacted]")
         return ToolError(
             json.dumps(
                 {
                     "code": "pse.specialist.transport_failed",
                     "operation": operation,
                     "cause": type(error).__name__,
-                    "message": message,
+                    "stage": "specialist_transport",
+                    "message": "Specialist transport failed; supplied values and credentials are redacted.",
+                    "remedy": "Inspect the selected provider's connection and original operation state before reconnecting or repeating work. Transport failure proves no rollback.",
                 }
             )
         )
@@ -950,8 +949,12 @@ def bindings(
                 semantic_navigation.edit_result(payload),
                 producer="mcpls:" + language,
             )
-        except (ValueError, KeyError, IndexError, TypeError) as error:
-            result["preview_refusal"] = str(error)
+        except (ValueError, KeyError, IndexError, TypeError):
+            result["preview_refusal"] = {
+                "code": "pse.specialist.preview_unavailable",
+                "stage": "preview_capture",
+                "remedy": "Inspect the original server result and current source cut; only a complete attributable edit can produce an apply handle.",
+            }
             result["complete"] = False
             return result
         # Retain before projection: omitted response strings can never alter this snapshot.
@@ -1047,6 +1050,7 @@ def bindings(
 
     def edit_preview_apply(preview_sha256: Digest, receipt: str) -> ReadResult:
         """Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire when the endpoint closes. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority."""
+        preview = None
         try:
             preview = owner.retained_preview(preview_sha256)
             destination = semantic_edits.owned_path(
@@ -1056,6 +1060,19 @@ def bindings(
                 semantic_edits.apply(preview, destination), "edit_preview_apply"
             )
         except (ValueError, OSError) as error:
+            if preview is not None:
+                raise ToolError(
+                    json.dumps(
+                        {
+                            "code": "pse.specialist.edit_apply_unsettled",
+                            "stage": "edit_apply",
+                            "cause": type(error).__name__,
+                            "message": "Edit application did not return success. The error alone does not establish whether any source changed.",
+                            "recovery": {"preview_sha256": preview_sha256},
+                            "remedy": "Call edit_preview_reconcile with this retained preview digest and inspect original source/receipt before deciding further edits. Do not automatically repeat apply.",
+                        }
+                    )
+                ) from error
             raise refusal("edit_preview_apply", error) from error
 
     def edit_preview_reconcile(preview_sha256: Digest) -> ReadResult:

@@ -25,13 +25,14 @@ class ScientificConsumerTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "captured_science", ROOT / "python/pse/_scientific_inputs.py"
         )
-        assert spec is not None and spec.loader is not None
+        assert spec is not None
+        assert spec.loader is not None
         self.consumer = importlib.util.module_from_spec(spec)
         modules = patch.dict(sys.modules, {spec.name: self.consumer})
         modules.start()
         self.addCleanup(modules.stop)
         spec.loader.exec_module(self.consumer)
-        self.consumer._REFERENCE_ROOT = self.root / "packages/reference"
+        self.consumer._REFERENCE_ROOT = self.root / "packages/reference"  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         self.package = self.root / "packages/reference/example"
         self.package.mkdir(parents=True)
         (self.package / "package.toml").write_text("live manifest")

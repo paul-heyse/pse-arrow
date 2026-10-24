@@ -8,13 +8,23 @@ fixture/peer exceptions, rather than a second manifest of every test name.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
     import pytest
+
+
+class RequirementDocument(TypedDict):
+    """Existing JSON projection of declared demand; no inferred runtime authority."""
+
+    effects: list[str]
+    fixtures: list[str]
+    capacity: str
+    roles: list[str]
+    exclusion: str | None
 
 
 @dataclass(frozen=True)
@@ -29,10 +39,13 @@ class Requirement:
         if self.exclusion not in {None, "service-generation-maintenance"}:
             raise ValueError("Unknown test exclusion meaning")
 
-    def document(self) -> dict[str, object]:
+    def document(self) -> RequirementDocument:
         return {
-            key: list(value) if isinstance(value, tuple) else value
-            for key, value in asdict(self).items()
+            "effects": list(self.effects),
+            "fixtures": list(self.fixtures),
+            "capacity": self.capacity,
+            "roles": list(self.roles),
+            "exclusion": self.exclusion,
         }
 
 
@@ -410,11 +423,11 @@ def rust_catalog(
     required_roles: Sequence[str] = (),
     validate_declarations: bool = True,
     active_features: Mapping[str, Sequence[str]] | None = None,
-) -> dict[str, dict[str, object]]:
+) -> dict[str, RequirementDocument]:
     suites = inventory.get("rust-suites")
     if not isinstance(suites, dict):
         raise ValueError("Unknown nextest catalogue shape")
-    result: dict[str, dict[str, object]] = {}
+    result: dict[str, RequirementDocument] = {}
     found_roles: set[str] = set()
     for suite in suites.values():
         binary = suite["binary-id"]
@@ -449,11 +462,12 @@ def rust_catalog(
 def validate_roles(
     requirements: Mapping[str, Mapping[str, object]], roles: Sequence[str]
 ) -> None:
-    observed = {
-        role
-        for requirement in requirements.values()
-        for role in requirement.get("roles", [])
-    }
+    observed: set[str] = set()
+    for requirement in requirements.values():
+        declared = requirement.get("roles", [])
+        if not isinstance(declared, (list, tuple)) or any(not isinstance(role, str) for role in declared):
+            raise TypeError("Unknown requirement roles shape")
+        observed.update(declared)
     missing = set(roles) - observed
     if missing:
         raise ValueError(
@@ -472,11 +486,13 @@ def guard(requirements: Mapping[str, object], identity: str, effect: str) -> Non
 def fixture_guard(
     requirements: Mapping[str, Mapping[str, object]], role: str, effect: str
 ) -> None:
-    consumers = [
-        identity
-        for identity, demand in requirements.items()
-        if role in demand.get("fixtures", [])
-    ]
+    consumers = []
+    for identity, demand in requirements.items():
+        fixtures = demand.get("fixtures", [])
+        if not isinstance(fixtures, (list, tuple)):
+            raise TypeError("Unknown requirement fixtures shape")
+        if role in fixtures:
+            consumers.append(identity)
     if not consumers:
         raise ValueError(f"Native fixture {role} has no actual selected consumer")
     for identity in consumers:

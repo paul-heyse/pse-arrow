@@ -19,19 +19,19 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import FunctionTool
 from pydantic import ValidationError
 
+from scripts import assessment_store, test_resources, validation_result
 from scripts.capabilities import process
 from scripts.capabilities import qualification as subject
 from scripts.capabilities import qualification_worker as worker
 from scripts.capabilities.inventory import inventory
 from scripts.capabilities.model import Contract
+from scripts.tests import assessment_fixture
 from scripts.tests.test_capabilities import content
 from scripts.validation_scope import Gate, comprehensive, expand, functional_gates
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-from scripts import assessment_store, test_resources, validation_result
-from scripts.tests import assessment_fixture
 
 
 class QualificationSelectionTests(unittest.TestCase):
@@ -205,9 +205,15 @@ class QualificationSelectionTests(unittest.TestCase):
             self.assertEqual(details.call_count, 1)
             self.assertEqual(details.call_args.args[1], checks[0]["detail"])
             changes = result["contextual_changes"]
+            if not isinstance(changes, dict):
+                self.fail("Expected an original contextual-change observation")
             self.assertEqual(changes["status"], "not_hydrated")
-            self.assertEqual(set(changes["source_cut_ref"]), {"sha256"})
-            self.assertTrue(changes["reader"]["source_detail"])
+            source_cut = changes["source_cut_ref"]
+            reader = changes["reader"]
+            if not isinstance(source_cut, dict) or not isinstance(reader, dict):
+                self.fail("Expected original source-cut and detail reader references")
+            self.assertEqual(set(source_cut), {"sha256"})
+            self.assertTrue(reader["source_detail"])
             with patch.object(
                 test_resources, "registry", return_value=root / "registry"
             ):
@@ -286,6 +292,46 @@ class QualificationSelectionTests(unittest.TestCase):
             )
             self.assertEqual(failure["exit_code"], 125)
             self.assertEqual(failure["cause"], "BoundaryError")
+            self.assertEqual(failure["stage"], "preparation")
+            self.assertNotIn("prerequisite store: unavailable", json.dumps(failure))
+            self.assertIn("No automatic retry", failure["remedy"])
+
+    def test_worker_input_refusal_redacts_unknown_keys_and_success_keeps_receipt(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, destination = (
+                Path(temporary) / "request.json",
+                Path(temporary) / "response.json",
+            )
+            source.write_text(
+                '{"output":"build/selected","PRIVATE-FIELD":"PRIVATE VALUE"}'
+            )
+            self.assertEqual(
+                worker.main(["documentation", str(source), str(destination)]), 0
+            )
+            failure = json.loads(destination.read_text())["error"]
+            self.assertEqual(failure["code"], "pse.qualification.input_refused")
+            self.assertEqual(failure["stage"], "input")
+            self.assertEqual(failure["fields"][0]["loc"], ["<redacted-key>"])
+            self.assertNotIn("PRIVATE", json.dumps(failure))
+            destination.unlink()
+            native = {
+                "operation": "assessment",
+                "exit_code": 1,
+                "receipt": "build/issued/checks.json",
+                "receipt_sha256": "a" * 64,
+                "complete": False,
+                "reader": {
+                    "capability": "assessment_read",
+                    "directory": "build/issued",
+                },
+            }
+            with patch.object(worker, "execute", return_value=native):
+                self.assertEqual(
+                    worker.main(["assessment", str(source), str(destination)]), 0
+                )
+            self.assertEqual(json.loads(destination.read_text()), {"result": native})
 
 
 class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
@@ -414,6 +460,66 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("source-bearing diagnostics withheld", str(failure.exception))
         self.assertNotIn("PRIVATE SOURCE BODY", str(failure.exception))
         self.assertNotIn("path-containing-values", str(failure.exception))
+
+    async def test_host_and_qualification_helper_crashes_redact_logs_without_inventing_settlement(
+        self,
+    ) -> None:
+        class FailedProcess:
+            def __init__(self, code: int) -> None:
+                self.returncode = code
+
+            async def wait(self) -> int:
+                return self.returncode
+
+        cases = (
+            ("host", "diagnostic", 7),
+            ("qualification", "assessment", 0),
+            ("rust-tests", "rust-test", 130),
+        )
+        for worker_name, operation, exit_code in cases:
+            with self.subTest(worker=worker_name, exit_code=exit_code):
+
+                async def spawn(
+                    *_arguments: str, expected_exit: int = exit_code, **options: object
+                ) -> FailedProcess:
+                    stdout, stderr = options["stdout"], options["stderr"]
+                    assert isinstance(stdout, io.BufferedIOBase)
+                    assert isinstance(stderr, io.BufferedIOBase)
+                    stdout.write(
+                        b"CREDENTIAL_SENTINEL=private-value /private/source-containing-values\n"
+                    )
+                    stderr.write(
+                        b"STDERR_SECRET=private-value /private/diagnostic-path\n"
+                    )
+                    return FailedProcess(expected_exit)
+
+                with (
+                    patch.object(asyncio, "create_subprocess_exec", side_effect=spawn),
+                    self.assertRaises(ToolError) as failure,
+                ):
+                    await process.run_worker(
+                        ROOT,
+                        worker_name,
+                        operation,
+                        subject.OutputRequest(output="build/original-owner-output"),
+                    )
+                encoded = str(failure.exception)
+                value = json.loads(encoded)
+                self.assertEqual(value["code"], "pse.host.helper_unsettled")
+                self.assertEqual(value["stage"], "helper_transport")
+                self.assertEqual(value["helper_exit_code"], exit_code)
+                self.assertEqual(value["output"], "build/original-owner-output")
+                self.assertEqual(value["operation"], operation)
+                self.assertIn(
+                    "helper exit alone is not settlement", value["settlement"]
+                )
+                self.assertIn("Do not repeat work", value["remedy"])
+                self.assertNotIn("CREDENTIAL_SENTINEL", encoded)
+                self.assertNotIn("STDERR_SECRET", encoded)
+                self.assertNotIn("private-value", encoded)
+                self.assertNotIn("/private/", encoded)
+                self.assertNotIn("receipt", value)
+                self.assertNotIn("complete", value)
 
     async def test_scoped_rust_functiontool_uses_fixed_exclusive_owner(self) -> None:
         # Empty native preparation establishes the real operation lifetime

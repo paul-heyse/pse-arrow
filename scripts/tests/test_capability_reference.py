@@ -62,7 +62,9 @@ class ReferenceTests(unittest.TestCase):
         self.assertIn("AGENTS.md](../../../AGENTS.md)", content)
         self.assertNotIn(str(ROOT), content)
 
-    def test_all_host_families_publish_valid_wrapped_serialization_schemas(self) -> None:
+    def test_all_host_families_publish_valid_wrapped_serialization_schemas(
+        self,
+    ) -> None:
         _, workspace_tools = operations.bindings(ROOT)
         _, host_tools = host_queries.bindings(ROOT)
         tools = {**workspace_tools, **host_tools}
@@ -77,12 +79,17 @@ class ReferenceTests(unittest.TestCase):
                 self.assertEqual(schema["type"], "object")
                 self.assertEqual(schema["required"], ["result"])
                 self.assertIn("anyOf", schema["properties"]["result"])
-                refusal = {"result": {
-                    "operation": identity, "outcome": "detail-refused", "complete": False,
-                    "omissions": ["Selected detail exceeds the encoded bound."],
-                    "encoded_bytes": 200000, "maximum_bytes": 131072,
-                    "remedy": "Narrow the original owner selection.",
-                }}
+                refusal = {
+                    "result": {
+                        "operation": identity,
+                        "outcome": "detail-refused",
+                        "complete": False,
+                        "omissions": ["Selected detail exceeds the encoded bound."],
+                        "encoded_bytes": 200000,
+                        "maximum_bytes": 131072,
+                        "remedy": "Narrow the original owner selection.",
+                    }
+                }
                 validator = Draft202012Validator(schema)
                 validator.validate(refusal)
                 self.assertFalse(validator.is_valid(refusal["result"]))

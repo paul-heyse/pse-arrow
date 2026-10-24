@@ -37,6 +37,7 @@ from pse import (
     codec,
 )
 from pse._build import _admit_conformance_manifest
+from pse._scientific_inputs import package_documents, reference_bytes
 from pse.contracts.documents import (
     ConformanceManifest,
     ConformanceManifestOutput,
@@ -88,8 +89,6 @@ class RunSummary(msgspec.Struct, frozen=True):
 
 def load_manifest(path: Path) -> ConformanceManifestOutput:
     """Read generated TOML settings and admit the campaign through its Rust owner."""
-    from pse._scientific_inputs import reference_bytes
-
     manifest = codec.decode_toml(reference_bytes(path), ConformanceManifest)
     return _admit_conformance_manifest(str(path), manifest)
 
@@ -110,7 +109,6 @@ def _preparation_document(
 
 
 def _diagnostic_policy(path: str) -> ModelingDiagnosticPolicyBody:
-    from pse._scientific_inputs import reference_bytes
 
     source = reference_bytes(Path(path)).decode("utf-8")
     # Rust retains threshold/budget validation; project the original authored fields.
@@ -122,7 +120,6 @@ def _diagnostic_policy(path: str) -> ModelingDiagnosticPolicyBody:
 
 
 def _documents(root: Path) -> dict[str, bytes]:
-    from pse._scientific_inputs import package_documents
 
     captured = package_documents(root)
     if captured is not None:

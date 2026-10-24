@@ -10,7 +10,7 @@ from scripts.numerical_investigation import investigate, reference
 
 
 class NumericalInvestigationTests(unittest.TestCase):
-    def test_decimal_exact_input_oracle_and_wrong_derivative_remain_visible(self):
+    def test_decimal_exact_input_oracle_and_wrong_derivative_remain_visible(self) -> None:
         value, derivative = reference("analytic-cubic", 2.0)
         self.assertEqual((value, derivative), (Decimal(8), Decimal(12)))
         sample = {
@@ -32,7 +32,7 @@ class NumericalInvestigationTests(unittest.TestCase):
         self.assertEqual(comparison["derivative_error"], 48.0)
         self.assertFalse(result["samples"][0]["passed"])
 
-    def test_refused_and_incomplete_samples_are_preserved(self):
+    def test_refused_and_incomplete_samples_are_preserved(self) -> None:
         sample = {
             "case": "log-refused",
             "point": -0.9999,
@@ -54,7 +54,7 @@ class NumericalInvestigationTests(unittest.TestCase):
         )
         self.assertEqual(len(result["plan14_reference"]["checks"]), 5)
 
-    def test_empty_or_unknown_capture_is_not_success(self):
+    def test_empty_or_unknown_capture_is_not_success(self) -> None:
         for document in [
             {"schema": "invented", "samples": [{}]},
             {"schema": "numerical-investigation-v1", "samples": []},

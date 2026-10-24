@@ -149,6 +149,12 @@ def identity(directory: Path, group: str | None, proc: Path) -> Identity:
     )
 
 
+def _require_observation(condition: bool, reason: str) -> None:
+    """Refuse a mixed or unsupported observation before publishing its fields."""
+    if not condition:
+        raise ValueError(reason)
+
+
 def member_affinity(directory: Path, group: str, proc: Path) -> Reading:
     """Actual direct-member scheduler masks, including when cpuset is undelegated.
 
@@ -158,28 +164,19 @@ def member_affinity(directory: Path, group: str, proc: Path) -> Reading:
     """
     try:
         members = read(directory / "cgroup.procs").split()
-        if len(members) > 128 or any(not pid.isdecimal() for pid in members):
-            raise ValueError(
-                "direct member affinity observation exceeds bound or is malformed"
-            )
+        _require_observation(not (len(members) > 128 or any((not pid.isdecimal() for pid in members))), 'direct member affinity observation exceeds bound or is malformed')
         masks: dict[str, int | float | str] = {}
         for pid in members:
             selected = proc / pid
             before = read(selected / "stat").rsplit(")", 1)[1].split()[19]
-            if read(selected / "cgroup") != "0::" + group:
-                raise ValueError("member cgroup changed")
+            _require_observation(not (read(selected / 'cgroup') != '0::' + group), 'member cgroup changed')
             values = [
                 line.split(":", 1)[1].strip()
                 for line in read(selected / "status").splitlines()
                 if line.startswith("Cpus_allowed_list:")
             ]
-            if len(values) != 1 or not values[0]:
-                raise ValueError("member scheduler affinity unavailable")
-            if (
-                read(selected / "stat").rsplit(")", 1)[1].split()[19] != before
-                or read(selected / "cgroup") != "0::" + group
-            ):
-                raise ValueError("member lifetime changed")
+            _require_observation(not (len(values) != 1 or not values[0]), 'member scheduler affinity unavailable')
+            _require_observation(not (read(selected / 'stat').rsplit(')', 1)[1].split()[19] != before or read(selected / 'cgroup') != '0::' + group), 'member lifetime changed')
             masks[pid + ":" + before] = values[0]
         return Reading(
             "available", masks, "direct members only; child cgroups unobserved"
@@ -200,10 +197,7 @@ def sample(
     fields: dict[str, Reading] = {}
     ancestors: list[Restriction] = []
     try:
-        if group is not None and (
-            not group.startswith("/") or ".." in Path(group).parts
-        ):
-            raise ValueError("expected an absolute cgroup without parent traversal")
+        _require_observation(not (group is not None and (not group.startswith('/') or '..' in Path(group).parts)), 'expected an absolute cgroup without parent traversal')
         directory = (
             cgroup / group.lstrip("/") if group is not None else proc / "pressure"
         )
@@ -229,8 +223,7 @@ def sample(
             fields["direct_member_affinity"] = member_affinity(directory, group, proc)
             parent = directory.parent
             while directory != cgroup and parent.is_relative_to(cgroup):
-                if len(ancestors) >= 256:
-                    raise ValueError("ancestor observation exceeds bound")
+                _require_observation(not (len(ancestors) >= 256), 'ancestor observation exceeds bound')
                 relative = (
                     "/" + str(parent.relative_to(cgroup)) if parent != cgroup else "/"
                 )
@@ -254,8 +247,7 @@ def sample(
                 if parent == cgroup:
                     break
                 parent = parent.parent
-        if identity(directory, group, proc) != before:
-            raise ValueError("scope incarnation changed during sample")
+        _require_observation(not (identity(directory, group, proc) != before), 'scope incarnation changed during sample')
         partial = any(v.status == "unavailable" for v in fields.values()) or any(
             v.status == "unavailable" for a in ancestors for v in a.fields.values()
         )

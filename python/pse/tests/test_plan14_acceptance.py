@@ -14,6 +14,7 @@ import pytest
 
 import pse
 from pse import codec
+from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
 from pse.contracts.documents import NumericalPolicy
@@ -69,7 +70,6 @@ def test_public_native_process_and_exact_results(
     runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3] / "packages/reference"
 
-    from pse._scientific_inputs import family_packages, package_documents
 
     physical_documents = package_documents(root / "physical")
     assert physical_documents is not None

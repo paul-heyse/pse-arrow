@@ -1896,19 +1896,33 @@ impl CompilerWorkspace {
     /// Reserve count capacity before evaluating the incoming root, keeping the
     /// previous live set resident for equality/backdating during the transition.
     fn admit_live_root(&mut self, bodies: usize, bytes: usize) -> Result<()> {
-        let count = self
+        let (capacity, _, working) = self.live_root_working_set(bodies, bytes);
+        if !self.live_root_fits(capacity, working) {
+            self.trim_queries()?;
+            return Err(CompileError::Limit("live root working set"));
+        }
+        self.accept_live_root(capacity, working);
+        Ok(())
+    }
+    /// Live-family LRU capacity, full known entry count, and known bytes are
+    /// separate extents: the inventory and query keys also occupy retained entries.
+    fn live_root_working_set(&mut self, bodies: usize, bytes: usize) -> (usize, usize, usize) {
+        let capacity = self
             .live_bodies
             .len()
             .saturating_add(bodies)
             .max(self.limits.query_values);
         // The generation census includes the old resident memo values. Add the
         // incoming owned construction before any newly materialized memo is kept.
-        let working = self.observe_retention().known_bytes.saturating_add(bytes);
-        if count > self.limits.retained_entries || working > self.limits.retained_bytes {
-            self.trim_queries()?;
-            return Err(CompileError::Limit("live root working set"));
-        }
-        modeling::executable::configure(&mut self.db, count);
+        let resident = self.observe_retention();
+        let working = resident.known_bytes.saturating_add(bytes);
+        (capacity, resident.entries.saturating_add(bodies), working)
+    }
+    fn live_root_fits(&self, count: usize, bytes: usize) -> bool {
+        count <= self.limits.retained_entries && bytes <= self.limits.retained_bytes
+    }
+    fn accept_live_root(&mut self, capacity: usize, working: usize) {
+        modeling::executable::configure(&mut self.db, capacity);
         if let Ok(mut live) = self.db.live_retention.lock() {
             *live = LiveRetention {
                 bodies: self.live_bodies.clone(),
@@ -1916,7 +1930,6 @@ impl CompilerWorkspace {
                 limit: self.limits.retained_bytes,
             };
         }
-        Ok(())
     }
     fn retain_live_root(
         &mut self,

@@ -2562,21 +2562,8 @@ impl StudyDefinition {
     /// Read a current durable definition, refusing historical contracts before their
     /// nested scientific inputs are decoded. Stored bytes are never rewritten.
     pub fn readmission(document: &str) -> Result<Self, WorkflowError> {
-        #[derive(serde::Deserialize)]
-        struct Header {
-            version: u32,
-        }
-        let header: Header = serde_json::from_str(document)
-            .map_err(|error| contract(format!("immutable study definition version: {error}")))?;
-        if header.version != Version::<STUDY_DEFINITION_VERSION>::NUMBER {
-            return Err(contract(format!(
-                "study definition version {} is unsupported (current: {}); explicit readmission is required",
-                header.version,
-                Version::<STUDY_DEFINITION_VERSION>::NUMBER
-            )));
-        }
-        serde_json::from_str(document)
-            .map_err(|error| contract(format!("immutable study definition: {error}")))
+        pse_model::document::decode_versioned::<Self, STUDY_DEFINITION_VERSION>(document.as_bytes())
+            .map_err(WorkflowError::from)
     }
 
     /// Project the recorded transport into the common admitted scientific payload.
@@ -2965,5 +2952,51 @@ mod creation_authority_tests {
                 .is_none()
         );
         store.remove_isolated_fixture().await.unwrap();
+    }
+}
+
+#[cfg(test)]
+mod readmission_decode_tests {
+    use super::*;
+    use pse_model::document::{DecodeCategory, DecodeStage};
+
+    #[test]
+    fn study_readmission_preserves_version_first_structural_refusal() {
+        let current = STUDY_DEFINITION_VERSION;
+        let cases = [
+            (
+                format!(r#"{{"points":"private-value","version":{}}}"#, current - 1),
+                DecodeStage::Header,
+            ),
+            (
+                format!(r#"{{"points":"private-value","version":{current},"version":{current}}}"#),
+                DecodeStage::Header,
+            ),
+            (
+                format!(r#"{{"points":"private-value","version":{current}}} null"#),
+                DecodeStage::Trailing,
+            ),
+            (
+                format!(r#"{{"points":"private-value","version":{current}}}"#),
+                DecodeStage::Body,
+            ),
+        ];
+        for (document, stage) in cases {
+            let retained = document.clone();
+            let error = StudyDefinition::readmission(&document).unwrap_err();
+            let WorkflowError::DocumentDecode(decode) = &error else {
+                panic!("study readmission must retain the typed decoder refusal");
+            };
+            assert_eq!(decode.location().stage, stage);
+            assert!(!error.to_string().contains("private-value"));
+            assert_eq!(document, retained);
+            assert!(pse_diagnostics::TypedDiagnostic::diagnostic_code(&error).is_some());
+        }
+        let error = StudyDefinition::readmission(&format!(r#"{{"version":{current},"points":"#))
+            .unwrap_err();
+        let WorkflowError::DocumentDecode(decode) = error else {
+            panic!("typed decode error")
+        };
+        assert_eq!(decode.location().category, DecodeCategory::Eof);
     }
 }

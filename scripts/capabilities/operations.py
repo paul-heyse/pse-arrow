@@ -8,15 +8,16 @@ import json
 import math
 from typing import TYPE_CHECKING, Annotated, TypeVar, overload
 
-from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
 from pydantic import Field, JsonValue, TypeAdapter
 
-from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities import read_contracts
 from scripts.capabilities.diagnostics import refusal
-from scripts.workspace_domain_contracts import ConceptQuery
+from scripts.capabilities.model import Capability, Contract
+from scripts.workspace_domain_contracts import (
+    ConceptQuery,  # noqa: TC001 -- FastMCP evaluates tagged request annotations at registration.
+)
 
 T = TypeVar("T")
 
@@ -141,10 +142,17 @@ def owner_read(operation: str, read: Callable[[], object]) -> ReadResult: ...
 
 
 @overload
-def owner_read(operation: str, read: Callable[[], dict], *, project: Callable[[dict], T]) -> T: ...
+def owner_read(
+    operation: str, read: Callable[[], object], *, project: Callable[[object], T]
+) -> T: ...
 
 
-def owner_read(operation: str, read: Callable[[], object], *, project: Callable[[dict], object] | None = None) -> object:
+def owner_read(
+    operation: str,
+    read: Callable[[], object],
+    *,
+    project: Callable[[object], object] | None = None,
+) -> object:
     try:
         value = read()
     except (ValueError, OSError) as error:
@@ -172,7 +180,9 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             project=read_contracts.task_context,
         )
 
-    def workspace_concepts_query(request: ConceptQuery) -> read_contracts.ConceptQueryResult | read_contracts.DetailRefused:
+    def workspace_concepts_query(
+        request: ConceptQuery,
+    ) -> read_contracts.ConceptQueryResult | read_contracts.DetailRefused:
         """Query exact owner-defined concept alternatives, facets and original references.
 
         The concept tag selects required identity/origin/reference fields. Owner examples describe
@@ -182,7 +192,8 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         from scripts.workspace_domains import query  # noqa: PLC0415
 
         return owner_read(
-            "workspace_concepts_query", lambda: query(request, root=root),
+            "workspace_concepts_query",
+            lambda: query(request, root=root),
             project=read_contracts.concept_query,
         )
 
@@ -198,12 +209,15 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             project=read_contracts.producer_relationships,
         )
 
-    def workspace_recipe_describe(recipe: str) -> read_contracts.RecipeDescriptionResult | read_contracts.DetailRefused:
+    def workspace_recipe_describe(
+        recipe: str,
+    ) -> read_contracts.RecipeDescriptionResult | read_contracts.DetailRefused:
         """Describe an exact public recipe from its current declaration, including native grammar and limitations. This never runs that recipe."""
         from scripts.capabilities.inventory import describe_recipe  # noqa: PLC0415
 
         return owner_read(
-            "workspace_recipe_describe", lambda: describe_recipe(root, recipe),
+            "workspace_recipe_describe",
+            lambda: describe_recipe(root, recipe),
             project=read_contracts.recipe_description,
         )
 

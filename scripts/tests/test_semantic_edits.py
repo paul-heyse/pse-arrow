@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Targeted source-cut, reconciliation and import-aware migration behavior."""
 
-# ruff: noqa: PT009 -- stdlib setup controls
+# ruff: noqa: PT009, PT027 -- stdlib unittest controls
 from __future__ import annotations
 
 import json
@@ -48,7 +48,7 @@ class SemanticEditTests(unittest.TestCase):
 
     def test_interruption_records_partial_application(self) -> None:
         selected = self.selected()
-        original = edits._write
+        original = edits._write  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
         count = 0
 
         def interrupt(path: Path, content: bytes) -> None:
@@ -268,7 +268,7 @@ class SemanticEditTests(unittest.TestCase):
         selected = structural_migrations.migration(self.root, ["consumer.py"])
         self.assertTrue(edits.apply(selected, self.root / "receipt.json")["complete"])
         namespace = {}
-        exec(
+        exec(  # noqa: S102 -- execute the authored local fixture to verify the migration
             compile(
                 (self.root / "consumer.py").read_text(), "migrated consumer", "exec"
             ),

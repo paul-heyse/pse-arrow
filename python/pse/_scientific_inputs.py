@@ -32,17 +32,19 @@ class _Capture(msgspec.Struct, frozen=True):
 def _capture(path: str) -> _Capture:
     value = msgspec.json.decode(Path(path).read_bytes(), type=_Capture)
     if value.schema != "scientific-inputs-v1":
-        raise ValueError("unknown scientific input capsule")
+        message = "unknown scientific input capsule"
+        raise ValueError(message)
     return value
 
 
 def _input() -> _Capture:
     path = os.environ.get(ROLE)
     if not path:
-        raise ValueError(
+        message = (
             "reference inputs require explicit preparation: scripts/pse-env -- python "
             "scripts/scientific_inputs.py capture <output>; bind PSE_SCIENTIFIC_INPUTS"
         )
+        raise ValueError(message)
     return _capture(path)
 
 
@@ -50,7 +52,7 @@ def _reference_path(path: Path) -> str | None:
     # Only this checkout's declared reference tree selects captured inputs. A user
     # directory with the same suffix remains ordinary authored input. Normalize
     # lexically so retained captures still work after source files are removed.
-    selected = Path(os.path.abspath(path))
+    selected = Path(os.path.abspath(path))  # noqa: PTH100 -- lexical normalization must retain symlink identity and work after the captured source is removed.
     try:
         relative = selected.relative_to(_REFERENCE_ROOT)
     except ValueError:
@@ -77,7 +79,8 @@ def package_documents(path: Path) -> dict[str, bytes] | None:
 def _package(value: _Capture, relative: str) -> dict[str, bytes]:
     packages = {p for family in value.families.values() for p in family.packages}
     if relative not in packages:
-        raise ValueError(f"reference package absent from capture: {relative}")
+        message = f"reference package absent from capture: {relative}"
+        raise ValueError(message)
     prefix = relative + "/"
     documents = {
         name[len(prefix) :]: bytes(data)
@@ -85,7 +88,8 @@ def _package(value: _Capture, relative: str) -> dict[str, bytes]:
         if name.startswith(prefix)
     }
     if "package.toml" not in documents:
-        raise ValueError(f"captured package header absent: {relative}")
+        message = f"captured package header absent: {relative}"
+        raise ValueError(message)
     return documents
 
 

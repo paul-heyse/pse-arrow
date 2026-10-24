@@ -23,6 +23,15 @@ from scripts import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _selected_json(path: Path, maximum: int, label: str) -> dict:
+    if path.stat().st_size > maximum:
+        raise ValueError(label)
+    value = json.loads(path.read_bytes())
+    if not isinstance(value, dict):
+        raise TypeError("selected document must be a JSON object")
+    return value
+
+
 def boundary_leads(symbol: str, *, root: Path = ROOT, limit: int = 40) -> dict:
     """Bounded text leads across the real catalogue, generators and consumers.
 
@@ -49,7 +58,7 @@ def boundary_leads(symbol: str, *, root: Path = ROOT, limit: int = 40) -> dict:
 
     def complete(partial: bool) -> dict:
         declared = workspace_sources.relationships(
-            tuple([symbol, *(item["source"] for item in items)]), root=root
+            (symbol, *(item["source"] for item in items)), root=root
         )
         for item in items:
             links = [
@@ -340,9 +349,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             reference = None
             if args.native_reference:
-                if args.native_reference.stat().st_size > 16 << 10:
-                    raise ValueError("native reference selection exceeds 16KiB")
-                reference = json.loads(args.native_reference.read_bytes())
+                reference = _selected_json(args.native_reference, 16 << 10, "native reference selection exceeds 16KiB")
             identity = args.identity or (
                 args.task if args.concept == "plan-package" else None
             )
@@ -354,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
                 "owner": args.owner,
                 "document": args.document,
                 "origin": args.origin,
-                "question": args.query if args.query else None,
+                "question": args.query or None,
                 "selected_reference": reference,
                 "publication_scope": args.publication_scope,
                 "native_status": args.native_status,
@@ -365,7 +372,7 @@ def main(argv: list[str] | None = None) -> int:
                 {key: value for key, value in supplied.items() if value is not None}
             )
             result = workspace_domains.query(request, root=ROOT)
-        except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError) as error:
             parser.exit(1, f"context: exact concept unavailable: {error}\n")
         print(json.dumps(result, sort_keys=True, indent=None if args.json else 2))
         return 0
@@ -442,10 +449,8 @@ def main(argv: list[str] | None = None) -> int:
                 rustdoc=args.rustdoc,
             )
         if args.compare:
-            if args.compare.stat().st_size > 64 << 10:
-                raise ValueError("alternative document exceeds 64KiB")
             result["alternatives"] = workspace_tasks.alternatives(
-                json.loads(args.compare.read_bytes())
+                _selected_json(args.compare, 64 << 10, "alternative document exceeds 64KiB")
             )
             if args.library:
                 result["alternatives"]["selected_research"] = result["library"]
@@ -459,9 +464,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.retrospective or args.recall:
             continuation = None
             if args.history_checkpoint:
-                if args.history_checkpoint.stat().st_size > 16 << 20:
-                    raise ValueError("history checkpoint exceeds 16MiB")
-                continuation = json.loads(args.history_checkpoint.read_bytes())
+                continuation = _selected_json(args.history_checkpoint, 16 << 20, "history checkpoint exceeds 16MiB")
             result["retrospective"] = session_retrospective.inspect(
                 args.sessions,
                 ROOT,
@@ -476,14 +479,12 @@ def main(argv: list[str] | None = None) -> int:
                     json.dumps(result["retrospective"]["checkpoint"], sort_keys=True)
                 )
         if args.history_excerpt:
-            if args.history_excerpt.stat().st_size > 16 << 10:
-                raise ValueError("history locator exceeds 16KiB")
             result["history_excerpt"] = session_retrospective.read_excerpt(
                 args.sessions,
-                json.loads(args.history_excerpt.read_bytes()),
+                _selected_json(args.history_excerpt, 16 << 10, "history locator exceeds 16KiB"),
                 archived_sessions=args.archived_sessions,
             )
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError) as error:
         parser.exit(1, f"context: unavailable: {error}\n")
     if args.json:
         print(json.dumps(result, sort_keys=True))

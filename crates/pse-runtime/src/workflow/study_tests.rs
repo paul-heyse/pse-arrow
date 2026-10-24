@@ -657,7 +657,6 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 12);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -674,21 +673,24 @@ fn study_definition_historical_readmission_codec_unit() {
     let historical = serde_json::to_string(&former).unwrap();
     let retained = historical.clone();
     let error = StudyDefinition::readmission(&historical).unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("study definition version 3 is unsupported")
+    let WorkflowError::DocumentDecode(decode) = &error else {
+        panic!("readmission must retain its native decoder refusal");
+    };
+    assert_eq!(
+        decode.location().stage,
+        pse_model::document::DecodeStage::Header
     );
-    assert!(
-        error
-            .to_string()
-            .contains("explicit readmission is required")
+    assert!(decode.inner().to_string().contains("unsupported version 3"));
+    assert_eq!(
+        decode.location().category,
+        pse_model::document::DecodeCategory::Data
     );
+    assert!(!error.to_string().contains("class_proof_work"));
     assert_eq!(historical, retained);
     for malformed in [r#"{}"#, r#"{"version":"3"}"#, r#"{"version":8}"#] {
         assert!(matches!(
             StudyDefinition::readmission(malformed),
-            Err(WorkflowError::Input(_))
+            Err(WorkflowError::DocumentDecode(_))
         ));
     }
 }

@@ -187,7 +187,8 @@ def product_result(
     # Preserve global catalogue/outcome checks above and the matched denominator,
     # but hydrate requirements and selection records only for the requested page.
     matched = [
-        index for index, identity in enumerate(catalog)
+        index
+        for index, identity in enumerate(catalog)
         if (subject is None or subject == identity)
         and (not failures or outcomes.get(identity) != "pass")
     ]
@@ -363,10 +364,16 @@ def product_result(
             "diagnostic_count": len(state.get("diagnostic_actions", [])),
             "report_row_count": len(evidence.get("results", [])),
             "unreported_count": len(unreported),
-            "next_offset": offset + limit if offset + limit < max(
-                len(matched), len(state["members"]), len(artifacts),
+            "next_offset": offset + limit
+            if offset + limit
+            < max(
+                len(matched),
+                len(state["members"]),
+                len(artifacts),
                 len(state.get("diagnostic_actions", [])),
-                len(evidence.get("results", [])), len(unreported),
-            ) else None,
+                len(evidence.get("results", [])),
+                len(unreported),
+            )
+            else None,
         },
     }

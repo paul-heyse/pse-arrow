@@ -11,11 +11,11 @@ import tempfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool, ToolResult
 from mcp.types import ToolAnnotations
 from pydantic import Field, JsonValue, PrivateAttr, ValidationError
 
+from scripts.capabilities.diagnostics import refusal, safe_path, schema_keys
 from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.operations import ReadResult, bounded
@@ -100,6 +100,10 @@ class Result(Deployment):
     start: Row
     end: Row
     maximum_bytes: Annotated[int, Field(ge=4096, le=65536)] = 65536
+
+
+class ResultInspection(Deployment):
+    request: JsonValue
 
 
 @dataclass(frozen=True)
@@ -255,7 +259,59 @@ BINDINGS = (
         "projects",
         "Protected read of explicitly selected canonical results; no scientific execution or publication.",
     ),
+    Binding(
+        "result_inspect",
+        "Inspect protected scientific result shape or readable selected values",
+        ResultInspection,
+        {"request": "result-inspection-request"},
+        "pse.Runtime.inspect_result",
+        "Inspect an exact protected run/attempt/relation. Schema view does not acquire data batches. Values view selects bounded fields and rows natively, retains original identity, units, basis and quality context, and represents null/nonfinite/unsupported cells explicitly. Exact original Arrow IPC remains native_result_read. No scientific usability is inferred.",
+        "projects",
+        "Protected read of the explicitly selected existing canonical result; no execution, provision or publication.",
+        "result-inspection-document",
+    ),
 )
+
+
+def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
+    """Preserve exact selected scientific documents/IPC, or refuse them as a whole."""
+    if len(json.dumps(value, ensure_ascii=True, allow_nan=False).encode()) > 120 * 1024:
+        value = {
+            "outcome": "detail_refused",
+            "code": "pse.native.result_detail_bound",
+            "remedy": "Narrow the selected field/row window; exact IPC remains available through the protected reader.",
+        }
+    omissions = value.get("omissions", [])
+    return ReadResult(
+        operation=operation,
+        complete=value.get("complete") is not False
+        and value.get("outcome") not in {"detail_refused", "incomplete_observation"},
+        omissions=[item for item in omissions if isinstance(item, str)]
+        if isinstance(omissions, list)
+        else [],
+        payload=value,
+    )
+
+
+def inspection_output_schema(schemas: SchemaSet) -> dict[str, JsonValue]:
+    """Compose the transport with the original directional Rust result schema."""
+    document = schemas.document("result-inspection-document", "output")
+    definitions = document.pop("$defs", {})
+    observed = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {"outcome": {"const": "observed"}, "document": document},
+        "required": ["outcome", "document"],
+    }
+    refusal = {
+        "type": "object",
+        "properties": {"outcome": {"type": "string", "not": {"const": "observed"}}},
+        "required": ["outcome"],
+    }
+    schema = ReadResult.model_json_schema(mode="serialization")
+    schema["$defs"] = definitions
+    schema["properties"]["payload"] = {"oneOf": [observed, refusal]}
+    return JSON_OBJECT.validate_python(schema)
 
 
 def run_child(
@@ -345,7 +401,13 @@ class NativeTool(Tool):
                 "outcome": "malformed_invocation",
                 "code": "pse.native.host_envelope_refused",
                 "fields": [
-                    {"location": list(item["loc"]), "code": item["type"]}
+                    {
+                        "location": list[JsonValue](safe_path(
+                            list(item["loc"]),
+                            schema_keys(self._binding.request.model_json_schema()),
+                        )),
+                        "code": item["type"],
+                    }
                     for item in error.errors(include_input=False)[:32]
                 ],
             }
@@ -375,7 +437,11 @@ class NativeTool(Tool):
                     # Cancelling a read detaches this observer. Its native read
                     # and source protection finish under their existing owner.
                     value = await asyncio.shield(task)
-        response = bounded(value, self.name)
+        response = (
+            intact_result(value, self.name)
+            if self._binding.operation in {"result_read", "result_inspect"}
+            else bounded(value, self.name)
+        )
         return ToolResult(structured_content=response.model_dump(mode="json"))
 
 
@@ -430,7 +496,11 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             name=name,
             description=binding.description,
             parameters=parameters,
-            output_schema=ReadResult.model_json_schema(),
+            output_schema=(
+                inspection_output_schema(schemas)
+                if binding.operation == "result_inspect"
+                else ReadResult.model_json_schema(mode="serialization")
+            ),
             tags=spec.tags,
             meta={
                 "pse.native": {
@@ -469,14 +539,8 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 schemas.read(slug, direction, pointer), "native_contract_schema"
             )
         except (ValueError, OSError) as error:
-            raise ToolError(
-                json.dumps(
-                    {
-                        "code": "pse.native_schema.read_refused",
-                        "cause": type(error).__name__,
-                        "message": str(error),
-                    }
-                )
+            raise refusal(
+                "pse.native_schema.read_refused", operation="native_contract_schema"
             ) from error
 
     schema_spec = Capability(

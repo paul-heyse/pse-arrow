@@ -174,6 +174,13 @@ def build_processes(root: Path) -> list[tuple[int, str, str, str]]:
     return sorted(found)
 
 
+def _require_unit_incarnation(unit: dict[str, str], after: dict[str, str]) -> None:
+    if after.get("LoadState") == "not-found" or any(
+        after.get(key) != unit.get(key) for key in ("InvocationID", "ControlGroup")
+    ):
+        raise ValueError("selected unit incarnation changed during pressure observation")
+
+
 def unit_pressure(unit: dict[str, str]) -> pressure_observation.Sample:
     """Link kernel facts to the same unit incarnation observed by the caller."""
     sample = pressure_observation.sample(unit.get("ControlGroup", ""))
@@ -181,12 +188,7 @@ def unit_pressure(unit: dict[str, str]) -> pressure_observation.Sample:
         after = native_operation.unit_observation(
             unit["unit"], deadline=time.monotonic() + 1
         )
-        if after.get("LoadState") == "not-found" or any(
-            after.get(key) != unit.get(key) for key in ("InvocationID", "ControlGroup")
-        ):
-            raise ValueError(
-                "selected unit incarnation changed during pressure observation"
-            )
+        _require_unit_incarnation(unit, after)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         return pressure_observation.Sample(
             "unavailable",
@@ -274,13 +276,14 @@ def main(argv: list[str] | None = None) -> int:
             if args.attempt is not None
             else "unit"
         )
-        handle = (
-            args.run
-            if args.run is not None
-            else args.attempt
-            if args.attempt is not None
-            else selection[0]
-        )
+        if args.run is not None:
+            handle = args.run
+        elif args.attempt is not None:
+            handle = args.attempt
+        elif selection:
+            handle = selection[0]
+        else:
+            parser.error("--watch requires one exact selected handle")
         selected = activity_watch.selection(kind, handle, args.registry)
         try:
             result = activity_watch.watch(

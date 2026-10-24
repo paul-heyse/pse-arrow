@@ -19,6 +19,7 @@ import time
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 import msgspec
 
@@ -110,9 +111,8 @@ def worker(mode: str, directory: Path) -> int:
 class ObservationControls(unittest.TestCase):
     def setUp(self) -> None:
         selected = os.environ.get("PSE_PLAN52_OBSERVATION_RECEIPTS")
-        self.assertIsNotNone(
-            selected, "set a fresh PSE_PLAN52_OBSERVATION_RECEIPTS directory"
-        )
+        if selected is None:
+            self.fail("set a fresh PSE_PLAN52_OBSERVATION_RECEIPTS directory")
         self.directory = Path(selected) / self._testMethodName
         self.assertTrue(self.directory.is_absolute())
         self.directory.mkdir(parents=True, exist_ok=False)
@@ -129,9 +129,8 @@ class ObservationControls(unittest.TestCase):
 
     def test_actual_idle_and_finite_cpu_quota(self) -> None:
         allocation = host_admission.inherit(os.environ)
-        self.assertIsNotNone(
-            allocation, "bounded control requires an outer admitted scope"
-        )
+        if allocation is None:
+            self.fail("bounded control requires an outer admitted scope")
         unit = "pse-pressure-control-" + uuid.uuid4().hex + ".scope"
         command = [
             "systemd-run",
@@ -228,6 +227,8 @@ class ObservationControls(unittest.TestCase):
                 projected = json.loads(cli.stdout)
                 self.assertTrue(projected["units_available"])
                 self.assertEqual(projected["unit_selection"], [unit])
+                if busy.selected.identity is None:
+                    self.fail("Expected the original selected cgroup identity")
                 self.assertEqual(
                     projected["pressure"]["selected"][group]["identity"]["inode"],
                     busy.selected.identity.inode,
@@ -283,8 +284,6 @@ class ObservationControls(unittest.TestCase):
                 selected = watch.selection("run", ready["run"], Path(ready["registry"]))
                 # Exact same environment selects the build snapshots without
                 # initializing admission or compiler configuration in the watch.
-                from unittest.mock import patch
-
                 with patch.dict(os.environ, environment, clear=True):
                     initial = watch.watch(selected, max_wait=0)
                     observed.append(initial)

@@ -91,12 +91,7 @@ async def run_worker(
                 await settled(waiting)
                 raise
             if code != 0 or not destination.is_file():
-                log.seek(0)
-                diagnostic = (
-                    "Native helper did not return structured output; source-bearing diagnostics withheld."
-                    if declaration.redact_diagnostics
-                    else log.read(16384).decode(errors="replace")
-                )
+                diagnostic = "Native helper did not return structured output; source-bearing diagnostics withheld."
                 raise ToolError(
                     json.dumps(
                         {
@@ -104,6 +99,8 @@ async def run_worker(
                             "operation": operation,
                             "helper_exit_code": code,
                             "message": diagnostic,
+                            "stage": "helper_transport",
+                            "remedy": "Inspect the original operation's output and native settlement reader before deciding further action. Do not repeat work based on helper exit alone.",
                             "output": getattr(request, "output", None),
                             "settlement": "inspect native owner output; helper exit alone is not settlement",
                         }

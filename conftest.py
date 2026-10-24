@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING
 import pytest
 import xdist
 from scripts import test_requirements, test_resources
+from scripts.scientific_inputs import prepare_python
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
 REQUIRED_MARKERS = frozenset({"unit", "component", "integration", "performance"})
 
 
-def _test_requirement(item: pytest.Item) -> dict[str, object]:
+def _test_requirement(item: pytest.Item) -> test_requirements.RequirementDocument:
     try:
         return test_requirements.python_item(item).document()
     except ValueError as error:
@@ -150,7 +151,6 @@ def pytest_configure(config: pytest.Config) -> None:
     # The controller captures before xdist workers are launched. Workers inherit
     # the explicit immutable role and never perform their own source reads.
     if not hasattr(config, "workerinput"):
-        from scripts.scientific_inputs import prepare_python
 
         prepare_python(config.invocation_params.args, os.environ)
     markexpr = str(config.option.markexpr)

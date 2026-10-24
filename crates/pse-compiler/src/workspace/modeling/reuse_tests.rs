@@ -1240,6 +1240,302 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
 }
 
 #[test]
+fn owned_frontier_completion_reclaims_history_under_unchanged_receiving_limits() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let retention = Arc::new(PureFrontierRetention::default());
+    workspace.attach_body_retention(retention).unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+    );
+    let escaped = prepare(&mut workspace, root, Bindings::default());
+    let frontier = plan_frontier(&mut workspace, root);
+    let incoming_bytes = frontier.retained_bytes();
+    let incoming_count = frontier.body_requests().count();
+    let mut receiver = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
+    receiver
+        .publish_modeling_revision(workspace.modeling.as_ref().unwrap().revision.clone())
+        .unwrap();
+    let fresh_bytes = receiver.observe_retention().known_bytes;
+    for n in 1..=512u64 {
+        let mut id = [0; 16];
+        id[..8].copy_from_slice(&n.to_le_bytes());
+        workspace
+            .modeling_request(
+                root,
+                InstanceId::from_id(SemanticId::from_bytes(id)),
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+    }
+    let resident = workspace.observe_retention().known_bytes;
+    assert!(resident > fresh_bytes + incoming_bytes);
+    workspace.limits.retained_bytes = resident + incoming_bytes / 2;
+    let limits = workspace.limits;
+    assert!(resident < limits.retained_bytes);
+    assert!(resident + incoming_bytes > limits.retained_bytes);
+    assert!(fresh_bytes + incoming_bytes < limits.retained_bytes);
+    assert!(incoming_count.max(limits.query_values) <= limits.retained_entries);
+    let generation = workspace.generation();
+    assert!(matches!(
+        workspace.complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(true))),
+        Err(CompileError::Cancelled)
+    ));
+    assert_eq!(workspace.generation(), generation);
+    let received = workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert_eq!(workspace.generation(), generation + 1);
+    assert_eq!(workspace.limits.retained_bytes, limits.retained_bytes);
+    assert_eq!(workspace.limits.retained_entries, limits.retained_entries);
+    assert_eq!(received.admitted.as_ref(), escaped.admitted.as_ref());
+    assert_eq!(received.occurrences(), escaped.occurrences());
+    for (key, body) in &escaped.admitted.bodies {
+        assert!(Arc::ptr_eq(body, &received.admitted.bodies[key]));
+    }
+}
+
+#[test]
+fn owned_frontier_completion_counts_mandatory_receiving_inventory() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    let incoming_count = frontier.body_requests().count();
+    let mut receiver = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
+    receiver
+        .publish_modeling_revision(workspace.modeling.as_ref().unwrap().revision.clone())
+        .unwrap();
+    let mandatory = receiver.observe_retention();
+    assert!(mandatory.entries > incoming_count + 1);
+    // Body requests fit, and bytes are unconstrained here; the receiver's
+    // mandatory Inventory/Catalog/input entries alone prevent count admission.
+    workspace.limits.retained_entries = mandatory.entries - 1;
+    workspace.limits.query_values = 1;
+    assert!(frontier.retained_bytes() + mandatory.known_bytes < workspace.limits.retained_bytes);
+    let generation = workspace.generation();
+    assert!(matches!(
+        workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))),
+        Err(CompileError::Limit("live root working set"))
+    ));
+    assert_eq!(workspace.generation(), generation + 1);
+}
+
+#[test]
+fn owned_frontier_completion_refuses_new_mandatory_entries_without_second_rotation() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    let incoming_count = frontier.body_requests().count();
+    let mut receiver = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
+    receiver
+        .publish_modeling_revision(workspace.modeling.as_ref().unwrap().revision.clone())
+        .unwrap();
+    let mandatory = receiver.observe_retention();
+    // Fresh preflight fits exactly. Actual completion additionally owns live
+    // indexes and non-evictable body keys; those cannot justify another retry.
+    workspace.limits.query_values = 1;
+    workspace.limits.retained_entries = mandatory.entries + incoming_count;
+    assert!(workspace.observe_retention().entries > workspace.limits.retained_entries);
+    let generation = workspace.generation();
+    assert!(matches!(
+        workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))),
+        Err(CompileError::Limit("live root working set"))
+    ));
+    assert_eq!(workspace.generation(), generation + 1);
+}
+
+#[test]
+fn owned_frontier_completion_preserves_typed_refusal_after_receiving_rotation() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .attach_body_retention(Arc::new(RefuseFrontierLookupOnce(AtomicBool::new(true))))
+        .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    let mut receiver = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
+    receiver
+        .publish_modeling_revision(workspace.modeling.as_ref().unwrap().revision.clone())
+        .unwrap();
+    workspace.limits.query_values = 1;
+    workspace.limits.retained_entries = receiver.observe_retention().entries + frontier.body_requests().count();
+    let generation = workspace.generation();
+    let error = workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap_err();
+    assert!(error.to_string().contains("transient pure lookup refusal"));
+    assert_eq!(workspace.generation(), generation + 1);
+    assert!(workspace.observe_retention().entries > workspace.limits.retained_entries);
+}
+
+#[derive(Debug)]
+struct RequireReceivingRotation(pse_diagnostics::observation::ObservationContext);
+impl ModelingBodyRetention for RequireReceivingRotation {
+    fn generation(&self) -> u64 {
+        0
+    }
+    fn get(
+        &self,
+        _: pse_ids::roles::SemanticBodyHash,
+    ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
+        assert_eq!(
+            super::test_observation::metric_count(&self.0, "compiler.workspace_rebuilds"),
+            1,
+            "receiving admission must discard excess history before body acquisition"
+        );
+        Ok(None)
+    }
+    fn retain(
+        &self,
+        _: u64,
+        _: pse_ids::roles::SemanticBodyHash,
+        body: Arc<AdmittedBody>,
+    ) -> std::result::Result<Arc<AdmittedBody>, MathError> {
+        Ok(body)
+    }
+}
+
+#[test]
+fn owned_frontier_completion_reclaims_resident_count_without_byte_pressure() {
+    use pse_diagnostics::observation::{ObservationHub, Policy};
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("count-only receiving admission");
+    let context = operation.context();
+    context.count("compiler.workspace_rebuilds", "count", 0);
+    let _entered = context.enter();
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .attach_body_retention(Arc::new(RequireReceivingRotation(context)))
+        .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    let incoming_count = frontier.body_requests().count();
+    for n in 1..=512u64 {
+        let mut id = [0; 16];
+        id[..8].copy_from_slice(&n.to_le_bytes());
+        workspace
+            .modeling_request(
+                root,
+                InstanceId::from_id(SemanticId::from_bytes(id)),
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+    }
+    let resident = workspace.observe_retention();
+    workspace.limits.retained_entries = resident.entries;
+    assert!(resident.entries + incoming_count > workspace.limits.retained_entries);
+    assert!(resident.known_bytes + frontier.retained_bytes() < workspace.limits.retained_bytes);
+    let limits = workspace.limits;
+    let generation = workspace.generation();
+    workspace
+        .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
+        .unwrap();
+    assert_eq!(workspace.generation(), generation + 1);
+    assert_eq!(workspace.limits.retained_entries, limits.retained_entries);
+    assert_eq!(workspace.limits.retained_bytes, limits.retained_bytes);
+    assert!(workspace.observe_retention().entries <= limits.retained_entries);
+}
+
+#[test]
+fn owned_frontier_completion_retries_only_once_and_preserves_wrong_environment_refusal() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    // The frontier itself fits, but its mandatory receiving inventory does not.
+    workspace.limits.retained_bytes = frontier.retained_bytes() + 1;
+    let generation = workspace.generation();
+    let environment = *workspace.inventory.environment(&workspace.db);
+    workspace
+        .inventory
+        .set_environment(&mut workspace.db)
+        .to(ContentHash::from_bytes([255; 32]));
+    let error = workspace
+        .complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false)))
+        .unwrap_err();
+    assert!(error.to_string().contains("different immutable compiler inventory"));
+    assert_eq!(workspace.generation(), generation);
+    workspace
+        .inventory
+        .set_environment(&mut workspace.db)
+        .to(environment);
+    assert!(matches!(
+        workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))),
+        Err(CompileError::Limit("live root working set"))
+    ));
+    assert_eq!(workspace.generation(), generation + 1);
+}
+
+#[test]
+fn owned_frontier_completion_does_not_rotate_for_an_oversize_incoming_count() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p {def Root {var x:Scalar; eq e:x*x==1; eq f:x==2;}}",
+    );
+    let frontier = plan_frontier(&mut workspace, root);
+    assert!(frontier.body_requests().count() > 1);
+    workspace.limits.query_values = 1;
+    workspace.limits.retained_entries = 1;
+    let generation = workspace.generation();
+    assert!(matches!(
+        workspace.complete_modeling_cancellable(frontier.clone(), Arc::new(AtomicBool::new(false))),
+        Err(CompileError::Limit("live root working set"))
+    ));
+    assert_eq!(workspace.generation(), generation);
+    workspace.limits.retained_entries = frontier.body_requests().count();
+    workspace.limits.query_values = workspace.limits.retained_entries + 1;
+    assert!(matches!(
+        workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))),
+        Err(CompileError::Limit("live root working set"))
+    ));
+    assert_eq!(workspace.generation(), generation);
+}
+
+#[test]
 fn live_root_admission_refuses_oversize_without_invalidating_escaped_products() {
     let mut workspace = CompilerWorkspace::new(
         crate::authored_transfer_tests::context(),
@@ -1253,12 +1549,14 @@ fn live_root_admission_refuses_oversize_without_invalidating_escaped_products() 
     let first = prepare(&mut workspace, root, Bindings::default());
     let frontier = plan_frontier(&mut workspace, root);
     workspace.limits.retained_bytes = frontier.retained_bytes() - 1;
+    let generation = workspace.generation();
     let result =
         workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)));
     assert!(matches!(
         result,
         Err(CompileError::Limit("live root working set"))
     ));
+    assert_eq!(workspace.generation(), generation);
     assert!(!first.admitted.bodies.is_empty());
 }
 

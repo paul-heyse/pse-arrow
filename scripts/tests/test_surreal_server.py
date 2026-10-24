@@ -1557,7 +1557,8 @@ class SurrealSupervisorTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location(
             "frozen_service_source_fixture", script.parent / "surreal_source.py"
         )
-        assert spec is not None and spec.loader is not None
+        assert spec is not None
+        assert spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return script, module
@@ -1651,7 +1652,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "SCRIPT", script),
             patch.object(server, "surreal_source", frozen),
             patch.object(
-                server._STARTUP, "deadline", time.monotonic() + 30, create=True
+                server._STARTUP, "deadline", time.monotonic() + 30, create=True  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
             ),
             patch.object(server, "storage_launch", return_value={"binding": binding}),
             patch.object(
@@ -6730,9 +6731,9 @@ def selected(*_args, **_kwargs):
     active = sys.modules['__main__']
     assert surreal_server is active, 'reciprocal supervisor import split lifecycle authority'
     active._LIFECYCLE.state = Path('/exact-owned-maintenance')
-    active._STARTUP.deadline = 123.0
+    active._STARTUP.deadline = 123.0  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
     assert surreal_server._LIFECYCLE.state == Path('/exact-owned-maintenance')
-    assert surreal_server._STARTUP.deadline == 123.0
+    assert surreal_server._STARTUP.deadline == 123.0  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
     active.dispatch = lambda _args: 0
     return argparse.Namespace()
 

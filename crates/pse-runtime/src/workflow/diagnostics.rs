@@ -96,6 +96,7 @@ impl DiagnosticProjection for super::WorkflowError {
             Self::SeedRead(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::Canonical(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::ResultBlock(e) => pse_model::diagnostic::project_typed(e, stage),
+            Self::DocumentDecode(_) => pse_model::diagnostic::project_typed(self, stage),
             Self::Input(_)
             | Self::RecordingUnavailable
             | Self::CallerClosed

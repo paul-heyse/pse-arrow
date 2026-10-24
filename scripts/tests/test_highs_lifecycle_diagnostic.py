@@ -18,7 +18,7 @@ from scripts.highs_lifecycle_diagnostic import qualify_asan
 class LifecycleQualificationTests(unittest.TestCase):
     def test_normal_lifecycle_needs_both_instrumented_suppliers_and_actual_completion(
         self,
-    ):
+    ) -> None:
         normal = {"exit_code": 0, "timed_out": False}
         self.assertTrue(qualify_asan(normal, True, True))
         self.assertFalse(qualify_asan(normal, False, True))
@@ -26,7 +26,7 @@ class LifecycleQualificationTests(unittest.TestCase):
         self.assertFalse(qualify_asan({"exit_code": -9, "timed_out": True}, True, True))
         self.assertFalse(qualify_asan({"exit_code": 1, "timed_out": False}, True, True))
 
-    def test_refused_or_failed_build_never_claims_unsupported_instrumentation(self):
+    def test_refused_or_failed_build_never_claims_unsupported_instrumentation(self) -> None:
         for code, expected in [(125, "admission-refused"), (2, "build-failed")]:
             with tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / "capture"

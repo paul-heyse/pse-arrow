@@ -11,6 +11,9 @@ pub use wire::{Versioned, VersionedValue, Wire, check_header, check_required_hea
 #[macro_export]
 macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
+            (DecodeLocation, pse_model::document::DecodeLocation, "decode-location", Both, FlatV1),
+            (ResultInspectionRequest, pse_runtime::workflow::ResultInspectionRequest, "result-inspection-request", Both, FlatV1),
+            (ResultInspectionDocument, pse_runtime::workflow::ResultInspectionDocument, "result-inspection-document", Output, FlatV1),
             (ProjectExportRequest, pse_runtime::workflow::ProjectExportRequest, "project-export-request", Both, Native),
             (ProjectManifest, pse_runtime::workflow::ProjectManifest, "project-manifest", Both, Native),
             (ProjectClosureExplanation, pse_runtime::workflow::ProjectClosureExplanation, "project-closure-explanation", Both, FlatV1),

@@ -8,6 +8,7 @@ import msgspec
 
 import pse
 from pse import codec
+from pse._scientific_inputs import reference_bytes
 from pse.contracts.documents import (
     StudyInputsExplicit,
     StudyOutputDemandFull,
@@ -38,8 +39,6 @@ def assignment(
 
 def physical_ids(path: Path, quantity: str, unit: str) -> tuple[str, str]:
     """Read identities from the fixture's authoritative physical document."""
-    from pse._scientific_inputs import reference_bytes
-
     # The physical fixtures use JSON-formatted YAML with a comment header.
     content = "\n".join(
         line

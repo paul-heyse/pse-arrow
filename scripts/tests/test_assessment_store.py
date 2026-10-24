@@ -21,12 +21,12 @@ class AssessmentStoreTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
-        self.run = Path(temporary.name)
+        self.assessment_dir = Path(temporary.name)
         self.enterContext(
-            patch.object(test_resources, "registry", return_value=self.run / "registry")
+            patch.object(test_resources, "registry", return_value=self.assessment_dir / "registry")
         )
         self.receipt = publish(
-            self.run,
+            self.assessment_dir,
             {
                 "complete": True,
                 "source_files": {"source/" + str(i): "a" * 64 for i in range(20000)},
@@ -56,8 +56,8 @@ class AssessmentStoreTests(unittest.TestCase):
     def test_summary_and_selected_gate_do_not_open_source_or_unrelated_detail(
         self,
     ) -> None:
-        root = store.root(self.run)
-        self.assertLess((self.run / "checks.json").stat().st_size, 5000)
+        root = store.root(self.assessment_dir)
+        self.assertLess((self.assessment_dir / "checks.json").stat().st_size, 5000)
         self.assertNotIn("source_files", root)
         chosen = root["checks"][0]["detail"]
         original = store.detail
@@ -70,7 +70,7 @@ class AssessmentStoreTests(unittest.TestCase):
                 else self.fail("unrelated detail opened")
             ),
         ) as read:
-            summary = validation_result.read_assessment(self.run)
+            summary = validation_result.read_assessment(self.assessment_dir)
             self.assertEqual(read.call_count, 0)
             self.assertEqual(summary["assessment"]["complete"], True)
             self.assertEqual(
@@ -78,41 +78,41 @@ class AssessmentStoreTests(unittest.TestCase):
                 "unregistered-inspection",
             )
             self.assertFalse(summary["assessment"]["reader_custody"]["automatic_reuse"])
-            selected = validation_result.read_assessment(self.run, gate="chosen")
+            selected = validation_result.read_assessment(self.assessment_dir, gate="chosen")
             self.assertEqual(read.call_count, 1)
         self.assertEqual(
             selected["checks"][0]["record"]["report_errors"], ["original cause"]
         )
         self.assertEqual([row["name"] for row in selected["unattempted_scope"]], [])
         self.assertEqual(summary["unattempted_scope"], [{"name": "unreported"}])
-        self.assertEqual(store.export(self.run), self.receipt)
+        self.assertEqual(store.export(self.assessment_dir), self.receipt)
 
     def test_dangling_and_corrupt_selected_detail_refuse_without_empty_success(
         self,
     ) -> None:
-        root = store.root(self.run)
-        path = self.run / "details" / (root["checks"][0]["detail"]["sha256"] + ".json")
+        root = store.root(self.assessment_dir)
+        path = self.assessment_dir / "details" / (root["checks"][0]["detail"]["sha256"] + ".json")
         original = path.read_bytes()
         path.write_text("{}")
         with self.assertRaisesRegex(ValueError, "digest mismatch"):
-            validation_result.read_assessment(self.run, gate="chosen")
+            validation_result.read_assessment(self.assessment_dir, gate="chosen")
         path.write_bytes(original)
         path.unlink()
         with self.assertRaises(FileNotFoundError):
-            validation_result.read_assessment(self.run, failures=True)
+            validation_result.read_assessment(self.assessment_dir, failures=True)
         # An explicitly selected unrelated summary still works; unavailable detail
         # cannot erase the original recorded population or imply Pass.
         self.assertFalse(
-            validation_result.read_assessment(self.run)["checks"][0]["qualified"]
+            validation_result.read_assessment(self.assessment_dir)["checks"][0]["qualified"]
         )
 
     def test_failed_root_replacement_keeps_previous_complete_cut(self) -> None:
-        original = (self.run / "checks.json").read_bytes()
+        original = (self.assessment_dir / "checks.json").read_bytes()
         changed = {**self.receipt, "complete": False, "source_files": {"new": "b"}}
         replace = Path.replace
 
         def fail(path: Path, destination: Path) -> Path:
-            if destination == self.run / "checks.json":
+            if destination == self.assessment_dir / "checks.json":
                 raise OSError("injected root publication failure")
             return replace(path, destination)
 
@@ -120,33 +120,33 @@ class AssessmentStoreTests(unittest.TestCase):
             patch.object(Path, "replace", fail),
             self.assertRaisesRegex(OSError, "injected"),
         ):
-            store.publish(self.run, changed)
-        self.assertEqual((self.run / "checks.json").read_bytes(), original)
-        self.assertEqual(store.export(self.run), self.receipt)
+            store.publish(self.assessment_dir, changed)
+        self.assertEqual((self.assessment_dir / "checks.json").read_bytes(), original)
+        self.assertEqual(store.export(self.assessment_dir), self.receipt)
 
     def test_historical_bytes_have_explicit_inspection_and_no_automatic_reuse(
         self,
     ) -> None:
-        path = self.run / "checks.json"
+        path = self.assessment_dir / "checks.json"
         old = {**self.receipt, "version": 5}
         resource_store.publish(
             path, old
-        ) if self.run.stat().st_mode & 0o077 == 0 else path.write_text(json.dumps(old))
+        ) if self.assessment_dir.stat().st_mode & 0o077 == 0 else path.write_text(json.dumps(old))
         with self.assertRaisesRegex(ValueError, "automatic reuse refused"):
-            store.root(self.run)
-        self.assertEqual(store.original_export(self.run), old)
+            store.root(self.assessment_dir)
+        self.assertEqual(store.original_export(self.assessment_dir), old)
         historical = validation_result.read_assessment(
-            self.run, historical=True, full_export=True
+            self.assessment_dir, historical=True, full_export=True
         )
         self.assertFalse(historical["assessment"]["automatic_reuse"])
 
     def sealed(self, name: str = "sealed") -> tuple[Path, str]:
-        directory = self.run / "build" / name
+        directory = self.assessment_dir / "build" / name
         directory.mkdir(mode=0o700, parents=True)
         receipt = json.loads(json.dumps(self.receipt))
         publish(directory, receipt)
         (directory / "provenance.json").write_text("{}")
-        resource = test_resources.register_report(directory, root=self.run)
+        resource = test_resources.register_report(directory, root=self.assessment_dir)
         test_resources.finish_report(
             resource,
             receipt,
@@ -198,7 +198,7 @@ class AssessmentStoreTests(unittest.TestCase):
         image = store.root(directory)
         chosen = image["checks"][0]["detail"]
         original = store.detail
-        consumer = self.run / "build" / "consumer"
+        consumer = self.assessment_dir / "build" / "consumer"
         with (
             patch.object(
                 test_resources,
@@ -350,8 +350,8 @@ class AssessmentStoreTests(unittest.TestCase):
             for key, value in changed.items()
             if key not in store.SUMMARY | {"scope", "checks"}
         }
-        selected = self.run / "details" / (resource_store.digest(source) + ".json")
-        before = (self.run / "checks.json").read_bytes()
+        selected = self.assessment_dir / "details" / (resource_store.digest(source) + ".json")
+        before = (self.assessment_dir / "checks.json").read_bytes()
         sync = resource_store.sync_directory
         failed = False
 
@@ -366,9 +366,9 @@ class AssessmentStoreTests(unittest.TestCase):
             patch.object(resource_store, "sync_directory", side_effect=interrupt),
             self.assertRaisesRegex(OSError, "after rename"),
         ):
-            store.publish(self.run, changed)
+            store.publish(self.assessment_dir, changed)
         self.assertTrue(selected.exists())
-        self.assertEqual((self.run / "checks.json").read_bytes(), before)
+        self.assertEqual((self.assessment_dir / "checks.json").read_bytes(), before)
         order = []
         settle = resource_store.settle
         replace = Path.replace
@@ -379,7 +379,7 @@ class AssessmentStoreTests(unittest.TestCase):
             settle(path)
 
         def replaced(path: Path, destination: Path) -> Path:
-            if destination == self.run / "checks.json":
+            if destination == self.assessment_dir / "checks.json":
                 order.append("root-published")
             return replace(path, destination)
 
@@ -387,6 +387,6 @@ class AssessmentStoreTests(unittest.TestCase):
             patch.object(resource_store, "settle", side_effect=settled),
             patch.object(Path, "replace", replaced),
         ):
-            store.publish(self.run, changed)
+            store.publish(self.assessment_dir, changed)
         self.assertEqual(order, ["detail-settled", "root-published"])
-        self.assertEqual(store.export(self.run), changed)
+        self.assertEqual(store.export(self.assessment_dir), changed)

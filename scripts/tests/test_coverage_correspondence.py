@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 import contextlib
+
+# ruff: noqa: PT009, PT027 -- stdlib unittest controls
 import hashlib
 import io
 import json
@@ -19,7 +21,7 @@ def junit(identity: str, name: str = "selected") -> bytes:
 
 
 class CorrespondenceTests(unittest.TestCase):
-    def test_rejection_branch_is_missing_then_observed_without_test_attribution(self):
+    def test_rejection_branch_is_missing_then_observed_without_test_attribution(self) -> None:
         path = "crates/example/src/lib.rs"
         file = {
             "filename": str(coverage.ROOT / path),
@@ -46,7 +48,7 @@ class CorrespondenceTests(unittest.TestCase):
             [],
         )
 
-    def test_actual_nextest_store_location_and_stale_junit_are_distinct(self):
+    def test_actual_nextest_store_location_and_stale_junit_are_distinct(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / ".config").mkdir()
@@ -108,7 +110,7 @@ class CorrespondenceTests(unittest.TestCase):
                     self.assertIsNone(capture["population"])
                     self.assertIn("not replaced", capture["population_error"])
 
-    def test_unsupported_llvm_protocol_and_config_are_not_guessed(self):
+    def test_unsupported_llvm_protocol_and_config_are_not_guessed(self) -> None:
         with self.assertRaisesRegex(ValueError, "protocol"):
             coverage.correspondence({"version": "future", "data": []}, {})
         with self.assertRaisesRegex(ValueError, "merged"):
@@ -123,7 +125,7 @@ class CorrespondenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "configuration"):
             coverage.junit_path(["--tool-config-file", "third-party:/config"])
 
-    def test_affected_keeps_dependency_fallback_for_unavailable_coverage(self):
+    def test_affected_keeps_dependency_fallback_for_unavailable_coverage(self) -> None:
         outputs = []
         for capture in (None, Path("missing/capture")):
             output = io.StringIO()
@@ -157,7 +159,7 @@ class CorrespondenceTests(unittest.TestCase):
         self.assertEqual(outputs[1]["selected_packages"], ["consumer", "selected"])
         self.assertEqual(outputs[1]["coverage"]["status"], "unavailable")
 
-    def test_cli_default_uses_fresh_output_owner(self):
+    def test_cli_default_uses_fresh_output_owner(self) -> None:
         with patch.object(coverage, "capture", return_value=0) as selected:
             self.assertEqual(coverage.main(["capture", "--", "-p", "actual"]), 0)
         self.assertEqual(selected.call_args.args, (None, ["-p", "actual"], False))

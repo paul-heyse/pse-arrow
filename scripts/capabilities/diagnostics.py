@@ -15,7 +15,7 @@ def refusal(code: str, *, operation: str | None = None) -> ToolError:
         remedy = "Restart or reattach this endpoint, then describe and select the capability again."
     elif "unknown_" in code or code.endswith("binding_required"):
         remedy = "Browse exact domains/workflows, describe the capability and select its exact ID before invoking it."
-    elif code.endswith("source_unavailable") or code.endswith("guidance_unavailable"):
+    elif code.endswith(("source_unavailable", "guidance_unavailable")):
         remedy = "Inspect the selected source owner's availability; explicitly restore or prepare it before reading again."
     else:
         remedy = "Describe this operation's input schema and correct the selected input. No retry or effect settlement is inferred."
@@ -45,6 +45,10 @@ def schema_keys(value: object) -> frozenset[str]:
     return frozenset(keys)
 
 
-def safe_path(path: list[object], keys: frozenset[str]) -> list[object]:
-    return [item if isinstance(item, int) or isinstance(item, str) and item in keys
-            else "<redacted-key>" for item in path[:32]]
+def safe_path(path: list[object], keys: frozenset[str]) -> list[str | int]:
+    return [
+        item
+        if isinstance(item, int) or (isinstance(item, str) and item in keys)
+        else "<redacted-key>"
+        for item in path[:32]
+    ]

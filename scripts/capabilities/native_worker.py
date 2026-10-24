@@ -7,15 +7,16 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import re
 import sys
 import tempfile
+from itertools import islice
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
 import msgspec
 from pydantic import JsonValue
 
+from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.native_schema import JSON_OBJECT
 from scripts.capabilities.operations import bounded
 
@@ -36,7 +37,30 @@ def decoded(value: object, document_type: type[T]) -> T:
         codec,
     )
 
-    return codec.decode_json(json.dumps(value, allow_nan=False), document_type)
+    try:
+        return codec.decode_json(json.dumps(value, allow_nan=False), document_type)
+    except msgspec.DecodeError as error:
+        if native_report(error) is not None:
+            raise
+        # Decode/admission runs first. Only a failed generated decode gets a
+        # structured schema explanation; it never grants native admission.
+        from jsonschema import Draft202012Validator  # noqa: PLC0415
+
+        from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
+
+        schemas = SchemaSet(Path(__file__).resolve().parents[2])
+        schema = schemas.input_for_type(document_type.__name__)
+        if schema is not None:
+            keys = schema_keys(schema)
+            locations = [
+                {
+                    "path": safe_path(list(item.absolute_path), keys),
+                    "rule": item.validator,
+                }
+                for item in islice(Draft202012Validator(schema).iter_errors(value), 16)
+            ]
+            raise StructuralInputError(locations) from error
+        raise
 
 
 def source_documents(value: object) -> list[dict[str, bytes]]:
@@ -51,59 +75,151 @@ def source_documents(value: object) -> list[dict[str, bytes]]:
     ]
 
 
-def scientific_error(error: Exception) -> dict[str, object]:
-    """Keep native classifications and locations, never echo supplied source text."""
-    report = cast("DiagnosticReport | None", getattr(error, "report", None))
+class StructuralInputError(ValueError):
+    """Safe structural facts from the published owner schema after decode refusal."""
+
+    def __init__(self, locations: list[dict[str, object]]) -> None:
+        super().__init__("Generated input refused")
+        self.locations = locations
+
+
+def native_report(error: BaseException) -> DiagnosticReport | None:
+    """Follow explicit wrapping only, without parsing rendered exception text."""
+    seen: set[int] = set()
+    current: BaseException | None = error
+    for _ in range(16):
+        if current is None or id(current) in seen:
+            break
+        seen.add(id(current))
+        report = getattr(current, "report", None)
+        if report is not None:
+            return cast("DiagnosticReport", report)
+        current = current.__cause__
+    return None
+
+
+def scientific_error(
+    error: Exception, *, operation: str | None = None
+) -> dict[str, object]:
+    """Retain owner facts and authentic recovery references, redact supplied text."""
+    report = native_report(error)
     value: dict[str, object] = {
         "cause": type(error).__name__,
         "message": "Native receiver refused the selected input; supplied values are redacted.",
+        "remedy": "Correct the selected input using its published schema. Inspect original owner state before deciding whether another action is safe.",
     }
-    if report is not None:
-        for field in (
-            "code",
-            "reported_code",
-            "failure_class",
-            "stage",
-            "rule",
-            "source_refusal_proved",
+    if isinstance(error, StructuralInputError):
+        value.update(
+            code="pse.native.input_schema_refused",
+            stage="decode",
+            locations=error.locations,
+        )
+    if report is None:
+        return value
+    for field in (
+        "code",
+        "reported_code",
+        "failure_class",
+        "stage",
+        "rule",
+        "source_refusal_proved",
+    ):
+        item = getattr(report, field, None)
+        if item is not None:
+            value[field] = item
+    value["causes"] = [
+        {
+            "index": index,
+            "message_sha256": hashlib.sha256(item.message.encode()).hexdigest(),
+            "message_redacted": True,
+        }
+        for index, item in enumerate(report.causes[:16])
+    ]
+    value["locations"] = [
+        {
+            "source": item.source.to_hex(),
+            "document": item.document.to_hex() if item.document is not None else None,
+            "revision": item.revision.to_prefixed()
+            if item.revision is not None
+            else None,
+            "start": item.start,
+            "end": item.end,
+        }
+        for item in report.source_locations[:16]
+    ]
+    value["cause_count"] = len(report.causes)
+    value["location_count"] = len(report.source_locations)
+    value["context_count"] = len(report.contexts)
+    value["related_count"] = len(report.related)
+    location = getattr(report, "decode_location", None)
+    if location is not None:
+        from pse import codec  # noqa: PLC0415
+        from scripts.capabilities.native import BINDINGS  # noqa: PLC0415
+        from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
+
+        keys: frozenset[str] = frozenset({"version", "document_version"})
+        if operation is not None:
+            schemas = SchemaSet(Path(__file__).resolve().parents[2])
+            for binding in BINDINGS:
+                if binding.operation == operation:
+                    for slug in binding.documents.values():
+                        keys |= schema_keys(schemas.document(slug))
+        projected = codec.document_builtins(location)
+        if isinstance(projected, dict):
+            # Native maps/enums may be keyed by supplied values. Only properties
+            # of the actual selected owner schemas are safe public map keys.
+            path = projected.get("path", [])
+            if isinstance(path, list):
+                for segment in path:
+                    if isinstance(segment, dict):
+                        if "key" in segment and segment["key"] not in keys:
+                            segment["key"] = "<redacted-key>"
+                        if "variant" in segment:
+                            segment["variant"] = "<redacted-variant>"
+            value["decode_location"] = projected
+    value["contexts"] = [
+        {
+            "code": item.code,
+            "message_redacted": True,
+            "context_count": len(item.contexts),
+            "annotation_count": len(item.diagnostics),
+        }
+        for item in report.contexts[:16]
+    ]
+    value["related"] = [
+        {"code": item.code, "stage": item.stage, "message_redacted": True}
+        for item in report.related[:8]
+    ]
+    recovery = {}
+    for field in (
+        "analysis_key",
+        "artifact_key",
+        "artifact_owner_kind",
+        "artifact_owner",
+        "artifact_read_key",
+        "study_key",
+        "source_problem",
+        "source_operation",
+    ):
+        item = getattr(report, field, None)
+        if (
+            isinstance(item, str)
+            and item
+            and len(item) <= 160
+            and all(c.isascii() and (c.isalnum() or c in "-_:.") for c in item)
         ):
-            item = getattr(report, field, None)
-            if item is not None:
-                value[field] = item
-        value["causes"] = [
-            {
-                "index": index,
-                "message_sha256": hashlib.sha256(item.message.encode()).hexdigest(),
-                "message_redacted": True,
-            }
-            for index, item in enumerate(report.causes[:16])
-        ]
-        value["locations"] = [
-            {
-                "source": item.source.to_hex(),
-                "document": item.document.to_hex()
-                if item.document is not None
-                else None,
-                "revision": item.revision.to_prefixed()
-                if item.revision is not None
-                else None,
-                "start": item.start,
-                "end": item.end,
-            }
-            for item in report.source_locations[:16]
-        ]
-        value["cause_count"] = len(report.causes)
-        value["location_count"] = len(report.source_locations)
-        if len(report.causes) > 16 or len(report.source_locations) > 16:
-            value["complete"] = False
-            value["omissions"] = [
-                "Native error cause/location detail is limited to the first 16 entries; supplied messages remain redacted."
-            ]
-    else:
-        # msgspec locations do not require returning its offending value/message.
-        location = re.search(r"at `([^`]+)`", str(error))
-        if location:
-            value["location"] = location.group(1)
+            recovery[field] = item
+    if recovery:
+        value["recovery"] = recovery
+        value["remedy"] = (
+            "Inspect the original owner using these issued references; settle uncertain work before any repeat action. No automatic retry is authorized."
+        )
+    value["complete"] = (
+        len(report.causes) <= 16
+        and len(report.source_locations) <= 16
+        and len(report.contexts) <= 16
+        and len(report.related) <= 8
+    )
     return value
 
 
@@ -127,7 +243,12 @@ def execute(
     if not isinstance(fingerprint, str):
         raise TypeError("fixed native request requires its loaded schema fingerprint")
     if fingerprint != pse.SCHEMA_SET_FINGERPRINT:
-        return {"outcome": "stale_interface", "code": "pse.native.schema_set_mismatch"}
+        return {
+            "outcome": "stale_interface",
+            "code": "pse.native.schema_set_mismatch",
+            "stage": "native_interface_selection",
+            "remedy": "Explicitly prepare the compatible correctness extension with just py-sync-native-correctness, then restart or reattach this endpoint. This refusal does not build, retry or enter a native receiver.",
+        }
     physical_packages: list[dict[str, bytes]] = []
     packages: list[dict[str, bytes]] = []
     resources = host.Resources()
@@ -138,6 +259,7 @@ def execute(
     research: contracts.ResearchReadRequest | None = None
     revision: host.Revision | host.RevisionPreparation | None = None
     result: host.Result | None = None
+    result_inspection: contracts.ResultInspectionRequest | None = None
     # Decode every generated request before Runtime construction or store access.
     if operation in {"source_admit", "preparation_discover"}:
         source = (
@@ -210,6 +332,12 @@ def execute(
                 diagnostics.read_invocation(Path(invocation.path))
             ),
         }
+    elif operation == "result_inspect":
+        selected_result = host.ResultInspection.model_validate(supplied, strict=True)
+        result_inspection = decoded(
+            selected_result.request, contracts.ResultInspectionRequest
+        )
+        deployment = selected_result
     elif operation == "result_read":
         result = host.Result.model_validate(supplied, strict=True)
         if result.end < result.start:
@@ -301,6 +429,13 @@ def execute(
             return {
                 "outcome": "observed",
                 "document": codec.document_builtins(runtime.project_metadata(metadata)),
+            }
+        if result_inspection is not None:
+            return {
+                "outcome": "observed",
+                "document": codec.document_builtins(
+                    runtime.inspect_result(result_inspection)
+                ),
             }
         if result is not None:
             return read_result(runtime, result)
@@ -420,7 +555,7 @@ def main(argv: list[str] | None = None) -> int:
             "remedy": "Explicitly prepare the compatible extension with just py-sync-native-correctness and reattach from a prepared native environment. Read operations never build import providers.",
         }
     except Exception as error:
-        native = getattr(error, "report", None) is not None
+        native = native_report(error) is not None
         outcome = (
             "native_refusal"
             if native
@@ -430,7 +565,10 @@ def main(argv: list[str] | None = None) -> int:
                 else "unexpected_error"
             )
         )
-        value = {"outcome": outcome, "error": scientific_error(error)}
+        value = {
+            "outcome": outcome,
+            "error": scientific_error(error, operation=operation),
+        }
     try:
         encoded = json.dumps(value, allow_nan=False)
     except (TypeError, ValueError):
@@ -441,11 +579,18 @@ def main(argv: list[str] | None = None) -> int:
                 "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied.",
             }
         )
-    projection = bounded(json.loads(encoded), "native_" + operation)
-    value = projection.payload
-    if projection.omissions:
-        value["complete"] = False
-        value["omissions"] = list[JsonValue](projection.omissions)
+    if operation in {"result_read", "result_inspect"}:
+        from scripts.capabilities.native import intact_result  # noqa: PLC0415
+
+        value = intact_result(
+            JSON_OBJECT.validate_json(encoded), "native_" + operation
+        ).payload
+    else:
+        projection = bounded(json.loads(encoded), "native_" + operation)
+        value = projection.payload
+        if projection.omissions:
+            value["complete"] = False
+            value["omissions"] = list[JsonValue](projection.omissions)
     if destination is None:
         print(json.dumps(value, allow_nan=False))
     else:

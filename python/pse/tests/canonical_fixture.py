@@ -33,9 +33,8 @@ class CanonicalFixture:
         ephemeral: bool = False,
     ) -> pse.Runtime:
         if self._settlement_clock:
-            raise RuntimeError(
-                "Canonical fixture settlement has closed runtime admission"
-            )
+            message = "Canonical fixture settlement has closed runtime admission"
+            raise RuntimeError(message)
         if not ephemeral:
             test_resources.require_effect(
                 {"test": os.environ.get("PYTEST_CURRENT_TEST", "").rsplit(" (", 1)[0]},
@@ -79,7 +78,8 @@ class CanonicalFixture:
                 retained.append(runtime)
         self.borrowers[:] = retained
         if errors:
-            raise BaseExceptionGroup("Canonical fixture caller cleanup failed", errors)
+            message = "Canonical fixture caller cleanup failed"
+            raise BaseExceptionGroup(message, errors)
 
     def settle(
         self, *, registered_context: bool, deadline: float | None = None
@@ -146,7 +146,6 @@ class CanonicalFixture:
                     errors.append(failure)
                 break
         if errors:
-            raise BaseExceptionGroup(
-                "Canonical fixture physical settlement incomplete", errors
-            )
+            message = "Canonical fixture physical settlement incomplete"
+            raise BaseExceptionGroup(message, errors)
         test_resources.record_drain(self.resource, units=units, deadline=deadline)

@@ -86,9 +86,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     for item in items:
         fixtures = getattr(item, "fixturenames", ())
         if "no_canonical_allocation" in fixtures and "canonical_substrate" in fixtures:
-            raise pytest.UsageError(
-                f"{item.nodeid}: local-only consumer requests canonical_substrate"
-            )
+            message = f"{item.nodeid}: local-only consumer requests canonical_substrate"
+            raise pytest.UsageError(message)
 
 
 def _forbid_canonical_allocation(monkeypatch: pytest.MonkeyPatch) -> None:

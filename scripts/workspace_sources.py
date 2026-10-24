@@ -14,6 +14,7 @@ import time
 import tomllib
 from functools import lru_cache
 from pathlib import Path
+from typing import IO
 
 from scripts import docs, document_metadata
 
@@ -66,6 +67,16 @@ def _command(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+    if process.stdout is None or process.stderr is None:
+        process.kill()
+        process.wait()
+        raise RuntimeError("source command requires captured output pipes")
+    streams: dict[int, IO[bytes]] = {
+        process.stdout.fileno(): process.stdout,
+        process.stderr.fileno(): process.stderr,
+    }
+    if process.stdin is not None:
+        streams[process.stdin.fileno()] = process.stdin
     pending = memoryview(input_bytes or b"")
     with selectors.DefaultSelector() as selector:
         for stream in (process.stdout, process.stderr):
@@ -84,7 +95,7 @@ def _command(
                     complete = False
                     break
                 for key, event in selector.select(min(remaining, 0.1)):
-                    stream = key.fileobj
+                    stream = streams[key.fd]
                     if event & selectors.EVENT_WRITE:
                         try:
                             written = os.write(stream.fileno(), pending[:16384])
@@ -276,7 +287,10 @@ def source(
             ]
         role = str(metadata.get("doc_role", "reference"))
         owner = str(metadata.get("doc_owner", relative))
-        topics = list(metadata.get("doc_topics", []))
+        selected_topics = metadata.get("doc_topics", [])
+        if not isinstance(selected_topics, list) or any(not isinstance(topic, str) for topic in selected_topics):
+            raise ValueError("document topics must be a list of strings")
+        topics = list(selected_topics)
         status = metadata.get("status", "")
         if not isinstance(status, str):
             raise ValueError("document status must be a string")
@@ -455,7 +469,7 @@ def search(
         raise ValueError("query requires at least one lexical term")
     expression = "|".join(re.escape(term) for term in terms)
     pattern = re.compile(expression, re.IGNORECASE)
-    items = []
+    items: list[dict] = []
     gaps = []
     scanned_bytes = scanned_files = 0
     for name in membership["paths"]:
@@ -514,6 +528,13 @@ def search(
         },
         "meaning": "source-only lexical leads; native role/scope precedence is not scientific or semantic proof; no database required",
     }
+
+
+def _producer_document(text: str) -> dict:
+    document = json.loads(text)
+    if not isinstance(document, dict) or document.get("schema_version") != 1:
+        raise ValueError("unknown producer relationship version")
+    return document
 
 
 def relationships(
@@ -578,9 +599,7 @@ def relationships(
         relative = path.relative_to(root).as_posix()
         try:
             fact = source(relative, root=root, revision=revision, max_bytes=8 << 20)
-            document = json.loads(fact.pop("text"))
-            if document.get("schema_version") != 1:
-                raise ValueError("unknown producer relationship version")
+            document = _producer_document(fact.pop("text"))
             producer = document.get("producer")
             producers.append(producer)
             documents.append(
@@ -733,6 +752,7 @@ def library_packet(
         raise ValueError("bounded literal dependency and evidence selection required")
     provenance = []
     cargo = {}
+    cargo_fact: dict | None = None
     if (root / "Cargo.toml").is_file():
         cargo, cargo_fact = _toml(root, "Cargo.toml")
         provenance.append(cargo_fact)
@@ -742,6 +762,8 @@ def library_packet(
     ecosystem = "cargo"
     patches = {}
     if declaration is not None:
+        if cargo_fact is None:
+            raise RuntimeError("Cargo declaration has no captured manifest")
         manifest_fact = cargo_fact
         lock, lock_fact = _toml(root, "Cargo.lock")
         if isinstance(declaration, dict):

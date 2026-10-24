@@ -27,12 +27,12 @@ from scripts import (
     validation,
     validation_receipts,
 )
+from scripts.tests import assessment_fixture
 from scripts.validation_scope import FUNCTIONAL_SCOPES, Gate
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-from scripts.tests import assessment_fixture
 
 
 class NativePythonImportIdentity(unittest.TestCase):

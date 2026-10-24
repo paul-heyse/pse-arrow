@@ -151,6 +151,80 @@ class HostKernelTests(unittest.TestCase):
                 active.read_action(output, summary_only=True)["status"], "interrupted"
             )
 
+    def test_host_failure_does_not_echo_exception_source_or_infer_recovery(
+        self,
+    ) -> None:
+        failure = json.loads(
+            str(
+                host_actions.failure(
+                    "diagnostic_action_read",
+                    ValueError("PRIVATE SOURCE password=value /private/source"),
+                )
+            )
+        )
+        self.assertEqual(failure["code"], "pse.host.diagnostic_action_read.refused")
+        self.assertEqual(failure["stage"], "host_action")
+        self.assertEqual(failure["cause"], "ValueError")
+        self.assertNotIn("PRIVATE SOURCE", json.dumps(failure))
+        self.assertNotIn("password", json.dumps(failure))
+        self.assertNotIn("recovery", failure)
+        self.assertIn("No automatic retry", failure["remedy"])
+
+    def test_worker_refusal_redacts_unknown_field_names_and_preserves_success_result(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            source, destination = (
+                Path(temporary) / "request.json",
+                Path(temporary) / "response.json",
+            )
+            source.write_text(
+                json.dumps(
+                    {
+                        "action": "stat",
+                        "output": "build/selected",
+                        **{
+                            f"PRIVATE-FIELD-{index}": "PRIVATE VALUE"
+                            for index in range(20)
+                        },
+                    }
+                )
+            )
+            self.assertEqual(
+                host_worker.main(["diagnostic", str(source), str(destination)]), 0
+            )
+            failure = json.loads(destination.read_text())["error"]
+            self.assertEqual(failure["stage"], "input")
+            self.assertEqual(failure["field_count"], 20)
+            self.assertEqual(len(failure["fields"]), 16)
+            self.assertTrue(
+                all(field["loc"] == ["<redacted-key>"] for field in failure["fields"])
+            )
+            self.assertNotIn("PRIVATE", json.dumps(failure))
+            destination.unlink()
+            result = {
+                "status": "interrupted",
+                "invocation": "issued-invocation",
+                "output": "build/selected",
+                "owned_drain": "unresolved",
+            }
+            with patch.object(host_worker, "invoke", return_value=result):
+                self.assertEqual(
+                    host_worker.main(["diagnostic", str(source), str(destination)]), 0
+                )
+            self.assertEqual(json.loads(destination.read_text()), {"result": result})
+            destination.unlink()
+            with patch.object(
+                host_worker, "invoke", side_effect=OSError("PRIVATE SOURCE")
+            ):
+                self.assertEqual(
+                    host_worker.main(["diagnostic", str(source), str(destination)]), 0
+                )
+            failure = json.loads(destination.read_text())["error"]
+            self.assertNotIn("PRIVATE", json.dumps(failure))
+            self.assertEqual(failure["cause"], "OSError")
+            self.assertNotIn("recovery", failure)
+
     def test_fixed_worker_refuses_unregistered_operation(self) -> None:
         with self.assertRaisesRegex(ValueError, "unsupported fixed host operation"):
             host_worker.invoke("not-a-shell-router", "{}")
@@ -381,7 +455,10 @@ class HostToolTests(unittest.IsolatedAsyncioTestCase):
                         }
                     }
                 )
-            self.assertIn("manifest identity changed", str(refusal.exception))
+            failure = json.loads(str(refusal.exception))
+            self.assertEqual(failure["code"], "pse.host.experiment_inspect.refused")
+            self.assertEqual(failure["cause"], "ArchiveError")
+            self.assertIn("Inspect the original owner", failure["remedy"])
 
     async def test_actual_cancellation_joins_helper_and_preserves_unrelated_subject(
         self,

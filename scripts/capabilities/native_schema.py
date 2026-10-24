@@ -137,6 +137,13 @@ class SchemaSet:
             "schema_set_fingerprint": self.fingerprint,
         }
 
+    def input_for_type(self, exported_name: str) -> dict[str, JsonValue] | None:
+        """Find a generated input by its catalogue-owned exported type name."""
+        for (slug, direction), row in self._documents.items():
+            if direction == "input" and row["exported_name"] == exported_name:
+                return self.document(slug)
+        return None
+
     def read(
         self, slug: str, direction: str | None, pointer: str = ""
     ) -> dict[str, JsonValue]:

@@ -41,8 +41,8 @@ pub(crate) fn decode<T: serde::de::DeserializeOwned>(
             format!("{operation} document extent"),
         ));
     }
-    serde_json::from_slice(bytes)
-        .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
+    pse_model::document::decode_json(bytes)
+        .map_err(|error| crate::inspection::errors::diagnostic(py, &error))
 }
 /// Decode a registered standalone owner using its catalogue-selected actual envelope.
 pub(crate) fn decode_document<T: serde::de::DeserializeOwned + DocumentType>(
@@ -64,16 +64,21 @@ pub(crate) fn decode_document<T: serde::de::DeserializeOwned + DocumentType>(
             | pse_runtime::boundary_documents::Wire::ValueV1 => "document_version",
         };
         pse_runtime::boundary_documents::check_required_header(bytes, field, version)
-            .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))?;
+            .map_err(|error| crate::inspection::errors::diagnostic(py, &error))?;
     }
     T::WIRE
         .decode_slice(bytes)
-        .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
+        .map_err(|error| crate::inspection::errors::diagnostic(py, &error))
 }
 
 /// Shared native header admission for Python's original JSON slices.
 #[pyfunction]
-pub(crate) fn check_document_header(bytes: &[u8], field: &str, expected: u32) -> PyResult<()> {
+pub(crate) fn check_document_header(
+    py: Python<'_>,
+    bytes: &[u8],
+    field: &str,
+    expected: u32,
+) -> PyResult<()> {
     let field = match field {
         "version" => "version",
         "document_version" => "document_version",
@@ -83,8 +88,18 @@ pub(crate) fn check_document_header(bytes: &[u8], field: &str, expected: u32) ->
             ));
         }
     };
-    pse_runtime::boundary_documents::check_required_header(bytes, field, expected)
-        .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))
+    pse_runtime::boundary_documents::check_required_header(bytes, field, expected).map_err(
+        |error| {
+            // The Python codec's documented refusal remains ValueError-based. Preserve
+            // the typed report on its explicit cause instead of flattening it to text.
+            let result = pyo3::exceptions::PyValueError::new_err(error.to_string());
+            let report = crate::inspection::errors::DiagnosticReport::observe(&error);
+            match result.value(py).setattr("report", report) {
+                Ok(()) => result,
+                Err(attachment) => attachment,
+            }
+        },
+    )
 }
 
 /// Admit interpretation before decoding nested current document fields.
@@ -101,7 +116,7 @@ pub(crate) fn decode_versioned<T: serde::de::DeserializeOwned, const N: u32>(
         ));
     }
     pse_model::document::decode_versioned::<T, N>(bytes)
-        .map_err(|error| crate::workflow::invalid(py, format!("{operation}: {error}")))
+        .map_err(|error| crate::inspection::errors::diagnostic(py, &error))
 }
 /// Infer current interpretation from the document's declared version field.
 pub(crate) fn decode_current<T: serde::de::DeserializeOwned, const N: u32>(

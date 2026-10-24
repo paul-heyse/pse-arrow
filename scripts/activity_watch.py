@@ -14,8 +14,11 @@ import hashlib
 import json
 import subprocess
 import time
-from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from scripts import (
     build_observation,
@@ -75,6 +78,11 @@ def selection(kind: str, handle: str, registry: Path | None = None) -> dict:
     return result
 
 
+def _require_interval(value: object) -> None:
+    if not isinstance(value, int):
+        raise TypeError("invalid watch cursor interval")
+
+
 def decode(token: str, selected: dict) -> dict:
     if len(token) > 16384:
         raise ValueError("watch cursor exceeds bound")
@@ -96,92 +104,99 @@ def decode(token: str, selected: dict) -> dict:
         or any(c not in "0123456789abcdef" for c in value["revision"])
     ):
         raise ValueError("invalid watch cursor revision")
-    if not isinstance(value.get("observed_unix_ns"), int):
-        raise ValueError("invalid watch cursor interval")
+    observed = value.get("observed_unix_ns")
+    try:
+        _require_interval(observed)
+    except TypeError as error:
+        raise ValueError("invalid watch cursor interval") from error
+    return value
+
+
+def _snapshot_body(selected: dict, deadline: float) -> dict:
+    kind, handle = selected["kind"], selected["handle"]
+    if kind == "unit":
+        fields = native_operation.unit_observation(
+            handle,
+            properties=(
+                "SubState",
+                "Result",
+                "ExecMainCode",
+                "ExecMainStatus",
+                "CPUUsageNSec",
+                "MemoryCurrent",
+            ),
+            deadline=deadline,
+        )
+        if fields["LoadState"] == "not-found":
+            raise ValueError(
+                "selected unit disappeared; terminal and drain unknown"
+            )
+        state = (
+            "running"
+            if fields["ActiveState"] in {"active", "activating", "deactivating"}
+            else "terminal-without-result"
+        )
+        return {"state": state, "unit": fields, "result_reference": None}
+    if kind == "attempt":
+        observations = host_admission.admission_observations(
+            Path(selected["admission_directory"]), attempt=handle
+        )
+        if len(observations) != 1:
+            raise ValueError("selected admission attempt unavailable")
+        attempt = observations[0]
+        state = attempt["status"]
+        if not attempt.get("caller_alive") and state == "waiting":
+            state = "observation-lost"
+        return {"state": state, "attempt": attempt, "result_reference": None}
+    result = run_inspection.product_result(
+        handle, registry=Path(selected["registry"])
+    )
+    terminal = result.get("terminal")
+    state = "declared"
+    if terminal is not None:
+        state = (
+            "result-complete" if terminal.get("complete") else "result-incomplete"
+        )
+    elif result.get("phase") in {"abandoned", "unresolved"}:
+        state = "observation-lost"
+    elif result.get("producer", {}).get("association") == "captured-metadata":
+        state = (
+            "running"
+            if host_admission.caller_alive(result["producer"])
+            else "observation-lost"
+        )
+    # The result reader is authority; missing or returned Cargo observations
+    # cannot turn an open product invocation into successful completion.
+    value: dict[str, object] = {
+        "state": state,
+        "run": result,
+        "result_reference": {
+            "run_path": result["run_path"],
+            "registry": result["registry"],
+            "terminal_identity": result.get("terminal_identity"),
+        }
+        if terminal is not None
+        else None,
+    }
+    try:
+        value["builds"] = [
+            item
+            for item in build_observation.observations(host_admission.root_path())
+            if item.get("invocation_declaration")
+            in {result["run_path"], result["invocation"]}
+        ]
+        value["build_coverage"] = (
+            "matching snapshots within owner's latest 100; no transition history"
+        )
+    except (OSError, ValueError) as error:
+        value["builds"] = None
+        value["build_error"] = str(error)
     return value
 
 
 def snapshot(selected: dict, deadline: float) -> dict:
-    kind, handle = selected["kind"], selected["handle"]
     try:
-        if kind == "unit":
-            fields = native_operation.unit_observation(
-                handle,
-                properties=(
-                    "SubState",
-                    "Result",
-                    "ExecMainCode",
-                    "ExecMainStatus",
-                    "CPUUsageNSec",
-                    "MemoryCurrent",
-                ),
-                deadline=deadline,
-            )
-            if fields["LoadState"] == "not-found":
-                raise ValueError(
-                    "selected unit disappeared; terminal and drain unknown"
-                )
-            state = (
-                "running"
-                if fields["ActiveState"] in {"active", "activating", "deactivating"}
-                else "terminal-without-result"
-            )
-            return {"state": state, "unit": fields, "result_reference": None}
-        if kind == "attempt":
-            observations = host_admission.admission_observations(
-                Path(selected["admission_directory"]), attempt=handle
-            )
-            if len(observations) != 1:
-                raise ValueError("selected admission attempt unavailable")
-            attempt = observations[0]
-            state = attempt["status"]
-            if not attempt.get("caller_alive") and state == "waiting":
-                state = "observation-lost"
-            return {"state": state, "attempt": attempt, "result_reference": None}
-        result = run_inspection.product_result(
-            handle, registry=Path(selected["registry"])
-        )
-        terminal = result.get("terminal")
-        state = "declared"
-        if terminal is not None:
-            state = (
-                "result-complete" if terminal.get("complete") else "result-incomplete"
-            )
-        elif result.get("phase") in {"abandoned", "unresolved"}:
-            state = "observation-lost"
-        elif result.get("producer", {}).get("association") == "captured-metadata":
-            state = (
-                "running"
-                if host_admission.caller_alive(result["producer"])
-                else "observation-lost"
-            )
-        # The result reader is authority; missing or returned Cargo observations
-        # cannot turn an open product invocation into successful completion.
-        value = {
-            "state": state,
-            "run": result,
-            "result_reference": {
-                "run_path": result["run_path"],
-                "registry": result["registry"],
-                "terminal_identity": result.get("terminal_identity"),
-            }
-            if terminal is not None
-            else None,
-        }
-        try:
-            value["builds"] = [
-                item
-                for item in build_observation.observations(host_admission.root_path())
-                if item.get("invocation_declaration")
-                in {result["run_path"], result["invocation"]}
-            ]
-            value["build_coverage"] = (
-                "matching snapshots within owner's latest 100; no transition history"
-            )
-        except (OSError, ValueError) as error:
-            value["builds"] = None
-            value["build_error"] = str(error)
-        return value
+        observed = _snapshot_body(selected, deadline)
     except (
         OSError,
         ValueError,
@@ -195,6 +210,9 @@ def snapshot(selected: dict, deadline: float) -> dict:
             "error": f"{type(error).__name__}: {error}",
             "result_reference": None,
         }
+    else:
+        return observed
+
 
 
 def watch(

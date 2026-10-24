@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Durable measurements keep the observer separate from native execution."""
-# ruff: noqa: PT009 -- stdlib controls exercise command dispatch
+# ruff: noqa: PT009, PT027 -- stdlib unittest controls
 
 from __future__ import annotations
 

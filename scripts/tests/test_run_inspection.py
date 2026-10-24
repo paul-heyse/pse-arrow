@@ -177,7 +177,9 @@ class RunInspectionTests(unittest.TestCase):
 
         def resolve(handle: str, registry: Path | None) -> tuple:
             root, declaration, state = original(handle, registry)
-            state["terminal"]["evidence"]["requirements"] = Requirements({"suite::one": ["first"], "suite::two": ["second"]})
+            state["terminal"]["evidence"]["requirements"] = Requirements(
+                {"suite::one": ["first"], "suite::two": ["second"]}
+            )
             return root, declaration, state
 
         with patch.object(run_inspection, "resolve", side_effect=resolve):
@@ -252,9 +254,9 @@ class RunInspectionTests(unittest.TestCase):
         original = run_inspection.artifact_observation
         observed = []
 
-        def inspect(path: Path, *args: object) -> dict:
+        def inspect(path: Path, digest: str, tail: int, record: test_resources.ResourceRecord | None) -> dict:
             observed.append(path.name)
-            return original(path, *args)
+            return original(path, digest, tail, record)
 
         with patch.object(run_inspection, "artifact_observation", side_effect=inspect):
             result = self.read(offset=1, limit=1, tail=1)

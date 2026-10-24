@@ -59,6 +59,12 @@ pub use review_export::{ReviewExportDeployment, ReviewOutputSelection, ReviewSci
 mod physical_spool;
 pub mod result_blocks;
 pub mod result_files;
+mod result_inspection;
+pub use result_inspection::{
+    ResultCellUnavailable, ResultFloatClass, ResultInspectionCell, ResultInspectionDocument,
+    ResultInspectionField, ResultInspectionRefusal, ResultInspectionRequest, ResultInspectionRow,
+    ResultInspectionView,
+};
 mod result_snapshot;
 pub use result_snapshot::{ResultSnapshot, SelectedResultSnapshot};
 pub(crate) mod result_export;
@@ -336,6 +342,9 @@ pub enum WorkflowError {
         #[source]
         source: Box<WorkflowError>,
     },
+    /// Original version-first JSON refusal with structured native decode facts.
+    #[error(transparent)]
+    DocumentDecode(#[from] pse_model::document::JsonDecodeError),
     /// Bounded scientific IPC framing, schema, shape or decoder refusal.
     #[error(transparent)]
     ResultBlock(#[from] result_blocks::ResultBlockError),
@@ -399,8 +408,8 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Input(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)|Self::StudyExecutionUnavailable{..}=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
-    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
+    code(this) {match this {Self::Input(_)|Self::DocumentDecode(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)|Self::StudyExecutionUnavailable{..}=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
+    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::DocumentDecode(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 pub(crate) fn contract(message: impl Into<String>) -> WorkflowError {

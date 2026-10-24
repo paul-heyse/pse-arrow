@@ -99,6 +99,8 @@ from pse.contracts.documents import (
     ReductionRequestOutput,
     ReproductionDocumentOutput,
     ResourceReportOutput,
+    ResultInspectionDocument,
+    ResultInspectionRequest,
     ResultReclamationPage,
     RunControls,
     SolverCapability,
@@ -393,6 +395,17 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
         return self._handle.export_review_pack(
             Path(destination), evidence, analysis, request
         )
+
+    def inspect_result(
+        self, request: ResultInspectionRequest
+    ) -> ResultInspectionDocument:
+        """Inspect an exact protected result without changing its scientific meaning.
+
+        Schema queries do not pull data batches. Readable value queries retain
+        original context and exact floating bits, with explicit null, nonfinite
+        and unsupported values. ``results`` remains the full Arrow IPC route.
+        """
+        return self._handle.inspect_result(request)
 
     def results(
         self,

@@ -45,12 +45,13 @@ def fixture_type() -> type[Fixture]:
     # two synchronous logical operations; physical drain is separately observed.
     path = Path(__file__).resolve().parents[2] / "python/pse/tests/canonical_fixture.py"
     spec = importlib.util.spec_from_file_location("fixture_settlement_control", path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     fake_pse = types.ModuleType("pse")
     fake_pse.Runtime = Borrower
     fake_build = types.ModuleType("pse._build")
-    fake_build._NativeRuntime = FixtureNativeDrain
+    fake_build._NativeRuntime = FixtureNativeDrain  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
     with patch.dict(
         sys.modules, {"pse": fake_pse, "pse._build": fake_build, spec.name: module}
     ):
@@ -232,8 +233,8 @@ class FixtureSettlement(unittest.TestCase):
             state = Path(temporary)
             (state / ".contexts").mkdir()
             (state / ".contexts/database.json").write_text("{}")
-            previous = getattr(surreal_server._STARTUP, "deadline", None)
-            surreal_server._STARTUP.deadline = time.monotonic() - 1
+            previous = getattr(surreal_server._STARTUP, "deadline", None)  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
+            surreal_server._STARTUP.deadline = time.monotonic() - 1  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
             try:
                 with (
                     patch.object(
@@ -252,7 +253,7 @@ class FixtureSettlement(unittest.TestCase):
                     )
                 signal.assert_not_called()
             finally:
-                surreal_server._STARTUP.deadline = previous
+                surreal_server._STARTUP.deadline = previous  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
 
 
 if __name__ == "__main__":

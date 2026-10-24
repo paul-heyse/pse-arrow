@@ -24,7 +24,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping, Sequence
 from unittest.mock import patch
 
+from scripts import assessment_store
 from scripts import test_resources as resources
+from scripts.tests import assessment_fixture
 
 
 def drain_fixture(complete: bool) -> resources.operation.DrainObservation:
@@ -37,8 +39,6 @@ def drain_fixture(complete: bool) -> resources.operation.DrainObservation:
     )
 
 
-from scripts import assessment_store
-from scripts.tests import assessment_fixture
 
 
 class TestResourceTests(unittest.TestCase):
