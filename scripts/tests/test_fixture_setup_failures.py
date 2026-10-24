@@ -23,6 +23,7 @@ from unittest.mock import DEFAULT, Mock, patch
 import pytest
 
 from scripts import surreal_server, test_resources
+from scripts.tests.test_fixture_settlement import FixtureNativeDrain
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -38,6 +39,7 @@ class CanonicalSetupProducers(unittest.TestCase):
         pse.__dict__["Runtime"] = Mock()
         build = ModuleType("pse._build")
         build.__dict__.update(
+            _NativeRuntime=FixtureNativeDrain,
             CacheSettings=object,
             EngineSettings=object,
             build_info=Mock(),
@@ -63,7 +65,11 @@ class CanonicalSetupProducers(unittest.TestCase):
         self.runtime = pse.__dict__["Runtime"]
         self.request = Mock()
         self.request.node.nodeid = "test_selected.py::test_selected"
-        self.request.node.get_closest_marker.return_value = None
+        self.request.node.fixturenames = ["canonical_substrate"]
+        native_marker = pytest.mark.test_requirements(native=True).mark
+        self.request.node.get_closest_marker.side_effect = (
+            lambda name: native_marker if name == "test_requirements" else None
+        )
         environment = patch.dict(
             os.environ,
             {
@@ -197,16 +203,25 @@ class CanonicalSetupProducers(unittest.TestCase):
         borrower.clear_program_cache.assert_called_once()
         borrower.close.assert_called_once()
         self.assertEqual(fixture.borrowers, [])
-        self.record_drain.assert_called_once_with("resource", units=[])
+        self.record_drain.assert_called_once_with(
+            "resource", units=[], deadline=fixture.settlement_deadline()
+        )
 
     def test_teardown_failure_is_not_setup_failure(self) -> None:
         generator = self.generator()
         fixture = next(generator)
         borrower = Mock()
-        borrower.close.side_effect = RuntimeError("drain failed")
+        failure = RuntimeError("drain failed")
+        borrower.close.side_effect = failure
         fixture.borrowers.append(borrower)
-        with self.assertRaisesRegex(RuntimeError, "drain failed"):
+        with self.assertRaisesRegex(
+            BaseExceptionGroup, "Canonical fixture physical settlement incomplete"
+        ) as caught:
             next(generator)
+        self.assertEqual(len(caught.exception.exceptions), 1)
+        caller_failure = caught.exception.exceptions[0]
+        assert isinstance(caller_failure, BaseExceptionGroup)
+        self.assertEqual(caller_failure.exceptions, (failure,))
         self.observe.assert_not_called()
         self.record_drain.assert_not_called()
 

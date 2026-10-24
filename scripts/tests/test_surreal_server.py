@@ -1658,10 +1658,10 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "SCRIPT", script),
             patch.object(server, "surreal_source", frozen),
             patch.object(
-                server._STARTUP,
+                server._STARTUP,  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
                 "deadline",
                 time.monotonic() + 30,
-                create=True,  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
+                create=True,
             ),
             patch.object(server, "storage_launch", return_value={"binding": binding}),
             patch.object(

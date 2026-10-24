@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import msgspec
 
-from scripts import evidence_sources
+from scripts import evidence_sources, test_resources
 from scripts import pressure_observation as pressure
 from scripts import storage_health as health
 from scripts import surreal_diagnostics as diagnostics
@@ -608,7 +608,11 @@ class StorageHealthTests(unittest.TestCase):
         )
         action = health.owner_actions(record)[1]
         self.assertEqual(action["command"][2], "recover-maintenance")
+        self.state.mkdir(mode=0o700)
+        with patch.object(test_resources, "registry", return_value=self.root / "registry"):
+            test_resources.service_registry_binding(self.state, establish=True)
         with (
+            patch.object(test_resources, "registry", return_value=self.root / "registry"),
             patch.object(
                 server, "lifecycle_reservation", return_value=contextlib.nullcontext()
             ) as reserve,
