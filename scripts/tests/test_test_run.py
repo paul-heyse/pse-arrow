@@ -831,6 +831,70 @@ class OrdinaryRustScientificInputTests(unittest.TestCase):
             hashlib.sha256(capsule.read_bytes()).hexdigest(),
         )
 
+    def test_canonical_retained_catalogue_is_prepared_before_observer_acquisition(self) -> None:
+        inventory = self.inventory("pse-operations")
+        retained = ["--binaries-metadata", "/retained/binaries.json", "--cargo-metadata", "/retained/cargo.json"]
+        command = ["cargo", "nextest", "run", "-p", "pse-operations", "--features", "pse-operations/canonical-tests"]
+        worker = self.root / "worker"
+        state = self.root / "service"
+        environment = {**self.environment, "PSE_NATIVE_OPERATION": "/authenticated/operation", "PSE_SURREAL_STATE": str(state)}
+
+        def prepare(actual, provenance, selection, actual_environment, **options):
+            self.assertEqual(actual, command)
+            self.assertEqual(options, {"effects": "canonical", "package_scope": False, "canonical": True})
+            self.assertEqual(actual_environment["PSE_SURREAL_STATE"], str(state))
+            selection.write_text(json.dumps(inventory))
+            provenance.write_text("{}")
+            self.events.append("prepare")
+            return retained, worker
+
+        def compose(_path, _command, _environment, _report, **options):
+            self.events.append("compose")
+            return options["launch"]({})
+
+        def observe(actual_state, child, **_options):
+            self.assertEqual(self.events, ["prepare", "compose"])
+            self.assertEqual(actual_state, state)
+            self.assertEqual(child[:4], [sys.executable, "-m", "scripts.test_run", "--observer-child"])
+            self.assertIn("--binaries-metadata", child)
+            self.assertIn("--cargo-metadata", child)
+            self.assertNotIn("--features", child)
+            self.assertNotIn("-p", child)
+            self.assertEqual(json.loads(Path(os.environ["PSE_NATIVE_SELECTION"]).read_text()), inventory)
+            self.assertEqual(os.environ["PSE_WORKER_BINARY"], str(worker))
+            self.events.append("observe")
+            return 9
+
+        with (
+            patch.object(test_run.validation, "fresh_output", return_value=self.root),
+            patch.object(native_tests, "ordinary_rust_capture", side_effect=prepare) as prepared,
+            patch.object(native_tests, "rust_fixture_bindings", return_value={}),
+            patch.object(test_run, "execute_selected", side_effect=compose),
+            patch("scripts.surreal_server.observer", side_effect=observe) as observer,
+            patch.object(test_run.subprocess, "run", side_effect=AssertionError("duplicate listing or build")),
+        ):
+            self.assertEqual(test_run.run_rust(command, env=environment), 9)
+        prepared.assert_called_once()
+        observer.assert_called_once()
+        self.assertEqual(self.events, ["prepare", "compose", "observe"])
+        self.assertNotIn("PSE_NATIVE_SELECTION", os.environ)
+        self.assertNotIn("PSE_WORKER_BINARY", os.environ)
+
+    def test_retained_metadata_without_catalogue_refuses_before_preparation_or_invocation(self) -> None:
+        for effects in ("native-local", "canonical"):
+            with (
+                self.subTest(effects=effects),
+                patch.object(native_tests, "ordinary_rust_capture") as prepare,
+                patch.object(resources, "invocation") as invocation,
+                self.assertRaisesRegex(ValueError, "requires its prepared inventory"),
+            ):
+                test_run.run_rust(
+                    ["cargo", "nextest", "run", "--binaries-metadata", "/retained/binaries.json", "--cargo-metadata", "/retained/cargo.json"],
+                    env=self.environment, effects=effects,
+                )
+            prepare.assert_not_called()
+            invocation.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
