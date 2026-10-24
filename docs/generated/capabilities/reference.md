@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `bc4192cddcdfd7f81c845a10a898f435cbaea03d799815726ca92de9d1a7aa72`.
+Catalogue content revision: `216c3b67480ba462c21999bedf803c658cba190212022fec9de150a6e7b41a38`.
 
 ## Domains
 
@@ -2707,7 +2707,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration sour
 
 ```json
 {
-  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child and actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization or source publication; native provider setup may occur through the selected environment owner. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
+  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child in the inherited endpoint environment with actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization, native provider preparation or source publication. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
   "domain": "environment",
   "effects": "Explicit selected live import or specialist prerequisite checks; no extension build, source synchronization or stub publication.",
   "exposure": "tool",
@@ -2729,12 +2729,12 @@ Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration sour
     {
       "lifetime": "attached",
       "operation": "import-check",
-      "worker": "prep-dev"
+      "worker": "prep-import"
     },
     {
       "lifetime": "attached",
       "operation": "import-check",
-      "worker": "prep-native"
+      "worker": "prep-import"
     }
   ],
   "workflows": [
@@ -2762,7 +2762,7 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
     "openWorldHint": false,
     "readOnlyHint": false
   },
-  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child and actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization or source publication; native provider setup may occur through the selected environment owner. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
+  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child in the inherited endpoint environment with actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization, native provider preparation or source publication. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
   "inputSchema": {
     "$defs": {
       "ReadinessCheckRequest": {

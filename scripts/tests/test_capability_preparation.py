@@ -83,6 +83,23 @@ class PreparationTests(unittest.IsolatedAsyncioTestCase):
 
 
 class PreparationWorkerTests(unittest.TestCase):
+    def test_import_checks_preserve_endpoint_provider_environment(self) -> None:
+        for call in preparation.IMPORT_CALLS.values():
+            self.assertEqual(call.declaration.environment, ())
+            self.assertEqual(call.operation, "import-check")
+        self.assertIn("--native=solver,klu,isolation,uno,petsc", preparation.STAGE_CALLS["native"].declaration.environment)
+
+    def test_import_check_uses_its_fixed_interpreter_despite_foreign_installer_selection(self) -> None:
+        import sys  # noqa: PLC0415
+
+        with (
+            patch.dict(os.environ, {"UV_PROJECT_ENVIRONMENT": "/foreign", "VIRTUAL_ENV": "/foreign"}),
+            patch.object(python_extension, "capture", side_effect=ValueError("refused")) as capture,
+        ):
+            preparation_worker.invoke("import-check", preparation.ImportCheckRequest(mode="native").model_dump_json())
+        self.assertEqual(capture.call_args.args[0]["UV_PROJECT_ENVIRONMENT"], sys.prefix)
+        self.assertEqual(capture.call_args.args[0]["VIRTUAL_ENV"], sys.prefix)
+
     def test_stage_child_calls_owner_once_in_resolved_environment_without_launch(self) -> None:
         result = outcome("dev")
         def callback(_stage: str, _result: python_extension.StageResult | None) -> None:

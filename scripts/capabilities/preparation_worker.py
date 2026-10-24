@@ -39,7 +39,12 @@ def invoke(
             on_stage("import", None)
         try:
             artifact = python_extension.ExtensionArtifact.model_validate(
-                python_extension.capture(dict(os.environ), validated=request.validated, native=request.mode == "native")
+                # Native read dispatch uses this same fixed checkout interpreter,
+                # rather than a caller's alternate installer environment.
+                python_extension.capture(
+                    python_extension.bind_interpreter({**os.environ, "UV_PROJECT_ENVIRONMENT": sys.prefix}),
+                    validated=request.validated, native=request.mode == "native",
+                )
             )
         except (OSError, ValueError, TypeError, subprocess.SubprocessError) as error:
             result = ImportCheckResult(mode=request.mode, validated=request.validated, compatible=False, cause=type(error).__name__)

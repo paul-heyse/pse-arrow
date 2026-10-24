@@ -32,14 +32,18 @@ class Worker:
 
 
 WORKERS = {
+    "prep-import": Worker(
+        "scripts.capabilities.preparation_worker",
+        frozenset({"import-check"}),
+    ),
     "prep-dev": Worker(
         "scripts.capabilities.preparation_worker",
-        frozenset({"stage", "import-check"}),
+        frozenset({"stage"}),
         ("--recipe-default-class", "compile"),
     ),
     "prep-native": Worker(
         "scripts.capabilities.preparation_worker",
-        frozenset({"stage", "import-check"}),
+        frozenset({"stage"}),
         ("--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc"),
     ),
     "host": Worker(

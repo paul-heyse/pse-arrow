@@ -53,8 +53,8 @@ STAGE_CALLS = {
     "native": WorkerCall("prep-native", "stage"),
 }
 IMPORT_CALLS = {
-    "dev": WorkerCall("prep-dev", "import-check"),
-    "native": WorkerCall("prep-native", "import-check"),
+    "dev": WorkerCall("prep-import", "import-check"),
+    "native": WorkerCall("prep-import", "import-check"),
 }
 
 

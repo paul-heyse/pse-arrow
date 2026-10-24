@@ -142,7 +142,7 @@ def bindings(
         return passive(root, selected(capability))
 
     async def capability_readiness_check(request: ReadinessCheckRequest) -> CapabilityReadiness:
-        """Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child and actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization or source publication; native provider setup may occur through the selected environment owner. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation."""
+        """Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child in the inherited endpoint environment with actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization, native provider preparation or source publication. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation."""
         capability = selected(request.capability)
         result = passive(root, capability)
         update: dict[str, object] = {}
