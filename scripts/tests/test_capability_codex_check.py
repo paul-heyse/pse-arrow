@@ -22,6 +22,40 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
     guide = "# Plan execution\nPrepare the approach; do not execute implementation.\n"
     root_instructions = "# Original workflow instructions\n"
     (output / "AGENTS.md").write_text(root_instructions)
+    planning = output / check.GUIDE
+    planning.parent.mkdir(parents=True)
+    planning.write_text(guide)
+    create = output / check.CREATE_GUIDE
+    create.parent.mkdir(parents=True)
+    create.write_text("# Create plan\nRead references/plan-structure.md.\n")
+    support = output / check.SUPPORT
+    support.parent.mkdir(parents=True)
+    support.write_text("# Original plan structure\nKeep exact source ownership.\n")
+    digest = hashlib.sha256()
+    package_files = []
+    for path in sorted((check.CREATE_GUIDE, check.SUPPORT)):
+        data = (output / path).read_bytes()
+        encoded = path.encode()
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+        digest.update(hashlib.sha256(data).digest())
+        identity = hashlib.sha256(encoded).hexdigest()
+        package_files.append({
+            "id": identity, "path": (output / path).relative_to(create.parent).as_posix(),
+            "uri": check.CREATE_URI if path == check.CREATE_GUIDE else check.SUPPORT_URI,
+            "digest": hashlib.sha256(data).hexdigest(), "bytes": len(data),
+        })
+    package_digest = digest.hexdigest()
+    manifest = {"guide_id": "skill-create-plan", "guide_digest": package_files[0]["digest"],
+                "package_digest": package_digest, "complete": True, "files": package_files}
+    def reference(identity: str, path: str) -> dict:
+        return {"id": identity, "uri": "pse://guidance/" + identity,
+                "path": path, "digest": hashlib.sha256((output / path).read_bytes()).hexdigest(),
+                "complete": True, "restart_required": False, "omissions": []}
+    references = [reference("root", "AGENTS.md"), reference("skill-plan-execution", check.GUIDE),
+                  {**reference("skill-create-plan", check.CREATE_GUIDE),
+                   "supporting_manifest": check.MANIFEST_URI, "package_digest": package_digest}]
+    create_result = {**references[2], "content": create.read_text()}
     source = output / check.SOURCE_DOCUMENT
     source.parent.mkdir(parents=True)
     source_text = "---\nstatus: current\ndoc_role: reference\ndoc_owner: docs/README.md\n---\n# Source owner\n"
@@ -155,8 +189,11 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
         ),
         (
             "capabilities_select",
-            {"workflows": [check.WORKFLOW], "capabilities": ["skill-plan-execution"]},
-            {"capabilities": ["skill-plan-execution"]},
+            {"workflows": [check.WORKFLOW], "capabilities": sorted(check.PLANNING_CAPABILITIES)},
+            {"capabilities": sorted(check.PLANNING_CAPABILITIES | {"workspace_task_context", "document_scope_query"}),
+             "callable_tools": ["workspace_task_context", "document_scope_query", "workspace_concepts_query"],
+             "workflow_steps": [check.WORKFLOW + "/scope"], "instructions_complete": True,
+             "instructions_embedded": False, "instruction_resources": references},
         ),
         (
             "read_resource",
@@ -167,6 +204,9 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
                 "complete": True,
             },
         ),
+        ("read_resource", {"uri": check.CREATE_URI}, create_result),
+        ("read_resource", {"uri": check.MANIFEST_URI}, manifest),
+        ("read_resource", {"uri": check.SUPPORT_URI}, {"content": support.read_text()}),
         ("read_resource", {"uri": check.TEMPLATE_URI}, description),
         (
             "get_prompt",
@@ -250,7 +290,8 @@ def fixture(output: Path) -> tuple[list[dict], dict, str]:
         }
         completed = {**item, "status": "completed", "result": mcp_result}
         if tool in {"read_resource", "get_prompt"}:
-            mcp_result["structured_content"] = {"result": json.dumps(result)}
+            projected = result["content"] if supplied.get("uri") == check.SUPPORT_URI else json.dumps(result)
+            mcp_result["structured_content"] = {"result": projected}
         else:
             mcp_result["structured_content"] = result
         events.append({"type": "item.completed", "item": completed})
@@ -292,8 +333,11 @@ class CodexEvidenceTests(unittest.TestCase):
         self.assertEqual(outcome["selected_count"], 1)
         self.assertEqual(outcome["failures"], 0)
         self.assertEqual(outcome["passed"], 1)
-        self.assertEqual(len(check.object_value(outcome["stages"])), 19)
+        self.assertEqual(len(check.object_value(outcome["stages"])), 22)
         self.assertEqual(authentic, self.native)
+        self.assertEqual(outcome["supporting_file"], check.SUPPORT)
+        manifest = next(call for call in calls if call.arguments.get("uri") == check.MANIFEST_URI)
+        self.assertEqual(outcome["skill_package_digest"], manifest.result["package_digest"])
         reader.assert_called_once_with(
             self.native["run_path"], registry=Path("/registry"), limit=10
         )
@@ -377,6 +421,84 @@ class CodexEvidenceTests(unittest.TestCase):
             ValueError, "reference complete instruction resources"
         ):
             check.assess(calls, self.output, self.guide)
+
+    def test_planning_selection_requires_explicit_concept_and_compact_source_refs(self) -> None:
+        original = self.transcript(self.events)
+        for change in ("missing_concept", "embedded", "instructions", "body", "digest", "incomplete", "expanded"):
+            calls = copy.deepcopy(original)
+            selected = next(call for call in calls if call.tool == "capabilities_select")
+            if change == "missing_concept":
+                check.array_value(selected.arguments["capabilities"]).remove("workspace_concepts_query")
+            elif change == "embedded":
+                selected.result["instructions_embedded"] = True
+            elif change == "instructions":
+                selected.result["instructions"] = ["duplicated body"]
+            elif change in {"body", "digest"}:
+                reference = check.object_value(check.array_value(selected.result["instruction_resources"])[0])
+                reference["content" if change == "body" else "digest"] = "duplicated" if change == "body" else "0" * 64
+            elif change == "incomplete":
+                selected.result["instructions_complete"] = False
+            else:
+                check.array_value(selected.result["callable_tools"]).append("contracts_generate")
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, "planning_selection|selection receipt"):
+                check.assess(calls, self.output, self.guide)
+
+    def test_skill_package_content_digest_paths_and_captured_identity_are_independent(self) -> None:
+        original = self.transcript(self.events)
+        for target, key, value in (
+            ("main", "content", "changed main"),
+            ("main", "complete", False),
+            ("main", "package_digest", "0" * 64),
+            ("manifest", "guide_digest", "0" * 64),
+            ("manifest", "package_digest", "0" * 64),
+            ("manifest", "complete", False),
+            ("support", "content", "changed support"),
+            ("file", "digest", "0" * 64),
+            ("file", "bytes", 0),
+            ("file", "id", "0" * 64),
+            ("file", "uri", check.CREATE_URI + "/files/foreign"),
+            ("file", "path", "../outside.md"),
+            ("reference", "package_digest", "0" * 64),
+        ):
+            calls = copy.deepcopy(original)
+            resources = {call.arguments.get("uri"): call for call in calls if call.tool == "read_resource"}
+            if target == "file":
+                manifest = resources[check.MANIFEST_URI].result
+                selected = check.object_value(check.array_value(manifest["files"])[1])
+            elif target == "reference":
+                selection = next(call for call in calls if call.tool == "capabilities_select")
+                selected = next(check.object_value(item) for item in check.array_value(selection.result["instruction_resources"])
+                                if check.object_value(item)["id"] == "skill-create-plan")
+            else:
+                uri = {"main": check.CREATE_URI, "manifest": check.MANIFEST_URI, "support": check.SUPPORT_URI}[target]
+                selected = resources[uri].result
+            selected[key] = value
+            with self.subTest(target=target, field=key), self.assertRaisesRegex(ValueError, "skill package"):
+                check.assess(calls, self.output, self.guide)
+
+    def test_manifest_and_exactly_one_original_support_read_are_required(self) -> None:
+        calls = self.transcript(self.events)
+        for uri, stage in ((check.CREATE_URI, "create_plan_main"),
+                           (check.MANIFEST_URI, "create_plan_manifest"),
+                           (check.SUPPORT_URI, "create_plan_support")):
+            with self.subTest(uri=uri), self.assertRaisesRegex(ValueError, stage):
+                check.assess([call for call in calls if call.arguments.get("uri") != uri], self.output, self.guide)
+        support = next(call for call in calls if call.arguments.get("uri") == check.SUPPORT_URI)
+        with self.assertRaisesRegex(ValueError, "exactly one authorized supporting-file"):
+            check.assess([*calls, support], self.output, self.guide)
+        foreign = check.Call(support.index, "foreign", "read_resource",
+                             {"uri": check.CREATE_URI + "/files/foreign"}, {"content": "foreign"})
+        with self.assertRaisesRegex(ValueError, "exactly one authorized supporting-file"):
+            check.assess([*calls, foreign], self.output, self.guide)
+
+    def test_only_the_exact_support_resource_decodes_primitive_markdown(self) -> None:
+        raw = "# Complete owned support\n"
+        envelope = {"structured_content": {"result": raw}}
+        self.assertEqual(check.decoded_result(envelope, operation="read_resource", resource_uri=check.SUPPORT_URI),
+                         {"content": raw})
+        for uri in (None, check.GUIDE_URI, check.CREATE_URI + "/files/foreign"):
+            with self.subTest(uri=uri), self.assertRaises(ValueError):
+                check.decoded_result(envelope, operation="read_resource", resource_uri=uri)
 
     def test_claimed_pass_without_actual_calls_is_refused(self) -> None:
         events = [self.events[0], self.events[-2], self.events[-1]]
