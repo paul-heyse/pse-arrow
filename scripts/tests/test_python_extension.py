@@ -199,7 +199,9 @@ class InstallerGraphTests(unittest.TestCase):
             ),
             graph(
                 [
-                    unit("pse-py", [1, 2], features=["force-validate"], target="_native"),
+                    unit(
+                        "pse-py", [1, 2], features=["force-validate"], target="_native"
+                    ),
                     unit(
                         "arrow-array",
                         features=["force_validate"] if validated else [],
@@ -220,7 +222,9 @@ class InstallerGraphTests(unittest.TestCase):
             side_effect=lambda selected, *_args, **_kwargs: cargo(selected),
         )
 
-    def test_installer_proves_target_and_host_leaves_and_preserves_selection(self) -> None:
+    def test_installer_proves_target_and_host_leaves_and_preserves_selection(
+        self,
+    ) -> None:
         for mode in ("dev", "native"):
             with self.subTest(mode=mode):
                 command = python_extension.develop_command(
@@ -229,7 +233,9 @@ class InstallerGraphTests(unittest.TestCase):
                 cargo = self.cargo()
                 with self._graph_capture(cargo):
                     actual = python_extension.validated_maturin_command(command, {})
-                self.assertEqual(actual, [*command, "--features", "pse-py/force-validate"])
+                self.assertEqual(
+                    actual, [*command, "--features", "pse-py/force-validate"]
+                )
                 selected = cargo.commands[1]
                 self.assertIn("--lib", selected)
                 self.assertEqual(
@@ -240,11 +246,17 @@ class InstallerGraphTests(unittest.TestCase):
                 self.assertEqual(selected.count("--locked"), 1)
                 self.assertEqual(
                     selected[selected.index("--features") + 1],
-                    "force-validate,native-solvers" if mode == "native" else "force-validate",
+                    "force-validate,native-solvers"
+                    if mode == "native"
+                    else "force-validate",
                 )
-                self.assertFalse(any("pse-relations/" in argument for argument in actual))
+                self.assertFalse(
+                    any("pse-relations/" in argument for argument in actual)
+                )
 
-    def test_missing_target_or_host_validation_refuses_before_installation(self) -> None:
+    def test_missing_target_or_host_validation_refuses_before_installation(
+        self,
+    ) -> None:
         for target, host in ((False, True), (True, False)):
             with self.subTest(target=target, host=host):
                 cargo = self.cargo(validated=target, host_validated=host)
@@ -256,7 +268,9 @@ class InstallerGraphTests(unittest.TestCase):
                     ),
                 ):
                     python_extension.maturin(
-                        python_extension.develop_command(python_extension.ROOT, "dev", "dev")
+                        python_extension.develop_command(
+                            python_extension.ROOT, "dev", "dev"
+                        )
                     )
                 install.assert_not_called()
 
@@ -297,17 +311,29 @@ class InstallerGraphTests(unittest.TestCase):
 
     def test_diagnostic_installer_keeps_profile_interpreter_and_packaging(self) -> None:
         command = [
-            "maturin", "build", "--locked", "--profile", "diagnostic-taskdump",
-            "--interpreter", "selected/bin/python", "--features",
-            "force-validate,diagnostic-taskdump", "--compression-method", "stored",
-            "--compression-enable-large-file-support", "--out", "selected/wheels",
+            "maturin",
+            "build",
+            "--locked",
+            "--profile",
+            "diagnostic-taskdump",
+            "--interpreter",
+            "selected/bin/python",
+            "--features",
+            "force-validate,diagnostic-taskdump",
+            "--compression-method",
+            "stored",
+            "--compression-enable-large-file-support",
+            "--out",
+            "selected/wheels",
         ]
         cargo = self.cargo()
         with self._graph_capture(cargo):
             actual = python_extension.validated_maturin_command(command, {})
-        self.assertEqual(actual[:len(command)], command)
+        self.assertEqual(actual[: len(command)], command)
         selected = cargo.commands[1]
-        self.assertEqual(selected[selected.index("--profile") + 1], "diagnostic-taskdump")
+        self.assertEqual(
+            selected[selected.index("--profile") + 1], "diagnostic-taskdump"
+        )
         self.assertNotIn("--interpreter", selected)
         self.assertNotIn("--compression-method", selected)
 
@@ -323,11 +349,14 @@ class InstallerGraphTests(unittest.TestCase):
         ):
             python_extension.sync("dev")
         self.assertEqual(child.call_count, 1)
-        self.assertEqual(child.call_args.args[0][-4:], [
-            "uv", "sync", "--locked", "--no-install-project"
-        ])
+        self.assertEqual(
+            child.call_args.args[0][-4:],
+            ["uv", "sync", "--locked", "--no-install-project"],
+        )
 
-    def test_graph_capture_uses_installers_checkout_environment_and_wrapper(self) -> None:
+    def test_graph_capture_uses_installers_checkout_environment_and_wrapper(
+        self,
+    ) -> None:
         environment = {"PYO3_PYTHON": "selected interpreter"}
         command = ["cargo", "build", "--lib"]
         wrapper = ["scripts/pse-env", "--native=solver", "--"]
@@ -337,10 +366,15 @@ class InstallerGraphTests(unittest.TestCase):
             return_value=SimpleNamespace(returncode=0, stdout=b"graph"),
         ) as run:
             self.assertEqual(
-                python_extension.capture_build_graph(command, environment, wrapper=wrapper),
+                python_extension.capture_build_graph(
+                    command, environment, wrapper=wrapper
+                ),
                 b"graph",
             )
         run.assert_called_once_with(
-            [*wrapper, *command], cwd=python_extension.ROOT, env=environment,
-            capture_output=True, check=False,
+            [*wrapper, *command],
+            cwd=python_extension.ROOT,
+            env=environment,
+            capture_output=True,
+            check=False,
         )

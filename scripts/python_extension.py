@@ -33,7 +33,9 @@ def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
         raise arrow_validation.ValidationError("expected Maturin develop or build")
     config = tomllib.loads((root / "pyproject.toml").read_text())["tool"]["maturin"]
     if config.get("bindings") != "pyo3":
-        raise arrow_validation.ValidationError("only the PyO3 library graph is supported")
+        raise arrow_validation.ValidationError(
+            "only the PyO3 library graph is supported"
+        )
     manifest = config.get("manifest-path", "Cargo.toml")
     if not isinstance(manifest, str):
         raise arrow_validation.ValidationError("invalid Maturin manifest path")
@@ -44,7 +46,9 @@ def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
     for key in ("features", "config", "unstable-flags"):
         values = config.get(key, [])
         if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
-            raise arrow_validation.ValidationError(f"unsupported Maturin {key} selection")
+            raise arrow_validation.ValidationError(
+                f"unsupported Maturin {key} selection"
+            )
         for value in values:
             cargo.extend([{"unstable-flags": "-Z"}.get(key, f"--{key}"), value])
     for key in ("all-features", "no-default-features", "locked", "frozen"):
@@ -55,20 +59,46 @@ def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
         profile = config.get("editable-profile", profile)
     selected_profile = False
     cargo_values = {
-        "--features", "-F", "--profile", "--target", "--target-dir",
-        "--manifest-path", "-m", "--config", "-Z", "--jobs", "-j",
+        "--features",
+        "-F",
+        "--profile",
+        "--target",
+        "--target-dir",
+        "--manifest-path",
+        "-m",
+        "--config",
+        "-Z",
+        "--jobs",
+        "-j",
     }
     cargo_flags = {
-        "--locked", "--frozen", "--offline", "--release", "-r",
-        "--all-features", "--no-default-features", "--quiet", "-q",
-        "--verbose", "-v", "-vv", "--future-incompat-report",
+        "--locked",
+        "--frozen",
+        "--offline",
+        "--release",
+        "-r",
+        "--all-features",
+        "--no-default-features",
+        "--quiet",
+        "-q",
+        "--verbose",
+        "-v",
+        "-vv",
+        "--future-incompat-report",
     }
     packaging_values = {
-        "--interpreter", "-i", "--out", "-o", "--compression-method",
+        "--interpreter",
+        "-i",
+        "--out",
+        "-o",
+        "--compression-method",
         "--compression-level",
     }
     packaging_flags = {
-        "--uv", "--skip-install", "--strip", "--compression-enable-large-file-support",
+        "--uv",
+        "--skip-install",
+        "--strip",
+        "--compression-enable-large-file-support",
     }
     aliases = {"-m": "--manifest-path", "-r": "--release"}
     index = 2
@@ -82,9 +112,10 @@ def maturin_cargo_command(command: Sequence[str], root: Path) -> list[str]:
                     raise arrow_validation.ValidationError(f"missing value for {key}")
                 value = command[index]
             if key in cargo_values:
-                if key in {"--manifest-path", "-m"} and (
-                    root / value
-                ).resolve() != (root / manifest).resolve():
+                if (
+                    key in {"--manifest-path", "-m"}
+                    and (root / value).resolve() != (root / manifest).resolve()
+                ):
                     raise arrow_validation.ValidationError(
                         "unsupported foreign Maturin project selection"
                     )
@@ -122,7 +153,7 @@ def validated_maturin_command(
     resolution = arrow_validation.resolve(cargo, run=capture_graph)
     # resolve only appends opt-in features; keep Maturin's packaging options and
     # selected interpreter, profile, manifest and features on the actual build.
-    return [*command, *resolution.command[len(cargo):]]
+    return [*command, *resolution.command[len(cargo) :]]
 
 
 def capture_build_graph(

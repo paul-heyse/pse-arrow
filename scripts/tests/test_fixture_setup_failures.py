@@ -162,7 +162,9 @@ class CanonicalSetupProducers(unittest.TestCase):
         self.assertIs(caught.exception.__context__, failure)
         self.assert_observed("canonical-register")
 
-    def test_missing_invocation_does_not_fabricate_authenticated_observation(self) -> None:
+    def test_missing_invocation_does_not_fabricate_authenticated_observation(
+        self,
+    ) -> None:
         os.environ.pop("PSE_TEST_INVOCATION")
         self.register.side_effect = RuntimeError("bare registration failure")
         with self.assertRaises(RuntimeError):

@@ -17,7 +17,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import native_tests, scientific_inputs, surreal_server, test_requirements, test_run
+from scripts import (
+    native_tests,
+    scientific_inputs,
+    surreal_server,
+    test_requirements,
+    test_run,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -40,7 +46,15 @@ def scientific_capture_fixture(destination: Path) -> Path:
     return destination.resolve()
 
 
-@patch("scripts.cargo_tools.selected_identity", new=lambda name: {"name": name, "version": "0.9.146", "path": "/owned/cargo-nextest", "sha256": "selected"})
+@patch(
+    "scripts.cargo_tools.selected_identity",
+    new=lambda name: {
+        "name": name,
+        "version": "0.9.146",
+        "path": "/owned/cargo-nextest",
+        "sha256": "selected",
+    },
+)
 class ManagedRustSelectionTests(unittest.TestCase):
     def test_explicit_package_does_not_build_the_whole_workspace(self) -> None:
         for arguments in (
@@ -582,7 +596,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
         ):
             with (
                 self.subTest(option=option),
-                self.assertRaisesRegex(ValueError, "selection differs|effective selection"),
+                self.assertRaisesRegex(
+                    ValueError, "selection differs|effective selection"
+                ),
             ):
                 native_tests.prepared_rust_inventory(
                     [*execution, option, value], environment
@@ -1439,7 +1455,15 @@ class ManagedPythonRouteTests(unittest.TestCase):
             native_tests.main()
 
 
-@patch("scripts.cargo_tools.selected_identity", new=lambda name: {"name": name, "version": "0.9.146", "path": "/owned/cargo-nextest", "sha256": "selected"})
+@patch(
+    "scripts.cargo_tools.selected_identity",
+    new=lambda name: {
+        "name": name,
+        "version": "0.9.146",
+        "path": "/owned/cargo-nextest",
+        "sha256": "selected",
+    },
+)
 class NativeIgnoredSelectionTests(unittest.TestCase):
     def setUp(self) -> None:
         composition = patch.object(

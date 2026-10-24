@@ -62,10 +62,17 @@ def main() -> int:
     # selected invocations. Neither can silently stand in for the other.
     return subprocess.call(
         [
-            str(ROOT / "scripts/pse-env"), "--native", "--store", "--",
-            sys.executable, "-m", "scripts.tests.canonical_boundary_run", "operator",
+            str(ROOT / "scripts/pse-env"),
+            "--native",
+            "--store",
+            "--",
+            sys.executable,
+            "-m",
+            "scripts.tests.canonical_boundary_run",
+            "operator",
             str(args.evidence / "canonical" / "operator"),
-            "--executor", str(args.initializer.resolve(strict=True)),
+            "--executor",
+            str(args.initializer.resolve(strict=True)),
         ],
         env=environment,
         cwd=ROOT,

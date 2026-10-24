@@ -396,8 +396,11 @@ class ProducerDeploymentTests(unittest.TestCase):
         )
 
         def capture_graph(
-            command: list[str], environment: dict[str, str], *,
-            wrapper: tuple[str, ...], root: Path,
+            command: list[str],
+            environment: dict[str, str],
+            *,
+            wrapper: tuple[str, ...],
+            root: Path,
         ) -> bytes:
             self.assertEqual(root, self.root)
             self.assertEqual(wrapper, ())
@@ -408,11 +411,13 @@ class ProducerDeploymentTests(unittest.TestCase):
 
         with (
             patch.object(
-                deployment.python_extension, "validated_maturin_command",
+                deployment.python_extension,
+                "validated_maturin_command",
                 side_effect=self.actual_graph_proof,
             ),
             patch.object(
-                deployment.python_extension, "capture_build_graph",
+                deployment.python_extension,
+                "capture_build_graph",
                 side_effect=capture_graph,
             ),
             patch.object(
@@ -427,12 +432,15 @@ class ProducerDeploymentTests(unittest.TestCase):
             selected[selected.index("--features") + 1], "force-validate,native-solvers"
         )
         installer = next(
-            call for call in run.call_args_list
+            call
+            for call in run.call_args_list
             if Path(call.args[0][0]).name == "maturin"
         )
         self.assertEqual(
             installer.args[0],
-            deployment.python_extension.develop_command(self.root, "native", "producer"),
+            deployment.python_extension.develop_command(
+                self.root, "native", "producer"
+            ),
         )
         self.assertEqual(
             installer.kwargs["env"]["CARGO"], str(self.root / "scripts/producer-cargo")
@@ -440,7 +448,9 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.assertTrue((self.output / "python-installer-cargo.status.json").is_file())
         self.assertTrue((self.output / "observed-artifacts.json").is_file())
 
-    def test_python_missing_host_leaf_refuses_before_observer_or_installer(self) -> None:
+    def test_python_missing_host_leaf_refuses_before_observer_or_installer(
+        self,
+    ) -> None:
         (self.root / "pyproject.toml").write_text(
             '[tool.maturin]\nbindings = "pyo3"\n'
             'manifest-path = "crates/pse-py/Cargo.toml"\nlocked = true\n'
@@ -452,7 +462,9 @@ class ProducerDeploymentTests(unittest.TestCase):
             ],
             graph(
                 [
-                    unit("pse-py", [1, 2], features=["force-validate"], target="_native"),
+                    unit(
+                        "pse-py", [1, 2], features=["force-validate"], target="_native"
+                    ),
                     unit("arrow-array", features=["force_validate"], platform="target"),
                     unit("arrow-array"),
                 ]
@@ -460,11 +472,13 @@ class ProducerDeploymentTests(unittest.TestCase):
         )
         with (
             patch.object(
-                deployment.python_extension, "validated_maturin_command",
+                deployment.python_extension,
+                "validated_maturin_command",
                 side_effect=self.actual_graph_proof,
             ),
             patch.object(
-                deployment.python_extension, "capture_build_graph",
+                deployment.python_extension,
+                "capture_build_graph",
                 side_effect=lambda command, *_args, **_kwargs: cargo(command),
             ),
             patch.object(

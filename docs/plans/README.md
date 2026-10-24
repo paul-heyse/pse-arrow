@@ -5,7 +5,7 @@ and DTA-001–DTA-048 from the holistic test-architecture review, including scop
 and withdrawn diagnoses. Its seven companions develop scientific assurance, helpers/inputs,
 invocation/outcomes, build/generation, resource/evidence lifetimes, scheduling and assembled
 qualification. The coordinator owns progress, authorizations, inquiries and accepted RC01/RC02;
-its execution checkpoints link the selected P00/A/B delivery, targeted acceptance and remaining
+its execution checkpoints link the selected P00/A/B/C delivery, targeted acceptance and remaining
 series work. Authoring and rule acceptance alone establish no implementation or product
 qualification. Plan52 retains its separate capability scope and delivered foundations.
 

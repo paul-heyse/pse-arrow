@@ -20,13 +20,19 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CodegenBuildTests(unittest.TestCase):
-    def test_recipes_preserve_selected_generators_features_and_explicit_binary(self) -> None:
+    def test_recipes_preserve_selected_generators_features_and_explicit_binary(
+        self,
+    ) -> None:
         cases = {
-            "codegen-relations-check": [("relations", "physical-admission,force-validate")],
+            "codegen-relations-check": [
+                ("relations", "physical-admission,force-validate")
+            ],
             "codegen-rust-contracts": [("rust-contracts", None)],
             "codegen-rust-contracts-check": [("rust-contracts", None)],
             "codegen-physical": [("physical", "physical-admission,force-validate")],
-            "codegen-physical-check": [("physical", "physical-admission,force-validate")],
+            "codegen-physical-check": [
+                ("physical", "physical-admission,force-validate")
+            ],
             "codegen-python-check": [("python", None)],
             "codegen-docs-check": [("docs", None)],
             "codegen-surreal-check": [("surreal", None)],
@@ -38,17 +44,24 @@ class CodegenBuildTests(unittest.TestCase):
                 (None, "full-codegen,force-validate"),
             ],
             "codegen-contracts": [
-                ("rust-contracts", None), ("python", None),
-                ("docs", None), ("surreal", None),
+                ("rust-contracts", None),
+                ("python", None),
+                ("docs", None),
+                ("surreal", None),
             ],
             "python-stubs": [("python-stubs", None)],
             "python-stubs-check": [("python-stubs", None)],
         }
         for recipe, expected in cases.items():
-            with self.subTest(recipe=recipe), tempfile.TemporaryDirectory() as directory:
+            with (
+                self.subTest(recipe=recipe),
+                tempfile.TemporaryDirectory() as directory,
+            ):
                 root = Path(directory)
                 (root / "justfile").write_text((ROOT / "justfile").read_text())
-                (root / ".python-version").write_text((ROOT / ".python-version").read_text())
+                (root / ".python-version").write_text(
+                    (ROOT / ".python-version").read_text()
+                )
                 (root / ".venv/bin").mkdir(parents=True)
                 (root / ".venv/bin/python").symlink_to(sys.executable)
                 scripts = root / "scripts"
@@ -65,18 +78,26 @@ class CodegenBuildTests(unittest.TestCase):
                     "    output.write(json.dumps(sys.argv[1:]) + '\\n')\n"
                 )
                 child = subprocess.run(
-                    ["just", recipe], cwd=root,
+                    ["just", recipe],
+                    cwd=root,
                     env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(root / ".venv")},
-                    capture_output=True, text=True, check=False,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 self.assertEqual(child.returncode, 0, child.stderr)
-                commands = [json.loads(line) for line in (root / "commands.jsonl").read_text().splitlines()]
+                commands = [
+                    json.loads(line)
+                    for line in (root / "commands.jsonl").read_text().splitlines()
+                ]
                 self.assertEqual(len(commands), len(expected))
-                for command, (generator, features) in zip(commands, expected, strict=True):
+                for command, (generator, features) in zip(
+                    commands, expected, strict=True
+                ):
                     self.assertEqual(command[:3], ["run", "--bin", "xtask"])
                     self.assertEqual(command[command.index("-p") + 1], "xtask")
                     self.assertIn("--locked", command)
-                    args = command[command.index("--") + 1:]
+                    args = command[command.index("--") + 1 :]
                     if generator == "python-stubs":
                         self.assertEqual(args[0], generator)
                     elif generator is not None:
@@ -86,26 +107,41 @@ class CodegenBuildTests(unittest.TestCase):
                     if features is None:
                         self.assertNotIn("--features", command)
                     else:
-                        self.assertEqual(command[command.index("--features") + 1], features)
+                        self.assertEqual(
+                            command[command.index("--features") + 1], features
+                        )
                     if recipe.endswith("-check"):
                         self.assertIn("--check", args)
 
     def test_bootstrap_graph_keeps_only_selected_xtask_binary(self) -> None:
         cargo = Cargo(
-            [package("xtask", "force-validate"), package("arrow-array", "force_validate")],
+            [
+                package("xtask", "force-validate"),
+                package("arrow-array", "force_validate"),
+            ],
             graph([unit("xtask", [1]), unit("arrow-array")]),
-            graph([
-                unit("xtask", [1], features=["force-validate"]),
-                unit("arrow-array", features=["force_validate"]),
-            ]),
+            graph(
+                [
+                    unit("xtask", [1], features=["force-validate"]),
+                    unit("arrow-array", features=["force_validate"]),
+                ]
+            ),
         )
         command = [
-            "cargo", "run", "--bin", "xtask", "-p", "xtask",
-            "--no-default-features", "--locked", "--",
-            "codegen", "--only", "rust-contracts",
+            "cargo",
+            "run",
+            "--bin",
+            "xtask",
+            "-p",
+            "xtask",
+            "--no-default-features",
+            "--locked",
+            "--",
+            "codegen",
+            "--only",
+            "rust-contracts",
         ]
         resolved = resolve(command, run=cargo)
         self.assertEqual(resolved.packages, ["xtask"])
         self.assertEqual(resolved.command[-3:], ["codegen", "--only", "rust-contracts"])
         self.assertNotIn("pse-relations/force-validate", resolved.command)
-

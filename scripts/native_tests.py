@@ -123,7 +123,9 @@ def native_root_features(selection: list[str], *, managed: bool) -> str:
     request = test_invocation.rust(selection)
     requested = list(request.values("--package"))
     excluded = list(request.values("--exclude"))
-    workspace = any(item.name in {"--workspace", "--all"} for item in request.options) or (not requested and not managed)
+    workspace = any(
+        item.name in {"--workspace", "--all"} for item in request.options
+    ) or (not requested and not managed)
     if not requested and not workspace:
         requested = ["pse-runtime"]
     declaration = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]
@@ -302,7 +304,9 @@ def rust_environment_identity(environment: Mapping[str, str]) -> dict[str, str]:
     }
 
 
-def rust_selection_identity(arguments: list[str], environment: Mapping[str, str] | None = None) -> dict:
+def rust_selection_identity(
+    arguments: list[str], environment: Mapping[str, str] | None = None
+) -> dict:
     """Bind the shared effective selection independently of report placement."""
     from scripts import test_invocation
 
@@ -310,11 +314,17 @@ def rust_selection_identity(arguments: list[str], environment: Mapping[str, str]
     selection = []
     configs = []
     for item in request.options:
-        if item.name in test_invocation.RUN_VALUE | test_invocation.RUN_FLAG | {"--profile"}:
+        if item.name in test_invocation.RUN_VALUE | test_invocation.RUN_FLAG | {
+            "--profile"
+        }:
             continue
         if item.name in {"--config-file", "--tool-config-file"}:
             value = str(item.value)
-            tool, path = value.split(":", 1) if item.name == "--tool-config-file" else ("", value)
+            tool, path = (
+                value.split(":", 1)
+                if item.name == "--tool-config-file"
+                else ("", value)
+            )
             config = tomllib.loads(Path(path).read_text())
             for name, profile in list(config.get("profile", {}).items()):
                 profile.pop("junit", None)
@@ -322,7 +332,9 @@ def rust_selection_identity(arguments: list[str], environment: Mapping[str, str]
                     del config["profile"][name]
             configs.append([item.name, tool, config])
         else:
-            selection.extend([item.name] if item.value is None else [item.name, item.value])
+            selection.extend(
+                [item.name] if item.value is None else [item.name, item.value]
+            )
     selection.extend(request.opaque)
     if not any(item[0] == "--config-file" for item in configs):
         config = tomllib.loads((ROOT / ".config/nextest.toml").read_text())
@@ -332,7 +344,11 @@ def rust_selection_identity(arguments: list[str], environment: Mapping[str, str]
                 del config["profile"][name]
         configs.insert(0, ["--config-file", "", config])
     configs.sort(key=lambda item: item[0] != "--config-file")
-    return {"arguments": selection, "profile": request.nextest_profile, "configuration": configs}
+    return {
+        "arguments": selection,
+        "profile": request.nextest_profile,
+        "configuration": configs,
+    }
 
 
 def prepared_rust_inventory(
@@ -648,7 +664,11 @@ def selected_rust_fixtures(inventory: dict) -> set[str]:
     from scripts import test_requirements
 
     catalog = test_requirements.rust_catalog(inventory, validate_declarations=False)
-    selected = {fixture for requirement in catalog.values() for fixture in requirement["fixtures"]}
+    selected = {
+        fixture
+        for requirement in catalog.values()
+        for fixture in requirement["fixtures"]
+    }
     if scientific_inputs.selected_consumers(inventory):
         selected.add(scientific_inputs.ROLE)
     return selected
@@ -664,15 +684,26 @@ def prepare_rust_fixtures(
     selected = selected_rust_fixtures(inventory)
     from scripts import test_requirements
 
-    requirements = test_requirements.rust_catalog(inventory, validate_declarations=False)
+    requirements = test_requirements.rust_catalog(
+        inventory, validate_declarations=False
+    )
     if "PSE_NATIVE_LANE_EXECUTABLE" in selected:
-        test_requirements.fixture_guard(requirements, "PSE_NATIVE_LANE_EXECUTABLE", "native")
+        test_requirements.fixture_guard(
+            requirements, "PSE_NATIVE_LANE_EXECUTABLE", "native"
+        )
     bindings = {}
     if "PSE_CANONICAL_TOOLS" in selected:
         tool = environment.get("PSE_CANONICAL_TOOLS")
         evidence = environment.get("PSE_DIAGNOSTIC_EVIDENCE")
-        if not tool or not Path(tool).is_absolute() or not os.access(tool, os.X_OK) or not evidence:
-            raise ValueError("Selected operator evidence requires explicit executable and evidence destination")
+        if (
+            not tool
+            or not Path(tool).is_absolute()
+            or not os.access(tool, os.X_OK)
+            or not evidence
+        ):
+            raise ValueError(
+                "Selected operator evidence requires explicit executable and evidence destination"
+            )
         bindings["PSE_CANONICAL_TOOLS"] = tool
         bindings["PSE_DIAGNOSTIC_EVIDENCE"] = evidence
     if "PSE_NATIVE_LANE_EXECUTABLE" in selected:
@@ -719,7 +750,8 @@ def rust_fixture_bindings(
         raise TypeError("Unknown Rust preparation identity")
     bindings = prepared.get("fixtures", {})
     if not isinstance(bindings, dict) or set(bindings) - (
-        test_requirements.RUST_FIXTURES.keys() | {scientific_inputs.ROLE, "PSE_CANONICAL_TOOLS", "PSE_DIAGNOSTIC_EVIDENCE"}
+        test_requirements.RUST_FIXTURES.keys()
+        | {scientific_inputs.ROLE, "PSE_CANONICAL_TOOLS", "PSE_DIAGNOSTIC_EVIDENCE"}
     ):
         raise ValueError("Unknown prepared Rust fixture roles")
     files = native.get("files", {})
@@ -750,7 +782,10 @@ def managed_rust_arguments(
     from scripts import test_invocation
 
     request = test_invocation.rust(extra)
-    if any(request.values(name) for name in ("--binaries-metadata", "--cargo-metadata", "--archive-file")):
+    if any(
+        request.values(name)
+        for name in ("--binaries-metadata", "--cargo-metadata", "--archive-file")
+    ):
         raise ValueError("managed Rust execution owns its retained build metadata")
     return request.preparation(MANAGED_FEATURES if include_managed_features else "")
 
@@ -774,11 +809,15 @@ def managed_rust_selection(extra: list[str]) -> list[str]:
 
     request = test_invocation.rust(extra)
     expressions = request.values("--filter-expr")
-    forwarded = request.arguments(omit=frozenset({"--filter-expr", "--ignore-default-filter"}))
+    forwarded = request.arguments(
+        omit=frozenset({"--filter-expr", "--ignore-default-filter"})
+    )
     position = forwarded.index("--") if "--" in forwarded else len(forwarded)
     expression = "test(managed_primary_)"
     if expressions:
-        expression += " and (" + " or ".join(f"({value})" for value in expressions) + ")"
+        expression += (
+            " and (" + " or ".join(f"({value})" for value in expressions) + ")"
+        )
     forwarded[position:position] = ["--ignore-default-filter", "-E", expression]
     return forwarded
 
@@ -941,13 +980,19 @@ def _rust_capture(
     data = validation_receipts.native_inventory(inventory.stdout)
     from scripts import test_requirements
 
-    packages = {item["id"]: item["name"] for item in json.loads(resolution.metadata)["packages"]}
+    packages = {
+        item["id"]: item["name"] for item in json.loads(resolution.metadata)["packages"]
+    }
     active_features = {
-        packages[resolution.graph.units[index].pkg_id]: resolution.graph.units[index].features
+        packages[resolution.graph.units[index].pkg_id]: resolution.graph.units[
+            index
+        ].features
         for index in resolution.graph.roots
     }
     requirements = test_requirements.rust_catalog(
-        data, required_roles=test_requirements.required_roles(environment), active_features=active_features
+        data,
+        required_roles=test_requirements.required_roles(environment),
+        active_features=active_features,
     )
     if not requirements:
         from scripts import test_run
@@ -956,7 +1001,9 @@ def _rust_capture(
         raise ValueError(f"Known empty test selection; no execution: {result}")
     try:
         worker = (
-            worker_binary(["--cargo-profile", profile], environment) if canonical else None
+            worker_binary(["--cargo-profile", profile], environment)
+            if canonical
+            else None
         )
         if worker is not None:
             environment["PSE_WORKER_BINARY"] = str(worker)
@@ -1208,7 +1255,16 @@ def main() -> int:
         ):
             raise ValueError("invalid terminal owner")
         owner = owners[0] if owners else "standalone"
-        extra = request.arguments(omit=frozenset({"--terminal-owner", "--managed-primary-route", "--managed-primary-child", "--functional-observer-child"}))
+        extra = request.arguments(
+            omit=frozenset(
+                {
+                    "--terminal-owner",
+                    "--managed-primary-route",
+                    "--managed-primary-child",
+                    "--functional-observer-child",
+                }
+            )
+        )
         reports = request.values("--junitxml")
         if len(reports) > 1:
             raise ValueError("native Python execution requires one JUnit destination")

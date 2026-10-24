@@ -81,7 +81,16 @@ def main() -> int:
             artifact=python_extension.capture(os.environ),
         )
     else:
-        extra = request.arguments(omit=frozenset({"--managed-primary-route", "--managed-primary-child", "--functional-observer-child", "--unit-only"}))
+        extra = request.arguments(
+            omit=frozenset(
+                {
+                    "--managed-primary-route",
+                    "--managed-primary-child",
+                    "--functional-observer-child",
+                    "--unit-only",
+                }
+            )
+        )
         # The existing selection owner consumes the last user marker expression,
         # then intersects it with this process's mandatory resource partition.
         selected = (

@@ -1,6 +1,6 @@
 ---
 title: "Plan 53c: Invocation, requirements and outcomes"
-status: in-progress
+status: done
 date: 2026-10-23
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
@@ -122,7 +122,7 @@ executor through the existing initializer owner prevents Cargo alias replacement
 context-overlap pytest peer is component scoped, with explicit native-context and role demand.
 The restart driver selects native compiler inputs locally while retaining the parent runtime
 library/source-installer context; its fresh nonresident service never grants authority over
-the selected main service. Actual overlap acceptance passes; restart acceptance remains pending below.
+the selected main service. Actual overlap and owned restart acceptance pass below.
 
 ### Verification
 
@@ -166,10 +166,29 @@ Arrow force-validation for correctness build/test closures and native libraries 
   `36f2215a45b64aa99d94a7728bcbc429` carry both context-overlap roles. The composed result is
   `build/p53c-context-overlap-20261024-accepted/result.json`. Thirteen driver controls pass
   after fixing the disposed-resource reader; the earlier 318-test matrix remains its own scope.
-- **Not yet accepted:** the live restart is waiting for the shared source-server installation
-  owned by another worktree.
+- **Tested:** `scripts/pse-env --resource-class build --native=solver -- .venv/bin/python -m
+  scripts.tests.canonical_boundary_run restart build/p53c-restart-20261024-v7 --executor
+  build/p53c-operator-20261024-v4/tools.initializer` passed its one pytest component and
+  distinct selected Rust peer. Parent `e162ee76bb9b4ec292f5d690a7c541c9` and child
+  `2881dc93115e4cd893f157df7f67cc3d` are both complete Pass, with no unreported subjects or
+  report errors. The parent retains the authenticated external-restart role/child terminal,
+  complete owned drain and empty independent cleanup failures. The fresh service is stopped.
   Earlier source/environment drift, missing runtime/temp-directory prerequisites and occupied
-  observer attempts are retained as refused/failed evidence, not converted to Pass.
+  observer attempts remain refused/failed records; the stale waiting preparation was cancelled
+  before service creation rather than promoted to Pass.
+- **Observed limitation:** this acceptance exposed external server cache fragmentation, not
+  additional test-binary scope. The main build took 13m30s; a concurrent worktree build took
+  21m16s. Existing main receipt `8ef24b4c2e8c778c3b86` and selected build `81ef0cf3d75210ec44c3`
+  have identical source/patch/features/profile, compiler tools and configuration; the context
+  differs only in `LD_LIBRARY_PATH` and its native-directory snapshot. Worktree paths introduce
+  further distinct keys. The server installer currently keys complete caller contexts into
+  separate source/target directories. Its release profile uses fat LTO and one codegen unit,
+  making the fallback compilation expensive. This scope diagnoses that reuse boundary; it
+  does not change installed-build equivalence or optimize the external release profile.
+- **Tested:** `just turn-end` completed ADR indexing and formatting with exit zero. The 20
+  driver/requirement controls passed after formatting; unrelated dirty Python content was
+  byte-for-byte preserved. Existing retained legacy-service cleanup warnings were not repaired
+  or treated as product qualification.
 - **Not run:** whole-repository hygiene, full suites/powersets, benchmark/reference campaigns,
   Plan52 FastMCP host qualification and 53g assembled-series acceptance, per the operator's
   functional-scope boundary. No measured speed improvement is claimed.

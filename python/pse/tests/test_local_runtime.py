@@ -270,14 +270,18 @@ def test_native_route_refusal_keeps_public_code_and_envelope(
     try:
         physical = runtime.physical_from_documents(physical_documents())
         package = runtime.modeling_from_documents(
-            [package_documents("""package reuse {
+            [
+                package_documents("""package reuse {
                 def Root { var x:Scalar; annotation bounds x(0,2);
                     annotation start x(0); eq floor:x>=1;
                     let cost:Scalar=x; annotation objective cost(minimize); }
-            }""")],
+            }""")
+            ],
             physical,
         )
-        case = next(row.declaration_id for row in package.declarations() if row.name == "Root")
+        case = next(
+            row.declaration_id for row in package.declarations() if row.name == "Root"
+        )
         # This adapter rejects retained-session demand during real route admission.
         # The public boundary reports that route refusal, not a synthetic NativeReuse.
         with pytest.raises(pse.InspectionError) as failure:
@@ -303,6 +307,8 @@ def test_native_route_refusal_keeps_public_code_and_envelope(
         assert envelope.stage is report.stage
         assert envelope.class_ is report.boundary_class
         assert envelope.observations == report.observations
-        assert tuple(source.to_hex() for source in envelope.sources) == report.source_ids
+        assert (
+            tuple(source.to_hex() for source in envelope.sources) == report.source_ids
+        )
     finally:
         runtime.close()

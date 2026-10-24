@@ -107,7 +107,7 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 | C02 | done | [53c](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog/requirements/roles and before-effects guard across managed routes |
 | C03 | done | [53c](53c-invocation-requirements-and-outcomes.md#c03) | Actual Arrow leaves proved across installer/codegen/routes; stale declaration/check removed |
 | C04 | done | [53c](53c-invocation-requirements-and-outcomes.md#c04) | Complete-pass exit and typed setup/assertion-not-reached with separate cleanup |
-| C05 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c05) | I07 resolved; active Python/peer/optional scope, replaced dead bodies removed |
+| C05 | done | [53c](53c-invocation-requirements-and-outcomes.md#c05) | I07 resolved; active Python/peer/optional scope, replaced dead bodies removed |
 | D01 | planned | [53d](53d-build-discovery-and-generation.md#d01) | Nextest authenticated by existing owner; consumed generation package inputs complete |
 | D02 | planned | [53d](53d-build-discovery-and-generation.md#d02) | Existing retained build/catalog path serves fallback; equivalent correctness preparation shared |
 | D03 | planned | [53d](53d-build-discovery-and-generation.md#d03) | I06 resolved; Python ensure/install/stubs/admission split with full known validity inputs |
@@ -137,7 +137,7 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 | I04 | resolved | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Source-owned reasons fit §23.2; migrated constructors/forwarders preserve ValidationInvariant, ModelingContract, declaration and real source location. Codec/changed-prose controls pass; untouched contracts explicitly remain Unclassified. |
 | I05 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Nineteen declared families use real bounded package/P0/parser closure, exact data/source bytes, directory membership/absence and explicit synthetic substitutions. Drift refuses publication; unknown affected edges broaden. Full sufficient closures adopted without a minimality claim. |
 | I06 | open | [D03](53d-build-discovery-and-generation.md#d03) | Establish extension installer/build/stub/native consumed-input and binary-identity domain, mutable boundaries and unknown fallback. Reuse only known complete premises; otherwise prepare conservatively. |
-| I07 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Public configuration/native-route diagnostics replace dormant harness claims; synthetic schema/NativeReuse combinations retain explicit coverage limits. Separate operator, component overlap and owned restart roles are selected; live peer acceptance remains C05. |
+| I07 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Public configuration/native-route diagnostics replace dormant harness claims; synthetic schema/NativeReuse combinations retain explicit coverage limits. Separate operator, component overlap and owned restart roles are selected; actual peer acceptance is recorded in C05's Outcome. |
 | I08 | open | [F02](53f-effect-scoped-scheduling.md#f02) | Identify true service-quiet versus database-local claims; select once-per-invocation owned service or justified narrower assertion and demonstrate two-run isolation. Retain protection until then; no blanket capacity relaxation. |
 | I09 | open | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Establish selected-header/receipt reader and protected-origin inventory plus bounded stored-format transition. Choose authenticated migration or explicit reuse refusal with protected inspection. No missing record becomes empty/pass; no permanent parallel production path. |
 
@@ -174,7 +174,7 @@ One primary work owner below coordinates contributors and closes only on actual 
 | [DTA-010](../design_review/test-audit/doubles-and-coupling.md#dta-010) | S04 | resolved | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | SourceBody::prepare replaces ten common math/backend construction paths; caller-owned attribution/cancel/residual differences remain. Targeted math/backend controls pass. |
 | [DTA-011](../design_review/test-audit/doubles-and-coupling.md#dta-011) | S06 | resolved | [B03](53b-test-helpers-inputs-and-fixtures.md#b03) | Participation/support scopes documented and separated. Seven support-enabled Rust controls and three complementary support-absent Python reader/drop journeys pass against the current admitted service. |
 | [DTA-012](../design_review/test-audit/evidence-routes-and-execution.md#dta-012) | S06 | resolved | [C04](53c-invocation-requirements-and-outcomes.md#c04) | RC01 public zero iff complete Pass; zero child/missing report nonzero, raw child and cleanup retained separately. |
-| [DTA-013](../design_review/test-audit/evidence-routes-and-execution.md#dta-013) | S03 | scheduled | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Active Python assertions replace inactive Rust bodies; selected component/restart peers have real roles or obsolete unsupported claim retires. |
+| [DTA-013](../design_review/test-audit/evidence-routes-and-execution.md#dta-013) | S03 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Active Python assertions replace inactive Rust bodies; selected component/restart peers have real roles or obsolete unsupported claim retires. |
 | [DTA-014](../design_review/test-audit/evidence-routes-and-execution.md#dta-014) | S06 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Separate executed opt-in CLI result; selected missing prerequisite fails; API-only scope remains substantive. |
 | [DTA-015](../design_review/test-audit/evidence-routes-and-execution.md#dta-015) | S03, S06 | resolved | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Managed affected/native/Python/setup requirements/environment/association/composer agree; C04 outcomes; bare route limits explicit. |
 | [DTA-016](../design_review/test-audit/evidence-routes-and-execution.md#dta-016) | S03, S09 | resolved | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog and before-effects guard catch stale/missing scheduling facts after rename/new case; F01 consumes RC02. |
@@ -375,13 +375,16 @@ native setup payload control and selected setup subprocess pass against zero fai
 [53c's Outcome](53c-invocation-requirements-and-outcomes.md#verification-and-outcome--2026-10-24)
 records commands and limits. Required campaign roles survive the observer handoff.
 
-**Implemented and Tested — C05, live peer acceptance pending:** four selected public Python
+**Implemented and Tested — C05:** four selected public Python
 cases pass, including both B05 effect-free cases; five substantive API-only cases and two
 separate operator cases pass. The executor is captured before another Cargo feature build can
 replace its target alias. I07's diagnostic coverage disposition and supported peer routes are
 settled; the Rust/Python overlap journey now passes both actual peers and checks complete
 Pass, distinct databases, matching import and removed resources through retained owners.
-The live owned restart journey remains in progress behind its source-server prerequisite.
+The owned restart journey also passes its distinct actual Rust/pytest invocations with
+authentic child association, complete drain and cleanup, and an observed stopped fresh service.
+C05 is complete; the Outcome records the external server cache fragmentation exposed by its
+installation, which is not repaired or hidden by this test-architecture scope.
 
 Plan52i–52k retain FastMCP exposure, adaptation and host qualification. No second agent CLI,
 result authority, broad repository-health check or measured speed claim is introduced. A04 and

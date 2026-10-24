@@ -97,7 +97,9 @@ def finish(
     if not isinstance(setup_failures, dict):
         raise ValueError("Invalid authenticated setup observations")
     for item in results:
-        identity = str(item.get("nodeid") or (str(item["class"]) + "::" + str(item["name"])))
+        identity = str(
+            item.get("nodeid") or (str(item["class"]) + "::" + str(item["name"]))
+        )
         observation = setup_failures.get(identity)
         if observation is not None and item["status"] != "passed":
             item["failure_kind"] = "infrastructure"
@@ -143,7 +145,11 @@ def finish(
             "requirements": dict(image.get("requirements", {})),
             "peer_invocations": dict(image.get("peer_invocations", {})),
             "cleanup_observations": dict(image.get("cleanup_observations", {})),
-            "assurance": "pass" if check.get("status") == "passed" and not report_errors else "incomplete" if report_errors else "failure",
+            "assurance": "pass"
+            if check.get("status") == "passed" and not report_errors
+            else "incomplete"
+            if report_errors
+            else "failure",
         },
     )
     failed = False
@@ -429,28 +435,48 @@ def execute_selected(
     if not reconciled:
         return 1
     try:
-        image = resources.storage().invocation_snapshot(resources.read_invocation(path)["nonce"])
+        image = resources.storage().invocation_snapshot(
+            resources.read_invocation(path)["nonce"]
+        )
         terminal = image.get("terminal", {})
         evidence = terminal.get("evidence", {})
-        return 0 if (image["phase"] == "frozen" and terminal.get("complete") is True
-                     and evidence.get("assurance") == "pass") else 1
+        return (
+            0
+            if (
+                image["phase"] == "frozen"
+                and terminal.get("complete") is True
+                and evidence.get("assurance") == "pass"
+            )
+            else 1
+        )
     except (OSError, ValueError):
         return 1
 
 
-def empty_selection(inventory: Mapping[str, object], source: Path | None = None) -> Path:
+def empty_selection(
+    inventory: Mapping[str, object], source: Path | None = None
+) -> Path:
     """Persist a known empty catalogue as an explicit pre-execution refusal."""
     if rust_selected(inventory):
         raise ValueError("Empty-selection refusal received selected tests")
     path = resources.invocation("rust", [])
-    artifacts = {source.name: validation_receipts.digest(source)} if source is not None else {}
+    artifacts = (
+        {source.name: validation_receipts.digest(source)} if source is not None else {}
+    )
     evidence = {
-        "assurance": "not-run", "selection_state": "empty", "workload_exit": None,
-        "report_errors": [], "results": [], "artifacts": artifacts,
+        "assurance": "not-run",
+        "selection_state": "empty",
+        "workload_exit": None,
+        "report_errors": [],
+        "results": [],
+        "artifacts": artifacts,
         "artifact_base": str(source.parent) if source is not None else None,
-        "refusal": "empty-selection", "process": {},
+        "refusal": "empty-selection",
+        "process": {},
     }
-    resources.finalize(path, {}, complete=True, terminal_owner="runner", terminal=evidence)
+    resources.finalize(
+        path, {}, complete=True, terminal_owner="runner", terminal=evidence
+    )
     resources.resource_store.publish(path.with_suffix(".terminal.json"), evidence)
     print(f"Test selection is empty; invocation: {path}", file=sys.stderr)
     return path
@@ -461,12 +487,36 @@ def preparation_failure(inventory: Mapping[str, object], stage: str) -> Path:
     selected = rust_selected(inventory)
     path = resources.invocation("rust", selected)
     evidence = {
-        "assurance": "incomplete", "selection_state": "collected", "workload_exit": None,
-        "report_errors": [stage], "artifacts": {}, "process": {},
-        "results": [{"class": item["binary_id"], "name": item["name"], "status": "not_run", "failure_kind": "infrastructure", "assertion_reach": "not-reached"} for item in selected],
-        "setup_failures": {item["binary_id"] + "::" + item["name"]: {"kind": "infrastructure", "stage": stage, "code": "test::preparation", "assertion_reach": "not-reached", "source": "preparing-runner"} for item in selected},
+        "assurance": "incomplete",
+        "selection_state": "collected",
+        "workload_exit": None,
+        "report_errors": [stage],
+        "artifacts": {},
+        "process": {},
+        "results": [
+            {
+                "class": item["binary_id"],
+                "name": item["name"],
+                "status": "not_run",
+                "failure_kind": "infrastructure",
+                "assertion_reach": "not-reached",
+            }
+            for item in selected
+        ],
+        "setup_failures": {
+            item["binary_id"] + "::" + item["name"]: {
+                "kind": "infrastructure",
+                "stage": stage,
+                "code": "test::preparation",
+                "assertion_reach": "not-reached",
+                "source": "preparing-runner",
+            }
+            for item in selected
+        },
     }
-    resources.finalize(path, {}, complete=False, terminal_owner="runner", terminal=evidence)
+    resources.finalize(
+        path, {}, complete=False, terminal_owner="runner", terminal=evidence
+    )
     resources.resource_store.publish(path.with_suffix(".terminal.json"), evidence)
     print(f"Selected fixture preparation failed; invocation: {path}", file=sys.stderr)
     return path
@@ -480,6 +530,7 @@ def run_python(
 ) -> int:
     environment = dict(os.environ if env is None else env)
     from scripts import test_invocation
+
     if resources.MARKER in environment:
         return subprocess.call(command, cwd=ROOT, env=environment)
     path = resources.invocation("python", [])
@@ -512,7 +563,9 @@ def python_observer(
     from scripts import test_invocation
 
     request = test_invocation.python(extra)
-    if resources.MARKER in os.environ or "assessment" in request.values("--terminal-owner"):
+    if resources.MARKER in os.environ or "assessment" in request.values(
+        "--terminal-owner"
+    ):
         return launch({})
     destinations = [Path(item) for item in request.values("--junitxml")]
     if len(destinations) > 1 or (not destinations and not default_report):
@@ -520,7 +573,9 @@ def python_observer(
     path = resources.invocation("python", [], terminal_owner=terminal_owner)
     report = destinations[0] if destinations else path.with_suffix(".xml")
     if not destinations:
-        command[:] = test_invocation.append_options(command, ["--junitxml=" + str(report)])
+        command[:] = test_invocation.append_options(
+            command, ["--junitxml=" + str(report)]
+        )
     selection = report.with_name(report.stem + "-selected.txt")
     forwarded = {resources.MARKER: str(path), "PSE_TEST_ENUMERATION": str(selection)}
     if artifact is not None:
@@ -627,7 +682,9 @@ def run_rust(
     from scripts import test_requirements
 
     requirements = test_requirements.rust_catalog(
-        inventory, required_roles=test_requirements.required_roles(environment), validate_declarations=False
+        inventory,
+        required_roles=test_requirements.required_roles(environment),
+        validate_declarations=False,
     )
     if not selected:
         empty_selection(inventory)
@@ -685,16 +742,25 @@ def rust_report_command(
 
     request = test_invocation.rust(run[3:], environment)
     configurations = request.values("--config-file")
-    configuration = Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    configuration = (
+        Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    )
     if configurations and not configuration.is_file():
-        raise ValueError(f"Selected nextest configuration does not exist: {configuration}")
+        raise ValueError(
+            f"Selected nextest configuration does not exist: {configuration}"
+        )
     report = path.with_suffix(".xml")
     config_path = test_invocation.report_configuration(
         configuration, path.with_suffix(".toml"), request.nextest_profile, report
     )
     arguments = request.arguments(omit=frozenset({"--config-file", "--profile"}))
     position = arguments.index("--") if "--" in arguments else len(arguments)
-    arguments[position:position] = ["--profile", request.nextest_profile, "--config-file", str(config_path)]
+    arguments[position:position] = [
+        "--profile",
+        request.nextest_profile,
+        "--config-file",
+        str(config_path),
+    ]
     return [*run[:3], *arguments], report
 
 
@@ -764,8 +830,11 @@ def observer_rust(
         invocation = resources.invocation("rust", selected)
     forwarded = {
         **fixtures,
-        **({"PSE_TEST_REQUIRED_ROLES": environment["PSE_TEST_REQUIRED_ROLES"]}
-           if "PSE_TEST_REQUIRED_ROLES" in environment else {}),
+        **(
+            {"PSE_TEST_REQUIRED_ROLES": environment["PSE_TEST_REQUIRED_ROLES"]}
+            if "PSE_TEST_REQUIRED_ROLES" in environment
+            else {}
+        ),
         resources.MARKER: str(invocation),
         "PSE_NATIVE_PROVENANCE": str(provenance),
         "PSE_NATIVE_SELECTION": str(selection),
