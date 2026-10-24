@@ -1,6 +1,6 @@
 # Assessing test code and test evidence
 
-**Version 1.1 · 2026-10-23 · Assessment guidance.** Repository- and domain-agnostic
+**Version 1.2 · 2026-10-23 · Assessment guidance.** Repository- and domain-agnostic
 companion to the [core principles](design-principles.md), selected through the repository's
 standard declaration. Applicable domain profiles continue to supply scientific and other
 correctness obligations.
@@ -15,9 +15,10 @@ Reuse can improve their consistency while making their evidence share the same m
 This companion interprets AP-01–AP-07 and their refinements for test scope. The full selected
 design standard remains the assessment basis: consider every core foundation, relevant
 operational refinements and applicable domain obligations. This companion supplements that
-assessment; its topics do not define its limits. Architectural quality, evidential strength and
-execution efficiency are assessed together. Efficiency receives explicit attention without
-displacing the other principles.
+assessment; its topics do not define its limits. Assess the full design standard, giving
+particular attention to its efficiency-oriented principles without displacing the others.
+Apply those principles primarily through static architectural review; structural efficiency
+findings do not require a profiling or benchmark campaign.
 
 It adds no principle, MUST, gate, score, coverage threshold, prescribed test mix or obligation to
 inspect every companion topic.
@@ -165,12 +166,18 @@ campaign nor replaces the profile's requirements.
 
 ## 8. Execution cost in relation to assurance — AP-06, AP-07
 
-Investigate how the test architecture affects the time needed to obtain trustworthy feedback
-during development. Consider what developers and agents must instantiate to exercise a
-responsibility and what evidence the expense buys. Examine representative focused-test and
-broader qualification routes, including preparation/build, discovery and collection, setup,
-execution, teardown, and failure diagnosis or replay. A focused test with cheap assertions can
-still require substantial unrelated preparation.
+Apply the selected efficiency-oriented principles, relevant operational refinements and
+architectural heuristics primarily through static review of the test system. The governing
+execution-fit criterion here is AP-07/G9. Judge whether representations, algorithms, access
+paths, composition boundaries, preparation and resource lifecycles fit the testing
+responsibilities, supported workloads and assurance claimed.
+
+The following test-specific examples illustrate those principles. Consider what developers and
+agents must instantiate to exercise a responsibility and what evidence the expense buys. Inspect
+representative focused-test and broader qualification routes in source and configuration,
+including preparation/build, discovery and collection, setup, execution, teardown, and failure
+diagnosis or replay. A focused test with cheap assertions can still require substantial
+unrelated preparation.
 
 Look for avoidable dependency activation or compilation, repeated process/service startup,
 oversized fixtures, repeated loading or conversion, redundant computation, incidental
@@ -187,12 +194,14 @@ evidence can erase the benefit. Caching, broader fixture scope, doubles and conc
 not default remedies. Faster runs with weaker assertions or missing required cases do not
 establish an equivalent improvement.
 
-Distinguish demonstrated unnecessary work from suspected bottlenecks and measured performance.
-Qualitative source reasoning can establish avoidable amplification without timing it; claims
-about elapsed time, speedup or capacity need measurements under stated conditions. Do not impose
-a universal test pyramid, runtime threshold, full-suite execution or benchmark campaign.
-An inquiry may conclude that no material efficiency shortfall was established, with its
-inspected scope and limits stated.
+Explain structural causes and consequences in terms of the governing principles. Source
+reasoning can establish avoidable amplification or poor execution fit without identifying the
+dominant runtime bottleneck. Use targeted execution only to resolve consequential uncertainty
+that source inspection cannot settle; do not initiate profiling or benchmark probes merely to
+substantiate an otherwise established structural diagnosis. Claims about elapsed time, speedup
+or capacity still need measurements under stated conditions. No universal test pyramid, runtime
+threshold, full-suite execution or benchmark campaign follows. An inquiry may conclude that no
+material efficiency shortfall was established, with its inspected scope and limits stated.
 
 ## Using the assessment
 
@@ -203,9 +212,10 @@ and execution costs. Preserve contrary evidence, hypotheses and unexamined scope
 does not establish the quality of its evidence, and a static audit is not product qualification.
 
 Finding organization and investigation depth remain flexible. Explain how the core architectural
-foundations, including execution efficiency, were investigated and state material omissions or
-uncertainties; loading the standard alone does not establish assessment. No exhaustive matrix or
-finding per principle is required. Findings may arise directly from core/profile criteria without
+foundations were investigated and which efficiency-oriented principles informed the judgments.
+State material omissions or uncertainties; loading the standard alone does not establish
+assessment, and no performance investigation or timing results are required. No exhaustive matrix
+or finding per principle is required. Findings may arise directly from core/profile criteria without
 a corresponding companion topic. Cite those criteria and the companion section where relevant.
 The skill and binding own baseline, publication, finding identity and disposition; this companion
 owns assessment criteria only.

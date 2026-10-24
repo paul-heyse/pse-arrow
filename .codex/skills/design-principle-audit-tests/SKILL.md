@@ -1,6 +1,6 @@
 ---
 name: design-principle-audit-tests
-description: Audit test code, test evidence and shared test infrastructure against the full selected design standard, including execution efficiency, using the test-assessment companion to interpret the principles for test scope. Maintain a separate living diagnostic account. Use for an explicit test-scope audit or a test-focused diagnostic review prerequisite; ordinary test editing does not initiate an audit.
+description: Audit test code, test evidence and shared test infrastructure against the full selected design standard, emphasizing efficiency-oriented principles through static architectural review and using the test-assessment companion to interpret the principles for test scope. Maintain a separate living diagnostic account. Use for an explicit test-scope audit or a test-focused diagnostic review prerequisite; ordinary test editing does not initiate an audit.
 ---
 
 # Audit test design and evidence
@@ -11,10 +11,10 @@ The test-assessment companion supplements that standard; assessing its topics al
 constitute a design-principle audit. Test scope narrows the software examined, not the set of
 design principles to consider.
 
-Develop a current, evidence-grounded account of structural weaknesses. Assess architectural
-quality, evidential strength and execution efficiency together, without allowing efficiency
-to displace the other principles. Diagnose causes and consequences without requiring a
-predetermined remedy, library preference or test technique.
+Develop a current, evidence-grounded account of structural weaknesses. Assess the full design
+standard, giving particular attention to its efficiency-oriented principles without displacing
+the others. Diagnose causes and consequences without requiring a predetermined remedy, library
+preference or test technique.
 
 ## Load the criteria and scope
 
@@ -77,28 +77,43 @@ helper, full-suite execution, benchmark or additional assurance framework follow
 claims require measurements under named conditions. Follow repository environment and acceptance
 timing for any execution; library questions use its documentation research route.
 
-## Investigate execution efficiency
+## Emphasize efficiency-oriented design principles
 
-Explicitly investigate avoidable work and delay in the development feedback cycle. Follow
-representative focused-test and broader qualification routes through preparation/build,
-discovery and collection, setup, execution, teardown, and failure diagnosis or replay. Consider
-both individually expensive operations and smaller costs repeated across tests or development
-iterations. Use companion §8 and relevant execution heuristics to investigate structural causes,
-including whether exercising one responsibility instantiates unrelated infrastructure.
+Give particular attention to the selected standard's efficiency-oriented principles, refinements
+and architectural heuristics, while continuing to assess all other applicable principles. In
+this repository, AP-07/G9 supplies the governing execution-fit criterion.
 
-Evaluate possible savings against the assurance provided. Preserve required validation,
-isolation, independent expectations, integration fidelity and applicable scientific obligations.
-Shared preparation, caching, doubles and concurrency require judgment about validity and failure
-behavior; none is a default remedy. An efficiency inquiry does not require executing every route
-or starting a benchmark campaign.
+Apply these criteria primarily through thoughtful static review of test code, support
+infrastructure, dependencies and execution configuration. Examine whether representations,
+algorithms, access paths, composition boundaries, preparation and resource lifecycles fit the
+testing responsibilities and supported workloads. Companion §8 illustrates their application
+to test scope.
+
+Ask what work is necessary for the assurance claimed, what repeats because of incidental
+architectural boundaries, and whether established preparation or guarantees can be preserved
+while their validity premises hold. Consider repeated reconstruction, unnecessary dependencies
+and data movement, unsuitable algorithms, excessive live state, and avoidable coordination or
+recovery amplification. Use relevant heuristics selectively; this is not a checklist.
+
+Establish findings through concrete structural causes and consequences. Static evidence can
+demonstrate unnecessary work or poor execution fit without proving that a path is the dominant
+runtime bottleneck. Preserve required validation, isolation, independent expectations,
+integration fidelity and applicable scientific obligations. Shared preparation, caching, doubles
+and concurrency require judgment about validity and failure behavior; none is a default remedy.
+
+Use targeted execution only when it resolves a consequential uncertainty that source inspection
+cannot settle. Do not initiate profiling or benchmark probes merely to substantiate an otherwise
+established structural diagnosis. Quantitative claims about elapsed time, speedup or capacity
+still require measurements under stated conditions.
 
 ## Publish diagnosis with clear ownership
 
-Explain how the investigation addressed the core architectural foundations, including execution
-efficiency, and identify material omissions and unresolved questions. Listing loaded documents
-does not demonstrate assessment. A brief narrative suffices; no exhaustive principle matrix or
-finding per principle is required. Findings cite governing core/profile criteria and, where
-relevant, the test companion.
+Explain how the investigation addressed the core architectural foundations and which
+efficiency-oriented principles informed its architectural judgments. Identify material omissions
+and unresolved questions. Listing loaded documents does not demonstrate assessment. A brief
+narrative suffices; no exhaustive principle matrix, finding per principle or performance
+investigation is required. Findings cite governing core/profile criteria and, where relevant,
+the test companion.
 
 Distinguish demonstrated unnecessary work from suspected bottlenecks and measured performance.
 Source evidence can establish repeated initialization or avoidable processing without timing
