@@ -23,7 +23,6 @@ pub(crate) fn inspect(
     } else {
         let options = CanonicalOptions::from_state_for_database(state, database)?;
         let executor = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
             .enable_all()
             .build()?;
         let hub = pse_diagnostics::observation::ObservationHub::new(
@@ -80,7 +79,6 @@ pub(crate) fn graph(
         pse_model::document::decode_versioned::<_, 1>(&bytes)?;
     let options = CanonicalOptions::from_state_for_database(state, database)?;
     let executor = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
         .enable_all()
         .build()?;
     let result = executor.block_on(async {

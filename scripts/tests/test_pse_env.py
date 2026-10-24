@@ -871,13 +871,15 @@ class PseEnvTests(unittest.TestCase):
             pse_env.admitted_cargo_jobs(small, owner)
             self.assertEqual(small["CARGO_BUILD_JOBS"], "2")
 
-    def test_smt_does_not_increase_admitted_launch_width(self) -> None:
+    def test_smt_increases_compiler_capacity_but_keeps_physical_runner_default(
+        self,
+    ) -> None:
         owner = MagicMock(spec=pse_env.host.Allocation)
         owner.profile = MagicMock(cores=(2, 4))
         with patch.object(pse_env.host, "cpu_set", return_value=(2, 4, 6, 8)):
             env = {"CARGO_BUILD_JOBS": "16", pse_env.CARGO_DEFAULT_JOBS: "16"}
             pse_env.admitted_cargo_jobs(env, owner)
-            self.assertEqual(env["CARGO_BUILD_JOBS"], "2")
+            self.assertEqual(env["CARGO_BUILD_JOBS"], "4")
             self.assertEqual(env["NEXTEST_TEST_THREADS"], "2")
             # Re-entry adapts a repository default; explicit CLI/env overrides survive.
             owner.profile.cores = (2,)
@@ -889,6 +891,62 @@ class PseEnvTests(unittest.TestCase):
             env["CARGO_BUILD_JOBS"] = "9"
             pse_env.admitted_cargo_jobs(env, owner)
             self.assertEqual(env["CARGO_BUILD_JOBS"], "9")
+
+    def test_unknown_native_orchestration_gets_full_unbounded_defaults(self) -> None:
+        command = [".venv/bin/python", "/fixture/native_orchestration.py"]
+        selected = pse_env.selected_resource_class(
+            command, {"PSE_BUILD_MODE": "unbounded"}, native=True
+        )
+        self.assertEqual(selected, "build")
+        for native in (False, True):
+            for default in (None, "functional", "wide", "compile", "exclusive"):
+                with self.subTest(native=native, default=default):
+                    self.assertEqual(
+                        pse_env.selected_resource_class(
+                            command,
+                            {"PSE_BUILD_MODE": "unbounded"},
+                            native=native,
+                            default=default,
+                        ),
+                        "build",
+                    )
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = pse_env.host.select(selected)
+        self.assertEqual(len(owner.profile.cores), 16)
+        self.assertTrue(owner.profile.unbounded)
+        with patch.object(pse_env, "cpu_ceiling", return_value=32):
+            env = {"CARGO_BUILD_JOBS": "32", pse_env.CARGO_DEFAULT_JOBS: "32"}
+            pse_env.admitted_cargo_jobs(env, owner)
+        self.assertEqual(env["CARGO_BUILD_JOBS"], "32")
+        self.assertEqual(env["NEXTEST_TEST_THREADS"], "16")
+        for selection in ("timing", "reference"):
+            self.assertEqual(
+                pse_env.selected_resource_class(
+                    command,
+                    {"PSE_BUILD_MODE": "unbounded"},
+                    native=True,
+                    default=selection,
+                ),
+                selection,
+            )
+        for explicit in ("functional", "compile", "wide", "exclusive"):
+            self.assertEqual(
+                pse_env.selected_resource_class(
+                    command,
+                    {"PSE_BUILD_MODE": "unbounded"},
+                    native=True,
+                    explicit=explicit,
+                ),
+                explicit,
+            )
+        self.assertEqual(
+            pse_env.selected_resource_class(
+                command,
+                {"PSE_BUILD_MODE": "unbounded", "PSE_MEMORY_MAX": "40G"},
+                native=True,
+            ),
+            "functional",
+        )
 
     def test_width_intersects_affinity_and_ancestor_quota(self) -> None:
         owner = MagicMock(spec=pse_env.host.Allocation)
@@ -968,6 +1026,7 @@ class PseEnvTests(unittest.TestCase):
         ):
             prefix = pse_env.placement(env, native=False)
         self.assertIn("--bind-allocation", prefix)
+        self.assertIn("CPUQuota=400%", prefix)
         self.assertEqual(env["CARGO_BUILD_JOBS"], "4")
         self.assertEqual(env[pse_env.CARGO_DEFAULT_JOBS], "4")
 

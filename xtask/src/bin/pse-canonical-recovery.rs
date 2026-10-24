@@ -64,7 +64,6 @@ fn main() -> Result<()> {
     );
     let state = cli.state.as_deref().context("missing recovery state")?;
     let executor = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
         .enable_all()
         .build()?;
     if cli.seed_signal_results {

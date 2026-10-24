@@ -7,8 +7,8 @@ aggregate_gib = 160
 non_agent_headroom_gib = 16
 pressure_guard_gib = 36
 admission_seconds = 30
-functional_cores = [8, 9, 10, 11, 12, 13, 14, 15]
-timing_cores = [0, 1, 2, 3, 4, 5, 6, 7]
+functional_cores = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+timing_cores = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 [light]
 slots = 4
@@ -35,7 +35,7 @@ control_gib = 4
 pool_gib = 24
 worker_gib = 8
 case_lanes = 2
-cpu_threads = 4
+cpu_threads = 16
 math_jobs = 4
 compiler_cores = 1
 [wide]
@@ -46,7 +46,7 @@ control_gib = 4
 pool_gib = 64
 worker_gib = 16
 case_lanes = 4
-cpu_threads = 8
+cpu_threads = 16
 math_jobs = 8
 compiler_cores = 1
 [timing]
@@ -59,7 +59,7 @@ control_gib = 4
 pool_gib = 40
 worker_gib = 8
 case_lanes = 4
-cpu_threads = 8
+cpu_threads = 16
 math_jobs = 8
 compiler_cores = 1
 [exclusive]

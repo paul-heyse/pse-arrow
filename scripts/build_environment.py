@@ -26,6 +26,20 @@ ROOT = Path(__file__).resolve().parents[1]
 FOREGROUND_CACHE = "PSE_SCCACHE_FOREGROUND"
 
 
+def native_compiler_jobs(root: Path, environment: Mapping[str, str]) -> str:
+    """Resolve the selected positive Cargo width for CMake/make build commands."""
+    selected = environment.get("CARGO_BUILD_JOBS")
+    if selected is None:
+        cargo = tomllib.loads((root / ".cargo/config.toml").read_text())
+        selected = str(cargo["build"]["jobs"])
+    if not selected.isascii() or not selected.isdecimal() or int(selected) <= 0:
+        raise ValueError(
+            "Native CMake/make builds require a positive integer CARGO_BUILD_JOBS; "
+            "Cargo relative or automatic job selections are unsupported here"
+        )
+    return str(int(selected))
+
+
 def selected_cache_binary(root: Path, environment: Mapping[str, str]) -> str | None:
     """Resolve the declared default or a deliberate real-executable override."""
     managed = (root / "scripts/sccache").resolve()

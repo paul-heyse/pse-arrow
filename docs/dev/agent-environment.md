@@ -125,15 +125,19 @@ The [documentation guide](documentation.md) owns metadata, scope-query and retir
 Commands acquire a registered host allocation before their systemd user scope starts.
 `.config/agent-capacity.toml` owns bounded memory partitions, shared build slots and physical-core
 lanes; `scripts/host_admission.py` coordinates independent sessions under private XDG
-state. The aggregate parent initially caps cooperating work at 160 GiB. Functional
-work uses cores 8–15 (and their SMT siblings), timing uses cores 0–7. Kernel quotas
-bound CPU time; inherited scheduler affinity enforces placement when the user manager
-has no delegated cpuset controller.
+state. The finite aggregate parent initially caps cooperating work at 160 GiB. Every
+declared profile can use all sixteen physical cores and their thirty-two SMT CPUs.
+Timing excludes competing functional/build work instead of dividing the workstation
+into smaller CPU partitions. Kernel quotas account for all thirty-two logical CPUs;
+inherited scheduler affinity enforces placement when the user manager has no delegated
+cpuset controller.
 
-A machine-local `export PSE_BUILD_MODE=unbounded` in `.envrc.local` selects ordinary
-build/test defaults without an OS memory budget or startup memory-pressure guard.
-Four build owners may overlap, each sharing all sixteen physical cores with a 1600%
-CPU quota. Cargo's declared default is sixteen jobs; an explicit `CARGO_BUILD_JOBS`
+A machine-local `export PSE_BUILD_MODE=unbounded` in `.envrc.local` selects all ordinary
+work defaults without an OS memory budget or startup memory-pressure guard, including
+native Python/test orchestration whose command name is not recognized as a compiler.
+Four build owners may overlap, each sharing all sixteen physical cores with a 3200%
+CPU quota across thirty-two logical CPUs. Cargo's declared default is thirty-two jobs;
+an explicit `CARGO_BUILD_JOBS`
 remains a caller choice. Build allocations live under `psebuild.slice`, outside the
 bounded `pse.slice` hierarchy. Their scopes omit `MemoryMax` and `MemorySwapMax` and
 verify actual `memory.max=max` through every ancestor, including the cgroup root.
@@ -156,7 +160,7 @@ preparation can also wait for an active Cargo artifact writer; this does not low
 declared compiler-job count.
 
 Explicit `--resource-class`, `PSE_RESOURCE_CLASS` and finite `PSE_MEMORY_MAX` choices
-keep their existing precedence; local mode changes recipe defaults only. Managed-primary,
+keep their existing precedence; local mode changes ordinary defaults only. Managed-primary,
 reference and timing routes keep their selected bounded allocations and isolation.
 In particular, `--resource-class compile` selects the finite 24 GiB profile even when
 `PSE_BUILD_MODE=unbounded`. It is not an uncapped compiler hint. For an ad hoc composer use
@@ -174,7 +178,7 @@ child cap is never widened by the ordinary build policy.
 
 Light commands use a 2 GiB slot, compilation a 24 GiB slot, ordinary functional work
 one of sixteen 40 GiB functional slots, and wide work two of those slots. Native scientific selections
-with a 64 GiB observer pool use the named exclusive-observer partition. Functional concurrency is declared by `[functional].slots` (maintainer-selected 16); owners share the least occupied existing CPU group once the disjoint groups are occupied. Per-task/aggregate memory limits, resident-store counts and exclusive/timing rules are separate controls. Pure Python
+with a 64 GiB observer pool use the named exclusive-observer partition. Functional concurrency is declared by `[functional].slots` (maintainer-selected 16); admitted owners share the full CPU set. Per-task/aggregate memory limits, resident-store counts and exclusive/timing rules are separate controls. Pure Python
 unit selections bypass that observer. Reference preserves its original 160 GiB
 partition, 128 GiB pool and sixteen lanes. The runner builds and enumerates native
 artifacts before entering its selected observer; the observer executes admitted binaries.
@@ -183,12 +187,17 @@ in `.config/agent-capacity.toml` (16 MiB), preserve an explicit positive finite 
 count, and record it in native provenance. This libtest thread setting is separate
 from production native-job stack policy.
 
-Cargo, Nextest and ordinary pytest default their widths to the allocation's
-physical-core count, bounded by actual usable logical affinity and any finite
-ancestor CPU quota. SMT siblings remain visible in affinity but
-do not increase the physical-core CPU quota or these defaults. An explicit caller
+Cargo defaults to the allocation's usable logical CPU count, up to its declared
+thirty-two jobs. Nextest and ordinary pytest default to sixteen physical lanes.
+Each default respects actual usable affinity and any finite ancestor CPU quota;
+the full workstation allocation supplies 3200% CPU time so SMT is usable without
+an accidental 1600% throttle. An explicit caller
 environment or CLI width remains an override inside the kernel allocation. Nested
 allocations recompute repository-supplied defaults for their own narrower placement.
+Per-case resource weights, small fixtures and scientific-owner exclusions describe
+native demand or test correctness; they are not lower host CPU ceilings. Do not
+introduce smaller default CPU partitions, compiler-job limits, memory budgets or
+serialization of independent work on this workstation.
 Nextest's timing-sensitive exclusive controls reserve `num-test-threads`, the actual
 configured scheduler width, so changing the allocation does not weaken exclusion.
 

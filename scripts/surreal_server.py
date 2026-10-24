@@ -1888,7 +1888,9 @@ def worker_environment(
     state: Path, slot: int, allocation: dict[str, object], handoff: Path | None = None
 ) -> dict[str, str]:
     environment = systemd_environment()
-    from scripts import telemetry_launch  # noqa: PLC0415 -- shared passive process selection
+    from scripts import (  # noqa: PLC0415 -- optional shared passive launch selection.
+        telemetry_launch,
+    )
 
     telemetry_launch.configure(SCRIPT.parents[1], environment)
     # Never inherit the ordinary ad hoc workload's optional/off/default cap policy.
@@ -4685,7 +4687,7 @@ def _owns_listener(
         or not observed_role_affinity(
             pid,
             {"cpu_threads": placement["cpu_threads"]},
-            list(owner.profile.cores),
+            list(host_admission.cpu_set(owner.profile.cores)),
         )
     ):
         return False
@@ -4730,10 +4732,10 @@ def storage_placement(
             )
     elif memory > host_admission.settings(owner.profile.name)["store_gib"] * GIB:
         raise SupervisorError("Storage exceeds its borrowed exclusive partition")
-    host_admission.cpu_set(owner.profile.cores)
+    logical_cpus = host_admission.cpu_set(owner.profile.cores)
     return {
         "memory_bytes": memory,
-        "cpu_threads": len(owner.profile.cores),
+        "cpu_threads": len(logical_cpus),
         "physical_cpus": list(owner.profile.cores),
         "slice": host_admission.allocation_slice(owner)
         if owner.profile.exclusive
@@ -5899,6 +5901,14 @@ def server_environment(
     if qualification is not None:
         module_directories.append(str(Path(str(qualification["artifact"])).parent))
     runtime = module_runtime_allocation(allocation)
+    service_class = str(config.get("service_class", "functional"))
+    pool_threads = str(
+        len(
+            host_admission.cpu_set(
+                host_admission.select("store-" + service_class).cores
+            )
+        )
+    )
     execution_ms = integer(object_mapping(module["limits"])["max_execution_time_ms"])
     if qualification is not None:
         execution_ms = max(
@@ -5930,9 +5940,9 @@ def server_environment(
             "SURREAL_SURREALISM_MAX_KV_VALUE_BYTES": "0",
             "SURREAL_SURREALISM_MAX_FS_BYTES": "0",
             "SURREAL_SURREALISM_LOG_LEVEL": "warn",
-            "SURREAL_RUNTIME_WORKER_THREADS": "4",
-            "TOKIO_WORKER_THREADS": "4",
-            "RAYON_NUM_THREADS": "4",
+            "SURREAL_RUNTIME_WORKER_THREADS": pool_threads,
+            "TOKIO_WORKER_THREADS": pool_threads,
+            "RAYON_NUM_THREADS": pool_threads,
         }
     )
     telemetry = config.get("diagnostic_telemetry")
@@ -6267,7 +6277,7 @@ def _serve(state: Path) -> int:
         allocation_owner.profile, systemd_environment(), deadline=_STARTUP.deadline
     )
     remaining(_STARTUP.deadline)
-    os.sched_setaffinity(0, list(allocation_owner.profile.cores))
+    os.sched_setaffinity(0, host_admission.cpu_set(allocation_owner.profile.cores))
     remaining(_STARTUP.deadline)
     credentials_path = state / "credentials.json"
     if (

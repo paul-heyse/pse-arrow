@@ -5,12 +5,14 @@
 
 [test-groups]
 # Pool-owning solver, engineering and runtime cases share one budget. Each
-# consumes both slots, so only one scientific process runs per observer.
+# consumes both ownership tokens, so only one scientific process runs per observer.
+# These tokens do not limit that process to two CPUs: its host allocation can
+# use the full sixteen-core / thirty-two-thread workstation.
 # Unassigned pure tests retain the profile's parallel budget.
 scientific = { max-threads = 2 }
 # Canonical consumers on the one selected supervised server. Each fixture owns an
 # isolated UUID database, so database-only tests share the server (threads-required 1);
-# sixteen clients can share the server's four runtime threads. Tests that own
+# sixteen clients can share the server's allocation-derived runtime. Tests that own
 # server-wide resources or depend on sub-second timing take all sixteen slots.
 store = { max-threads = 16 }
 

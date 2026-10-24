@@ -5200,7 +5200,31 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(environment["SURREAL_GRPC_MAX_MESSAGE_SIZE"], "4194304")
         self.assertNotIn("SURREAL_ROCKSDB_BLOCK_CACHE_SIZE", environment)
         self.assertEqual(environment["SURREAL_GRPC_MAX_ATTACHED_SESSIONS"], "256")
-        self.assertEqual(environment["SURREAL_RUNTIME_WORKER_THREADS"], "4")
+        owner = server.host_admission.select("store-functional")
+        logical_cpus = server.host_admission.cpu_set(owner.cores)
+        for name in (
+            "SURREAL_RUNTIME_WORKER_THREADS",
+            "TOKIO_WORKER_THREADS",
+            "RAYON_NUM_THREADS",
+        ):
+            self.assertEqual(environment[name], str(len(logical_cpus)))
+
+    def test_storage_placement_counts_logical_cpu_quota_without_duplicating_physical_cores(
+        self,
+    ) -> None:
+        config = self.initialized()
+        memory = server.integer(
+            server.object_mapping(config["resources"])["server_memory_bytes"]
+        )
+        owner = host.Allocation(
+            self.root, "", host.select("store-functional", str(memory)), 0
+        )
+        placement = server.storage_placement(config, owner)
+        self.assertEqual(placement["physical_cpus"], list(range(16)))
+        self.assertEqual(
+            placement["cpu_threads"], len(host.cpu_set(owner.profile.cores))
+        )
+        self.assertEqual(placement["cpu_threads"], 32)
 
     def test_resource_override_outside_recorded_budget_is_refused(self) -> None:
         config = self.initialized()

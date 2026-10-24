@@ -2091,7 +2091,7 @@ class HostAdmissionTests(unittest.TestCase):
             with self.assertRaises(host.AdmissionError):
                 host.select("functional", value)
 
-    def test_sixteen_independent_functional_callers_share_cpu_groups_and_bound_capacity(
+    def test_sixteen_independent_functional_callers_share_all_cores_and_bound_capacity(
         self,
     ) -> None:
         self.assertEqual(host.settings("functional")["slots"], 16)
@@ -2099,10 +2099,9 @@ class HostAdmissionTests(unittest.TestCase):
             host.acquire(host.select("functional"), directory=self.directory)
             for _ in range(16)
         ]
-        self.assertFalse(
-            set(owners[0].profile.cores).intersection(owners[1].profile.cores)
+        self.assertTrue(
+            all(owner.profile.cores == tuple(range(16)) for owner in owners)
         )
-        self.assertEqual(owners[0].profile.cores, owners[2].profile.cores)
         self.assertEqual(len({owner.nonce for owner in owners}), 16)
         begun = time.monotonic()
         with self.assertRaisesRegex(host.AdmissionError, "functional slots occupied"):
@@ -2577,21 +2576,32 @@ class HostAdmissionTests(unittest.TestCase):
         ):
             self.assertTrue(host.drained(record))
 
-    def test_timing_is_disjoint_and_exclusive_excludes_heavy(self) -> None:
+    def test_timing_excludes_competing_heavy_work_on_shared_full_host(self) -> None:
         functional = host.acquire(host.select("wide"), directory=self.directory)
-        timing = host.acquire(host.select("timing"), directory=self.directory)
-        self.assertFalse(
-            set(functional.profile.cores).intersection(timing.profile.cores)
-        )
-        with self.assertRaisesRegex(host.AdmissionError, "exclusive"):
+        with self.assertRaisesRegex(host.AdmissionError, "isolated timing owner"):
             host.acquire(
-                host.select("reference"),
+                host.select("timing"),
                 directory=self.directory,
                 deadline=time.monotonic() + 0.02,
             )
         self.assertTrue(functional.release())
+        timing = host.acquire(host.select("timing"), directory=self.directory)
+        with self.assertRaisesRegex(host.AdmissionError, "isolated timing owner"):
+            host.acquire(
+                host.select("functional"),
+                directory=self.directory,
+                deadline=time.monotonic() + 0.02,
+            )
+        store = host.acquire(host.select("store-timing"), directory=self.directory)
+        self.assertTrue(store.release())
         self.assertTrue(timing.release())
         reference = host.acquire(host.select("reference"), directory=self.directory)
+        with self.assertRaisesRegex(host.AdmissionError, "exclusive"):
+            host.acquire(
+                host.select("functional"),
+                directory=self.directory,
+                deadline=time.monotonic() + 0.02,
+            )
         light = host.acquire(host.select("light"), directory=self.directory)
         self.assertTrue(light.release())
         self.assertTrue(reference.release())
@@ -2599,8 +2609,89 @@ class HostAdmissionTests(unittest.TestCase):
     def test_cpu_topology_matches_declared_physical_lanes(self) -> None:
         functional = set(host.cpu_set(host.select("wide").cores))
         timing = set(host.cpu_set(host.select("timing").cores))
-        self.assertFalse(functional.intersection(timing))
-        self.assertEqual(functional | timing, set(range(32)))
+        self.assertEqual(functional, set(range(32)))
+        self.assertEqual(timing, functional)
+
+    def test_all_profiles_share_full_hardware_without_duplicate_physical_cores(
+        self,
+    ) -> None:
+        for name in (
+            "build",
+            "light",
+            "compiler-cache",
+            "compile",
+            "functional",
+            "wide",
+            "timing",
+            "reference",
+            "exclusive",
+            "store-functional",
+            "store-timing",
+        ):
+            with self.subTest(name=name):
+                profile = host.select(name)
+                self.assertEqual(profile.cores, tuple(range(16)))
+                self.assertEqual(host.cpu_set(profile.cores), tuple(range(32)))
+        for name in ("functional", "wide", "timing"):
+            self.assertEqual(host.execution(name)["cpu_threads"], 16)
+
+    def test_allocation_quota_counts_available_logical_cpus(self) -> None:
+        allocation = host.Allocation(
+            self.directory, "a" * 32, host.select("build"), time.monotonic() + 1
+        )
+        with (
+            patch.object(
+                host.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
+            ) as run,
+            patch.object(host.pse_env, "require_unbounded_slice"),
+        ):
+            host.enforce_allocation(allocation, {})
+        command = run.call_args_list[1].args[0]
+        self.assertIn("CPUQuota=3200%", command)
+        self.assertIn("AllowedCPUs=" + ",".join(map(str, range(32))), command)
+        self.assertFalse(any(value.startswith("MemoryMax=") for value in command))
+
+    def test_timing_exclusion_is_symmetric_and_preserves_control_and_store_roles(
+        self,
+    ) -> None:
+        def record(name: str) -> dict[str, object]:
+            profile = host.select(name)
+            return {
+                "lane": profile.lane,
+                "slots": profile.slots,
+                "exclusive": profile.exclusive,
+            }
+
+        for timing in ("timing", "store-timing"):
+            for competing in (
+                "build",
+                "compile",
+                "functional",
+                "wide",
+                "store-functional",
+                "reference",
+                "exclusive",
+            ):
+                with self.subTest(timing=timing, competing=competing):
+                    self.assertEqual(
+                        host.conflict(
+                            host.select(timing), {"other": record(competing)}
+                        ),
+                        "isolated timing owner",
+                    )
+                    self.assertEqual(
+                        host.conflict(
+                            host.select(competing), {"other": record(timing)}
+                        ),
+                        "isolated timing owner",
+                    )
+            for control in ("light", "compiler-cache"):
+                self.assertIsNone(
+                    host.conflict(host.select(timing), {"other": record(control)})
+                )
+                self.assertIsNone(
+                    host.conflict(host.select(control), {"other": record(timing)})
+                )
 
     def test_borrow_release_never_resumes_intentionally_stopped_resident(self) -> None:
         owner, state, unit = self.storage_process_fixture(borrowed=True)

@@ -27,6 +27,10 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from scripts import (  # noqa: E402 -- direct script execution first adds the checkout import root
+    build_environment,
+)
+
 RECEIPT_VERSION = 2
 ISOLATION_FILES = (
     "include/ibex.h",
@@ -488,6 +492,7 @@ def prepend_library_path(libraries: str, env: dict[str, str]) -> str:
 
 @operation_preparation("klu")
 def klu(base: Path, env: dict[str, str]) -> Path:
+    jobs = build_environment.native_compiler_jobs(ROOT, env)
     env = env.copy()
     env.setdefault("CC", shutil.which("cc") or "cc")
     env.setdefault("CXX", shutil.which("c++") or "c++")
@@ -574,7 +579,7 @@ def klu(base: Path, env: dict[str, str]) -> Path:
                 "--build",
                 str(work),
                 "--parallel",
-                env.get("CARGO_BUILD_JOBS", "4"),
+                jobs,
             ],
             env=env,
         )
@@ -586,6 +591,7 @@ def klu(base: Path, env: dict[str, str]) -> Path:
 @operation_preparation("isolation")
 def isolation(base: Path, env: dict[str, str]) -> Path:
     """Prepare the source-pinned validated interval and supported LP binding."""
+    jobs = build_environment.native_compiler_jobs(ROOT, env)
     with (ROOT / "Cargo.toml").open("rb") as stream:
         pin = tomllib.load(stream)["workspace"]["metadata"]["pse"]["root-isolation"]
     env = env.copy()
@@ -671,7 +677,7 @@ def isolation(base: Path, env: dict[str, str]) -> Path:
                 "--build",
                 str(work / "compiled"),
                 "--parallel",
-                env.get("CARGO_BUILD_JOBS", "4"),
+                jobs,
             ],
             env=env,
         )

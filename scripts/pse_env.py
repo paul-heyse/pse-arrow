@@ -152,7 +152,9 @@ def base_environment(
         env["PKG_CONFIG_PATH"] = prepend(
             str(SOLVER_STACK / "lib/pkgconfig"), env.get("PKG_CONFIG_PATH")
         )
-    from scripts import telemetry_launch  # noqa: PLC0415 -- pure optional launch selection
+    from scripts import (  # noqa: PLC0415 -- optional passive selection at the launch boundary.
+        telemetry_launch,
+    )
 
     telemetry_launch.configure(root, env)
     return env
@@ -378,12 +380,8 @@ def selected_resource_class(
     if mode not in {"bounded", "unbounded"}:
         raise BoundaryError("PSE_BUILD_MODE must be bounded or unbounded")
     selected = default or host.classify(command, native)
-    ordinary = default in {"compile", "exclusive"} or host.classify(
-        command, native
-    ) in {"compile", "exclusive"}
     if (
         mode == "unbounded"
-        and ordinary
         and selected in {"compile", "functional", "wide", "exclusive"}
         and "PSE_MEMORY_MAX" not in env
         and operation.BUILD_TIMING not in env
@@ -529,8 +527,10 @@ def cpu_ceiling(group: Path, *, root: Path = Path("/sys/fs/cgroup")) -> float | 
     return min(ceilings) if ceilings else None
 
 
-def runner_width(allocation: host.Allocation, *, pending: bool = False) -> int:
-    """Intersect admitted lanes with usable affinity and enforced finite quota."""
+def cpu_widths(
+    allocation: host.Allocation, *, pending: bool = False
+) -> tuple[int, int]:
+    """Physical runner and logical compiler widths within actual CPU ceilings."""
     cpus = set(host.cpu_set(allocation.profile.cores))
     if pending:
         # Before launch, observe the enforced destination, not the coordinator's
@@ -548,10 +548,15 @@ def runner_width(allocation: host.Allocation, *, pending: bool = False) -> int:
     quota = cpu_ceiling(group)
     if quota is None or not math.isfinite(quota) or quota <= 0:
         raise BoundaryError("Admitted CPU allocation has no enforced finite quota")
-    width = min(len(allocation.profile.cores), len(cpus), max(1, math.floor(quota)))
-    if width < 1:
+    logical = min(len(cpus), max(1, math.floor(quota)))
+    if logical < 1:
         raise BoundaryError("Admitted CPU allocation has no usable lane")
-    return width
+    return min(len(set(allocation.profile.cores)), logical), logical
+
+
+def runner_width(allocation: host.Allocation, *, pending: bool = False) -> int:
+    """Intersect physical runner width with usable affinity and finite quota."""
+    return cpu_widths(allocation, pending=pending)[0]
 
 
 def default_test_width(environment: Mapping[str, str]) -> int:
@@ -564,13 +569,8 @@ def default_test_width(environment: Mapping[str, str]) -> int:
 def admitted_cargo_jobs(
     env: dict[str, str], allocation: host.Allocation, *, pending: bool = False
 ) -> None:
-    """Derive defaults from physical lanes, logical affinity and enforced quota.
-
-    The allocation enforces one CPU of quota per declared physical lane. SMT
-    siblings provide affinity, not extra CPU quota. Explicit runner/compiler
-    overrides remain inside that same enforced enclosing allocation.
-    """
-    width = runner_width(allocation, pending=pending)
+    """Use physical runner defaults and logical compiler capacity; preserve overrides."""
+    width, compiler_width = cpu_widths(allocation, pending=pending)
     previous = env.get(NEXTEST_DEFAULT_THREADS)
     if "NEXTEST_TEST_THREADS" not in env or env["NEXTEST_TEST_THREADS"] == previous:
         env["NEXTEST_TEST_THREADS"] = str(width)
@@ -578,7 +578,7 @@ def admitted_cargo_jobs(
     declared = env.get(CARGO_DEFAULT_JOBS)
     if declared is None or env.get("CARGO_BUILD_JOBS") != declared:
         return
-    jobs = str(min(int(declared), width))
+    jobs = str(min(int(declared), compiler_width))
     env["CARGO_BUILD_JOBS"] = jobs
     env[CARGO_DEFAULT_JOBS] = jobs
 
@@ -676,7 +676,7 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
         "-p",
         "AllowedCPUs=" + " ".join(map(str, host.cpu_set(profile.cores))),
         "-p",
-        f"CPUQuota={len(profile.cores) * 100}%",
+        f"CPUQuota={len(host.cpu_set(profile.cores)) * 100}%",
     ]
     return [
         *command,
@@ -745,7 +745,7 @@ def run_light_control(
                 "AllowedCPUs="
                 + " ".join(map(str, host.cpu_set(allocation.profile.cores))),
                 "-p",
-                f"CPUQuota={len(allocation.profile.cores) * 100}%",
+                f"CPUQuota={len(host.cpu_set(allocation.profile.cores)) * 100}%",
                 "--",
             ]
         except BaseException:

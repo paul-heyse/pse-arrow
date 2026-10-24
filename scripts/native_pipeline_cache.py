@@ -17,9 +17,9 @@ from pathlib import Path
 
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts import build_environment, producer_deployment
 from scripts import native_cache as cache
 from scripts import native_operation as operation
-from scripts import producer_deployment
 
 
 def required_files(kind: str) -> tuple[str, ...]:
@@ -256,6 +256,7 @@ def prepare(kind: str, env: dict[str, str]) -> Path:
 
 
 def _prepare(kind: str, env: dict[str, str]) -> Path:
+    jobs = build_environment.native_compiler_jobs(cache.ROOT, env)
     base = cache.cache_root(env)
     with (cache.ROOT / "Cargo.toml").open("rb") as stream:
         pin = tomllib.load(stream)["workspace"]["metadata"]["pse"][kind]
@@ -350,7 +351,7 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
                     "--target",
                     "uno_static",
                     "--parallel",
-                    "8",
+                    jobs,
                 ],
                 env=env,
             )
@@ -373,7 +374,7 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
                 stdout=sys.stderr,
             )
             subprocess.run(
-                [*cap(), "make", "-j8", "all"],
+                [*cap(), "make", f"-j{jobs}", "all"],
                 cwd=source,
                 env=env,
                 check=True,

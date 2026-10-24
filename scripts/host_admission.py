@@ -210,14 +210,15 @@ def execution(name: str) -> dict[str, int]:
 
 def select(name: str, requested: str | None = None) -> Profile:
     config = policy()
-    functional = tuple(config["functional_cores"])
-    timing = tuple(config["timing_cores"])
+    functional = tuple(dict.fromkeys(config["functional_cores"]))
+    timing = tuple(dict.fromkeys(config["timing_cores"]))
+    all_cores = tuple(dict.fromkeys((*timing, *functional)))
     if name == "build":
         if requested is not None:
             raise AdmissionError(
                 "The unbounded build class cannot take PSE_MEMORY_MAX; select a finite resource class"
             )
-        return Profile(name, 0, "build", 1, timing + functional)
+        return Profile(name, 0, "build", 1, all_cores)
     amount = finite_bytes(requested) if requested is not None else None
     if name == "compiler-cache":
         declared = settings(name)["memory_gib"] * GIB
@@ -264,12 +265,10 @@ def select(name: str, requested: str | None = None) -> Profile:
         )
     elif name == "compile":
         result = Profile(
-            name, settings(name)["memory_gib"] * GIB, "functional", 1, functional[:4]
+            name, settings(name)["memory_gib"] * GIB, "functional", 1, functional
         )
     elif name == "functional":
-        result = Profile(
-            name, settings(name)["slot_gib"] * GIB, name, 1, functional[:4]
-        )
+        result = Profile(name, settings(name)["slot_gib"] * GIB, name, 1, functional)
     elif name == "wide":
         result = Profile(
             name, settings(name)["slot_gib"] * GIB, "functional", 2, functional
@@ -282,7 +281,7 @@ def select(name: str, requested: str | None = None) -> Profile:
             selected["pool_memory_bytes"]
             + settings(name)["receiver_headroom_gib"] * GIB
         )
-        result = Profile(name, memory, "exclusive", 2, timing + functional, True)
+        result = Profile(name, memory, "exclusive", 2, all_cores, True)
         if amount is not None and amount != memory:
             raise AdmissionError(
                 "Reference profile requires its unchanged 140GiB primary and 160GiB envelope; select exclusive for another allocation"
@@ -293,7 +292,7 @@ def select(name: str, requested: str | None = None) -> Profile:
             settings(name)["slot_gib"] * GIB,
             "exclusive",
             2,
-            timing + functional,
+            all_cores,
             True,
         )
     if amount is not None:
@@ -1228,12 +1227,14 @@ def reconcile(
 def conflict(profile: Profile, owners: Mapping[str, object]) -> str | None:
     entries = [item for item in owners.values() if isinstance(item, dict)]
     heavy = [item for item in entries if item["lane"] != "light"]
+    timing_lanes = {"timing", "store-timing"}
+    competing_lanes = {"functional", "store-functional", "build", "exclusive"}
     if (
-        profile.unbounded
-        and any(item["lane"] in {"timing", "store-timing"} for item in entries)
+        profile.lane in competing_lanes
+        and any(item["lane"] in timing_lanes for item in entries)
     ) or (
-        profile.lane in {"timing", "store-timing"}
-        and any(item["lane"] == "build" for item in entries)
+        profile.lane in timing_lanes
+        and any(item["lane"] in competing_lanes for item in entries)
     ):
         return "isolated timing owner"
     if (profile.exclusive and heavy) or (
@@ -1717,25 +1718,6 @@ def acquire(
                     reason = "original admission clock expired"
                 if reason is None:
                     nonce = uuid.uuid4().hex
-                    # Balance ordinary owners across their existing CPU groups.
-                    # A concurrency limit can exceed the number of disjoint groups;
-                    # shared placement must not exhaust a next-free-group iterator.
-                    if profile.lane == "functional" and profile.slots == 1:
-                        cores = tuple(policy()["functional_cores"])
-                        width = len(profile.cores)
-                        parts = [
-                            cores[index : index + width]
-                            for index in range(0, len(cores), width)
-                        ]
-
-                        def load(part: tuple[int, ...]) -> int:
-                            return sum(
-                                len(set(part).intersection(owner["cores"]))
-                                for owner in state["owners"].values()
-                                if owner["lane"] == "functional"
-                            )
-
-                        profile = replace(profile, cores=min(parts, key=load))
                     state["owners"][nonce] = {
                         "boot": boot(),
                         "pid": os.getpid(),
@@ -1873,7 +1855,7 @@ def enforce_allocation(
         "set-property",
         "--runtime",
         name,
-        f"CPUQuota={len(allocation.profile.cores) * 100}%",
+        f"CPUQuota={len(cpu_set(allocation.profile.cores)) * 100}%",
         "AllowedCPUs=" + ",".join(map(str, cpu_set(allocation.profile.cores))),
     ]
     if not allocation.profile.unbounded:

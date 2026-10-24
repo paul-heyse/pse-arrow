@@ -149,11 +149,9 @@ fn resource_budget(
         return Err("worker memory exceeds the supervised native slot".into());
     }
     let count = |n: usize| NonZeroUsize::new(n.max(1)).unwrap_or(NonZeroUsize::MIN);
-    let threads = cli.threads.unwrap_or_else(|| {
-        std::thread::available_parallelism()
-            .map_or(1, NonZeroUsize::get)
-            .min(4)
-    });
+    let threads = cli
+        .threads
+        .unwrap_or_else(|| std::thread::available_parallelism().map_or(1, NonZeroUsize::get));
     let math = pse_runtime::math::MathPolicy {
         workspace_bytes: memory / 8,
         worker_bytes: memory / 2,
@@ -485,13 +483,16 @@ fn main() -> ExitCode {
         eprintln!("error: {error}");
         return ExitCode::FAILURE;
     }
-    let _telemetry_host = match pse_runtime::tooling::telemetry::Host::from_environment("pse-worker") {
-        Ok(host) => host,
-        Err(_) => { eprintln!("pse-telemetry: native-host-initialization-refused"); None }
-    };
+    let _telemetry_host =
+        match pse_runtime::tooling::telemetry::Host::from_environment("pse-worker") {
+            Ok(host) => host,
+            Err(_) => {
+                eprintln!("pse-telemetry: native-host-initialization-refused");
+                None
+            }
+        };
     let cli = Cli::parse();
     let executor = match tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
         .enable_all()
         .build()
     {
@@ -743,6 +744,9 @@ mod tests {
     fn parsed_default_budget_admits_default_compiler_scratch() {
         let cli = Cli::try_parse_from(["pse-worker"]).unwrap();
         let budget = resource_budget(&cli, legacy_allocation(1 << 30)).unwrap();
+        let available = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
+        assert_eq!(budget.threads.pool_threads.get(), available);
+        assert_eq!(budget.threads.target_partitions.get(), available);
         let compiler = pse_runtime::workflow::PreparationSettings::default().compiler;
         assert!(budget.math.worker_bytes >= compiler.evaluation.scratch_bytes);
         let compilation = compiler.evaluation.scratch_bytes

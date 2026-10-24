@@ -26,7 +26,7 @@
 # checkouts instead (scripts/build_environment.py).
 
 [build]
-jobs = 16
+jobs = 32
 # Check source bytes instead of mtimes; declared build-script file inputs retain
 # Cargo's rerun-if-changed mtime behavior.
 fingerprint = "content"

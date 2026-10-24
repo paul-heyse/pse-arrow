@@ -236,9 +236,13 @@ Each of these is a real incident, not a hypothetical.
 - **A heavy native run can exhaust the machine and take the editor down with it** (two
   editor-wide OOM kills on 2026-09-29). Workload recipe commands run in their own
   supervised scope, coordinated by `.config/agent-capacity.toml`. The maintainer-selected
-  local `PSE_BUILD_MODE=unbounded` gives ordinary builds/tests shared use of all physical
-  cores without an OS memory cap; scientific pools and timing/reference allocations retain
-  their contracts. The environment guide owns this selection and its precedence.
+  local `PSE_BUILD_MODE=unbounded` gives all ordinary work, including native/test orchestration,
+  shared use of all 16 physical cores and 32 logical CPUs without an OS memory cap. Cargo
+  defaults to 32 jobs; test runners default to 16 physical lanes. Do not introduce smaller
+  CPU partitions, compiler-job limits, RAM budgets or serial execution for independent work
+  on this workstation. Explicit operator selections and scientific pool, exclusion and
+  timing/reference contracts retain their meanings; small test fixtures are not host caps.
+  The environment guide owns this selection and its precedence.
   `PSE_MEMORY_MAX` explicitly selects a finite allocation and widens its ancestors coherently;
   run an ad hoc heavy command with `scripts/pse-env -- <command>`.
   **Do not pass `--resource-class compile` merely to identify a compiler workload:** that

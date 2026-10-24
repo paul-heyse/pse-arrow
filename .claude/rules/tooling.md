@@ -35,7 +35,11 @@ keep it accurate when you change them.
   arbitrary executable. Selected effectful operations must retain their native environment,
   admission and lifetime owners; presentation changes do not grant execution permission.
 - **Placement owns resource policy.** Workload commands run in their own supervised scope;
-  the explicit ordinary-build mode may omit OS memory caps. Do not add another wrapper.
+  this workstation's selected unbounded mode covers all ordinary work, including native
+  Python/test orchestration, with all 16 physical cores, 32 logical compiler jobs and no OS
+  memory cap. Do not add lower default CPU/job limits, memory budgets, serialization of
+  independent work or another wrapper. Explicit operator choices and native scientific
+  demand/exclusion contracts retain their separate meanings.
   Builders call `pse_env.placement()` per command (a transient unit name
   cannot be reused). Host admission uses short kernel-held allocation metadata exclusion;
   never hold a machine-wide or fd-inheriting lock through a workload, RPC or drain.

@@ -19,6 +19,42 @@ from scripts import native_cache
 
 
 class BuildEnvironmentTests(unittest.TestCase):
+    def test_native_compiler_width_uses_canonical_declaration_and_explicit_selection(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".cargo").mkdir()
+            declaration = root / ".cargo/config.toml"
+            declaration.write_text("[build]\njobs = 11\n")
+            self.assertEqual(build.native_compiler_jobs(root, {}), "11")
+            declaration.write_text("[build]\njobs = 19\n")
+            self.assertEqual(build.native_compiler_jobs(root, {}), "19")
+            self.assertEqual(
+                build.native_compiler_jobs(root, {"CARGO_BUILD_JOBS": "7"}), "7"
+            )
+            for invalid in ("-1", "0", "", "auto", "2.5"):
+                with (
+                    self.subTest(invalid=invalid),
+                    self.assertRaisesRegex(
+                        ValueError, "positive integer CARGO_BUILD_JOBS"
+                    ),
+                ):
+                    build.native_compiler_jobs(root, {"CARGO_BUILD_JOBS": invalid})
+
+    def test_cargo_defaults_use_all_logical_cpus_and_preserve_caller_choice(
+        self,
+    ) -> None:
+        self.assertEqual(
+            build.configure(build.ROOT, {}, cache="off")["CARGO_BUILD_JOBS"], "32"
+        )
+        self.assertEqual(
+            build.configure(build.ROOT, {"CARGO_BUILD_JOBS": "7"}, cache="off")[
+                "CARGO_BUILD_JOBS"
+            ],
+            "7",
+        )
+
     def test_explicit_libclang_file_survives_nested_setup(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             prefix = Path(directory)
