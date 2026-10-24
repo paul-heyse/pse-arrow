@@ -97,6 +97,10 @@ impl Drop for Waiting {
 
 #[cfg(feature = "highs")]
 pub(crate) fn read(execution: &Execution) -> Result<RwLockReadGuard<'static, ()>, ProblemError> {
+    read_at_transition(execution, || {})
+}
+#[cfg(feature = "highs")]
+fn read_at_transition(execution: &Execution, mut acquired: impl FnMut()) -> Result<RwLockReadGuard<'static, ()>, ProblemError> {
     if ACTIVE.with(std::cell::Cell::get) {
         return Err(ProblemError::Internal(
             "nested HiGHS scheduler ownership".into(),
@@ -127,6 +131,7 @@ pub(crate) fn read(execution: &Execution) -> Result<RwLockReadGuard<'static, ()>
         };
         if let Some(gate) = gate {
             drop(changed);
+            acquired();
             if let Err(error) = crate::execution::resume_compute(execution) {
                 drop(gate);
                 notify();
@@ -332,4 +337,60 @@ mod tests {
         assert_eq!(resumed.load(Ordering::Acquire), 0);
         drop(owner);
     }
+}
+
+#[cfg(all(test,feature="highs"))]
+mod schedule_tests {
+    use super::*;
+    use crate::{execution::{ComputeAdmission,compute_scoped},solve::Controls};
+    use std::sync::{Arc,Barrier,atomic::{AtomicUsize,Ordering}};
+    #[derive(Debug)]
+    struct Admission {paused:Arc<Barrier>,released:Arc<Barrier>,resumes:Arc<AtomicUsize>}
+    impl ComputeAdmission for Admission {
+        fn pause(&mut self) {self.paused.wait();self.released.wait();}
+        fn try_resume(&mut self,e:&Execution)->Result<crate::execution::ComputeAvailability,ProblemError> {self.resume(e)?;Ok(crate::execution::ComputeAvailability::Acquired)}
+        fn resume(&mut self,e:&Execution)->Result<(),ProblemError> {e.check()?;self.resumes.fetch_add(1,Ordering::AcqRel);Ok(())}
+    }
+    #[test]
+    fn controlled_cancel_before_scheduler_acquisition_drains_without_compute_resume() {
+        let paused=Arc::new(Barrier::new(2));let released=Arc::new(Barrier::new(2));let resumes=Arc::new(AtomicUsize::new(0));
+        let cancel=pse_diagnostics::Cancellation::default();
+        let worker_cancel=cancel.clone();
+        let admission=Admission {paused:paused.clone(),released:released.clone(),resumes:resumes.clone()};
+        let thread=std::thread::spawn(move ||compute_scoped(Box::new(admission),||read(&Execution::new(worker_cancel,&Controls::default())).is_err()));
+        paused.wait();cancel.cancel();released.wait();
+        assert!(thread.join().unwrap());assert_eq!(resumes.load(Ordering::Acquire),0);
+        assert!(!ACTIVE.with(std::cell::Cell::get));
+    }
+    #[test]
+    fn controlled_cancel_after_scheduler_acquisition_releases_guard_before_drain() {
+        let paused=Arc::new(Barrier::new(2));let released=Arc::new(Barrier::new(2));let resumes=Arc::new(AtomicUsize::new(0));
+        let acquired=Arc::new(Barrier::new(2));let proceed=Arc::new(Barrier::new(2));
+        let cancel=pse_diagnostics::Cancellation::default();let worker_cancel=cancel.clone();
+        let admission=Admission {paused:paused.clone(),released:released.clone(),resumes:resumes.clone()};
+        let seen=acquired.clone();let next=proceed.clone();
+        let thread=std::thread::spawn(move ||compute_scoped(Box::new(admission),|| {
+            let result=read_at_transition(&Execution::new(worker_cancel,&Controls::default()),||{seen.wait();next.wait();});
+            assert!(!ACTIVE.with(std::cell::Cell::get));result.is_err()
+        }));
+        paused.wait();released.wait();acquired.wait();
+        // The production guard is held while compute is paused. It cannot be reset.
+        assert!(matches!(LIFECYCLE.try_write(),Err(TryLockError::WouldBlock)));
+        cancel.cancel();proceed.wait();assert!(thread.join().unwrap());
+        assert_eq!(resumes.load(Ordering::Acquire),0);
+        let guard=LIFECYCLE.write().unwrap_or_else(std::sync::PoisonError::into_inner);drop(guard);
+    }
+    #[test]
+    fn controlled_live_scheduler_acquisition_resumes_once_and_releases_on_native_drain() {
+        let paused=Arc::new(Barrier::new(2));let released=Arc::new(Barrier::new(2));let resumes=Arc::new(AtomicUsize::new(0));
+        let admission=Admission {paused:paused.clone(),released:released.clone(),resumes:resumes.clone()};
+        let thread=std::thread::spawn(move ||compute_scoped(Box::new(admission),|| {
+            let gate=read(&Execution::new(Default::default(),&Controls::default())).unwrap();
+            assert!(ACTIVE.with(std::cell::Cell::get));
+            drop(gate);self::released();assert!(!ACTIVE.with(std::cell::Cell::get));
+        }));
+        paused.wait();released.wait();thread.join().unwrap();assert_eq!(resumes.load(Ordering::Acquire),1);
+        let guard=LIFECYCLE.write().unwrap_or_else(std::sync::PoisonError::into_inner);drop(guard);
+    }
+
 }
