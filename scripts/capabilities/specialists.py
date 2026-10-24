@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import time
+from threading import RLock
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -37,6 +38,13 @@ Language = Literal["python", "rust"]
 Position = Annotated[int, Field(ge=1, le=4294967295)]
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 Owned = Annotated[list[str], Field(min_length=1, max_length=100)]
+PreviewOffset = Annotated[int, Field(ge=0)]
+PREVIEW_TEXT_CHARACTERS = 4096
+PREVIEW_SUMMARY_FILES = 8
+PreviewLimit = Annotated[int, Field(ge=1, le=PREVIEW_TEXT_CHARACTERS)]
+MAX_PREVIEWS = 32
+MAX_PREVIEW_BYTES = 64 << 20
+PREVIEW_TEXT_BYTES = 12 << 10
 Kind = Literal[
     "namespaces", "nodes", "databases", "tables", "functions", "analyzers",
     "params", "apis", "buckets", "models", "modules", "sequences", "configs",
@@ -72,6 +80,10 @@ class HierarchyItem(Contract):
 def refusal(operation: str, error: Exception) -> ToolError:
     return ToolError(json.dumps({"code": "pse.specialist.refused", "operation": operation,
                                  "cause": type(error).__name__, "message": str(error)}))
+
+
+class PreviewCapacityError(ValueError):
+    """Retention refused without evicting any previously issued handle."""
 
 
 class Connection:
@@ -174,7 +186,9 @@ def _stamp(path: Path):
 class Specialists:
     """Lifetime owner for one canonical endpoint and its exact selected checkout."""
 
-    def __init__(self, root: Path, *, fixture: bool = False):
+    def __init__(self, root: Path, *, fixture: bool = False,
+                 preview_capacity: int = MAX_PREVIEWS,
+                 preview_byte_capacity: int = MAX_PREVIEW_BYTES):
         self.root = root.resolve(strict=True)
         self.fixture = fixture
         self.languages: dict[str, Connection] = {}
@@ -182,6 +196,96 @@ class Specialists:
         self.database = None
         self.selected = None
         self.closed = False
+        if preview_capacity < 1 or preview_byte_capacity < 1:
+            raise ValueError("preview retention capacities must be positive")
+        self._preview_capacity = preview_capacity
+        self._preview_byte_capacity = preview_byte_capacity
+        self._previews: dict[str, bytes] = {}
+        self._preview_bytes = 0
+        self._preview_lock = RLock()
+
+    def retain_preview(self, preview: dict) -> dict:
+        """Keep exact immutable bytes until endpoint close; never evict issued handles."""
+        if semantic_edits.validate(preview).resolve() != self.root:
+            raise ValueError("preview belongs to another checkout")
+        # Match semantic_edits.reconcile's preview_sha256, including its JSON encoding.
+        original = json.dumps(preview, sort_keys=True).encode("utf-8")
+        digest = hashlib.sha256(original).hexdigest()
+        with self._preview_lock:
+            if self.closed:
+                raise ValueError("edit preview owner is closed; handles expire with the endpoint")
+            if digest not in self._previews:
+                if (len(self._previews) >= self._preview_capacity
+                        or self._preview_bytes + len(original) > self._preview_byte_capacity):
+                    raise PreviewCapacityError(
+                        "edit preview retention capacity exhausted; no existing handle was released: "
+                        f"{len(self._previews)}/{self._preview_capacity} previews, "
+                        f"{self._preview_bytes}/{self._preview_byte_capacity} bytes retained; "
+                        f"new preview requires {len(original)} bytes")
+                self._previews[digest] = original
+                self._preview_bytes += len(original)
+        return self.preview_summary(digest, preview)
+
+    def retained_preview(self, preview_sha256: str) -> dict:
+        """Resolve only this endpoint's exact handle, independently of response projection."""
+        with self._preview_lock:
+            if self.closed:
+                raise ValueError("edit preview owner is closed; handles expire with the endpoint")
+            original = self._previews.get(preview_sha256)
+            if original is None:
+                raise ValueError("unknown edit preview digest for this endpoint; recreate and review it here")
+            if hashlib.sha256(original).hexdigest() != preview_sha256:
+                raise ValueError("retained edit preview digest mismatch")
+        preview = json.loads(original)
+        if semantic_edits.validate(preview).resolve() != self.root:
+            raise ValueError("preview belongs to another checkout")
+        return preview
+
+    @staticmethod
+    def file_summary(file: dict, index: int) -> dict:
+        return {"file_index": index, "path": file["path"],
+                "before_sha256": file["before_sha256"], "after_sha256": file["after_sha256"],
+                "before_characters": len(file["before"]), "after_characters": len(file["after"]),
+                "edit_count": len(file["edits"])}
+
+    def preview_summary(self, preview_sha256: str, preview: dict) -> dict:
+        return {"preview_sha256": preview_sha256, "root": str(self.root),
+                "producer": preview["producer"], "position_encoding": preview["position_encoding"],
+                "file_count": len(preview["files"]), "basis_count": len(preview["basis"]),
+                "edit_count": sum(len(file["edits"]) for file in preview["files"]),
+                "files": [self.file_summary(file, index)
+                          for index, file in enumerate(preview["files"][:PREVIEW_SUMMARY_FILES])],
+                "next_file_index": PREVIEW_SUMMARY_FILES if len(preview["files"]) > PREVIEW_SUMMARY_FILES else None,
+                "detail_operation": "edit_preview_read",
+                "lifetime": "Exact handle retained by this endpoint until it closes; reconnecting creates a new owner."}
+
+    def read_preview(self, preview_sha256: str, file_index: int | None,
+                     side: str, offset: int, limit: int) -> dict:
+        preview = self.retained_preview(preview_sha256)
+        if file_index is None:
+            if offset:
+                raise ValueError("a text offset requires selecting a preview file_index")
+            return self.preview_summary(preview_sha256, preview)
+        if not 0 <= file_index < len(preview["files"]):
+            raise ValueError("preview file_index is outside the retained file set")
+        if side not in {"before", "after"} or not 1 <= limit <= PREVIEW_TEXT_CHARACTERS or offset < 0:
+            raise ValueError("select a bounded before/after preview text window")
+        file = preview["files"][file_index]
+        text = file[side]
+        if offset > len(text):
+            raise ValueError("preview text offset is beyond the selected source")
+        end = offset
+        remaining = PREVIEW_TEXT_BYTES
+        for character in text[offset:offset + limit]:
+            size = len(json.dumps(character, ensure_ascii=True).encode("utf-8")) - 2
+            if size > remaining:
+                break
+            remaining -= size
+            end += 1
+        return {"preview_sha256": preview_sha256, **self.file_summary(file, file_index),
+                "side": side, "offset_encoding": "Unicode codepoints", "offset": offset,
+                "end_offset": end, "total_characters": len(text), "text": text[offset:end],
+                "next_offset": end if end < len(text) else None}
 
     def _language_identity(self, language: Language):
         if language not in os.environ.get("PSE_CAPABILITIES_LANGUAGES", "python,rust").split(","):
@@ -319,7 +423,10 @@ class Specialists:
         return await self.database.invoke(action)
 
     async def close(self):
-        self.closed = True
+        with self._preview_lock:
+            self.closed = True
+            self._previews.clear()
+            self._preview_bytes = 0
         for connection in (*self.languages.values(), self.database):
             if connection is not None:
                 await connection.close()
@@ -458,17 +565,29 @@ def bindings(root: Path, *, owner: Specialists) -> tuple[tuple[Capability, ...],
                 if action.get("command"):
                     raise ValueError("command-based code actions are not complete source edits")
                 payload = action["edit"]
-            result["preview"] = semantic_edits.preview(
+            preview = semantic_edits.preview(
                 owner.root, cut, semantic_navigation.edit_result(payload), producer="mcpls:" + language)
         except (ValueError, KeyError, IndexError, TypeError) as error:
             result["preview_refusal"] = str(error)
             result["complete"] = False
+            return result
+        # Retain before projection: omitted response strings can never alter this snapshot.
+        # Capacity refusal is explicit and preserves every handle already issued.
+        result["preview"] = owner.retain_preview(preview)
+        native = dict(result["native"])
+        native_payload = dict(native["result"])
+        native_payload.pop("changes", None)
+        native_payload.pop("actions", None)
+        native["result"] = native_payload
+        native.pop("content", None)
+        native["source_edit_detail"] = "Retained losslessly by preview_sha256; read before/after text through edit_preview_read."
+        result["native"] = native
         return result
 
     async def navigation_rename_preview(language: Language, file_path: str, line: Position,
                                          character: Position, new_name: str, owned: Owned,
                                          source_sha256: Digest | None = None) -> ReadResult:
-        """Produce a protected source-bound rename preview; never applies. Capture every owned consumer first. Generated declarations and PyO3 strings are outside language rename coverage."""
+        """Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live only until this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage."""
         return await read("navigation_rename_preview", preview_result(language, "rename_symbol",
                           {"file_path": file_path, "line": line, "character": character, "new_name": new_name},
                           owned, source_sha256))
@@ -479,7 +598,7 @@ def bindings(root: Path, *, owner: Specialists) -> tuple[tuple[Capability, ...],
                                          owned: Owned, action_index: Annotated[int, Field(ge=0)],
                                          kind_filter: ActionKind | None = None,
                                          source_sha256: Digest | None = None) -> ReadResult:
-        """Preview one complete native code action. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings."""
+        """Retain one complete code-action preview and return its endpoint-lifetime digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings."""
         arguments = {"file_path": file_path, "start_line": start_line, "start_character": start_character,
                      "end_line": end_line, "end_character": end_character}
         if kind_filter is not None:
@@ -487,22 +606,28 @@ def bindings(root: Path, *, owner: Specialists) -> tuple[tuple[Capability, ...],
         return await read("navigation_action_preview", preview_result(language, "get_code_actions",
                           arguments, owned, source_sha256, action_index))
 
-    def edit_preview_apply(preview: dict[str, JsonValue], receipt: str) -> ReadResult:
-        """Apply an explicitly reviewed complete preview with native protection and all-input rechecks. The new receipt retains truthful partial-write reconciliation."""
+    def edit_preview_read(preview_sha256: Digest, file_index: PreviewOffset | None = None,
+                          side: Literal["before", "after"] = "before", offset: PreviewOffset = 0,
+                          limit: PreviewLimit = PREVIEW_TEXT_CHARACTERS) -> ReadResult:
+        """Read an exact retained preview summary, or lossless before/after text for file_index. Offsets count Unicode codepoints; follow next_offset until null. JSON-byte bounds may shorten a chunk without losing text. Handles belong to this endpoint and expire when it closes; no source read, edit, server acquisition or handle renewal occurs."""
         try:
-            if Path(preview.get("root", "")).resolve() != owner.root:
-                raise ValueError("preview belongs to another checkout")
+            return bounded(owner.read_preview(preview_sha256, file_index, side, offset, limit), "edit_preview_read")
+        except (ValueError, OSError) as error:
+            raise refusal("edit_preview_read", error) from error
+
+    def edit_preview_apply(preview_sha256: Digest, receipt: str) -> ReadResult:
+        """Apply only this endpoint's explicitly reviewed exact retained preview digest. Handles expire when the endpoint closes. Native protection, all-input/stale-basis checks and truthful partial-write receipt reconciliation remain authoritative; no response dictionary is accepted as edit authority."""
+        try:
+            preview = owner.retained_preview(preview_sha256)
             destination = semantic_edits.owned_path(owner.root, receipt, allow_missing=True)
             return bounded(semantic_edits.apply(preview, destination), "edit_preview_apply")
         except (ValueError, OSError) as error:
             raise refusal("edit_preview_apply", error) from error
 
-    def edit_preview_reconcile(preview: dict[str, JsonValue]) -> ReadResult:
-        """Read actual unchanged/applied/diverged/missing state after an interrupted edit; never write source or reacquire a server."""
+    def edit_preview_reconcile(preview_sha256: Digest) -> ReadResult:
+        """Read actual unchanged/applied/diverged/missing state using this endpoint's exact retained preview digest after an interrupted edit. Handles expire when the endpoint closes. Never writes source or reacquires a server."""
         try:
-            if Path(preview.get("root", "")).resolve() != owner.root:
-                raise ValueError("preview belongs to another checkout")
-            return bounded(semantic_edits.reconcile(preview), "edit_preview_reconcile")
+            return bounded(semantic_edits.reconcile(owner.retained_preview(preview_sha256)), "edit_preview_reconcile")
         except (ValueError, OSError) as error:
             raise refusal("edit_preview_reconcile", error) from error
 
@@ -540,7 +665,7 @@ def bindings(root: Path, *, owner: Specialists) -> tuple[tuple[Capability, ...],
             (navigation_tool_support, "editing"), (navigation_workspace_symbols, "editing"),
             (navigation_code_actions, "editing"),
             (navigation_rename_preview, "editing"), (navigation_action_preview, "editing"),
-            (edit_preview_apply, "editing"), (edit_preview_reconcile, "editing"),
+            (edit_preview_read, "editing"), (edit_preview_apply, "editing"), (edit_preview_reconcile, "editing"),
             (database_select, "integration"), (database_info, "integration"),
             (database_list, "integration"), (database_query, "integration")]
     tools = {}
@@ -553,7 +678,7 @@ def bindings(root: Path, *, owner: Specialists) -> tuple[tuple[Capability, ...],
         source = "scripts/semantic_edits.py" if function in (edit_preview_apply, edit_preview_reconcile) else "scripts/capabilities/specialists.py"
         spec = Capability(id=tool.name, title=tool.name.replace("_", " ").title(),
                           description=tool.description or tool.name, domain=domain,
-                          family=("controlled-edits" if function in (edit_preview_apply, edit_preview_reconcile,
+                          family=("controlled-edits" if function in (edit_preview_read, edit_preview_apply, edit_preview_reconcile,
                                   navigation_rename_preview, navigation_action_preview)
                                   else "language-navigation" if domain == "editing" else "database-tooling"),
                           guides=("root", "tooling"), owner=source, source=source,

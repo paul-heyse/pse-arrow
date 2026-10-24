@@ -83,6 +83,8 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             families = {spec.id: spec.family for spec in specs}
             self.assertEqual(families["navigation_hover"], "language-navigation")
             self.assertEqual(families["navigation_rename_preview"], "controlled-edits")
+            self.assertEqual(families["edit_preview_read"], "controlled-edits")
+            self.assertNotIn("preview", tools["edit_preview_apply"].parameters["properties"])
             self.assertEqual(families["database_query"], "database-tooling")
             self.assertFalse(owner.languages)
             self.assertIsNone(owner.database)
@@ -133,7 +135,10 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory(prefix="pse-specialist-test-") as directory:
             root = Path(directory)
             source = root / "sample.py"
-            source.write_text("def sample(value: int) -> int:\n    return value + 1\nresult = sample(2)\n")
+            original = ("def sample(value: int) -> int:\n    return value + 1\nresult = sample(2)\n"
+                        + "# " + "unchanged source " * 1500 + "💡" * 3000 + "\n")
+            source.write_text(original)
+            self.assertGreater(len(source.read_bytes()), 20 << 10)
             owner = specialists.Specialists(root, fixture=True)
             _, tools = specialists.bindings(root, owner=owner)
             server = FastMCP("specialist-test", strict_input_validation=True)
@@ -162,13 +167,37 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
                     result = response.structured_content["payload"]
                     self.assertFalse(result["native"]["isError"], result)
                     self.assertIsNotNone(result["preview"], result)
-                    self.assertIn("sample", source.read_text())
+                    self.assertTrue(response.structured_content["complete"], response.structured_content)
+                    handle = result["preview"]["preview_sha256"]
+                    self.assertNotIn("before", result["preview"]["files"][0])
+                    self.assertNotIn("changes", result["native"]["result"])
+                    # Traverse the original large Unicode text over the real MCP boundary.
+                    for side, expected in (("before", original), ("after", original.replace("sample", "renamed"))):
+                        offset = 0
+                        chunks = []
+                        while True:
+                            detail = await client.call_tool("edit_preview_read", {
+                                "preview_sha256": handle, "file_index": 0,
+                                "side": side, "offset": offset, "limit": 4096})
+                            self.assertTrue(detail.structured_content["complete"], detail.structured_content)
+                            window = detail.structured_content["payload"]
+                            self.assertIsInstance(window["text"], str)
+                            chunks.append(window["text"])
+                            if window["next_offset"] is None:
+                                break
+                            self.assertGreater(window["next_offset"], offset)
+                            offset = window["next_offset"]
+                        self.assertEqual("".join(chunks), expected)
+                    self.assertEqual(source.read_text(), original)
                     applied = await client.call_tool("edit_preview_apply", {
-                        "preview": result["preview"], "receipt": "receipt.json"})
+                        "preview_sha256": handle, "receipt": "receipt.json"})
                     self.assertTrue(applied.structured_content["payload"]["complete"])
                     self.assertIn("renamed", source.read_text())
-                    reconciled = await client.call_tool("edit_preview_reconcile", {"preview": result["preview"]})
+                    reconciled = await client.call_tool("edit_preview_reconcile", {"preview_sha256": handle})
                     self.assertTrue(reconciled.structured_content["payload"]["complete"])
+                    self.assertEqual(reconciled.structured_content["payload"]["preview_sha256"], handle)
+                    self.assertEqual(source.read_text(), original.replace("sample", "renamed"))
+                    self.assertEqual(json.loads((root / "receipt.json").read_text())["preview_sha256"], handle)
             finally:
                 await owner.close()
             self.assertTrue(task.done())
@@ -234,18 +263,137 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(result.structured_content["complete"])
             await owner.close()
 
-    async def test_edit_apply_rejects_foreign_root_and_protected_source(self):
+    async def test_exact_preview_handles_reject_foreign_unknown_tampered_and_raw_requests(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as foreign:
+            root = Path(directory)
+            source = root / "sample.py"
+            source.write_text("x=1\n")
+            owner = specialists.Specialists(root)
+            other = specialists.Specialists(root)
+            _, tools = specialists.bindings(root, owner=owner)
+            preview = semantic_edits.replacements(root, semantic_edits.capture(root, ["sample.py"]),
+                                                  {"sample.py": "x=2\n"}, producer="test")
+            foreign_preview = {**preview, "root": foreign}
+            with self.assertRaisesRegex(ValueError, "another checkout"):
+                owner.retain_preview(foreign_preview)
+            handle = owner.retain_preview(preview)["preview_sha256"]
+            for refused in ("0" * 64, ("1" if handle[0] != "1" else "2") + handle[1:]):
+                with self.assertRaisesRegex(Exception, "unknown edit preview digest"):
+                    await tools["edit_preview_apply"].run({"preview_sha256": refused, "receipt": "receipt.json"})
+            with self.assertRaisesRegex(ValueError, "unknown edit preview digest"):
+                other.retained_preview(handle)
+            self.assertFalse((root / "receipt.json").exists())
+            self.assertEqual(source.read_text(), "x=1\n")
+            # Mutating a caller-owned summary or original dict cannot mutate retention.
+            preview["files"][0]["after"] = "injected text"
+            self.assertEqual(owner.retained_preview(handle)["files"][0]["after"], "x=2\n")
+            # Corrupting the private retained bytes is detected before source/receipt effects.
+            owner._previews[handle] = b"{}"
+            with self.assertRaisesRegex(Exception, "digest mismatch"):
+                await tools["edit_preview_apply"].run({"preview_sha256": handle, "receipt": "receipt.json"})
+            self.assertFalse((root / "receipt.json").exists())
+            self.assertEqual(source.read_text(), "x=1\n")
+            server = FastMCP("exact-preview-input", strict_input_validation=True)
+            server.add_tool(tools["edit_preview_apply"])
+            async with Client(server) as client:
+                raw = await client.call_tool("edit_preview_apply", {"preview": preview, "receipt": "receipt.json"}, raise_on_error=False)
+                self.assertTrue(raw.is_error)
+            await owner.close()
+            await other.close()
+            self.assertFalse(owner._previews)
+            self.assertEqual(owner._preview_bytes, 0)
+            with self.assertRaisesRegex(Exception, "closed"):
+                await tools["edit_preview_read"].run({"preview_sha256": handle})
+
+    async def test_preview_capacity_refusal_preserves_issued_handles_and_has_no_effects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "sample.py"
+            source.write_text("x=1\n")
+            cut = semantic_edits.capture(root, ["sample.py"])
+            first = semantic_edits.replacements(root, cut, {"sample.py": "x=2\n"}, producer="test")
+            second = semantic_edits.replacements(root, cut, {"sample.py": "x=3\n"}, producer="test")
+            owner = specialists.Specialists(root, preview_capacity=1)
+            retained = owner.retain_preview(first)
+            self.assertEqual(owner.retain_preview(first), retained)
+            with self.assertRaisesRegex(specialists.PreviewCapacityError, "no existing handle was released"):
+                owner.retain_preview(second)
+            self.assertEqual(source.read_text(), "x=1\n")
+            _, tools = specialists.bindings(root, owner=owner)
+            native = {"isError": False, "result": {"changes": [{"uri": source.as_uri(), "edits": [
+                {"range": {"start": {"line": 1, "character": 3}, "end": {"line": 1, "character": 4}}, "new_text": "3"}]}]}}
+            owner.language = AsyncMock(return_value={"native": native, "source_unchanged": True})
+            with self.assertRaisesRegex(Exception, "PreviewCapacityError"):
+                await tools["navigation_rename_preview"].run({"language": "python", "file_path": "sample.py", "line": 1,
+                    "character": 1, "new_name": "other", "owned": ["sample.py"]})
+            self.assertEqual(source.read_text(), "x=1\n")
+            applied = await tools["edit_preview_apply"].run({"preview_sha256": retained["preview_sha256"], "receipt": "receipt.json"})
+            self.assertTrue(applied.structured_content["payload"]["complete"])
+            self.assertEqual(source.read_text(), "x=2\n")
+            await owner.close()
+            # Aggregate byte capacity is independent from the count limit.
+            first_bytes = len(json.dumps(first, sort_keys=True).encode("utf-8"))
+            byte_owner = specialists.Specialists(root, preview_byte_capacity=first_bytes)
+            byte_handle = byte_owner.retain_preview(first)["preview_sha256"]
+            with self.assertRaisesRegex(specialists.PreviewCapacityError, "capacity exhausted"):
+                byte_owner.retain_preview(second)
+            self.assertEqual(byte_owner.retained_preview(byte_handle), first)
+            await byte_owner.close()
+
+    async def test_retained_preview_stale_basis_and_protected_receipt_still_refuse_before_effects(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "sample.py").write_text("x=1\n")
+            (root / "consumer.py").write_text("import sample\n")
             owner = specialists.Specialists(root)
             _, tools = specialists.bindings(root, owner=owner)
-            selected = semantic_edits.replacements(root, semantic_edits.capture(root, ["sample.py"]),
-                                                    {"sample.py": "x=2\n"}, producer="test")
-            selected["root"] = "/other/checkout"
-            with self.assertRaisesRegex(Exception, "another checkout"):
-                await tools["edit_preview_apply"].run({"preview": selected, "receipt": "receipt.json"})
+            preview = semantic_edits.replacements(root, semantic_edits.capture(root, ["sample.py", "consumer.py"]),
+                                                  {"sample.py": "x=2\n"}, producer="test")
+            handle = owner.retain_preview(preview)["preview_sha256"]
+            for receipt in ("sample.py", "consumer.py", "target/receipt.json"):
+                with self.assertRaisesRegex(Exception, "overwrite|protected"):
+                    await tools["edit_preview_apply"].run({"preview_sha256": handle, "receipt": receipt})
+            (root / "consumer.py").write_text("# concurrent edit\n")
+            with self.assertRaisesRegex(Exception, "stale preview basis"):
+                await tools["edit_preview_apply"].run({"preview_sha256": handle, "receipt": "receipt.json"})
+            self.assertFalse((root / "receipt.json").exists())
             self.assertEqual((root / "sample.py").read_text(), "x=1\n")
+            state = await tools["edit_preview_reconcile"].run({"preview_sha256": handle})
+            self.assertFalse(state.structured_content["payload"]["complete"])
+            self.assertEqual(state.structured_content["payload"]["files"][0]["state"], "unchanged")
+            self.assertEqual(state.structured_content["payload"]["basis"][0]["state"], "diverged")
+            (root / "consumer.py").write_text("import sample\n")
+            (root / "sample.py").write_text("x=7\n")
+            with self.assertRaisesRegex(Exception, "stale preview basis"):
+                await tools["edit_preview_apply"].run({"preview_sha256": handle, "receipt": "receipt.json"})
+            self.assertFalse((root / "receipt.json").exists())
+            original = await tools["edit_preview_read"].run({"preview_sha256": handle, "file_index": 0})
+            self.assertEqual(original.structured_content["payload"]["text"], "x=1\n")
+            self.assertEqual((root / "sample.py").read_text(), "x=7\n")
+            await owner.close()
+
+    async def test_retained_preview_partial_write_receipt_can_be_reconciled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("a.py", "b.py"):
+                (root / name).write_text("x=1\n")
+            owner = specialists.Specialists(root)
+            _, tools = specialists.bindings(root, owner=owner)
+            preview = semantic_edits.replacements(root, semantic_edits.capture(root, ["a.py", "b.py"]),
+                                                  {"a.py": "x=2\n", "b.py": "x=2\n"}, producer="test")
+            handle = owner.retain_preview(preview)["preview_sha256"]
+            write = semantic_edits._write
+            def interrupted(path, content):
+                if path.name == "b.py":
+                    raise OSError("injected second-write interruption")
+                write(path, content)
+            with patch.object(semantic_edits, "_write", side_effect=interrupted), self.assertRaisesRegex(Exception, "second-write interruption"):
+                await tools["edit_preview_apply"].run({"preview_sha256": handle, "receipt": "receipt.json"})
+            receipt = json.loads((root / "receipt.json").read_text())
+            self.assertFalse(receipt["complete"])
+            self.assertEqual(receipt["preview_sha256"], handle)
+            state = await tools["edit_preview_reconcile"].run({"preview_sha256": handle})
+            self.assertEqual([file["state"] for file in state.structured_content["payload"]["files"]], ["applied", "unchanged"])
             await owner.close()
 
 
