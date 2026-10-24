@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import tomllib
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -86,17 +87,11 @@ def configuration(
     )
 
 
-async def request(
-    root: Path, language: str, calls: list[dict], *, fixture: bool = False
-) -> dict:
-    """Run real MCP requests through the pinned bridge; preserve errors and readiness.
-
-    mcpls tool positions, including returned edit ranges, use one-based UTF-16.
-    FastMCP owns framing, initialization, cancellation and process cleanup.
-    """
+@asynccontextmanager
+async def connection(root: Path, language: str, *, fixture: bool = False):
+    """Own exactly one bridge transport; acquire only when explicitly entered."""
     from fastmcp import Client
     from fastmcp.client.transports import StdioTransport
-    from mcp import MCPError
 
     with tempfile.TemporaryDirectory(prefix="pse-navigation-") as directory:
         config = Path(directory) / "mcpls.toml"
@@ -109,77 +104,66 @@ async def request(
         )
         try:
             async with Client(transport, timeout=100, init_timeout=100) as client:
-                catalogue = await client.list_tools()
-                results = []
-                for call in calls:
-                    readiness = []
-                    deadline = asyncio.get_running_loop().time() + 45
-                    while True:
-                        try:
-                            response = await client.call_tool(
-                                call["name"],
-                                call.get("arguments", {}),
-                                raise_on_error=False,
-                            )
-                            break
-                        except MCPError as error:
-                            detail = {
-                                "code": error.code,
-                                "message": error.message,
-                                "data": error.data,
-                            }
-                            if (
-                                error.code == -32051
-                                and asyncio.get_running_loop().time() < deadline
-                            ):
-                                readiness.append(detail)
-                                await asyncio.sleep(1)
-                                continue
-                            results.append(
-                                {
-                                    "name": call["name"],
-                                    "isError": True,
-                                    "result": {"error": detail},
-                                    "readiness": readiness,
-                                }
-                            )
-                            response = None
-                            break
-                    if response is None:
-                        continue
-                    payload = response.structured_content
-                    if payload is None:
-                        texts = [
-                            item.text
-                            for item in response.content
-                            if item.type == "text"
-                        ]
-                        try:
-                            payload = json.loads("\n".join(texts))
-                        except json.JSONDecodeError:
-                            payload = {"text": texts}
-                    results.append(
-                        {
-                            "name": call["name"],
-                            "isError": response.is_error,
-                            "result": payload,
-                            "readiness": readiness,
-                        }
-                    )
-                return {
-                    "language": language,
-                    "root": str(root.resolve()),
-                    "protocol": client.protocol_version,
-                    "tools": [
-                        {"name": tool.name, "inputSchema": tool.input_schema}
-                        for tool in catalogue
-                    ],
-                    "results": results,
-                }
+                yield client
         finally:
-            # FastMCP defaults to persistent subprocesses. This finite request path
-            # explicitly releases its server even after failure or cancellation.
             await transport.close()
+
+
+async def perform(client, calls: list[dict]) -> list[dict]:
+    """Preserve real protocol/domain errors and bounded startup-readiness retries."""
+    from mcp import MCPError
+
+    results = []
+    for call in calls:
+        readiness = []
+        deadline = asyncio.get_running_loop().time() + 45
+        while True:
+            try:
+                response = await client.call_tool(
+                    call["name"], call.get("arguments", {}), raise_on_error=False
+                )
+                break
+            except MCPError as error:
+                detail = {"code": error.code, "message": error.message, "data": error.data}
+                if error.code == -32051 and asyncio.get_running_loop().time() < deadline:
+                    readiness.append(detail)
+                    await asyncio.sleep(1)
+                    continue
+                results.append({"name": call["name"], "isError": True,
+                                "result": {"error": detail}, "readiness": readiness})
+                response = None
+                break
+        if response is None:
+            continue
+        payload = response.structured_content
+        if payload is None:
+            texts = [item.text for item in response.content if item.type == "text"]
+            try:
+                payload = json.loads("\n".join(texts))
+            except json.JSONDecodeError:
+                payload = {"text": texts}
+        results.append({"name": call["name"], "isError": response.is_error,
+                        "result": payload, "readiness": readiness,
+                        "content": [item.model_dump(mode="json", by_alias=True,
+                                                   exclude_none=True)
+                                    for item in response.content]})
+    return results
+
+
+async def request(
+    root: Path, language: str, calls: list[dict], *, fixture: bool = False
+) -> dict:
+    """Run finite real requests; mcpls positions use one-based UTF-16."""
+    async with connection(root, language, fixture=fixture) as client:
+        catalogue = await client.list_tools()
+        return {
+            "language": language,
+            "root": str(root.resolve()),
+            "protocol": client.protocol_version,
+            "tools": [{"name": tool.name, "inputSchema": tool.input_schema}
+                      for tool in catalogue],
+            "results": await perform(client, calls),
+        }
 
 
 def edit_result(payload: dict) -> dict:

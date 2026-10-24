@@ -356,11 +356,11 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | CAP03 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic replacement/reset and actual Codex exact-read route |
 | CAP04 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Lazy protected owner guidance and planning-only selection |
 | CAP05 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP05) | Bounded whole-entrypoint classification; actual native adaptation remains ADP05 |
-| ADP01 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP01) | Native schema/decoder fidelity and Q02 |
+| ADP01 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP01) | Native schema/decoder fidelity and Q02 |
 | ADP02 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP02) | Source-only typed-host and bounded-result prerequisite delivered; native outcomes/handles/cancellation remain |
-| ADP03 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP03) | Parser-bound extraction/adaptation and Q04 |
-| ADP04 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP04) | Native/language/database integrations and Q03 |
-| ADP05 | planned | [52j](52j-native-contracts-and-tool-adaptation.md#ADP05) | All-family migration and replacement retirement |
+| ADP03 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP03) | Parser-bound extraction/adaptation and Q04 |
+| ADP04 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP04) | Native/language/database integrations and Q03 |
+| ADP05 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP05) | All-family migration and replacement retirement |
 | MCP01 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Fixed source-only STDIO bootstrap delivered; specialist acquisition/lifetimes/Q03 remain |
 | MCP02 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex source-only exact-read journey delivered; broader attachment consumers/Q01 remain |
 | MCP03 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded revision coherence and Q06 |
@@ -516,3 +516,24 @@ claiming whole-inventory adaptation or migrating their native consumers. MCP03/M
 broader coherence/derived consumers; G02/G03 and H01–H04 retain actual assembled agent evaluation
 and publication. Unified opportunities remain scheduled where those consumers are outstanding.
 Original a–h evidence, the C04 denial and independent Plan28/32/40/53 work are unchanged.
+
+
+### 52j execution checkpoint — 2026-10-24
+
+The maintainer authorized the entire ADP01–ADP05 scope in an isolated `plan52j-adapters`
+worktree, initially based on `00a0adb0e`. Main retains concurrent Plan53c ownership; its
+committed invocation/assurance changes are integrated at functional boundaries. No merge
+back to main is authorized before the maintainer's completion signal.
+
+Typed archive/diagnostic kernels and fixed admitted action children are delivered in the
+branch. Exact read/action compatibility dispatch, bounded native-owner host queries and
+derived family membership are implemented. Native bindings and the source-generated
+schema catalogue are being integrated and require real native receiver acceptance. The
+language/database specialist adapters and single-session launch migration are implemented;
+actual selected database acceptance remains outstanding after the existing service's
+admitted-generation refusal. This is progress, not ADP or assembled Plan52 acceptance.
+
+Next work completes real native/database journeys, reconciles all retained/adapted family
+leaves, consumes the committed Plan53c outcome contract, and performs focused branch
+qualification and independent implementation review. Existing native scopes, frozen
+scientific evidence and the separate C04 denial retain their owners.

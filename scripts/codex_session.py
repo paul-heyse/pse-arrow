@@ -7,13 +7,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shlex
 import shutil
 import sys
-import time
 from pathlib import Path
 
-from scripts import diagnostic_trace, pse_env, surreal_server
+from scripts import diagnostic_trace, pse_env
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,149 +27,73 @@ def session_description(
     python: bool = True,
     require_python: bool = False,
 ) -> tuple[list[str], dict[str, object]]:
-    """Observe existing capabilities only; never start, build or reconcile anything."""
+    """Select one source-only attachment; specialist readiness stays demand-driven.
+
+    Required options check local preparation, never connect, start a service, or
+    acquire workload admission. Live readiness is established by actual selected
+    calls, and cannot honestly be claimed by constructing a launch command.
+    """
     executable = shutil.which("codex")
     if executable is None:
-        raise ValueError(
-            "Codex is unavailable; prepare the workstation Codex installation"
-        )
-    command = [executable, "-C", str(ROOT)]
+        raise ValueError("Codex is unavailable; prepare the workstation Codex installation")
     interpreter = ROOT / ".venv/bin/python"
-    interpreter_available = interpreter.is_file()
-    capabilities: dict[str, object] = {
-        "rust": {"requested": rust, "attached": "not observed"},
-        "database": {"requested": database, "attached": "not observed"},
-    }
-    rust_available = False
-    if rust:
-        analyzer = shutil.which("rust-analyzer")
-        available = (
-            interpreter_available
-            and analyzer is not None
-            and diagnostic_trace.binary_path("mcpls").is_file()
-        )
-        rust_available = available
-        capabilities["rust"] = {
-            "requested": True,
-            "available": available,
-            "attached": "not observed",
-            "repair": "prepare checkout .venv, pinned mcpls and the pinned rustup rust-analyzer component",
-            "coverage": "maintained LSP bridge includes references, implementations and call hierarchy; request readiness remains explicit",
-        }
-        if require_rust and not available:
-            raise ValueError("Required rust-analyzer navigation is unavailable")
-    command += [
-        "-c",
-        "mcp_servers.rust-analyzer.command="
-        + json.dumps(str(ROOT / ".venv/bin/python")),
-        "-c",
-        'mcp_servers.rust-analyzer.args=["-m","scripts.semantic_navigation","serve","--language","rust"]',
-        "-c",
-        "mcp_servers.rust-analyzer.cwd=" + json.dumps(str(ROOT)),
-    ]
-    command += [
-        "-c",
-        "mcp_servers.rust-analyzer.enabled=" + str(rust_available).lower(),
-    ]
-    python_available = (
-        python
-        and interpreter_available
-        and diagnostic_trace.binary_path("mcpls").is_file()
-        and (ROOT / ".venv/bin/pyrefly").is_file()
-    )
-    capabilities["python"] = {
-        "requested": python,
-        "available": python_available,
-        "attached": "not observed",
-        "repair": "explicitly install pinned mcpls and sync checkout Pyrefly; python -m scripts.semantic_navigation describe",
-    }
+    if not interpreter.is_file():
+        raise ValueError("selected checkout .venv/bin/python is unavailable; prepare this checkout's environment")
+    bridge = diagnostic_trace.binary_path("mcpls").is_file()
+    rust_available = rust and bridge and shutil.which("rust-analyzer") is not None
+    python_available = python and bridge and (ROOT / ".venv/bin/pyrefly").is_file()
+    if require_rust and not rust_available:
+        raise ValueError("Required rust-analyzer navigation is unavailable")
     if require_python and not python_available:
         raise ValueError("Required Pyrefly navigation is unavailable")
-    command += ["-c", "mcp_servers.pse-python.enabled=" + str(python_available).lower()]
-    # Codex validates a transport even for a disabled declaration.
-    command += [
-        "-c",
-        "mcp_servers.pse-python.command=" + json.dumps(str(ROOT / ".venv/bin/python")),
-        "-c",
-        'mcp_servers.pse-python.args=["-m","scripts.semantic_navigation","serve"]',
-        "-c",
-        "mcp_servers.pse-python.cwd=" + json.dumps(str(ROOT)),
-        "-c",
-        "mcp_servers.pse-python.required=" + str(require_python).lower(),
-    ]
-
-    def require_interpreter() -> None:
-        if not interpreter_available:
-            raise ValueError(
-                "selected checkout .venv/bin/python is unavailable; prepare this checkout's environment"
-            )
-
-    if database:
-        selected_state = state or Path(
-            pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"]
-        )
-        deadline = time.monotonic() + 8.0
-        try:
-            require_interpreter()
-            selected = surreal_server.selected_service(selected_state, deadline)
-            endpoint = f"http://127.0.0.1:{selected.port}/mcp"
-            helper = shlex.join(
-                [
-                    str(ROOT / ".venv/bin/python"),
-                    str(ROOT / "scripts/surreal_server.py"),
-                    "mcp-headers",
-                    "--state",
-                    str(selected.state),
-                    "--expected-endpoint",
-                    endpoint,
-                    "--expected-selection",
-                    selected.selection_fence,
-                ]
-            )
-            command += [
-                "-c",
-                "mcp_servers.pse-surreal.enabled=true",
-                "-c",
-                "mcp_servers.pse-surreal.url=" + json.dumps(endpoint),
-                "-c",
-                "mcp_servers.pse-surreal.http_headers_helper=" + json.dumps(helper),
-                "-c",
-                'mcp_servers.pse-surreal.enabled_tools=["info","list","query"]',
-                "-c",
-                "mcp_servers.pse-surreal.required=" + str(require_database).lower(),
-            ]
-            selected.recheck(deadline)
-            capabilities["database"] = {
-                "requested": True,
-                "available": True,
-                "attached": "not observed",
-                "identity": selected.identity,
-            }
-        except (OSError, ValueError, surreal_server.SupervisorError) as error:
-            if require_database:
-                raise ValueError(
-                    f"Required selected database is unavailable: {error}"
-                ) from error
-            command += ["-c", "mcp_servers.pse-surreal.enabled=false"]
-            capabilities["database"] = {
-                "requested": True,
-                "available": False,
-                "attached": "not observed",
-                "reason": str(error),
-                "repair": f"inspect the selected state with just surreal status --state {shlex.quote(str(selected_state))}",
-            }
-    else:
-        command += ["-c", "mcp_servers.pse-surreal.enabled=false"]
-    if require_rust:
-        command += ["-c", "mcp_servers.rust-analyzer.required=true"]
-    # Explicit caller overrides remain last. These strings are argv data, never shell code.
+    selected_state = state or Path(pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"])
+    # Local source-only preparation, not a claim that a service is live/attached.
+    database_prepared = database and selected_state.is_dir()
+    if require_database and not database_prepared:
+        raise ValueError("Required selected database state is unavailable; prepare it explicitly")
+    languages = ",".join(name for name, enabled in (("python", python_available), ("rust", rust_available)) if enabled)
+    settings = {
+        "mcp_servers.pse-capabilities.command": str(interpreter),
+        "mcp_servers.pse-capabilities.args": ["-m", "scripts.capabilities"],
+        "mcp_servers.pse-capabilities.cwd": str(ROOT),
+        "mcp_servers.pse-capabilities.enabled": True,
+        "mcp_servers.pse-capabilities.required": True,
+        "mcp_servers.pse-capabilities.env": {
+            "PSE_CAPABILITIES_LANGUAGES": languages,
+            "PSE_CAPABILITIES_DATABASE": "1" if database else "0",
+            "PSE_CAPABILITIES_DATABASE_STATE": str(selected_state.absolute()),
+        },
+        # Disable inherited specialist attachments; all useful operations now
+        # share the canonical endpoint and its owned lazy transport lifetime.
+        "mcp_servers.rust-analyzer.enabled": False,
+        "mcp_servers.pse-python.enabled": False,
+        "mcp_servers.pse-surreal.enabled": False,
+    }
+    command = [executable, "-C", str(ROOT)]
+    for key, value in settings.items():
+        if isinstance(value, dict):
+            # Codex -c consumes TOML, whose inline tables use '=' rather than ':'.
+            encoded = "{" + ",".join(json.dumps(k) + "=" + json.dumps(v) for k, v in value.items()) + "}"
+        else:
+            encoded = json.dumps(value)
+        command.extend(["-c", key + "=" + encoded])
     command += arguments
     return command, {
-        "schema": "codex-selected-session-v1",
+        "schema": "codex-selected-session-v2",
         "checkout": str(ROOT),
-        "capabilities": capabilities,
+        "entrypoint": "pse-capabilities",
+        "capabilities": {
+            "rust": {"requested": rust, "prepared": rust_available,
+                     "required": require_rust, "attached": "not observed"},
+            "python": {"requested": python, "prepared": python_available,
+                       "required": require_python, "attached": "not observed"},
+            "database": {"requested": database, "prepared": database_prepared,
+                         "required": require_database, "state": str(selected_state.absolute()),
+                         "attached": "not observed", "identity": "validated lazily by database_select"},
+        },
         "caller_overrides": bool(arguments),
         "attachment": "requires a real client interaction; process spawn is not attachment",
+        "readiness": "required flags check local preparation; actual selected calls establish live readiness",
     }
 
 

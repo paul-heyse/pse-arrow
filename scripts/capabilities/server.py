@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
@@ -27,7 +28,7 @@ from pydantic import Field, JsonValue
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
 from scripts.capabilities.guidance import Guidance, register_guides
 from scripts.capabilities.inventory import inventory
-from scripts.capabilities import host_queries, operations
+from scripts.capabilities import host_actions, host_queries, operations, specialists
 
 ROOT = Path(__file__).resolve().parents[2]
 Limit = Annotated[int, Field(ge=1, le=100)]
@@ -53,11 +54,12 @@ def refusal(code: str, error: ValueError) -> ToolError:
     return ToolError(json.dumps({"code": code, "message": str(error)}, sort_keys=True))
 
 
-def bindings(root: Path):
+def bindings(root: Path, *, owner: specialists.Specialists):
     """Compose actual owner bindings; duplicate identities remain composition errors."""
     specs = []
     tools = {}
-    for factory in (operations.bindings, host_queries.bindings):
+    for factory in (operations.bindings, host_queries.bindings, host_actions.bindings,
+        lambda path: specialists.bindings(path, owner=owner)):
         declared, bound = factory(root)
         if tools.keys() & bound.keys():
             raise ValueError("duplicate operation binding")
@@ -71,20 +73,29 @@ class Runtime:
     server: FastMCP
     catalogue: Catalogue
     guidance: Guidance
+    specialists: specialists.Specialists
 
 
 def build(root: Path = ROOT) -> Runtime:
     root = root.resolve(strict=True)
+    owner = specialists.Specialists(root)
     domains, workflows, guides, declared = inventory(root)
-    bound, tools = bindings(root)
+    bound, tools = bindings(root, owner=owner)
     catalogue = Catalogue(domains, workflows, guides, (*declared, *bound), tools)
     guidance = Guidance(root, guides)
+    @asynccontextmanager
+    async def lifetime(_server):
+        try:
+            yield {}
+        finally:
+            await owner.close()
     server = FastMCP(
         "pse-capabilities",
         instructions=INSTRUCTIONS,
         strict_input_validation=True,
         dereference_schemas=False,
         mask_error_details=True,
+        lifespan=lifetime,
     )
     keys = register_guides(server, guidance)
     for tool in tools.values():
@@ -307,4 +318,4 @@ def build(root: Path = ROOT) -> Runtime:
             )
         return await server.call_tool(capability, arguments)
 
-    return Runtime(server, catalogue, guidance)
+    return Runtime(server, catalogue, guidance, owner)

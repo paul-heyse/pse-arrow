@@ -64,6 +64,8 @@ class Catalogue:
                 )
             if item.id in tools and tools[item.id].name != item.id:
                 raise ValueError(f"tool identity mismatch: {item.id}")
+            if item.id in tools:
+                tools[item.id].tags.update(item.tags)
         if set(tools) - set(self.capabilities):
             raise ValueError("undeclared callable tools")
         for item in (*domains, *workflows, *capabilities):
