@@ -238,6 +238,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             title=title,
             description=tool.description or title,
             domain="workspace",
+            family="source-context",
             workflows=workflows,
             guides=("root", "tooling"),
             owner=source,

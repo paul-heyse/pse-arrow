@@ -12,7 +12,7 @@ Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,95}$")]
 
 
 class Contract(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
 
 
 class Guide(Contract):
@@ -45,6 +45,7 @@ class Capability(Contract):
     title: str
     description: str
     domain: Identifier
+    family: Identifier | None = None
     workflows: tuple[str, ...] = ()
     guides: tuple[str, ...] = ()
     owner: str
@@ -60,4 +61,4 @@ class Capability(Contract):
     def tags(self) -> set[str]:
         return {"capability:" + self.id, "domain:" + self.domain} | {
             "workflow:" + workflow for workflow in self.workflows
-        }
+        } | ({"family:" + self.family} if self.family is not None else set())

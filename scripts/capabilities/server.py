@@ -27,7 +27,7 @@ from pydantic import Field, JsonValue
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
 from scripts.capabilities.guidance import Guidance, register_guides
 from scripts.capabilities.inventory import inventory
-from scripts.capabilities.operations import bindings
+from scripts.capabilities import host_queries, operations
 
 ROOT = Path(__file__).resolve().parents[2]
 Limit = Annotated[int, Field(ge=1, le=100)]
@@ -41,14 +41,29 @@ retained native routes and planned adaptations. Obtain relevant instructions thr
 guidance or resources; retrieving a planning skill does not authorize or execute implementation.
 Native owners retain source/status, admission and outcome truth. Catalogue availability is not a
 live service-readiness claim. Use exact IDs; no semantic or ranked discovery is provided.
-If this host keeps its initial callable inventory, use capabilities_invoke_read with the exact
-selected capability and its described input schema. It delegates to that same registered tool,
-including visibility, strict validation and middleware; it accepts no arbitrary command.
+If this host keeps its initial callable inventory, use capabilities_invoke_read for reads or
+capabilities_invoke_action for explicit actions, with the exact selected capability and its
+described input schema. Both delegate to that same registered tool, including visibility,
+validation, middleware and native admission. Neither accepts an arbitrary command. A lost
+response does not undo an action; inspect its authentic native handle before deciding next work.
 """
 
 
 def refusal(code: str, error: ValueError) -> ToolError:
     return ToolError(json.dumps({"code": code, "message": str(error)}, sort_keys=True))
+
+
+def bindings(root: Path):
+    """Compose actual owner bindings; duplicate identities remain composition errors."""
+    specs = []
+    tools = {}
+    for factory in (operations.bindings, host_queries.bindings):
+        declared, bound = factory(root)
+        if tools.keys() & bound.keys():
+            raise ValueError("duplicate operation binding")
+        specs.extend(declared)
+        tools.update(bound)
+    return tuple(specs), tools
 
 
 @dataclass(frozen=True)
@@ -68,6 +83,7 @@ def build(root: Path = ROOT) -> Runtime:
         "pse-capabilities",
         instructions=INSTRUCTIONS,
         strict_input_validation=True,
+        dereference_schemas=False,
         mask_error_details=True,
     )
     keys = register_guides(server, guidance)
@@ -215,6 +231,7 @@ def build(root: Path = ROOT) -> Runtime:
                 "instructions": instructions,
                 "notification_omissions": notifications,
                 "compatibility_invocation": "capabilities_invoke_read",
+                "action_invocation": "capabilities_invoke_action",
                 "context": {
                     "checkout": str(root),
                     "service_selection": "unchanged",
@@ -265,6 +282,29 @@ def build(root: Path = ROOT) -> Runtime:
             )
         # Public FastMCP dispatch retains visibility, context, strict FunctionTool
         # input validation, middleware, original result and future native admission.
+        return await server.call_tool(capability, arguments)
+
+    @server.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": True,
+        }
+    )
+    async def capabilities_invoke_action(
+        capability: str, arguments: dict[str, JsonValue]
+    ) -> ToolResult:
+        """Invoke one exact selected canonical action after describing its schema/effects. Delegates its native validation, admission and lifetime. No arbitrary shell, method or bootstrap dispatch. Cancellation or transport failure does not establish rollback; use the owner's handle and settlement reader."""
+        tool = tools.get(capability)
+        if (
+            tool is None
+            or tool.annotations is None
+            or tool.annotations.read_only_hint is not False
+        ):
+            raise ToolError(
+                "pse.capabilities.action_binding_required: select an actual canonical action"
+            )
         return await server.call_tool(capability, arguments)
 
     return Runtime(server, catalogue, guidance)

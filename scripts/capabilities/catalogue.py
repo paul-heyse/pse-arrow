@@ -44,6 +44,13 @@ class Catalogue:
         for item in capabilities:
             if item.domain not in self.domains:
                 raise ValueError(f"unknown domain: {item.id}: {item.domain}")
+            if item.family is not None and (
+                item.family not in self.capabilities
+                or item.family == item.id
+                or self.capabilities[item.family].family is not None
+                or self.capabilities[item.family].exposure == "tool"
+            ):
+                raise ValueError(f"invalid capability family: {item.id}: {item.family}")
             if len(set(item.workflows)) != len(item.workflows):
                 raise ValueError(f"duplicate workflow membership: {item.id}")
             for workflow in item.workflows:
@@ -72,6 +79,10 @@ class Catalogue:
                 sorted(item.id for item in capabilities if key in item.workflows)
             )
             for key in self.workflows
+        }
+        self._by_family = {
+            key: tuple(sorted(item.id for item in capabilities if item.family == key))
+            for key in self.capabilities
         }
         declaration = {
             "domains": [item.model_dump(mode="json") for item in domains],
@@ -146,7 +157,8 @@ class Catalogue:
             "revision": self.revision,
             "capability": item.model_dump(mode="json"),
             "callable": tool is not None,
-            "availability": "source-only"
+            "operations": list(self._by_family[identity]),
+            "availability": "declared binding; prerequisites checked by operation"
             if tool
             else "native route or pending adaptation; not observed",
             "guidance": [
@@ -176,6 +188,7 @@ class Catalogue:
         unknown = chosen - set(self.capabilities)
         if unknown:
             raise ValueError("unknown capabilities: " + ", ".join(sorted(unknown)))
+        chosen.update(member for identity in tuple(chosen) for member in self._by_family[identity])
         for identity in chosen:
             guides.update(self.capabilities[identity].guides)
         return Selection(tuple(sorted(chosen)), tuple(sorted(guides)))

@@ -134,6 +134,38 @@ def selected_result(
     }
 
 
+def read_assessment(
+    run: Path, *, gate: str | None = None, failures: bool = False, tail: int = 0
+) -> dict:
+    """Read authentic selected assessment detail while its owners remain borrowed."""
+    if tail < 0:
+        raise ValueError("tail must be nonnegative")
+    run = run.resolve(strict=True)
+    with contextlib.ExitStack() as borrows:
+        borrows.enter_context(test_resources.borrow_report(run))
+        receipt = read_receipt(run)
+        if gate is not None and gate not in {item["name"] for item in receipt["scope"]}:
+            raise UnknownGateError(f"gate {gate!r} is not in this run's scope")
+        origins: dict[str, Path] = {}
+        borrowed = {run}
+        for check in receipt["checks"]:
+            if gate is not None and check["gate"] != gate:
+                continue
+            if failures and qualified(check):
+                continue
+            origin = Path(check["origin"]) if check.get("origin") else run
+            origin = (origin if origin.is_absolute() else run / origin).resolve()
+            origins[check["gate"]] = origin
+            if origin not in borrowed:
+                borrows.enter_context(test_resources.borrow_report(origin))
+                borrowed.add(origin)
+        return selected_result(run, receipt, gate=gate, failures=failures, tail=tail, origins=origins)
+
+
+class UnknownGateError(ValueError):
+    """A requested gate is not part of the authentic frozen selection."""
+
+
 def display(result: dict) -> None:
     print(f"Assessment run: {result['run_path']}")
     print(f"Checkpoint: {result['record_path']}")
@@ -275,36 +307,9 @@ def main(argv: list[str] | None = None) -> int:
             "--registry, --subject, --offset and --limit belong to product-test results"
         )
     try:
-        run = args.run_path.resolve()
-        with contextlib.ExitStack() as borrows:
-            borrows.enter_context(test_resources.borrow_report(run))
-            receipt = read_receipt(run)
-            if args.gate is not None and args.gate not in {
-                declaration["name"] for declaration in receipt["scope"]
-            }:
-                parser.error(f"gate {args.gate!r} is not in this run's scope")
-            origins: dict[str, Path] = {}
-            borrowed = {run}
-            for check in receipt["checks"]:
-                if args.gate is not None and check["gate"] != args.gate:
-                    continue
-                if args.failures and qualified(check):
-                    continue
-                origin = Path(check["origin"]) if check.get("origin") else run
-                # Resolve each pointer once, before borrowing and payload access.
-                origin = (origin if origin.is_absolute() else run / origin).resolve()
-                origins[check["gate"]] = origin
-                if origin not in borrowed:
-                    borrows.enter_context(test_resources.borrow_report(origin))
-                    borrowed.add(origin)
-            result = selected_result(
-                run,
-                receipt,
-                gate=args.gate,
-                failures=args.failures,
-                tail=args.tail,
-                origins=origins,
-            )
+        result = read_assessment(args.run_path, gate=args.gate, failures=args.failures, tail=args.tail)
+    except UnknownGateError as error:
+        parser.error(str(error))
     except (OSError, TypeError, ValueError, RuntimeError) as error:
         if args.json:
             print(json.dumps({"error": str(error), "run_path": str(args.run_path)}))

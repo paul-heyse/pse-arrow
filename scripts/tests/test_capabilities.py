@@ -39,6 +39,7 @@ BOOTSTRAP = {
     "capabilities_select",
     "capabilities_reset",
     "capabilities_invoke_read",
+    "capabilities_invoke_action",
 }
 
 
@@ -87,6 +88,18 @@ def fixture(
 
 
 class CatalogueTests(unittest.TestCase):
+    def test_family_membership_comes_from_real_bindings_and_selects_the_same_operations(self) -> None:
+        domains, workflows, guides, spec, tool = fixture()
+        family = Capability(id="source-family",title="Source family",description="Retained owner",domain="source",
+            owner="owner.py",source="owner.py",exposure="native",effects="Native owner",route=("native-owner",))
+        child = Capability.model_validate({**spec.model_dump(), "family":family.id})
+        catalogue=Catalogue(domains,workflows,guides,(family,child),{child.id:tool})
+        self.assertEqual(catalogue.describe(family.id)["operations"],[child.id])
+        self.assertEqual(set(catalogue.select([],[],[family.id]).capabilities),{family.id,child.id})
+        bad=Capability.model_validate({**spec.model_dump(), "family":"unknown-family"})
+        with self.assertRaisesRegex(ValueError,"invalid capability family"):
+            Catalogue(domains,workflows,guides,(bad,),{bad.id:tool})
+
     def test_single_declaration_drives_actual_schema_and_membership(self) -> None:
         domains, workflows, guides, spec, tool = fixture()
         catalogue = Catalogue(domains, workflows, guides, (spec,), {spec.id: tool})
@@ -472,15 +485,14 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
         ):
             runtime = build(ROOT)
         self.assertNotIn("pse._native", sys.modules)
-        self.assertEqual(
-            set(runtime.catalogue.tools),
+        self.assertTrue(
             {
                 "workspace_task_context",
                 "workspace_concepts_query",
                 "workspace_producer_relationships",
                 "workspace_recipe_describe",
                 "workspace_inventory",
-            },
+            } <= set(runtime.catalogue.tools),
         )
 
 

@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Bounded host queries consume the existing source, observation and report owners."""
+
+from __future__ import annotations
+
+import asyncio
+import os
+from pathlib import Path
+from typing import Annotated, Literal
+
+from fastmcp.tools import Tool
+from mcp.types import ToolAnnotations
+from pydantic import Field, JsonValue
+
+from scripts.capabilities.model import Capability
+from scripts.capabilities.operations import ReadResult, bounded, owner_read
+
+Limit = Annotated[int, Field(ge=1, le=100)]
+Offset = Annotated[int, Field(ge=0)]
+Tail = Annotated[int, Field(ge=0, le=100)]
+Wait = Annotated[float, Field(ge=0, le=30)]
+Paths = Annotated[list[str], Field(max_length=64)]
+
+
+def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
+    def environment_explain() -> ReadResult:
+        """Observe checkout/tool placement without evaluating local shell, building or allocating work. Credentials are not request fields."""
+        from scripts import pse_env
+        return owner_read("environment_explain", lambda: pse_env.operation_description(root, os.environ, None))
+
+    def knowledge_source_corpus(paths: Paths | None = None, concept: str | None = None, identity: str | None = None) -> ReadResult:
+        """Read exact source-native concepts OR explicit source paths with original attribution. No store, ranked search or session scan. Missing and empty selections retain the owner's refusal."""
+        from scripts import knowledge_store
+        return owner_read("knowledge_source_corpus", lambda: knowledge_store.corpus(tuple(paths or ()), root=root, concept=concept, identity=identity))
+
+    def document_scope_query(
+        path: str | None = None,
+        state: Literal["open", "blocked", "deferred", "complete", "unknown"] | None = None,
+        offset: Offset = 0, limit: Limit = 20,
+    ) -> ReadResult:
+        """Page actual document-owned scope and exact optional state/path filters. This projection neither schedules work nor authorizes edits, decisions or retirement."""
+        from fnmatch import fnmatchcase
+        from scripts import document_lifecycle, document_metadata
+        def read() -> dict:
+            snapshot = document_lifecycle.snapshot(root, "scope", document_metadata.load_policy(root))
+            items = snapshot["items"]
+            if path is not None:
+                items = [item for item in items if fnmatchcase(item["document"], path)]
+            if state is not None:
+                items = [item for item in items if item["state"] == state]
+            return {**snapshot, "items": items[offset:offset+limit], "total":len(items),
+                "offset":offset,"next_offset":offset+limit if offset+limit<len(items) else None}
+        return owner_read("document_scope_query", read)
+
+    def product_run_read(invocation: str, registry: str | None = None, subject: str | None = None,
+        failures: bool = False, offset: Offset = 0, limit: Limit = 20, tail: Tail = 0) -> ReadResult:
+        """Read one authentic invocation and selected subjects, independent workload/assurance/drain and protected detail. Reader success is not a product pass; no rerun or implicit retry."""
+        from scripts import run_inspection
+        return owner_read("product_run_read",lambda:run_inspection.product_result(invocation,
+            registry=Path(registry) if registry is not None else None, subject=subject,
+            failures=failures,offset=offset,limit=limit,tail=tail))
+
+    def assessment_read(directory: str, gate: str | None = None, failures: bool = False, tail: Tail = 0) -> ReadResult:
+        """Read a selected assessment while borrowing its original report and reused origins. Qualification, incomplete scope and native causes survive; no printed-path scraping."""
+        from scripts import validation_result
+        return owner_read("assessment_read",lambda:validation_result.read_assessment(Path(directory),gate=gate,failures=failures,tail=tail))
+
+    async def workload_watch(kind: Literal["run","attempt","unit"], handle: str,
+        registry: str | None = None, cursor: str | None = None, max_wait: Wait = 0) -> ReadResult:
+        """Detached bounded observation of one exact native owner. Cursor is bound to its selection; cancelling this read never cancels, drains or settles the subject."""
+        from scripts import activity_watch
+        def read() -> ReadResult:
+            selected=activity_watch.selection(kind,handle,Path(registry) if registry is not None else None)
+            return owner_read("workload_watch", lambda:activity_watch.watch(selected,cursor=cursor,max_wait=max_wait))
+        return await asyncio.to_thread(read)
+
+    def storage_observe() -> ReadResult:
+        """Observe configured store identities only, without recursive size traversal, reclamation or an assertion of disposable storage."""
+        from scripts import build_storage, pse_env
+        return owner_read("storage_observe",lambda:{"items":build_storage.observe(
+            build_storage.stores(root,pse_env.base_environment(root,os.environ)),metadata_only=True),
+            "reclamation_authorized":False})
+
+    entries = (
+        (environment_explain,"environment","environment-preparation","scripts/pse_env.py",("environment",)),
+        (knowledge_source_corpus,"knowledge","knowledge-recall","scripts/knowledge_store.py",("root",)),
+        (document_scope_query,"governance","documentation-lifecycle","scripts/document_lifecycle.py",("docs","decisions")),
+        (product_run_read,"execution","workload-observation","scripts/run_inspection.py",("qualification",)),
+        (assessment_read,"validation","qualification-assessment","scripts/validation_result.py",("qualification",)),
+        (workload_watch,"execution","workload-observation","scripts/activity_watch.py",("environment",)),
+        (storage_observe,"environment","build-storage","scripts/build_storage.py",("environment",)),
+    )
+    tools = {}; specs = []
+    for function,domain,family,source,guides in entries:
+        tool=Tool.from_function(function,annotations=ToolAnnotations(readOnlyHint=True,destructiveHint=False,openWorldHint=False))
+        tools[tool.name]=tool
+        specs.append(Capability(id=tool.name,title=tool.name.replace("_"," "),description=tool.description or "",
+            domain=domain,family=family,owner=source,source=source,guides=guides,exposure="tool",effects="Bounded owner read; no subject execution or disposal"))
+    return tuple(specs),tools
