@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import json
+
 import asyncio
 import shutil
 import sys
@@ -157,6 +159,22 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(len(items), 100)
         self.assertTrue(any("string detail" in item for item in result.omissions))
         self.assertLess(len(result.model_dump_json()), 128 * 1024)
+
+    def test_encoded_bound_includes_owner_omissions_keys_and_envelope(self) -> None:
+        for value in (
+            {"omissions": ["x" * 200000]},
+            {"x" * 200000: 1},
+            {"omissions": ["\U0001f680" * 2000] * 100},
+            {str(index): {"nested": "x" * 16000} for index in range(100)},
+        ):
+            with self.subTest(value_size=len(str(value))):
+                result = bounded(value, "read")
+                self.assertFalse(result.complete)
+                self.assertTrue(result.omissions)
+                self.assertLessEqual(len(json.dumps(result.model_dump(mode="json")).encode()), 128 * 1024)
+        for value in (float("nan"), float("inf"), -float("inf")):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "nonfinite"):
+                bounded({"number": value}, "read")
 
     def test_original_truncation_and_nested_gaps_cannot_be_promoted_to_complete(
         self,

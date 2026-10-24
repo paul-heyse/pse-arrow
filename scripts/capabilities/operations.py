@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import TYPE_CHECKING, Annotated
 
 from fastmcp.exceptions import ToolError
@@ -36,17 +37,25 @@ def bounded(result: object, operation: str) -> ReadResult:
     if not isinstance(value, dict):
         raise TypeError("host owner must return an object")
     omissions: list[str] = []
-    remaining = 128 * 1024
+    # Reserve space for the envelope, structural punctuation and bounded loss
+    # metadata; owner-provided omissions and keys share this response budget.
+    remaining = 112 * 1024
+
+    def omit(message: str) -> None:
+        if len(omissions) < 31:
+            omissions.append(message[:240])
+        elif len(omissions) == 31:
+            omissions.append("Further detail omissions suppressed; narrow the owner query.")
 
     def walk(item: JsonValue, location: str, depth: int) -> JsonValue:
         nonlocal remaining
         if remaining <= 0 or depth > 12:
-            omissions.append(location + ": detail bound exceeded; narrow the request")
+            omit(location + ": detail bound exceeded; narrow the request")
             return None
         if isinstance(item, str):
             size = len(json.dumps(item, ensure_ascii=True).encode())
             if size > min(16384, remaining):
-                omissions.append(
+                omit(
                     location + ": string detail omitted; narrow the request"
                 )
                 return None
@@ -54,7 +63,7 @@ def bounded(result: object, operation: str) -> ReadResult:
             return item
         if isinstance(item, list):
             if len(item) > 100:
-                omissions.append(
+                omit(
                     location + ": showing first 100 items; narrow or page owner query"
                 )
             return [
@@ -63,28 +72,35 @@ def bounded(result: object, operation: str) -> ReadResult:
             ]
         if isinstance(item, dict):
             if item.get("truncated") is True or item.get("complete") is False:
-                omissions.append(
+                omit(
                     location + ": owner reports incomplete or truncated detail"
                 )
             gaps = item.get("gaps")
             if isinstance(gaps, list) and gaps:
-                omissions.append(
+                omit(
                     location + ": owner reports gaps; inspect original gaps"
                 )
             result = {}
             for index, (key, child) in enumerate(item.items()):
                 if index == 100:
-                    omissions.append(location + ": object detail bound exceeded")
+                    omit(location + ": object detail bound exceeded")
                     break
-                remaining -= len(json.dumps(key).encode()) + 4
+                key_size = len(json.dumps(key, ensure_ascii=True).encode()) + 4
+                if key_size > min(512, remaining):
+                    omit(f"{location}: object key at index {index} omitted; narrow the owner query")
+                    continue
+                remaining -= key_size
                 if key == "text" and location.startswith("$.source_facts"):
-                    omissions.append(
+                    omit(
                         location
                         + ".text: raw source body omitted; inspect selected source owner"
                     )
                     continue
-                result[key] = walk(child, location + "." + key, depth + 1)
+                child_location = (location + "." + key)[:160]
+                result[key] = walk(child, child_location, depth + 1)
             return result
+        if isinstance(item, float) and not math.isfinite(item):
+            raise ValueError("owner output contains a nonfinite JSON number")
         remaining -= 32
         return item
 
@@ -93,15 +109,21 @@ def bounded(result: object, operation: str) -> ReadResult:
         raise TypeError("host projection must remain an object")
     native_omissions = value.get("omissions", [])
     if isinstance(native_omissions, list):
-        omissions = [
-            item for item in native_omissions if isinstance(item, str)
-        ] + omissions
-    return ReadResult(
+        for item in native_omissions[:32]:
+            if isinstance(item, str):
+                omit(item)
+    response = ReadResult(
         operation=operation,
         complete=not omissions and value.get("complete") is not False,
         omissions=list(dict.fromkeys(omissions)),
         payload=projected,
     )
+    if len(json.dumps(response.model_dump(mode="json"), ensure_ascii=True).encode()) > 128 * 1024:
+        # A final encoded-size check covers escaping and every envelope byte.
+        # Never return a supposedly bounded response whose metadata escapes it.
+        return ReadResult(operation=operation[:128], complete=False,
+            omissions=["Encoded response exceeds the detail bound; narrow the owner query."], payload={})
+    return response
 
 
 def owner_read(operation: str, read: Callable[[], object]) -> ReadResult:

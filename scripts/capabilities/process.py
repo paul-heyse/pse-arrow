@@ -35,7 +35,7 @@ WORKERS = {
     "qualification": Worker("scripts.capabilities.qualification_worker", frozenset({"assessment", "compilation", "contracts-check", "contracts-generate", "documentation"})),
     "rust-tests": Worker(
         "scripts.capabilities.qualification_worker", frozenset({"rust-test"}),
-        ("--recipe-default-class", "exclusive"),
+        ("--recipe-default-class", "exclusive", "--native="),
     ),
     "native": Worker(
         "scripts.capabilities.native_worker", frozenset({"source_admit", "preparation_discover"}),

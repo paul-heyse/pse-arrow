@@ -188,6 +188,10 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("path-containing-values", str(failure.exception))
 
     async def test_scoped_rust_functiontool_uses_fixed_exclusive_owner(self) -> None:
+        # Empty native preparation establishes the real operation lifetime
+        # without building unrelated providers. The scoped runner needs that
+        # owner before it can prepare one coherent catalogue/validation closure.
+        self.assertIn("--native=", process.WORKERS["rust-tests"].environment)
         _, tools = subject.bindings(ROOT)
         server = FastMCP("scoped-rust-controls", strict_input_validation=True)
         for tool in tools.values():
