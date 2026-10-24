@@ -258,3 +258,87 @@ At completion, route enduring service/configuration/health meaning to blueprint 
 the accepted decision route and the environment/diagnostic/capability guides. The coordinator
 owns closure, actual evidence, mistakes corrected, deliberate deviations and retirement. The
 supporting plan does not create a second status or evidence ledger.
+
+## Targeted execution outcome — 2026-10-24
+
+**Implemented:** exact native installation, independently owned user-service generations,
+protected credentials, three-signal Collector processing, persistent standard exporter queues,
+seven-day ordinary retention, passive health and bounded known-trace lookup. Setup/start never
+enable login startup. The operator's selected permanent enablement remains deferred until the
+Plan54/main integration cutover; temporary qualification services do not persist through it.
+
+**Tested:** `scripts/pse-env -- .venv/bin/python -m scripts.tests.telemetry_pipeline_acceptance
+--output /tmp/pse-plan52pq-pipeline-20261024-214950-c4d2 --timeout 90 --queue-overflow --disk-failure`
+passed all three actual pinned-service cases, zero failures against zero. Independently selected
+W3C IDs established SDK→Collector→OpenObserve trace parentage, correlated log fields and an actual
+counter value. The backend stores this counter under its instrument-name stream; its stream-name
+header is not a general metric routing guarantee.
+
+Known queued records became query-visible after graceful Collector restart and after an
+authenticated PIDfd-selected abrupt Collector kill/restart during backend outage. A previously
+visible baseline survived the backend restart. These observations do not establish exactly-once
+delivery or survival under arbitrary crashes. The separate queue-size-one fixture emitted sixteen
+known spans, observed actual enqueue failure and subsequently queried one survivor. Rejected and
+query-visible populations remain separate facts.
+
+Controlled retention used a real SDK four-day-old span, first visible under seven-day global
+retention, then absent after a three-day stream policy with fixture-only short compaction
+intervals. The recent baseline remained visible. This establishes controlled query expiry, not
+physical erasure or a universal reason for empty queries. The storage case changed an owned
+validated storage directory into a regular file before startup and observed the Collector's
+specific refusal. Runtime ENOSPC, disk corruption and arbitrary storage recovery are untested.
+All three successful states were removed after exact owned processes drained and authenticated
+unit files were removed. Failed exploratory states/receipts remain private with their units
+removed; the driver retains failures rather than relabeling them as success.
+
+**Tested:** after the final Python SDK header/session, diagnostic-redaction and integer-PID
+corrections, the same actual-service driver with `--output
+/tmp/pse-plan52pq-final-pipeline-20261024-b873 --timeout 90 --case signals_recovery_retention`
+passed its one selected case, zero failures against zero. It rechecked the three actual SDK
+signals, queued restart recovery and controlled retention. Queue overflow and storage/authentication
+failures retain the earlier explicitly scoped results above and below; they were not rerun as part
+of this selection. Its temporary services, authenticated units and successful state were removed.
+
+**Tested:** the same driver with `--output /tmp/pse-plan52pq-delivery-failures-20261024-a91f
+--timeout 90 --case delivery_failures` passed its separately selected case, zero failures against
+zero. A pre-sealed deliberately wrong Collector credential produced actual receiver acceptance,
+exporter send failure and the exact owned backend HTTP401 observation while independent protected
+backend access still returned HTTP200. After the authenticated Collector stop, the real SDK
+reported refused ingress/export failure and its producer still returned normally. Passive health
+kept backend availability separate from Collector unavailability and unknown delivery. This is
+producer-completion evidence; actual scientific outcome preservation belongs to 52p's linked
+native acceptance. The fixture's services, unit files and state were drained/removed; the prior
+three cases were not rerun or silently added to this selected result.
+
+**Tested:** the actual-service driver with `--output /tmp/pse-plan52pq-retry-expiry-20261024-e391
+--timeout 90 --case retry_expiry` passed its one selected case, zero failures against zero.
+A fixture-only two-second standard exporter retry budget was declared before configuration
+sealing; ordinary policy remains 300 seconds. An actual SDK batch was accepted at ingress,
+then the owned Collector journal recorded retry exhaustion and an explicit drop while the
+backend was stopped. Its queue drained and exporter failure was observed. After backend
+recovery, a fresh control and retained baseline were visible while the known dropped trace
+was absent. This establishes bounded retry exhaustion, not a queue-age TTL or a universal
+explanation for empty queries. The [pinned retry owner](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.163.0/exporter/exporterhelper/internal/retry_sender.go)
+defines this behavior. All selected temporary services, authenticated units and successful state
+were removed.
+
+The first campaign exposed two fixture errors (queue causality and fault placement) and a real
+credential-generator bug: an unqualified random URL token can omit backend-required character
+classes. Production generation now guarantees those classes while retaining the complete random
+token; a deterministic degenerate-token control exercises the requirement. Health consumes the
+real sealed endpoint projection, retains local diagnostics on service-inspection failure, bounds
+slow headers/body by a total deadline and invalidates process attribution if a service restarts
+during the read.
+
+**Interface-checked, TQ05:** the selected Collector file exporter cannot replace the finite
+capture contract. Its alpha interchange/default truncation and optional rotation do not supply
+this application's selected-service activation/restoration, exact child drain, sealed publication
+or existing retained-reader contract. Retain `surreal_telemetry.capture_operation` for that
+distinct finite consumer; do not build another ordinary production export path. Revisit only if
+a concrete standard finite-capture composition can close those preservation obligations together
+with F02 and TEL16. No finite-capture equivalence or migration is claimed.
+
+Scope-end static checks and the final integrated native/producer boundary remain in progress at
+the coordinator. Full metric populations, general FastMCP query exposure, actual database/module
+continuity, offline custody, arbitrary disk-failure recovery and measured performance benefits
+are not established by these service cases.
