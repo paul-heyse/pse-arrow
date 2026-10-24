@@ -1,6 +1,6 @@
 ---
 title: "Plan 52k: Unified entry point and derived interfaces"
-status: draft
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
@@ -10,6 +10,20 @@ doc_topics: [current-work, environment, design, diagnostics, documentation]
 ---
 
 # Plan 52k: Unified entry point and derived interfaces
+
+## Execution checkpoint — 2026-10-24
+
+The maintainer authorized execution and then selected direct work on main because Plan53
+implementation is not currently concurrent. No new worktree was created. The existing
+single-entry-point and native ownership decisions remain in force. MCP01 is delivered;
+the remaining MCP02–MCP05 consumers and their focused qualification are now delivered.
+The [Outcome](#verification-and-outcome--2026-10-24) records acceptance and limits;
+the coordinator alone owns current package and inquiry state.
+
+The maintainer selected deferral of the conditional Cyclopts CLI. Required generated reference
+material remains in scope. Revisit CLI delivery when a concrete terminal/non-MCP consumer
+needs structured access that the existing native commands and canonical MCP route do not
+adequately supply; fidelity and fresh-selection acceptance then precede adoption.
 
 ## Prerequisite delivery — 2026-10-24
 
@@ -259,9 +273,105 @@ migrations; do not wait for all catalogue prose or require every operation befor
 MCP03 consistency should accompany relevant integration changes, not become late cleanup.
 Specialist migration and result preservation remain obligations even after one host journey works.
 
-**Proposed verification:** targeted package tests exercise the distinctions above during
-implementation. [52h](52h-qualification-and-publication.md) owns final assembled qualification,
-scope-end checks, publication and honest exclusions. This plan authoring implements no
-production endpoint, configures no attachment and qualifies no scientific or host behavior.
-The coordinator records progress, inquiry resolutions, rule routes and eventual Outcome;
-this companion does not maintain a competing completion ledger.
+**Tested:** targeted implementation and actual-host evidence is recorded below.
+[52h](52h-qualification-and-publication.md) retains final assembled qualification,
+series-wide scope-end checks, publication and honest exclusions. This component's closure
+does not close scientific/product qualification. The coordinator records package progress,
+inquiry resolutions and rule routes; this companion owns its detailed execution evidence.
+
+## Verification and Outcome — 2026-10-24
+
+**Implemented:** one optional source-only STDIO attachment retains the delivered MCP01 lazy
+specialists. Eleven bootstrap tools provide exact navigation/invocation plus framework projections
+of the same resources/templates/prompts. Selected workflow prompts are compact indexes with
+digests and references to complete owned instructions. Fixed-inventory Codex hosts use canonical
+invokers rather than a second operation language. Only real inherited specialist transports are
+disabled; no invalid disabled transportless tables are synthesized.
+
+**Implemented:** a bounded local source cut captured before binding imports ties handlers,
+schemas, metadata and fixed child-worker implementations to one loaded revision. Composition
+checks and relevant dispatch fences reject changed owners before effects; bootstrap describes
+the loaded state and restart cause. Guide edits affect that guide: complete captured snapshots
+remain attributable, uncaptured changed content refuses, and unrelated guides remain usable.
+Current scientific/source freshness and arbitrary third-party readiness remain operation-owned.
+
+**Implemented:** complete composed reference generation includes hidden operations, signatures,
+defaults, schemas, resources/templates/prompts, native routes and explicit unavailable/deferred
+classifications. The dedicated `docs/generated/capabilities/` namespace has one generator;
+Rust Markdown generation preserves it. Comparison is read-only and diagnoses missing/stale/extra
+files and symlinks. Publication removes only owned stale output. The former marker-owned
+flat output is retired. Source/schema links follow package repository metadata without copying
+unpublished JSON assets into the site.
+
+**Implemented:** bounded middleware correlation preserves original payloads and owner metadata,
+joins nested invocation, records failure stage/interface timing and points to existing authentic
+native readers. Known missing references, observer detachment, native timing, transport delivery
+and trace continuity retain explicit limitations. Structured diagnostics exclude raw arguments,
+credentials, paths and exception text. Existing recording OpenTelemetry spans receive attributes;
+no new exporter, evidence store or scheduler is introduced. The direct dependency declaration
+pins `opentelemetry-api==1.45.1`, already resolved transitively at that version.
+
+**Tested — zero failure baseline, local pinned environment:**
+
+- `scripts/pse-env -- .venv/bin/python -m unittest discover -s scripts/tests -p 'test_capabilit*.py'`:
+  162 passed. Controls include hidden calls, native/projected content identity, pure planning
+  retrieval, atomic selection/reset, scoped guide changes, worker/source restart fences,
+  failed/partial interactions, detached watch followed by authentic result read, redaction,
+  reference fidelity and non-mutating generation checks.
+- `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_codex_session scripts.tests.test_validation scripts.tests.test_test_invocation scripts.tests.test_test_run scripts.tests.test_validation_result`:
+  99 affected-owner tests passed. Subsequent typed session/driver repairs also passed their
+  selected 15-test run; capability driver tests are included in the final 162-test suite.
+- `scripts/pse-env -- .venv/bin/python -m scripts.tests.capability_codex_check --output build/capabilities-52k/codex-host-stable --timeout 600`:
+  fresh actual installed Codex passed seventeen canonical calls: discovery, schema descriptions,
+  complete skill resource, capability template, workflow prompt, reset, exact Rust action,
+  authentic result reader, reset, second workflow/prompt and final reset. The single authorized
+  `pse-ids::float::tests::f32_nan_variants_collapse_too` unit passed. Independent original-owner
+  verification found one selected subject, zero unreported subjects/report errors, frozen assurance
+  pass, workload exit zero and complete owned drain. Invocation:
+  `1b7e8e57c5d5410c8a79e7341f6772b8`. Evidence remains under that output directory, including raw
+  events, launch configuration and independently read native result. Ordinary approval policy is
+  unchanged; only this bounded acceptance session explicitly approves its selected action wrapper.
+- `scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation test -p xtask --no-default-features --locked codegen::tests::markdown_generation_preserves_capability_reference_owner_and_checks_own_stale_files -- --exact`:
+  one regression passed, 81 filtered; Rust generation preserves the capability owner's bytes while
+  detecting/pruning its own stale Markdown.
+- `scripts/pse-env -- just codegen` and `scripts/pse-env -- just codegen-check` passed publication
+  and every declared generation comparison; `scripts/pse-env -- just docs` published 630 chapters.
+  Historical unsupported-server-profile cleanup deferrals remain separate and preserved.
+- Scoped `.venv/bin/ruff check` and `.venv/bin/pyrefly check --min-severity warn` through
+  `scripts/pse-env --`, over `scripts/capabilities`, `scripts/codex_session.py`, capability tests,
+  the actual-host driver and session tests: zero findings/diagnostics.
+- `scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation clippy -p xtask --all-targets --no-default-features --locked -- -D warnings`:
+  passed with zero warnings. `just ready`, `just lint-agents` and root `just turn-end` passed.
+
+Independent implementation review found two material omissions and rechecked their repairs:
+string-selected worker modules needed explicit source-cut membership, and the existing Rust
+Markdown generator needed to exclude the capability reference's dedicated owner namespace.
+Its source-only recheck covered five real operation/worker bindings with zero failures.
+
+**Mistakes corrected:** initial disabled specialist placeholders were rejected by the actual host;
+the launcher now configures only inherited real transports. Pure framework content projections
+needed truthful read-only annotations. Embedding about 136 KB of guide bodies in prompts hit the
+host display bound; compact exact references now preserve full resource content. Host completion
+order for independent descriptions is legitimately concurrent and the checker now accepts either
+order before selection. A native worker build exposed missing PETSc provider preparation;
+the Rust-test helper now uses its declared solver/KLU/isolation/Uno/PETSc environment. One later
+attempt correctly refused when parallel code generation changed execution inputs during
+preparation; the fresh stable-tree journey passed after generation completed. Failed host artifacts
+remain alongside the successful run and do not count as passing evidence.
+
+**Deliberate deviations:** no worktree was created after the maintainer selected main. The
+maintainer deferred Cyclopts CLI delivery: existing native commands and canonical MCP meet current
+consumers; Q05 records the concrete terminal/non-MCP need that triggers reconsideration. No CLI
+fidelity or fresh-connection equivalence is claimed. Prompts summarize references rather than
+republish full instructions. The current native runner's broader worker preparation remains its
+existing mechanism, separate from the single selected test; Plan53 build restructuring is not
+silently folded into this scope.
+
+**Limits / handoff:** this completes MCP01–MCP05 component obligations, not F/G/H assembled
+agent-task evaluation, workspace-wide Clippy/feature matrices, scientific campaigns, performance
+or measured productivity. No end-to-end trace continuity is established. The host emitted its
+existing skill-scan traversal-limit diagnostic; the exact requested skill was independently read
+through its complete owned resource and the journey passed. C04's separately denied execution
+and independent Plan28/32/40/53 work are unchanged. Enduring workflows live in the
+[capability interface guide](../dev/capability-interface.md). This completed companion remains
+retained for the active coordinator and H01–H04 consumers rather than retiring their evidence.

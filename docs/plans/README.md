@@ -35,8 +35,12 @@ actual Codex exact-read access. The [52j checkpoint](52-agent-effectiveness-and-
 records completed native/parser adaptation and lazy specialist migration, with focused actual
 native/database acceptance and final integration with completed Plan53c changes through
 `0930f8980`, followed by maintainer-authorized publication to main and worktree retirement.
-Broader host presentation, derived consumers and assembled qualification
-retain their 52k/52h owners. Launch guidance lives in the
+The [52k checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52k-execution-checkpoint--2026-10-24)
+records delivered actual Codex resource/template/prompt/action/result access, relevant restart
+fences, complete generated reference and native-owner interface correlation. Its focused Outcome
+closes MCP01–MCP05 and Q01–Q06; the selected CLI deferral retains its concrete-consumer revisit
+trigger. F/G/H retain broader evidence/tracing, assembled agent workflows and series qualification.
+Launch guidance lives in the
 [capability interface guide](../dev/capability-interface.md).
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 

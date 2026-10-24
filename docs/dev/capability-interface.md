@@ -38,7 +38,8 @@ prepare a compiler, start a store or import the native extension. It does not ac
 executable. Explicit actions enter their existing environment/admission owner when invoked.
 
 `just codex-session` configures this attachment for the selected checkout and disables inherited
-standalone Rust, Python and database attachments. Its `--require-*` options check local preparation;
+standalone Rust, Python and database attachments that actually exist in inherited configuration.
+It never creates disabled transportless placeholder entries. Its `--require-*` options check local preparation;
 selected calls establish live readiness. `--without-python`, `--without-rust` and
 `--without-database` omit those resources. Equivalent attachment environment selects exact
 `PSE_CAPABILITIES_LANGUAGES` (`python,rust`), `PSE_CAPABILITIES_DATABASE` (`1` or `0`) and
@@ -49,7 +50,8 @@ a database, change credentials or provision a project.
 
 Bootstrap exposes `capabilities_domains`, `capabilities_workflows`, `capabilities_describe`,
 `capabilities_select`, `capabilities_reset`, `capabilities_invoke_read` and
-`capabilities_invoke_action`.
+`capabilities_invoke_action`, plus `list_resources`, `read_resource`, `list_prompts`
+and `get_prompt`: eleven bootstrap tools in total.
 
 1. Browse domains or workflows, then pass an exact ID to list their members. Results are ordered
    and paged with `offset`, `limit`, `total` and `next_offset`.
@@ -91,12 +93,34 @@ schema may accept a literal launch argv where that is the native diagnostic oper
 Neither invoker creates another operation implementation or bypasses native admission. Hosts
 supporting dynamic callable refresh can use ordinary revealed calls directly.
 
+The four content tools project the same native resources/templates and prompts, including their
+visibility checks. `pse://capabilities/{capability}` describes an exact loaded capability with its
+actual schemas. Selecting a workflow reveals its `workflow_<id>` prompt; reset hides it again.
+Prompts contain compact capability and instruction-resource references with source digests.
+Read the referenced resources for complete instructions; prompts do not duplicate or truncate guide
+bodies. Planning-skill retrieval supplies instructions and never executes that skill's action phase.
+
+Ordinary sessions retain the host's approval policy. Action invocation remains explicitly effectful.
+The bounded host acceptance driver configures a session-local approval for its one authorized
+`capabilities_invoke_action` request; it does not change global configuration or relabel the action
+as read-only. Run that explicit journey with
+`scripts/pse-env -- .venv/bin/python -m scripts.tests.capability_codex_check --output build/capabilities-52k/NEW-NAME`.
+It starts a fresh Codex process, invokes one exact `pse-ids` unit, and independently checks its original
+native result. Do not edit execution inputs or regenerate code while it prepares that invocation.
+
 ## Authority, coverage and incomplete results
 
 Exposure declarations in `scripts/capabilities/` own domain/workflow membership, guidance and
 integration metadata. Tags and views derive from those declarations. Actual FunctionTool schemas
 own callable host shapes; Rust registries/catalogues remain the source of native schemas. This
 interface introduces no scientific Python field mirrors or semantic/ranked discovery.
+
+The [generated complete reference](../generated/capabilities/reference.md) derives from those
+same composed definitions, including hidden operations, defaults, resources, templates and prompts.
+`just codegen` publishes it; `just codegen-check` compares without writes. The dedicated generated
+directory belongs to this generator, independently of the Rust Markdown generator. No Cyclopts CLI
+is adopted: revisit when an actual terminal/non-MCP consumer needs access beyond native commands
+and this endpoint. A future CLI must qualify complete selection and absent/null/empty fidelity.
 
 Callable operations read task context, exact native concepts, declared producer relationships,
 recipe descriptions, library evidence, coverage correspondence and the current entry-point inventory.
@@ -124,12 +148,19 @@ structured operation/code/cause; unexpected failures retain the server's masking
 
 ## Loaded contracts and lifetime
 
-The endpoint loads one catalogue/schema/handler revision. Restart after changing serving code,
-exposure declarations or relevant instructions. Guidance bodies load only when selected, with a
-bounded complete UTF-8 read and an identity check against startup. Changed guidance returns a captured
-compatible snapshot or an explicit restart requirement; it never silently mixes newly edited guidance
-with old handlers. Source-inspection tools still read current selected sources under their native
-freshness contracts. No whole-repository per-read hash or automatic rebuild is involved.
+The endpoint captures one catalogue/schema/handler revision from known local serving sources,
+including fixed child-worker implementations. Relevant source changes refuse dispatch before
+handler effects and report `pse.capabilities.restart_required`; bootstrap still describes the loaded
+snapshot and changed sources. Restart after changing serving code or exposure declarations.
+An unrelated model/document edit does not invalidate every operation. This bounded source cut does
+not establish arbitrary third-party dependency or deployment freshness.
+
+Guidance bodies load only when selected, with a bounded complete UTF-8 read and an identity check
+against startup. A changed captured guide retains its complete compatible snapshot and reports
+restart; a changed uncaptured guide refuses new content. The change affects that guide rather than
+poisoning unrelated instruction selection. It never mixes newly edited instructions with old
+handlers. Source-inspection tools still read current selected sources under their native freshness
+contracts. No whole-repository per-read hash or automatic rebuild is involved.
 
 Selection commits one complete FastMCP visibility-rule replacement after guidance preparation.
 Notification failure is distinct from a committed state change. Disconnecting a client tears down
@@ -152,6 +183,11 @@ linked import environment. Prepare with `just py-sync-native-correctness`, then 
 are needed. Read operations do not build providers. The two explicit source/preparation actions
 may prepare their native import prerequisites through the environment owner; their metadata
 discloses this effect. Supplied-only source/bundle inspection does not provision a database.
+
+The explicit `rust_test_run` action also prepares the existing test worker through its native
+provider environment (`solver,klu,isolation,uno,petsc`). Even a pure selected unit can require this
+worker preparation; its cost and prerequisites are distinct from the selected test population.
+The original runner owns selection, force-validation, source/configuration fencing and results.
 
 Ephemeral source admission ends with its child lifetime and does not return a reopenable model
 handle. Durable reads name the exact canonical deployment/revision/run/attempt and preserve native
@@ -176,3 +212,19 @@ declarations are not claimed to be migrated automatically. Database selection va
 existing owned listener, source-built generation and credentials before opening its pinned MCP
 connection. Root VIEWER credentials restrict exploratory queries; canonical project operations
 retain their separate native admission. Database tooling is not agent memory.
+
+## Interface diagnostics
+
+Tool, resource and prompt responses carry bounded `_meta["pse.observation"]` correlation alongside
+their unchanged native content and owner metadata. Nested canonical invocation shares the same
+request correlation. Known native invocation/result fields contribute authentic reader references;
+missing identities are not inferred. Follow those references through the original result reader to
+distinguish selected subjects, workload exit, frozen assurance and owned drain.
+
+Structured stderr records registered component names, loaded revision, hashed request identity,
+failure stage and interface elapsed time. It excludes arguments, raw URI parameters, credentials,
+native paths and exception text. Interface return, transport delivery, native outcome and native
+timing remain separate facts. A detached observer reports detachment without cancelling its subject.
+Existing recording OpenTelemetry spans receive correlation attributes; no exporter, trace store or
+end-to-end Surrealism continuity is implied. Unavailable tracing and unobserved transport delivery
+are explicit. This is interface diagnosis, not performance qualification or a second evidence store.

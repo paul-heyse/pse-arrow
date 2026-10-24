@@ -277,16 +277,17 @@ is required. Package completion does not automatically resolve an opportunity's 
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 |---|---|---|---|
-| O01 | scheduled | [CAP01/CAP02/CAP05](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical model, bounded classification and source-only dispatch delivered; ADP05 now supplies native reconciliation, while derived consumers remain MCP04. |
-| O02 | scheduled | [CAP03/MCP02](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic process-scoped reveal/reset and actual Codex exact read adaptation delivered; broader host resource/prompt and adapted-tool journeys remain MCP02. |
+| O01 | resolved | [CAP01/CAP02/CAP05](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical model, classification, faithful native adaptation and complete composed reference delivered; see 52i/52j and the 52k Outcome. |
+| O02 | resolved | [CAP03/MCP02](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic reveal/reset and actual fresh Codex resource/template/prompt/action/authentic-result journey delivered through the canonical endpoint; see 52k Outcome. |
 | O03 | scheduled | [CAP04/G03](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Progressive native-owner guidance and planning-only selection delivered; actual editing/task-effectiveness evaluation remains G03. |
 | O04 | resolved | [ADP01/ADP02](52j-native-contracts-and-tool-adaptation.md#ADP01) | Typed host contracts and generated native schemas/receivers delivered with malformed/contextual refusal and actual native acceptance; see 52j Outcome. |
 | O05 | resolved | [ADP03/ADP04/ADP05](52j-native-contracts-and-tool-adaptation.md#ADP03) | Typed extraction, native/specialist adaptation, single-session migration and explicit all-family native retention delivered; see 52j Outcome. |
 | O06 | resolved | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Cheap single bootstrap, lazy actual language/database connections and independent service identity/admission/drain delivered; Q03 resolved. |
 | O07 | scheduled | [ADP02/G01/G02](52j-native-contracts-and-tool-adaptation.md#ADP02) | ADP02 outcomes, bounds, handles and cancellation are delivered; assembled G01/G02 interaction consumers retain their own obligations. |
-| O08 | scheduled | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Derived reference; conditional complete/fresh-reveal Cyclopts CLI preserves absent/null/empty semantics or records supported non-adoption. |
-| O09 | scheduled | [MCP03/CAP02/CAP04](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Coherent loaded schema/handler/instructions, relevant restart, native source freshness separate, no global per-read reconstruction. |
-| O10 | scheduled | [MCP05/F01/F02](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Existing evidence/trace correlation and actual interface failures; no duplicate store or fabricated end-to-end continuity. |
+| O08 | resolved | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Complete generated reference delivered. Maintainer-selected CLI non-adoption retains the concrete-consumer revisit trigger in Q05; no CLI equivalence is claimed. |
+| O09 | resolved | [MCP03/CAP02/CAP04](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded schemas/handlers/local worker closures and scoped guide snapshots are fenced; relevant changes require restart while unrelated source remains operation-owned. See 52k Outcome. |
+| O10 | scheduled | [MCP05/F01/F02](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | MCP05 interface correlation, partial/refused outcomes, detached observers and authentic owner references delivered; F01/F02 retain broader comparison/trace inquiry consumers without claimed end-to-end continuity. |
+
 
 
 ## Unified-interface inquiries
@@ -300,12 +301,13 @@ or product integration. Preserve failed/inconclusive evidence and update depende
 
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
-| Q01 | open | [MCP02](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex STDIO browse/describe/select/exact-read/reset passed; host retained its initial tool inventory, so canonical same-endpoint read adaptation is selected. Broader resource/prompt and future effectful-operation presentation remain to qualify; see 52i Outcome. |
+| Q01 | resolved | [MCP02](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Fresh installed Codex journey passed resources, templates, compact workflow prompts, exact selected action, authentic native result and reset/second selection. Fixed-inventory hosts use canonical invokers and same-content framework projections. Ordinary host approval policy remains inherited; see 52k Outcome. |
 | Q02 | resolved | [ADP01](52j-native-contracts-and-tool-adaptation.md#ADP01) | Resolved by the generated directional catalogue and original codecs/receivers, authoring/native separation, local references, numeric/enum/contextual refusals, snapshot/digest fences and six actual native unit/component/integration cases. See 52j Outcome. |
 | Q03 | resolved | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Resolved by lazy owner-task connections, actual Python/Rust and selected database journeys, unavailable/stale/cancellation controls and authenticated service/context/kernel drain. See 52j Outcome. |
 | Q04 | resolved | [ADP03](52j-native-contracts-and-tool-adaptation.md#ADP03) | Typed shared archive/replay and diagnostic kernels; fixed process boundaries for native execution; original Gate/selection/invocation owners for qualification. Actual archive/replay/action/result consumers and scoped Rust execution passed. See 52j Outcome. |
-| Q05 | open | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Concrete CLI consumer decision; complete generation, exact activation on fresh connection and absent/null/empty forwarding. Non-adoption needs reason/revisit trigger. |
-| Q06 | open | [MCP03](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded guidance/schema/handler coherence, relevant restart/reload, source-only availability and actual catalogue preparation work; no blanket repo hash. |
+| Q05 | resolved | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Maintainer selected CLI deferral on 2026-10-24; required generated reference is delivered. Revisit when a concrete terminal/non-MCP consumer needs structured access beyond existing native commands and canonical MCP; complete generation, fresh activation and absent/null/empty fidelity must qualify before adoption. |
+| Q06 | resolved | [MCP03](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Bounded loaded local source/worker closure, composition verification, per-operation restart fences and scoped guide snapshots passed targeted change/restart controls. Current-source facts and arbitrary dependency readiness retain their native owners; see 52k Outcome. |
+
 
 
 ## Package state and execution route
@@ -364,10 +366,10 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | ADP04 | done | [52j](52j-native-contracts-and-tool-adaptation.md#ADP04) | Actual native, Python/Rust language and selected database journeys; Q03 resolved |
 | ADP05 | done | [52j](52j-native-contracts-and-tool-adaptation.md#ADP05) | 65 callable operations; 402 classified entry points with explicit native retention and replaced session dispatch retired |
 | MCP01 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Cheap bootstrap and owned lazy specialist connections qualified by 52j |
-| MCP02 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex source-only exact-read journey delivered; broader attachment consumers/Q01 remain |
-| MCP03 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Native schema byte/fingerprint coherence delivered; broader loaded-handler/restart cases and Q06 remain |
-| MCP04 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Derived reference and conditional faithful CLI/Q05 |
-| MCP05 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Interface observation and evidence integration |
+| MCP02 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Fresh Codex resource/template/prompt/action/result/reset journey passed; Q01 resolved; see 52k Outcome |
+| MCP03 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded source/worker/schema fences and scoped guidance restart controls delivered; Q06 resolved |
+| MCP04 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Complete composed reference generated and checked; Q05 resolved with selected CLI deferral |
+| MCP05 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Bounded interface diagnostics/correlation retain original native outcomes and authentic result owners; see 52k Outcome |
 
 <a id="FND00"></a>
 ### FND00 — Decision and declaration readiness
@@ -400,13 +402,13 @@ source/consumer changes; G02 consumes real canonical operations and G05 useful c
 H01–H04 close assembled scope
 once selected functionality and inquiry outcomes are ready.
 
-For the unified extension, CAP01–CAP05, ADP01–ADP05 and MCP01 now deliver exact discovery,
-guidance, real host/native operations and owned lazy specialists. Q02–Q04 are resolved at the
-52j focused acceptance boundary. MCP02 retains broader actual Codex presentation, MCP03 retains
-remaining loaded-handler/restart cases, and MCP04/MCP05 retain derived consumers and observation.
+For the unified extension, CAP01–CAP05, ADP01–ADP05 and MCP01–MCP05 deliver exact discovery,
+guidance, real host/native operations, owned lazy specialists, coherent loaded contracts, complete
+derived reference and interface observation. Q01–Q06 are resolved at their recorded component
+acceptance boundaries; conditional CLI delivery is deliberately not adopted.
 New entry points still extend CAP05's canonical classification through their binding owner.
-G02/G03 evaluate real workflows, F01/F02 and MCP05 integrate evidence, MCP04
-derives references and any selected CLI. H01 reconciles all required and conditional scope before
+G02/G03 evaluate assembled real workflows; F01/F02 retain broader evidence/trace inquiries.
+MCP04 supplies generated references and the conditional CLI revisit decision. H01 reconciles all required and conditional scope before
 H02–H04. These are contract/evidence dependencies, not whole-document serial barriers. Preserve
 C04's separately recorded denied execution boundary; interface work does not authorize retry.
 
@@ -538,3 +540,20 @@ Plan28/32/40/53 scope remain unchanged. Final integration passed 115 capability 
 147 affected owner tests, four native unit cases and the installed-server reuse check.
 The maintainer authorized main publication and retirement of the fully merged worktree;
 retained acceptance artifacts live in the main checkout at `build/capabilities/plan52j-acceptance/`.
+
+### 52k execution checkpoint — 2026-10-24
+
+MCP01–MCP05 are delivered on main following the maintainer's direct-checkout selection.
+The [52k Verification and Outcome](52k-unified-entry-point-and-derived-interfaces.md#verification-and-outcome--2026-10-24)
+owns actual fresh Codex acceptance, coherence controls, derived reference, diagnostics,
+corrected failures and focused static results. Q01/Q06 are resolved; Q05 records the
+maintainer-selected CLI deferral and concrete-consumer revisit trigger. Unified O01/O02/O08/O09
+are resolved; O03/O07/O10 retain their separately owned G/F consumers.
+
+The fresh host used seventeen canonical calls and one exact `pse-ids` unit. Original invocation
+`1b7e8e57c5d5410c8a79e7341f6772b8` froze one selected pass, zero unreported subjects,
+assurance pass and complete owned drain. This is component acceptance, not assembled H02,
+scientific qualification or measured productivity. F/G/H, C04's denied execution boundary and
+independent Plans28/32/40/53 remain unchanged. Enduring operation guidance lives in the
+[capability interface guide](../dev/capability-interface.md); the completed companion remains
+retained while the active coordinator and H01–H04 consume its evidence.
