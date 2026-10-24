@@ -101,7 +101,8 @@ async def run_worker(
                             "message": diagnostic,
                             "stage": "helper_transport",
                             "remedy": "Inspect the original operation's output and native settlement reader before deciding further action. Do not repeat work based on helper exit alone.",
-                            "output": getattr(request, "output", None),
+                            "requested_output": value.get("output"),
+                            "output_admission": "unconfirmed",
                             "settlement": "inspect native owner output; helper exit alone is not settlement",
                         }
                     )

@@ -668,7 +668,7 @@ def finish_read(
     )
     if size > MAX_ANSWER_BYTES:
         return DetailRefused(
-            operation=str(result.operation),
+            operation=result.operation,
             omissions=[
                 "Selected answer exceeds the encoded response bound; no partial payload was substituted."
             ],

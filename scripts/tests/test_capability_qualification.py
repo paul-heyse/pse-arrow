@@ -508,7 +508,11 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(value["code"], "pse.host.helper_unsettled")
                 self.assertEqual(value["stage"], "helper_transport")
                 self.assertEqual(value["helper_exit_code"], exit_code)
-                self.assertEqual(value["output"], "build/original-owner-output")
+                self.assertEqual(
+                    value["requested_output"], "build/original-owner-output"
+                )
+                self.assertEqual(value["output_admission"], "unconfirmed")
+                self.assertNotIn("output", value)
                 self.assertEqual(value["operation"], operation)
                 self.assertIn(
                     "helper exit alone is not settlement", value["settlement"]

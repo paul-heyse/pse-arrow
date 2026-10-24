@@ -9,6 +9,7 @@ import hashlib
 import json
 import sys
 import tempfile
+from collections import deque
 from itertools import islice
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
@@ -23,6 +24,8 @@ from scripts.capabilities.operations import bounded
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from jsonschema.exceptions import ValidationError as SchemaValidationError
+
     from pse import DiagnosticReport, Runtime
     from scripts.capabilities.native import Result
 
@@ -35,6 +38,9 @@ MAXIMUM_REQUEST_BYTES = 16 << 20
 def decoded(value: object, document_type: type[T]) -> T:
     from pse import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
         codec,
+    )
+    from pse.contracts import (  # noqa: PLC0415 -- generated root aliases load only in the selected native child.
+        documents,
     )
 
     try:
@@ -49,17 +55,33 @@ def decoded(value: object, document_type: type[T]) -> T:
         from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
 
         schemas = SchemaSet(Path(__file__).resolve().parents[2])
-        schema = schemas.input_for_type(document_type.__name__)
+        # Tagged generated roots may be union aliases, which have no __name__.
+        # Match the actual exported value to the catalogue rather than inventing
+        # a parallel type/slug map or flattening its branch error into prose.
+        schema = None
+        for name, exported in vars(documents).items():
+            if exported is document_type:
+                schema = schemas.input_for_type(name)
+                if schema is not None:
+                    break
         if schema is not None:
             keys = schema_keys(schema)
-            locations = [
-                {
+            roots = Draft202012Validator(schema).iter_errors(value)
+            pending: deque[tuple[SchemaValidationError, int | None]] = deque(
+                (item, None) for item in islice(roots, 17)
+            )
+            locations: list[dict[str, object]] = []
+            while pending and len(locations) < 16:
+                item, parent = pending.popleft()
+                index = len(locations)
+                locations.append({
                     "path": safe_path(list(item.absolute_path), keys),
+                    "schema_path": list(item.absolute_schema_path),
                     "rule": item.validator,
-                }
-                for item in islice(Draft202012Validator(schema).iter_errors(value), 16)
-            ]
-            raise StructuralInputError(locations) from error
+                    "parent": parent,
+                })
+                pending.extend((child, index) for child in islice(item.context, 17))
+            raise StructuralInputError(locations, complete=not pending) from error
         raise
 
 
@@ -78,9 +100,10 @@ def source_documents(value: object) -> list[dict[str, bytes]]:
 class StructuralInputError(ValueError):
     """Safe structural facts from the published owner schema after decode refusal."""
 
-    def __init__(self, locations: list[dict[str, object]]) -> None:
+    def __init__(self, locations: list[dict[str, object]], *, complete: bool = True) -> None:
         super().__init__("Generated input refused")
         self.locations = locations
+        self.complete = complete
 
 
 def native_report(error: BaseException) -> DiagnosticReport | None:
@@ -113,6 +136,8 @@ def scientific_error(
             code="pse.native.input_schema_refused",
             stage="decode",
             locations=error.locations,
+            complete=error.complete,
+            location_limit=16,
         )
     if report is None:
         return value
