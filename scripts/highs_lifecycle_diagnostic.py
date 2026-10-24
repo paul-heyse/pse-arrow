@@ -15,7 +15,6 @@ from scripts import native_operation, native_tests
 
 ROOT = Path(__file__).resolve().parents[1]
 NORMAL = "highs::mip_tests::callback_binding_normal_and_interrupted_teardown_keeps_context_until_native_return"
-FAULT = "highs::mip_tests::callback_binding_asan_sensitivity_child"
 
 
 def digest(path: Path) -> str:
@@ -35,9 +34,10 @@ def run(command: list[str], environment: dict[str, str], output: Path, name: str
 
 
 
-def qualify_asan(normal: dict, fault: dict, diagnostic: str, archive_instrumented: bool, rust_instrumented: bool) -> bool:
-    """Neither installation nor an arbitrary child crash establishes sensitivity."""
-    return (archive_instrumented and rust_instrumented and not normal["timed_out"] and normal["exit_code"] == 0 and not fault["timed_out"] and fault["exit_code"] != 0 and "ERROR: AddressSanitizer: heap-use-after-free" in diagnostic)
+def qualify_asan(normal: dict, archive_instrumented: bool, rust_instrumented: bool) -> bool:
+    """Qualify actual lifecycle execution only, with no injected-fault sensitivity claim."""
+    return archive_instrumented and rust_instrumented and not normal["timed_out"] and normal["exit_code"] == 0
+
 
 
 def main() -> int:
@@ -49,7 +49,7 @@ def main() -> int:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     environment = dict(os.environ)
-    record = {"schema": "highs-lifecycle-diagnostic-v1", "mode": args.mode, "status": "incomplete", "scope": "one actual CallbackBinding normal/interrupted teardown and stale callback user-data fault", "baseline_failures": 0, "sources": {path: digest(ROOT / path) for path in ("Cargo.lock", "rust-toolchain.toml", "crates/pse-backend-native/src/highs.rs", "crates/pse-backend-native/src/highs/mip_tests.rs", "crates/pse-backend-native/src/highs_lifecycle.rs")}, "limits": ["not a solver-fleet or ThreadSanitizer qualification", "standard library and unrelated opaque native libraries are outside selected instrumentation", "deterministic schedules are separate ordinary tests, not sanitizer interleaving coverage"]}
+    record = {"schema": "highs-lifecycle-diagnostic-v1", "mode": args.mode, "status": "incomplete", "scope": "one actual CallbackBinding normal/interrupted teardown", "baseline_failures": 0, "sources": {path: digest(ROOT / path) for path in ("Cargo.lock", "rust-toolchain.toml", "crates/pse-backend-native/src/highs.rs", "crates/pse-backend-native/src/highs/mip_tests.rs", "crates/pse-backend-native/src/highs_lifecycle.rs")}, "limits": ["not a solver-fleet or ThreadSanitizer qualification", "standard library and unrelated opaque native libraries are outside selected instrumentation", "deterministic schedules are separate ordinary tests, not sanitizer interleaving coverage"]}
     try:
         target = subprocess.check_output(["rustc", "-vV"], text=True).split("host: ")[1].splitlines()[0]
         arguments = ["cargo", "test", "--locked", "-p", "pse-backend-native", "--lib", "--features", "highs", "--no-run", "--message-format=json"]
@@ -65,7 +65,7 @@ def main() -> int:
             arguments += ["--target", target]
         # Keep the existing correctness resolver and environment/native build owners.
         # Resolve inside that environment: its unit graph is built with the actual flags.
-        command = [str(ROOT / "scripts/pse-env"), "--native=solver", "--", str(ROOT / ".venv/bin/python"), "-m", "scripts.arrow_validation", *arguments[1:]]
+        command = [str(ROOT / "scripts/pse-env"), "--resource-class", "build", "--native=solver", "--", str(ROOT / ".venv/bin/python"), "-m", "scripts.arrow_validation", *arguments[1:]]
         record["build"] = run(command, environment, output, "build", args.build_timeout)
         record["instrumentation_environment"] = {key: environment.get(key) for key in ("PSE_CARGO_TARGET_DIR", "RUSTFLAGS", "CFLAGS", "CXXFLAGS", "ASAN_OPTIONS", "CARGO_BUILD_JOBS")}
         if record["build"]["exit_code"] != 0:
@@ -79,12 +79,12 @@ def main() -> int:
         record["native_identity"] = native_tests.native_provenance({"selection": "highs lifecycle", "target": target}, [str(binary)], environment=environment)
         record["binary"] = {"path": str(binary), "sha256": digest(binary)}
         inventory=subprocess.check_output([str(binary),"--list","--format","terse"],env=environment,text=True)
-        if f"{NORMAL}: test" not in inventory or f"{FAULT}: test" not in inventory:
-            raise ValueError("actual executable does not contain both selected lifecycle controls")
+        if f"{NORMAL}: test" not in inventory:
+            raise ValueError("actual executable does not contain the selected lifecycle control")
         (output/"test-inventory.txt").write_text(inventory)
         if args.mode == "gdb":
             # Reuse the existing active-diagnostic GDB owner, including inferior status.
-            command = [str(ROOT / "scripts/pse-env"), "--native=solver", "--", str(ROOT / ".venv/bin/python"), "-m", "scripts.active_diagnostics", "gdb-launch", "--output", str(output / "gdb"), "--", str(binary), "--exact", NORMAL, "--nocapture"]
+            command = [str(ROOT / "scripts/pse-env"), "--resource-class", "build", "--native=solver", "--", str(ROOT / ".venv/bin/python"), "-m", "scripts.active_diagnostics", "gdb-launch", "--output", str(output / "gdb"), "--", str(binary), "--exact", NORMAL, "--nocapture"]
             record["normal"] = run(command, environment, output, "normal", 120)
             record["status"] = "ordinary-gdb-route" if record["normal"]["exit_code"] == 0 else "gdb-failed"
             return int(record["normal"]["exit_code"] != 0)
@@ -103,11 +103,9 @@ def main() -> int:
         if not native_instrumented or not rust_instrumented:
             raise ValueError("selected Rust/native instrumentation was not observed")
         record["normal"] = run([str(binary), "--exact", NORMAL, "--nocapture"], environment, output, "normal", 120)
-        fault_environment = {**environment, "PSE_HIGHS_LIFETIME_FAULT": "stale-context"}
-        record["fault"] = run([str(binary), "--exact", FAULT, "--ignored", "--nocapture"], fault_environment, output, "fault", 120)
-        diagnostic = (output / "fault.stderr.txt").read_text()
-        adopted = qualify_asan(record["normal"], record["fault"], diagnostic, native_instrumented, rust_instrumented)
-        record["status"] = "tested-sensitive" if adopted else "not-qualified"
+        adopted = qualify_asan(record["normal"], native_instrumented, rust_instrumented)
+        record["sensitivity_control"] = "not_run: deliberately invalid memory control withdrawn after content-safeguard denial; maintainer selected ordinary lifecycle coverage"
+        record["status"] = "tested-normal-lifecycle" if adopted else "not-qualified"
         return 0 if adopted else 1
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         record["status"] = "unavailable"

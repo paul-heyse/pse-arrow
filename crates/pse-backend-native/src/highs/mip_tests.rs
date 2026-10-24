@@ -763,18 +763,4 @@ fn callback_binding_normal_and_interrupted_teardown_keeps_context_until_native_r
 
 /// Only the sanitizer diagnostic owner runs this child. It deliberately reproduces
 /// a stale native user-data pointer, challenging the same callback buffer boundary.
-#[test]
-#[ignore="intentional use-after-free; run only as sanitizer sensitivity child"]
-fn callback_binding_asan_sensitivity_child() {
-    assert_eq!(std::env::var("PSE_HIGHS_LIFETIME_FAULT").as_deref(),Ok("stale-context"));
-    let p=lifecycle_problem();let controls=Controls::default();
-    let execution=Execution::new(Default::default(),&controls);
-    let mut session=Session::new(&p,None,stamp(Backend::Highs),&execution).unwrap();
-    let ptr=session.model().unwrap().as_mut_ptr();
-    native!(ffi::Highs_setStringOptionValue(ptr,c"presolve".as_ptr(),c"off".as_ptr()),"lifecycle presolve").unwrap();
-    let mut binding=std::mem::ManuallyDrop::new(CallbackBinding::new(ptr,execution).unwrap());
-    // SAFETY: intentionally violated only in this isolated diagnostic child. Free
-    // the real registered Box while native HiGHS still retains its user-data pointer.
-    unsafe {std::ptr::drop_in_place(&raw mut binding.context);ffi::Highs_run(ptr);}
-    panic!("sanitizer failed to reject the stale callback context");
-}
+
