@@ -827,6 +827,44 @@ typed code/stage/rule/source/validity/condition matches distinguish original fai
 related diagnostic. An unmatched incomplete diagnostic population cannot establish
 `not_reproduced`. Extraction never opens a store or silently runs the suggested command.
 
+Scientific reduction is separate new work: `just diagnostics reduce --request reduction.json
+--json` consumes `ReductionCommandRequest` v1. Supply the complete original authored diagnostic
+request, its actual typed numerical issue, protected UTF-8 source spans for the failing expression
+and explicit initial point, permitted declaration-deletion/binary-subexpression operators, a
+candidate limit (1–256) and one total allowance. It checks an unchanged control, then runs actual
+ordinary diagnostic candidates under fresh operation identities and inherited cancellation/drain.
+The first supported family is an attributed numerical evaluation-domain failure with one unindexed
+scalar call and its finite explicit start in the same document. Actual control attribution and
+parser-owned spans establish those roles; labels supplied by the caller do not. Total source is
+limited to 256 KiB, search declarations/moves to 1,024, and aggregate retained edit text to 256 KiB.
+Larger, multi-call or complex-coordinate cases refuse this bounded family. Provider/frozen
+inputs and cancellation/resource/readiness schedules are outside this source constructor.
+
+`ReductionDocument` retains the original request, reduced input, exact protected-byte correspondence
+and each candidate's typed preserved/different/refused/incomplete/inconclusive outcome. A smaller
+parser error or unrelated domain failure does not preserve the issue. Local irreducibility is
+bounded by the selected AST moves and completed candidates; it is never global minimality or
+`OriginalFailureReproduced`. The original strict reproducer remains unchanged. Re-run the reduced
+ordinary diagnostic or promote its concrete source to a regression before relying on it.
+
+For numerical investigation, the optional `numerical-investigation` dependency group supplies
+Matplotlib. `scripts/pse-env --resource-class build -- .venv/bin/python -m
+scripts.numerical_investigation NEW_OUTPUT` captures the selected derivative example and implicit
+product sweep, then writes JSON plus standalone SVG/PNG error-versus-step plots. `--samples PATH`
+and `--implicit-samples PATH` consume retained actual samples without executing them again.
+Reports retain refused perturbations, legal central/inward steps, unavailable/incomplete movement,
+units/coordinates/scaling and independent analytic/Decimal references. Differences of the
+production evaluator challenge derivatives, not the physical formula's truth; roundoff and
+persistent derivative errors retain distinct interpretations.
+
+`scripts/pse-env --resource-class build --native=solver -- .venv/bin/python -m
+scripts.highs_lifecycle_diagnostic NEW_OUTPUT --mode gdb` runs the actual HiGHS normal/interrupted
+callback teardown test through the existing GDB launch owner. It retains the selected executable,
+native suppliers, inferior result and actual child drain. This ordinary route does not establish
+sanitizer coverage. The ASan mode is implemented but unqualified here: automatic review denied
+its execution task, and deliberate invalid-memory sensitivity work was stopped. No injected-fault
+sensitivity or solver-fleet lifetime-safety claim follows from the normal test.
+
 `just diagnostics --help` distinguishes **READ**, **RECORD**, **EXPORT** and **NEW NUMERICAL
 WORK**. Existing `list`, live `inspect`, optional `capture`/`capture-launch` and `read-detail`
 retain their meanings. A source request passed to arbitrary argv does not make that executable

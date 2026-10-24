@@ -14,8 +14,11 @@ Its coordinator owns scheduled packages, conditional inquiries and cross-plan bo
 companions 52a–52h develop context/editing, knowledge, verification, execution, experiments,
 evidence/tracing, agent/operator workflows and assembled qualification. The authorized 52a/52b scope
 and its prerequisite slices are delivered at the selected host/native/actual-consumer boundaries;
-the coordinator links their outcomes and remaining series scope. Other packages
-remain planned, and targeted acceptance does not establish assembled Plan52 qualification.
+the coordinator links their outcomes and remaining series scope. Its
+[52c/52d checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52c52d-execution-checkpoint--2026-10-24)
+records the integrated scientific/tooling delivery and completed D01–D04 scope. C04 retains blocked
+coverage-guided acceptance after automatic task denial; the ordinary structured controls passed.
+Other packages remain planned, and targeted acceptance does not establish assembled Plan52 qualification.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)
