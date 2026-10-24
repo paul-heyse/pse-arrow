@@ -193,10 +193,10 @@ impl Carrier {
         {
             return Err(TelemetryError("invalid bounded W3C carrier".into()));
         }
-        if let Some(state) = fields.get("tracestate") {
-            if state.is_empty() || state.parse::<opentelemetry::trace::TraceState>().is_err() {
-                return Err(TelemetryError("invalid W3C tracestate".into()));
-            }
+        if let Some(state) = fields.get("tracestate")
+            && (state.is_empty() || state.parse::<opentelemetry::trace::TraceState>().is_err())
+        {
+            return Err(TelemetryError("invalid W3C tracestate".into()));
         }
         let carrier = Self(fields);
         if !carrier.0.is_empty()
@@ -589,26 +589,23 @@ impl Host {
     }
     fn shutdown_inner(&mut self) -> Result<(), TelemetryError> {
         let mut failures = Vec::new();
-        if let Some(provider) = self.traces.take() {
-            if let Err(error) = provider
+        if let Some(provider) = self.traces.take()
+            && let Err(error) = provider
                 .shutdown_with_timeout(Duration::from_millis(self.settings.export_timeout_ms))
-            {
-                failures.push(error.to_string());
-            }
+        {
+            failures.push(error.to_string());
         }
-        if let Some(provider) = self.logs.take() {
-            if let Err(error) = provider
+        if let Some(provider) = self.logs.take()
+            && let Err(error) = provider
                 .shutdown_with_timeout(Duration::from_millis(self.settings.export_timeout_ms))
-            {
-                failures.push(error.to_string());
-            }
+        {
+            failures.push(error.to_string());
         }
-        if let Some(provider) = self.metrics.take() {
-            if let Err(error) = provider
+        if let Some(provider) = self.metrics.take()
+            && let Err(error) = provider
                 .shutdown_with_timeout(Duration::from_millis(self.settings.export_timeout_ms))
-            {
-                failures.push(error.to_string());
-            }
+        {
+            failures.push(error.to_string());
         }
         if failures.is_empty() {
             Ok(())

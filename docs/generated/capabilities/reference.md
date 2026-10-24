@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `b245c60ec69e47d60a847d2e3686a7565241f7ae6f916d763cb4c93d9443ed26`.
+Catalogue content revision: `f2ca83005f5ba6cd36d92f6a7d8094d50a3efff6700f6d311226e6ec3dc4fc6a`.
 
 ## Domains
 
