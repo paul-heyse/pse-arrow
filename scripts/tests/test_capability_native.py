@@ -390,7 +390,9 @@ class NativeSchemaTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "catalogue digest; restart required"):
             schemas.document("project-selection", "output")
 
-    def test_new_catalogue_refuses_old_authoring_captured_during_generation(self) -> None:
+    def test_new_catalogue_refuses_old_authoring_captured_during_generation(
+        self,
+    ) -> None:
         catalogue = self.root / "docs/generated/schema/catalogue.json"
         manifest = JSON_OBJECT.validate_json(catalogue.read_bytes(), strict=True)
         row = object_value(manifest["authoring"])
