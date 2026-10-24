@@ -74,6 +74,15 @@ pse-admission.workspace = true
 pse-buildinfo.workspace = true
 pse-rules.workspace = true
 tracing.workspace = true
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry-http.workspace = true
+http.workspace = true
+bytes.workspace = true
+tracing-opentelemetry.workspace = true
+opentelemetry-appender-tracing.workspace = true
+reqwest.workspace = true
 tracing-subscriber.workspace = true
 tracing-perfetto-sdk-schema.workspace = true
 prost.workspace = true
@@ -108,7 +117,6 @@ datafusion.workspace = true
 # Package data documents are Parquet, decoded by Arrow type into Arrow-free row sets
 # (ADR-0125).
 parquet.workspace = true
-bytes.workspace = true
 futures-util.workspace = true
 object_store.workspace = true
 pse-columnar.workspace = true

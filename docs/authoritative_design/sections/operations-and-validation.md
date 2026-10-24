@@ -129,6 +129,32 @@ not exclusive CPU cost. Uno accepted and termination-trial checkpoint ordinals r
 distinct from generic iteration numbers. Optional capture failure changes no numerical outcome.
 
 
+**Shared diagnostic telemetry.** Maintainer-selected Plan52 OpenTelemetry RC01/RC02 add a
+persistent native Collector and local OpenObserve projection alongside finite capture. The process
+host composes providers, resource identity and shutdown once; constructing a Runtime never installs
+a provider. Python and embedded Rust share their actual process incarnation, with instrumentation
+scopes separate. Native child processes have their own incarnation. Bounded W3C parent context
+crosses explicit host/task/thread boundaries independently of scientific request documents, hashes,
+operation handles and native parent locators. A shared ID is association, not a propagated edge.
+
+SDK batching and standard Collector queues/retry own optional signal delivery. Ordinary selected
+telemetry exports coarse owner stages and safe structured diagnostics, with metric populations
+remaining defined at their performing owners. Export failure changes neither native admission nor
+execution, drain, scientific assurance or publication. A successful flush/processed count does not
+prove receipt; ingest acceptance, query visibility and crash survival remain separate claims.
+Passive effective-configuration and pipeline-health reads start no service or scientific work and
+retain unavailable, unsupported, lost, sampled, expired and unknown observations.
+
+Telemetry services have independently owned native user-service lifetimes and persistent state,
+separate from scientific store/scratch and workload allocations. Explicit installation/setup/start/
+stop/enablement select exact artifacts and configured generations. The operator selected login
+startup and seven-day ordinary retention; finite exported evidence retains its existing custody.
+Consumer queries preserve source/configuration identity, intervals and partiality; native result
+readers remain authoritative. General FastMCP retrieval, full database continuity and broader
+metric consumers retain their selected Plan52 implementation/qualification owners. Finite capture
+is replaced only after its bounds, restoration and actual evidence consumers qualify. The selected
+architecture does not claim exactly-once delivery or an atomic cross-signal source cut.
+
 **Spans.** `tracing` spans named `pse.*` wrap the expensive boundaries:
 
 | Owner | Spans |

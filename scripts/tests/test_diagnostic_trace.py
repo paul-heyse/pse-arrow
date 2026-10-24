@@ -126,6 +126,20 @@ class DiagnosticBinaryTests(unittest.TestCase):
         ):
             return trace.install("sccache", self.environment)
 
+    def test_selected_archive_and_binary_allowances_precede_publication(self) -> None:
+        data = self.archive(["release/sccache"])
+        self.spec["max_archive_bytes"] = "1"
+        with self.assertRaisesRegex(ValueError, "archive exceeds"):
+            self.install(data)
+        self.assertFalse(trace.binary_path("sccache", self.environment).exists())
+        self.spec["max_archive_bytes"] = str(len(data))
+        self.spec["max_binary_bytes"] = "1"
+        with self.assertRaisesRegex(ValueError, "oversized"):
+            self.install(data)
+        self.assertFalse(trace.binary_path("sccache", self.environment).exists())
+        self.spec["max_binary_bytes"] = str(len(self.binary))
+        self.assertEqual(self.install(data).read_bytes(), self.binary)
+
     def test_environment_controls_versioned_path_without_ambient_xdg(self) -> None:
         with patch.dict("os.environ", {"XDG_DATA_HOME": "/ambient/not-selected"}):
             selected = trace.binary_path("sccache", self.environment)

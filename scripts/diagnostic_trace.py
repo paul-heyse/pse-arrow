@@ -172,6 +172,10 @@ def install(
     """Install the declared binary or complete portable runtime from its pinned archive."""
     target = binary_path(name, environment)
     spec = tool_spec(name)
+    archive_allowance = int(spec.get("max_archive_bytes", str(256 << 20)))
+    binary_allowance = int(spec.get("max_binary_bytes", str(256 << 20)))
+    if archive_allowance <= 0 or binary_allowance <= 0:
+        raise ValueError("tool installation allowances must be positive")
     portable = spec.get("archive") == "portable-tar"
     selected_root = target.parents[1] if portable else target.parent
     if target.exists() or target.is_symlink():
@@ -194,7 +198,7 @@ def install(
         ):
             while chunk := response.read(1 << 20):
                 size += len(chunk)
-                if size > 256 << 20:
+                if size > archive_allowance:
                     raise ValueError("tool archive exceeds installation allowance")
                 digest.update(chunk)
                 output.write(chunk)
@@ -218,7 +222,7 @@ def install(
                 if (
                     len(members) != 1
                     or not members[0].isfile()
-                    or members[0].size > 256 << 20
+                    or members[0].size > binary_allowance
                 ):
                     raise ValueError(
                         "tool binary member missing, ambiguous or oversized"
@@ -237,7 +241,7 @@ def install(
                 ]
                 if (
                     len(members) != 1
-                    or members[0].file_size > 256 << 20
+                    or members[0].file_size > binary_allowance
                     or members[0].is_dir()
                     or stat.S_IFMT(members[0].external_attr >> 16)
                     not in (0, stat.S_IFREG)
@@ -321,7 +325,7 @@ def main() -> int:
     commands.add_parser("install").add_argument(
         "tool",
         nargs="?",
-        choices=("trace-processor", "mcpls", "rr", "sccache"),
+        choices=("trace-processor", "mcpls", "rr", "sccache", "otelcol-contrib", "openobserve"),
         default="trace-processor",
     )
     inspect = commands.add_parser("query")

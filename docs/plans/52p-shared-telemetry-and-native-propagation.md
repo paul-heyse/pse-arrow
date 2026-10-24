@@ -1,6 +1,6 @@
 ---
 title: "Plan 52p: Shared telemetry and native propagation"
-status: draft
+status: in-progress
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]

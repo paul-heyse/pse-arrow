@@ -675,14 +675,14 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
 | OPT01 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Paused after bounded real-Monty/typed/small-read comparison and dispatch/lifecycle controls; fresh host/final policy remain |
 | OPT02 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Paused after native-owner/task/STDIO-loss/projection inquiry; integrated native recovery, actual host and final selection remain |
-| TEL01 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |
-| TEL02 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL02) | Python/FastMCP providers, helper carriers and logging lifecycle |
-| TEL03 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL03) | Rust/embedded/native-child providers, context and qualified export/shutdown |
-| TEL04 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL04) | Native stage/wait/drain/diagnostic projections and migrated owner consumers |
-| TEL05 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL05) | Selected native Collector/OpenObserve installation and supervised owned state |
-| TEL06 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL06) | Shared processing, routing, bounded export queues and effective configuration |
-| TEL07 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline health and backend-unavailable local diagnostics |
-| TEL08 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL08) | Retention/restart/recovery and TQ02/TQ05 supported capture outcomes |
+| TEL01 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |
+| TEL02 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL02) | Python/FastMCP providers, helper carriers and logging lifecycle |
+| TEL03 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL03) | Rust/embedded/native-child providers, context and qualified export/shutdown |
+| TEL04 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL04) | Native stage/wait/drain/diagnostic projections and migrated owner consumers |
+| TEL05 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL05) | Selected native Collector/OpenObserve installation and supervised owned state |
+| TEL06 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL06) | Shared processing, routing, bounded export queues and effective configuration |
+| TEL07 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline health and backend-unavailable local diagnostics |
+| TEL08 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL08) | Retention/restart/recovery and TQ02/TQ05 supported capture outcomes |
 | TEL09 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL09) | Owned metric populations, units, views, dimensions and reset semantics |
 | TEL10 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL10) | Native preparation/reuse/database/storage metric projections |
 | TEL11 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL11) | Current engineering build/test/qualification and host projections |
@@ -949,6 +949,21 @@ changed. No native solver-fleet or feature-powerset campaign was selected for th
 reference. Worker changes were integrated in coherent commits; unrelated concurrent audit edits
 were preserved. Completed companions remain while this coordinator and G/H consumers need them.
 I14, application/database tracing, remaining Plan53 and independent Plans28/32/40 keep their owners.
+
+### 52p/52q execution checkpoint — 2026-10-24
+
+The maintainer authorized TEL01–TEL08 execution in the isolated `plan52pq-telemetry` worktree,
+with periodic integration of committed main/Plan54 work. Login-start native services and **seven-day**
+ordinary retention were selected explicitly. Permanent service activation waits for final cutover;
+isolated service checks stop their owned processes so ongoing Plan54 measurements remain distinct.
+The branch began at `09a29e1c3`; shared compiler-cache/environment changes remain Plan54-owned.
+
+FND00's §23.1 publication records accepted diagnostic composition/service contracts without changing
+scientific authority or the public scientific document boundary. Ordinary SDK/dependency/tool additions
+need no placeholder ADR. TEL13 contributes only bounded known-record lookup/error/interval semantics
+needed by pipeline/recovery consumers; its broader package and TEL14 remain open. F02/I11 and TEL16
+keep actual database continuity and new offline-custody integration. TQ05 may retain the existing
+finite capture for its distinct contract if standard collection is not equivalent.
 
 ### OpenTelemetry authoring checkpoint — 2026-10-24
 
