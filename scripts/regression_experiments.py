@@ -524,6 +524,7 @@ def measurement(reference: dict, base: Path) -> tuple[float, dict, dict]:
         cache_names = {
             "RUSTC_WRAPPER",
             "SCCACHE_CACHE_SIZE",
+            "SCCACHE_MAX_FRAME_LENGTH",
             "PSE_NATIVE_COMPILER_CACHE",
         }
         paths = {"CARGO_TARGET_DIR", "SCCACHE_DIR", "SCCACHE_SERVER_UDS"}

@@ -1528,7 +1528,7 @@ class BuildMeasurementTests(unittest.TestCase):
                 patch.object(build_measurements.subprocess, "run") as tree,
                 patch.object(build_measurements, "process_tree_rss", return_value=0),
             ):
-                receipt = build_measurements.measure(source, target, output, "sample", ["cargo"], {})
+                receipt = build_measurements.measure(source, target, output, "sample", ["cargo"], {"SCCACHE_MAX_FRAME_LENGTH": "134217728"})
             self.assertEqual(resolve.call_args.args[2], ["build", "--tests", "-p", "pse-compiler", "--locked"])
             self.assertIn("pse-compiler/force-validate", tree.call_args.args[0])
             self.assertEqual(receipt["target_directory"], str(target))
@@ -1538,6 +1538,7 @@ class BuildMeasurementTests(unittest.TestCase):
             command = json.loads((output / "sample/command.json").read_text())
             self.assertEqual(command["source_directory"], str(source))
             self.assertEqual(command["target_directory"], str(target))
+            self.assertEqual(command["environment"]["SCCACHE_MAX_FRAME_LENGTH"], "134217728")
 
     def test_owned_execution_resolves_cargo_after_cache_readiness(self) -> None:
         events: list[str] = []

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import subprocess
 import unittest
 from unittest.mock import patch, sentinel
@@ -21,6 +22,7 @@ class BuildCacheProbeTests(unittest.TestCase):
             "PSE_SCCACHE_BINARY": "/installed/sccache",
             "SCCACHE_DIR": "/shared/cache",
             "SCCACHE_SERVER_UDS": "/shared/cache.sock",
+            "SCCACHE_MAX_FRAME_LENGTH": "134217728",
         }
         stats = {"stats": {"cache_hits": {"counts": {"Rust": 1}}}}
         with (
@@ -36,11 +38,14 @@ class BuildCacheProbeTests(unittest.TestCase):
                 probe.build_measurements, "cache_stats", side_effect=[{}, stats]
             ) as observe,
             patch.object(probe.build_measurements, "stop_cache_server") as stop,
-            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stdout(io.StringIO()) as output,
         ):
             probe.main()
 
         environment = start.call_args.args[0]
+        self.assertEqual(
+            json.loads(output.getvalue())["cache_max_frame_length"], "134217728"
+        )
         self.assertEqual(environment["RUSTC_WRAPPER"], "/installed/sccache")
         self.assertNotEqual(environment["SCCACHE_DIR"], "/shared/cache")
         self.assertNotEqual(environment["SCCACHE_SERVER_UDS"], "/shared/cache.sock")

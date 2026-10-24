@@ -97,6 +97,7 @@ class BuildEnvironmentTests(unittest.TestCase):
                 lookup.assert_not_called()
         self.assertEqual(env["SCCACHE_DIR"], "/tmp/example/pse-arrow/sccache")
         self.assertEqual(env["SCCACHE_CACHE_SIZE"], "100G")
+        self.assertEqual(env["SCCACHE_MAX_FRAME_LENGTH"], "268435456")
         self.assertNotIn("CARGO_INCREMENTAL", env)
         self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
         self.assertEqual(env["SCCACHE_DIRECT"], "false")
@@ -109,6 +110,58 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual(
             configured["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache")
         )
+
+    def test_frame_override_survives_nested_setup_and_lsp_projection(self) -> None:
+        original = {
+            "RUSTC_WRAPPER": "/custom/sccache",
+            "SCCACHE_DIR": "/user/cache",
+            "SCCACHE_MAX_FRAME_LENGTH": "134217728",
+            "PRIVATE_TOKEN": "never-forward",
+        }
+        selected = build.configure(build.ROOT, original)
+        self.assertEqual(selected["SCCACHE_MAX_FRAME_LENGTH"], "134217728")
+        self.assertEqual(build.configure(build.ROOT, selected), selected)
+        projected = build.language_server_environment(selected)
+        self.assertEqual(projected["SCCACHE_MAX_FRAME_LENGTH"], "134217728")
+        self.assertNotIn("PRIVATE_TOKEN", projected)
+        for wrapper in ("", "/custom/wrapper"):
+            bypassed = build.configure(
+                build.ROOT,
+                {"RUSTC_WRAPPER": wrapper, "SCCACHE_MAX_FRAME_LENGTH": "invalid"},
+            )
+            self.assertEqual(bypassed["RUSTC_WRAPPER"], wrapper)
+            self.assertEqual(bypassed["SCCACHE_MAX_FRAME_LENGTH"], "invalid")
+        disabled = build.configure(build.ROOT, original, cache="off")
+        self.assertEqual(disabled["RUSTC_WRAPPER"], "")
+        self.assertEqual(disabled["SCCACHE_MAX_FRAME_LENGTH"], "134217728")
+
+    def test_frame_values_refuse_instead_of_sccache_silent_fallback(self) -> None:
+        for value in (
+            "", "0", "-1", "+1", "1.5", "128M", " 12", "12\n", "１２",
+            "4294967296", "9" * 5000,
+        ):
+            for mode in ("auto", "on"):
+                with self.subTest(value=value[:20], mode=mode):
+                    with self.assertRaisesRegex(
+                        ValueError, "SCCACHE_MAX_FRAME_LENGTH"
+                    ):
+                        build.configure(
+                            build.ROOT,
+                            {
+                                "RUSTC_WRAPPER": "/custom/sccache",
+                                "SCCACHE_MAX_FRAME_LENGTH": value,
+                            },
+                            cache=mode,
+                        )
+        for value, expected in (
+            ("1", "1"), ("4294967295", "4294967295"), ("0" * 5000 + "12", "12")
+        ):
+            self.assertEqual(
+                build.cache_max_frame_length(
+                    build.ROOT, {"SCCACHE_MAX_FRAME_LENGTH": value}
+                ),
+                expected,
+            )
 
     def test_real_binary_override_and_conflicting_selections(self) -> None:
         selected = {"PSE_SCCACHE_BINARY": "/chosen/sccache"}
@@ -137,6 +190,7 @@ class BuildEnvironmentTests(unittest.TestCase):
             "PSE_NATIVE_COMPILER_CACHE": str(build.ROOT / "scripts/sccache"),
             "SCCACHE_SERVER_UDS": "/campaign/cache.sock",
             "SCCACHE_NO_DAEMON": "1",
+            "SCCACHE_MAX_FRAME_LENGTH": "134217728",
             build.FOREGROUND_CACHE: "/campaign/cache.sock",
         }
         env = build.configure(build.ROOT, selected, cache="on")
@@ -144,6 +198,7 @@ class BuildEnvironmentTests(unittest.TestCase):
         self.assertEqual(env["PSE_NATIVE_COMPILER_CACHE"], "/installed/sccache")
         self.assertEqual(env["SCCACHE_SERVER_UDS"], "/campaign/cache.sock")
         self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
+        self.assertEqual(env["SCCACHE_MAX_FRAME_LENGTH"], "134217728")
         self.assertEqual(build.configure(build.ROOT, env), env)
         for extra in (
             {build.FOREGROUND_CACHE: ""},
@@ -248,7 +303,9 @@ class BuildEnvironmentTests(unittest.TestCase):
         # The environment never selects a toolchain; rustup reads rust-toolchain.toml.
         self.assertNotIn("RUSTUP_TOOLCHAIN", build.configure(build.ROOT, {}))
         settings = build.tomllib.loads((build.ROOT / ".config/build.toml").read_text())
-        self.assertEqual(set(settings), {"cache_size", "free_space_gib"})
+        self.assertEqual(
+            set(settings), {"cache_size", "cache_max_frame_length", "free_space_gib"}
+        )
 
     def test_frontend_preserves_flags_and_isolates_its_artifacts(self) -> None:
         env = build.configure(

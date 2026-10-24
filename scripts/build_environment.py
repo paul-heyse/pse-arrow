@@ -71,8 +71,33 @@ def validate_cache_binary(root: Path, selected: str) -> Path:
     return binary
 
 
+def cache_max_frame_length(root: Path, environment: Mapping[str, str]) -> str:
+    """Select a positive byte count representable by sccache's four-byte framing."""
+    selected = environment.get("SCCACHE_MAX_FRAME_LENGTH")
+    if selected is None:
+        settings = tomllib.loads((root / ".config/build.toml").read_text())
+        selected = str(settings["cache_max_frame_length"])
+    digits = selected.lstrip("0")
+    if (
+        not selected
+        or not selected.isascii()
+        or not selected.isdecimal()
+        or not digits
+        or len(digits) > 10
+        or not 0 < int(digits) <= 2**32 - 1
+    ):
+        raise ValueError(
+            "SCCACHE_MAX_FRAME_LENGTH must be decimal bytes between 1 and 4294967295"
+        )
+    return str(int(digits))
+
+
 def cache_mode_problem(root: Path, environment: Mapping[str, str]) -> str | None:
     """Explain why the selected cache cannot keep compilation in the caller."""
+    try:
+        cache_max_frame_length(root, environment)
+    except ValueError as error:
+        return str(error)
     if "SCCACHE_LOG" in environment:
         return "SCCACHE_LOG disables supervised client compilation"
     if "SCCACHE_ERROR_LOG" in environment:
@@ -127,6 +152,7 @@ def language_server_environment(environment: Mapping[str, str]) -> dict[str, str
         "PSE_SCCACHE_BINARY",
         "SCCACHE_DIR",
         "SCCACHE_CACHE_SIZE",
+        "SCCACHE_MAX_FRAME_LENGTH",
         "SCCACHE_CONF",
         "SCCACHE_SERVER_UDS",
         "SCCACHE_CLIENT_SIDE",
@@ -234,6 +260,7 @@ def configure(
         # Preprocessing must observe newly present headers: sccache's direct
         # include shortcut cannot establish the recorded absence premises.
         env.update(SCCACHE_CLIENT_SIDE="1", SCCACHE_DIRECT="false")
+        env["SCCACHE_MAX_FRAME_LENGTH"] = cache_max_frame_length(root, env)
         env.setdefault("SCCACHE_CONF", str(root / ".config/sccache.toml"))
         if problem := cache_mode_problem(root, env):
             # Normal builds fall back; explicit experiments refuse a different

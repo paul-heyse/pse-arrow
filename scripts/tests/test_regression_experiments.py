@@ -513,6 +513,22 @@ class ComparisonTests(unittest.TestCase):
         )
         self.assertNotIn("winner", result)
 
+    def test_frame_limit_is_a_recorded_cache_condition(self) -> None:
+        self.declaration([0.8])
+        directory = self.root / "0-baseline"
+        path = directory / "warm-0/command.json"
+        command = json.loads(path.read_text())
+        command["environment"]["SCCACHE_MAX_FRAME_LENGTH"] = "134217728"
+        path.write_text(json.dumps(command))
+        _value, conditions, _association = driver.measurement(
+            {"path": "0-baseline/summary.json", "sample": "warm-0"}, self.root
+        )
+        self.assertEqual(
+            conditions["cache"]["environment"]["SCCACHE_MAX_FRAME_LENGTH"],
+            "134217728",
+        )
+        self.assertNotIn("SCCACHE_MAX_FRAME_LENGTH", conditions["build"]["environment"])
+
     def test_noisy_comparison_is_inconclusive(self) -> None:
         result = driver.compare(self.declaration([0.6, 1.5, 0.9]), 0.1)
         self.assertEqual(result["status"], "inconclusive")

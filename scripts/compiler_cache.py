@@ -304,6 +304,7 @@ def daemon_environment(record: Mapping[str, object]) -> dict[str, str]:
         "SCCACHE_DIRECT": "false",
         "SCCACHE_DIR": str(record["cache"]),
         "SCCACHE_CACHE_SIZE": str(record["cache_size"]),
+        "SCCACHE_MAX_FRAME_LENGTH": str(record["cache_max_frame_length"]),
         "SCCACHE_CONF": str(record["configuration"]),
         "SCCACHE_SERVER_UDS": str(record["socket"]),
     }
@@ -368,6 +369,7 @@ def unit_text(record: Mapping[str, object], allocation: host.Allocation) -> str:
 def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
     deadline = time.monotonic() + 30 if deadline is None else deadline
     remaining(deadline)
+    frame_length = build_environment.cache_max_frame_length(ROOT, env)
     binary = real_binary(env)
     binary_digest = digest(binary)
     if binary == diagnostic_trace.binary_path("sccache", env).resolve() and (
@@ -385,6 +387,7 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
                 binary_digest,
                 digest(configuration),
                 env.get("SCCACHE_CACHE_SIZE", "100G"),
+                frame_length,
             ]
         ).encode()
     ).hexdigest()[:16]
@@ -492,6 +495,7 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
             "configuration_sha256": digest(frozen_configuration),
             "cache": str(cache),
             "cache_size": env.get("SCCACHE_CACHE_SIZE", "100G"),
+            "cache_max_frame_length": frame_length,
             "socket": str(endpoint),
             "allocation": allocation.environment(),
             "record": str(generation / "service.json"),
