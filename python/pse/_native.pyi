@@ -39,6 +39,7 @@ from pse.contracts.documents import (
     ContextSelection,
     ContextSelectionOutput,
     DeclarationInventoryOutput,
+    DecodeLocation,
     DetailDocumentOutput,
     DetailRecordPageOutput,
     DetailRequest,
@@ -175,6 +176,9 @@ from pse.contracts.documents import (
     ResearchSelectionRequest,
     ResearchSelectionRequestOutput,
     ResourceReportOutput,
+    ResultInspectionDocument,
+    ResultInspectionRequest,
+    ResultInspectionRequestOutput,
     ResultReclamationPage,
     ReviewContextDocument,
     ReviewContextDocumentOutput,
@@ -300,6 +304,8 @@ class DiagnosticReport:
     def code(self, /) -> DiagnosticCode | None: ...
     @property
     def contexts(self, /) -> tuple[DiagnosticContextDocumentOutput, ...]: ...
+    @property
+    def decode_location(self, /) -> DecodeLocation | None: ...
     @property
     def envelope(self, /) -> BoundaryDiagnosticOutput | None: ...
     @property
@@ -1130,6 +1136,9 @@ class NativeRuntime:
     def initialize_database(
         settings: EngineSettings, *, substrate: str, database: str
     ) -> None: ...
+    def inspect_result(
+        self, /, request: ResultInspectionRequest | ResultInspectionRequestOutput
+    ) -> ResultInspectionDocument: ...
     def latest_results(
         self,
         /,
