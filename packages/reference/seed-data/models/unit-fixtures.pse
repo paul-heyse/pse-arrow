@@ -49,6 +49,15 @@
 @id("b8415b4556d34ba695c20219a266a7ec") expect root.outlet.flow==111.176{mol/s} tolerance numerical_policy.molar_flow;
 @id("2cdf10e09ab442b3895fdca8c4c61a22") expect root.outlet.component_flow[chem.sodium_hydroxide]==0.2{mol/s} tolerance numerical_policy.component_flow;
 }
+// Unequal inlet pressures distinguish the selected smooth minimum from maximum/mean.
+@id("4428a0dedb594987968182d57446ad1c") test mixer_unequal_pressure_minimum oracle references.analytic_stream_identity fixture { dof 0; route steady; procedure solve; fix root.inlet[first].volume_flow=0.001{m^3/s}; fix root.inlet[first].T=320{K}; fix root.inlet[first].pressure=101325{Pa}; fix root.inlet[first].concentration[chem.water]=55388{mol/m^3}; fix root.inlet[first].concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.inlet[first].concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.inlet[first].concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.inlet[first].concentration[chem.ethanol]=1e-8{mol/m^3}; fix root.inlet[second].volume_flow=0.001{m^3/s}; fix root.inlet[second].T=300{K}; fix root.inlet[second].pressure=202650{Pa}; fix root.inlet[second].concentration[chem.water]=55388{mol/m^3}; fix root.inlet[second].concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.inlet[second].concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.inlet[second].concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.inlet[second].concentration[chem.ethanol]=1e-8{mol/m^3}; } {
+@id("15a3d39d665c42c89e3e079550dbcf60") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
+@id("6af432ce24074fb2a64872f81c3ad5a1") child root:mixing.Mixer=mixing.Mixer(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),inlets=ports);
+@id("ef3358db35a24f59ad9e662ad0d7bed0") expect root.outlet.T==310{K} tolerance numerical_policy.temperature;
+@id("70428d01f5ee4f19bf3341507e26400e") expect root.outlet.pressure==101325{Pa} tolerance numerical_policy.pressure;
+@id("12641fce4bda4019946f3d65e5f94015") expect root.outlet.flow==111.176{mol/s} tolerance numerical_policy.molar_flow;
+@id("884bcae035354ac8b0bed8ad0cf16122") expect root.outlet.component_flow[chem.sodium_hydroxide]==0.2{mol/s} tolerance numerical_policy.component_flow;
+}
 @id("c300809b2a0646158b204ebc2158a2a0") test feed_product oracle references.analytic_stream_identity fixture {dof 0; route steady; procedure solve; fix feed.state.volume_flow=0.001{m^3/s}; fix feed.state.T=303.15{K}; fix feed.state.pressure=101325{Pa}; fix feed.state.concentration[chem.water]=55388{mol/m^3}; fix feed.state.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix feed.state.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix feed.state.concentration[chem.sodium_acetate]=0{mol/m^3}; fix feed.state.concentration[chem.ethanol]=0{mol/m^3};} {
 @id("1f580ca25341424a9568e932a196f76a") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
 @id("cc6285e697d34b1eaf6544fc74b8faa2") child feed:units.Feed=units.Feed(pkg=saponification.Saponification(defined_state=true));
@@ -202,4 +211,18 @@
 @id("bf9270f9860c4a559219c99e1e6f949b") expect root.outlet_concentration[chem.ethyl_acetate]==61.743400621{mol/m^3} tolerance numerical_policy.concentration;
 }
 @id("7dfe8223f3f646ae8dc32056c5b18f02") use aqueous @"1.0.0";
+// Independent constant-capacity countercurrent effectiveness: Cmin=2086.105938 W/K,
+// Cr=1/2, NTU=5000/Cmin, epsilon=(1-exp(-NTU*(1-Cr)))/(1-Cr*exp(-NTU*(1-Cr))).
+// Capacity uses the frozen water density and cp in saponification.pse; both streams remain in range.
+@id("5bf6a1148a9946ea9f8d86844b5195fd") test heat_exchanger_default_countercurrent oracle references.analytic_temperature_differences fixture {dof 0; route steady; procedure solve; fix root.hot.inlet.volume_flow=0.001{m^3/s}; fix root.hot.inlet.T=320{K}; fix root.hot.inlet.pressure=101325{Pa}; fix root.hot.delta_pressure=0{Pa}; fix root.hot.inlet.concentration[chem.water]=55388{mol/m^3}; fix root.hot.inlet.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.hot.inlet.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.hot.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.hot.inlet.concentration[chem.ethanol]=1e-8{mol/m^3}; fix root.cold.inlet.volume_flow=0.0005{m^3/s}; fix root.cold.inlet.T=300{K}; fix root.cold.inlet.pressure=101325{Pa}; fix root.cold.delta_pressure=0{Pa}; fix root.cold.inlet.concentration[chem.water]=55388{mol/m^3}; fix root.cold.inlet.concentration[chem.sodium_hydroxide]=100{mol/m^3}; fix root.cold.inlet.concentration[chem.ethyl_acetate]=100{mol/m^3}; fix root.cold.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m^3}; fix root.cold.inlet.concentration[chem.ethanol]=1e-8{mol/m^3}; fix root.area=50{m^2}; fix root.coefficient=100{W/(m^2*K)};} {
+@id("7f6bbe2e01134374a43850a79d53bc7e") permission solvent_parameter_use records(correlations.constant[chem.water,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.saponification_caloric_fit],correlations.constant_density[chem.water,properties.liquid_molar_density,compatibility.PhaseType.liquidPhase,references.saponification_density_fit]) allow_unknown true allow_extrapolation false;
+@id("4738e9b74b3549faaf2da9f3eb639e07") child root:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=saponification.Saponification(defined_state=true),hot_outlet_pkg=saponification.Saponification(defined_state=false),cold_inlet_pkg=saponification.Saponification(defined_state=true),cold_outlet_pkg=saponification.Saponification(defined_state=false));
+@id("fd8acb46993a4a3a8b1ed50530fcbad2") expect root.hot.outlet.T==311.776308796438{K} tolerance numerical_policy.temperature;
+@id("bef237cb979c4fec91ba853a6739226f") expect root.cold.outlet.T==316.447382407124{K} tolerance numerical_policy.temperature;
+@id("5e998fa84d014b8dafd89f425f045a1f") expect root.cold.heat==34310.9821040572{W} tolerance numerical_policy.power;
+@id("c5dff7b817fa447eb36c4e57ff53cb50") expect root.hot.heat+root.cold.heat==0{W} tolerance numerical_policy.power;
+@id("4bfc31c4f2274e3d845d66cc7bf266a4") expect root.delta.first==3.55261759287646{K} tolerance numerical_policy.temperature;
+@id("5724db193b62491dabba80d2c55f1021") expect root.delta.second==11.7763087964382{K} tolerance numerical_policy.temperature;
+}
+
 }

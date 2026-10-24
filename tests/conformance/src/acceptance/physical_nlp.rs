@@ -262,3 +262,23 @@ async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualif
         authored_success(&result);
     }
 }
+
+/// Actual default exchanger orientation and unequal-pressure mixer through the
+/// same authored admission/native solve/physical-check boundary as other units.
+#[tokio::test]
+async fn authored_countercurrent_and_unequal_pressure_variants() {
+    let owner = WorkflowRuntime::new().unwrap();
+    let package = seed_package(&owner).await;
+    let declarations = package.declarations().await.unwrap();
+    for name in ["heat_exchanger_default_countercurrent", "mixer_unequal_pressure_minimum"] {
+        let case = declarations.iter().find(|row| row.name == name && row.value.kind.as_str() == "test")
+            .expect("authored variant fixture").declaration_id.as_id();
+        let prepared = seed_prepare(&package, case, profile(Backend::Ipopt, false), &CancelSource::new()).await.unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let report = authored_success(&result);
+        assert!(result.usable() && report.accepted, "{name}: {:?}", report.diagnostic());
+        let Outcome::Native(native) = &report.outcome else { panic!("actual native solve required"); };
+        assert!(native.quality.as_ref().is_some_and(|quality| quality.feasible()), "{name}");
+        assert!(!report.checks.is_empty(), "{name}: actual authored expectations required");
+    }
+}
