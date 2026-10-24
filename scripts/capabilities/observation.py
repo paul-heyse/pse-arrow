@@ -14,10 +14,11 @@ import json
 import re
 import sys
 import time
+from contextlib import suppress
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import PurePath
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 from uuid import uuid4
 
 from fastmcp.exceptions import NotFoundError, PromptError, ResourceError, ToolError
@@ -37,25 +38,54 @@ if TYPE_CHECKING:
 
     from fastmcp import FastMCP
     from fastmcp.server.middleware import CallNext, MiddlewareContext
-    from mcp.types import CallToolRequestParams, GetPromptRequestParams, ReadResourceRequestParams
+    from mcp.types import (
+        CallToolRequestParams,
+        GetPromptRequestParams,
+        ReadResourceRequestParams,
+    )
     from pydantic import JsonValue
 
 META_KEY = "pse.observation"
+MessageT = TypeVar("MessageT")
+ResultT = TypeVar("ResultT", ToolResult, ResourceResult, PromptResult)
 MAX_FRAMES = 16
 MAX_REFERENCES = 8
 MAX_META_BYTES = 16384
 NATIVE_TOOLS = frozenset("native_" + item.operation for item in BINDINGS)
 ASSESSMENT_TOOLS = frozenset(
-    {"assessment_run", "compilation_check", "contracts_check", "contracts_generate", "documentation_build"}
+    {
+        "assessment_run",
+        "compilation_check",
+        "contracts_check",
+        "contracts_generate",
+        "documentation_build",
+    }
 )
-OWNER_TOOLS = NATIVE_TOOLS | ASSESSMENT_TOOLS | {
-    "product_run_read", "workload_watch", "assessment_read", "rust_test_run",
-    "experiment_archive", "experiment_replay", "diagnostic_action", "diagnostic_action_read",
-}
-INTERFACE_TOOLS = frozenset({
-    "capabilities_domains", "capabilities_workflows", "capabilities_describe",
-    "capabilities_select", "capabilities_reset", "capabilities_invoke_read", "capabilities_invoke_action",
-})
+OWNER_TOOLS = (
+    NATIVE_TOOLS
+    | ASSESSMENT_TOOLS
+    | {
+        "product_run_read",
+        "workload_watch",
+        "assessment_read",
+        "rust_test_run",
+        "experiment_archive",
+        "experiment_replay",
+        "diagnostic_action",
+        "diagnostic_action_read",
+    }
+)
+INTERFACE_TOOLS = frozenset(
+    {
+        "capabilities_domains",
+        "capabilities_workflows",
+        "capabilities_describe",
+        "capabilities_select",
+        "capabilities_reset",
+        "capabilities_invoke_read",
+        "capabilities_invoke_action",
+    }
+)
 
 
 def _object(value: object) -> dict:
@@ -70,20 +100,32 @@ def _text(value: object) -> str | None:
 def _product(value: dict) -> dict[str, JsonValue] | None:
     invocation = _text(value.get("invocation"))
     registry = _text(value.get("registry"))
-    if invocation is None or registry is None and not PurePath(invocation).is_absolute():
+    if invocation is None or (
+        registry is None and not PurePath(invocation).is_absolute()
+    ):
         # A nonce without its issuing registry cannot be converted into an
         # authentic read by selecting the observer's current/default registry.
         return None
     arguments: dict[str, JsonValue] = {"invocation": invocation, "tail": 0}
     if registry is not None:
         arguments["registry"] = registry
-    return {"owner": "scripts/run_inspection.py", "capability": "product_run_read", "arguments": arguments}
+    return {
+        "owner": "scripts/run_inspection.py",
+        "capability": "product_run_read",
+        "arguments": arguments,
+    }
 
 
-def _native(name: str, content: object) -> tuple[dict[str, JsonValue], list[dict[str, JsonValue]]]:
+def _native(
+    name: str, content: object
+) -> tuple[dict[str, JsonValue], list[dict[str, JsonValue]]]:
     """Select only declared owner envelopes/fields, never scan arbitrary payloads."""
     envelope = _object(content)
-    operation = {"experiment_archive": "archive", "experiment_replay": "replay", "diagnostic_action": "diagnostic"}.get(name, name)
+    operation = {
+        "experiment_archive": "archive",
+        "experiment_replay": "replay",
+        "diagnostic_action": "diagnostic",
+    }.get(name, name)
     if envelope.get("operation") != operation:
         return {}, []
     read = "payload" in envelope and "complete" in envelope
@@ -95,15 +137,31 @@ def _native(name: str, content: object) -> tuple[dict[str, JsonValue], list[dict
     references: list[dict[str, JsonValue]] = []
     if name not in OWNER_TOOLS:
         return {}, []
-    signals["projection_complete"] = envelope.get("complete" if read else "detail_complete") is True
+    signals["projection_complete"] = (
+        envelope.get("complete" if read else "detail_complete") is True
+    )
     omissions = envelope.get("omissions")
     signals["omission_count"] = len(omissions) if isinstance(omissions, list) else 0
     # These are owner-reported signals, not a synthesized semantic pass/fail.
-    for key in ("outcome", "status", "phase", "terminal_status", "assurance", "owned_drain"):
+    for key in (
+        "outcome",
+        "status",
+        "phase",
+        "terminal_status",
+        "assurance",
+        "owned_drain",
+    ):
         value = payload.get(key)
         if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_. -]{1,96}", value):
             signals[key] = value
-    for key in ("exit_code", "workload_exit", "complete", "required_checks_covered", "input_coverage", "terminal_observed"):
+    for key in (
+        "exit_code",
+        "workload_exit",
+        "complete",
+        "required_checks_covered",
+        "input_coverage",
+        "terminal_observed",
+    ):
         value = payload.get(key)
         if isinstance(value, (bool, int)):
             signals[key] = value
@@ -117,16 +175,31 @@ def _native(name: str, content: object) -> tuple[dict[str, JsonValue], list[dict
             product = candidate
     elif name == "rust_test_run":
         reader = _object(payload.get("catalogue_reader"))
-        if reader.get("capability") == "product_run_read" and reader.get("invocation") == payload.get("invocation"):
+        if reader.get("capability") == "product_run_read" and reader.get(
+            "invocation"
+        ) == payload.get("invocation"):
             product = reader
     elif name in {"experiment_archive", "experiment_replay"}:
-        product = {"invocation": payload.get("producer_invocation" if name == "experiment_archive" else "invocation")}
+        product = {
+            "invocation": payload.get(
+                "producer_invocation" if name == "experiment_archive" else "invocation"
+            )
+        }
     elif name in {"diagnostic_action", "diagnostic_action_read"}:
         association = _object(payload.get("invocation"))
-        product = {"invocation": association.get("identity"), "registry": association.get("registry")}
+        product = {
+            "invocation": association.get("identity"),
+            "registry": association.get("registry"),
+        }
         output = _text(payload.get("output"))
         if output is not None:
-            references.append({"owner": "scripts/active_diagnostics.py", "capability": "diagnostic_action_read", "arguments": {"request": {"output": output, "summary_only": True}}})
+            references.append(
+                {
+                    "owner": "scripts/active_diagnostics.py",
+                    "capability": "diagnostic_action_read",
+                    "arguments": {"request": {"output": output, "summary_only": True}},
+                }
+            )
     if product is not None:
         reference = _product(product)
         if reference is not None:
@@ -135,11 +208,23 @@ def _native(name: str, content: object) -> tuple[dict[str, JsonValue], list[dict
         reader = _object(payload.get("reader"))
         directory = _text(reader.get("directory"))
         if reader.get("capability") == "assessment_read" and directory is not None:
-            references.append({"owner": "scripts/validation_result.py", "capability": "assessment_read", "arguments": {"directory": directory, "tail": 0}})
+            references.append(
+                {
+                    "owner": "scripts/validation_result.py",
+                    "capability": "assessment_read",
+                    "arguments": {"directory": directory, "tail": 0},
+                }
+            )
     elif name == "assessment_read":
         directory = _text(payload.get("run_path"))
         if directory is not None:
-            references.append({"owner": "scripts/validation_result.py", "capability": "assessment_read", "arguments": {"directory": directory, "tail": 0}})
+            references.append(
+                {
+                    "owner": "scripts/validation_result.py",
+                    "capability": "assessment_read",
+                    "arguments": {"directory": directory, "tail": 0},
+                }
+            )
     return signals, references
 
 
@@ -155,10 +240,18 @@ def _failure(error: Exception) -> tuple[str, str]:
             value = {}
         code = _object(value).get("code")
         if code is None:
-            match = re.match(r"^(pse\.capabilities\.[a-z0-9_.]{1,100}):", str(error)[:128])
+            match = re.match(
+                r"^(pse\.capabilities\.[a-z0-9_.]{1,100}):", str(error)[:128]
+            )
             code = match.group(1) if match else None
         if isinstance(code, str) and re.fullmatch(r"pse\.[a-z0-9_.]{1,120}", code):
-            stage = "native" if code.startswith("pse.native.") else "interface" if code.startswith("pse.capabilities.") else "adapter"
+            stage = (
+                "native"
+                if code.startswith("pse.native.")
+                else "interface"
+                if code.startswith("pse.capabilities.")
+                else "adapter"
+            )
             return stage, code
         return "adapter", "pse.capabilities.tool_refused"
     return "unknown", "pse.capabilities.tool_failed"
@@ -173,7 +266,9 @@ def _trace() -> dict[str, JsonValue]:
         "end_to_end_continuity": "unestablished",
     }
     if context.is_valid:
-        value.update(trace_id=f"{context.trace_id:032x}", span_id=f"{context.span_id:016x}")
+        value.update(
+            trace_id=f"{context.trace_id:032x}", span_id=f"{context.span_id:016x}"
+        )
     else:
         value["context"] = "unavailable"
     return value
@@ -191,12 +286,14 @@ class _Request:
     omitted_references: int = 0
 
     def metadata(self) -> dict[str, JsonValue]:
+        references: list[JsonValue] = list(self.references)
+        calls: list[JsonValue] = list(self.frames)
         value: dict[str, JsonValue] = {
             "correlation": self.correlation,
             "loaded_revision": self.revision,
             "request_id_sha256": self.request_id_sha256,
-            "calls": list(self.frames),
-            "native_references": list(self.references),
+            "calls": calls,
+            "native_references": references,
             "omitted_calls": self.omitted_frames,
             "omitted_references": self.omitted_references,
             "trace": self.trace,
@@ -205,9 +302,6 @@ class _Request:
             "native_timing": "unobserved",
             "reference_scope": "Declared supported owner output fields only; missing or oversized identities are not inferred.",
         }
-        references = value["native_references"]
-        calls = value["calls"]
-        assert isinstance(references, list) and isinstance(calls, list)
         omitted_references = self.omitted_references
         omitted_calls = self.omitted_frames
         while len(json.dumps(value, ensure_ascii=True).encode()) > MAX_META_BYTES:
@@ -241,9 +335,18 @@ class Observation(Middleware):
         self.operation_names = operation_names | OWNER_TOOLS | INTERFACE_TOOLS
         self.prompt_names = prompt_names
         self.resource_names = dict(resource_names or {})
-        if any(len(name) > 128 or not name for name in (*self.operation_names, *self.prompt_names, *self.resource_names.values())):
+        if any(
+            len(name) > 128 or not name
+            for name in (
+                *self.operation_names,
+                *self.prompt_names,
+                *self.resource_names.values(),
+            )
+        ):
             raise ValueError("bounded registered component names required")
-        self._active: ContextVar[tuple[_Request, int | None] | None] = ContextVar("pse_interface_observation", default=None)
+        self._active: ContextVar[tuple[_Request, int | None] | None] = ContextVar(
+            "pse_interface_observation", default=None
+        )
 
     def _component_name(self, kind: str, identity: str) -> str | None:
         if kind == "tool":
@@ -271,7 +374,7 @@ class Observation(Middleware):
         context: MiddlewareContext[ReadResourceRequestParams],
         call_next: CallNext[ReadResourceRequestParams, ResourceResult],
     ) -> ResourceResult:
-        return await self._observe(context, call_next, "resource", str(context.message.uri))
+        return await self._observe(context, call_next, "resource", context.message.uri)
 
     async def on_get_prompt(
         self,
@@ -280,7 +383,7 @@ class Observation(Middleware):
     ) -> PromptResult:
         return await self._observe(context, call_next, "prompt", context.message.name)
 
-    async def _observe[MessageT, ResultT: (ToolResult, ResourceResult, PromptResult)](
+    async def _observe(
         self,
         context: MiddlewareContext[MessageT],
         call_next: CallNext[MessageT, ResultT],
@@ -292,7 +395,14 @@ class Observation(Middleware):
         if parent is None:
             ctx = context.fastmcp_context
             request_id = ctx.origin_request_id if ctx is not None else None
-            state = _Request(uuid4().hex, self.revision, hashlib.sha256(request_id.encode()).hexdigest() if request_id is not None else None, _trace())
+            state = _Request(
+                uuid4().hex,
+                self.revision,
+                hashlib.sha256(request_id.encode()).hexdigest()
+                if request_id is not None
+                else None,
+                _trace(),
+            )
             parent_index = None
         else:
             state, parent_index = parent
@@ -321,7 +431,11 @@ class Observation(Middleware):
         result: ResultT | None = None
         try:
             result = await call_next(context)
-            frame["interface"] = "error_result" if isinstance(result, ToolResult) and result.is_error else "returned"
+            frame["interface"] = (
+                "error_result"
+                if isinstance(result, ToolResult) and result.is_error
+                else "returned"
+            )
             if isinstance(result, ToolResult):
                 signals, references = _native(identity, result.structured_content)
                 if signals:
@@ -333,20 +447,30 @@ class Observation(Middleware):
                         state.references.append(reference)
                     else:
                         state.omitted_references += 1
-            return result
         except asyncio.CancelledError:
-            frame.update(interface="observer_detached", stage="interface", code="pse.capabilities.observer_detached")
+            frame.update(
+                interface="observer_detached",
+                stage="interface",
+                code="pse.capabilities.observer_detached",
+            )
             raise
         except Exception as error:
             stage, code = _failure(error)
             frame.update(interface="failed", stage=stage, code=code)
             raise
+        else:
+            return result
         finally:
-            frame["interface_elapsed_ms"] = round((time.monotonic() - started) * 1000, 3)
+            frame["interface_elapsed_ms"] = round(
+                (time.monotonic() - started) * 1000, 3
+            )
             self._active.reset(token)
             if root:
                 metadata = state.metadata()
-                if result is not None and frame["interface"] in {"returned", "error_result"}:
+                if result is not None and frame["interface"] in {
+                    "returned",
+                    "error_result",
+                }:
                     # Preserve the exact native payload/content and existing metadata.
                     merged = dict(result.meta or {})
                     if META_KEY in merged:
@@ -366,18 +490,24 @@ class Observation(Middleware):
                     "correlation": state.correlation,
                     "loaded_revision": state.revision,
                     "request_id_sha256": state.request_id_sha256,
-                    "calls": [{key: value for key, value in call.items() if key != "native"} for call in state.frames],
+                    "calls": [
+                        {key: value for key, value in call.items() if key != "native"}
+                        for call in state.frames
+                    ],
                     "native_reference_count": len(state.references),
                     "omitted_calls": state.omitted_frames,
                     "trace": state.trace,
                     "transport_delivery": "unobserved",
                     "native_transport": "server_unobserved_client_errors",
                 }
-                try:
-                    print(json.dumps(diagnostic, ensure_ascii=True, separators=(",", ":")), file=sys.stderr)
-                except (OSError, ValueError):
-                    # A detached diagnostic sink cannot change native results.
-                    pass
+                # A detached diagnostic sink cannot change native results.
+                with suppress(OSError, ValueError):
+                    print(
+                        json.dumps(
+                            diagnostic, ensure_ascii=True, separators=(",", ":")
+                        ),
+                        file=sys.stderr,
+                    )
 
 
 def install(
@@ -389,4 +519,11 @@ def install(
     prompt_names: frozenset[str] = frozenset(),
 ) -> None:
     """Attach after composition so this middleware sees actual canonical dispatch."""
-    server.add_middleware(Observation(revision, operation_names=operation_names, resource_names=resource_names, prompt_names=prompt_names))
+    server.add_middleware(
+        Observation(
+            revision,
+            operation_names=operation_names,
+            resource_names=resource_names,
+            prompt_names=prompt_names,
+        )
+    )

@@ -35,7 +35,11 @@ WORKERS = {
     "rust-tests": Worker(
         "scripts.capabilities.qualification_worker",
         frozenset({"rust-test"}),
-        ("--recipe-default-class", "exclusive", "--native="),
+        (
+            "--recipe-default-class",
+            "exclusive",
+            "--native=solver,klu,isolation,uno,petsc",
+        ),
     ),
     "native": Worker(
         "scripts.capabilities.native_worker",
@@ -44,4 +48,3 @@ WORKERS = {
         redact_diagnostics=True,
     ),
 }
-

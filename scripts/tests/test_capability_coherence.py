@@ -33,7 +33,10 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         self.second.write_text("# Independent second owner\n")
         self.dependency.write_text("VALUE = 1\n")
         self.common.write_text("# Shared serving interpretation\n")
-        self.sources = Sources(self.root, ("scripts/first.py", "scripts/second.py", "scripts/capabilities/server.py"))
+        self.sources = Sources(
+            self.root,
+            ("scripts/first.py", "scripts/second.py", "scripts/capabilities/server.py"),
+        )
         self.calls = 0
 
         def first(limit: int = 3) -> dict[str, int]:
@@ -46,9 +49,30 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
             return {"outcome": "second"}
 
         self.server = FastMCP("coherence-control", strict_input_validation=True)
-        tools = {fn.__name__: Tool.from_function(fn) for fn in (first, second)}
-        specs = tuple(Capability(id=name, title=name, description=name, domain="source", owner=f"scripts/{name}.py", source=f"scripts/{name}.py", exposure="tool", effects="Test fixture only") for name in tools)
-        self.catalogue = Catalogue((Domain(id="source", title="Source", description="Source"),), (), (), specs, tools, loaded_source_revision=self.sources.revision)
+        tools: dict[str, Tool] = {
+            fn.__name__: Tool.from_function(fn) for fn in (first, second)
+        }
+        specs = tuple(
+            Capability(
+                id=name,
+                title=name,
+                description=name,
+                domain="source",
+                owner=f"scripts/{name}.py",
+                source=f"scripts/{name}.py",
+                exposure="tool",
+                effects="Test fixture only",
+            )
+            for name in tools
+        )
+        self.catalogue = Catalogue(
+            (Domain(id="source", title="Source", description="Source"),),
+            (),
+            (),
+            specs,
+            tools,
+            loaded_source_revision=self.sources.revision,
+        )
         for tool in tools.values():
             self.server.add_tool(tool)
         self.interface = install(self.server, self.sources, self.catalogue)
@@ -56,25 +80,38 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         await self.client.__aenter__()
         self.addAsyncCleanup(self.client.__aexit__, None, None, None)
 
-    async def test_changed_owner_never_dispatches_old_handler_with_new_schema(self) -> None:
-        self.first.write_text("def first(new_required_parameter: str):\n    return new_required_parameter\n")
+    async def test_changed_owner_never_dispatches_old_handler_with_new_schema(
+        self,
+    ) -> None:
+        self.first.write_text(
+            "def first(new_required_parameter: str):\n    return new_required_parameter\n"
+        )
         tools = await self.client.list_tools()
         loaded = next(tool for tool in tools if tool.name == "first")
         self.assertIn("limit", loaded.input_schema["properties"])
         self.assertNotIn("new_required_parameter", loaded.input_schema["properties"])
-        result = await self.client.call_tool("first", {"limit": 7}, raise_on_error=False)
+        result = await self.client.call_tool(
+            "first", {"limit": 7}, raise_on_error=False
+        )
         self.assertTrue(result.is_error)
         self.assertIn("pse.capabilities.restart_required", str(result.content))
         self.assertEqual(self.calls, 0)
         self.assertTrue(self.interface.status("first")["restart_required"])
         self.assertFalse(self.interface.status("second")["restart_required"])
-        self.assertEqual((await self.client.call_tool("second", {})).structured_content, {"outcome": "second"})
+        self.assertEqual(
+            (await self.client.call_tool("second", {})).structured_content,
+            {"outcome": "second"},
+        )
 
     async def test_transitive_local_owner_change_and_deletion_refuse(self) -> None:
         self.dependency.unlink()
         result = await self.client.call_tool("first", {}, raise_on_error=False)
         self.assertTrue(result.is_error)
-        self.assertIn("scripts/dependency.py", self.interface.status("first")["changed_serving_sources"])
+        changed = self.interface.status("first")["changed_serving_sources"]
+        self.assertIsInstance(changed, list)
+        if not isinstance(changed, list):
+            self.fail("Restart status must identify the changed serving paths")
+        self.assertIn("scripts/dependency.py", changed)
         self.assertEqual(self.calls, 0)
         self.assertFalse(self.interface.status("second")["restart_required"])
 
@@ -85,24 +122,29 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(result.is_error)
         self.assertEqual(self.calls, 0)
 
-    async def test_unrelated_source_and_guide_edits_do_not_invalidate_operation(self) -> None:
+    async def test_unrelated_source_and_guide_edits_do_not_invalidate_operation(
+        self,
+    ) -> None:
         (self.root / "model.pse").write_text("current model source")
         (self.root / "unrelated.md").write_text("current unrelated guide")
         observed = []
-        original = self.sources._read
+        original = Path.read_bytes
 
-        def record(path: str) -> bytes:
-            observed.append(path)
+        def record(path: Path) -> bytes:
+            if path.is_relative_to(self.root):
+                observed.append(path.relative_to(self.root).as_posix())
             return original(path)
 
-        with patch.object(self.sources, "_read", side_effect=record):
+        with patch.object(Path, "read_bytes", record):
             result = await self.client.call_tool("second", {})
         self.assertEqual(result.structured_content, {"outcome": "second"})
         self.assertNotIn("scripts/first.py", observed)
         self.assertNotIn("scripts/dependency.py", observed)
         self.assertFalse(self.interface.status("second")["restart_required"])
 
-    async def test_reversion_does_not_clear_observed_restart_and_new_process_cut_does(self) -> None:
+    async def test_reversion_does_not_clear_observed_restart_and_new_process_cut_does(
+        self,
+    ) -> None:
         original = self.first.read_bytes()
         self.first.write_bytes(original + b"# revision two\n")
         self.assertTrue(self.interface.status("first")["restart_required"])
@@ -124,7 +166,9 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(copied.revision, original)
         self.assertEqual(copied.check(copied.sources), ())
 
-    async def test_fixed_worker_edit_refuses_before_child_or_handler_effect(self) -> None:
+    async def test_fixed_worker_edit_refuses_before_child_or_handler_effect(
+        self,
+    ) -> None:
         for worker_name, capability, module in (
             ("native", "native_source_admit", "scripts.capabilities.native"),
             ("host", "experiment_archive", "scripts.capabilities.host_actions"),
@@ -142,15 +186,35 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
 
                 action.__module__ = module
                 tool = Tool.from_function(action, name=capability)
-                spec = Capability(id=capability, title=capability, description=capability, domain="source", owner="scripts/first.py", source="scripts/first.py", exposure="tool", effects="Test fixture counter")
-                catalogue = Catalogue((Domain(id="source", title="Source", description="Source"),), (), (), (spec,), {capability: tool}, loaded_source_revision=sources.revision)
+                spec = Capability(
+                    id=capability,
+                    title=capability,
+                    description=capability,
+                    domain="source",
+                    owner="scripts/first.py",
+                    source="scripts/first.py",
+                    exposure="tool",
+                    effects="Test fixture counter",
+                )
+                catalogue = Catalogue(
+                    (Domain(id="source", title="Source", description="Source"),),
+                    (),
+                    (),
+                    (spec,),
+                    {capability: tool},
+                    loaded_source_revision=sources.revision,
+                )
                 endpoint = FastMCP("worker-fence")
                 endpoint.add_tool(tool)
                 interface = install(endpoint, sources, catalogue)
                 self.assertIn(relative, interface.operations[capability])
-                worker.write_text("# Newly edited child must not execute under old schema\n")
+                worker.write_text(
+                    "# Newly edited child must not execute under old schema\n"
+                )
                 async with Client(endpoint) as client:
-                    result = await client.call_tool(capability, {}, raise_on_error=False)
+                    result = await client.call_tool(
+                        capability, {}, raise_on_error=False
+                    )
                 self.assertTrue(result.is_error)
                 self.assertIn("pse.capabilities.restart_required", str(result.content))
                 self.assertEqual(self.calls, 0)

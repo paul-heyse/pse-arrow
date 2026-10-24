@@ -37,7 +37,12 @@ def inherited_specialists(root: Path) -> tuple[str, ...]:
         document = tomllib.loads(path.read_text())
         servers = document.get("mcp_servers", {})
         if isinstance(servers, dict):
-            configured.update(name for name in names if isinstance(servers.get(name), dict) and ("command" in servers[name] or "url" in servers[name]))
+            configured.update(
+                name
+                for name in names
+                if isinstance(servers.get(name), dict)
+                and ("command" in servers[name] or "url" in servers[name])
+            )
     return tuple(sorted(configured))
 
 
@@ -101,7 +106,12 @@ def session_description(
             "PSE_CAPABILITIES_DATABASE_STATE": str(selected_state.absolute()),
         },
     }
-    settings.update({"mcp_servers." + name + ".enabled": False for name in inherited_specialists(ROOT)})
+    settings.update(
+        {
+            "mcp_servers." + name + ".enabled": False
+            for name in inherited_specialists(ROOT)
+        }
+    )
     command = [executable, "-C", str(ROOT)]
     for key, value in settings.items():
         if isinstance(value, dict):

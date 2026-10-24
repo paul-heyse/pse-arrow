@@ -239,7 +239,9 @@ class Guidance:
                 if not self._changed.intersection(selected):
                     self._snapshots.update(pending)
             restart = bool(self._changed.intersection(selected))
-            return [self._result(self._guides[guide_id], restart) for guide_id in selected]
+            return [
+                self._result(self._guides[guide_id], restart) for guide_id in selected
+            ]
 
     def _result(self, guide: Guide, restart: bool) -> dict[str, object]:
         snapshot = self._snapshots.get(guide.id)

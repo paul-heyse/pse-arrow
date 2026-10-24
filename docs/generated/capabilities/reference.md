@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `bd57800047e776ae1ec2698afba8c35619b4dc7a20b645905f7956f9cd3dda20`.
+Catalogue content revision: `239c691ec1d2decb130ead7cfdc61f715d2fe355789f52d1ed0da699e565e15a`.
 
 ## Domains
 
@@ -748,6 +748,12 @@ Exact component key: `tool:get_prompt@`.
       "tags": []
     }
   },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
   "description": "Get a prompt by name with optional arguments.\n\nReturns the rendered prompt as JSON with a messages array.\nArguments should be provided as a dict mapping argument names\nto values.",
   "inputSchema": {
     "additionalProperties": false,
@@ -803,6 +809,12 @@ Exact component key: `tool:list_prompts@`.
       "tags": []
     }
   },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
   "description": "List all available prompts.\n\nReturns JSON with prompt metadata including name, description,\nand optional arguments.",
   "inputSchema": {
     "additionalProperties": false,
@@ -838,6 +850,9 @@ Exact component key: `tool:list_resources@`.
     }
   },
   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
     "readOnlyHint": true
   },
   "description": "List all available resources and resource templates.\n\nReturns JSON with resource metadata. Static resources have a\n'uri' field, while templates have a 'uri_template' field with\nplaceholders like {name}.",
@@ -875,6 +890,9 @@ Exact component key: `tool:read_resource@`.
     }
   },
   "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
     "readOnlyHint": true
   },
   "description": "Read a resource by its URI.\n\nFor static resources, provide the exact URI. For templated\nresources, provide the URI with template parameters filled in.\n\nReturns the resource content as a string. Binary content is\nbase64-encoded.",
@@ -912,7 +930,7 @@ Exact component key: `tool:read_resource@`.
 
 ### `active-diagnostics` — Active process diagnostics and optional profilers
 
-Exposure: **native**. Owner: `scripts/active_diagnostics.py`. Declaration source: [scripts/active_diagnostics.py](../../../scripts/active_diagnostics.py).
+Exposure: **native**. Owner: `scripts/active_diagnostics.py`. Declaration source: [scripts/active_diagnostics.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/active_diagnostics.py).
 
 ```json
 {
@@ -947,7 +965,7 @@ Exposure: **native**. Owner: `scripts/active_diagnostics.py`. Declaration source
 
 ### `assessment_read` — assessment read
 
-Exposure: **tool**. Owner: `scripts/validation_result.py`. Declaration source: [scripts/validation_result.py](../../../scripts/validation_result.py).
+Exposure: **tool**. Owner: `scripts/validation_result.py`. Declaration source: [scripts/validation_result.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/validation_result.py).
 
 ```json
 {
@@ -1063,7 +1081,7 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
 
 ### `assessment_run` — assessment run
 
-Exposure: **tool**. Owner: `scripts/validation.py`. Declaration source: [scripts/validation.py](../../../scripts/validation.py).
+Exposure: **tool**. Owner: `scripts/validation.py`. Declaration source: [scripts/validation.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/validation.py).
 
 ```json
 {
@@ -1274,7 +1292,7 @@ Exact callable component key: `tool:assessment_run@`. The following is the regis
 
 ### `assessment_select` — assessment select
 
-Exposure: **tool**. Owner: `scripts/validation_scope.py`. Declaration source: [scripts/validation_scope.py](../../../scripts/validation_scope.py).
+Exposure: **tool**. Owner: `scripts/validation_scope.py`. Declaration source: [scripts/validation_scope.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/validation_scope.py).
 
 ```json
 {
@@ -1443,7 +1461,7 @@ Exact callable component key: `tool:assessment_select@`. The following is the re
 
 ### `build-cache` — Compilation and compiler-cache diagnosis
 
-Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source: [scripts/build_environment.py](../../../scripts/build_environment.py).
+Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source: [scripts/build_environment.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/build_environment.py).
 
 ```json
 {
@@ -1475,7 +1493,7 @@ Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source:
 
 ### `build-storage` — Build-storage and disk health
 
-Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [scripts/build_storage.py](../../../scripts/build_storage.py).
+Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [scripts/build_storage.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/build_storage.py).
 
 ```json
 {
@@ -1506,7 +1524,7 @@ Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [sc
 
 ### `compilation_check` — compilation check
 
-Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](../../../justfile).
+Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://github.com/paul-heyse/pse-arrow/blob/main/justfile).
 
 ```json
 {
@@ -1666,7 +1684,7 @@ Exact callable component key: `tool:compilation_check@`. The following is the re
 
 ### `contracts_check` — contracts check
 
-Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](../../../justfile).
+Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://github.com/paul-heyse/pse-arrow/blob/main/justfile).
 
 ```json
 {
@@ -1782,7 +1800,7 @@ Exact callable component key: `tool:contracts_check@`. The following is the regi
 
 ### `contracts_generate` — contracts generate
 
-Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](../../../justfile).
+Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://github.com/paul-heyse/pse-arrow/blob/main/justfile).
 
 ```json
 {
@@ -1898,7 +1916,7 @@ Exact callable component key: `tool:contracts_generate@`. The following is the r
 
 ### `controlled-edits` — Protected edits and structural migrations
 
-Exposure: **native**. Owner: `scripts/semantic_edits.py`. Declaration source: [scripts/semantic_edits.py](../../../scripts/semantic_edits.py).
+Exposure: **native**. Owner: `scripts/semantic_edits.py`. Declaration source: [scripts/semantic_edits.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/semantic_edits.py).
 
 ```json
 {
@@ -1933,7 +1951,7 @@ Exposure: **native**. Owner: `scripts/semantic_edits.py`. Declaration source: [s
 
 ### `coverage_correspondence_read` — coverage correspondence read
 
-Exposure: **tool**. Owner: `scripts/coverage_correspondence.py`. Declaration source: [scripts/coverage_correspondence.py](../../../scripts/coverage_correspondence.py).
+Exposure: **tool**. Owner: `scripts/coverage_correspondence.py`. Declaration source: [scripts/coverage_correspondence.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/coverage_correspondence.py).
 
 ```json
 {
@@ -2032,7 +2050,7 @@ Exact callable component key: `tool:coverage_correspondence_read@`. The followin
 
 ### `database-tooling` — Canonical database and specialist tooling
 
-Exposure: **native**. Owner: `scripts/surreal_server.py`. Declaration source: [scripts/surreal_server.py](../../../scripts/surreal_server.py).
+Exposure: **native**. Owner: `scripts/surreal_server.py`. Declaration source: [scripts/surreal_server.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/surreal_server.py).
 
 ```json
 {
@@ -2066,7 +2084,7 @@ Exposure: **native**. Owner: `scripts/surreal_server.py`. Declaration source: [s
 
 ### `database_info` — Database Info
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -2197,7 +2215,7 @@ Exact callable component key: `tool:database_info@`. The following is the regist
 
 ### `database_list` — Database List
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -2368,7 +2386,7 @@ Exact callable component key: `tool:database_list@`. The following is the regist
 
 ### `database_query` — Database Query
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -2509,7 +2527,7 @@ Exact callable component key: `tool:database_query@`. The following is the regis
 
 ### `database_select` — Database Select
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -2599,7 +2617,7 @@ Exact callable component key: `tool:database_select@`. The following is the regi
 
 ### `decisions-register` — Decisions, ADRs and deferred triggers
 
-Exposure: **native**. Owner: `scripts/adr.py`. Declaration source: [scripts/adr.py](../../../scripts/adr.py).
+Exposure: **native**. Owner: `scripts/adr.py`. Declaration source: [scripts/adr.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/adr.py).
 
 ```json
 {
@@ -2630,7 +2648,7 @@ Exposure: **native**. Owner: `scripts/adr.py`. Declaration source: [scripts/adr.
 
 ### `dependency-maintenance` — Pinned dependency maintenance
 
-Exposure: **native**. Owner: `Cargo.toml`. Declaration source: [Cargo.toml](../../../Cargo.toml).
+Exposure: **native**. Owner: `Cargo.toml`. Declaration source: [Cargo.toml](https://github.com/paul-heyse/pse-arrow/blob/main/Cargo.toml).
 
 ```json
 {
@@ -2661,7 +2679,7 @@ Exposure: **native**. Owner: `Cargo.toml`. Declaration source: [Cargo.toml](../.
 
 ### `diagnostic_action` — Run an explicit diagnostic action
 
-Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: [scripts/active_diagnostics.py](../../../scripts/active_diagnostics.py).
+Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: [scripts/active_diagnostics.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/active_diagnostics.py).
 
 ```json
 {
@@ -3012,7 +3030,7 @@ Exact callable component key: `tool:diagnostic_action@`. The following is the re
 
 ### `diagnostic_action_read` — Read retained diagnostic output
 
-Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: [scripts/active_diagnostics.py](../../../scripts/active_diagnostics.py).
+Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: [scripts/active_diagnostics.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/active_diagnostics.py).
 
 ```json
 {
@@ -3152,7 +3170,7 @@ Exact callable component key: `tool:diagnostic_action_read@`. The following is t
 
 ### `document_scope_query` — document scope query
 
-Exposure: **tool**. Owner: `scripts/document_lifecycle.py`. Declaration source: [scripts/document_lifecycle.py](../../../scripts/document_lifecycle.py).
+Exposure: **tool**. Owner: `scripts/document_lifecycle.py`. Declaration source: [scripts/document_lifecycle.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/document_lifecycle.py).
 
 ```json
 {
@@ -3282,7 +3300,7 @@ Exact callable component key: `tool:document_scope_query@`. The following is the
 
 ### `documentation-lifecycle` — Documentation and native lifecycle
 
-Exposure: **native**. Owner: `scripts/document_lifecycle.py`. Declaration source: [scripts/document_lifecycle.py](../../../scripts/document_lifecycle.py).
+Exposure: **native**. Owner: `scripts/document_lifecycle.py`. Declaration source: [scripts/document_lifecycle.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/document_lifecycle.py).
 
 ```json
 {
@@ -3315,7 +3333,7 @@ Exposure: **native**. Owner: `scripts/document_lifecycle.py`. Declaration source
 
 ### `documentation_build` — documentation build
 
-Exposure: **tool**. Owner: `scripts/docs.py`. Declaration source: [scripts/docs.py](../../../scripts/docs.py).
+Exposure: **tool**. Owner: `scripts/docs.py`. Declaration source: [scripts/docs.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/docs.py).
 
 ```json
 {
@@ -3431,7 +3449,7 @@ Exact callable component key: `tool:documentation_build@`. The following is the 
 
 ### `edit_preview_apply` — Edit Preview Apply
 
-Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scripts/semantic_edits.py](../../../scripts/semantic_edits.py).
+Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scripts/semantic_edits.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/semantic_edits.py).
 
 ```json
 {
@@ -3533,7 +3551,7 @@ Exact callable component key: `tool:edit_preview_apply@`. The following is the r
 
 ### `edit_preview_read` — Edit Preview Read
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -3662,7 +3680,7 @@ Exact callable component key: `tool:edit_preview_read@`. The following is the re
 
 ### `edit_preview_reconcile` — Edit Preview Reconcile
 
-Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scripts/semantic_edits.py](../../../scripts/semantic_edits.py).
+Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scripts/semantic_edits.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/semantic_edits.py).
 
 ```json
 {
@@ -3760,7 +3778,7 @@ Exact callable component key: `tool:edit_preview_reconcile@`. The following is t
 
 ### `environment-preparation` — Environment explanation and preparation
 
-Exposure: **native**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/pse_env.py](../../../scripts/pse_env.py).
+Exposure: **native**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/pse_env.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/pse_env.py).
 
 ```json
 {
@@ -3790,7 +3808,7 @@ Exposure: **native**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/
 
 ### `environment_explain` — environment explain
 
-Exposure: **tool**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/pse_env.py](../../../scripts/pse_env.py).
+Exposure: **tool**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/pse_env.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/pse_env.py).
 
 ```json
 {
@@ -3878,7 +3896,7 @@ Exact callable component key: `tool:environment_explain@`. The following is the 
 
 ### `evidence-inspection` — Original evidence and derived tooling indexes
 
-Exposure: **native**. Owner: `xtask/src/evidence_tools.rs`. Declaration source: [xtask/src/evidence_tools.rs](../../../xtask/src/evidence_tools.rs).
+Exposure: **native**. Owner: `xtask/src/evidence_tools.rs`. Declaration source: [xtask/src/evidence_tools.rs](https://github.com/paul-heyse/pse-arrow/blob/main/xtask/src/evidence_tools.rs).
 
 ```json
 {
@@ -3911,7 +3929,7 @@ Exposure: **native**. Owner: `xtask/src/evidence_tools.rs`. Declaration source: 
 
 ### `experiment_archive` — Archive selected historical tests
 
-Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scripts/test_archives.py](../../../scripts/test_archives.py).
+Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scripts/test_archives.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/test_archives.py).
 
 ```json
 {
@@ -4067,7 +4085,7 @@ Exact callable component key: `tool:experiment_archive@`. The following is the r
 
 ### `experiment_inspect` — Inspect a retained test archive
 
-Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scripts/test_archives.py](../../../scripts/test_archives.py).
+Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scripts/test_archives.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/test_archives.py).
 
 ```json
 {
@@ -4208,7 +4226,7 @@ Exact callable component key: `tool:experiment_inspect@`. The following is the r
 
 ### `experiment_replay` — Replay retained historical tests
 
-Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scripts/test_archives.py](../../../scripts/test_archives.py).
+Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scripts/test_archives.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/test_archives.py).
 
 ```json
 {
@@ -4331,7 +4349,7 @@ Exact callable component key: `tool:experiment_replay@`. The following is the re
 
 ### `experiments-recovery` — Experiments, isolation and recovery
 
-Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scripts/experiments.py](../../../scripts/experiments.py).
+Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scripts/experiments.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/experiments.py).
 
 ```json
 {
@@ -4364,7 +4382,7 @@ Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scri
 
 ### `generated-contracts` — Schemas, registry generation and compiled stubs
 
-Exposure: **native**. Owner: `xtask/src/codegen.rs`. Declaration source: [xtask/src/codegen.rs](../../../xtask/src/codegen.rs).
+Exposure: **native**. Owner: `xtask/src/codegen.rs`. Declaration source: [xtask/src/codegen.rs](https://github.com/paul-heyse/pse-arrow/blob/main/xtask/src/codegen.rs).
 
 ```json
 {
@@ -4397,7 +4415,7 @@ Exposure: **native**. Owner: `xtask/src/codegen.rs`. Declaration source: [xtask/
 
 ### `git-integration` — Git, isolation and repository integration
 
-Exposure: **native**. Owner: `scripts/worktree.py`. Declaration source: [scripts/worktree.py](../../../scripts/worktree.py).
+Exposure: **native**. Owner: `scripts/worktree.py`. Declaration source: [scripts/worktree.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/worktree.py).
 
 ```json
 {
@@ -4429,7 +4447,7 @@ Exposure: **native**. Owner: `scripts/worktree.py`. Declaration source: [scripts
 
 ### `host-implementation` — Internal host boundary implementations
 
-Exposure: **internal**. Owner: `scripts/host_admission.py`. Declaration source: [scripts/host_admission.py](../../../scripts/host_admission.py).
+Exposure: **internal**. Owner: `scripts/host_admission.py`. Declaration source: [scripts/host_admission.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/host_admission.py).
 
 ```json
 {
@@ -4456,7 +4474,7 @@ Exposure: **internal**. Owner: `scripts/host_admission.py`. Declaration source: 
 
 ### `knowledge-recall` — Attributed knowledge and history
 
-Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [scripts/knowledge_store.py](../../../scripts/knowledge_store.py).
+Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [scripts/knowledge_store.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/knowledge_store.py).
 
 ```json
 {
@@ -4489,7 +4507,7 @@ Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [
 
 ### `knowledge_source_corpus` — knowledge source corpus
 
-Exposure: **tool**. Owner: `scripts/knowledge_store.py`. Declaration source: [scripts/knowledge_store.py](../../../scripts/knowledge_store.py).
+Exposure: **tool**. Owner: `scripts/knowledge_store.py`. Declaration source: [scripts/knowledge_store.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/knowledge_store.py).
 
 ```json
 {
@@ -4615,7 +4633,7 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
 
 ### `language-navigation` — Language symbols and source navigation
 
-Exposure: **native**. Owner: `scripts/semantic_navigation.py`. Declaration source: [scripts/semantic_navigation.py](../../../scripts/semantic_navigation.py).
+Exposure: **native**. Owner: `scripts/semantic_navigation.py`. Declaration source: [scripts/semantic_navigation.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/semantic_navigation.py).
 
 ```json
 {
@@ -4649,7 +4667,7 @@ Exposure: **native**. Owner: `scripts/semantic_navigation.py`. Declaration sourc
 
 ### `library-research` — Library sources and capability guidance
 
-Exposure: **native**. Owner: `scripts/library_skills.py`. Declaration source: [scripts/library_skills.py](../../../scripts/library_skills.py).
+Exposure: **native**. Owner: `scripts/library_skills.py`. Declaration source: [scripts/library_skills.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/library_skills.py).
 
 ```json
 {
@@ -4681,7 +4699,7 @@ Exposure: **native**. Owner: `scripts/library_skills.py`. Declaration source: [s
 
 ### `library_source_packet` — library source packet
 
-Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [scripts/workspace_sources.py](../../../scripts/workspace_sources.py).
+Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [scripts/workspace_sources.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/workspace_sources.py).
 
 ```json
 {
@@ -4839,7 +4857,7 @@ Exact callable component key: `tool:library_source_packet@`. The following is th
 
 ### `native_contract_schema` — Read exact native schema or authoring guidance
 
-Exposure: **tool**. Owner: `crates/pse-codegen/src/codegen/documents.rs`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `crates/pse-codegen/src/codegen/documents.rs`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -4968,7 +4986,7 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
 
 ### `native_diagnostic_inspect` — Inspect published diagnostic checkpoint
 
-Exposure: **tool**. Owner: `pse.diagnostics.inspect_checkpoint`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.diagnostics.inspect_checkpoint`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -5293,13 +5311,13 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/inspection-document.output.schema.json](../../../docs/generated/schema/inspection-document.output.schema.json).
+- Native `output_document`: [docs/generated/schema/inspection-document.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/inspection-document.output.schema.json).
 
-- Native `request`: [docs/generated/schema/inspection-request.input.schema.json](../../../docs/generated/schema/inspection-request.input.schema.json).
+- Native `request`: [docs/generated/schema/inspection-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/inspection-request.input.schema.json).
 
 ### `native_evidence_inspect` — Inspect supplied frozen evidence
 
-Exposure: **tool**. Owner: `pse.diagnostics.read_evidence + inspect_frozen`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.diagnostics.read_evidence + inspect_frozen`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -5714,13 +5732,13 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/frozen-inspection-document.output.schema.json](../../../docs/generated/schema/frozen-inspection-document.output.schema.json).
+- Native `output_document`: [docs/generated/schema/frozen-inspection-document.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/frozen-inspection-document.output.schema.json).
 
-- Native `request`: [docs/generated/schema/frozen-inspection-request.input.schema.json](../../../docs/generated/schema/frozen-inspection-request.input.schema.json).
+- Native `request`: [docs/generated/schema/frozen-inspection-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/frozen-inspection-request.input.schema.json).
 
 ### `native_invocation_read` — Read original native invocation evidence
 
-Exposure: **tool**. Owner: `pse.diagnostics.read_invocation`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.diagnostics.read_invocation`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -5850,11 +5868,11 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/invocation-evidence.output.schema.json](../../../docs/generated/schema/invocation-evidence.output.schema.json).
+- Native `output_document`: [docs/generated/schema/invocation-evidence.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/invocation-evidence.output.schema.json).
 
 ### `native_preparation_discover` — Inspect preparation availability
 
-Exposure: **tool**. Owner: `pse.ModelingPackage.preparation_discovery`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.ModelingPackage.preparation_discovery`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -6715,19 +6733,19 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
 }
 ```
 
-- Native `documents`: [docs/generated/schema/project-draft-documents.input.schema.json](../../../docs/generated/schema/project-draft-documents.input.schema.json).
+- Native `documents`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
 
-- Native `output_document`: [docs/generated/schema/preparation-discovery-report.output.schema.json](../../../docs/generated/schema/preparation-discovery-report.output.schema.json).
+- Native `output_document`: [docs/generated/schema/preparation-discovery-report.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/preparation-discovery-report.output.schema.json).
 
-- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](../../../docs/generated/schema/project-draft-documents.input.schema.json).
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
 
-- Native `request`: [docs/generated/schema/preparation-discovery-request.input.schema.json](../../../docs/generated/schema/preparation-discovery-request.input.schema.json).
+- Native `request`: [docs/generated/schema/preparation-discovery-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/preparation-discovery-request.input.schema.json).
 
-- Authoring guidance: [docs/generated/schema/authoring.schema.json](../../../docs/generated/schema/authoring.schema.json).
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
 
 ### `native_project_bundle_inspect` — Inspect supplied project pack offline
 
-Exposure: **tool**. Owner: `pse.ProjectBundle.manifest + digest`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.ProjectBundle.manifest + digest`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -6864,11 +6882,11 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/project-manifest.output.schema.json](../../../docs/generated/schema/project-manifest.output.schema.json).
+- Native `output_document`: [docs/generated/schema/project-manifest.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-manifest.output.schema.json).
 
 ### `native_project_metadata` — Read project metadata page
 
-Exposure: **tool**. Owner: `pse.Runtime.project_metadata`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.Runtime.project_metadata`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -7129,13 +7147,13 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/project-metadata-page.output.schema.json](../../../docs/generated/schema/project-metadata-page.output.schema.json).
+- Native `output_document`: [docs/generated/schema/project-metadata-page.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-metadata-page.output.schema.json).
 
-- Native `request`: [docs/generated/schema/project-metadata-request.input.schema.json](../../../docs/generated/schema/project-metadata-request.input.schema.json).
+- Native `request`: [docs/generated/schema/project-metadata-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-metadata-request.input.schema.json).
 
 ### `native_project_select` — Select exact project source
 
-Exposure: **tool**. Owner: `pse.Runtime.project_select`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.Runtime.project_select`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -7446,17 +7464,17 @@ Exact callable component key: `tool:native_project_select@`. The following is th
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/project-selection.output.schema.json](../../../docs/generated/schema/project-selection.output.schema.json).
+- Native `output_document`: [docs/generated/schema/project-selection.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-selection.output.schema.json).
 
-- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](../../../docs/generated/schema/project-draft-documents.input.schema.json).
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
 
-- Native `request`: [docs/generated/schema/project-select-request.input.schema.json](../../../docs/generated/schema/project-select-request.input.schema.json).
+- Native `request`: [docs/generated/schema/project-select-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-select-request.input.schema.json).
 
-- Authoring guidance: [docs/generated/schema/authoring.schema.json](../../../docs/generated/schema/authoring.schema.json).
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
 
 ### `native_research_read` — Read original scientific research metadata
 
-Exposure: **tool**. Owner: `pse.Runtime.research_read`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.Runtime.research_read`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -7746,13 +7764,13 @@ Exact callable component key: `tool:native_research_read@`. The following is the
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/research-read-result.output.schema.json](../../../docs/generated/schema/research-read-result.output.schema.json).
+- Native `output_document`: [docs/generated/schema/research-read-result.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/research-read-result.output.schema.json).
 
-- Native `request`: [docs/generated/schema/research-read-request.input.schema.json](../../../docs/generated/schema/research-read-request.input.schema.json).
+- Native `request`: [docs/generated/schema/research-read-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/research-read-request.input.schema.json).
 
 ### `native_result_read` — Read exact stored scientific result window
 
-Exposure: **tool**. Owner: `pse.Runtime.results`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.Runtime.results`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -7945,7 +7963,7 @@ Exact callable component key: `tool:native_result_read@`. The following is the r
 
 ### `native_revision_preparation_discover` — Inspect retained revision preparations
 
-Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -8807,17 +8825,17 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
 }
 ```
 
-- Native `output_document`: [docs/generated/schema/preparation-discovery-report.output.schema.json](../../../docs/generated/schema/preparation-discovery-report.output.schema.json).
+- Native `output_document`: [docs/generated/schema/preparation-discovery-report.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/preparation-discovery-report.output.schema.json).
 
-- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](../../../docs/generated/schema/project-draft-documents.input.schema.json).
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
 
-- Native `request`: [docs/generated/schema/preparation-discovery-request.input.schema.json](../../../docs/generated/schema/preparation-discovery-request.input.schema.json).
+- Native `request`: [docs/generated/schema/preparation-discovery-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/preparation-discovery-request.input.schema.json).
 
-- Authoring guidance: [docs/generated/schema/authoring.schema.json](../../../docs/generated/schema/authoring.schema.json).
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
 
 ### `native_revision_source` — Inspect exact retained source revision
 
-Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.project_source_detail`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.project_source_detail`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -9045,13 +9063,13 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
 }
 ```
 
-- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](../../../docs/generated/schema/project-draft-documents.input.schema.json).
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
 
-- Authoring guidance: [docs/generated/schema/authoring.schema.json](../../../docs/generated/schema/authoring.schema.json).
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
 
 ### `native_source_admit` — Admit original authored source
 
-Exposure: **tool**. Owner: `pse.Runtime.physical_from_documents + modeling_from_documents`. Declaration source: [scripts/capabilities/native.py](../../../scripts/capabilities/native.py).
+Exposure: **tool**. Owner: `pse.Runtime.physical_from_documents + modeling_from_documents`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
 
 ```json
 {
@@ -9267,15 +9285,15 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
 }
 ```
 
-- Native `documents`: [docs/generated/schema/project-draft-documents.input.schema.json](../../../docs/generated/schema/project-draft-documents.input.schema.json).
+- Native `documents`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
 
-- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](../../../docs/generated/schema/project-draft-documents.input.schema.json).
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
 
-- Authoring guidance: [docs/generated/schema/authoring.schema.json](../../../docs/generated/schema/authoring.schema.json).
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
 
 ### `navigation_action_preview` — Navigation Action Preview
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -9452,7 +9470,7 @@ Exact callable component key: `tool:navigation_action_preview@`. The following i
 
 ### `navigation_call_hierarchy` — Navigation Call Hierarchy
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -9581,7 +9599,7 @@ Exact callable component key: `tool:navigation_call_hierarchy@`. The following i
 
 ### `navigation_code_actions` — Navigation Code Actions
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -9744,7 +9762,7 @@ Exact callable component key: `tool:navigation_code_actions@`. The following is 
 
 ### `navigation_completions` — Navigation Completions
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -9884,7 +9902,7 @@ Exact callable component key: `tool:navigation_completions@`. The following is t
 
 ### `navigation_declaration` — Navigation Declaration
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -10013,7 +10031,7 @@ Exact callable component key: `tool:navigation_declaration@`. The following is t
 
 ### `navigation_definition` — Navigation Definition
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -10142,7 +10160,7 @@ Exact callable component key: `tool:navigation_definition@`. The following is th
 
 ### `navigation_diagnostics` — Navigation Diagnostics
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -10259,7 +10277,7 @@ Exact callable component key: `tool:navigation_diagnostics@`. The following is t
 
 ### `navigation_hover` — Navigation Hover
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -10388,7 +10406,7 @@ Exact callable component key: `tool:navigation_hover@`. The following is the reg
 
 ### `navigation_implementations` — Navigation Implementations
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -10517,7 +10535,7 @@ Exact callable component key: `tool:navigation_implementations@`. The following 
 
 ### `navigation_incoming_calls` — Navigation Incoming Calls
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -10710,7 +10728,7 @@ Exact callable component key: `tool:navigation_incoming_calls@`. The following i
 
 ### `navigation_outgoing_calls` — Navigation Outgoing Calls
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -10903,7 +10921,7 @@ Exact callable component key: `tool:navigation_outgoing_calls@`. The following i
 
 ### `navigation_references` — Navigation References
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -11036,7 +11054,7 @@ Exact callable component key: `tool:navigation_references@`. The following is th
 
 ### `navigation_rename_preview` — Navigation Rename Preview
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -11178,7 +11196,7 @@ Exact callable component key: `tool:navigation_rename_preview@`. The following i
 
 ### `navigation_signature` — Navigation Signature
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -11307,7 +11325,7 @@ Exact callable component key: `tool:navigation_signature@`. The following is the
 
 ### `navigation_symbols` — Navigation Symbols
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -11424,7 +11442,7 @@ Exact callable component key: `tool:navigation_symbols@`. The following is the r
 
 ### `navigation_tool_support` — Navigation Tool Support
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -11529,7 +11547,7 @@ Exact callable component key: `tool:navigation_tool_support@`. The following is 
 
 ### `navigation_type_definition` — Navigation Type Definition
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -11658,7 +11676,7 @@ Exact callable component key: `tool:navigation_type_definition@`. The following 
 
 ### `navigation_workspace_symbols` — Navigation Workspace Symbols
 
-Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](../../../scripts/capabilities/specialists.py).
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
 
 ```json
 {
@@ -11769,7 +11787,7 @@ Exact callable component key: `tool:navigation_workspace_symbols@`. The followin
 
 ### `producer-workers` — Producer deployment and worker integration
 
-Exposure: **native**. Owner: `scripts/producer_deployment.py`. Declaration source: [scripts/producer_deployment.py](../../../scripts/producer_deployment.py).
+Exposure: **native**. Owner: `scripts/producer_deployment.py`. Declaration source: [scripts/producer_deployment.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/producer_deployment.py).
 
 ```json
 {
@@ -11801,7 +11819,7 @@ Exposure: **native**. Owner: `scripts/producer_deployment.py`. Declaration sourc
 
 ### `product_run_read` — product run read
 
-Exposure: **tool**. Owner: `scripts/run_inspection.py`. Declaration source: [scripts/run_inspection.py](../../../scripts/run_inspection.py).
+Exposure: **tool**. Owner: `scripts/run_inspection.py`. Declaration source: [scripts/run_inspection.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/run_inspection.py).
 
 ```json
 {
@@ -11939,7 +11957,7 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
 
 ### `projects-revisions` — Projects, revisions and scientific data
 
-Exposure: **native**. Owner: `xtask/src/project_tools.rs`. Declaration source: [xtask/src/project_tools.rs](../../../xtask/src/project_tools.rs).
+Exposure: **native**. Owner: `xtask/src/project_tools.rs`. Declaration source: [xtask/src/project_tools.rs](https://github.com/paul-heyse/pse-arrow/blob/main/xtask/src/project_tools.rs).
 
 ```json
 {
@@ -11972,7 +11990,7 @@ Exposure: **native**. Owner: `xtask/src/project_tools.rs`. Declaration source: [
 
 ### `python-extension` — Python extension preparation
 
-Exposure: **native**. Owner: `scripts/python_extension.py`. Declaration source: [scripts/python_extension.py](../../../scripts/python_extension.py).
+Exposure: **native**. Owner: `scripts/python_extension.py`. Declaration source: [scripts/python_extension.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/python_extension.py).
 
 ```json
 {
@@ -12002,7 +12020,7 @@ Exposure: **native**. Owner: `scripts/python_extension.py`. Declaration source: 
 
 ### `qualification-assessment` — Qualification groups and static checks
 
-Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: [scripts/validation_scope.py](../../../scripts/validation_scope.py).
+Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: [scripts/validation_scope.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/validation_scope.py).
 
 ```json
 {
@@ -12034,7 +12052,7 @@ Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: 
 
 ### `rust_test_describe` — rust test describe
 
-Exposure: **tool**. Owner: `scripts/select.py`. Declaration source: [scripts/select.py](../../../scripts/select.py).
+Exposure: **tool**. Owner: `scripts/select.py`. Declaration source: [scripts/select.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/select.py).
 
 ```json
 {
@@ -12225,7 +12243,7 @@ Exact callable component key: `tool:rust_test_describe@`. The following is the r
 
 ### `rust_test_run` — rust test run
 
-Exposure: **tool**. Owner: `scripts/test_run.py`. Declaration source: [scripts/test_run.py](../../../scripts/test_run.py).
+Exposure: **tool**. Owner: `scripts/test_run.py`. Declaration source: [scripts/test_run.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/test_run.py).
 
 ```json
 {
@@ -12421,7 +12439,7 @@ Exact callable component key: `tool:rust_test_run@`. The following is the regist
 
 ### `scientific-diagnostics` — Scientific diagnostics and offline inspection
 
-Exposure: **native**. Owner: `python/pse/diagnostics.py`. Declaration source: [python/pse/diagnostics.py](../../../python/pse/diagnostics.py).
+Exposure: **native**. Owner: `python/pse/diagnostics.py`. Declaration source: [python/pse/diagnostics.py](https://github.com/paul-heyse/pse-arrow/blob/main/python/pse/diagnostics.py).
 
 ```json
 {
@@ -12454,7 +12472,7 @@ Exposure: **native**. Owner: `python/pse/diagnostics.py`. Declaration source: [p
 
 ### `scientific-inputs` — Captured scientific inputs and dependency reach
 
-Exposure: **native**. Owner: `scripts/scientific_inputs.py`. Declaration source: [scripts/scientific_inputs.py](../../../scripts/scientific_inputs.py).
+Exposure: **native**. Owner: `scripts/scientific_inputs.py`. Declaration source: [scripts/scientific_inputs.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/scientific_inputs.py).
 
 ```json
 {
@@ -12489,7 +12507,7 @@ Exposure: **native**. Owner: `scripts/scientific_inputs.py`. Declaration source:
 
 ### `scientific-python-api` — Native scientific Python boundary
 
-Exposure: **native**. Owner: `python/pse/__init__.py`. Declaration source: [python/pse/__init__.py](../../../python/pse/__init__.py).
+Exposure: **native**. Owner: `python/pse/__init__.py`. Declaration source: [python/pse/__init__.py](https://github.com/paul-heyse/pse-arrow/blob/main/python/pse/__init__.py).
 
 ```json
 {
@@ -12521,7 +12539,7 @@ Exposure: **native**. Owner: `python/pse/__init__.py`. Declaration source: [pyth
 
 ### `scientific-references` — Scientific references and performance campaigns
 
-Exposure: **native**. Owner: `scripts/scientific_reference.py`. Declaration source: [scripts/scientific_reference.py](../../../scripts/scientific_reference.py).
+Exposure: **native**. Owner: `scripts/scientific_reference.py`. Declaration source: [scripts/scientific_reference.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/scientific_reference.py).
 
 ```json
 {
@@ -12553,7 +12571,7 @@ Exposure: **native**. Owner: `scripts/scientific_reference.py`. Declaration sour
 
 ### `session-specialists` — Explicit session and specialist attachment
 
-Exposure: **native**. Owner: `scripts/codex_session.py`. Declaration source: [scripts/codex_session.py](../../../scripts/codex_session.py).
+Exposure: **native**. Owner: `scripts/codex_session.py`. Declaration source: [scripts/codex_session.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/codex_session.py).
 
 ```json
 {
@@ -13032,7 +13050,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-improvement-review/SKILL.md`. D
 
 ### `source-context` — Source context and declared ownership
 
-Exposure: **native**. Owner: `scripts/workspace_tasks.py`. Declaration source: [scripts/workspace_tasks.py](../../../scripts/workspace_tasks.py).
+Exposure: **native**. Owner: `scripts/workspace_tasks.py`. Declaration source: [scripts/workspace_tasks.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/workspace_tasks.py).
 
 ```json
 {
@@ -13064,7 +13082,7 @@ Exposure: **native**. Owner: `scripts/workspace_tasks.py`. Declaration source: [
 
 ### `storage_observe` — storage observe
 
-Exposure: **tool**. Owner: `scripts/build_storage.py`. Declaration source: [scripts/build_storage.py](../../../scripts/build_storage.py).
+Exposure: **tool**. Owner: `scripts/build_storage.py`. Declaration source: [scripts/build_storage.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/build_storage.py).
 
 ```json
 {
@@ -13152,7 +13170,7 @@ Exact callable component key: `tool:storage_observe@`. The following is the regi
 
 ### `validation-selection` — Selected correctness and scientific validation
 
-Exposure: **native**. Owner: `scripts/select.py`. Declaration source: [scripts/select.py](../../../scripts/select.py).
+Exposure: **native**. Owner: `scripts/select.py`. Declaration source: [scripts/select.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/select.py).
 
 ```json
 {
@@ -13185,7 +13203,7 @@ Exposure: **native**. Owner: `scripts/select.py`. Declaration source: [scripts/s
 
 ### `verification-techniques` — Coverage, mutation and boundary fuzzing
 
-Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration source: [scripts/assertion_sensitivity.py](../../../scripts/assertion_sensitivity.py).
+Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration source: [scripts/assertion_sensitivity.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/assertion_sensitivity.py).
 
 ```json
 {
@@ -13216,7 +13234,7 @@ Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration sou
 
 ### `workload-observation` — Workload observation and retained results
 
-Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts/activity.py](../../../scripts/activity.py).
+Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts/activity.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/activity.py).
 
 ```json
 {
@@ -13249,7 +13267,7 @@ Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts
 
 ### `workload_watch` — workload watch
 
-Exposure: **tool**. Owner: `scripts/activity_watch.py`. Declaration source: [scripts/activity_watch.py](../../../scripts/activity_watch.py).
+Exposure: **tool**. Owner: `scripts/activity_watch.py`. Declaration source: [scripts/activity_watch.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/activity_watch.py).
 
 ```json
 {
@@ -13381,7 +13399,7 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
 
 ### `workspace_concepts_query` — Exact native concepts
 
-Exposure: **tool**. Owner: `scripts/workspace_domains.py`. Declaration source: [scripts/workspace_domains.py](../../../scripts/workspace_domains.py).
+Exposure: **tool**. Owner: `scripts/workspace_domains.py`. Declaration source: [scripts/workspace_domains.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/workspace_domains.py).
 
 ```json
 {
@@ -13516,7 +13534,7 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
 
 ### `workspace_inventory` — Current entry-point inventory
 
-Exposure: **tool**. Owner: `scripts/capabilities/inventory.py`. Declaration source: [scripts/capabilities/inventory.py](../../../scripts/capabilities/inventory.py).
+Exposure: **tool**. Owner: `scripts/capabilities/inventory.py`. Declaration source: [scripts/capabilities/inventory.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/inventory.py).
 
 ```json
 {
@@ -13632,7 +13650,7 @@ Exact callable component key: `tool:workspace_inventory@`. The following is the 
 
 ### `workspace_producer_relationships` — Declared producer relationships
 
-Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [scripts/workspace_sources.py](../../../scripts/workspace_sources.py).
+Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [scripts/workspace_sources.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/workspace_sources.py).
 
 ```json
 {
@@ -13742,7 +13760,7 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
 
 ### `workspace_recipe_describe` — Exact native recipe
 
-Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](../../../justfile).
+Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://github.com/paul-heyse/pse-arrow/blob/main/justfile).
 
 ```json
 {
@@ -13842,7 +13860,7 @@ Exact callable component key: `tool:workspace_recipe_describe@`. The following i
 
 ### `workspace_task_context` — Task context
 
-Exposure: **tool**. Owner: `scripts/workspace_tasks.py`. Declaration source: [scripts/workspace_tasks.py](../../../scripts/workspace_tasks.py).
+Exposure: **tool**. Owner: `scripts/workspace_tasks.py`. Declaration source: [scripts/workspace_tasks.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/workspace_tasks.py).
 
 ```json
 {

@@ -375,7 +375,10 @@ class QualificationToolTests(unittest.IsolatedAsyncioTestCase):
         # Empty native preparation establishes the real operation lifetime
         # without building unrelated providers. The scoped runner needs that
         # owner before it can prepare one coherent catalogue/validation closure.
-        self.assertIn("--native=", process.WORKERS["rust-tests"].environment)
+        self.assertIn(
+            "--native=solver,klu,isolation,uno,petsc",
+            process.WORKERS["rust-tests"].environment,
+        )
         _, tools = subject.bindings(ROOT)
         server = FastMCP("scoped-rust-controls", strict_input_validation=True)
         for tool in tools.values():

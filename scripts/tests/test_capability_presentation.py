@@ -54,7 +54,7 @@ class ObservedContent(Middleware):
         context: MiddlewareContext[ReadResourceRequestParams],
         call_next: CallNext[ReadResourceRequestParams, ResourceResult],
     ) -> ResourceResult:
-        self.reads.append(str(context.message.uri))
+        self.reads.append(context.message.uri)
         return await call_next(context)
 
     async def on_get_prompt(
@@ -157,7 +157,9 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
         } - (exclude or set())
         await self.client.call_tool("select", {"keys": sorted(keys)})
 
-    async def test_bootstrap_lists_small_projections_and_lazy_content_template(self) -> None:
+    async def test_bootstrap_lists_small_projections_and_lazy_content_template(
+        self,
+    ) -> None:
         with patch.object(
             self.guidance,
             "instruction_bundle",
@@ -179,7 +181,9 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(self.calls, 0)
 
-    async def test_exact_template_and_projection_share_loaded_description_schema(self) -> None:
+    async def test_exact_template_and_projection_share_loaded_description_schema(
+        self,
+    ) -> None:
         uri = "pse://capabilities/owned_read"
         native = (await self.client.read_resource(uri))[0]
         self.assertIsInstance(native, TextResourceContents)
@@ -196,7 +200,9 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(identity=unknown), self.assertRaises(MCPError):
                 await self.client.read_resource("pse://capabilities/" + unknown)
 
-    async def test_native_guide_and_projected_guide_keep_identical_owned_content(self) -> None:
+    async def test_native_guide_and_projected_guide_keep_identical_owned_content(
+        self,
+    ) -> None:
         await self.select()
         uri = "pse://guidance/planning"
         native = (await self.client.read_resource(uri))[0]
@@ -207,7 +213,9 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(native.text)["content"], self.skill)
         self.assertEqual(self.observed.reads, [uri, uri])
 
-    async def test_hidden_guides_and_prompts_refuse_direct_and_projected_retrieval(self) -> None:
+    async def test_hidden_guides_and_prompts_refuse_direct_and_projected_retrieval(
+        self,
+    ) -> None:
         with patch.object(
             self.guidance,
             "instruction_bundle",
@@ -221,10 +229,14 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
                 ("read_resource", {"uri": "pse://guidance/planning"}),
                 ("get_prompt", {"name": "workflow_inspect"}),
             ):
-                result = await self.client.call_tool(tool, arguments, raise_on_error=False)
+                result = await self.client.call_tool(
+                    tool, arguments, raise_on_error=False
+                )
                 self.assertTrue(result.is_error)
 
-    async def test_prompt_checks_all_related_visibility_before_reading_guides(self) -> None:
+    async def test_prompt_checks_all_related_visibility_before_reading_guides(
+        self,
+    ) -> None:
         for missing in (self.tool.key, self.guide_keys["planning"]):
             await self.select(exclude={missing})
             with (
@@ -242,32 +254,50 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertTrue(result.is_error)
 
-    async def test_selected_prompt_is_exact_pure_and_identical_through_projection(self) -> None:
+    async def test_selected_prompt_is_exact_pure_and_identical_through_projection(
+        self,
+    ) -> None:
         await self.select()
         before = {tool.name for tool in await self.client.list_tools()}
         with (
-            patch("subprocess.run", side_effect=AssertionError("must not run commands")),
-            patch("subprocess.Popen", side_effect=AssertionError("must not start services")),
+            patch(
+                "subprocess.run", side_effect=AssertionError("must not run commands")
+            ),
+            patch(
+                "subprocess.Popen",
+                side_effect=AssertionError("must not start services"),
+            ),
             patch("os.system", side_effect=AssertionError("must not execute skills")),
         ):
             native = await self.client.get_prompt("workflow_inspect")
-            projected = await self.client.call_tool("get_prompt", {"name": "workflow_inspect"})
+            projected = await self.client.call_tool(
+                "get_prompt", {"name": "workflow_inspect"}
+            )
         message = native.messages[0]
         if not isinstance(message.content, TextContent):
             self.fail("Expected generated prompt JSON text")
         payload = json.loads(message.content.text)
         self.assertEqual(payload["revision"], self.catalogue.revision)
         self.assertEqual(payload["workflow"], self.workflow.model_dump(mode="json"))
-        self.assertEqual(payload["capabilities"], [{
-            "id": "owned_read", "title": self.capability.title,
-            "exposure": "tool", "effects": self.capability.effects,
-            "description_uri": "pse://capabilities/owned_read",
-        }])
+        self.assertEqual(
+            payload["capabilities"],
+            [
+                {
+                    "id": "owned_read",
+                    "title": self.capability.title,
+                    "exposure": "tool",
+                    "effects": self.capability.effects,
+                    "description_uri": "pse://capabilities/owned_read",
+                }
+            ],
+        )
         instructions = {item["id"]: item for item in payload["instruction_resources"]}
         self.assertFalse(payload["instructions_embedded"])
         self.assertEqual(set(instructions), {"root", "planning"})
         self.assertTrue(all("content" not in item for item in instructions.values()))
-        self.assertEqual(instructions["planning"]["digest"], sha256(self.skill.encode()).hexdigest())
+        self.assertEqual(
+            instructions["planning"]["digest"], sha256(self.skill.encode()).hexdigest()
+        )
         self.assertEqual(instructions["planning"]["uri"], "pse://guidance/planning")
         self.assertEqual(self.guidance.read("planning")["content"], self.skill)
         self.assertLess(len(message.content.text.encode()), len(self.skill.encode()))
@@ -275,16 +305,24 @@ class PresentationTests(unittest.IsolatedAsyncioTestCase):
             json.loads(projected_text(projected)),
             {"messages": [{"role": message.role, "content": message.content.text}]},
         )
-        self.assertEqual(self.observed.prompts, ["workflow_inspect", "workflow_inspect"])
+        self.assertEqual(
+            self.observed.prompts, ["workflow_inspect", "workflow_inspect"]
+        )
         self.assertEqual(before, {tool.name for tool in await self.client.list_tools()})
         self.assertEqual(self.calls, 0)
-        self.assertLess(len(message.content.text.encode()), presentation.MAX_PROMPT_BYTES)
+        self.assertLess(
+            len(message.content.text.encode()), presentation.MAX_PROMPT_BYTES
+        )
 
-    async def test_prompt_bound_refuses_instead_of_truncating_owned_instructions(self) -> None:
+    async def test_prompt_bound_refuses_instead_of_truncating_owned_instructions(
+        self,
+    ) -> None:
         await self.select()
-        with patch.object(presentation, "MAX_PROMPT_BYTES", 100):
-            with self.assertRaisesRegex(MCPError, "prompt_too_large"):
-                await self.client.get_prompt("workflow_inspect")
+        with (
+            patch.object(presentation, "MAX_PROMPT_BYTES", 100),
+            self.assertRaisesRegex(MCPError, "prompt_too_large"),
+        ):
+            await self.client.get_prompt("workflow_inspect")
         self.assertEqual(self.guidance.read("planning")["content"], self.skill)
 
 

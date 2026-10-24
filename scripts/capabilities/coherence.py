@@ -85,7 +85,9 @@ class Sources:
                 continue  # An imported name may be an attribute, not a module.
             raw = self._read(relative)
             dependencies = local_imports(raw)
-            self.sources[relative] = Source(hashlib.sha256(raw).hexdigest(), dependencies)
+            self.sources[relative] = Source(
+                hashlib.sha256(raw).hexdigest(), dependencies
+            )
             pending.extend(dependencies)
         self.revision = hashlib.sha256(
             json.dumps(
@@ -104,11 +106,19 @@ class Sources:
         raw = path.read_bytes()
         after = path.stat()
         if (
-            before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns,
-            before.st_ctime_ns, before.st_mode,
+            before.st_dev,
+            before.st_ino,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+            before.st_mode,
         ) != (
-            after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns,
-            after.st_ctime_ns, after.st_mode,
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+            after.st_mode,
         ):
             raise ValueError("Serving source changed during interface capture")
         return raw
@@ -140,7 +150,9 @@ class Sources:
 
     def verify_composition(self) -> None:
         if self.check(self.sources):
-            raise ValueError("Serving source changed while loading; restart the endpoint")
+            raise ValueError(
+                "Serving source changed while loading; restart the endpoint"
+            )
 
 
 class Interface:
@@ -160,9 +172,13 @@ class Interface:
             # into the serving process. Their modules and local imports still
             # interpret the loaded contract and must share its restart fence.
             worker = (
-                "native" if name.startswith("native_") else
-                "host" if module == "scripts.capabilities.host_actions" else
-                "qualification" if module == "scripts.capabilities.qualification" else None
+                "native"
+                if name.startswith("native_")
+                else "host"
+                if module == "scripts.capabilities.host_actions"
+                else "qualification"
+                if module == "scripts.capabilities.qualification"
+                else None
             )
             if worker is not None:
                 paths.append(WORKERS[worker].module.replace(".", "/") + ".py")
@@ -183,7 +199,9 @@ class Interface:
     def require(self, capability: str | None = None) -> None:
         status = self.status(capability)
         if status["restart_required"]:
-            raise ToolError(json.dumps({"code": "pse.capabilities.restart_required", **status}))
+            raise ToolError(
+                json.dumps({"code": "pse.capabilities.restart_required", **status})
+            )
 
 
 class RestartMiddleware(Middleware):
@@ -215,5 +233,8 @@ def install(server: FastMCP, sources: Sources, catalogue: Catalogue) -> Interfac
 # with newly edited source. The launch owner performs a second composition check.
 LOADED = Sources(
     Path(__file__).resolve().parents[2],
-    (*COMMON, *(worker.module.replace(".", "/") + ".py" for worker in WORKERS.values())),
+    (
+        *COMMON,
+        *(worker.module.replace(".", "/") + ".py" for worker in WORKERS.values()),
+    ),
 )

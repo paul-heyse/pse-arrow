@@ -25,18 +25,18 @@ from fastmcp.tools import (
 )
 from pydantic import Field, JsonValue
 
-from scripts.capabilities.coherence import LOADED, Interface, install
 from scripts.capabilities import (
     host_actions,
     host_queries,
     native,
-    operations,
     observation,
+    operations,
     presentation,
     qualification,
     specialists,
 )
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
+from scripts.capabilities.coherence import LOADED, Interface, install
 from scripts.capabilities.guidance import Guidance, register_guides
 from scripts.capabilities.inventory import inventory
 
@@ -108,7 +108,11 @@ def build(root: Path = ROOT) -> Runtime:
     domains, workflows, guides, declared = inventory(root)
     bound, tools = bindings(root, owner=owner)
     catalogue = Catalogue(
-        domains, workflows, guides, (*declared, *bound), tools,
+        domains,
+        workflows,
+        guides,
+        (*declared, *bound),
+        tools,
         loaded_source_revision=LOADED.revision,
     )
     guidance = Guidance(root, guides)
@@ -144,8 +148,10 @@ def build(root: Path = ROOT) -> Runtime:
     ) -> dict[str, JsonValue]:
         """Browse exact domains, or page the capabilities of one domain. This reads loaded declarations, never probes or starts services."""
         try:
-            return {**catalogue.browse("domain", domain, offset, limit),
-                    "interface": JSON_OBJECT.validate_python(interface.status())}
+            return {
+                **catalogue.browse("domain", domain, offset, limit),
+                "interface": JSON_OBJECT.validate_python(interface.status()),
+            }
         except ValueError as error:
             raise refusal("pse.capabilities.unknown_domain", error) from error
 
@@ -155,8 +161,10 @@ def build(root: Path = ROOT) -> Runtime:
     ) -> dict[str, JsonValue]:
         """Browse exact workflows, or page their canonical capability identities. A workflow guides composition; it does not schedule work."""
         try:
-            return {**catalogue.browse("workflow", workflow, offset, limit),
-                    "interface": JSON_OBJECT.validate_python(interface.status())}
+            return {
+                **catalogue.browse("workflow", workflow, offset, limit),
+                "interface": JSON_OBJECT.validate_python(interface.status()),
+            }
         except ValueError as error:
             raise refusal("pse.capabilities.unknown_workflow", error) from error
 
@@ -237,7 +245,9 @@ def build(root: Path = ROOT) -> Runtime:
             tools[key].key for key in selected.capabilities if key in tools
         }
         selected_keys.update(keys[key] for key in selected.guides if key in keys)
-        selected_keys.update(presentation_view.workflow_keys[key] for key in workflows or [])
+        selected_keys.update(
+            presentation_view.workflow_keys[key] for key in workflows or []
+        )
         try:
             instructions = guidance.instruction_bundle(
                 [key for key in selected.guides if key != "root"]
@@ -360,16 +370,28 @@ def build(root: Path = ROOT) -> Runtime:
     observation.install(
         server,
         revision=catalogue.revision,
-        operation_names=frozenset(tools) | frozenset({
-            "capabilities_domains", "capabilities_workflows", "capabilities_describe",
-            "capabilities_select", "capabilities_reset", "capabilities_invoke_read",
-            "capabilities_invoke_action", "list_resources", "read_resource",
-            "list_prompts", "get_prompt",
-        }),
+        operation_names=frozenset(tools)
+        | frozenset(
+            {
+                "capabilities_domains",
+                "capabilities_workflows",
+                "capabilities_describe",
+                "capabilities_select",
+                "capabilities_reset",
+                "capabilities_invoke_read",
+                "capabilities_invoke_action",
+                "list_resources",
+                "read_resource",
+                "list_prompts",
+                "get_prompt",
+            }
+        ),
         resource_names={
             **{guide.uri: guide.id for guide in guides},
             presentation.CAPABILITY_TEMPLATE: "capability_description",
         },
-        prompt_names=frozenset("workflow_" + identity for identity in catalogue.workflows),
+        prompt_names=frozenset(
+            "workflow_" + identity for identity in catalogue.workflows
+        ),
     )
     return Runtime(server, catalogue, guidance, owner, interface)

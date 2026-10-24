@@ -24,8 +24,6 @@ JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 T = TypeVar("T")
 
 
-
-
 async def settled(task: asyncio.Task[T]) -> T:
     """Repeated transport cancellation cannot abandon an already owned helper."""
     while True:

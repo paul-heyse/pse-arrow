@@ -771,7 +771,9 @@ mod tests {
     fn markdown_generation_preserves_capability_reference_owner_and_checks_own_stale_files() {
         let checkout = tempfile::tempdir().unwrap();
         let scratch = tempfile::tempdir().unwrap();
-        let reference = checkout.path().join("docs/generated/capabilities/reference.md");
+        let reference = checkout
+            .path()
+            .join("docs/generated/capabilities/reference.md");
         fs::create_dir_all(reference.parent().unwrap()).unwrap();
         fs::write(&reference, b"capability producer bytes\n").unwrap();
         let mut markdown = GeneratedTree::empty(Language::Markdown.roots());
@@ -781,7 +783,10 @@ mod tests {
         );
         write_tree(checkout.path(), &markdown).unwrap();
         write_tree(scratch.path(), &markdown).unwrap();
-        assert_eq!(fs::read(&reference).unwrap(), b"capability producer bytes\n");
+        assert_eq!(
+            fs::read(&reference).unwrap(),
+            b"capability producer bytes\n"
+        );
         // The nested reference is absent in scratch and may change independently.
         compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
         fs::write(&reference, b"updated capability producer bytes\n").unwrap();
@@ -791,7 +796,10 @@ mod tests {
         assert!(compare_tree(checkout.path(), scratch.path(), &markdown).is_err());
         write_tree(checkout.path(), &markdown).unwrap();
         assert!(!stale.exists());
-        assert_eq!(fs::read(&reference).unwrap(), b"updated capability producer bytes\n");
+        assert_eq!(
+            fs::read(&reference).unwrap(),
+            b"updated capability producer bytes\n"
+        );
         compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
     }
 

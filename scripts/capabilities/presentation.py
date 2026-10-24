@@ -14,9 +14,6 @@ from fastmcp.prompts import Prompt
 from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools, Transform
 from mcp.types import ToolAnnotations
 
-from scripts.capabilities.catalogue import Catalogue
-from scripts.capabilities.guidance import Guidance
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -25,9 +22,14 @@ if TYPE_CHECKING:
     from fastmcp.tools import Tool
     from fastmcp.utilities.versions import VersionSpec
 
+    from scripts.capabilities.catalogue import Catalogue
+    from scripts.capabilities.guidance import Guidance
+
 MAX_PROMPT_BYTES = 256 * 1024
 CAPABILITY_TEMPLATE = "pse://capabilities/{capability}"
-CONTENT_TOOLS = frozenset({"list_resources", "read_resource", "list_prompts", "get_prompt"})
+CONTENT_TOOLS = frozenset(
+    {"list_resources", "read_resource", "list_prompts", "get_prompt"}
+)
 
 
 class ContentAnnotations(Transform):
@@ -42,14 +44,23 @@ class ContentAnnotations(Transform):
     def annotate(tool: Tool) -> Tool:
         if tool.name not in CONTENT_TOOLS:
             return tool
-        return tool.model_copy(update={"annotations": ToolAnnotations(
-            readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False,
-        )})
+        return tool.model_copy(
+            update={
+                "annotations": ToolAnnotations(
+                    readOnlyHint=True,
+                    destructiveHint=False,
+                    idempotentHint=True,
+                    openWorldHint=False,
+                )
+            }
+        )
 
     async def list_tools(self, tools: Sequence[Tool]) -> Sequence[Tool]:
         return [self.annotate(tool) for tool in tools]
 
-    async def get_tool(self, name: str, call_next: GetToolNext, *, version: VersionSpec | None = None) -> Tool | None:
+    async def get_tool(
+        self, name: str, call_next: GetToolNext, *, version: VersionSpec | None = None
+    ) -> Tool | None:
         tool = await call_next(name, version=version)
         return self.annotate(tool) if tool is not None else None
 
@@ -61,9 +72,7 @@ class Presentation:
     workflow_keys: dict[str, str]
 
 
-def register(
-    server: FastMCP, catalogue: Catalogue, guidance: Guidance
-) -> Presentation:
+def register(server: FastMCP, catalogue: Catalogue, guidance: Guidance) -> Presentation:
     """Register derived content and framework tool projections on this endpoint.
 
     Capability metadata, like exact description, is readable before selection.
@@ -108,13 +117,16 @@ def register(
         result = {
             "revision": catalogue.revision,
             "workflow": catalogue.workflows[workflow].model_dump(mode="json"),
-            "capabilities": [{
-                "id": key,
-                "title": catalogue.capabilities[key].title,
-                "exposure": catalogue.capabilities[key].exposure,
-                "effects": catalogue.capabilities[key].effects,
-                "description_uri": "pse://capabilities/" + key,
-            } for key in selection.capabilities],
+            "capabilities": [
+                {
+                    "id": key,
+                    "title": catalogue.capabilities[key].title,
+                    "exposure": catalogue.capabilities[key].exposure,
+                    "effects": catalogue.capabilities[key].effects,
+                    "description_uri": "pse://capabilities/" + key,
+                }
+                for key in selection.capabilities
+            ],
             "instruction_resources": [
                 {key: value for key, value in item.items() if key != "content"}
                 for item in instructions
