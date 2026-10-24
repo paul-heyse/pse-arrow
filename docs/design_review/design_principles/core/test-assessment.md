@@ -1,6 +1,6 @@
 # Assessing test code and test evidence
 
-**Version 1.0 · 2026-10-23 · Assessment guidance.** Repository- and domain-agnostic
+**Version 1.1 · 2026-10-23 · Assessment guidance.** Repository- and domain-agnostic
 companion to the [core principles](design-principles.md), selected through the repository's
 standard declaration. Applicable domain profiles continue to supply scientific and other
 correctness obligations.
@@ -12,8 +12,15 @@ of intended behavior, with proportionate maintenance and execution costs. Tests 
 with architectural responsibilities, and they are instruments for challenging other software.
 Reuse can improve their consistency while making their evidence share the same mistake.
 
-This companion interprets AP-01–AP-07 and their refinements for test scope. It adds no principle,
-MUST, gate, score, coverage threshold, prescribed test mix or obligation to inspect every topic.
+This companion interprets AP-01–AP-07 and their refinements for test scope. The full selected
+design standard remains the assessment basis: consider every core foundation, relevant
+operational refinements and applicable domain obligations. This companion supplements that
+assessment; its topics do not define its limits. Architectural quality, evidential strength and
+execution efficiency are assessed together. Efficiency receives explicit attention without
+displacing the other principles.
+
+It adds no principle, MUST, gate, score, coverage threshold, prescribed test mix or obligation to
+inspect every companion topic.
 It neither relaxes the core nor turns test code into a miniature production architecture.
 Use relevant questions in bounded audits and reviews; ordinary test editing does not initiate
 either. The repository binding owns invocation, output and follow-up routes.
@@ -158,15 +165,34 @@ campaign nor replaces the profile's requirements.
 
 ## 8. Execution cost in relation to assurance — AP-06, AP-07
 
-Consider what developers and agents must instantiate to exercise a responsibility and what evidence
-the expense buys. Repeated unrelated infrastructure startup, avoidable compilation or oversized
-fixtures can obstruct feedback. Real integration work and fresh execution may be essential to
-the claim. Optimize necessary work while preserving isolation, realism and scientific guarantees.
+Investigate how the test architecture affects the time needed to obtain trustworthy feedback
+during development. Consider what developers and agents must instantiate to exercise a
+responsibility and what evidence the expense buys. Examine representative focused-test and
+broader qualification routes, including preparation/build, discovery and collection, setup,
+execution, teardown, and failure diagnosis or replay. A focused test with cheap assertions can
+still require substantial unrelated preparation.
 
-Assess the complete preparation, execution, failure and cleanup route, including generated and
-library-induced work. Qualitative source reasoning can establish avoidable amplification;
-quantitative speed or capacity claims need measurements. Do not impose a universal test pyramid,
-runtime threshold, benchmark campaign or requirement to replace real dependencies with doubles.
+Look for avoidable dependency activation or compilation, repeated process/service startup,
+oversized fixtures, repeated loading or conversion, redundant computation, incidental
+serialization, contention and ineffective scheduling. Include generated and library-induced
+work. Consider both individually expensive operations and small costs amplified across many
+tests or frequent development iterations. These are inquiry leads, not presumed defects or
+a mandatory checklist. Use relevant execution heuristics from the selected standard.
+
+Real integration work, independent checks and fresh execution may be essential to the claim.
+Evaluate possible savings while preserving required validation, isolation, independent
+expectations, integration fidelity and applicable scientific obligations. Reuse immutable
+preparation only while its validity premises hold; shared mutable state or stale cached
+evidence can erase the benefit. Caching, broader fixture scope, doubles and concurrency are
+not default remedies. Faster runs with weaker assertions or missing required cases do not
+establish an equivalent improvement.
+
+Distinguish demonstrated unnecessary work from suspected bottlenecks and measured performance.
+Qualitative source reasoning can establish avoidable amplification without timing it; claims
+about elapsed time, speedup or capacity need measurements under stated conditions. Do not impose
+a universal test pyramid, runtime threshold, full-suite execution or benchmark campaign.
+An inquiry may conclude that no material efficiency shortfall was established, with its
+inspected scope and limits stated.
 
 ## Using the assessment
 
@@ -176,9 +202,13 @@ problem can conceal defects, cause spurious failures, obstruct diagnosis or ampl
 and execution costs. Preserve contrary evidence, hypotheses and unexamined scope. A passing suite
 does not establish the quality of its evidence, and a static audit is not product qualification.
 
-Finding organization and investigation depth remain flexible. Cite the applicable core/profile
-principles and the relevant companion section. The skill and binding own baseline, publication,
-finding identity and disposition; this companion owns assessment criteria only.
+Finding organization and investigation depth remain flexible. Explain how the core architectural
+foundations, including execution efficiency, were investigated and state material omissions or
+uncertainties; loading the standard alone does not establish assessment. No exhaustive matrix or
+finding per principle is required. Findings may arise directly from core/profile criteria without
+a corresponding companion topic. Cite those criteria and the companion section where relevant.
+The skill and binding own baseline, publication, finding identity and disposition; this companion
+owns assessment criteria only.
 
 ## Background
 

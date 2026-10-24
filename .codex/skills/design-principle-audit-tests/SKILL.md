@@ -1,22 +1,29 @@
 ---
 name: design-principle-audit-tests
-description: Audit test code, test evidence and shared test infrastructure against the design principles and test-assessment companion, maintaining a separate living diagnostic account. Use for an explicit test-scope audit or a test-focused diagnostic review prerequisite; ordinary test editing does not initiate an audit.
+description: Audit test code, test evidence and shared test infrastructure against the full selected design standard, including execution efficiency, using the test-assessment companion to interpret the principles for test scope. Maintain a separate living diagnostic account. Use for an explicit test-scope audit or a test-focused diagnostic review prerequisite; ordinary test editing does not initiate an audit.
 ---
 
 # Audit test design and evidence
 
-Develop a current, evidence-grounded account of structural weaknesses in test code and the
-evidence it provides. Assess maintainability together with the test system's ability to challenge
-intended behavior. Diagnose causes and consequences without requiring a predetermined remedy,
-library preference or test technique.
+Audit test code and its supporting system against the full selected design standard: core
+foundations and operational refinements, applicable domain profiles and the repository binding.
+The test-assessment companion supplements that standard; assessing its topics alone does not
+constitute a design-principle audit. Test scope narrows the software examined, not the set of
+design principles to consider.
+
+Develop a current, evidence-grounded account of structural weaknesses. Assess architectural
+quality, evidential strength and execution efficiency together, without allowing efficiency
+to displace the other principles. Diagnose causes and consequences without requiring a
+predetermined remedy, library preference or test technique.
 
 ## Load the criteria and scope
 
 Find the layered standard through repository instructions and standard.toml. Read the core
 principles, heuristic companion, applicable domain profiles and repository binding. Load the
-test-assessment companion selected by the core's test_assessment entry; it owns the test-specific
-criteria. If that companion is unavailable, report the limitation rather than inventing a standard
-or claiming a complete test-specific assessment. Loading criteria does not initiate another audit.
+test-assessment companion selected by the core's test_assessment entry; it interprets the selected
+principles for testing responsibilities. If that companion is unavailable, report the limitation
+rather than inventing a standard or claiming a complete test-specific assessment. Loading criteria
+does not initiate another audit.
 
 Scope follows testing responsibilities, beyond directory names: inline tests, doctests, fixtures,
 builders, generators, oracles, assertions, doubles, reference data and relevant collection,
@@ -45,6 +52,13 @@ and applicability limits; the broad audit's baseline cannot substitute for this 
 
 ## Investigate evidence and architecture
 
+Consider every core architectural foundation within the inspected test scope, following relevant
+operational refinements and domain obligations. Examine responsibility boundaries, contract
+stability, composition, domain meaning and authority, explicit constraints, local reasoning and
+testability, and execution fit. Choose depth according to evidence and uncertainty; do not
+restrict findings to issues named in the test companion. A finding may arise directly from a
+core principle even when no companion section describes it.
+
 Choose breadth and depth according to uncertainty. Representative evidence paths can connect
 scenario construction, exercised behavior, observation, expected-result derivation and assertion.
 Credible refactors, contract changes, new cases and faults can expose coupling or blind spots.
@@ -63,7 +77,32 @@ helper, full-suite execution, benchmark or additional assurance framework follow
 claims require measurements under named conditions. Follow repository environment and acceptance
 timing for any execution; library questions use its documentation research route.
 
+## Investigate execution efficiency
+
+Explicitly investigate avoidable work and delay in the development feedback cycle. Follow
+representative focused-test and broader qualification routes through preparation/build,
+discovery and collection, setup, execution, teardown, and failure diagnosis or replay. Consider
+both individually expensive operations and smaller costs repeated across tests or development
+iterations. Use companion §8 and relevant execution heuristics to investigate structural causes,
+including whether exercising one responsibility instantiates unrelated infrastructure.
+
+Evaluate possible savings against the assurance provided. Preserve required validation,
+isolation, independent expectations, integration fidelity and applicable scientific obligations.
+Shared preparation, caching, doubles and concurrency require judgment about validity and failure
+behavior; none is a default remedy. An efficiency inquiry does not require executing every route
+or starting a benchmark campaign.
+
 ## Publish diagnosis with clear ownership
+
+Explain how the investigation addressed the core architectural foundations, including execution
+efficiency, and identify material omissions and unresolved questions. Listing loaded documents
+does not demonstrate assessment. A brief narrative suffices; no exhaustive principle matrix or
+finding per principle is required. Findings cite governing core/profile criteria and, where
+relevant, the test companion.
+
+Distinguish demonstrated unnecessary work from suspected bottlenecks and measured performance.
+Source evidence can establish repeated initialization or avoidable processing without timing
+it; claims about elapsed time, speedup or capacity require measurements under stated conditions.
 
 Use the shared [finding-writing guidance](../design-principle-audit/references/audit-writing.md).
 Explain the claim at risk, structural cause, concrete consequence, known footprint, evidence,
