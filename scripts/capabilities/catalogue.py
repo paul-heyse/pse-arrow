@@ -7,7 +7,6 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import JsonValue, TypeAdapter
@@ -35,6 +34,8 @@ class Catalogue:
         guides: tuple[Guide, ...],
         capabilities: tuple[Capability, ...],
         tools: dict[str, Tool],
+        *,
+        loaded_source_revision: str | None = None,
     ) -> None:
         self.domains = self._index(domains)
         self.workflows = self._index(workflows)
@@ -95,10 +96,7 @@ class Catalogue:
                 key: {"input": tool.parameters, "output": tool.output_schema}
                 for key, tool in sorted(tools.items())
             },
-            "handlers": {
-                path.name: hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in sorted(Path(__file__).parent.glob("*.py"))
-            },
+            "loaded_source_revision": loaded_source_revision,
         }
         self.revision = hashlib.sha256(
             json.dumps(declaration, sort_keys=True, allow_nan=False).encode()

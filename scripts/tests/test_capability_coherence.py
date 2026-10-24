@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Restart fences follow loaded serving contracts, not the inspected project."""
+# ruff: noqa: PT009, PT027 -- stdlib host controls
+
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from fastmcp import Client, FastMCP
+from fastmcp.tools import Tool
+
+from scripts.capabilities.catalogue import Catalogue
+from scripts.capabilities.coherence import Sources, install
+from scripts.capabilities.model import Capability, Domain
+
+
+class CoherenceTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / "scripts/capabilities").mkdir(parents=True)
+        self.first = self.root / "scripts/first.py"
+        self.second = self.root / "scripts/second.py"
+        self.dependency = self.root / "scripts/dependency.py"
+        self.common = self.root / "scripts/capabilities/server.py"
+        self.first.write_text("from scripts import dependency\n")
+        self.second.write_text("# Independent second owner\n")
+        self.dependency.write_text("VALUE = 1\n")
+        self.common.write_text("# Shared serving interpretation\n")
+        self.sources = Sources(self.root, ("scripts/first.py", "scripts/second.py", "scripts/capabilities/server.py"))
+        self.calls = 0
+
+        def first(limit: int = 3) -> dict[str, int]:
+            """Effect counter exposes accidentally dispatched old handlers."""
+            self.calls += 1
+            return {"count": limit}
+
+        def second() -> dict[str, str]:
+            """Independent operation remains usable."""
+            return {"outcome": "second"}
+
+        self.server = FastMCP("coherence-control", strict_input_validation=True)
+        tools = {fn.__name__: Tool.from_function(fn) for fn in (first, second)}
+        specs = tuple(Capability(id=name, title=name, description=name, domain="source", owner=f"scripts/{name}.py", source=f"scripts/{name}.py", exposure="tool", effects="Test fixture only") for name in tools)
+        self.catalogue = Catalogue((Domain(id="source", title="Source", description="Source"),), (), (), specs, tools, loaded_source_revision=self.sources.revision)
+        for tool in tools.values():
+            self.server.add_tool(tool)
+        self.interface = install(self.server, self.sources, self.catalogue)
+        self.client = Client(self.server)
+        await self.client.__aenter__()
+        self.addAsyncCleanup(self.client.__aexit__, None, None, None)
+
+    async def test_changed_owner_never_dispatches_old_handler_with_new_schema(self) -> None:
+        self.first.write_text("def first(new_required_parameter: str):\n    return new_required_parameter\n")
+        tools = await self.client.list_tools()
+        loaded = next(tool for tool in tools if tool.name == "first")
+        self.assertIn("limit", loaded.input_schema["properties"])
+        self.assertNotIn("new_required_parameter", loaded.input_schema["properties"])
+        result = await self.client.call_tool("first", {"limit": 7}, raise_on_error=False)
+        self.assertTrue(result.is_error)
+        self.assertIn("pse.capabilities.restart_required", str(result.content))
+        self.assertEqual(self.calls, 0)
+        self.assertTrue(self.interface.status("first")["restart_required"])
+        self.assertFalse(self.interface.status("second")["restart_required"])
+        self.assertEqual((await self.client.call_tool("second", {})).structured_content, {"outcome": "second"})
+
+    async def test_transitive_local_owner_change_and_deletion_refuse(self) -> None:
+        self.dependency.unlink()
+        result = await self.client.call_tool("first", {}, raise_on_error=False)
+        self.assertTrue(result.is_error)
+        self.assertIn("scripts/dependency.py", self.interface.status("first")["changed_serving_sources"])
+        self.assertEqual(self.calls, 0)
+        self.assertFalse(self.interface.status("second")["restart_required"])
+
+    async def test_common_change_blocks_all_affected_execution(self) -> None:
+        self.common.write_text("# New dispatch interpretation\n")
+        for name in ("first", "second"):
+            result = await self.client.call_tool(name, {}, raise_on_error=False)
+            self.assertTrue(result.is_error)
+        self.assertEqual(self.calls, 0)
+
+    async def test_unrelated_source_and_guide_edits_do_not_invalidate_operation(self) -> None:
+        (self.root / "model.pse").write_text("current model source")
+        (self.root / "unrelated.md").write_text("current unrelated guide")
+        observed = []
+        original = self.sources._read
+
+        def record(path: str) -> bytes:
+            observed.append(path)
+            return original(path)
+
+        with patch.object(self.sources, "_read", side_effect=record):
+            result = await self.client.call_tool("second", {})
+        self.assertEqual(result.structured_content, {"outcome": "second"})
+        self.assertNotIn("scripts/first.py", observed)
+        self.assertNotIn("scripts/dependency.py", observed)
+        self.assertFalse(self.interface.status("second")["restart_required"])
+
+    async def test_reversion_does_not_clear_observed_restart_and_new_process_cut_does(self) -> None:
+        original = self.first.read_bytes()
+        self.first.write_bytes(original + b"# revision two\n")
+        self.assertTrue(self.interface.status("first")["restart_required"])
+        self.first.write_bytes(original)
+        self.assertTrue(self.interface.status("first")["restart_required"])
+        fresh = Sources(self.root, self.sources.sources)
+        self.assertFalse(fresh.check(fresh.sources))
+        fresh.verify_composition()
+
+    async def test_edit_during_composition_refuses_before_publication(self) -> None:
+        self.first.write_text("# Changed between capture and composition\n")
+        with self.assertRaisesRegex(ValueError, "changed while loading"):
+            install(FastMCP("not-published"), self.sources, self.catalogue)
+
+    async def test_revision_uses_bytes_not_checkout_location_or_mtime(self) -> None:
+        original = self.sources.revision
+        self.first.touch()
+        copied = Sources(self.root, self.sources.sources)
+        self.assertEqual(copied.revision, original)
+        self.assertEqual(copied.check(copied.sources), ())
+
+
+if __name__ == "__main__":
+    unittest.main()

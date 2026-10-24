@@ -70,7 +70,7 @@ class Guidance:
         self.guides = tuple(guides)
         self._guides: dict[str, Guide] = {}
         self._snapshots: dict[str, _Snapshot] = {}
-        self._restart_required = False
+        self._changed: set[str] = set()
         self._lock = RLock()
         for guide in self.guides:
             if guide.id in self._guides:
@@ -155,7 +155,7 @@ class Guidance:
         with self._open(guide) as (descriptor, path):
             before = self._identity(descriptor, path)
             if before != baseline:
-                self._restart_required = True
+                self._changed.add(guide.id)
                 return None
             if before.size > MAX_GUIDE_BYTES:
                 raise GuidanceError(
@@ -170,7 +170,7 @@ class Guidance:
                 self._identity(descriptor, path) != baseline
                 or self._observe(guide) != baseline
             ):
-                self._restart_required = True
+                self._changed.add(guide.id)
                 return None
             if len(data) > MAX_GUIDE_BYTES:
                 raise GuidanceError(
@@ -199,7 +199,7 @@ class Guidance:
                     raise GuidanceError(
                         "unknown_guide", guide_id, "Guide ID is not registered."
                     )
-            relevant = dict.fromkeys([*self._snapshots, *selected])
+            relevant = selected
             for guide_id in relevant:
                 current = self._observe(self._guides[guide_id])
                 baseline = self._baseline[guide_id]
@@ -209,11 +209,11 @@ class Guidance:
                         and current.details == baseline.details
                     ):
                         raise current
-                    self._restart_required = True
+                    self._changed.add(guide_id)
                 elif current != baseline:
-                    self._restart_required = True
+                    self._changed.add(guide_id)
             pending: dict[str, _Snapshot] = {}
-            if not self._restart_required:
+            if not self._changed.intersection(selected):
                 for guide_id in selected:
                     if guide_id not in self._snapshots:
                         baseline = self._baseline[guide_id]
@@ -223,7 +223,7 @@ class Guidance:
                             snapshot = self._capture(self._guides[guide_id], baseline)
                         except GuidanceError as error:
                             if error.details["code"] == "missing_source":
-                                self._restart_required = True
+                                self._changed.add(guide_id)
                                 break
                             raise
                         if snapshot is None:
@@ -235,12 +235,13 @@ class Guidance:
                         self._observe(self._guides[guide_id])
                         != self._baseline[guide_id]
                     ):
-                        self._restart_required = True
-                if not self._restart_required:
+                        self._changed.add(guide_id)
+                if not self._changed.intersection(selected):
                     self._snapshots.update(pending)
-            return [self._result(self._guides[guide_id]) for guide_id in selected]
+            restart = bool(self._changed.intersection(selected))
+            return [self._result(self._guides[guide_id], restart) for guide_id in selected]
 
-    def _result(self, guide: Guide) -> dict[str, object]:
+    def _result(self, guide: Guide, restart: bool) -> dict[str, object]:
         snapshot = self._snapshots.get(guide.id)
         return {
             "id": guide.id,
@@ -248,7 +249,7 @@ class Guidance:
             "path": guide.path,
             "content": snapshot.content if snapshot else "",
             "digest": snapshot.digest if snapshot else None,
-            "restart_required": self._restart_required,
+            "restart_required": restart,
             "complete": snapshot is not None,
             "omissions": []
             if snapshot
