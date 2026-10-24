@@ -23,6 +23,12 @@ def inventory(*names: str) -> dict:
 
 
 class RequirementTests(unittest.TestCase):
+    def test_context_peer_declares_the_context_it_actually_prepares(self) -> None:
+        owner, name = requirements.RUST_PEERS["context-overlap"]
+        demand = requirements.rust(owner + "::lib", name)
+        self.assertEqual(demand.effects, ("canonical", "native"))
+        self.assertIn("context-overlap", demand.roles)
+
     def test_undeclared_native_fixture_demand_refuses_before_preparation(self) -> None:
         declarations = {"actual::selected": requirements.Requirement(fixtures=("native-fixture",)).document()}
         with self.assertRaisesRegex(ValueError, "Undeclared native demand"):

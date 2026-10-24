@@ -2,7 +2,10 @@
 # Copyright (c) 2026 Paul Heyse
 """Explicit operator evidence and owned same-handle server restart controls.
 
-Run through scripts/pse-env. Both routes retain the existing selected test and
+Run operator through scripts/pse-env --native and restart through --native=solver.
+The restart owner selects native inputs only for its Rust preparation/child;
+source-server installation retains the caller's ordinary build environment.
+Both routes retain the existing selected test and
 resource/result owners. Restart creates a new nonresident deployment and never
 performs lifecycle operations on the caller's selected service.
 """
@@ -18,7 +21,7 @@ import time
 import uuid
 from pathlib import Path
 
-from scripts import native_operation, native_tests, test_resources, test_run
+from scripts import native_operation, native_tests, reference_run, test_resources, test_run
 from scripts import surreal_server as server
 from scripts import validation_receipts
 
@@ -127,10 +130,18 @@ def restart_journey(directory: Path, test_identity: str) -> None:
     if directory.exists() or directory.is_symlink():
         raise ValueError("Restart requires a fresh owned directory")
     test_resources.require_effect({"test": test_identity}, effect="canonical")
+    test_resources.require_effect({"test": test_identity}, effect="native")
     directory.mkdir(mode=0o700, parents=True)
+    initializer = reference_run.freeze_initializer(
+        Path(os.environ.get("PSE_CANONICAL_TOOLS", str(ROOT / "target/debug/xtask"))),
+        directory / "tools.json",
+    )
     state = directory / "live"
     control = state / "restart-control"
-    environment = dict(os.environ)
+    environment = native_operation.environment(
+        ["solver", "klu", "isolation", "uno", "petsc"], dict(os.environ),
+    )
+    environment["PSE_CANONICAL_TOOLS"] = str(initializer)
     environment["PSE_CANONICAL_RESTART_CONTROL"] = str(control)
     arguments, worker = native_tests.ordinary_rust_capture(
         rust_command("test(=" + RESTART_TEST + ")"),
@@ -138,16 +149,13 @@ def restart_journey(directory: Path, test_identity: str) -> None:
     )
     if worker is None:
         raise ValueError("Restart requires its captured canonical fixture worker")
-    initializer = ROOT / "target/debug/xtask"
-    if not initializer.is_file() or not os.access(initializer, os.X_OK):
-        raise ValueError("Restart requires current target/debug/xtask with canonical-tools")
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     args = server.parser().parse_args([
         "setup", "--state", str(state), "--port", str(port), "--no-resident",
         "--interpretation", server.SUBSTRATE_INTERPRETATION,
-        "--memory-mib", "1536", "--server-memory-mib", "1024",
+        "--memory-mib", "2560", "--server-memory-mib", "2048",
         "--native-workers", "1", "--native-worker-memory-mib", "512",
     ])
     # setup refuses an existing profile; only this fresh path gains stop authority.
@@ -240,10 +248,18 @@ def main() -> int:
         if args.executor is not None:
             environment["PSE_CANONICAL_TOOLS"] = str(args.executor.resolve())
         directory.mkdir(mode=0o700, parents=True, exist_ok=False)
+        source = environment.get("PSE_CANONICAL_TOOLS")
+        if not source:
+            raise ValueError("Selected operator evidence requires PSE_CANONICAL_TOOLS")
+        environment["PSE_CANONICAL_TOOLS"] = str(reference_run.freeze_initializer(
+            Path(source), directory / "tools.json",
+        ))
         return test_run.run_rust(rust_command(OPERATOR_FILTER), env=environment)
     environment = dict(os.environ)
     environment["PSE_TEST_REQUIRED_ROLES"] = ",".join(filter(None, [environment.get("PSE_TEST_REQUIRED_ROLES", ""), "external-restart"]))
     environment["PSE_CANONICAL_RESTART_DIRECTORY"] = str(directory)
+    if args.executor is not None:
+        environment["PSE_CANONICAL_TOOLS"] = str(args.executor.resolve())
     return test_run.run_python([
         sys.executable, "-m", "pytest",
         str(ROOT / "scripts/tests/test_canonical_restart_peer.py"),

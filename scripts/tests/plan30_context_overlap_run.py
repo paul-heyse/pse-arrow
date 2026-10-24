@@ -36,6 +36,10 @@ def main() -> int:
     arguments = parser.parse_args()
     directory = arguments.directory.resolve()
     os.environ["PSE_PLAN30_C1_CONTROL"] = str(directory)
+    os.environ["PSE_TEST_REQUIRED_ROLES"] = ",".join(dict.fromkeys([
+        *filter(None, os.environ.get("PSE_TEST_REQUIRED_ROLES", "").split(",")),
+        "context-overlap",
+    ]))
     if arguments.action == "prepare":
         directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         python_native = producer_deployment.file_observation(

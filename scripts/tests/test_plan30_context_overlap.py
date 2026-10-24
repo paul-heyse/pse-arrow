@@ -76,6 +76,7 @@ def query(state: Path, database: str, sql: str) -> list[object]:
 
 
 @pytest.mark.component
+@pytest.mark.test_requirements(roles=("context-overlap",))
 def test_rust_python_fixture_context_overlap(
     canonical_substrate: CanonicalFixture,
 ) -> None:

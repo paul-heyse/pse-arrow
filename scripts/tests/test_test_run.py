@@ -27,6 +27,34 @@ if TYPE_CHECKING:
 
 
 class TerminalComposerTests(unittest.TestCase):
+    def test_observer_carries_selected_roles_and_restores_parent_environment(self) -> None:
+        provenance = self.root / "native.json"
+        selection = provenance.with_name("native-selected.json")
+        selection.write_text("{}")
+        environment = {**os.environ, "PSE_NATIVE_PROVENANCE": str(provenance),
+                       "PSE_SURREAL_STATE": str(self.root / "service"),
+                       "RUST_MIN_STACK": "16777216", "PSE_TEST_REQUIRED_ROLES": "operator-graph,operator-query"}
+        prior = os.environ.get("PSE_TEST_REQUIRED_ROLES")
+
+        def launch(_state, _command, **_kwargs):
+            self.assertEqual(os.environ["PSE_TEST_REQUIRED_ROLES"], "operator-graph,operator-query")
+            return 4
+
+        def execute(_path, _command, _environment, _report, **kwargs):
+            return kwargs["launch"]({})
+
+        with (
+            patch.object(native_tests, "ordinary_rust_capture", return_value=(["prepared"], self.root / "worker")),
+            patch.object(native_tests, "rust_fixture_bindings", return_value={}),
+            patch.object(test_run.validation_receipts, "native_inventory", return_value={}),
+            patch.object(test_run, "rust_selected", return_value=[{"binary_id": "pse-operations::lib", "name": "operator"}]),
+            patch.object(test_run, "rust_report_command", return_value=(["cargo", "nextest", "run", "prepared"], self.report)),
+            patch.object(test_run, "execute_selected", side_effect=execute),
+            patch("scripts.surreal_server.observer", side_effect=launch),
+        ):
+            self.assertEqual(test_run.observer_rust(["cargo", "nextest", "run"], environment), 4)
+        self.assertEqual(os.environ.get("PSE_TEST_REQUIRED_ROLES"), prior)
+
     def test_rust_report_configuration_precedes_libtest_separator(self) -> None:
         command, report = test_run.rust_report_command(
             self.path, ["cargo", "nextest", "run", "--", "chosen", "--exact"]

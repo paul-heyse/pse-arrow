@@ -59,6 +59,7 @@ RUST_FIXTURE_FEATURES = {
     "PSE_PRODUCER_FIXTURE_RECEIPT": "canonical-tests",
 }
 RUST_PEERS = {
+    "context-overlap": ("pse-operations", "testing::canonical_server_unit::plan30_rust_python_fixture_context_overlap"),
     "external-restart": ("pse-operations", "canonical_execution::canonical_execution_server_unit::retained_canonical_store_recovers_a_new_generation_after_external_server_restart"),
     "operator-graph": ("pse-operations", "canonical_explanations::server_tests::canonical_operator_graph_evidence"),
     "operator-query": ("pse-operations", "canonical_studies::canonical_studies_server_unit::canonical_operator_query_evidence"),
@@ -72,6 +73,9 @@ def rust(binary: str, name: str) -> Requirement:
         base = LOCAL
     fixtures = tuple(key for key, (owner, test) in RUST_FIXTURES.items() if owner == package and test == name)
     peers = tuple(key for key, (owner, test) in RUST_PEERS.items() if owner == package and test == name)
+    if "context-overlap" in peers:
+        # This database-only peer still prepares an admitted native worker context.
+        base = CANONICAL_NATIVE
     if any(role.startswith("operator-") for role in peers):
         fixtures += ("PSE_CANONICAL_TOOLS",)
     managed = ("managed-primary",) if package == "pse-runtime" and name.startswith("managed_primary_") else ()
