@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import hashlib
+import json
 import re
 import tempfile
 import unittest
@@ -141,6 +143,25 @@ class PopulationTests(unittest.TestCase):
             with self.assertRaisesRegex(tool.ToolError, "acknowledgment unavailable"):
                 tool.populate(resource)
         self.assertFalse(resources.resource_status(resource)["drained"])
+
+    def test_failed_statement_preserves_private_complete_response_and_sql_identity(self) -> None:
+        resource = tool.provision(self.state)
+        original = self.sql
+        response = ["The query was not executed", "Field revision: expected string", "The query was not executed"]
+        with patch.object(resources, "namespace_sql", side_effect=lambda config, query, **kwargs: response if query.startswith("BEGIN TRANSACTION") else original(config, query, **kwargs)):
+            with self.assertRaisesRegex(tool.ToolError, "Field revision: expected string"):
+                tool.populate(resource)
+        record = resources.resource_status(resource)
+        artifacts = list(Path(str(record["directory"])).glob("population-response-*.json"))
+        self.assertEqual(len(artifacts), 1)
+        self.assertEqual(artifacts[0].stat().st_mode & 0o777, 0o600)
+        evidence = server.read_json(artifacts[0])
+        self.assertEqual(evidence["response"], response)
+        self.assertEqual(evidence["errors"][1], {"statement": 1, "error": response[1]})
+        self.assertEqual(evidence["sql_sha256"], hashlib.sha256(population.sql().encode()).hexdigest())
+        self.assertEqual(evidence["response_sha256"], hashlib.sha256(json.dumps(response, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
+        self.assertFalse(record["drained"])
+        self.assertEqual(record["tool_population"]["phase"], "population_submitted")
 
     def test_permission_denial_requires_privileged_absence_not_empty_mutation_output(self) -> None:
         resource = tool.provision(self.state)

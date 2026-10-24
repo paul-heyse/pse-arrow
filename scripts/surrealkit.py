@@ -518,7 +518,19 @@ def _population_sql(
         database=surrealkit_population.DATABASE,
     )
     if not values or any(isinstance(value, str) for value in values):
-        raise ToolError("Population SQL refused or acknowledgment unavailable; scope remains pinned")
+        encoded = json.dumps(values, sort_keys=True, separators=(",", ":")).encode()
+        errors = [{"statement": index, "error": value}
+                  for index, value in enumerate(values) if isinstance(value, str)]
+        response = Path(str(record["directory"])) / ("population-response-" + uuid.uuid4().hex + ".json")
+        surreal_server.write_json(response, {
+            "sql_sha256": hashlib.sha256(sql.encode()).hexdigest(),
+            "response_sha256": hashlib.sha256(encoded).hexdigest(),
+            "response": values, "errors": errors,
+        })
+        specific = next((str(item["error"]) for item in errors
+                         if "not executed" not in str(item["error"]).lower()),
+                        str(errors[0]["error"]) if errors else "acknowledgment unavailable (empty response)")
+        raise ToolError("Population SQL refused; scope remains pinned: " + specific[:240] + "; private response " + str(response))
     return values
 
 
