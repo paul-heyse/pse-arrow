@@ -189,6 +189,23 @@ class SourceAdmissionTests(unittest.TestCase):
             execute.assert_not_called()
             self.assertEqual(request.read_bytes(), original)
 
+    def test_target_symlink_is_preserved_and_refused_even_with_matching_request(self) -> None:
+        with tempfile.TemporaryDirectory() as scratch:
+            directory = Path(scratch) / source.installation_name(Path(scratch))
+            (directory / "source").mkdir(parents=True)
+            target = directory / "source/target"
+            target.symlink_to(Path(scratch) / "unowned-target", target_is_directory=True)
+            request = directory / "build-request.json"
+            request.write_text(json.dumps(source.build_request(source.inputs(Path(scratch)))))
+            original = request.read_bytes()
+            with (patch.object(source, "verify_source"),
+                  patch.object(source, "command") as execute,
+                  self.assertRaisesRegex(source.BuildError, "target is a symlink")):
+                source.install(directory)
+            execute.assert_not_called()
+            self.assertTrue(target.is_symlink())
+            self.assertEqual(request.read_bytes(), original)
+
 
 if __name__ == "__main__":
     unittest.main()

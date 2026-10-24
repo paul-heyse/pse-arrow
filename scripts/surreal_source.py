@@ -326,7 +326,10 @@ def install(directory: Path) -> dict[str, object]:
     # before Cargo/build scripts execute. This prevents local/caller injection.
     request = directory / "build-request.json"
     expected = build_request(selected)
-    if (source / "target").exists():
+    target = source / "target"
+    if target.is_symlink():
+        raise BuildError("Existing server target is a symlink; target preserved")
+    if target.exists():
         try:
             previous = json.loads(request.read_text())
         except (OSError, ValueError) as error:
