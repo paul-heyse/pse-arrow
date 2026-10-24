@@ -91,7 +91,11 @@ python3 -m scripts.build_environment --frontend 2 --jobs 16 --cache on -- just c
 
 The environment preserves explicit encoded flags, or `RUSTFLAGS`, according to
 Cargo's precedence. Without those overrides it retains the repository target flags,
-including mold. No `target-cpu=native`, fast-math, panic-abort or global incremental
+including mold. Direct doctest, family-check and Python extension/stub producer recipes
+carry the compile hint before allocation, so the configured ordinary-build mode applies.
+A later nested hint cannot widen an existing functional allocation; explicit resource
+selections still take precedence. Scientific execution keeps its own allocation owners.
+No `target-cpu=native`, fast-math, panic-abort or global incremental
 disable is introduced. Correctness recipes still request Arrow force validation.
 
 The automatic local cache has a 100 GiB budget under
@@ -100,8 +104,9 @@ does not stop the user's default cache server. An explicit `SCCACHE_DIR` keeps t
 user's server configuration. `build-cache-probe` uses a disposable foreground server and checks
 an eligible Rust hit plus incremental pass-through. Its compiler calls and statistics share
 that same endpoint. Explicit measurement runs preserve their owned endpoint through nested
-recipes; ordinary managed-cache statistics observe the admitted service. Product benefit must be measured
-with `bench-builds`; a canary is insufficient.
+recipes; ordinary managed-cache statistics observe the admitted service. The canary removes its first outputs before the hit, checks a published entry above
+8 MiB and links a consumer to verify restored payload bytes. Product benefit must be
+measured with `bench-builds`; a canary is insufficient.
 
 The shared environment requires sccache client-side compilation, keeping compiler
 children inside the invoking operation's supervision. It disables the C/C++ direct
@@ -113,6 +118,33 @@ restricts `SCCACHE_ERROR_LOG` on this route. These settings cause ordinary build
 the compiler directly; direct managed compiler calls refuse before service admission. An explicit cache
 experiment refuses those settings rather than measuring a different execution mode.
 The local cache remains a trusted build input, not an artifact provenance authority.
+
+Client-side cache publication sends a complete compressed entry over daemon IPC.
+`.config/build.toml` declares a 256 MiB message ceiling; `SCCACHE_MAX_FRAME_LENGTH`
+can select another positive decimal byte limit, up to the protocol's four-byte bound.
+The managed service captures this selection in its generation identity and scrubbed
+daemon environment, and nested recipes, language servers, installer contexts and
+measurements retain it. The resident daemon has an 8 GiB supervised memory allowance.
+Neither ceiling is a standing memory allocation; actual large transfers consume buffers.
+The 100 GiB disk budget and default compression remain unchanged.
+
+The upstream default 8 MiB frame can silently reject large client-side publications
+and lose the associated statistics. A zero error/miss counter therefore does not prove
+complete accounting. Inspect actual publication/recovery for important large artifacts;
+`compile_requests` also remains zero in healthy 0.19 client-side mode. The increased
+frame admits the tested current artifacts without weakening cache keys. Entries above
+the selected frame still require a deliberate larger bound or an upstream transport fix.
+Storage lookup durations exclude key preparation and output extraction: Rust hits still
+run dep-info/output discovery and hash inputs, and proc macros, linking and incremental
+workspace work remain outside ordinary eligible hits.
+
+Released 0.19 hashes literal env-deps and relevant Cargo values, source/extern bytes and
+cwd. Different OUT_DIR values and propagated extern changes can correctly miss across
+checkouts. Same-path recovery and differently named targets with otherwise equal inputs
+are separate cases. No Rust basedirs/remapping fork is selected; an upstream candidate
+must preserve embedded literals and qualify actual heavy dependency/extern cases before
+adoption. Keep each checkout's artifacts for the fastest no-op and incremental edit path.
+
 
 ## Native preparations
 

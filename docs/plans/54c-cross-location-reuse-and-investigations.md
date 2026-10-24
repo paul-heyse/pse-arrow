@@ -49,10 +49,10 @@ registry dependency. Identical relative targets in two worktrees and differently
 targets inside one checkout are distinct cases. Consider a stable virtual target mapping
 only if the candidate preserves all observable source/environment semantics.
 
-Basedirs policy is also a service-lifetime decision. Even client-side v0.18 gets it from
+Basedirs policy is also a service-lifetime decision. Client-side v0.19 gets it from
 the daemon's
-[StorageHandshake](https://github.com/mozilla/sccache/blob/v0.18.0/src/server.rs#L904-L913)
-through [IpcStorage](https://github.com/mozilla/sccache/blob/v0.18.0/src/cache/ipc_storage.rs#L161-L163).
+[StorageHandshake](https://github.com/mozilla/sccache/blob/v0.19.0/src/server.rs)
+through [IpcStorage](https://github.com/mozilla/sccache/blob/v0.19.0/src/cache/ipc_storage.rs).
 A new per-worktree environment value does not necessarily change a running daemon's
 normalization policy. An adoption proposal must specify the root policy, newly created
 worktree behavior, config generation and caller/daemon agreement. Prefer declared supported
@@ -192,11 +192,48 @@ checklist or inventing mandatory infrastructure to complete this package.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | planned | 54c | Supported relocation scope and discriminating safety/reuse decision |
-| C02 | planned (conditional) | 54c | Qualified adoption, or explicit no-adoption/deferral preserving F01's limit |
-| C03 | planned | 54c | Capacity/cost/error decision; selected local changes qualified in D02 |
-| C04 | planned | 54c | Unit/critical-path/non-cacheable-work decision with bounded next work |
-| C05 | in progress | 54c | Wider-capability disposition for the selected host without assumed deployment |
+| C01 | complete | 54c | Supported relocation scope and discriminating safety/reuse decision |
+| C02 | complete (not adopted) | 54c | Qualified adoption, or explicit no-adoption/deferral preserving F01's limit |
+| C03 | in progress | 54c | Capacity/cost/error decision; selected local changes qualified in D02 |
+| C04 | in progress | 54c | Unit/critical-path/non-cacheable-work decision with bounded next work |
+| C05 | complete | 54c | Wider-capability disposition for the selected host without assumed deployment |
 
-All acceptance above is **Proposed**. Inquiry outcomes update their coordinator owner;
+Acceptance clauses above describe the planned controls; the checkpoint below records current execution. Inquiry outcomes update their coordinator owner;
 decisions requiring changed rules are not inferred from investigation authorization.
+
+## Execution checkpoint
+
+C01's 16 real behavioral controls passed; the [0.19 evidence](../design_review/evidence/rust-build-reuse-019/README.md)
+records supported same-path/target reuse and required misses. C02 deliberately adopts no
+remapping fork: released 0.19 retains literal environment/cwd inputs; PR2794 cannot remove
+F01's OUT_DIR distinction and PR2678 normalizes observably meaningful strings unsafely.
+F01 remains externally limited. Revisit only a released or deliberately maintained mechanism
+that preserves literals, supports the actual heavy extern cases and passes these controls
+under its own populated configuration, including local dep-info freshness.
+
+C05 retains the managed disk cache and local caller-owned compilation. Remote/multilevel
+storage has potential recovery/history/second-producer value, with service, latency and
+credential costs; reconsider for demonstrated repeated eviction or a concrete recovery/producer
+requirement. Distributed execution requires a named operator and a separate supervision/trust/
+native-environment decision. Current CLI/JSON and exact Cargo units suffice for graph/shear
+consumers; reconsider guppy/hakari analysis or embedding for recurring queries or an actual
+long-lived Rust consumer. These are source-supported choices, not measured deployment claims.
+
+C03 found a concrete additional defect: the default 8 MiB client-side IPC frame rejects
+large cache publication and can lose its own statistics. A private large-entry control
+confirmed failure and successful publication/hits with a larger bound. The maintainer
+authorized raising it; selected implementation is a declared 256 MiB frame, caller override,
+daemon generation identity and an 8 GiB resident-cache budget. This ceiling is per message,
+not a standing allocation. Integrated managed acceptance passed: actual daemon frame/budget, miss/publication/hit,
+linked full-payload correctness and a distinct override generation. Comparative benefit
+remains pending D02.
+Capacity stays 100 GiB and compression stays default level 3 unless subsequent evidence
+shows eviction or material encoding/extraction cost; private campaign capacity was not pressured.
+C04 identified a second concrete avoidable cost: direct doctest, family-check and Python
+extension/stub producer entries lacked the existing compile placement hint. The live
+doctest entered a four-CPU functional allocation before its inner compiler launch;
+producer hints now apply before allocation, preserving caller overrides and scientific
+execution ownership. Forty-one environment precedence controls passed. The corrected
+expensive-work attribution does not treat lost statistics as proof that Symbolica was a hit.
+Existing xtask tool features remain selected; scope-end full-codegen and consumer checks
+are still running before final inquiry closure.

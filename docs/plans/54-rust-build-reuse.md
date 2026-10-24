@@ -75,6 +75,11 @@ The new findings are **Interface-checked** source conclusions:
   mode, including an empty value. This can move compiler work outside the intended caller.
 - **CB10:** the proposed shear acceptance permits warning diagnostics because it omits
   --deny-warnings. A zero exit is insufficient for the stated zero-finding target.
+- **CB11:** actual 0.19 client-side cache publication above the default 8 MiB IPC frame
+  can fail silently and lose its own statistics. The configured frame must reach the daemon
+  and participate in service generation identity.
+- **CB12:** direct doctest and Python producer entry points omitted the existing compile
+  hint, so compilation inherited a functional allocation before its inner hint could apply.
 
 The supplied report is evidence, not an instruction to reproduce every remedy. Several
 corrections from the assessment are incorporated here: multiple detectors are independent
@@ -114,7 +119,7 @@ retain their original scope; CB08–CB10 are additions from this engagement.
 
 | Recommendation | Judgment | Work owner | Resulting direction |
 |---|---|---|---|
-| R01 / O01, O08 | Improve | 54a A01 | Pin sccache 0.18.0 and shear 1.14.0; connect installation, executable selection and doctor |
+| R01 / O01, O08 | Improve | 54a A01 | Select sccache 0.19.0 and shear 1.14.0; connect installation, executable selection and doctor |
 | R02 / O11 | Retain | 54a A03 | Remove agent CARGO_TERM_COLOR defaults; verify refreshed equivalent callers |
 | R03 / O05, O06 | Improve | 54b B02 | Correct macro ownership; inspect removals and empty targets; preserve valid fixture layouts and feature activation |
 | R04 / O07, O08 | Improve | 54b B03 | One strict routine shear check; retire routine machete/udeps without claiming identical analysis coverage |
@@ -127,9 +132,9 @@ retain their original scope; CB08–CB10 are additions from this engagement.
 
 | Finding | Scenario | Disposition | Work owner | Required evidence or trigger |
 |---|---|---|---|---|
-| F01 | S07 | scheduled | 54c C01/C02 | Resolve supported extent and external limitation; adopt only on compatible-cache and behavioral controls |
+| F01 | S07 | deferred | 54c C01/C02 | Literal paths/extern inputs remain meaningful; no safe selected relocation mechanism; revisit capability and behavioral controls in 54c |
 | F02 | S03 | resolved | 54a A03 | Both defaults removed; refreshed terminal/Codex inputs match and actual eligible reuse observed; 54a Outcome |
-| F03 | S01 | resolved | 54a A01 | Verified managed 0.18.0 default selected; explicit overrides diagnosed; 54a Outcome |
+| F03 | S01 | resolved | 54a A01 | Verified managed 0.19.0 default selected; explicit overrides diagnosed; 54a Outcome |
 | F04 | S05 | scheduled | 54b B02 | Inspected removals, selected compilations and unchanged validation closure |
 | F05 | S05 | scheduled | 54b B03 | Strict shear, retired duplicate routine routes and preserved security checks |
 | F06 | S04 | scheduled | 54b B01 | No rebuild for identical bytes and required rebuild for changed consumed inputs |
@@ -137,15 +142,17 @@ retain their original scope; CB08–CB10 are additions from this engagement.
 | CB08 | S06 | scheduled | 54d D01 | Snapshot-local default targets, no campaign target env and guarded recovery |
 | CB09 | S02 | resolved | 54a A02 | Presence handled at both boundaries; real caller ownership/interruption controls; 54a Outcome |
 | CB10 | S05 | scheduled | 54b B03 | Warning diagnostics fail the strict hygiene route |
+| CB11 | S08 | resolved | 54c C03 | Actual large-entry publication/recovery with declared 256 MiB frame and daemon generation override; 54c evidence |
+| CB12 | S08/S09 | resolved | 54c C04 / 54d D02 | Producer entries carry the existing compile hint; precedence controls pass; actual consumer journeys remain joined acceptance |
 
 ## Inquiry outcomes and remaining questions
 
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
-| I01 | open | 54c C01 | Actual safe relocation coverage, raw environment limitations and daemon-basedirs policy; no automatic PR adoption |
+| I01 | closed | 54c C01 | 16 real controls establish supported reuse and correct misses; no remapping adoption; F01 remains externally limited |
 | I02 | open | 54c C03 | Attribution of cache errors/eviction and complete lookup/restore versus compile costs after fragmentation fixes |
 | I03 | open | 54c C04 | Expensive host/target/profile variants, incremental tradeoffs and binary-owned work; select a bounded improvement or retain current design |
-| I04 | open | 54c C05 | Technical value and full operational cost of local tiers/remote/distributed options for this host; no infrastructure assumed |
+| I04 | closed | 54c C05 | Retain managed disk/local execution and CLI boundaries; concrete storage, supervision and consumer revisit triggers in 54c |
 
 An inquiry closes with a supported choice, retained limitation or evidence-based no-change
 decision, not an obligation to produce an optimization. A viable but unavailable external

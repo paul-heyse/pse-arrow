@@ -193,7 +193,7 @@ Nextest's timing-sensitive exclusive controls reserve `num-test-threads`, the ac
 configured scheduler width, so changing the allocation does not weaken exclusion.
 
 The managed `scripts/sccache` wrapper gives the shared cache daemon its own finite
-light-service allocation. Its immutable binary/configuration identity selects a private
+8 GiB light-service allocation. Its immutable binary/configuration/frame identity selects a private
 socket; readiness verifies the actual process, unit invocation and socket peer. Compiler
 children remain in the build allocation. Completed builds can therefore release capacity
 while the cache stays resident. `PSE_SCCACHE_BINARY` identifies the installed executable;
