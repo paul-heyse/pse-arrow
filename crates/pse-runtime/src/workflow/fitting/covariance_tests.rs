@@ -1167,7 +1167,9 @@ async fn nonlinear_state_fit_package(
 #[tokio::test]
 async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
     use crate::workflow::modeling::sensitivity_tests::reopened_rows;
-    use pse_relations::generated::runtime::{fit_observations, local_validity};
+    use pse_relations::generated::runtime::{
+        fit_constraints, fit_observations, fit_parameters, fit_variables, local_validity,
+    };
     let runtime = crate::workflow::durable_tests::durable_runtime();
     for (observed_x, s) in [(3., 1.), (18., 2.)] {
         let package = nonlinear_state_fit_package(runtime.clone(), observed_x).await;
@@ -1199,15 +1201,23 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
                 )
                 .await
                 .unwrap();
-            assert_eq!(
-                prepared.problem.bounds.len(),
-                2,
-                "one parameter plus one explicit state"
-            );
-            assert_eq!(
-                prepared.problem.bounds[0],
-                (f64::NEG_INFINITY, f64::INFINITY)
-            );
+            // The native contract owns decisions; `bounds` owns constraint rows.
+            // Keep the explicit state and nonlinear equality in the prepared NLP.
+            let problem = &prepared.problem;
+            assert_eq!(problem.contract.variables.len(), 2);
+            let parameter = problem.contract.variables.iter().find(|v| v.id == id(A)).unwrap();
+            assert_eq!((parameter.lower, parameter.upper), (f64::NEG_INFINITY, f64::INFINITY));
+            assert_eq!(problem.contract.rows.len(), 1);
+            assert_eq!(problem.bounds, vec![(0., 0.)]);
+            assert_eq!(problem.experiments.len(), 1);
+            let Experiment::Steady(steady) = &problem.experiments[0] else {
+                panic!("nonlinear covariance witness must retain its steady state");
+            };
+            assert_eq!(steady.local_states, 1);
+            assert_eq!(steady.constraints.len(), 1);
+            assert_eq!(steady.coordinates.len(), 2);
+            let state_id = steady.coordinates.iter().next().unwrap().0;
+            assert!(steady.variables.iter().any(|v| v.port.id == state_id && !v.fixed));
             let result = prepared.start().unwrap().wait().await.unwrap();
             assert!(result.usable(), "{:?}", result.report());
             let fitted = report(&result);
@@ -1215,6 +1225,20 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
             assert_eq!(fitted.rank, Some(1));
             assert_eq!(fitted.constraint_values.len(), 1);
             assert!(fitted.constraint_values[0].abs() < 1e-6, "{fitted:?}");
+            // Publication separates the shared fitted parameter from the local state.
+            let parameters = fit_parameters::Row::rows(&result.table("runtime.fit_parameters").unwrap()).unwrap();
+            assert_eq!(parameters.len(), 1);
+            assert_eq!(parameters[0].parameter_id, id(A));
+            assert!((parameters[0].value.unwrap() - s).abs() < 1e-5);
+            let states = fit_variables::Row::rows(&result.table("runtime.fit_variables").unwrap()).unwrap();
+            assert_eq!(states.len(), 1);
+            assert_eq!(states[0].symbol_id, state_id);
+            assert!(!states[0].fixed);
+            assert!((states[0].value.unwrap() - s*s).abs() < 1e-5);
+            let constraints = fit_constraints::Row::rows(&result.table("runtime.fit_constraints").unwrap()).unwrap();
+            assert_eq!(constraints.len(), 1);
+            assert_eq!((constraints[0].lower, constraints[0].upper), (Some(0.), Some(0.)));
+            assert!(constraints[0].value.unwrap().abs() <= constraints[0].tolerance);
             let predictions =
                 fit_observations::Row::rows(&result.table("runtime.fit_observations").unwrap())
                     .unwrap();

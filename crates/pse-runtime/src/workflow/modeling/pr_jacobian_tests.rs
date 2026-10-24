@@ -1895,18 +1895,23 @@ fn independent_pr_coordinate_jet(z: f64) -> ([f64; 2], [[f64; 2]; 2]) {
 #[tokio::test]
 async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() -> TestResult<()> {
     let source = "package pr_curvature {
-        fn cubic(z:Scalar,a:Scalar,b:Scalar)->Scalar = z*z*z-(1-b)*z*z+(a-3*b*b-2*b)*z-a*b+b*b+b*b*b;
         def Root {
             var v: Scalar; var u: Scalar;
             let attraction: Scalar = 1309/3600 + 0.2*u + 0.3*v + 0.4*u*v;
             let covolume: Scalar = 0.05 - 0.1*u + 0.7*v + 0.2*u*u;
-            implicit liquid select branch(z<0.2) {
-                var z: Scalar; eq root: cubic(z,attraction,covolume)==0;
+            implicit liquid select minimum(z,1e-10) {
+                var z: Scalar;
                 annotation bounds z(0.06,0.12); annotation start z(0.085);
+                regime selected eligible(z<0.2) {
+                    eq root: z*z*z-(1-covolume)*z*z+(attraction-3*covolume*covolume-2*covolume)*z-attraction*covolume+covolume*covolume+covolume*covolume*covolume == 0;
+                }
             }
-            implicit vapor select branch(z>0.4) {
-                var z: Scalar; eq root: cubic(z,attraction,covolume)==0;
+            implicit vapor select minimum(z,1e-10) {
+                var z: Scalar;
                 annotation bounds z(0.45,0.55); annotation start z(0.5);
+                regime selected eligible(z>0.4) {
+                    eq root: z*z*z-(1-covolume)*z*z+(attraction-3*covolume*covolume-2*covolume)*z-attraction*covolume+covolume*covolume+covolume*covolume*covolume == 0;
+                }
             }
             realize liquid_policy on liquid using nested;
             realize vapor_policy on vapor using nested;
@@ -1952,6 +1957,20 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
         numerical: Default::default(),
     };
     let prepared = package.prepare_analysis(&analysis, &cancel).await?;
+    // Cubic branch predicates alone carry no admitted derivative neighborhood.
+    // These bounded regime selectors require the actual runtime isolation proof;
+    // their eligibility margins and boxes select the same two analytic roots.
+    let admitted = &prepared.model.model.compiled().admitted;
+    assert_eq!(admitted.implicit_systems().count(), 2);
+    for supplier in admitted.implicit_systems() {
+        assert_eq!(
+            supplier.selection.neighborhood_evidence,
+            pse_compiler::workspace::SelectionNeighborhood::RuntimeIsolation
+        );
+        assert_eq!(supplier.selection.neighborhood, DerivativeOrder::Second);
+        assert_eq!(supplier.residuals.len(), 1);
+        assert!(supplier.residuals[0].isolation.is_some());
+    }
     let model = &prepared.model.model.compiled().model;
     let coordinate_ids = [model.paths["u"], model.paths["v"]];
     let row_ids = ["mixed", "other"].map(|path| {

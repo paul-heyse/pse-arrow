@@ -219,8 +219,8 @@
 @id("4738e9b74b3549faaf2da9f3eb639e07") child root:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=saponification.Saponification(defined_state=true),hot_outlet_pkg=saponification.Saponification(defined_state=false),cold_inlet_pkg=saponification.Saponification(defined_state=true),cold_outlet_pkg=saponification.Saponification(defined_state=false));
 @id("fd8acb46993a4a3a8b1ed50530fcbad2") expect root.hot.outlet.T==311.776308796438{K} tolerance numerical_policy.temperature;
 @id("bef237cb979c4fec91ba853a6739226f") expect root.cold.outlet.T==316.447382407124{K} tolerance numerical_policy.temperature;
-@id("5e998fa84d014b8dafd89f425f045a1f") expect root.cold.heat==34310.9821040572{W} tolerance numerical_policy.power;
-@id("c5dff7b817fa447eb36c4e57ff53cb50") expect root.hot.heat+root.cold.heat==0{W} tolerance numerical_policy.power;
+@id("5e998fa84d014b8dafd89f425f045a1f") expect root.cold.heat==34310.9821040572{W} tolerance numerical_policy.energy_transfer_rate;
+@id("c5dff7b817fa447eb36c4e57ff53cb50") expect root.hot.heat==-34310.9821040572{W} tolerance numerical_policy.energy_transfer_rate;
 @id("4bfc31c4f2274e3d845d66cc7bf266a4") expect root.delta.first==3.55261759287646{K} tolerance numerical_policy.temperature;
 @id("5724db193b62491dabba80d2c55f1021") expect root.delta.second==11.7763087964382{K} tolerance numerical_policy.temperature;
 }
