@@ -500,8 +500,8 @@ fn moves(
                 .collect::<BTreeSet<_>>();
             for row in rows.iter() {
                 operation.check()?;
-                if !parents.contains(&row.declaration_id) {
-                    if !retain_move(
+                if !parents.contains(&row.declaration_id)
+                    && !retain_move(
                         &mut edits,
                         &mut bytes,
                         ReductionEdit {
@@ -511,9 +511,9 @@ fn moves(
                             end: row.source_end as usize,
                             replacement: String::new(),
                         },
-                    ) {
-                        return Err(contract("reduction move payload bound exceeded"));
-                    }
+                    )
+                {
+                    return Err(contract("reduction move payload bound exceeded"));
                 }
                 if let Ok(Selected::Equation(eq)) = row.value.selected() {
                     let Some(span) = expression_span(document, row) else {
@@ -540,8 +540,7 @@ fn moves(
                                         let replacement = pse_authoring::dsl::render_expr(child);
                                         if replacement.len()
                                             < (node.span.end - node.span.start) as usize
-                                        {
-                                            if !retain_move(
+                                            && !retain_move(
                                                 &mut edits,
                                                 &mut bytes,
                                                 ReductionEdit {
@@ -553,10 +552,10 @@ fn moves(
                                                         + node.span.end as usize,
                                                     replacement,
                                                 },
-                                            ) {
-                                                refused = true;
-                                                break;
-                                            }
+                                            )
+                                        {
+                                            refused = true;
+                                            break;
                                         }
                                     }
                                 }
