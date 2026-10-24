@@ -521,8 +521,9 @@ Original a–h evidence, the C04 denial and independent Plan28/32/40/53 work are
 
 ### 52j execution checkpoint — 2026-10-24
 
-ADP01–ADP05 and MCP01 are delivered in isolated branch `plan52j-adapters`, integrating main
-through `a9e88cdfe`. The [52j Verification and Outcome](52j-native-contracts-and-tool-adaptation.md#verification-and-outcome--2026-10-24)
+ADP01–ADP05 and MCP01 are delivered through isolated branch `plan52j-adapters`, integrating main
+through `0930f8980` without conflicts after the maintainer's Plan53c completion signal.
+The [52j Verification and Outcome](52j-native-contracts-and-tool-adaptation.md#verification-and-outcome--2026-10-24)
 owns the current focused acceptance, repaired findings, native retention decisions and limits.
 The canonical endpoint serves 65 real operations; 402 current entry points have specific
 classifications under the declared coverage. Native schemas retain original codecs/receivers,
@@ -533,5 +534,7 @@ service was stopped, its contexts/kernel scopes drained and its successful fixtu
 Q02–Q04 are resolved. MCP02's broader actual Codex presentation, MCP03's remaining handler
 coherence, MCP04/MCP05 and G/H assembled work remain with their owners. This is focused 52j
 acceptance, not assembled Plan52 or scientific/performance qualification. C04 and independent
-Plan28/32/40/53 scope remain unchanged. Main-branch merge is explicitly held pending the
-maintainer's completion signal; no branch removal or main publication has occurred.
+Plan28/32/40/53 scope remain unchanged. Final integration passed 115 capability tests,
+147 affected owner tests, four native unit cases and the installed-server reuse check.
+The maintainer authorized main publication and retirement of the fully merged worktree;
+retained acceptance artifacts live in the main checkout at `build/capabilities/plan52j-acceptance/`.

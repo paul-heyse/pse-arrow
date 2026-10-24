@@ -347,8 +347,8 @@ separate F/G proposals or every public scientific method as a process RPC.
 Enduring usage, effects, handle lifetime, preparation and restart guidance live in
 [the capability interface guide](../dev/capability-interface.md) and
 [the environment guide](../dev/agent-environment.md#canonical-capability-entry-point).
-Implementation is isolated on `plan52j-adapters`, with committed main changes integrated through
-`a9e88cdfe`. Merge back remains explicitly held for the maintainer's completion signal.
+Implementation was isolated on `plan52j-adapters`. Following the maintainer's Plan53c completion
+signal, main through `0930f8980` was integrated without conflicts before publication to main.
 
 ## Verification and Outcome — 2026-10-24
 
@@ -377,7 +377,8 @@ an unsupported deployment, incomplete observation or missing prerequisite.
 | Actual canonical STDIO action/read journeys | Scoped Rust selection/run/result, archive/inspect/replay, diagnostic feasibility/read, compilation/assessment read and contract comparison passed with authentic native output. Historical replay remains historical; the compilation journey preserved a contextual source change instead of claiming current-source qualification. Documentation build and its retained assessment also passed through the canonical action. |
 | Actual language/database consumers | Python symbol/hover/stale refusal and >20KiB Unicode preview/read/apply/reconcile passed; pinned Rust symbols/hover/references passed. Database select/info/list/query, invalid-scope refusal and bounded all-table omission passed against the admitted owned service. |
 
-Live acceptance artifacts remain under `build/capabilities/`, including
+Live acceptance artifacts are preserved in the main checkout under
+`build/capabilities/plan52j-acceptance/`, including
 `db-specialist-20261024T081018Z/acceptance-outcome.json` and `lifecycle/passed.json`.
 Authenticated service identity, contexts and kernel scopes were drained; the successful
 disposable fixture was retired. Earlier unsuccessful probes remain under their existing
@@ -391,7 +392,22 @@ and a derived CLI. Those retain their existing 52k/G/H owners. **Measured:** no 
 latency or scientific-performance improvement is claimed. Current entry-point classification
 does not establish every native command's installed readiness or functional qualification.
 
+**Tested — final main integration:** main through `0930f8980` merged without conflicts. The
+capability unittest discovery command above passed 115 tests. The affected owner command
+(`scripts/pse-env -- .venv/bin/python -m unittest` selecting
+`scripts.tests.test_{test_invocation,test_run,validation_result,build_cache_probe,build_environment,build_measurements,compiler_cache,surreal_source,surrealkit_population}`)
+passed 147 tests, baseline zero. The native pytest command above, selecting `-m unit` and
+`--basetemp=build/capabilities/integration-native-pytest-tmp`, passed four tests with two
+durable cases deselected; their earlier six-case acceptance is retained above. The first
+attempt omitted the explicit temporary directory and encountered three fixture setup errors
+because `/tmp/pytest-of-paul` had a different owner; the checkout-local rerun corrected the
+invocation without changing tests or unrelated temporary files. The real installed-package
+check (`scripts/pse-env -- .venv/bin/python -m scripts.tests.surreal_install_equivalence_check
+/home/paul/.local/share/pse-arrow/tools/surreal`) passed across six caller-context variants,
+with zero compiler/build/service invocations and unchanged original receipts. These focused
+checks retain the qualification exclusions above.
+
 The owning coordinator remains active. This completed companion is retained as a dependency of
-that active series until its aggregate publication/retirement boundary. The branch is committed
-and ready for the maintainer-selected integration point; main merge and worktree removal remain
-held for the explicit completion signal.
+that active series until its aggregate publication/retirement boundary. The maintainer authorized
+publication to main and removal of the fully merged worktree and branch. Acceptance artifacts,
+including stopped unsuccessful probes, were preserved before worktree retirement.

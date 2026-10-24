@@ -33,8 +33,9 @@ The [52i execution checkpoint](52-agent-effectiveness-and-engineering-workflows.
 links delivered canonical discovery/classification, progressive guidance, fixed STDIO serving and
 actual Codex exact-read access. The [52j checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52j-execution-checkpoint--2026-10-24)
 records completed native/parser adaptation and lazy specialist migration, with focused actual
-native/database acceptance in an isolated branch. Main integration awaits the maintainer's
-completion signal. Broader host presentation, derived consumers and assembled qualification
+native/database acceptance and final integration with completed Plan53c changes through
+`0930f8980`, followed by maintainer-authorized publication to main and worktree retirement.
+Broader host presentation, derived consumers and assembled qualification
 retain their 52k/52h owners. Launch guidance lives in the
 [capability interface guide](../dev/capability-interface.md).
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
