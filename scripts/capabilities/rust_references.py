@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Literal
 
@@ -30,23 +31,39 @@ class ReferenceRead(Contract):
 def read(root: Path, output: str) -> ReferenceRead:
     from scripts import run_inspection  # noqa: PLC0415 -- selected original registry reader.
 
+    root = root.absolute()
     path = Path(output)
     if not path.is_absolute():
         path = root / path
-    if ".." in path.parts or not path.is_relative_to(root) or any(item.is_symlink() for item in (path, *path.parents)):
+    if ".." in path.parts or not path.is_relative_to(root):
         raise ValueError("select an owned checkout output without symlinks")
-    source = path / "invocation-reference.json"
-    try:
-        descriptor = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    except FileNotFoundError:
-        return ReferenceRead(outcome="not_observed")
-    with os.fdopen(descriptor, "rb") as stream:
-        before = os.fstat(stream.fileno())
-        if not stat.S_ISREG(before.st_mode) or before.st_size > 16384:
-            raise ValueError("reference must be a bounded ordinary owner record")
-        raw = stream.read(16385)
-        after = os.fstat(stream.fileno())
-        current = source.stat(follow_symlinks=False)
+    with ExitStack() as stack:
+        try:
+            # Hold every ancestor instead of checking a pathname that can be
+            # swapped before a later open. Include the checkout's ancestors so
+            # neither the root nor an output parent can redirect observation.
+            directory = os.open(root.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            stack.callback(os.close, directory)
+            for part in (*root.parts[1:], *path.relative_to(root).parts):
+                directory = os.open(
+                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=directory,
+                )
+                stack.callback(os.close, directory)
+            descriptor = os.open(
+                "invocation-reference.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                dir_fd=directory,
+            )
+            stack.callback(os.close, descriptor)
+        except FileNotFoundError:
+            return ReferenceRead(outcome="not_observed")
+        with os.fdopen(os.dup(descriptor), "rb") as stream:
+            before = os.fstat(descriptor)
+            if not stat.S_ISREG(before.st_mode) or before.st_size > 16384:
+                raise ValueError("reference must be a bounded ordinary owner record")
+            raw = stream.read(16385)
+            after = os.fstat(descriptor)
+            current = os.stat("invocation-reference.json", dir_fd=directory, follow_symlinks=False)
     identity = lambda item: (item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
     if identity(before) != identity(after) or identity(before) != identity(current) or len(raw) > 16384:
         raise ValueError("owner reference changed during observation")
