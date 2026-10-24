@@ -23,8 +23,11 @@ The maintainer requested a **new series**, independent of other open plans, sele
 "current host, broad inquiry" and authorized creation of these documents on 2026-10-24.
 The subsequent instruction authorized execution of 54a's A01–A03 on 2026-10-24; its
 [Outcome](54a-compiler-cache-and-environment.md#verification-and-outcome--2026-10-24) records
-accepted bounded implementation and controls. Remaining packages retain their planned state;
-investigation selection does not pre-approve the mechanism it may recommend. Existing plans are consumed foundations and interfaces,
+accepted bounded implementation and controls. The maintainer subsequently authorized all
+remaining 54b–54d scope, selected sccache 0.19.0, and requested current results be refreshed
+rather than retaining superseded 0.18 evidence in active documents. Execution includes
+that tool refresh, D01, a corrected 0.19 reference campaign, B01–B03, C01–C05 and D02/D03.
+Investigation selection does not pre-approve the mechanism it may recommend. Existing plans are consumed foundations and interfaces,
 not a reason to narrow this series or a second owner for its work.
 
 This coordinator owns the combined design, finding and inquiry dispositions, shared

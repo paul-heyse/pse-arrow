@@ -277,18 +277,92 @@ def prepare_selected_store(output: Path, environment: dict[str, str]) -> dict:
     }
 
 
-def workflow_environment(
-    env: dict[str, str], source: Path, output: Path
-) -> dict[str, str]:
-    """Keep nested checkout composition on this campaign's exact owned target."""
+def snapshot_environment(env: dict[str, str]) -> dict[str, str]:
+    """Use the snapshot's Cargo default, preserving composed compiler flags."""
+    result = env.copy()
+    result.pop("CARGO_TARGET_DIR", None)
+    result.pop("PSE_CARGO_TARGET_DIR", None)
+    return result
+
+
+def workflow_environment(env: dict[str, str], source: Path) -> dict[str, str]:
+    """Keep nested checkout composition and Python installation in the snapshot."""
     result = {
-        **env,
+        **snapshot_environment(env),
         "UV_PROJECT_ENVIRONMENT": str(source / ".venv"),
-        "PSE_CARGO_TARGET_DIR": str(output / "target"),
-        "CARGO_TARGET_DIR": str(output / "target"),
     }
     result.pop("VIRTUAL_ENV", None)
     return result
+
+
+def directory_identity(path: Path) -> dict[str, int]:
+    if path.is_symlink() or not path.is_dir():
+        raise ValueError(f"measurement directory is missing or symlinked: {path}")
+    status = path.stat()
+    return {"device": status.st_dev, "inode": status.st_ino}
+
+
+def snapshot_target(source: Path, output: Path) -> Path:
+    """Select only the default target of this freshly captured source directory."""
+    if source != output / "source" or source.resolve() != source:
+        raise ValueError("measurement source must be the selected snapshot directory")
+    directory_identity(source)
+    return source / "target"
+
+
+def validate_target_path(source: Path, target: Path, env: dict[str, str]) -> None:
+    if (
+        source.resolve() != source
+        or target != source / "target"
+        or target.resolve() != target
+        or target.is_symlink()
+        or any(key in env for key in ("CARGO_TARGET_DIR", "PSE_CARGO_TARGET_DIR"))
+    ):
+        raise ValueError("measurement requires the snapshot's default Cargo target")
+    directory_identity(source)
+    if target.exists():
+        directory_identity(target)
+
+
+def validate_target(
+    source: Path, target: Path, cargo: list[str], env: dict[str, str]
+) -> None:
+    """Refuse escaped Cargo selection before compilation or artifact deletion."""
+    validate_target_path(source, target, env)
+    metadata = json.loads(
+        subprocess.check_output(
+            [*cargo, "metadata", "--no-deps", "--format-version=1", "--locked", "--offline"],
+            cwd=source,
+            env=env,
+            text=True,
+        )
+    )
+    if Path(metadata["target_directory"]) != target:
+        raise ValueError("effective Cargo target escapes the selected snapshot target")
+
+
+def recover_target(
+    source: Path,
+    target: Path,
+    cargo: list[str],
+    env: dict[str, str],
+    *,
+    source_identity: dict[str, int],
+    target_identity: dict[str, int],
+) -> None:
+    """Remove only the same snapshot and target observed during its last build."""
+    if (
+        directory_identity(source) != source_identity
+        or directory_identity(target) != target_identity
+    ):
+        raise ValueError("measurement snapshot or target identity changed before recovery")
+    validate_target(source, target, cargo, env)
+    if (
+        directory_identity(source) != source_identity
+        or directory_identity(target) != target_identity
+    ):
+        raise ValueError("measurement snapshot or target identity changed during recovery")
+    shutil.rmtree(target)
 
 
 def selected_packages(
@@ -323,6 +397,7 @@ def correctness_command(
 
 def measure(
     source: Path,
+    target: Path,
     output: Path,
     name: str,
     cargo: list[str],
@@ -332,6 +407,7 @@ def measure(
     packages: tuple[str, ...] = ("pse-compiler",),
     native: bool = False,
     owned_cache: bool = False,
+    validate_selection: bool = True,
 ) -> dict:
     destination = output / name
     destination.mkdir()
@@ -340,6 +416,7 @@ def measure(
     try:
         return _measure_build(
             source,
+            target,
             output,
             name,
             cargo,
@@ -348,6 +425,7 @@ def measure(
             packages=packages,
             native=native,
             server=server,
+            validate_selection=validate_selection,
         )
     finally:
         if server is not None:
@@ -356,6 +434,7 @@ def measure(
 
 def _measure_build(
     source: Path,
+    target: Path,
     output: Path,
     name: str,
     cargo: list[str],
@@ -365,8 +444,19 @@ def _measure_build(
     packages: tuple[str, ...],
     native: bool,
     server: subprocess.Popen | None,
+    validate_selection: bool,
 ) -> dict:
     """Resolve and run Cargo only after the selected foreground cache is ready."""
+    preflight_started = time.monotonic()
+    if validate_selection:
+        validate_target(source, target, cargo, env)
+    else:
+        validate_target_path(source, target, env)
+    preflight = {
+        "cargo_selection_queried": validate_selection,
+        "wall_seconds": time.monotonic() - preflight_started,
+        "included_in_build_wall_seconds": False,
+    }
     destination = output / name
     selection = (
         ["--workspace"]
@@ -386,10 +476,11 @@ def _measure_build(
         *selection,
         "--locked",
         *features,
-        "--timings",
-        "--message-format=json-render-diagnostics",
     ]
     command = correctness_command(source, cargo, command[len(cargo) :], env)
+    # Reporting controls do not change the selected validation closure; the resolver
+    # deliberately accepts only scope/feature options for its unit-graph query.
+    command.extend(["--timings", "--message-format=json-render-diagnostics"])
     # Use exactly the features resolved for the measured build in its feature report.
     # Correctness composition appends its feature clause after all build options;
     # preserve any original native feature clause separately as well.
@@ -403,6 +494,8 @@ def _measure_build(
         destination / "command.json",
         {
             "command": command,
+            "source_directory": str(source),
+            "target_directory": str(target),
             "environment": {
                 key: env.get(key)
                 for key in (
@@ -487,6 +580,9 @@ def _measure_build(
     validation.write_json(destination / "cache-before.json", cache_before)
     validation.write_json(destination / "cache-after.json", cache_after)
     receipt = {
+        "source_directory": str(source),
+        "target_directory": str(target),
+        "target_selection_preflight": preflight,
         "exit_code": result.returncode,
         "wall_seconds": elapsed,
         "user_seconds": after.ru_utime - before.ru_utime,
@@ -507,12 +603,13 @@ def _measure_build(
     validation.write_json(destination / "result.json", receipt)
     if result.returncode:
         raise RuntimeError(f"{name} build failed; retained complete logs")
+    receipt["target_identity"] = directory_identity(target)
     compiled = artifacts(destination / "cargo.jsonl")
     receipt.update(compiled)
     # Stable Cargo documents HTML as a human report. Keep the complete library-owned
     # graph for critical-path/largest-unit assessment instead of treating its private JS as an API.
     shutil.copy2(
-        Path(env["CARGO_TARGET_DIR"]) / "cargo-timings/cargo-timing.html",
+        target / "cargo-timings/cargo-timing.html",
         destination / "cargo-timing.html",
     )
     with (destination / "features.txt").open("w") as stdout:
@@ -715,12 +812,25 @@ def execute_workload(
     env: dict[str, str],
     log: Path,
     *,
+    target: Path,
+    target_cargo: list[str],
     owned_cache: bool,
     correctness_cargo: list[str] | None = None,
+    validate_selection: bool = True,
 ) -> dict:
     env = env.copy()
     server = start_cache_server(env, log.parent) if owned_cache else None
     try:
+        preflight_started = time.monotonic()
+        if validate_selection:
+            validate_target(source, target, target_cargo, env)
+        else:
+            validate_target_path(source, target, env)
+        preflight = {
+            "cargo_selection_queried": validate_selection,
+            "wall_seconds": time.monotonic() - preflight_started,
+            "included_in_workload_wall_seconds": False,
+        }
         if correctness_cargo is not None:
             command = correctness_command(
                 source,
@@ -740,6 +850,9 @@ def execute_workload(
             )
         return {
             "command": command,
+            "source_directory": str(source),
+            "target_directory": str(target),
+            "target_selection_preflight": preflight,
             "wall_seconds": time.monotonic() - started,
             "exit_code": result.returncode,
         }
@@ -1231,7 +1344,9 @@ def main() -> None:
     env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(
         build_environment.effective_flags(root, env)
     )
-    env["CARGO_TARGET_DIR"] = str(output / "target")
+    env = snapshot_environment(env)
+    target = snapshot_target(source, output)
+    source_identity = directory_identity(source)
     if args.cold_cache:
         if Path(env.get("RUSTC_WRAPPER", "")).name != "sccache":
             raise ValueError("--cold-cache requires the sccache wrapper")
@@ -1264,10 +1379,15 @@ def main() -> None:
         },
     )
     receipts = {}
+    target_selections = [{"source_directory": str(source), "target_directory": str(target)}]
+    selection_validated = False
+    target_identity = None
 
     def sample(name: str) -> None:
+        nonlocal selection_validated, target_identity
         receipts[name] = measure(
             source,
+            target,
             output,
             name,
             cargo,
@@ -1275,7 +1395,10 @@ def main() -> None:
             packages=packages,
             native=args.native,
             owned_cache=args.cold_cache,
+            validate_selection=not selection_validated,
         )
+        selection_validated = True
+        target_identity = receipts[name].get("target_identity")
 
     build_phases(source, args.repetitions, sample, screen=args.screen)
     if args.execute:
@@ -1301,8 +1424,11 @@ def main() -> None:
                 source,
                 env,
                 output / f"unit-execution-{repetition}.log",
+                target=target,
+                target_cargo=cargo,
                 owned_cache=args.cold_cache,
                 correctness_cargo=cargo,
+                validate_selection=False,
             )
             execution.append({**result, "repetition": repetition})
             validation.write_json(output / "execution.json", execution)
@@ -1310,7 +1436,8 @@ def main() -> None:
                 raise RuntimeError("selected workload unit execution failed")
     if args.workflow:
         workflow = []
-        workflow_env = workflow_environment(env, source, output)
+        workflow_env = workflow_environment(env, source)
+        workflow_validated = False
         for repetition in range(args.repetitions):
             for recipe in ("py-sync-native", "python-stubs", "unit-native-contracts"):
                 name = f"workflow-{repetition}-{recipe}"
@@ -1319,8 +1446,12 @@ def main() -> None:
                     source,
                     workflow_env,
                     output / f"{name}.log",
+                    target=target,
+                    target_cargo=cargo,
                     owned_cache=args.cold_cache,
+                    validate_selection=not workflow_validated,
                 )
+                workflow_validated = True
                 workflow.append(
                     {
                         "recipe": recipe,
@@ -1334,10 +1465,23 @@ def main() -> None:
     if args.recovery:
         # Compiler cache keys include artifact paths. Lose only this campaign's
         # artifacts, then rebuild at the same path with its compiler cache intact.
-        target = Path(env["CARGO_TARGET_DIR"])
-        if target != output / "target":
-            raise ValueError("recovery may remove only the campaign-owned target")
-        shutil.rmtree(target)
+        if target_identity is None:
+            raise ValueError("recovery requires a successful build's target identity")
+        recovery_env = env.copy()
+        recovery_server = None
+        if args.cold_cache:
+            preflight_output = output / "recovery-preflight"
+            preflight_output.mkdir()
+            recovery_server = start_cache_server(recovery_env, preflight_output)
+        try:
+            recover_target(
+                source, target, cargo, recovery_env,
+                source_identity=source_identity,
+                target_identity=target_identity,
+            )
+        finally:
+            if recovery_server is not None:
+                stop_cache_server(recovery_server, recovery_env)
         sample("artifact-recovery")
     if args.second_worktree:
         second = output / "second"
@@ -1365,7 +1509,10 @@ def main() -> None:
         finally:
             validation.write_json(output / "preparation.json", preparation)
         profile_override(source, args.dependency_opt)
-        env["CARGO_TARGET_DIR"] = str(output / "second-target")
+        target = snapshot_target(source, second)
+        source_identity = directory_identity(source)
+        selection_validated = False
+        target_selections.append({"source_directory": str(source), "target_directory": str(target)})
         sample("second-worktree")
     source_unchanged = validation.sources(root) == json.loads(
         (output / "original-source.json").read_text()
@@ -1388,6 +1535,7 @@ def main() -> None:
     validation.write_json(
         output / "summary.json",
         {
+            "snapshots": target_selections,
             "builds": receipts,
             "statistics": statistics_by_kind,
             "original_source_unchanged": source_unchanged,

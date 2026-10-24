@@ -14,6 +14,7 @@ import tomllib
 import unittest
 from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -29,6 +30,7 @@ from scripts import (
 if TYPE_CHECKING:
     from collections.abc import Callable
     from unittest.mock import MagicMock
+    from typing import TextIO
 
 
 def drain_fixture(complete: bool) -> native_operation.DrainObservation:
@@ -507,15 +509,111 @@ class BuildMeasurementTests(unittest.TestCase):
                 destination.parent.mkdir(exist_ok=True)
                 destination.write_bytes((root / name).read_bytes())
             environment = build_measurements.workflow_environment(
-                {"VIRTUAL_ENV": "/other", "PSE_CARGO_TARGET_DIR": "/other-target"},
+                {
+                    "VIRTUAL_ENV": "/other",
+                    "PSE_CARGO_TARGET_DIR": "/other-target",
+                    "CARGO_TARGET_DIR": "/frontend-target",
+                    "CARGO_ENCODED_RUSTFLAGS": "-Zthreads=2\x1f-Cdebuginfo=1",
+                },
                 source,
-                output,
             )
             actual = build_environment.configure(source, environment, cache="off")
-            self.assertEqual(actual["CARGO_TARGET_DIR"], str(output / "target"))
-            self.assertEqual(actual["PSE_CARGO_TARGET_DIR"], str(output / "target"))
+            self.assertNotIn("CARGO_TARGET_DIR", actual)
+            self.assertNotIn("PSE_CARGO_TARGET_DIR", actual)
+            self.assertEqual(actual["CARGO_ENCODED_RUSTFLAGS"], "-Zthreads=2\x1f-Cdebuginfo=1")
             self.assertEqual(actual["UV_PROJECT_ENVIRONMENT"], str(source / ".venv"))
             self.assertNotIn("VIRTUAL_ENV", actual)
+
+    def test_snapshot_environment_removes_targets_after_frontend_composition(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        composed = build_environment.configure(
+            root,
+            {"PSE_CARGO_TARGET_DIR": "/caller-target", "CARGO_ENCODED_RUSTFLAGS": "-Cdebuginfo=1"},
+            cache="off", frontend=2,
+        )
+        actual = build_measurements.snapshot_environment(composed)
+        self.assertNotIn("CARGO_TARGET_DIR", actual)
+        self.assertNotIn("PSE_CARGO_TARGET_DIR", actual)
+        self.assertIn("-Zthreads=2", actual["CARGO_ENCODED_RUSTFLAGS"])
+        self.assertIn("CARGO_TARGET_DIR", composed)
+
+    def test_primary_and_second_snapshot_targets_are_distinct_defaults(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            for selected in (output, output / "second"):
+                source = selected / "source"
+                source.mkdir(parents=True)
+                self.assertEqual(build_measurements.snapshot_target(source, selected), source / "target")
+            with self.assertRaisesRegex(ValueError, "selected snapshot"):
+                build_measurements.snapshot_target(output / "source", output / "second")
+
+    def test_effective_cargo_target_must_match_snapshot_without_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            target = source / "target"
+            for effective in (target, Path(directory) / "external", source / "other"):
+                with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(effective)})) as query:
+                    if effective == target:
+                        build_measurements.validate_target(source, target, ["cargo"], {})
+                    else:
+                        with self.assertRaisesRegex(ValueError, "effective Cargo target"):
+                            build_measurements.validate_target(source, target, ["cargo"], {})
+                    self.assertEqual(query.call_args.kwargs["cwd"], source)
+            for key in ("CARGO_TARGET_DIR", "PSE_CARGO_TARGET_DIR"):
+                with patch.object(build_measurements.subprocess, "check_output") as query, self.assertRaisesRegex(ValueError, "default Cargo target"):
+                    build_measurements.validate_target(source, target, ["cargo"], {key: str(target)})
+                query.assert_not_called()
+
+    def test_recovery_refuses_unowned_symlinked_and_replaced_targets(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            source = output / "source"
+            source.mkdir()
+            target = source / "target"
+            target.mkdir()
+            identity = build_measurements.directory_identity(target)
+            source_identity = build_measurements.directory_identity(source)
+            for wrong in (output / "target", output / "external", source):
+                if not wrong.exists():
+                    wrong.mkdir()
+                with self.assertRaisesRegex(ValueError, "default Cargo target"):
+                    build_measurements.recover_target(source, wrong, ["cargo"], {}, source_identity=source_identity, target_identity=build_measurements.directory_identity(wrong))
+                self.assertTrue(wrong.exists())
+            original = source / "old-target"
+            target.rename(original)
+            target.mkdir()
+            with self.assertRaisesRegex(ValueError, "identity changed"):
+                build_measurements.recover_target(source, target, ["cargo"], {}, source_identity=source_identity, target_identity=identity)
+            target.rmdir()
+            target.symlink_to(original, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "symlinked"):
+                build_measurements.recover_target(source, target, ["cargo"], {}, source_identity=source_identity, target_identity=identity)
+            self.assertTrue(original.exists())
+
+    def test_recovery_rechecks_identity_after_cargo_and_removes_only_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"
+            source.mkdir()
+            target = source / "target"
+            target.mkdir()
+            (target / "artifact").write_text("compiled")
+            retained = source / "authored.rs"
+            retained.write_text("source")
+            identities = {"source_identity": build_measurements.directory_identity(source), "target_identity": build_measurements.directory_identity(target)}
+            with patch.object(build_measurements.subprocess, "check_output", return_value=json.dumps({"target_directory": str(target)})):
+                build_measurements.recover_target(source, target, ["cargo"], {}, **identities)
+            self.assertFalse(target.exists())
+            self.assertEqual(retained.read_text(), "source")
+            target.mkdir()
+            identities["target_identity"] = build_measurements.directory_identity(target)
+            def replace(*_args: object, **_kwargs: object) -> str:
+                target.rename(source / "previous-target")
+                target.mkdir()
+                return json.dumps({"target_directory": str(target)})
+            with patch.object(build_measurements.subprocess, "check_output", side_effect=replace), self.assertRaisesRegex(ValueError, "during recovery"):
+                build_measurements.recover_target(source, target, ["cargo"], {}, **identities)
+            self.assertTrue(target.exists())
 
     @staticmethod
     def build_source_fixture(root: Path) -> dict[str, str]:
@@ -799,6 +897,13 @@ class BuildMeasurementTests(unittest.TestCase):
                 '[toolchain]\nchannel="pinned-test"\n'
             )
             (output / "original-source.json").write_text("{}")
+            second_source = output / "second" / "source"
+
+            def capture(_root: Path, destination: Path) -> Path:
+                if destination == output:
+                    return source
+                second_source.mkdir()
+                return second_source
 
             def sample_builds(
                 _source: Path,
@@ -830,7 +935,7 @@ class BuildMeasurementTests(unittest.TestCase):
                 patch.object(native_operation, "owner_record", return_value=None),
                 patch.object(validation, "fresh_output", return_value=output),
                 patch.object(validation, "sources", return_value={}),
-                patch.object(build_measurements, "snapshot", return_value=source),
+                patch.object(build_measurements, "snapshot", side_effect=capture),
                 patch.object(
                     build_measurements, "capability_environment", return_value={}
                 ),
@@ -884,6 +989,13 @@ class BuildMeasurementTests(unittest.TestCase):
             self.assertEqual(summary["builds"]["second-worktree"]["wall_seconds"], 7)
             self.assertEqual(summary["target_operation"]["wall_seconds"], 50)
             self.assertFalse(summary["target_operation"]["setup_inclusive"])
+            self.assertEqual(summary["snapshots"], [
+                {"source_directory": str(source), "target_directory": str(source / "target")},
+                {"source_directory": str(second_source), "target_directory": str(second_source / "target")},
+            ])
+            self.assertEqual([call.kwargs["validate_selection"] for call in cargo.call_args_list], [True, False, False, False, True])
+            self.assertEqual(cargo.call_args_list[0].args[1], source / "target")
+            self.assertEqual(cargo.call_args_list[-1].args[1], second_source / "target")
 
     def test_native_operation_precedes_snapshot_and_preserves_arguments(self) -> None:
         with (
@@ -1328,6 +1440,7 @@ class BuildMeasurementTests(unittest.TestCase):
         ) -> list[str]:
             events.append("resolve")
             self.assertEqual(env["RUSTC_WRAPPER"], "/installed/sccache")
+            self.assertEqual(_args, ["build", "--tests", "-p", "pse-compiler", "--locked"])
             raise ValueError("metadata refused")
 
         with tempfile.TemporaryDirectory() as directory:
@@ -1339,6 +1452,7 @@ class BuildMeasurementTests(unittest.TestCase):
                 patch.object(
                     build_measurements, "correctness_command", side_effect=resolve
                 ),
+                patch.object(build_measurements, "validate_target"),
                 patch.object(
                     build_measurements,
                     "stop_cache_server",
@@ -1347,10 +1461,43 @@ class BuildMeasurementTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "metadata refused"),
             ):
                 build_measurements.measure(
-                    output, output, "sample", ["cargo"], original, owned_cache=True
+                    output, output / "target", output, "sample", ["cargo"], original, owned_cache=True
                 )
         self.assertEqual(events, ["start", "resolve", "stop"])
         self.assertEqual(original["RUSTC_WRAPPER"], "/checkout/scripts/sccache")
+
+    def test_measurement_keeps_validation_features_and_copies_explicit_target_timing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            source = output / "source"
+            target = source / "target"
+            timings = target / "cargo-timings"
+            timings.mkdir(parents=True)
+            (timings / "cargo-timing.html").write_text("owned target timing")
+            resolved = ["cargo", "build", "--tests", "-p", "pse-compiler", "--locked", "--features", "pse-compiler/force-validate"]
+            def spawn(command: list[str], *, stdout: TextIO, **_options: object) -> SimpleNamespace:
+                self.assertEqual(command, [*resolved, "--timings", "--message-format=json-render-diagnostics"])
+                stdout.write(json.dumps({"reason": "compiler-artifact", "package_id": "compiler", "target": {"name": "compiler"}, "profile": {}, "features": ["force-validate"], "fresh": False}) + "\n")
+                stdout.write(json.dumps({"reason": "build-finished", "success": True}) + "\n")
+                return SimpleNamespace(pid=os.getpid(), wait=lambda: 0, returncode=0)
+            with (
+                patch.object(build_measurements, "validate_target"),
+                patch.object(build_measurements, "correctness_command", return_value=resolved.copy()) as resolve,
+                patch.object(build_measurements.validation, "sources", return_value={}),
+                patch.object(build_measurements.subprocess, "Popen", side_effect=spawn),
+                patch.object(build_measurements.subprocess, "run") as tree,
+                patch.object(build_measurements, "process_tree_rss", return_value=0),
+            ):
+                receipt = build_measurements.measure(source, target, output, "sample", ["cargo"], {})
+            self.assertEqual(resolve.call_args.args[2], ["build", "--tests", "-p", "pse-compiler", "--locked"])
+            self.assertIn("pse-compiler/force-validate", tree.call_args.args[0])
+            self.assertEqual(receipt["target_directory"], str(target))
+            self.assertTrue(receipt["target_selection_preflight"]["cargo_selection_queried"])
+            self.assertFalse(receipt["target_selection_preflight"]["included_in_build_wall_seconds"])
+            self.assertEqual((output / "sample/cargo-timing.html").read_text(), "owned target timing")
+            command = json.loads((output / "sample/command.json").read_text())
+            self.assertEqual(command["source_directory"], str(source))
+            self.assertEqual(command["target_directory"], str(target))
 
     def test_owned_execution_resolves_cargo_after_cache_readiness(self) -> None:
         events: list[str] = []
@@ -1373,6 +1520,7 @@ class BuildMeasurementTests(unittest.TestCase):
                 patch.object(
                     build_measurements, "correctness_command", side_effect=resolve
                 ),
+                patch.object(build_measurements, "validate_target"),
                 patch.object(
                     build_measurements.subprocess,
                     "run",
@@ -1391,6 +1539,8 @@ class BuildMeasurementTests(unittest.TestCase):
                     output,
                     {},
                     output / "execution.log",
+                    target=output / "target",
+                    target_cargo=["cargo"],
                     owned_cache=True,
                     correctness_cargo=["cargo"],
                 )

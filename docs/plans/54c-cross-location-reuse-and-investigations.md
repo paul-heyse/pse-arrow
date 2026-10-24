@@ -1,6 +1,6 @@
 ---
 title: "Plan 54c: Cross-location reuse and investigations"
-status: draft
+status: in-progress
 date: 2026-10-24
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_rust-build-reuse_2026-10-24.md, docs/functional_reviews/rust-build-reuse-tooling-2026-10-24.md]
@@ -196,7 +196,7 @@ checklist or inventing mandatory infrastructure to complete this package.
 | C02 | planned (conditional) | 54c | Qualified adoption, or explicit no-adoption/deferral preserving F01's limit |
 | C03 | planned | 54c | Capacity/cost/error decision; selected local changes qualified in D02 |
 | C04 | planned | 54c | Unit/critical-path/non-cacheable-work decision with bounded next work |
-| C05 | planned | 54c | Wider-capability disposition for the selected host without assumed deployment |
+| C05 | in progress | 54c | Wider-capability disposition for the selected host without assumed deployment |
 
 All acceptance above is **Proposed**. Inquiry outcomes update their coordinator owner;
 decisions requiring changed rules are not inferred from investigation authorization.

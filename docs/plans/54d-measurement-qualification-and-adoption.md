@@ -1,6 +1,6 @@
 ---
 title: "Plan 54d: Measurement, qualification and adoption"
-status: draft
+status: in-progress
 date: 2026-10-24
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_rust-build-reuse_2026-10-24.md, docs/functional_reviews/rust-build-reuse-tooling-2026-10-24.md]
@@ -175,7 +175,7 @@ their enduring owners and remaining readers are reconciled. Other plans remain i
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | planned | 54d | Snapshot-local default targets, explicit report paths and guarded artifact recovery |
+| D01 | in progress | 54d | Snapshot-local default targets, explicit report paths and guarded artifact recovery |
 | D02 | planned | 54d | Joined selected-consumer acceptance, zero-target scope-end checks and honest comparisons |
 | D03 | planned | 54d | Actual supported behavior published and series dispositions reconciled |
 
