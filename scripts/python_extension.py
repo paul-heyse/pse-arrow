@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
 from scripts import arrow_validation
 
@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ExtensionContract(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
 
 
 class ExtensionArtifact(ExtensionContract):
@@ -732,6 +732,7 @@ def run_stages(
     environment: Mapping[str, str],
     *,
     validated: bool = True,
+    on_stage: Callable[[str, StageResult | None], None] | None = None,
 ) -> PreparationResult:
     """Run selected owner stages in an already resolved environment, without relaunch."""
     if operation not in {"sync", "environment", "prepare", "stubs", "stubs-check", "admit"}:
@@ -744,6 +745,9 @@ def run_stages(
         if operation == "sync" else (operation,)
     )
     for stage in selected:
+        progress_stage = "extension" if stage == "prepare" else "stubs" if stage == "stubs-check" else stage
+        if on_stage is not None:
+            on_stage(progress_stage, None)
         if stage == "environment":
             result = environment_ensure(environment)
         elif stage == "prepare":
@@ -761,6 +765,8 @@ def run_stages(
                 ),
             )
         stages.append(result)
+        if on_stage is not None:
+            on_stage(progress_stage, result)
         if result.exit_code:
             break
     return PreparationResult.model_validate({

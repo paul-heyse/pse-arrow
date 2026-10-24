@@ -206,6 +206,24 @@ class PythonExtensionTests(unittest.TestCase):
             self.assertEqual(python_extension.run_stages("sync", "dev", "dev", {}).exit_code, 17)
             stubs.assert_not_called()
 
+    def test_stage_progress_uses_actual_selected_starts_and_results(self) -> None:
+        events = []
+        failed = python_extension.StageResult(stage="prepare", status="failed", exit_code=17)
+        with patch.object(python_extension, "extension_prepare", return_value=failed):
+            result = python_extension.run_stages(
+                "prepare", "dev", "dev", {},
+                on_stage=lambda stage, result: events.append((stage, result)),
+            )
+        self.assertEqual(events, [("extension", None), ("extension", failed)])
+        self.assertEqual(result.exit_code, 17)
+        events.clear()
+        with self.assertRaises(ValueError):
+            python_extension.run_stages(
+                "unknown", "dev", "dev", {},
+                on_stage=lambda stage, result: events.append((stage, result)),
+            )
+        self.assertFalse(events)
+
     def test_resolved_cli_prints_typed_result_and_maps_failure_without_relaunch(self) -> None:
         result = python_extension.PreparationResult(
             operation="prepare", mode="native", profile="producer", validated=False,

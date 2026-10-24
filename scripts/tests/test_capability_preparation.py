@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Fixed preparation bindings preserve owner outcomes and one resolved environment."""
+# ruff: noqa: PT009, PT027 -- stdlib setup controls
+
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+from fastmcp import Client, FastMCP
+
+from scripts import python_extension
+from scripts.capabilities import preparation, preparation_worker
+
+
+def outcome(mode: python_extension.Mode, code: int = 0) -> python_extension.PreparationResult:
+    return python_extension.PreparationResult(
+        operation="prepare", mode=mode, profile="producer", validated=False,
+        stages=[python_extension.StageResult(stage="prepare", status="failed" if code else "prepared", exit_code=code)],
+        exit_code=code,
+    )
+
+
+class PreparationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_actual_stage_tools_have_owner_schema_and_fixed_worker_effects(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        specs, tools = preparation.bindings(root)
+        server = FastMCP("preparation-controls", strict_input_validation=True)
+        for tool in tools.values():
+            server.add_tool(tool)
+        with patch.object(preparation.process, "run_worker", new_callable=AsyncMock) as worker:
+            async with Client(server) as client:
+                exposed = {tool.name: tool for tool in await client.list_tools()}
+                for mode, name in (("dev", "python_extension_dev_stage"), ("native", "python_extension_native_stage")):
+                    expected = outcome(mode, 17)
+                    worker.return_value = expected.model_dump(mode="json")
+                    result = await client.call_tool(name, {"request": {"stage": "prepare", "profile": "producer", "validated": False}})
+                    self.assertEqual(python_extension.PreparationResult.model_validate_json(json.dumps(result.structured_content)), expected)
+                    self.assertEqual(worker.call_args.args[1], preparation.STAGE_CALLS[mode])
+                    invocation = worker.call_args.args[2]
+                    self.assertEqual(invocation.mode, mode)
+                    self.assertFalse(invocation.validated)
+                    self.assertEqual(invocation.stage, "prepare")
+                    schema = exposed[name].output_schema
+                    if schema is None:
+                        raise AssertionError("owner result must have an output schema")
+                    self.assertIn("stages", schema["properties"])
+                    self.assertIn("exit_code", schema["properties"])
+                    annotations = exposed[name].annotations
+                    if annotations is None:
+                        raise AssertionError("preparation must declare its effects")
+                    self.assertFalse(annotations.read_only_hint)
+                    self.assertTrue(annotations.destructive_hint)
+                    selected = next(spec for spec in specs if spec.id == name)
+                    self.assertEqual(selected.worker_calls, (preparation.STAGE_CALLS[mode],))
+                worker.reset_mock()
+                invalid = await client.call_tool("python_extension_dev_stage", {"request": {"stage": "sync"}}, raise_on_error=False)
+                self.assertTrue(invalid.is_error)
+                worker.assert_not_called()
+
+    async def test_import_check_uses_fixed_selected_worker_and_typed_capture_result(self) -> None:
+        expected = preparation.ImportCheckResult(mode="native", validated=True, compatible=False, cause="ValueError")
+        root = Path(__file__).resolve().parents[2]
+        with patch.object(preparation.process, "run_worker", new_callable=AsyncMock, return_value=expected.model_dump(mode="json")) as worker:
+            actual = await preparation.import_check(root, "native", validated=True)
+        self.assertEqual(actual, expected)
+        self.assertEqual(worker.call_args.args[1], preparation.IMPORT_CALLS["native"])
+
+
+    async def test_import_check_refuses_mismatched_selection_or_missing_observed_identity(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        with patch.object(preparation.process, "run_worker", new_callable=AsyncMock, return_value={"mode": "native", "validated": True, "compatible": False}):
+            with self.assertRaisesRegex(ValueError, "selected requirement"):
+                await preparation.import_check(root, "dev", validated=True)
+        with patch.object(preparation.process, "run_worker", new_callable=AsyncMock, return_value={"mode": "dev", "validated": True, "compatible": True}):
+            with self.assertRaises(ValueError):
+                await preparation.import_check(root, "dev", validated=True)
+
+
+class PreparationWorkerTests(unittest.TestCase):
+    def test_stage_child_calls_owner_once_in_resolved_environment_without_launch(self) -> None:
+        result = outcome("dev")
+        def callback(_stage: str, _result: python_extension.StageResult | None) -> None:
+            pass
+        with (
+            patch.object(python_extension, "run_stages", return_value=result) as stages,
+            patch.object(python_extension, "launch") as launch,
+            patch.object(python_extension, "selected_environment") as select,
+            patch.dict(os.environ, {"VIRTUAL_ENV": "/already/resolved"}),
+        ):
+            actual = preparation_worker.invoke("stage", preparation.StageInvocation(stage="prepare", mode="dev", profile="producer", validated=False).model_dump_json(), on_stage=callback)
+        self.assertEqual(actual, result.model_dump(mode="json"))
+        self.assertEqual(stages.call_count, 1)
+        self.assertEqual(stages.call_args.args[:3], ("prepare", "dev", "producer"))
+        self.assertEqual(stages.call_args.args[3]["VIRTUAL_ENV"], "/already/resolved")
+        self.assertIs(stages.call_args.kwargs["on_stage"], callback)
+        launch.assert_not_called()
+        select.assert_not_called()
+
+    def test_worker_main_publishes_actual_stage_outcome_without_inventing_handle(self) -> None:
+        from scripts.capabilities.worker_progress import read  # noqa: PLC0415
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, destination = root / "request.json", root / "response.json"
+            source.write_text(preparation.StageInvocation(stage="environment", mode="dev").model_dump_json())
+            failed = python_extension.StageResult(stage="environment", status="failed", exit_code=17)
+            with patch.object(python_extension, "environment_ensure", return_value=failed):
+                self.assertEqual(preparation_worker.main(["stage", str(source), str(destination)]), 0)
+            progress = read(root / "progress.json", "stage")
+            if progress is None:
+                raise AssertionError("expected real stage progress snapshot")
+            self.assertEqual(progress.stage, "environment")
+            self.assertEqual(progress.state, "failed")
+            self.assertEqual(progress.sequence, 2)
+            self.assertFalse(progress.references)
+            result = python_extension.PreparationResult.model_validate_json(json.dumps(json.loads(destination.read_text())["result"]))
+            self.assertEqual(result.exit_code, 17)
+
+    def test_import_child_refusal_is_observation_without_implicit_preparation(self) -> None:
+        stages = []
+        with (
+            patch.object(python_extension, "capture", side_effect=ValueError("private failure")) as capture,
+            patch.object(python_extension, "run_stages") as prepare,
+        ):
+            actual = preparation.ImportCheckResult.model_validate(preparation_worker.invoke("import-check", preparation.ImportCheckRequest(mode="native", validated=True).model_dump_json(), on_stage=lambda stage, result: stages.append((stage, result))))
+        self.assertFalse(actual.compatible)
+        self.assertEqual(actual.cause, "ValueError")
+        self.assertNotIn("private failure", actual.model_dump_json())
+        self.assertTrue(capture.call_args.kwargs["native"])
+        self.assertTrue(capture.call_args.kwargs["validated"])
+        self.assertEqual(stages[0], ("import", None))
+        self.assertEqual(stages[1][0], "import")
+        self.assertEqual(stages[1][1].status, "failed")
+        prepare.assert_not_called()
+
+    def test_import_child_reports_actual_artifact_identity_and_preserves_interactive_mode(self) -> None:
+        artifact = {"binary": "/selected/native.so", "sha256": "actual", "features": []}
+        with patch.object(python_extension, "capture", return_value=artifact) as capture:
+            actual = preparation.ImportCheckResult.model_validate(preparation_worker.invoke("import-check", preparation.ImportCheckRequest(mode="dev", validated=False).model_dump_json()))
+        self.assertTrue(actual.compatible)
+        self.assertEqual(actual.artifact, python_extension.ExtensionArtifact.model_validate(artifact))
+        self.assertFalse(capture.call_args.kwargs["validated"])
+        self.assertFalse(capture.call_args.kwargs["native"])
+
+
+if __name__ == "__main__":
+    unittest.main()
