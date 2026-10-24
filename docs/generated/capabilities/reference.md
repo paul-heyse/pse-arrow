@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `ddc56a7a96979cadd6a0d11dccf089b23ca1e8dc006760ec708e7244acb5edbf`.
+Catalogue content revision: `2fac145bd0234563df2c481b327f93c4e6657064755ad2a67f7201608755cccb`.
 
 ## Domains
 
@@ -1077,7 +1077,6 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -1162,9 +1161,7 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
         "type": "object"
       },
       "AssessmentRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "detail": {
             "anyOf": [
@@ -1260,9 +1257,7 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
         "type": "object"
       },
       "AssessmentSummary": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "baseline_failures": {
             "type": "integer"
@@ -1367,12 +1362,9 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
         ],
         "type": "object"
       },
-      "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       }
@@ -2354,7 +2346,6 @@ Exact callable component key: `tool:coverage_correspondence_read@`. The followin
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -2542,12 +2533,9 @@ Exact callable component key: `tool:coverage_correspondence_read@`. The followin
         ],
         "type": "object"
       },
-      "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       }
@@ -3810,7 +3798,6 @@ Exact callable component key: `tool:document_scope_query@`. The following is the
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -4645,7 +4632,6 @@ Exact callable component key: `tool:environment_explain@`. The following is the 
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -4875,12 +4861,9 @@ Exact callable component key: `tool:environment_explain@`. The following is the 
         ],
         "type": "object"
       },
-      "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       },
@@ -5679,7 +5662,6 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -5692,9 +5674,7 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
         "type": "object"
       },
       "ConceptSubject": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "id": {
             "type": "string"
@@ -5768,9 +5748,7 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
         "type": "object"
       },
       "CorpusSource": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "basis": {
             "type": "string"
@@ -5877,7 +5855,6 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
         ],
         "type": "object"
       },
-      "JsonValue": {},
       "KnowledgePayload": {
         "additionalProperties": false,
         "properties": {
@@ -5980,10 +5957,8 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
         "type": "object"
       },
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       }
@@ -6220,7 +6195,6 @@ Exact callable component key: `tool:library_source_packet@`. The following is th
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -6466,10 +6440,8 @@ Exact callable component key: `tool:library_source_packet@`. The following is th
         "type": "object"
       },
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       }
@@ -6544,7 +6516,7 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
         "direction": null,
         "slug": "authoring"
       },
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -6679,7 +6651,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
           "schema_path": "docs/generated/schema/inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "d4b6a513342de415c86ffcffa24d6874d2848d9d5314ea7e5bd8b4b82b77c0ad",
           "slug": "inspection-document",
           "version": 3,
@@ -6692,7 +6664,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionRequest",
           "schema_path": "docs/generated/schema/inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "d9b91fb3481af8a0396509f645a33d50752ac2577c6a6b3dc701356dab55d16a",
           "slug": "inspection-request",
           "version": 2,
@@ -6700,7 +6672,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         }
       },
       "receiver": "pse.diagnostics.inspect_checkpoint",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -6834,7 +6806,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:inspection-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
@@ -6899,7 +6871,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:inspection-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:inspection-request:input"
       }
     },
     "required": [
@@ -7010,7 +6982,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
           "schema_path": "docs/generated/schema/frozen-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "437b297bb6926a5888c85d007f406ff9696cfd425870f7a3a171b03571626a79",
           "slug": "frozen-inspection-document",
           "version": 1,
@@ -7023,7 +6995,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionRequest",
           "schema_path": "docs/generated/schema/frozen-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "a9bdc3183ed66ba9252fe3d4586d8b8b21dfeb0607c99fd7df04ef9a51a3ef68",
           "slug": "frozen-inspection-request",
           "version": 1,
@@ -7031,7 +7003,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.read_evidence + inspect_frozen",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -7280,7 +7252,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
             ]
           }
         },
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:frozen-inspection-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:frozen-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
@@ -7320,7 +7292,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:frozen-inspection-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:frozen-inspection-request:input"
       }
     },
     "required": [
@@ -7431,7 +7403,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: invocation :: InvocationEvidenceDocument",
           "schema_path": "docs/generated/schema/invocation-evidence.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "513b0d130552259de59f3ab1575423c5b4b56cd3123ee249df6e93aabf2285b8",
           "slug": "invocation-evidence",
           "version": 2,
@@ -7439,7 +7411,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         }
       },
       "receiver": "pse.diagnostics.read_invocation",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -7568,7 +7540,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -7581,7 +7553,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -7594,7 +7566,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -7607,7 +7579,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -7615,7 +7587,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
         }
       },
       "receiver": "pse.ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -8217,7 +8189,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -8271,7 +8243,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -8311,13 +8283,13 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -8438,7 +8410,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectManifest",
           "schema_path": "docs/generated/schema/project-manifest.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "afcf6d813ebe9d5488cda86d5df827416faf129419c05527ce1aba6d53d9aa78",
           "slug": "project-manifest",
           "version": 1,
@@ -8446,7 +8418,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
         }
       },
       "receiver": "pse.ProjectBundle.manifest + digest",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -8579,7 +8551,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataPage",
           "schema_path": "docs/generated/schema/project-metadata-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "247bcbf54ba1f8787e71f6e84fcd093b719a27f83b18dc7730bf0a9f14119c9c",
           "slug": "project-metadata-page",
           "version": 1,
@@ -8592,7 +8564,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataRequest",
           "schema_path": "docs/generated/schema/project-metadata-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "5f252f295e44801126cafb6f147efdade00a0c618978098dbe75d854481614cd",
           "slug": "project-metadata-request",
           "version": 1,
@@ -8600,7 +8572,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         }
       },
       "receiver": "pse.Runtime.project_metadata",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -8678,7 +8650,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-metadata-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-metadata-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact owner and optional continuation for a bounded live metadata listing.",
@@ -8726,7 +8698,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-metadata-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-metadata-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -8849,7 +8821,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelection",
           "schema_path": "docs/generated/schema/project-selection.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "94c26dbd186b231b086e6e37d8dd6df5a0d4b00655a6e8f4d95a498e8b3f37d9",
           "slug": "project-selection",
           "version": 1,
@@ -8862,7 +8834,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -8875,7 +8847,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelectRequest",
           "schema_path": "docs/generated/schema/project-select-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "393a032a9136db4e6aaa0ae0168ed9aafc244c47bb9207f48d340763164d5284",
           "slug": "project-select-request",
           "version": 1,
@@ -8883,7 +8855,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         }
       },
       "receiver": "pse.Runtime.project_select",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -8924,7 +8896,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -9006,7 +8978,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-select-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-select-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit navigation command transport.",
@@ -9039,10 +9011,10 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-select-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-select-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -9167,7 +9139,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadResult",
           "schema_path": "docs/generated/schema/research-read-result.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "edf625447db75b6278030fd28171b9b009aa21cb85ff16c05108e3c33f99e8b4",
           "slug": "research-read-result",
           "version": 1,
@@ -9180,7 +9152,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
           "schema_path": "docs/generated/schema/research-read-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
           "slug": "research-read-request",
           "version": 1,
@@ -9188,7 +9160,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         }
       },
       "receiver": "pse.Runtime.research_read",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -9229,7 +9201,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
       },
       "research-read-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:research-read-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:research-read-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "Exact discovery and selected detail commands; metadata does not retain payloads.",
         "oneOf": [
@@ -9343,7 +9315,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:research-read-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:research-read-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -9463,8 +9435,8 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
           "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
-          "schema_sha256": "e72dcf8045888452b98354aa981ba7f0bc3a1109f6a07ebafb5da813042f0bcc",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
+          "schema_sha256": "7f9e0c189b0d7588008ba5e443b18823f1f93212bf1b50882fe13f5bcc1f3ee4",
           "slug": "result-inspection-document",
           "version": 1,
           "wire": "FlatV1"
@@ -9476,7 +9448,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
           "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "fb0431325e5ee50f1704f3921c3d636e4503a0c3d902e9b36492b3132105e2fa",
           "slug": "result-inspection-request",
           "version": 1,
@@ -9484,7 +9456,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         }
       },
       "receiver": "pse.Runtime.inspect_result",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -9589,7 +9561,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:result-inspection-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:result-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Select one exact immutable result; schema discovery does not read its Arrow rows.",
@@ -9658,7 +9630,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:result-inspection-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:result-inspection-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -10081,7 +10053,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
       },
       "ResultInspectionField": {
         "additionalProperties": false,
-        "description": "Actual original Arrow field, including nested datatype/field metadata.",
+        "description": "Admitted registry Arrow field, including nested datatype/field metadata.\nSchema-only discovery does not independently validate the stored file schema.",
         "properties": {
           "datatype_json": {
             "description": "Original Arrow datatype using arrow_schema's own JSON encoding, including nested fields.",
@@ -10215,7 +10187,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                 "oneOf": [
                   {
                     "additionalProperties": false,
-                    "description": "A page of the complete original field inventory, without reading Arrow rows.",
+                    "description": "A page of the admitted registry field inventory, without validating stored Arrow rows.",
                     "properties": {
                       "document_version": {
                         "const": 1,
@@ -10324,7 +10296,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                         ]
                       },
                       "readable_complete": {
-                        "description": "Every selected and context cell was representable, independent of scientific usability.",
+                        "description": "Every returned selected and context cell was representable, independent of population/scientific usability.",
                         "type": "boolean"
                       },
                       "recorded_rows": {
@@ -10509,7 +10481,7 @@ Exact callable component key: `tool:native_result_read@`. The following is the r
       "authoring_guidance": null,
       "contracts": {},
       "receiver": "pse.Runtime.results",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -10711,7 +10683,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -10724,7 +10696,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -10737,7 +10709,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -10745,7 +10717,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -11347,7 +11319,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -11401,7 +11373,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -11446,10 +11418,10 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -11583,7 +11555,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -11591,7 +11563,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -11632,7 +11604,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -11687,7 +11659,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         "type": "array"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -11817,7 +11789,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -11830,7 +11802,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+          "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -11838,7 +11810,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
         }
       },
       "receiver": "pse.Runtime.physical_from_documents + modeling_from_documents",
-      "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+      "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"
     }
   },
   "annotations": {
@@ -11879,7 +11851,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -11919,10 +11891,10 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -14634,7 +14606,6 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -14688,9 +14659,7 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
         "type": "object"
       },
       "InvocationOwner": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "association": {
             "type": "string"
@@ -14707,10 +14676,8 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
       },
       "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       },
@@ -15016,9 +14983,7 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
         "type": "object"
       },
       "ProductTerminal": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "complete": {
             "type": "boolean"
@@ -16251,7 +16216,6 @@ Exact callable component key: `tool:storage_observe@`. The following is the regi
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -16711,7 +16675,6 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -16765,9 +16728,7 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         "type": "object"
       },
       "InvocationOwner": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "association": {
             "type": "string"
@@ -16784,10 +16745,8 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
       },
       "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       },
@@ -17061,9 +17020,7 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         "type": "object"
       },
       "ProductTerminal": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "complete": {
             "type": "boolean"
@@ -17098,7 +17055,7 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
             "type": "string"
           },
           "reconciliation": {
-            "$ref": "#/$defs/OwnerRecord"
+            "$ref": "#/$defs/WatchReconciliation"
           },
           "revision": {
             "type": "string"
@@ -17120,6 +17077,37 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
           "observed_unix_ns",
           "reconciliation",
           "snapshot"
+        ],
+        "type": "object"
+      },
+      "WatchReconciliation": {
+        "additionalProperties": false,
+        "properties": {
+          "gap": {
+            "type": "string"
+          },
+          "history": {
+            "type": "string"
+          },
+          "previous_observed_unix_ns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "history",
+          "gap",
+          "previous_observed_unix_ns"
         ],
         "type": "object"
       },
@@ -17167,9 +17155,7 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         "type": "object"
       },
       "WatchSnapshot": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "result_reference": {
             "anyOf": [
@@ -18472,7 +18458,6 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -18651,9 +18636,7 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
         "type": "object"
       },
       "ConceptSubject": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "id": {
             "type": "string"
@@ -18717,19 +18700,14 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
         ],
         "type": "object"
       },
-      "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       },
       "SourceFact": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "availability": {
             "anyOf": [
@@ -18932,7 +18910,6 @@ Exact callable component key: `tool:workspace_inventory@`. The following is the 
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -18986,9 +18963,7 @@ Exact callable component key: `tool:workspace_inventory@`. The following is the 
         "type": "object"
       },
       "Entrypoint": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "capability": {
             "anyOf": [
@@ -19151,8 +19126,7 @@ Exact callable component key: `tool:workspace_inventory@`. The following is the 
           "payload"
         ],
         "type": "object"
-      },
-      "JsonValue": {}
+      }
     },
     "properties": {
       "result": {
@@ -19272,7 +19246,6 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -19327,10 +19300,8 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
       },
       "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       },
@@ -19377,21 +19348,18 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
             "type": "string"
           },
           "current_source_facts": {
-            "default": [],
             "items": {
               "$ref": "#/$defs/SourceFact"
             },
             "type": "array"
           },
           "exact_paths": {
-            "default": [],
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "gaps": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -19418,7 +19386,6 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
             "default": null
           },
           "producer_documents": {
-            "default": [],
             "items": {
               "$ref": "#/$defs/JsonValue"
             },
@@ -19429,14 +19396,12 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
             "type": "string"
           },
           "producers": {
-            "default": [],
             "items": {
               "$ref": "#/$defs/JsonValue"
             },
             "type": "array"
           },
           "queries": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -19480,9 +19445,7 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
         "type": "object"
       },
       "SourceFact": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "availability": {
             "anyOf": [
@@ -19669,7 +19632,6 @@ Exact callable component key: `tool:workspace_recipe_describe@`. The following i
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -19724,10 +19686,8 @@ Exact callable component key: `tool:workspace_recipe_describe@`. The following i
       },
       "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       },
@@ -20027,7 +19987,6 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
             "type": "string"
           },
           "reasons": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -20119,10 +20078,8 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
       },
       "JsonValue": {},
       "OwnerRecord": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
-        "description": "An original owner record whose extensible vocabulary is not redefined here.",
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
         "type": "object"
       },
@@ -20137,21 +20094,18 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
             "type": "string"
           },
           "current_source_facts": {
-            "default": [],
             "items": {
               "$ref": "#/$defs/SourceFact"
             },
             "type": "array"
           },
           "exact_paths": {
-            "default": [],
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "gaps": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -20178,7 +20132,6 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
             "default": null
           },
           "producer_documents": {
-            "default": [],
             "items": {
               "$ref": "#/$defs/JsonValue"
             },
@@ -20189,14 +20142,12 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
             "type": "string"
           },
           "producers": {
-            "default": [],
             "items": {
               "$ref": "#/$defs/JsonValue"
             },
             "type": "array"
           },
           "queries": {
-            "default": [],
             "items": {
               "type": "string"
             },
@@ -20335,9 +20286,7 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
         "type": "object"
       },
       "SourceFact": {
-        "additionalProperties": {
-          "$ref": "#/$defs/JsonValue"
-        },
+        "additionalProperties": true,
         "properties": {
           "availability": {
             "anyOf": [
