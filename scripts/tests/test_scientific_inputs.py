@@ -68,13 +68,13 @@ class ScientificInputTests(unittest.TestCase):
         self.addCleanup(catalog.stop)
 
     @staticmethod
-    def inventory(package: str, selected: bool = True) -> dict:
+    def inventory(package: str, selected: bool = True, name: str = "control") -> dict:
         return {
             "rust-suites": {
                 "selected": {
                     "binary-id": f"{package}::lib",
                     "testcases": {
-                        "control": {
+                        name: {
                             "filter-match": {
                                 "status": "matches" if selected else "mismatch"
                             }
@@ -129,6 +129,43 @@ class ScientificInputTests(unittest.TestCase):
             read.assert_not_called()
             self.assertFalse(self.destination.exists())
 
+    def test_runtime_capsule_demand_follows_reviewed_test_owners(self) -> None:
+        for name in (
+            "workflow::modeling::forms_tests::authored_gdp",
+            "workflow::modeling::conformance::authored_milp",
+            "workflow::strategies::conditional::reference_fixture::authored_recycle",
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    inputs.selected_consumers(self.inventory("pse-runtime", name=name)),
+                    {"pse-runtime"},
+                )
+                self.assertEqual(
+                    inputs.selected_consumers(
+                        self.inventory("pse-runtime", False, name)
+                    ),
+                    set(),
+                )
+        with patch.object(inputs, "capture") as capture:
+            for name in (
+                "workflow::modeling::forms_tests_neighbor::local",
+                "workflow::modeling::pure::local",
+                "workflow::result_inspection::canonical_result_inspection_server_unit::stored_rows",
+                "workflow::result_inspection::tests::descriptor",
+            ):
+                with self.subTest(name=name):
+                    environment = {}
+                    self.assertEqual(
+                        inputs.prepare(
+                            self.inventory("pse-runtime", name=name),
+                            self.destination,
+                            environment,
+                        ),
+                        {},
+                    )
+                    self.assertEqual(environment, {})
+        capture.assert_not_called()
+
     def test_supplied_capsule_is_validated_without_live_recapture(self) -> None:
         self.emit(self.destination, {})
         environment = {inputs.ROLE: str(self.destination)}
@@ -139,7 +176,12 @@ class ScientificInputTests(unittest.TestCase):
         ):
             self.assertEqual(
                 inputs.prepare(
-                    self.inventory("pse-runtime"), self.root / "unused", environment
+                    self.inventory(
+                        "pse-runtime",
+                        name="workflow::modeling::forms_tests::authored_gdp",
+                    ),
+                    self.root / "unused",
+                    environment,
                 ),
                 environment,
             )
@@ -147,7 +189,11 @@ class ScientificInputTests(unittest.TestCase):
         self.destination.write_text('{"schema":"other"}')
         with self.assertRaises(ValueError):
             inputs.prepare(
-                self.inventory("pse-runtime"), self.root / "unused", environment
+                self.inventory(
+                    "pse-runtime", name="workflow::modeling::forms_tests::authored_gdp"
+                ),
+                self.root / "unused",
+                environment,
             )
 
     def test_python_controller_covers_targeted_consumers_and_parent_directories(

@@ -401,14 +401,18 @@ class PreparationCurrencyTests(unittest.TestCase):
             )
             self.assertEqual(events, ["install", "capture"])
             events.clear()
-            with patch.object(python_extension, "preparation_inputs", return_value=None):
+            with patch.object(
+                python_extension, "preparation_inputs", return_value=None
+            ):
                 self.assertEqual(
                     python_extension.extension_prepare("dev", "dev", self.environment),
                     0,
                 )
             self.assertEqual(events, ["install", "capture"])
 
-    def test_failed_install_has_no_import_and_changed_inputs_cannot_publish(self) -> None:
+    def test_failed_install_has_no_import_and_changed_inputs_cannot_publish(
+        self,
+    ) -> None:
         with (
             patch.object(python_extension.subprocess, "call", return_value=17),
             patch.object(python_extension, "capture") as capture,

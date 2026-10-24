@@ -808,9 +808,26 @@ def observer_rust(
         canonical=effects == "canonical",
     )
     inventory = validation_receipts.native_inventory(selection.read_text())
+    if worker is None:
+        environment.pop("PSE_WORKER_BINARY", None)
     fixtures = native_tests.rust_fixture_bindings(provenance, environment)
     environment.update(fixtures)
-    if effects == "native-local":
+    from scripts import test_requirements  # noqa: PLC0415 -- selected demand owner
+
+    requirements = (
+        test_requirements.rust_catalog(
+            inventory,
+            required_roles=test_requirements.required_roles(environment),
+            validate_declarations=False,
+        )
+        if worker is None
+        else {}
+    )
+    if effects == "native-local" or (
+        worker is None
+        and requirements
+        and not any(item["effects"] for item in requirements.values())
+    ):
         validation_receipts.verify_native(json.loads(provenance.read_text()))
         return run_rust(
             ["cargo", "nextest", "run", *execution],
@@ -824,7 +841,12 @@ def observer_rust(
             on_invocation=on_invocation,
         )
     if worker is None:
-        raise resources.ResourceError("Canonical execution requires its worker")
+        if not requirements or any(
+            set(item["effects"]) - {"canonical"} for item in requirements.values()
+        ):
+            raise resources.ResourceError(
+                "Native canonical execution requires its worker"
+            )
     selected = rust_selected(inventory)
     inherited = environment.get(resources.MARKER)
     if inherited:
@@ -851,7 +873,7 @@ def observer_rust(
         resources.MARKER: str(invocation),
         "PSE_NATIVE_PROVENANCE": str(provenance),
         "PSE_NATIVE_SELECTION": str(selection),
-        "PSE_WORKER_BINARY": str(worker),
+        **({"PSE_WORKER_BINARY": str(worker)} if worker is not None else {}),
         "PSE_TEST_EXECUTION_PROFILE": "exclusive-observer",
         RUST_OBSERVER: "1",
         "PSE_RUST_TERMINAL_OWNER": "inherited",
@@ -859,13 +881,15 @@ def observer_rust(
     }
     # observer uses the existing process environment; restore every carried
     # value after launch rather than leaving invocation authority ambient.
-    previous = {key: os.environ.get(key) for key in forwarded}
+    previous = {key: os.environ.get(key) for key in {*forwarded, "PSE_WORKER_BINARY"}}
     report: Path | None = None
     if not inherited:
         configured, report = rust_report_command(
             invocation, ["cargo", "nextest", "run", *execution], environment
         )
         execution = configured[3:]
+    if worker is None:
+        os.environ.pop("PSE_WORKER_BINARY", None)
     os.environ.update(forwarded)
     try:
         child = [
@@ -917,12 +941,19 @@ def observer_child(extra: list[str]) -> int:
         raise resources.ResourceError(
             "Rust observer child requires its declared profile"
         )
-    provenance = Path(os.environ["PSE_NATIVE_PROVENANCE"])
+    provenance_path = os.environ.get("PSE_NATIVE_PROVENANCE")
+    if not provenance_path:
+        raise resources.ResourceError(
+            "Rust observer child requires preparation provenance"
+        )
+    provenance = Path(provenance_path)
     # Reuse the managed verifier, not its feature or test-selection lowering.
     # run_rust sees retained metadata and the authenticated observer sentinel.
+    worker = os.environ.get("PSE_WORKER_BINARY")
     return native_tests.managed_rust_run(
-        [f"--managed-primary-worker={os.environ['PSE_WORKER_BINARY']}", *extra],
+        [*([f"--managed-primary-worker={worker}"] if worker else []), *extra],
         provenance,
+        require_worker=False,
     )
 
 

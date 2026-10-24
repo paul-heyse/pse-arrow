@@ -1061,10 +1061,16 @@ def _rust_capture(
         worker = (
             worker_binary(["--cargo-profile", profile], environment)
             if canonical
+            and (
+                managed
+                or any("native" in item["effects"] for item in requirements.values())
+            )
             else None
         )
         if worker is not None:
             environment["PSE_WORKER_BINARY"] = str(worker)
+        else:
+            environment.pop("PSE_WORKER_BINARY", None)
         fixtures = prepare_rust_fixtures(
             data,
             ["--cargo-profile", profile],
@@ -1202,14 +1208,28 @@ def observer_execution(environment: Mapping[str, str]) -> dict:
     }
 
 
-def managed_rust_run(extra: list[str], provenance: Path) -> int:
+def managed_rust_run(
+    extra: list[str], provenance: Path, *, require_worker: bool = True
+) -> int:
     """Reuse verified parent artifacts; no Cargo build or metadata query occurs here."""
-    worker_arguments = [
-        argument.split("=", 1)[1]
+    offered_workers = [
+        argument
         for argument in extra
-        if argument.startswith("--managed-primary-worker=")
+        if argument.startswith("--managed-primary-worker")
     ]
-    if len(worker_arguments) != 1:
+    if (
+        any(
+            not argument.startswith("--managed-primary-worker=")
+            or not argument.split("=", 1)[1]
+            for argument in offered_workers
+        )
+        or len(offered_workers) > 1
+    ):
+        raise ValueError(
+            "managed Rust child requires one exact prebuilt worker argument"
+        )
+    worker_arguments = [argument.split("=", 1)[1] for argument in offered_workers]
+    if require_worker and len(worker_arguments) != 1:
         raise ValueError("managed Rust child requires one prebuilt worker")
     extra = [
         argument
@@ -1224,14 +1244,17 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
     if not isinstance(files, dict) or not files:
         raise ValueError("managed Rust child requires parent artifact provenance")
     environment = arrow_validation.rust_test_environment(os.environ)
-    worker = Path(worker_arguments[0]).resolve()
-    if (
-        str(worker) not in files
-        or not worker.is_file()
-        or not os.access(worker, os.X_OK)
-    ):
-        raise ValueError("managed Rust worker is outside parent provenance")
-    environment["PSE_WORKER_BINARY"] = str(worker)
+    if worker_arguments:
+        worker = Path(worker_arguments[0]).resolve()
+        if (
+            str(worker) not in files
+            or not worker.is_file()
+            or not os.access(worker, os.X_OK)
+        ):
+            raise ValueError("managed Rust worker is outside parent provenance")
+        environment["PSE_WORKER_BINARY"] = str(worker)
+    else:
+        environment.pop("PSE_WORKER_BINARY", None)
     environment["PSE_NATIVE_PROVENANCE"] = str(provenance)
     environment.update(rust_fixture_bindings(provenance, environment))
     prepared = native.get("rust_invocation")
@@ -1240,6 +1263,27 @@ def managed_rust_run(extra: list[str], provenance: Path) -> int:
     inventory = validation_receipts.native_inventory(
         Path(prepared["inventory"]).read_text()
     )
+    if not worker_arguments:
+        # This preliminary classification permits only the read-only observer.
+        # run_rust authenticates this exact inventory and all retained preparation
+        # premises once at its existing execution boundary, before any effects.
+        from scripts import test_requirements  # noqa: PLC0415 -- selected demand owner
+
+        requirements = test_requirements.rust_catalog(
+            inventory,
+            required_roles=test_requirements.required_roles(environment),
+            validate_declarations=False,
+        )
+        if (
+            not requirements
+            or not any("canonical" in item["effects"] for item in requirements.values())
+            or any(
+                set(item["effects"]) - {"canonical"} for item in requirements.values()
+            )
+        ):
+            raise ValueError(
+                "Workerless observer requires canonical-only selected demand"
+            )
     native["execution"] = observer_execution(environment)
     validation.write_json(provenance, native)
     from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle

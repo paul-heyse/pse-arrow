@@ -74,11 +74,12 @@ class RequirementTests(unittest.TestCase):
             "canonical_readable_wide_result_retains_physical_context_protection_and_exact_ipc"
         )
         demand = requirements.rust("pse-runtime::lib", canonical)
-        self.assertEqual(demand, requirements.CANONICAL_NATIVE)
-        self.assertEqual(requirements.scheduling(demand.document()), ("scientific", 2))
+        self.assertEqual(demand, requirements.CANONICAL)
+        self.assertEqual(requirements.scheduling(demand.document()), ("store", 1))
         declarations = {canonical: demand.document()}
-        for effect in ("canonical", "native"):
-            requirements.guard(declarations, canonical, effect)
+        requirements.guard(declarations, canonical, "canonical")
+        with self.assertRaisesRegex(ValueError, "Undeclared native demand"):
+            requirements.guard(declarations, canonical, "native")
         for local in (
             "workflow::result_inspection::tests::readable_cells_keep_original_ieee_bits_null_and_complete_text",
             "workflow::result_inspection::tests::field_descriptor_is_the_original_arrow_type_and_metadata",

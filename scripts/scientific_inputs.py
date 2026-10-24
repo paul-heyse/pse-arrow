@@ -24,6 +24,16 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = Path("tests/fixtures/scientific-inputs.toml")
 ROLE = "PSE_SCIENTIFIC_INPUTS"
+# Reviewed test owners that actually read the immutable capsule. Package-level
+# consumers below still own family/change reach, not demand from every unit test.
+# Other packages retain conservative package demand until their owners are reviewed.
+RUST_TEST_OWNERS = {
+    "pse-runtime": (
+        "workflow::modeling::forms_tests::",
+        "workflow::modeling::conformance::",
+        "workflow::strategies::conditional::reference_fixture::",
+    ),
+}
 SHARED_INPUTS = {
     str(CATALOG),
     "tests/fixtures/scientific-inputs.rs",
@@ -87,7 +97,12 @@ def selected_consumers(inventory: dict, *, root: Path = ROOT) -> set[str]:
         if suite["binary-id"].split("::", 1)[0] in consumers
         and any(
             test.get("filter-match", {}).get("status") == "matches"
-            for test in suite["testcases"].values()
+            and (
+                (owners := RUST_TEST_OWNERS.get(suite["binary-id"].split("::", 1)[0]))
+                is None
+                or name.startswith(owners)
+            )
+            for name, test in suite["testcases"].items()
         )
     }
 

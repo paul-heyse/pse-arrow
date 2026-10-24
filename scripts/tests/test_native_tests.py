@@ -246,6 +246,196 @@ class ManagedRustSelectionTests(unittest.TestCase):
         assert actual is not None
         return command, actual, [call.args[0] for call in captured.call_args_list]
 
+    def test_ordinary_pure_selection_does_not_prepare_a_native_worker(self) -> None:
+        inventory = json.loads(self.inventory)
+        suite = inventory["rust-suites"]["runtime"]
+        suite["testcases"] = {
+            "workflow::result_inspection::tests::field_descriptor_is_the_original_arrow_type_and_metadata": {
+                "filter-match": {"status": "matches"}
+            }
+        }
+        responses = [
+            subprocess.CompletedProcess([], 0, '{"rust-binaries": {}}'),
+            subprocess.CompletedProcess([], 0, json.dumps(inventory)),
+        ]
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(native_tests, "worker_binary") as worker,
+            patch.object(native_tests.subprocess, "run", side_effect=responses),
+            patch.object(native_tests, "observe_deployed_artifacts"),
+            patch.object(
+                native_tests,
+                "native_provenance",
+                return_value={"files": {str(self.binary): "unit-artifact"}},
+            ) as provenance,
+        ):
+            execution, actual = native_tests.ordinary_rust_capture(
+                ["cargo", "nextest", "run", "-p", "pse-runtime", "--lib"],
+                self.provenance,
+                self.selected,
+                {},
+            )
+        worker.assert_not_called()
+        self.assertIsNone(actual)
+        self.assertEqual(provenance.call_args.args[1], [str(self.binary)])
+        self.assertNotIn(
+            "PSE_WORKER_BINARY", provenance.call_args.kwargs["environment"]
+        )
+        self.assertIn("--binaries-metadata", execution)
+        self.assertEqual(
+            json.loads(self.selected.read_text()),
+            inventory,
+            "worker omission must retain the exact selected inventory",
+        )
+
+    def test_workerless_canonical_child_authenticates_retained_inputs_and_demand(
+        self,
+    ) -> None:
+        inventory = json.loads(self.inventory)
+        suite = inventory["rust-suites"]["runtime"]
+        suite["testcases"] = {
+            "workflow::result_inspection::canonical_result_inspection_server_unit::stored_result": {
+                "filter-match": {"status": "matches"}
+            }
+        }
+        responses = [
+            subprocess.CompletedProcess(
+                [],
+                0,
+                json.dumps(
+                    {
+                        "rust-binaries": {
+                            "pse-runtime::lib": {
+                                key: value
+                                for key, value in suite.items()
+                                if key != "testcases"
+                            }
+                        }
+                    }
+                ),
+            ),
+            subprocess.CompletedProcess([], 0, json.dumps(inventory)),
+        ]
+        stale = {"PSE_WORKER_BINARY": "/stale/unrelated-worker"}
+        with (
+            patch.dict(os.environ, stale, clear=True),
+            patch.object(native_tests, "worker_binary") as built,
+            patch.object(native_tests.subprocess, "run", side_effect=responses),
+            patch.object(native_tests, "observe_deployed_artifacts"),
+            patch.object(
+                native_tests,
+                "native_provenance",
+                return_value={
+                    "files": {
+                        str(self.binary): hashlib.sha256(
+                            self.binary.read_bytes()
+                        ).hexdigest()
+                    }
+                },
+            ),
+        ):
+            execution, worker = native_tests.ordinary_rust_capture(
+                ["cargo", "nextest", "run", "-p", "pse-runtime", "--lib"],
+                self.provenance,
+                self.selected,
+                stale,
+            )
+        built.assert_not_called()
+        self.assertIsNone(worker)
+        native = json.loads(self.provenance.read_text())
+        environment = native_tests.arrow_validation.rust_test_environment(
+            {
+                "PSE_NATIVE_PROVENANCE": str(self.provenance),
+                **stale,
+            }
+        )
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch.object(test_run, "execute_selected", return_value=7) as run,
+            patch.object(
+                test_run.resources,
+                "invocation",
+                return_value=self.root / "invocation.json",
+            ),
+            patch.object(
+                test_run,
+                "rust_report_command",
+                side_effect=lambda _path, command, _env: (
+                    command,
+                    self.root / "report.xml",
+                ),
+            ),
+            patch.object(
+                native_tests,
+                "prepared_rust_inventory",
+                wraps=native_tests.prepared_rust_inventory,
+            ) as verified,
+            patch.object(
+                native_tests, "observer_execution", return_value={}
+            ) as observe,
+        ):
+            self.assertEqual(
+                native_tests.managed_rust_run(
+                    execution, self.provenance, require_worker=False
+                ),
+                7,
+            )
+            self.assertNotIn("PSE_WORKER_BINARY", run.call_args.args[2])
+            self.assertEqual(
+                verified.call_count, 1, "one full verifier at the execution boundary"
+            )
+            self.assertNotIn("PSE_WORKER_BINARY", observe.call_args.args[0])
+            observe.reset_mock()
+            run.reset_mock()
+            for arguments in (
+                execution,
+                ["--managed-primary-worker", *execution],
+                ["--managed-primary-worker=", *execution],
+                [
+                    f"--managed-primary-worker={self.worker}",
+                    f"--managed-primary-worker={self.worker}",
+                    *execution,
+                ],
+            ):
+                with self.subTest(arguments=arguments), self.assertRaises(ValueError):
+                    native_tests.managed_rust_run(arguments, self.provenance)
+            original_binary = self.binary.read_bytes()
+            self.binary.write_bytes(original_binary + b"changed")
+            with self.assertRaisesRegex(ValueError, "artifacts changed"):
+                native_tests.managed_rust_run(
+                    execution, self.provenance, require_worker=False
+                )
+            self.binary.write_bytes(original_binary)
+            with (
+                patch.object(
+                    native_tests,
+                    "rust_source_identity",
+                    return_value={"source": "changed"},
+                ),
+                self.assertRaisesRegex(ValueError, "source or configuration changed"),
+            ):
+                native_tests.managed_rust_run(
+                    execution, self.provenance, require_worker=False
+                )
+            observe.reset_mock()
+            # A separately captured native-demand selection cannot use this exception.
+            suite["testcases"] = {
+                "workflow::durable_tests::native": {
+                    "filter-match": {"status": "matches"}
+                }
+            }
+            self.selected.write_text(json.dumps(inventory))
+            native["files"][str(self.selected)] = hashlib.sha256(
+                self.selected.read_bytes()
+            ).hexdigest()
+            self.provenance.write_text(json.dumps(native))
+            with self.assertRaisesRegex(ValueError, "canonical-only selected demand"):
+                native_tests.managed_rust_run(
+                    execution, self.provenance, require_worker=False
+                )
+            observe.assert_not_called()
+            run.assert_not_called()
+
     def test_unit_scope_uses_actual_validated_roots_and_one_prepared_inventory(
         self,
     ) -> None:
@@ -1025,7 +1215,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
         bindings = native_tests.rust_fixture_bindings(self.provenance, environment)
         self.assertEqual(
             bindings,
-            {variable: str(self.worker), scientific_inputs.ROLE: str(self.scientific)},
+            {variable: str(self.worker)},
         )
         environment.update(bindings)
         native_tests.prepared_rust_inventory(execution, environment)
@@ -1044,9 +1234,17 @@ class ManagedRustSelectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "role differs"):
             native_tests.rust_fixture_bindings(self.provenance, environment)
 
+    def select_scientific_consumer(self) -> None:
+        inventory = json.loads(self.inventory)
+        inventory["rust-suites"]["runtime"]["testcases"][
+            "workflow::modeling::forms_tests::authored_gdp"
+        ] = {"filter-match": {"status": "matches"}}
+        self.inventory = json.dumps(inventory)
+
     def test_unselected_native_fixtures_keep_only_selected_scientific_input(
         self,
     ) -> None:
+        self.select_scientific_consumer()
         self.select_fixture_consumer("PSE_NATIVE_LANE_EXECUTABLE", selected=False)
         self.select_fixture_consumer("PSE_PRODUCER_FIXTURE_RECEIPT", selected=False)
         with (
@@ -1084,7 +1282,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
             )
         self.assertEqual(
             bindings,
-            {variable: str(receipt), scientific_inputs.ROLE: str(self.scientific)},
+            {variable: str(receipt)},
         )
         self.assertEqual(environment, bindings)
         self.assertEqual(run.call_count, 1)
@@ -1171,6 +1369,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
     def test_selected_receipt_is_hashed_by_real_provenance_and_checked_at_forwarding(
         self,
     ) -> None:
+        self.select_scientific_consumer()
         variable = "PSE_PRODUCER_FIXTURE_RECEIPT"
         self.select_fixture_consumer(variable)
         receipt = self.root / "producer-fixture.json"
@@ -1668,13 +1867,7 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
             patch.object(
                 native_tests,
                 "native_provenance",
-                side_effect=lambda _profile, _binaries, *, environment: {
-                    "files": {
-                        environment[scientific_inputs.ROLE]: hashlib.sha256(
-                            Path(environment[scientific_inputs.ROLE]).read_bytes()
-                        ).hexdigest()
-                    },
-                },
+                return_value={"files": {}},
             ),
             patch.object(
                 native_tests,
@@ -1684,7 +1877,7 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
         ):
             self.assertEqual(native_tests.main(), 0)
         resolved.assert_called_once()
-        scientific.assert_called_once()
+        scientific.assert_not_called()
         self.assertEqual(
             listed.call_count,
             2,

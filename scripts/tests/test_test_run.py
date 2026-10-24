@@ -27,6 +27,166 @@ if TYPE_CHECKING:
 
 
 class TerminalComposerTests(unittest.TestCase):
+    def test_pure_selection_uses_prepared_execution_without_worker_or_store_observer(
+        self,
+    ) -> None:
+        provenance = self.root / "native.json"
+        provenance.write_text("{}")
+        selection = provenance.with_name("native-selected.json")
+        inventory = {
+            "rust-suites": {
+                "pse-ids": {
+                    "binary-id": "pse-ids::lib",
+                    "testcases": {
+                        "tests::identity": {"filter-match": {"status": "matches"}}
+                    },
+                }
+            }
+        }
+        selection.write_text(json.dumps(inventory))
+        execution = ["--binaries-metadata", "/captured/binaries.json"]
+        environment = {
+            **os.environ,
+            "PSE_NATIVE_PROVENANCE": str(provenance),
+            "RUST_MIN_STACK": "16777216",
+            "PSE_TEST_REQUIRED_ROLES": "",
+        }
+        with (
+            patch.object(
+                native_tests, "ordinary_rust_capture", return_value=(execution, None)
+            ),
+            patch.object(native_tests, "rust_fixture_bindings", return_value={}),
+            patch.object(test_run.validation_receipts, "verify_native") as verify,
+            patch.object(test_run, "run_rust", return_value=7) as run,
+            patch("scripts.surreal_server.observer") as observer,
+        ):
+            self.assertEqual(
+                test_run.observer_rust(["cargo", "nextest", "run"], environment), 7
+            )
+        verify.assert_called_once_with({})
+        observer.assert_not_called()
+        self.assertEqual(run.call_args.args[0], ["cargo", "nextest", "run", *execution])
+        self.assertEqual(run.call_args.kwargs["inventory"], inventory)
+        self.assertEqual(run.call_args.kwargs["effects"], "canonical")
+        self.assertEqual(
+            run.call_args.kwargs["env"]["PSE_NATIVE_SELECTION"], str(selection)
+        )
+
+        # A missing worker is still a refusal for actual canonical/native demand,
+        # rather than permission to bypass the observer or its lifecycle owner.
+        inventory["rust-suites"]["pse-ids"]["binary-id"] = "pse-runtime::lib"
+        inventory["rust-suites"]["pse-ids"]["testcases"] = {
+            "workflow::durable_tests::control": {"filter-match": {"status": "matches"}}
+        }
+        selection.write_text(json.dumps(inventory))
+        with (
+            patch.object(
+                native_tests, "ordinary_rust_capture", return_value=(execution, None)
+            ),
+            patch.object(native_tests, "rust_fixture_bindings", return_value={}),
+            patch.object(test_run, "run_rust") as run,
+            self.assertRaisesRegex(resources.ResourceError, "requires its worker"),
+        ):
+            test_run.observer_rust(["cargo", "nextest", "run"], environment)
+        run.assert_not_called()
+
+    def test_canonical_only_selection_keeps_observer_and_restores_stale_worker(
+        self,
+    ) -> None:
+        provenance = self.root / "native.json"
+        selection = provenance.with_name("native-selected.json")
+        inventory = {
+            "rust-suites": {
+                "runtime": {
+                    "binary-id": "pse-runtime::lib",
+                    "binary-path": sys.executable,
+                    "testcases": {
+                        "workflow::result_inspection::canonical_result_inspection_server_unit::stored_result": {
+                            "filter-match": {"status": "matches"}
+                        }
+                    },
+                }
+            }
+        }
+        selection.write_text(json.dumps(inventory))
+        environment = {
+            **os.environ,
+            "PSE_NATIVE_PROVENANCE": str(provenance),
+            "PSE_SURREAL_STATE": str(self.root / "service"),
+            "PSE_WORKER_BINARY": "/stale/worker",
+            "RUST_MIN_STACK": "16777216",
+            "PSE_TEST_REQUIRED_ROLES": "",
+        }
+
+        def launch(_state: Path, command: list[str], **_kwargs: object) -> int:
+            self.assertNotIn("PSE_WORKER_BINARY", os.environ)
+            self.assertEqual(
+                os.environ["PSE_TEST_EXECUTION_PROFILE"], "exclusive-observer"
+            )
+            self.assertEqual(command[2:4], ["scripts.test_run", "--observer-child"])
+            return 7
+
+        def execute(
+            _invocation: Path,
+            _command: Sequence[str],
+            actual: Mapping[str, str],
+            _report: Path,
+            *,
+            launch: Callable[[dict[str, object]], int] | None = None,
+            **_options: object,
+        ) -> int:
+            self.assertNotIn("PSE_WORKER_BINARY", actual)
+            if launch is None:
+                self.fail("Expected the original canonical observer callback")
+            return launch({})
+
+        with (
+            patch.dict(os.environ, {"PSE_WORKER_BINARY": "/stale/worker"}),
+            patch.object(
+                native_tests, "ordinary_rust_capture", return_value=(["prepared"], None)
+            ),
+            patch.object(native_tests, "rust_fixture_bindings", return_value={}),
+            patch.object(
+                test_run,
+                "rust_report_command",
+                return_value=(["cargo", "nextest", "run", "prepared"], self.report),
+            ),
+            patch.object(test_run, "execute_selected", side_effect=execute),
+            patch("scripts.surreal_server.observer", side_effect=launch) as observer,
+            patch.object(test_run, "run_rust") as direct,
+        ):
+            self.assertEqual(
+                test_run.observer_rust(["cargo", "nextest", "run"], environment), 7
+            )
+            self.assertEqual(os.environ["PSE_WORKER_BINARY"], "/stale/worker")
+        observer.assert_called_once()
+        direct.assert_not_called()
+
+    def test_workerless_observer_child_uses_the_same_strict_preparation_owner(
+        self,
+    ) -> None:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    test_run.RUST_OBSERVER: "1",
+                    "PSE_TEST_EXECUTION_PROFILE": "exclusive-observer",
+                    "PSE_NATIVE_PROVENANCE": str(self.root / "native.json"),
+                },
+                clear=True,
+            ),
+            patch.object(native_tests, "managed_rust_run", return_value=4) as verified,
+        ):
+            self.assertEqual(test_run.observer_child(["prepared"]), 4)
+            verified.assert_called_once_with(
+                ["prepared"], self.root / "native.json", require_worker=False
+            )
+            os.environ.pop("PSE_NATIVE_PROVENANCE")
+            with self.assertRaisesRegex(
+                resources.ResourceError, "preparation provenance"
+            ):
+                test_run.observer_child(["prepared"])
+
     def test_observer_carries_selected_roles_and_restores_parent_environment(
         self,
     ) -> None:
@@ -516,10 +676,31 @@ class TerminalComposerTests(unittest.TestCase):
         }
         child = "import os,signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); os.kill(os.getppid(),signal.SIGTERM); time.sleep(30)"
         started = time.monotonic()
+        original_run = native_operation.run
+
+        def bounded_run(
+            command: list[str],
+            env: dict[str, str],
+            *,
+            cwd: Path,
+            observation: dict[str, object],
+        ) -> int:
+            # Exercise actual signal delivery/escalation under an existing caller
+            # cancellation clock, without waiting out the production ten-second grace.
+            deadline = time.monotonic() + 2
+            return original_run(
+                command,
+                env,
+                cwd=cwd,
+                observation=observation,
+                cleanup_clock=lambda: deadline,
+            )
+
         with (
             patch.dict(os.environ, environment, clear=True),
             patch.object(native_operation, "scope_owner", return_value=None),
             patch.object(native_operation, "cancel_foreground_handoffs"),
+            patch.object(native_operation, "run", side_effect=bounded_run) as run,
         ):
             code = test_run.execute_selected(
                 self.path,
@@ -528,7 +709,8 @@ class TerminalComposerTests(unittest.TestCase):
                 self.report,
                 selected=[{"nodeid": "control.py::test_case"}],
             )
-        self.assertLess(time.monotonic() - started, 11)
+        run.assert_called_once()
+        self.assertLess(time.monotonic() - started, 4)
         evidence = files.read(self.path.with_suffix(".terminal.json"))
         self.assertEqual(code, 143)
         self.assertEqual(evidence["process"]["child_status"], -signal.SIGKILL)
