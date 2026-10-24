@@ -18,18 +18,26 @@ from scripts import evidence_store, resource_store, workspace_domains, workspace
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def corpus(paths: tuple[str, ...], *, root: Path = ROOT, expected_active: str | None = None,
-           references: dict | None = None, ranges: dict[str, tuple[int, int]] | None = None) -> dict:
-    if not paths or len(paths) > 64 or len(set(paths)) != len(paths):
-        raise ValueError("select 1..64 distinct repository sources")
-    projection = workspace_domains.project(paths, root=root)
+def corpus(paths: tuple[str, ...] = (), *, root: Path = ROOT, expected_active: str | None = None,
+           references: dict | None = None, ranges: dict[str, tuple[int, int]] | None = None,
+           concept: str | None = None, identity: str | None = None) -> dict:
+    if len(paths) > 64 or len(set(paths)) != len(paths) or bool(paths) == bool(concept) or concept and not identity or identity and not concept:
+        raise ValueError("select 1..64 distinct repository sources OR one exact concept identity")
+    projection = workspace_domains.query(concept,identity,root=root,limit=100) if concept else workspace_domains.project(paths, root=root)
     if not projection['complete']:
         raise ValueError('incomplete owner-native projection: ' + '; '.join(projection['omissions']))
     sources, excerpts = [], []
     facts = projection['source_facts']
-    ranges = ranges or {}
-    if set(ranges) - set(paths):
-        raise ValueError('excerpt ranges must name selected sources')
+    if concept:
+        facts = [workspace_sources.source(fact['path'],root=root,expected_digest=fact['digest']) for fact in facts]
+    ranges = dict(ranges or {})
+    if set(ranges) - {fact['path'] for fact in facts}:
+        raise ValueError('excerpt ranges must name selected source contributors')
+    if concept in {'contract-section','plan-package'}:
+        selected_ids={subject['id'] for subject in projection.get('items',[])}
+        for extent in projection['section_ranges']:
+            if extent['subject_id'] in selected_ids and extent['source_id'] not in ranges:
+                ranges[extent['source_id']]=(extent['start_line'],min(extent['end_line'],extent['start_line']+239))
     for fact in facts:
         identity = fact['path']
         lines = fact['text'].splitlines()
@@ -114,7 +122,9 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest='command', required=True)
     for command in ('build','import'):
         selected = commands.add_parser(command)
-        selected.add_argument('--path', action='append', required=True)
+        selected.add_argument('--path', action='append', default=[])
+        selected.add_argument('--concept',choices=('document','decision','contract-section','plan-package','declaration','generator','generated-output'))
+        selected.add_argument('--identity',help='exact native identity; mutually exclusive with --path')
         selected.add_argument('--expected-active')
         selected.add_argument('--range', action='append', default=[], metavar='PATH:START-END', help='explicit excerpt range; default first240 lines/source, each chunk at most16KiB')
         selected.add_argument('--references', type=Path, help='explicit typed v2 references; raw payloads stay at original owners')
@@ -150,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not separator or not match or path in ranges:
                     raise ValueError('unique excerpt ranges require PATH:START-END')
                 ranges[path] = (int(match[1]),int(match[2]))
-            selection = corpus(tuple(args.path), expected_active=args.expected_active, references=references, ranges=ranges)
+            selection = corpus(tuple(args.path), expected_active=args.expected_active, references=references, ranges=ranges,concept=args.concept,identity=args.identity)
             if args.command == 'build':
                 print(json.dumps(selection, sort_keys=True))
                 return 0

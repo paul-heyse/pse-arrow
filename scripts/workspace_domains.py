@@ -416,7 +416,17 @@ def _selected_reference(projection: _Projection, kind: str, selection: dict | No
         snapshot = evidence_sources.assessment_snapshot(selected_path)
     else:
         snapshot = evidence_projection.invocation_snapshot(path)
+    if selection.get("codec") not in {None, snapshot["codec"]}:
+        projection.unknowns.append("selected codec differs from the original evidence owner's codec")
+        return
+    if snapshot["coverage"] != "complete":
+        projection.omissions.append("original evidence snapshot coverage is partial")
     member = selection.get("member")
+    if kind == "diagnostic":
+        if member not in {None, "action"}:
+            projection.unknowns.append("diagnostic identity belongs to the original action; other members are evidence references")
+            return
+        member = "action"
     facts = [fact for fact in snapshot["facts"] if member is None or fact["member"] == member]
     if member is not None and not facts:
         projection.unknowns.append("selected original evidence member is not declared")
@@ -427,8 +437,8 @@ def _selected_reference(projection: _Projection, kind: str, selection: dict | No
         if kind == "evidence_reference":
             subject["evidence"] = {"authority": snapshot["authority"], "codec": snapshot["codec"], "source_id": snapshot["source_id"], "version": snapshot["snapshot_digest"], "member": fact["member"]}
         # This is a compact owner-decoded source reference, not a generic file record.
-        source_id = "evidence-source:" + snapshot["snapshot_digest"]
-        projection.facts[source_id] = {"id": source_id, "path": source_id, "digest": snapshot["snapshot_digest"], "role": "evidence", "scope": "Reference", "owner": snapshot["authority"], "native_status": None, "metadata_inputs": [], "metadata": {}, "topics": [], "basis": "owner-decoded explicit original evidence snapshot", "original_evidence": {key: value for key, value in snapshot.items() if key != "facts"}}
+        source_id = "evidence-source:" + hashlib.sha256(json.dumps([snapshot["authority"], snapshot["codec"], snapshot["source_id"], snapshot["snapshot_digest"]]).encode()).hexdigest()
+        projection.facts[source_id] = {"id": source_id, "path": source_id, "kind": "owner-evidence-reference", "locator": snapshot["source_id"], "digest": snapshot["snapshot_digest"], "role": "evidence", "scope": "Reference", "owner": snapshot["authority"], "native_status": None, "metadata_inputs": [], "metadata": {}, "topics": [], "basis": "owner-decoded explicit original evidence snapshot", "original_evidence": {key: value for key, value in snapshot.items() if key != "facts"}}
         subject["sources"] = [{"source_id": source_id, "role": "owner_evidence"}]
         projection.add(subject)
         projection.native_facts.append({"subject_id": subject["id"], "original_fact": fact, "adapter": adapter})

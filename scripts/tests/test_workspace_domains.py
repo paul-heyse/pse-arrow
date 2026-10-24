@@ -13,7 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import workspace_context, workspace_domains as domains
+from scripts import active_diagnostics, workspace_context, workspace_domains as domains
 
 
 class WorkspaceDomainTests(unittest.TestCase):
@@ -250,6 +250,25 @@ kind = "depends-on"
         self.assertEqual(result["adapter_status"], "not_implemented")
         self.assertEqual(result["subjects"], [])
         self.assertTrue(any("unrecognized-native-codec" in value for value in result["unknowns"]))
+
+    def test_original_diagnostic_action_keeps_codec_authority_and_native_member_without_lifecycle(self) -> None:
+        action = self.root / "diagnostic-action"
+        action.mkdir(mode=0o700)
+        active_diagnostics.publish(action, {"schema": active_diagnostics.SCHEMA, "action": "control", "status": "tool_failure", "target_outcome": "unknown", "invocation": None})
+        selection = {"adapter": "diagnostic", "path": str(action)}
+        snapshot = domains.evidence_sources.diagnostic_snapshot(action)
+        result = domains.query("diagnostic", root=self.root, selected_reference=selection)
+        self.assertEqual(len(result["items"]), 1)
+        self.assertTrue(result["complete"], result["omissions"])
+        diagnostic = result["items"][0]
+        self.assertEqual(diagnostic["owner"], snapshot["authority"])
+        self.assertEqual(diagnostic["native_version"], snapshot["snapshot_digest"])
+        self.assertIsNone(diagnostic["native_state"])
+        self.assertIsNone(diagnostic["state_basis"])
+        reference = domains.query("evidence-reference", root=self.root, selected_reference={**selection, "member": "action"})["items"][0]
+        self.assertEqual(reference["evidence"], {"authority": snapshot["authority"], "codec": snapshot["codec"], "source_id": snapshot["source_id"], "version": snapshot["snapshot_digest"], "member": "action"})
+        self.assertEqual(domains.query("diagnostic", root=self.root, selected_reference={**selection, "member": "target"})["items"], [])
+        self.assertEqual(domains.query("evidence-reference", root=self.root, selected_reference={**selection, "codec": "other"})["items"], [])
 
     def test_question_identity_origin_and_source_version_are_explicit(self) -> None:
         with self.assertRaises(ValueError):

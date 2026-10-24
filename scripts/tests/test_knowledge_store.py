@@ -78,6 +78,21 @@ class KnowledgeStoreTests(unittest.TestCase):
             self.assertEqual(attributed,['selected section\ncorrect clause'])
             self.assertTrue(any(item['subject_id'] is None for item in result['excerpts']))
 
+    def test_exact_section_corpus_selects_its_actual_later_owner_range(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'owner.md').write_text('\n'.join(f'line {n}' for n in range(1,401)))
+            fact=workspace_sources.source('owner.md',root=root)
+            subject={'id':'contract:20.5','kind':'contract','native_version':fact['digest'],'sources':[{'source_id':'owner.md','role':'metadata'}]}
+            projection={'complete':True,'source_facts':[{key:value for key,value in fact.items() if key!='text'}],
+                        'subjects':[subject],'items':[subject],'edges':[],'productions':[],
+                        'section_ranges':[{'subject_id':'contract:20.5','source_id':'owner.md','start_line':340,'end_line':380}]}
+            with patch.object(knowledge_store.workspace_domains,'query',return_value=projection) as query:
+                result=knowledge_store.corpus(concept='contract-section',identity='20.5',root=root)
+            self.assertEqual(query.call_args.args,('contract-section','20.5'))
+            self.assertIn('line 359','\n'.join(item['text'] for item in result['excerpts']))
+            self.assertNotIn('line 239','\n'.join(item['text'] for item in result['excerpts']))
+
 
 if __name__ == '__main__':
     unittest.main()
