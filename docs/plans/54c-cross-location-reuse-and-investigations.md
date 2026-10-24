@@ -1,6 +1,6 @@
 ---
 title: "Plan 54c: Cross-location reuse and investigations"
-status: in-progress
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_rust-build-reuse_2026-10-24.md, docs/functional_reviews/rust-build-reuse-tooling-2026-10-24.md]
@@ -254,3 +254,39 @@ recovery show its compilation/linking dominating a relevant workflow after depen
 are fresh and the narrowest valid features are selected. Capture isolated complete wall/CPU
 and unit timings, identify the actual hotspot and compare a focused extraction with existing
 incremental reuse. Preserve full-codegen's required schema/physical/native execution scope.
+
+## Verification and Outcome — 2026-10-24
+
+**Interface-checked:** exact released 0.19 source and the pinned normalization candidates
+support the decisions in the [source and runtime evidence](../design_review/evidence/rust-build-reuse-019/README.md).
+Released Rust hashing preserves meaningful literal environment/cwd/extern inputs. PR2794
+does not resolve the actual OUT_DIR/extern case; PR2678 equates observably different literal
+values. No remapping fork is adopted. F01 remains externally limited under the coordinator's
+capability-and-behavior trigger, rather than a promised PR-based cure.
+
+**Tested:** 16 real relocation, generated-input, literal-path, changed-extern and local
+dep-info controls passed with the selected 0.19 executable and pinned compiler. The private
+large-entry control reproduced three correct compiles with lost publication/statistics at
+the old frame bound; a raised bound produced one publication and subsequent hits. All 12
+linked full-payload oracles passed. Actual managed-wrapper acceptance verified the declared
+256 MiB frame, 8 GiB service allowance, a 37,764,932-byte publication and restored behavior,
+plus a distinct override generation. Its four linked payload controls passed. The permanent
+`just build-cache-probe` also passed actual artifact removal/restoration and payload checks
+with an entry larger than 8 MiB. Probe-owned services and allocations were released.
+
+**Implemented:** the frame control lives in existing configuration/environment/service
+generation owners and reaches nested, analyzer, installer and measurement consumers. Direct
+compiler-producing recipes select the existing compile placement before admission, retaining
+explicit caller choices. Focused environment and cache controls passed; D02 records actual
+installed-extension and analyzer observations. Cache keys, supported validation/profile
+distinctions and caller-owned local compilation remain intact.
+
+The managed disk cache stays at 100 GiB with default compression. Current xtask targets,
+feature selection and ordinary workspace incremental policy remain; isolated profiling is
+triggered by an actual recurring binary-owned hotspot. Remote/multilevel storage, distributed
+execution and embedded graph/shear APIs remain conditional opportunities with concrete
+consumer/operation triggers. No new service, crate or compatibility path was introduced.
+
+The maintainer skipped final speed quantification because these adoption decisions were
+already settled. The published observations establish mechanisms and bounded behavior,
+without a measured end-to-end speedup or full-editor, whole-Python or whole-platform claim.
