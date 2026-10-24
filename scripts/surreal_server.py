@@ -4757,6 +4757,9 @@ def storage_launch_drain_config(
             return config
     except SupervisorError:
         pass
+    marker_path = state / ".maintenance-listener.json"
+    if marker_path.exists() or marker_path.is_symlink():
+        return interrupted_initializer_drain_config(state, config, launch, deadline=deadline)
     if (
         config.get("owner") != OWNER
         or config.get("accepting_writes") is not False
@@ -4818,6 +4821,65 @@ def storage_launch_drain_config(
             raise SupervisorError("Historical launch supervisor identity differs")
         return predecessor
     raise SupervisorError("Exact historical failed-launch selection is unavailable")
+
+
+def interrupted_initializer_drain_config(
+    state: Path, config: dict[str, object], launch: dict[str, object],
+    *, deadline: float | None = None,
+) -> dict[str, object]:
+    """Authenticate a lost initializer publication only to judge storage drain.
+
+    The pending initializer and private listener marker retain the actual launch
+    generation even if an interrupted caller wrote an older config snapshot.
+    This detached selection is never persisted, executed or used for admission.
+    """
+    marker_path = state / ".maintenance-listener.json"
+    if "binding" in launch or any(path.is_symlink() for path in (marker_path, *marker_path.parents)):
+        raise SupervisorError("Interrupted initializer drain lacks an unbound private witness")
+    raw = private_record_bytes(marker_path, deadline, maximum_bytes=1024 * 1024)
+    marker = object_mapping(json.loads(raw))
+    pending = object_mapping(config.get("derived_rebuild_pending", {}))
+    supervisor = object_mapping(marker.get("supervisor", {}))
+    owner = object_mapping(marker.get("owner", {}))
+    if (
+        config.get("owner") != OWNER
+        or config.get("accepting_writes") is not False
+        or config.get("admission") not in {"validation_required", "quiesced"}
+        or pending.get("kind") != "initialize"
+        or pending.get("phase") != "initializing"
+        or owner != pending.get("initializer")
+        or owner.get("purpose") != "maintenance"
+        or not re.fullmatch(r"[a-f0-9]{32}", str(owner.get("nonce", "")))
+        or marker.get("instance_id") != config.get("instance_id")
+        or marker.get("server") != config.get("server")
+        or marker.get("resources") != config.get("resources")
+        or supervisor != launch.get("supervisor_generation")
+        or marker.get("credentials_sha256") != file_digest(state / "credentials.json")
+        or (pending.get("target_namespace"), pending.get("target_database"))
+        != (config.get("namespace"), config.get("database"))
+    ):
+        raise SupervisorError("Interrupted initializer drain witness differs from its exact pending owner")
+    script = Path(str(supervisor.get("supervisor_script", "")))
+    if (
+        not script.is_absolute()
+        or script.name != "surreal_server.py"
+        or script.parent.name != "scripts"
+        or script.parent.parent.parent != state / ".generations"
+        or supervisor.get("supervisor_executable") != str(Path(sys.executable).resolve())
+    ):
+        raise SupervisorError("Interrupted initializer drain source escaped its immutable state")
+    with lifecycle_deadline(deadline):
+        verified = verify_generation(script.parent.parent)
+    if verified.files.get("scripts/surreal_server.py") != supervisor.get("supervisor_sha256"):
+        raise SupervisorError("Interrupted initializer drain supervisor identity differs")
+    reconstructed = {**config, "service_supervisor": supervisor}
+    if (
+        storage_launch(state, reconstructed, deadline=deadline) != launch
+        or private_record_bytes(marker_path, deadline, maximum_bytes=1024 * 1024) != raw
+        or config_for(state, deadline=deadline) != config
+    ):
+        raise SupervisorError("Interrupted initializer drain observations changed")
+    return reconstructed
 
 
 def recorded_storage_owner(

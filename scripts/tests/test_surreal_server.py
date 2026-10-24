@@ -1876,6 +1876,86 @@ class SurrealSupervisorTests(unittest.TestCase):
                     declaration.write_bytes(before)
                     declaration.chmod(0o600)
 
+    def interrupted_initializer_launch(self) -> tuple[dict[str, object], dict[str, object]]:
+        config = self.initialized()
+        owner = {"nonce": "a" * 32, "purpose": "maintenance", "pid": 999999, "start": "dead"}
+        config.update(admission="validation_required", accepting_writes=False,
+            derived_rebuild_pending={"kind": "initialize", "phase": "initializing",
+                "initializer": owner, "target_namespace": config["namespace"],
+                "target_database": config["database"]})
+        worker = self.root / "launch-worker"
+        worker.write_bytes(b"fixture captured generation")
+        replacement = server.publish_generation(self.state, worker)
+        launch = {"allocation": str(self.root / "admission" / ("b" * 32)),
+            "generation": config["instance_id"], "deadline": time.monotonic() + 30,
+            "supervisor_generation": replacement, "server_generation": config["server"],
+            "service_class": config.get("service_class", "functional"),
+            "server_memory_bytes": config["resources"]["server_memory_bytes"]}
+        server.write_json(self.state / "config.json", config)
+        server.write_json(self.state / "service-launch.json", launch)
+        server.write_json(self.state / ".maintenance-listener.json", {
+            "instance_id": config["instance_id"], "owner": owner,
+            "supervisor": replacement, "server": config["server"],
+            "resources": config["resources"],
+            "credentials_sha256": server.file_digest(self.state / "credentials.json"),
+            "root_bootstrap": None})
+        return config, launch
+
+    def test_interrupted_initializer_witness_authenticates_stale_config_for_drain_only(self) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        with patch.object(server, "start") as start, patch.object(server, "materialize_service") as materialize:
+            selected = server.storage_launch_drain_config(self.state, config, launch)
+        self.assertEqual(selected["service_supervisor"], launch["supervisor_generation"])
+        self.assertEqual({**selected, "service_supervisor": config["service_supervisor"]}, config)
+        self.assertEqual(server.config_for(self.state), config)
+        start.assert_not_called()
+        materialize.assert_not_called()
+
+    def test_interrupted_initializer_drain_refuses_changed_owner_generation_or_bound_launch(self) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        marker_path = self.state / ".maintenance-listener.json"
+        original = server.read_json(marker_path)
+        for changed in ("owner", "generation", "bound", "mode", "symlink", "moved"):
+            with self.subTest(changed=changed):
+                marker = json.loads(json.dumps(original))
+                candidate = dict(launch)
+                if changed == "owner":
+                    marker["owner"]["nonce"] = "c" * 32
+                elif changed == "generation":
+                    marker["supervisor"] = config["service_supervisor"]
+                elif changed == "bound":
+                    candidate["binding"] = {"group": "/recorded/group"}
+                elif changed == "moved":
+                    marker["supervisor"]["supervisor_script"] = str(self.root / "foreign/.generations" / ("d" * 64) / "scripts/surreal_server.py")
+                    candidate["supervisor_generation"] = marker["supervisor"]
+                server.write_json(marker_path, marker)
+                if changed == "mode":
+                    marker_path.chmod(0o644)
+                elif changed == "symlink":
+                    marker_path.rename(self.state / "other-marker.json")
+                    marker_path.symlink_to(self.state / "other-marker.json")
+                with self.assertRaises(server.SupervisorError):
+                    server.storage_launch_drain_config(self.state, config, candidate)
+                if marker_path.is_symlink():
+                    marker_path.unlink()
+                server.write_json(marker_path, original)
+        self.assertEqual(server.config_for(self.state), config)
+
+    def test_interrupted_initializer_drain_refuses_changed_observations(self) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        verify = server.verify_generation
+
+        def changed(directory: Path) -> server.GenerationVerification:
+            verified = verify(directory)
+            path = self.state / ".maintenance-listener.json"
+            marker = server.read_json(path)
+            marker["owner"]["nonce"] = "c" * 32
+            server.write_json(path, marker)
+            return verified
+
+        with patch.object(server, "verify_generation", side_effect=changed), self.assertRaisesRegex(server.SupervisorError, "observations changed"):
+            server.storage_launch_drain_config(self.state, config, launch)
+
     def test_initializer_child_failure_drains_under_existing_lifetime(self) -> None:
         config = self.initialized()
         config.update(admission="validation_required", accepting_writes=False)
