@@ -75,7 +75,10 @@ class ArchiveRequest(BaseModel):
 
     output: str = Field(min_length=1)
     package: str = Field(min_length=1)
-    filter: str = Field(min_length=1, description="Native nextest filter expression, for example test(checksum). Bare words are not expressions on this archival route.")
+    filter: str = Field(
+        min_length=1,
+        description="Native nextest filter expression, for example test(checksum). Bare words are not expressions on this archival route.",
+    )
     test: str | None = Field(default=None, min_length=1)
     lib: bool = False
     features: str = ""
@@ -392,7 +395,14 @@ def archive(request: ArchiveRequest) -> dict:
         raise
     provenance = output / "producer-provenance.json"
     selection = output / "producer-selection.json"
-    original = ["cargo", "nextest", "run", *resolution.command[3:], "-E", request.filter]
+    original = [
+        "cargo",
+        "nextest",
+        "run",
+        *resolution.command[3:],
+        "-E",
+        request.filter,
+    ]
     execution, _worker = native_tests.ordinary_rust_capture(
         original, provenance, selection, environment, effects="native-local"
     )
@@ -403,7 +413,9 @@ def archive(request: ArchiveRequest) -> dict:
     if not selected:
         raise ArchiveError("Historical selection is empty")
     package = next(
-        package for package in metadata["packages"] if package["name"] == request.package
+        package
+        for package in metadata["packages"]
+        if package["name"] == request.package
     )
     package_manifest = str(Path(package["manifest_path"]).relative_to(ROOT))
     fixtures = stage_inputs(
@@ -545,7 +557,10 @@ def archive(request: ArchiveRequest) -> dict:
 
 
 def inspect(
-    directory: Path, *, offset: int = 0, limit: int | None = None,
+    directory: Path,
+    *,
+    offset: int = 0,
+    limit: int | None = None,
     manifest_sha256: str | None = None,
 ) -> dict:
     if offset < 0 or (limit is not None and not 1 <= limit <= 100):
@@ -703,7 +718,10 @@ def replay(directory: Path, output: Path) -> dict:
         }
         validation.write_json(output / "replay.json", result)
         validation.write_json(output / "replay-terminal.json", terminal)
-        interrupted = terminal["status"] == "interrupted" or terminal.get("process", {}).get("forwarded_signal") is not None
+        interrupted = (
+            terminal["status"] == "interrupted"
+            or terminal.get("process", {}).get("forwarded_signal") is not None
+        )
         receipt = {
             "version": 5,
             "complete": not interrupted,
@@ -757,8 +775,13 @@ def main(argv: list[str] | None = None) -> int:
         result = (
             archive(
                 ArchiveRequest(
-                    output=str(args.output), package=args.package, filter=args.filter,
-                    test=args.test, lib=args.lib, features=args.features, fixture=args.fixture,
+                    output=str(args.output),
+                    package=args.package,
+                    filter=args.filter,
+                    test=args.test,
+                    lib=args.lib,
+                    features=args.features,
+                    fixture=args.fixture,
                 )
             )
             if args.operation == "archive"

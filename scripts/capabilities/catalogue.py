@@ -190,7 +190,9 @@ class Catalogue:
         unknown = chosen - set(self.capabilities)
         if unknown:
             raise ValueError("unknown capabilities: " + ", ".join(sorted(unknown)))
-        chosen.update(member for identity in tuple(chosen) for member in self._by_family[identity])
+        chosen.update(
+            member for identity in tuple(chosen) for member in self._by_family[identity]
+        )
         for identity in chosen:
             guides.update(self.capabilities[identity].guides)
         return Selection(tuple(sorted(chosen)), tuple(sorted(guides)))

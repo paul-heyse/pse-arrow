@@ -17,7 +17,11 @@ from scripts import arrow_validation, validation, validation_receipts
 from scripts import test_resources as resources
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import (
+        Callable,
+        Mapping,
+        Sequence,
+    )
 
 ROOT = Path(__file__).resolve().parents[1]
 RUST_OBSERVER = "PSE_RUST_OBSERVER_CHILD"
@@ -95,9 +99,11 @@ def finish(
     image = resources.storage().invocation_snapshot(declaration["nonce"])
     setup_failures = image.get("setup_failures", {})
     if not isinstance(setup_failures, dict):
-        raise ValueError("Invalid authenticated setup observations")
+        raise ValueError("Invalid authenticated setup observations")  # noqa: TRY004 -- persisted metadata refusal retains its ValueError contract.
     for item in results:
-        identity = str(item.get("nodeid") or (str(item["class"]) + "::" + str(item["name"])))
+        identity = str(
+            item.get("nodeid") or (str(item["class"]) + "::" + str(item["name"]))
+        )
         observation = setup_failures.get(identity)
         if observation is not None and item["status"] != "passed":
             item["failure_kind"] = "infrastructure"
@@ -143,7 +149,11 @@ def finish(
             "requirements": dict(image.get("requirements", {})),
             "peer_invocations": dict(image.get("peer_invocations", {})),
             "cleanup_observations": dict(image.get("cleanup_observations", {})),
-            "assurance": "pass" if check.get("status") == "passed" and not report_errors else "incomplete" if report_errors else "failure",
+            "assurance": "pass"
+            if check.get("status") == "passed" and not report_errors
+            else "incomplete"
+            if report_errors
+            else "failure",
         },
     )
     failed = False
@@ -208,7 +218,7 @@ def execute_selected(
     process: dict[str, object] = process_value
     report_errors: list[object] = errors_value
     code = None
-    from scripts import native_operation  # noqa: PLC0415 -- shared process owner
+    from scripts import native_operation  # noqa: PLC0415 -- lazy operation owner.
 
     registration = None
     previous_handlers = {}
@@ -429,28 +439,48 @@ def execute_selected(
     if not reconciled:
         return 1
     try:
-        image = resources.storage().invocation_snapshot(resources.read_invocation(path)["nonce"])
+        image = resources.storage().invocation_snapshot(
+            resources.read_invocation(path)["nonce"]
+        )
         terminal = image.get("terminal", {})
         evidence = terminal.get("evidence", {})
-        return 0 if (image["phase"] == "frozen" and terminal.get("complete") is True
-                     and evidence.get("assurance") == "pass") else 1
+        return (
+            0
+            if (
+                image["phase"] == "frozen"
+                and terminal.get("complete") is True
+                and evidence.get("assurance") == "pass"
+            )
+            else 1
+        )
     except (OSError, ValueError):
         return 1
 
 
-def empty_selection(inventory: Mapping[str, object], source: Path | None = None) -> Path:
+def empty_selection(
+    inventory: Mapping[str, object], source: Path | None = None
+) -> Path:
     """Persist a known empty catalogue as an explicit pre-execution refusal."""
     if rust_selected(inventory):
         raise ValueError("Empty-selection refusal received selected tests")
     path = resources.invocation("rust", [])
-    artifacts = {source.name: validation_receipts.digest(source)} if source is not None else {}
+    artifacts = (
+        {source.name: validation_receipts.digest(source)} if source is not None else {}
+    )
     evidence = {
-        "assurance": "not-run", "selection_state": "empty", "workload_exit": None,
-        "report_errors": [], "results": [], "artifacts": artifacts,
+        "assurance": "not-run",
+        "selection_state": "empty",
+        "workload_exit": None,
+        "report_errors": [],
+        "results": [],
+        "artifacts": artifacts,
         "artifact_base": str(source.parent) if source is not None else None,
-        "refusal": "empty-selection", "process": {},
+        "refusal": "empty-selection",
+        "process": {},
     }
-    resources.finalize(path, {}, complete=True, terminal_owner="runner", terminal=evidence)
+    resources.finalize(
+        path, {}, complete=True, terminal_owner="runner", terminal=evidence
+    )
     resources.resource_store.publish(path.with_suffix(".terminal.json"), evidence)
     print(f"Test selection is empty; invocation: {path}", file=sys.stderr)
     return path
@@ -461,12 +491,36 @@ def preparation_failure(inventory: Mapping[str, object], stage: str) -> Path:
     selected = rust_selected(inventory)
     path = resources.invocation("rust", selected)
     evidence = {
-        "assurance": "incomplete", "selection_state": "collected", "workload_exit": None,
-        "report_errors": [stage], "artifacts": {}, "process": {},
-        "results": [{"class": item["binary_id"], "name": item["name"], "status": "not_run", "failure_kind": "infrastructure", "assertion_reach": "not-reached"} for item in selected],
-        "setup_failures": {item["binary_id"] + "::" + item["name"]: {"kind": "infrastructure", "stage": stage, "code": "test::preparation", "assertion_reach": "not-reached", "source": "preparing-runner"} for item in selected},
+        "assurance": "incomplete",
+        "selection_state": "collected",
+        "workload_exit": None,
+        "report_errors": [stage],
+        "artifacts": {},
+        "process": {},
+        "results": [
+            {
+                "class": item["binary_id"],
+                "name": item["name"],
+                "status": "not_run",
+                "failure_kind": "infrastructure",
+                "assertion_reach": "not-reached",
+            }
+            for item in selected
+        ],
+        "setup_failures": {
+            item["binary_id"] + "::" + item["name"]: {
+                "kind": "infrastructure",
+                "stage": stage,
+                "code": "test::preparation",
+                "assertion_reach": "not-reached",
+                "source": "preparing-runner",
+            }
+            for item in selected
+        },
     }
-    resources.finalize(path, {}, complete=False, terminal_owner="runner", terminal=evidence)
+    resources.finalize(
+        path, {}, complete=False, terminal_owner="runner", terminal=evidence
+    )
     resources.resource_store.publish(path.with_suffix(".terminal.json"), evidence)
     print(f"Selected fixture preparation failed; invocation: {path}", file=sys.stderr)
     return path
@@ -479,7 +533,10 @@ def run_python(
     artifact: Mapping[str, object] | None = None,
 ) -> int:
     environment = dict(os.environ if env is None else env)
-    from scripts import test_invocation
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+        test_invocation,
+    )
+
     if resources.MARKER in environment:
         return subprocess.call(command, cwd=ROOT, env=environment)
     path = resources.invocation("python", [])
@@ -509,10 +566,14 @@ def python_observer(
     artifact: Mapping[str, object] | None = None,
 ) -> int:
     """The existing observer forwarding parent owns standalone reconciliation."""
-    from scripts import test_invocation
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+        test_invocation,
+    )
 
     request = test_invocation.python(extra)
-    if resources.MARKER in os.environ or "assessment" in request.values("--terminal-owner"):
+    if resources.MARKER in os.environ or "assessment" in request.values(
+        "--terminal-owner"
+    ):
         return launch({})
     destinations = [Path(item) for item in request.values("--junitxml")]
     if len(destinations) > 1 or (not destinations and not default_report):
@@ -520,11 +581,13 @@ def python_observer(
     path = resources.invocation("python", [], terminal_owner=terminal_owner)
     report = destinations[0] if destinations else path.with_suffix(".xml")
     if not destinations:
-        command[:] = test_invocation.append_options(command, ["--junitxml=" + str(report)])
+        command[:] = test_invocation.append_options(
+            command, ["--junitxml=" + str(report)]
+        )
     selection = report.with_name(report.stem + "-selected.txt")
     forwarded = {resources.MARKER: str(path), "PSE_TEST_ENUMERATION": str(selection)}
     if artifact is not None:
-        from scripts import python_extension  # noqa: PLC0415 -- selected observation
+        from scripts import python_extension  # noqa: PLC0415 -- lazy operation owner.
 
         forwarded.update(python_extension.execution_environment({}, artifact))
     previous = {key: os.environ.get(key) for key in forwarded}
@@ -582,7 +645,10 @@ def run_rust(
         and "--binaries-metadata" not in command
     ):
         return observer_rust(
-            list(command), environment, effects=effects, package_scope=package_scope,
+            list(command),
+            environment,
+            effects=effects,
+            package_scope=package_scope,
             on_invocation=on_invocation,
         )
     if package_scope:
@@ -590,7 +656,9 @@ def run_rust(
     inherited = environment.get(resources.MARKER)
     run = list(command)
     position = run.index("run")
-    from scripts.native_tests import managed_list_arguments  # noqa: PLC0415
+    from scripts.native_tests import (  # noqa: PLC0415 -- runner import cycle.
+        managed_list_arguments,
+    )
 
     listing = [
         *run[:position],
@@ -601,7 +669,9 @@ def run_rust(
     ]
     fresh_inventory = inventory is None
     if inventory is None:
-        from scripts import cargo_tools
+        from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+            cargo_tools,
+        )
 
         cargo_tools.selected_identity("cargo-nextest")
         if "--binaries-metadata" in command or "--cargo-metadata" in command:
@@ -620,16 +690,22 @@ def run_rust(
             return response.returncode
         inventory = validation_receipts.native_inventory(response.stdout)
     else:
-        from scripts.native_tests import prepared_rust_inventory  # noqa: PLC0415
+        from scripts.native_tests import (  # noqa: PLC0415 -- runner import cycle.
+            prepared_rust_inventory,
+        )
 
         inventory = prepared_rust_inventory(
             list(command[position + 1 :]), environment, inventory=inventory
         )
     selected = rust_selected(inventory)
-    from scripts import test_requirements
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+        test_requirements,
+    )
 
     requirements = test_requirements.rust_catalog(
-        inventory, required_roles=test_requirements.required_roles(environment), validate_declarations=False
+        inventory,
+        required_roles=test_requirements.required_roles(environment),
+        validate_declarations=False,
     )
     if not selected:
         empty_selection(inventory)
@@ -651,7 +727,9 @@ def run_rust(
         on_invocation(path)
     # Ordinary local unit routes enumerate here rather than through the native
     # observer. They use the same invocation preparation after actual selection.
-    from scripts import scientific_inputs
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+        scientific_inputs,
+    )
 
     if fresh_inventory:
         scientific_inputs.prepare(
@@ -685,20 +763,31 @@ def run_rust(
 def rust_report_command(
     path: Path, run: list[str], environment: Mapping[str, str] | None = None
 ) -> tuple[list[str], Path]:
-    from scripts import test_invocation
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+        test_invocation,
+    )
 
     request = test_invocation.rust(run[3:], environment)
     configurations = request.values("--config-file")
-    configuration = Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    configuration = (
+        Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    )
     if configurations and not configuration.is_file():
-        raise ValueError(f"Selected nextest configuration does not exist: {configuration}")
+        raise ValueError(
+            f"Selected nextest configuration does not exist: {configuration}"
+        )
     report = path.with_suffix(".xml")
     config_path = test_invocation.report_configuration(
         configuration, path.with_suffix(".toml"), request.nextest_profile, report
     )
     arguments = request.arguments(omit=frozenset({"--config-file", "--profile"}))
     position = arguments.index("--") if "--" in arguments else len(arguments)
-    arguments[position:position] = ["--profile", request.nextest_profile, "--config-file", str(config_path)]
+    arguments[position:position] = [
+        "--profile",
+        request.nextest_profile,
+        "--config-file",
+        str(config_path),
+    ]
     return [*run[:3], *arguments], report
 
 
@@ -711,7 +800,7 @@ def observer_rust(
     on_invocation: Callable[[Path], None] | None = None,
 ) -> int:
     """Prepare exact artifacts before the scientific observer's process cap."""
-    from scripts import (  # noqa: PLC0415 -- runner cycle
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
         native_tests,
         surreal_server,
     )
@@ -772,8 +861,11 @@ def observer_rust(
         on_invocation(invocation)
     forwarded = {
         **fixtures,
-        **({"PSE_TEST_REQUIRED_ROLES": environment["PSE_TEST_REQUIRED_ROLES"]}
-           if "PSE_TEST_REQUIRED_ROLES" in environment else {}),
+        **(
+            {"PSE_TEST_REQUIRED_ROLES": environment["PSE_TEST_REQUIRED_ROLES"]}
+            if "PSE_TEST_REQUIRED_ROLES" in environment
+            else {}
+        ),
         resources.MARKER: str(invocation),
         "PSE_NATIVE_PROVENANCE": str(provenance),
         "PSE_NATIVE_SELECTION": str(selection),
@@ -834,7 +926,7 @@ def observer_rust(
 
 def observer_child(extra: list[str]) -> int:
     """Verify retained artifacts, then run; this role never builds."""
-    from scripts import native_tests  # noqa: PLC0415 -- owner cycle
+    from scripts import native_tests  # noqa: PLC0415 -- lazy operation owner.
 
     if (
         os.environ.get(RUST_OBSERVER) != "1"

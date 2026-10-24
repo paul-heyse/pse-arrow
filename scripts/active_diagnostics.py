@@ -36,7 +36,7 @@ SCHEMA = "active-diagnostic-action-v1"
 CPYTHON_SYMBOL_DIRECTORY = Path(os.path.sep) / "tmp"
 
 
-class ActionInterrupted(RuntimeError):
+class ActionInterruptedError(RuntimeError):
     """The owned helper drained after caller cancellation; do not start another step."""
 
 
@@ -48,8 +48,18 @@ class ActionRequest(BaseModel):
     )
 
     action: Literal[
-        "python-snapshot", "python-sample", "python-perf", "gdb-launch", "gdb-core",
-        "sched", "heaptrack", "stat", "feasibility", "memray", "rr-record", "rr-replay",
+        "python-snapshot",
+        "python-sample",
+        "python-perf",
+        "gdb-launch",
+        "gdb-core",
+        "sched",
+        "heaptrack",
+        "stat",
+        "feasibility",
+        "memray",
+        "rr-record",
+        "rr-replay",
     ]
     output: str = Field(min_length=1)
     seconds: float = Field(default=10.0, gt=0, le=300, allow_inf_nan=False)
@@ -88,16 +98,24 @@ class ActionRequest(BaseModel):
                 "live process attachment is supported only by explicit Python snapshot/sample actions; GDB uses owned launch or supplied core"
             )
         if self.registry is not None and self.invocation is None:
-            raise ValueError("--registry requires an authentic --invocation association")
+            raise ValueError(
+                "--registry requires an authentic --invocation association"
+            )
         selected_options = {
             "native": {"python-snapshot", "python-sample"},
             "nonblocking": {"python-snapshot", "python-sample"},
-            "jit": {"python-perf"}, "faulthandler": {"gdb-launch"},
-            "core": {"gdb-core"}, "executable": {"gdb-core"},
-            "executable_sha256": {"gdb-core"}, "events": {"stat"},
-            "memray_python": {"memray"}, "debuginfod": {"python-perf", "memray"},
-            "rr_binary": {"rr-record", "rr-replay"}, "trace": {"rr-replay"},
-            "trace_sha256": {"rr-replay"}, "breakpoint": {"rr-replay"},
+            "jit": {"python-perf"},
+            "faulthandler": {"gdb-launch"},
+            "core": {"gdb-core"},
+            "executable": {"gdb-core"},
+            "executable_sha256": {"gdb-core"},
+            "events": {"stat"},
+            "memray_python": {"memray"},
+            "debuginfod": {"python-perf", "memray"},
+            "rr_binary": {"rr-record", "rr-replay"},
+            "trace": {"rr-replay"},
+            "trace_sha256": {"rr-replay"},
+            "breakpoint": {"rr-replay"},
             "perf_binary": {"python-perf", "sched", "stat"},
         }
         for field, actions in selected_options.items():
@@ -106,11 +124,15 @@ class ActionRequest(BaseModel):
                 raise ValueError(f"{field} does not apply to {self.action}")
         if any(not value or "\x00" in value for value in self.command):
             raise ValueError("workload argv must contain nonempty strings without NUL")
-        if (attachment or self.action in {"feasibility", "gdb-core", "rr-replay"}) and self.command:
+        if (
+            attachment or self.action in {"feasibility", "gdb-core", "rr-replay"}
+        ) and self.command:
             raise ValueError("selected action does not launch supplied workload argv")
         # Omitted, explicit null and an explicit empty event selection are not
         # interchangeable: only absence/null selects the standard perf events.
-        if self.events is not None and not re.fullmatch(r"[A-Za-z0-9_:,./=-]+", self.events):
+        if self.events is not None and not re.fullmatch(
+            r"[A-Za-z0-9_:,./=-]+", self.events
+        ):
             raise ValueError("invalid explicit perf event selection")
         return self
 
@@ -457,7 +479,10 @@ def collect(
 
 
 def read_action(
-    directory: Path, *, tail: int = 0, summary_only: bool = False,
+    directory: Path,
+    *,
+    tail: int = 0,
+    summary_only: bool = False,
     action_sha256: str | None = None,
 ) -> dict:
     if (
@@ -579,8 +604,13 @@ def execute(request: ActionRequest) -> dict:
         )
         record["steps"].append(value)
         process = value.get("process", {})
-        if value["status"] != "timed_out" and process.get("forwarded_signal") is not None:
-            raise ActionInterrupted("owned diagnostic helper interrupted; subject ownership unchanged")
+        if (
+            value["status"] != "timed_out"
+            and process.get("forwarded_signal") is not None
+        ):
+            raise ActionInterruptedError(
+                "owned diagnostic helper interrupted; subject ownership unchanged"
+            )
         return value
 
     command = request.command
@@ -588,7 +618,8 @@ def execute(request: ActionRequest) -> dict:
     def perform() -> None:
         if request.invocation is not None:
             root, declaration, _state = run_inspection.resolve(
-                request.invocation, Path(request.registry) if request.registry is not None else None
+                request.invocation,
+                Path(request.registry) if request.registry is not None else None,
             )
             record["invocation"] = {
                 "registry": str(root),
@@ -684,7 +715,9 @@ def execute(request: ActionRequest) -> dict:
                     raise ValueError(
                         "offline core requires supplied core, executable and executable digest"
                     )
-                executable = regular(Path(request.executable), request.executable_sha256)
+                executable = regular(
+                    Path(request.executable), request.executable_sha256
+                )
                 record["subject"] = {
                     "kind": "offline-core",
                     "executable": executable,
@@ -697,8 +730,8 @@ def execute(request: ActionRequest) -> dict:
                         "thread apply all bt full",
                         "-ex",
                         "info sharedlibrary",
-                        str(request.executable),
-                        str(request.core),
+                        request.executable,
+                        request.core,
                     ],
                     "gdb",
                 )
@@ -757,7 +790,12 @@ def execute(request: ActionRequest) -> dict:
             tool = (
                 selected_tool("heaptrack")
                 if request.action == "heaptrack"
-                else selected_tool("perf", Path(request.perf_binary) if request.perf_binary is not None else None)
+                else selected_tool(
+                    "perf",
+                    Path(request.perf_binary)
+                    if request.perf_binary is not None
+                    else None,
+                )
             )
             record.update(
                 tool=tool,
@@ -1044,7 +1082,11 @@ def execute(request: ActionRequest) -> dict:
                 else "collected"
             )
         elif request.action == "memray":
-            tool = memray_runtime(Path(request.memray_python) if request.memray_python is not None else None)
+            tool = memray_runtime(
+                Path(request.memray_python)
+                if request.memray_python is not None
+                else None
+            )
             if not command or Path(command[0]).absolute() != Path(tool["path"]):
                 raise ValueError(
                     "Memray workload must select the exact isolated interpreter, followed by a script, -m or -c"
@@ -1078,7 +1120,9 @@ def execute(request: ActionRequest) -> dict:
                 step(
                     [tool["path"], "-m", "memray", "stats", str(raw)],
                     "memray-stats",
-                    environment_remove=() if request.debuginfod else ("DEBUGINFOD_URLS",),
+                    environment_remove=()
+                    if request.debuginfod
+                    else ("DEBUGINFOD_URLS",),
                 )
                 if raw.exists()
                 else {
@@ -1105,7 +1149,10 @@ def execute(request: ActionRequest) -> dict:
             )
         elif request.action in {"rr-record", "rr-replay"}:
             tool = selected_tool(
-                "rr", Path(request.rr_binary) if request.rr_binary is not None else diagnostic_trace.binary_path("rr")
+                "rr",
+                Path(request.rr_binary)
+                if request.rr_binary is not None
+                else diagnostic_trace.binary_path("rr"),
             )
             record.update(
                 tool=tool,
@@ -1245,7 +1292,7 @@ def execute(request: ActionRequest) -> dict:
 
     try:
         perform()
-    except ActionInterrupted as error:
+    except ActionInterruptedError as error:
         record.update(status="interrupted", error=str(error))
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         record.update(status="unavailable", error=str(error))
@@ -1334,7 +1381,16 @@ def main(argv: list[str] | None = None) -> int:
         else:
             values = vars(args).copy()
             values.pop("tail")
-            for field in ("output", "core", "executable", "memray_python", "rr_binary", "trace", "perf_binary", "registry"):
+            for field in (
+                "output",
+                "core",
+                "executable",
+                "memray_python",
+                "rr_binary",
+                "trace",
+                "perf_binary",
+                "registry",
+            ):
                 if values[field] is not None:
                     values[field] = str(values[field])
             record = execute(ActionRequest.model_validate(values))

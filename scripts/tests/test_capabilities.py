@@ -5,9 +5,8 @@
 
 from __future__ import annotations
 
-import json
-
 import asyncio
+import json
 import shutil
 import sys
 import tempfile
@@ -19,7 +18,7 @@ from unittest.mock import patch
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 from fastmcp.exceptions import ToolError
-from fastmcp.tools import Tool
+from fastmcp.tools import Tool, ToolResult
 from mcp import MCPError
 from pydantic import ValidationError
 
@@ -51,7 +50,7 @@ def object_value(value: object) -> dict:
     return value
 
 
-def content(result: CallToolResult) -> dict:
+def content(result: CallToolResult | ToolResult) -> dict:
     return object_value(result.structured_content)
 
 
@@ -90,17 +89,35 @@ def fixture(
 
 
 class CatalogueTests(unittest.TestCase):
-    def test_family_membership_comes_from_real_bindings_and_selects_the_same_operations(self) -> None:
+    def test_family_membership_comes_from_real_bindings_and_selects_the_same_operations(
+        self,
+    ) -> None:
         domains, workflows, guides, spec, tool = fixture()
-        family = Capability(id="source-family",title="Source family",description="Retained owner",domain="source",
-            owner="owner.py",source="owner.py",exposure="native",effects="Native owner",route=("native-owner",))
-        child = Capability.model_validate({**spec.model_dump(), "family":family.id})
-        catalogue=Catalogue(domains,workflows,guides,(family,child),{child.id:tool})
-        self.assertEqual(catalogue.describe(family.id)["operations"],[child.id])
-        self.assertEqual(set(catalogue.select([],[],[family.id]).capabilities),{family.id,child.id})
-        bad=Capability.model_validate({**spec.model_dump(), "family":"unknown-family"})
-        with self.assertRaisesRegex(ValueError,"invalid capability family"):
-            Catalogue(domains,workflows,guides,(bad,),{bad.id:tool})
+        family = Capability(
+            id="source-family",
+            title="Source family",
+            description="Retained owner",
+            domain="source",
+            owner="owner.py",
+            source="owner.py",
+            exposure="native",
+            effects="Native owner",
+            route=("native-owner",),
+        )
+        child = Capability.model_validate({**spec.model_dump(), "family": family.id})
+        catalogue = Catalogue(
+            domains, workflows, guides, (family, child), {child.id: tool}
+        )
+        self.assertEqual(catalogue.describe(family.id)["operations"], [child.id])
+        self.assertEqual(
+            set(catalogue.select([], [], [family.id]).capabilities),
+            {family.id, child.id},
+        )
+        bad = Capability.model_validate(
+            {**spec.model_dump(), "family": "unknown-family"}
+        )
+        with self.assertRaisesRegex(ValueError, "invalid capability family"):
+            Catalogue(domains, workflows, guides, (bad,), {bad.id: tool})
 
     def test_single_declaration_drives_actual_schema_and_membership(self) -> None:
         domains, workflows, guides, spec, tool = fixture()
@@ -171,9 +188,14 @@ class CatalogueTests(unittest.TestCase):
                 result = bounded(value, "read")
                 self.assertFalse(result.complete)
                 self.assertTrue(result.omissions)
-                self.assertLessEqual(len(json.dumps(result.model_dump(mode="json")).encode()), 128 * 1024)
+                self.assertLessEqual(
+                    len(json.dumps(result.model_dump(mode="json")).encode()), 128 * 1024
+                )
         for value in (float("nan"), float("inf"), -float("inf")):
-            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "nonfinite"):
+            with (
+                self.subTest(value=value),
+                self.assertRaisesRegex(ValueError, "nonfinite"),
+            ):
                 bounded({"number": value}, "read")
 
     def test_original_truncation_and_nested_gaps_cannot_be_promoted_to_complete(
@@ -510,7 +532,8 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
                 "workspace_producer_relationships",
                 "workspace_recipe_describe",
                 "workspace_inventory",
-            } <= set(runtime.catalogue.tools),
+            }
+            <= set(runtime.catalogue.tools),
         )
 
 

@@ -6,21 +6,32 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import ConfigDict, Field, TypeAdapter, model_validator
 
-from scripts import arrow_validation, select, test_invocation, test_resources, test_run, validation
+from scripts import (
+    arrow_validation,
+    select,
+    test_invocation,
+    test_resources,
+    test_run,
+    validation,
+)
 from scripts.capabilities.model import Contract
 
 Name = Annotated[str, Field(pattern=r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")]
 Feature = Annotated[str, Field(pattern=r"^[A-Za-z0-9_][A-Za-z0-9_./-]*$")]
 INVOCATION = TypeAdapter(test_invocation.RustInvocation)
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 class RustTestSelection(Contract):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
 
     package: Name
     kind: Literal["unit", "integration"] = "unit"
@@ -35,7 +46,9 @@ class RustTestSelection(Contract):
     @model_validator(mode="after")
     def selected_target(self) -> RustTestSelection:
         if self.kind == "unit" and (self.expression is None or self.target is not None):
-            raise ValueError("unit selection requires an expression and has no named integration target")
+            raise ValueError(
+                "unit selection requires an expression and has no named integration target"
+            )
         if self.kind == "integration" and self.target is None:
             raise ValueError("integration selection requires one exact named target")
         return self
@@ -51,15 +64,23 @@ class RustTestSelection(Contract):
         if self.kind == "unit":
             if self.expression is None:
                 raise ValueError("unit selection requires an expression")
-            command = select.unit(self.package, self.expression, args, features=self.features)
+            command = select.unit(
+                self.package, self.expression, args, features=self.features
+            )
         else:
             if self.target is None:
-                raise ValueError("integration selection requires one exact named target")
+                raise ValueError(
+                    "integration selection requires one exact named target"
+                )
             if self.expression is not None:
                 args.extend(("-E", select.test_filter(self.expression)))
-            command = select.integration(self.package, self.target, args, features=self.features)
+            command = select.integration(
+                self.package, self.target, args, features=self.features
+            )
         if command[2] != "run":
-            raise ValueError("scoped test execution requires the native run action; inherited PSE_NEXTEST_ACTION selects another action")
+            raise ValueError(
+                "scoped test execution requires the native run action; inherited PSE_NEXTEST_ACTION selects another action"
+            )
         # Reject unsupported native options before output, build or preparation.
         # There is one parser: the same owner used by discovery and execution.
         invocation = test_invocation.rust(command[3:])
@@ -97,23 +118,44 @@ def execute(root: Path, request: RustTestRequest) -> dict[str, object]:
     def selected(path: Path) -> None:
         nonlocal invocation
         if invocation is not None and invocation != path:
-            raise ValueError("native scoped runner reported conflicting invocation identities")
+            raise ValueError(
+                "native scoped runner reported conflicting invocation identities"
+            )
         invocation = path
-        validation.write_json(output / "invocation-reference.json", {
-            "invocation": str(path), "registry": str(test_resources.registry()),
-            "ownership": "borrowed" if inherited is not None else "owned",
-            "terminal_owner": "original outer owner" if inherited is not None else "native runner",
-        })
+        validation.write_json(
+            output / "invocation-reference.json",
+            {
+                "invocation": str(path),
+                "registry": str(test_resources.registry()),
+                "ownership": "borrowed" if inherited is not None else "owned",
+                "terminal_owner": "original outer owner"
+                if inherited is not None
+                else "native runner",
+            },
+        )
 
     code = test_run.run_rust(
-        command, env=environment, effects=request.execution_effects,
-        package_scope=request.kind == "unit", on_invocation=selected,
+        command,
+        env=environment,
+        effects=request.execution_effects,
+        package_scope=request.kind == "unit",
+        on_invocation=selected,
     )
-    declaration = test_resources.read_invocation(invocation) if invocation is not None else None
+    declaration = (
+        test_resources.read_invocation(invocation) if invocation is not None else None
+    )
     # Borrowed invocations are reconciled by their original outer owner. A prior
     # terminal file there must never be promoted to this call's new terminal.
-    terminal_path = invocation.with_suffix(".terminal.json") if invocation is not None and inherited is None else None
-    terminal = json.loads(terminal_path.read_text()) if terminal_path is not None and terminal_path.is_file() else None
+    terminal_path = (
+        invocation.with_suffix(".terminal.json")
+        if invocation is not None and inherited is None
+        else None
+    )
+    terminal = (
+        json.loads(terminal_path.read_text())
+        if terminal_path is not None and terminal_path.is_file()
+        else None
+    )
     provenance = output / "native.json"
     prepared = json.loads(provenance.read_text()) if provenance.is_file() else None
     catalogue = declaration["selected"] if declaration is not None else []
@@ -121,18 +163,39 @@ def execute(root: Path, request: RustTestRequest) -> dict[str, object]:
         "exit_code": code,
         "output": str(output),
         "invocation": str(invocation) if invocation is not None else None,
-        "invocation_reference": str(output / "invocation-reference.json") if invocation is not None else None,
-        "invocation_ownership": "borrowed" if inherited is not None else "owned" if invocation is not None else "not allocated",
-        "terminal": str(terminal_path) if terminal_path is not None and terminal_path.is_file() else None,
+        "invocation_reference": str(output / "invocation-reference.json")
+        if invocation is not None
+        else None,
+        "invocation_ownership": "borrowed"
+        if inherited is not None
+        else "owned"
+        if invocation is not None
+        else "not allocated",
+        "terminal": str(terminal_path)
+        if terminal_path is not None and terminal_path.is_file()
+        else None,
         "terminal_observed": terminal is not None,
         "native_terminal": terminal,
         "selected": catalogue[:100],
         "selected_count": len(catalogue),
         "catalogue_complete": len(catalogue) <= 100,
-        "catalogue_reader": {"capability": "product_run_read", "invocation": str(invocation), "registry": str(test_resources.registry()), "offset": 100 if len(catalogue) > 100 else 0} if invocation is not None else None,
-        "omissions": ["Selected catalogue shows first 100 tests; continue with the authentic invocation reader."] if len(catalogue) > 100 else [],
+        "catalogue_reader": {
+            "capability": "product_run_read",
+            "invocation": str(invocation),
+            "registry": str(test_resources.registry()),
+            "offset": 100 if len(catalogue) > 100 else 0,
+        }
+        if invocation is not None
+        else None,
+        "omissions": [
+            "Selected catalogue shows first 100 tests; continue with the authentic invocation reader."
+        ]
+        if len(catalogue) > 100
+        else [],
         "native_provenance": str(provenance) if prepared is not None else None,
-        "prepared_invocation": prepared.get("rust_invocation") if prepared is not None else None,
+        "prepared_invocation": prepared.get("rust_invocation")
+        if prepared is not None
+        else None,
         "requested_invocation": INVOCATION.dump_python(normalized, mode="json"),
         "execution_effects": request.execution_effects,
     }

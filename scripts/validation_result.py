@@ -159,7 +159,9 @@ def read_assessment(
             if origin not in borrowed:
                 borrows.enter_context(test_resources.borrow_report(origin))
                 borrowed.add(origin)
-        return selected_result(run, receipt, gate=gate, failures=failures, tail=tail, origins=origins)
+        return selected_result(
+            run, receipt, gate=gate, failures=failures, tail=tail, origins=origins
+        )
 
 
 class UnknownGateError(ValueError):
@@ -307,7 +309,9 @@ def main(argv: list[str] | None = None) -> int:
             "--registry, --subject, --offset and --limit belong to product-test results"
         )
     try:
-        result = read_assessment(args.run_path, gate=args.gate, failures=args.failures, tail=args.tail)
+        result = read_assessment(
+            args.run_path, gate=args.gate, failures=args.failures, tail=args.tail
+        )
     except UnknownGateError as error:
         parser.error(str(error))
     except (OSError, TypeError, ValueError, RuntimeError) as error:

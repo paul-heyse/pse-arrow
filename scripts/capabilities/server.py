@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import dataclass
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -25,10 +25,24 @@ from fastmcp.tools import (
 )
 from pydantic import Field, JsonValue
 
+from scripts.capabilities import (
+    host_actions,
+    host_queries,
+    native,
+    operations,
+    qualification,
+    specialists,
+)
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
 from scripts.capabilities.guidance import Guidance, register_guides
 from scripts.capabilities.inventory import inventory
-from scripts.capabilities import host_actions, host_queries, native, operations, qualification, specialists
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
+    from fastmcp.tools import Tool
+
+    from scripts.capabilities.model import Capability
 
 ROOT = Path(__file__).resolve().parents[2]
 Limit = Annotated[int, Field(ge=1, le=100)]
@@ -54,13 +68,20 @@ def refusal(code: str, error: ValueError) -> ToolError:
     return ToolError(json.dumps({"code": code, "message": str(error)}, sort_keys=True))
 
 
-def bindings(root: Path, *, owner: specialists.Specialists):
+def bindings(
+    root: Path, *, owner: specialists.Specialists
+) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     """Compose actual owner bindings; duplicate identities remain composition errors."""
     specs = []
     tools = {}
-    for factory in (operations.bindings, host_queries.bindings, host_actions.bindings,
-        qualification.bindings, native.bindings,
-        lambda path: specialists.bindings(path, owner=owner)):
+    for factory in (
+        operations.bindings,
+        host_queries.bindings,
+        host_actions.bindings,
+        qualification.bindings,
+        native.bindings,
+        lambda path: specialists.bindings(path, owner=owner),
+    ):
         declared, bound = factory(root)
         if tools.keys() & bound.keys():
             raise ValueError("duplicate operation binding")
@@ -84,12 +105,14 @@ def build(root: Path = ROOT) -> Runtime:
     bound, tools = bindings(root, owner=owner)
     catalogue = Catalogue(domains, workflows, guides, (*declared, *bound), tools)
     guidance = Guidance(root, guides)
+
     @asynccontextmanager
-    async def lifetime(_server):
+    async def lifetime(_server: FastMCP) -> AsyncGenerator[dict[str, JsonValue]]:
         try:
             yield {}
         finally:
             await owner.close()
+
     server = FastMCP(
         "pse-capabilities",
         instructions=INSTRUCTIONS,

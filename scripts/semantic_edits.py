@@ -12,8 +12,16 @@ import hashlib
 import json
 import os
 import tempfile
+from itertools import pairwise
 from pathlib import Path
+from typing import TypedDict
 from urllib.parse import unquote, urlsplit
+
+
+class Edit(TypedDict):
+    start: int
+    end: int
+    text: str
 
 
 def digest(text: str) -> str:
@@ -81,7 +89,7 @@ def capture(root: Path, paths: list[str]) -> dict[str, str]:
     return result
 
 
-def _complete(value: object) -> None:
+def require_complete(value: object) -> None:
     if isinstance(value, dict):
         for key, nested in value.items():
             if (
@@ -89,10 +97,10 @@ def _complete(value: object) -> None:
                 and nested
             ):
                 raise ValueError(f"incomplete server result: {key}")
-            _complete(nested)
+            require_complete(nested)
     elif isinstance(value, list):
         for nested in value:
-            _complete(nested)
+            require_complete(nested)
 
 
 def _offset(text: str, position: dict, encoding: str) -> int:
@@ -132,7 +140,7 @@ def preview(
     """Normalize mcpls WorkspaceEdits; incomplete/unknown edits are never dropped."""
     if encoding not in {"utf-8", "utf-16"}:
         raise ValueError("unsupported position encoding")
-    _complete(result)
+    require_complete(result)
     for name, content in source_cut.items():
         if owned_path(root, name).read_bytes().decode("utf-8") != content:
             raise ValueError("source changed while the edit request was running")
@@ -164,7 +172,7 @@ def preview(
     files = []
     for name, edits in sorted(grouped.items()):
         before = source_cut[name]
-        normalized = []
+        normalized: list[Edit] = []
         for edit in edits:
             if set(edit) - {"range", "new_text", "newText", "annotationId"} or edit.get(
                 "annotationId"
@@ -174,14 +182,14 @@ def preview(
                 raise ValueError("ambiguous replacement text keys")
             replacement = edit.get("new_text", edit.get("newText"))
             if not isinstance(replacement, str):
-                raise ValueError("edit lacks replacement text")
+                raise ValueError("edit lacks replacement text")  # noqa: TRY004 -- malformed native edit retains the existing value-refusal contract.
             start = _offset(before, edit["range"]["start"], encoding)
             end = _offset(before, edit["range"]["end"], encoding)
             if start > end:
                 raise ValueError("reversed edit range")
             normalized.append({"start": start, "end": end, "text": replacement})
         normalized.sort(key=lambda e: (e["start"], e["end"]))
-        for left, right in zip(normalized, normalized[1:], strict=False):
+        for left, right in pairwise(normalized):
             if left["end"] > right["start"]:
                 raise ValueError("overlapping or ambiguous edits")
         after = before
@@ -339,7 +347,7 @@ def _write(path: Path, content: bytes) -> None:
             target.flush()
             os.fsync(target.fileno())
             temporary.chmod(path.stat().st_mode)
-            os.replace(temporary, path)
+            temporary.replace(path)
         finally:
             temporary.unlink(missing_ok=True)
 

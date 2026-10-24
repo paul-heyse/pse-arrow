@@ -35,10 +35,14 @@ def session_description(
     """
     executable = shutil.which("codex")
     if executable is None:
-        raise ValueError("Codex is unavailable; prepare the workstation Codex installation")
+        raise ValueError(
+            "Codex is unavailable; prepare the workstation Codex installation"
+        )
     interpreter = ROOT / ".venv/bin/python"
     if not interpreter.is_file():
-        raise ValueError("selected checkout .venv/bin/python is unavailable; prepare this checkout's environment")
+        raise ValueError(
+            "selected checkout .venv/bin/python is unavailable; prepare this checkout's environment"
+        )
     bridge = diagnostic_trace.binary_path("mcpls").is_file()
     rust_available = rust and bridge and shutil.which("rust-analyzer") is not None
     python_available = python and bridge and (ROOT / ".venv/bin/pyrefly").is_file()
@@ -46,12 +50,20 @@ def session_description(
         raise ValueError("Required rust-analyzer navigation is unavailable")
     if require_python and not python_available:
         raise ValueError("Required Pyrefly navigation is unavailable")
-    selected_state = state or Path(pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"])
+    selected_state = state or Path(
+        pse_env.base_environment(ROOT, os.environ)["PSE_SURREAL_STATE"]
+    )
     # Local source-only preparation, not a claim that a service is live/attached.
     database_prepared = database and selected_state.is_dir()
     if require_database and not database_prepared:
-        raise ValueError("Required selected database state is unavailable; prepare it explicitly")
-    languages = ",".join(name for name, enabled in (("python", python_available), ("rust", rust_available)) if enabled)
+        raise ValueError(
+            "Required selected database state is unavailable; prepare it explicitly"
+        )
+    languages = ",".join(
+        name
+        for name, enabled in (("python", python_available), ("rust", rust_available))
+        if enabled
+    )
     settings = {
         "mcp_servers.pse-capabilities.command": str(interpreter),
         "mcp_servers.pse-capabilities.args": ["-m", "scripts.capabilities"],
@@ -73,7 +85,13 @@ def session_description(
     for key, value in settings.items():
         if isinstance(value, dict):
             # Codex -c consumes TOML, whose inline tables use '=' rather than ':'.
-            encoded = "{" + ",".join(json.dumps(k) + "=" + json.dumps(v) for k, v in value.items()) + "}"
+            encoded = (
+                "{"
+                + ",".join(
+                    json.dumps(k) + "=" + json.dumps(v) for k, v in value.items()
+                )
+                + "}"
+            )
         else:
             encoded = json.dumps(value)
         command.extend(["-c", key + "=" + encoded])
@@ -83,13 +101,26 @@ def session_description(
         "checkout": str(ROOT),
         "entrypoint": "pse-capabilities",
         "capabilities": {
-            "rust": {"requested": rust, "prepared": rust_available,
-                     "required": require_rust, "attached": "not observed"},
-            "python": {"requested": python, "prepared": python_available,
-                       "required": require_python, "attached": "not observed"},
-            "database": {"requested": database, "prepared": database_prepared,
-                         "required": require_database, "state": str(selected_state.absolute()),
-                         "attached": "not observed", "identity": "validated lazily by database_select"},
+            "rust": {
+                "requested": rust,
+                "prepared": rust_available,
+                "required": require_rust,
+                "attached": "not observed",
+            },
+            "python": {
+                "requested": python,
+                "prepared": python_available,
+                "required": require_python,
+                "attached": "not observed",
+            },
+            "database": {
+                "requested": database,
+                "prepared": database_prepared,
+                "required": require_database,
+                "state": str(selected_state.absolute()),
+                "attached": "not observed",
+                "identity": "validated lazily by database_select",
+            },
         },
         "caller_overrides": bool(arguments),
         "attachment": "requires a real client interaction; process spawn is not attachment",

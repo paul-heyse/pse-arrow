@@ -19,7 +19,9 @@ from typing import TYPE_CHECKING
 from scripts import build_environment, diagnostic_trace
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import AsyncGenerator, Mapping
+
+    from fastmcp import Client
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -88,10 +90,16 @@ def configuration(
 
 
 @asynccontextmanager
-async def connection(root: Path, language: str, *, fixture: bool = False):
+async def connection(
+    root: Path, language: str, *, fixture: bool = False
+) -> AsyncGenerator[Client]:
     """Own exactly one bridge transport; acquire only when explicitly entered."""
-    from fastmcp import Client
-    from fastmcp.client.transports import StdioTransport
+    from fastmcp import (  # noqa: PLC0415 -- lazy operation owner.
+        Client,
+    )
+    from fastmcp.client.transports import (  # noqa: PLC0415 -- lazy operation owner.
+        StdioTransport,
+    )
 
     with tempfile.TemporaryDirectory(prefix="pse-navigation-") as directory:
         config = Path(directory) / "mcpls.toml"
@@ -109,9 +117,11 @@ async def connection(root: Path, language: str, *, fixture: bool = False):
             await transport.close()
 
 
-async def perform(client, calls: list[dict]) -> list[dict]:
+async def perform(client: Client, calls: list[dict]) -> list[dict]:
     """Preserve real protocol/domain errors and bounded startup-readiness retries."""
-    from mcp import MCPError
+    from mcp import (  # noqa: PLC0415 -- lazy operation owner.
+        MCPError,
+    )
 
     results = []
     for call in calls:
@@ -124,13 +134,26 @@ async def perform(client, calls: list[dict]) -> list[dict]:
                 )
                 break
             except MCPError as error:
-                detail = {"code": error.code, "message": error.message, "data": error.data}
-                if error.code == -32051 and asyncio.get_running_loop().time() < deadline:
+                detail = {
+                    "code": error.code,
+                    "message": error.message,
+                    "data": error.data,
+                }
+                if (
+                    error.code == -32051
+                    and asyncio.get_running_loop().time() < deadline
+                ):
                     readiness.append(detail)
                     await asyncio.sleep(1)
                     continue
-                results.append({"name": call["name"], "isError": True,
-                                "result": {"error": detail}, "readiness": readiness})
+                results.append(
+                    {
+                        "name": call["name"],
+                        "isError": True,
+                        "result": {"error": detail},
+                        "readiness": readiness,
+                    }
+                )
                 response = None
                 break
         if response is None:
@@ -142,11 +165,18 @@ async def perform(client, calls: list[dict]) -> list[dict]:
                 payload = json.loads("\n".join(texts))
             except json.JSONDecodeError:
                 payload = {"text": texts}
-        results.append({"name": call["name"], "isError": response.is_error,
-                        "result": payload, "readiness": readiness,
-                        "content": [item.model_dump(mode="json", by_alias=True,
-                                                   exclude_none=True)
-                                    for item in response.content]})
+        results.append(
+            {
+                "name": call["name"],
+                "isError": response.is_error,
+                "result": payload,
+                "readiness": readiness,
+                "content": [
+                    item.model_dump(mode="json", by_alias=True, exclude_none=True)
+                    for item in response.content
+                ],
+            }
+        )
     return results
 
 
@@ -160,19 +190,23 @@ async def request(
             "language": language,
             "root": str(root.resolve()),
             "protocol": client.protocol_version,
-            "tools": [{"name": tool.name, "inputSchema": tool.input_schema}
-                      for tool in catalogue],
+            "tools": [
+                {"name": tool.name, "inputSchema": tool.input_schema}
+                for tool in catalogue
+            ],
             "results": await perform(client, calls),
         }
 
 
 def edit_result(payload: dict) -> dict:
     """Convert mcpls one-based UTF-16 edit coordinates to the shared contract."""
-    import copy
+    import copy  # noqa: PLC0415 -- lazy operation owner.
 
-    from scripts import semantic_edits
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+        semantic_edits,
+    )
 
-    semantic_edits._complete(payload)
+    semantic_edits.require_complete(payload)
     selected = copy.deepcopy(payload)
     for change in selected.get("changes", []):
         for edit in change.get("edits", []):
@@ -186,7 +220,9 @@ def edit_result(payload: dict) -> dict:
 
 
 def main() -> int:
-    from scripts import semantic_edits
+    from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+        semantic_edits,
+    )
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -278,7 +314,7 @@ def main() -> int:
                 "server refused edit request: " + json.dumps(last["result"])
             )
         payload = last["result"]
-        semantic_edits._complete(payload)
+        semantic_edits.require_complete(payload)
         if args.action_index is not None:
             action = payload["actions"][args.action_index]
             if action.get("command"):

@@ -14,17 +14,28 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from scripts import preflight, pse_env, validation, validation_receipts
-from scripts.capabilities.qualification import AssessmentRequest, CompilationRequest, OutputRequest
+from scripts.capabilities.qualification import (
+    AssessmentRequest,
+    CompilationRequest,
+    OutputRequest,
+)
 from scripts.validation_scope import Gate, expand
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def selected(operation: str, document: str) -> tuple[list[Gate], Path, bool, AssessmentRequest | None]:
+def selected(
+    operation: str, document: str
+) -> tuple[list[Gate], Path, bool, AssessmentRequest | None]:
     """Map only fixed typed operations; command and lifecycle meaning stay native."""
     if operation == "assessment":
         assessment = AssessmentRequest.model_validate_json(document)
-        return assessment.gates(), ROOT / assessment.output, assessment.group is None or assessment.group == "features-powerset", assessment
+        return (
+            assessment.gates(),
+            ROOT / assessment.output,
+            assessment.group is None or assessment.group == "features-powerset",
+            assessment,
+        )
     if operation == "compilation":
         compilation = CompilationRequest.model_validate_json(document)
         return compilation.gates(), ROOT / compilation.output, True, None
@@ -34,15 +45,30 @@ def selected(operation: str, document: str) -> tuple[list[Gate], Path, bool, Ass
     if operation == "contracts-check":
         return expand(("codegen-contracts-check",)), ROOT / request.output, False, None
     if operation == "contracts-generate":
-        return [Gate("codegen-contracts", input_scope="generation")], ROOT / request.output, False, None
+        return (
+            [Gate("codegen-contracts", input_scope="generation")],
+            ROOT / request.output,
+            False,
+            None,
+        )
     if operation == "documentation":
-        return [Gate("docs", input_scope="documentation")], ROOT / request.output, True, None
+        return (
+            [Gate("docs", input_scope="documentation")],
+            ROOT / request.output,
+            True,
+            None,
+        )
     raise ValueError("unsupported fixed qualification operation")
 
 
 def execute(operation: str, document: str) -> dict[str, object]:
     if operation == "rust-test":
-        from scripts.capabilities.rust_tests import RustTestRequest, execute as run_tests  # noqa: PLC0415
+        from scripts.capabilities.rust_tests import (  # noqa: PLC0415 -- selected worker only.
+            RustTestRequest,
+        )
+        from scripts.capabilities.rust_tests import (  # noqa: PLC0415 -- lazy operation owner.
+            execute as run_tests,
+        )
 
         return run_tests(ROOT, RustTestRequest.model_validate_json(document))
     gates, requested_output, capture, request = selected(operation, document)
@@ -51,15 +77,22 @@ def execute(operation: str, document: str) -> dict[str, object]:
     if kinds and not skipped:
         preflight.check(kinds, pse_env.compose(ROOT, os.environ))
     output = validation.fresh_output(ROOT, requested_output)
-    previous = {name: signal.getsignal(name) for name in (signal.SIGTERM, signal.SIGHUP)}
+    previous = {
+        name: signal.getsignal(name) for name in (signal.SIGTERM, signal.SIGHUP)
+    }
     for name in previous:
         signal.signal(name, validation.interrupt)
     interrupted = False
     try:
         try:
             code = validation.run_gates(
-                ROOT, output, gates, capture=capture,
-                reuse_from=(ROOT / request.reuse_from) if request is not None and request.reuse_from is not None else None,
+                ROOT,
+                output,
+                gates,
+                capture=capture,
+                reuse_from=(ROOT / request.reuse_from)
+                if request is not None and request.reuse_from is not None
+                else None,
                 reuse=tuple(request.reuse) if request is not None else (),
                 transfer=tuple(request.transfer) if request is not None else (),
                 change_reason=request.change_reason if request is not None else None,
@@ -92,7 +125,21 @@ def execute(operation: str, document: str) -> dict[str, object]:
         "provenance_errors": receipt.get("provenance_errors", []),
         "contextual_changes": receipt.get("contextual_changes", []),
         "scope": receipt.get("scope", []),
-        "checks": [{key: check.get(key) for key in ("gate", "status", "exit_code", "evidence_kind", "resource_invocation", "process", "report_errors")} for check in checks],
+        "checks": [
+            {
+                key: check.get(key)
+                for key in (
+                    "gate",
+                    "status",
+                    "exit_code",
+                    "evidence_kind",
+                    "resource_invocation",
+                    "process",
+                    "report_errors",
+                )
+            }
+            for check in checks
+        ],
         "interrupted_between_gates": interrupted,
         "preflight": {"required": kinds, "skipped_by_environment": skipped},
     }
@@ -103,16 +150,32 @@ def execute(operation: str, document: str) -> dict[str, object]:
 
 def main(argv: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if argv is None else argv
-    if len(arguments) != 3 or arguments[0] not in {"assessment", "compilation", "contracts-check", "contracts-generate", "documentation", "rust-test"}:
-        raise ValueError("select one fixed qualification operation, request and response file")
+    if len(arguments) != 3 or arguments[0] not in {
+        "assessment",
+        "compilation",
+        "contracts-check",
+        "contracts-generate",
+        "documentation",
+        "rust-test",
+    }:
+        raise ValueError(
+            "select one fixed qualification operation, request and response file"
+        )
     operation, source, destination = arguments
     response: dict[str, object]
     try:
         response = {"result": execute(operation, Path(source).read_text())}
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, pse_env.BoundaryError) as error:
+    except (
+        OSError,
+        ValueError,
+        RuntimeError,
+        subprocess.SubprocessError,
+        pse_env.BoundaryError,
+    ) as error:
         detail: dict[str, object] = {
             "code": "pse.qualification." + operation + ".refused",
-            "cause": type(error).__name__, "message": str(error),
+            "cause": type(error).__name__,
+            "message": str(error),
         }
         if isinstance(error, ValidationError):
             detail["code"] = "pse.qualification.input_refused"

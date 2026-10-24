@@ -20,16 +20,18 @@ def main(argv: list[str] | None = None) -> int:
     selected = parser.parse_args(arguments[:1])
     remaining = arguments[1:]
     if selected.operation in {"archive", "inspect", "replay"}:
-        from scripts import (
+        from scripts import (  # noqa: PLC0415 -- lazy operation owner.
             test_archives,
         )
 
         return test_archives.main([selected.operation, *remaining])
     if selected.operation in {"bisect", "compare"}:
-        from scripts import regression_experiments  # noqa: PLC0415 -- selected adapter
+        from scripts import (  # noqa: PLC0415 -- lazy operation owner.
+            regression_experiments,
+        )
 
         return regression_experiments.main([selected.operation, *remaining])
-    from scripts import tooling_experiments  # noqa: PLC0415 -- optional namespace probe
+    from scripts import tooling_experiments  # noqa: PLC0415 -- lazy operation owner.
 
     return tooling_experiments.main(remaining)
 

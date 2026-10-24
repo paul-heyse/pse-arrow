@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
@@ -31,15 +32,32 @@ class Worker:
 
 
 WORKERS = {
-    "host": Worker("scripts.capabilities.host_worker", frozenset({"archive", "replay", "diagnostic"})),
-    "qualification": Worker("scripts.capabilities.qualification_worker", frozenset({"assessment", "compilation", "contracts-check", "contracts-generate", "documentation"})),
+    "host": Worker(
+        "scripts.capabilities.host_worker",
+        frozenset({"archive", "replay", "diagnostic"}),
+    ),
+    "qualification": Worker(
+        "scripts.capabilities.qualification_worker",
+        frozenset(
+            {
+                "assessment",
+                "compilation",
+                "contracts-check",
+                "contracts-generate",
+                "documentation",
+            }
+        ),
+    ),
     "rust-tests": Worker(
-        "scripts.capabilities.qualification_worker", frozenset({"rust-test"}),
+        "scripts.capabilities.qualification_worker",
+        frozenset({"rust-test"}),
         ("--recipe-default-class", "exclusive", "--native="),
     ),
     "native": Worker(
-        "scripts.capabilities.native_worker", frozenset({"source_admit", "preparation_discover"}),
-        ("--native=solver,klu,isolation,uno,petsc",), redact_diagnostics=True,
+        "scripts.capabilities.native_worker",
+        frozenset({"source_admit", "preparation_discover"}),
+        ("--native=solver,klu,isolation,uno,petsc",),
+        redact_diagnostics=True,
     ),
 }
 
@@ -54,7 +72,9 @@ async def settled(task: asyncio.Task[T]) -> T:
                 return task.result()
 
 
-async def run_worker(root: Path, worker: str, operation: str, request: BaseModel | dict[str, JsonValue]) -> dict[str, JsonValue]:
+async def run_worker(
+    root: Path, worker: str, operation: str, request: BaseModel | dict[str, JsonValue]
+) -> dict[str, JsonValue]:
     """Run one closed kernel on its own main thread, preserving native signal/drain ownership.
 
     No timeout or disconnect establishes rollback. On cancellation, signal only
@@ -68,18 +88,29 @@ async def run_worker(root: Path, worker: str, operation: str, request: BaseModel
         directory = Path(temporary)
         source, destination = directory / "request.json", directory / "response.json"
         value = (
-            request.model_dump(mode="json", exclude_unset=True) if isinstance(request, BaseModel)
+            request.model_dump(mode="json", exclude_unset=True)
+            if isinstance(request, BaseModel)
             else JSON_OBJECT.validate_python(request)
         )
         source.write_text(json.dumps(value, allow_nan=False))
         source.chmod(0o600)
         with tempfile.TemporaryFile() as log:
-            spawn = asyncio.create_task(asyncio.create_subprocess_exec(
-                str(root / "scripts/pse-env"), *declaration.environment, "--",
-                str(root / ".venv/bin/python"), "-m", declaration.module,
-                operation, str(source), str(destination),
-                cwd=root, stdout=log, stderr=log,
-            ))
+            spawn = asyncio.create_task(
+                asyncio.create_subprocess_exec(
+                    str(root / "scripts/pse-env"),
+                    *declaration.environment,
+                    "--",
+                    str(root / ".venv/bin/python"),
+                    "-m",
+                    declaration.module,
+                    operation,
+                    str(source),
+                    str(destination),
+                    cwd=root,
+                    stdout=log,
+                    stderr=log,
+                )
+            )
             process = None
             waiting = None
             try:
@@ -91,10 +122,8 @@ async def run_worker(root: Path, worker: str, operation: str, request: BaseModel
                 # creation but before create_subprocess_exec returns its handle.
                 process = await settled(spawn)
                 if process.returncode is None:
-                    try:
+                    with suppress(ProcessLookupError):
                         process.terminate()
-                    except ProcessLookupError:
-                        pass
                 if waiting is None:
                     waiting = asyncio.create_task(process.wait())
                 await settled(waiting)
@@ -103,20 +132,27 @@ async def run_worker(root: Path, worker: str, operation: str, request: BaseModel
                 log.seek(0)
                 diagnostic = (
                     "Native helper did not return structured output; source-bearing diagnostics withheld."
-                    if declaration.redact_diagnostics else log.read(16384).decode(errors="replace")
+                    if declaration.redact_diagnostics
+                    else log.read(16384).decode(errors="replace")
                 )
-                raise ToolError(json.dumps({
-                    "code": "pse.host.helper_unsettled",
-                    "operation": operation, "helper_exit_code": code,
-                    "message": diagnostic,
-                    "output": getattr(request, "output", None),
-                    "settlement": "inspect native owner output; helper exit alone is not settlement",
-                }))
+                raise ToolError(
+                    json.dumps(
+                        {
+                            "code": "pse.host.helper_unsettled",
+                            "operation": operation,
+                            "helper_exit_code": code,
+                            "message": diagnostic,
+                            "output": getattr(request, "output", None),
+                            "settlement": "inspect native owner output; helper exit alone is not settlement",
+                        }
+                    )
+                )
             response = JSON_OBJECT.validate_json(destination.read_bytes())
             if "error" in response:
                 raise ToolError(json.dumps(response["error"]))
             result = response.get("result")
             if not isinstance(result, dict):
-                raise ToolError("pse.host.invalid_response: fixed worker must return an object")
+                raise ToolError(
+                    "pse.host.invalid_response: fixed worker must return an object"
+                )
             return result
-

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from pydantic import JsonValue, ValidationError
 
+
 def invoke(operation: str, document: str) -> dict[str, JsonValue]:
     if operation == "archive":
         from scripts.test_archives import ArchiveRequest, archive  # noqa: PLC0415

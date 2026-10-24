@@ -6,21 +6,32 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from scripts.active_diagnostics import ActionRequest
+from scripts.active_diagnostics import (
+    ActionRequest,  # noqa: TC001 -- FastMCP resolves request annotations.
+)
 from scripts.capabilities import process
 from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities.operations import bounded
-from scripts.test_archives import ArchiveRequest, ReplayRequest
+from scripts.test_archives import (  # noqa: TC001 -- FastMCP resolves request annotations.
+    ArchiveRequest,
+    ReplayRequest,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 class ArchiveInspectRequest(Contract):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
 
     archive: str = Field(min_length=1)
     offset: int = Field(default=0, ge=0)
@@ -29,7 +40,9 @@ class ArchiveInspectRequest(Contract):
 
 
 class ActionReadRequest(Contract):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
 
     output: str = Field(min_length=1)
     tail: int = Field(default=20, ge=0, le=1000)
@@ -49,20 +62,29 @@ class HostResult(Contract):
 def project(value: object, operation: str) -> HostResult:
     detail = bounded(value, operation)
     return HostResult(
-        operation=operation, result=detail.payload,
-        detail_complete=detail.complete, omissions=detail.omissions,
+        operation=operation,
+        result=detail.payload,
+        detail_complete=detail.complete,
+        omissions=detail.omissions,
     )
 
 
 def failure(operation: str, error: Exception) -> ToolError:
-    return ToolError(json.dumps({
-        "code": "pse.host." + operation + ".refused",
-        "cause": type(error).__name__, "message": str(error),
-    }))
+    return ToolError(
+        json.dumps(
+            {
+                "code": "pse.host." + operation + ".refused",
+                "cause": type(error).__name__,
+                "message": str(error),
+            }
+        )
+    )
 
 
 async def run_worker(root: Path, operation: str, request: BaseModel) -> HostResult:
-    return project(await process.run_worker(root, "host", operation, request), operation)
+    return project(
+        await process.run_worker(root, "host", operation, request), operation
+    )
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
@@ -75,10 +97,15 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         from scripts import test_archives  # noqa: PLC0415
 
         try:
-            return project(test_archives.inspect(
-                root / request.archive, offset=request.offset, limit=request.limit,
-                manifest_sha256=request.manifest_sha256,
-            ), "experiment_inspect")
+            return project(
+                test_archives.inspect(
+                    root / request.archive,
+                    offset=request.offset,
+                    limit=request.limit,
+                    manifest_sha256=request.manifest_sha256,
+                ),
+                "experiment_inspect",
+            )
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
             raise failure("experiment_inspect", error) from error
 
@@ -95,35 +122,93 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         from scripts import active_diagnostics  # noqa: PLC0415
 
         try:
-            return project(active_diagnostics.read_action(
-                root / request.output, tail=request.tail, summary_only=request.summary_only,
-                action_sha256=request.action_sha256,
-            ), "diagnostic_action_read")
+            return project(
+                active_diagnostics.read_action(
+                    root / request.output,
+                    tail=request.tail,
+                    summary_only=request.summary_only,
+                    action_sha256=request.action_sha256,
+                ),
+                "diagnostic_action_read",
+            )
         except (OSError, ValueError, RuntimeError) as error:
             raise failure("diagnostic_action_read", error) from error
 
     rows = (
-        (experiment_archive, "Archive selected historical tests", "scripts/test_archives.py", "experiments", ("run-experiment",), False),
-        (experiment_inspect, "Inspect a retained test archive", "scripts/test_archives.py", "experiments", ("run-experiment", "investigate-evidence"), True),
-        (experiment_replay, "Replay retained historical tests", "scripts/test_archives.py", "experiments", ("run-experiment",), False),
-        (diagnostic_action, "Run an explicit diagnostic action", "scripts/active_diagnostics.py", "diagnostics", ("diagnose-run",), False),
-        (diagnostic_action_read, "Read retained diagnostic output", "scripts/active_diagnostics.py", "diagnostics", ("diagnose-run", "investigate-evidence"), True),
+        (
+            experiment_archive,
+            "Archive selected historical tests",
+            "scripts/test_archives.py",
+            "experiments",
+            ("run-experiment",),
+            False,
+        ),
+        (
+            experiment_inspect,
+            "Inspect a retained test archive",
+            "scripts/test_archives.py",
+            "experiments",
+            ("run-experiment", "investigate-evidence"),
+            True,
+        ),
+        (
+            experiment_replay,
+            "Replay retained historical tests",
+            "scripts/test_archives.py",
+            "experiments",
+            ("run-experiment",),
+            False,
+        ),
+        (
+            diagnostic_action,
+            "Run an explicit diagnostic action",
+            "scripts/active_diagnostics.py",
+            "diagnostics",
+            ("diagnose-run",),
+            False,
+        ),
+        (
+            diagnostic_action_read,
+            "Read retained diagnostic output",
+            "scripts/active_diagnostics.py",
+            "diagnostics",
+            ("diagnose-run", "investigate-evidence"),
+            True,
+        ),
     )
     specs = []
     tools: dict[str, Tool] = {}
     for function, title, source, domain, workflows, readonly in rows:
-        tool = Tool.from_function(function, annotations=ToolAnnotations(
-            read_only_hint=readonly, destructive_hint=not readonly,
-            idempotent_hint=readonly, open_world_hint=not readonly,
-        ))
+        tool = Tool.from_function(
+            function,
+            annotations=ToolAnnotations(
+                read_only_hint=readonly,
+                destructive_hint=not readonly,
+                idempotent_hint=readonly,
+                open_world_hint=not readonly,
+            ),
+        )
         spec = Capability(
-            id=tool.name, title=title, description=tool.description or title,
-            domain=domain, workflows=workflows, guides=("root", "tooling"),
-            family="experiments-recovery" if domain == "experiments" else "active-diagnostics",
-            owner=source, source=source, exposure="tool",
-            effects="Read exact retained artifacts; no workload effects." if readonly else
-            "Runs one explicit admitted host operation. Creates selected output and may launch or sample processes; native owners retain admission, cancellation and drain. Cancellation does not establish rollback.",
-            prerequisites=() if readonly else ("Checkout environment and operation-specific native tools/identity admission",),
+            id=tool.name,
+            title=title,
+            description=tool.description or title,
+            domain=domain,
+            workflows=workflows,
+            guides=("root", "tooling"),
+            family="experiments-recovery"
+            if domain == "experiments"
+            else "active-diagnostics",
+            owner=source,
+            source=source,
+            exposure="tool",
+            effects="Read exact retained artifacts; no workload effects."
+            if readonly
+            else "Runs one explicit admitted host operation. Creates selected output and may launch or sample processes; native owners retain admission, cancellation and drain. Cancellation does not establish rollback.",
+            prerequisites=()
+            if readonly
+            else (
+                "Checkout environment and operation-specific native tools/identity admission",
+            ),
         )
         tool.tags.update(spec.tags)
         specs.append(spec)

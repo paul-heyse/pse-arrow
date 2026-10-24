@@ -45,7 +45,9 @@ def bounded(result: object, operation: str) -> ReadResult:
         if len(omissions) < 31:
             omissions.append(message[:240])
         elif len(omissions) == 31:
-            omissions.append("Further detail omissions suppressed; narrow the owner query.")
+            omissions.append(
+                "Further detail omissions suppressed; narrow the owner query."
+            )
 
     def walk(item: JsonValue, location: str, depth: int) -> JsonValue:
         nonlocal remaining
@@ -55,31 +57,23 @@ def bounded(result: object, operation: str) -> ReadResult:
         if isinstance(item, str):
             size = len(json.dumps(item, ensure_ascii=True).encode())
             if size > min(16384, remaining):
-                omit(
-                    location + ": string detail omitted; narrow the request"
-                )
+                omit(location + ": string detail omitted; narrow the request")
                 return None
             remaining -= size
             return item
         if isinstance(item, list):
             if len(item) > 100:
-                omit(
-                    location + ": showing first 100 items; narrow or page owner query"
-                )
+                omit(location + ": showing first 100 items; narrow or page owner query")
             return [
                 walk(child, f"{location}[{index}]", depth + 1)
                 for index, child in enumerate(item[:100])
             ]
         if isinstance(item, dict):
             if item.get("truncated") is True or item.get("complete") is False:
-                omit(
-                    location + ": owner reports incomplete or truncated detail"
-                )
+                omit(location + ": owner reports incomplete or truncated detail")
             gaps = item.get("gaps")
             if isinstance(gaps, list) and gaps:
-                omit(
-                    location + ": owner reports gaps; inspect original gaps"
-                )
+                omit(location + ": owner reports gaps; inspect original gaps")
             result = {}
             for index, (key, child) in enumerate(item.items()):
                 if index == 100:
@@ -87,7 +81,9 @@ def bounded(result: object, operation: str) -> ReadResult:
                     break
                 key_size = len(json.dumps(key, ensure_ascii=True).encode()) + 4
                 if key_size > min(512, remaining):
-                    omit(f"{location}: object key at index {index} omitted; narrow the owner query")
+                    omit(
+                        f"{location}: object key at index {index} omitted; narrow the owner query"
+                    )
                     continue
                 remaining -= key_size
                 if key == "text" and location.startswith("$.source_facts"):
@@ -118,11 +114,20 @@ def bounded(result: object, operation: str) -> ReadResult:
         omissions=list(dict.fromkeys(omissions)),
         payload=projected,
     )
-    if len(json.dumps(response.model_dump(mode="json"), ensure_ascii=True).encode()) > 128 * 1024:
+    if (
+        len(json.dumps(response.model_dump(mode="json"), ensure_ascii=True).encode())
+        > 128 * 1024
+    ):
         # A final encoded-size check covers escaping and every envelope byte.
         # Never return a supposedly bounded response whose metadata escapes it.
-        return ReadResult(operation=operation[:128], complete=False,
-            omissions=["Encoded response exceeds the detail bound; narrow the owner query."], payload={})
+        return ReadResult(
+            operation=operation[:128],
+            complete=False,
+            omissions=[
+                "Encoded response exceeds the detail bound; narrow the owner query."
+            ],
+            payload={},
+        )
     return response
 
 
