@@ -7,6 +7,10 @@ approaches across materially affected components and consumers. An improvement's
 extend beyond the plan's functional target; recommendations are judged for coherent integration
 and total burden.
 
+The [remaining test-architecture review](test-architecture-remaining-2026-10-24.md)
+assesses Plan 53's remaining work alongside Plan 52's affected contracts, taking completed
+52k as the starting condition for subsequent Plan 53 execution.
+
 ## Publication and traceability
 
 Use `<subject>-<YYYY-MM-DD>.md` for a review. Identify the reviewed coordinator and relevant
