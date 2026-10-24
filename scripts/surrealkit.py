@@ -16,13 +16,20 @@ import os
 import platform
 import secrets
 import subprocess
+import tempfile
 import tomllib
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from urllib.parse import urlsplit
 
-from scripts import native_operation, surreal_server, surrealkit_source, test_resources
+from scripts import (
+    native_operation,
+    surreal_server,
+    surrealkit_population,
+    surrealkit_source,
+    test_resources,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -217,6 +224,8 @@ def provision(state: Path, *, test: str = "") -> str:
 
 def fixture(
     resource: str,
+    *,
+    _population_recovery: bool = False,
 ) -> tuple[test_resources.ResourceRecord, dict[str, object], dict[str, object]]:
     record = test_resources.resource_status(resource)
     if (
@@ -226,7 +235,7 @@ def fixture(
         or record.get("cleanup") != "retained"
     ):
         raise ToolError("Tooling requires an acknowledged registered namespace owner")
-    if (
+    if not _population_recovery and (
         record.get("drained") is not True
         or record.get("creation_borrower")
         or record.get("borrows")
@@ -234,6 +243,20 @@ def fixture(
         raise ToolError(
             "Prior tooling activity requires exact settlement and drain before reuse"
         )
+    if not _population_recovery and record.get("tool_population", {}).get(
+        "phase"
+    ) not in {None, "settled"}:
+        raise ToolError("Named population requires independent settlement before reuse")
+    if _population_recovery:
+        if record.get("tool_population", {}).get("phase") != "population_submitted":
+            raise ToolError("Only the original pending population admits recovery")
+        borrower = record.get("creation_borrower")
+        if record.get("borrows") or (
+            borrower
+            and test_resources.borrower_alive(borrower)
+            and borrower.get("pid") != os.getpid()
+        ):
+            raise ToolError("Population setup is still owned by a live borrower")
     config = surreal_server.config_for(Path(record["state"]))
     if (
         config["instance_id"] != record["service_generation"]
@@ -460,18 +483,22 @@ def validate_input(
 @contextlib.contextmanager
 def activity(
     resource: str,
+    *,
+    _population_recovery: bool = False,
 ) -> Generator[
     tuple[test_resources.ResourceRecord, dict[str, object], dict[str, object]],
     None,
     None,
 ]:
     """Publish actual SQL activity under the existing service admission owner."""
-    record, _, _ = fixture(resource)
+    record, _, _ = fixture(resource, _population_recovery=_population_recovery)
     with contextlib.ExitStack() as owned:
         with surreal_server.context_admission(
             Path(record["state"]), wait_for_lifecycle=False
         ):
-            record, config, credentials = fixture(resource)
+            record, config, credentials = fixture(
+                resource, _population_recovery=_population_recovery
+            )
             owned.enter_context(test_resources.borrow(resource))
             with test_resources.resource_update(resource) as current:
                 current["drained"] = False
@@ -481,6 +508,134 @@ def activity(
                     "boot": test_resources.host.boot(),
                 }
         yield record, config, credentials
+
+
+def _population_sql(
+    config: Mapping[str, object], record: Mapping[str, object], sql: str,
+) -> list[object]:
+    values = test_resources.namespace_sql(
+        config, sql, namespace=str(record["namespace"]),
+        database=surrealkit_population.DATABASE,
+    )
+    if not values or any(isinstance(value, str) for value in values):
+        raise ToolError("Population SQL refused or acknowledgment unavailable; scope remains pinned")
+    return values
+
+
+def inspection_sql(
+    config: Mapping[str, object], record: Mapping[str, object],
+    credentials: Mapping[str, object], sql: str,
+) -> list[object]:
+    """A fresh namespace VIEWER session; root readback determines write denial."""
+    env = {key: value for key, value in os.environ.items() if not key.startswith(("SURREAL", "DATABASE_"))}
+    env.update(SURREAL_USER=str(credentials["inspection_username"]),
+               SURREAL_PASS=str(credentials["inspection_password"]))
+    server = cast("Mapping[str, object]", config["server"])
+    namespace = str(record["namespace"])
+    database = surrealkit_population.DATABASE
+    with tempfile.TemporaryDirectory(dir=str(record["directory"])) as working:
+        result = subprocess.run(
+            [str(server["binary"]), "sql", "--endpoint", str(config["endpoint"]),
+             "--auth-level", "namespace", "--namespace", namespace,
+             "--database", database, "--json", "--hide-welcome"],
+            input=sql, env=env, cwd=working, capture_output=True, text=True,
+            timeout=30, check=False,
+        )
+    try:
+        values = test_resources.cli_json(result.stdout, namespace=namespace, database=database)
+    except ValueError as error:
+        raise ToolError("Inspection session acknowledgment unavailable") from error
+    if result.returncode or result.stderr.strip() or not isinstance(values, list):
+        raise ToolError("Inspection session failed; population remains pinned")
+    return values
+
+
+def populate(resource: str, name: str = surrealkit_population.NAME) -> dict[str, object]:
+    """Install only a named versioned specimen into a fresh owned database.
+
+    Input-folder seed refusal and toolkit --no-seed remain in force. The resource
+    records submission before any SQL; failure/interruption never clears its pin.
+    """
+    try:
+        content = surrealkit_population.identity(name)
+        sql = surrealkit_population.sql(name)
+    except ValueError as error:
+        raise ToolError(str(error)) from error
+    record, _, _ = fixture(resource)
+    if record.get("tool_population"):
+        raise ToolError("This namespace already owns a population; select a fresh fixture")
+    with activity(resource) as (record, config, _):
+        if record.get("tool_population"):
+            raise ToolError("This namespace already owns a population; select a fresh fixture")
+        pending: dict[str, object] = {
+            "name": name, "content_sha256": content,
+            "schema_sha256": digest(ROOT / GENERATED_SCHEMA),
+            "namespace": record["namespace"], "database": surrealkit_population.DATABASE,
+            "service_generation": record["service_generation"],
+            "credentials_sha256": record["credentials_sha256"], "phase": "schema_submitted",
+        }
+        with test_resources.resource_update(resource) as current:
+            current["tool_population"] = pending
+        catalog = test_resources.namespace_sql(config, "INFO FOR NS;", namespace=record["namespace"])
+        if len(catalog) != 1 or not isinstance(catalog[0], dict) or not isinstance(catalog[0].get("databases"), dict):
+            raise ToolError("Population database inventory unavailable")
+        if surrealkit_population.DATABASE in catalog[0]["databases"]:
+            raise ToolError("Named population requires an absent target database")
+        declaration = (ROOT / GENERATED_SCHEMA).read_text()
+        if not declaration.startswith("-- @generated by pse-schema; do not edit\n"):
+            raise ToolError("Unknown generated declaration header")
+        _population_sql(config, record, " ".join(declaration.splitlines()[1:]))
+        with test_resources.resource_update(resource) as current:
+            current["tool_population"]["phase"] = "population_submitted"
+        _population_sql(config, record, sql)
+        # Deliberately no drain/settled inference from mutation acknowledgments.
+    return settle_population(resource)
+
+
+def settle_population(resource: str) -> dict[str, object]:
+    """Reconcile the original submission, including interrupted post-submit setup.
+
+    The atomic population must be fully visible. An absent or partial population
+    stays unknown/protected; this never resubmits mutations to finish a specimen.
+    """
+    before = test_resources.resource_status(resource)
+    recovery = before.get("tool_population", {}).get("phase") == "population_submitted"
+    with activity(resource, _population_recovery=recovery) as (record, config, credentials):
+        pending = record.get("tool_population", {})
+        name = pending.get("name")
+        if name != surrealkit_population.NAME or pending.get("phase") not in {"population_submitted", "settled"}:
+            raise ToolError("No exact submitted named population to settle")
+        expected = {
+            "name": name, "content_sha256": surrealkit_population.identity(str(name)),
+            "schema_sha256": digest(ROOT / GENERATED_SCHEMA),
+            "namespace": record["namespace"], "database": surrealkit_population.DATABASE,
+            "service_generation": record["service_generation"],
+            "credentials_sha256": record["credentials_sha256"],
+        }
+        if any(pending.get(key) != value for key, value in expected.items()):
+            raise ToolError("Population identity differs from its submitted owner")
+        for query, answer in surrealkit_population.checks(str(name)):
+            if _population_sql(config, record, query) != [answer]:
+                raise ToolError("Population content/row/relation settlement differs from its declaration")
+        # The read actor must actually see the rows; an empty SELECT is no proof.
+        if inspection_sql(config, record, credentials, "SELECT VALUE key FROM canonical_projects ORDER BY key;") != [["fixture_alpha", "fixture_beta", "fixture_gamma"]]:
+            raise ToolError("Population inspection read permission unproved")
+        inspection_sql(config, record, credentials,
+            "CREATE canonical_projects:fixture_viewer_forbidden SET key='fixture_viewer_forbidden',title='forbidden',deleted=false,generation=0dec;")
+        if _population_sql(config, record, "SELECT * FROM canonical_projects:fixture_viewer_forbidden;") != [[]]:
+            raise ToolError("Population inspection write denial unproved")
+        for hint in ("", "WITH INDEX study_ready_candidates", "WITH NOINDEX"):
+            query = surrealkit_population.READINESS.format(hint=hint) + ";"
+            if _population_sql(config, record, query) != [surrealkit_population.READINESS_ANSWER]:
+                raise ToolError("Population readiness ordered answer differs")
+        proof = {**expected, "phase": "settled", "rows": {
+            table: len(rows) for table, rows in surrealkit_population.rows(str(name)).items()
+        }, "permissions": "viewer_reads_owner_proves_no_write",
+            "readiness_answer": surrealkit_population.READINESS_ANSWER}
+        with test_resources.resource_update(resource) as current:
+            current["tool_population"] = proof
+        test_resources.record_drain(resource)
+        return proof
 
 
 def execute(binary: Path, resource: str, folder: Path, mode: str) -> int:
@@ -554,6 +709,8 @@ def main() -> int:
             "replay",
             "test-sync",
             "test-both",
+            "populate",
+            "population-settle",
         ],
     )
     parser.add_argument(
@@ -565,6 +722,7 @@ def main() -> int:
     parser.add_argument("--state", type=Path)
     parser.add_argument("--resource")
     parser.add_argument("--folder", type=Path)
+    parser.add_argument("--population", default=surrealkit_population.NAME)
     args = parser.parse_args()
     try:
         if args.command == "install":
@@ -572,6 +730,9 @@ def main() -> int:
             return 0
         if args.command == "provision" and args.state is not None:
             print(provision(args.state))
+            return 0
+        if args.command in {"populate", "population-settle"} and args.resource:
+            print(json.dumps(populate(args.resource, args.population) if args.command == "populate" else settle_population(args.resource)))
             return 0
         if args.command == "stage" and args.resource:
             print(
