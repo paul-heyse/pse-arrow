@@ -2491,6 +2491,7 @@ dev = [
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "taplo" },
+    { name = "tomlkit" },
     { name = "typos" },
     { name = "unittest-xml-reporting" },
 ]
@@ -2544,6 +2545,7 @@ quality = [
     { name = "reuse" },
     { name = "ruff" },
     { name = "taplo" },
+    { name = "tomlkit" },
     { name = "typos" },
 ]
 test = [
@@ -2601,6 +2603,7 @@ dev = [
     { name = "scipy", marker = "python_full_version < '3.12'", specifier = "==1.17.1" },
     { name = "scipy", marker = "python_full_version >= '3.12'", specifier = "==1.18.1" },
     { name = "taplo", specifier = "==0.9.3" },
+    { name = "tomlkit", specifier = "==0.15.1" },
     { name = "typos", specifier = "==1.50.2" },
     { name = "unittest-xml-reporting", specifier = "==4.0.0" },
 ]
@@ -2650,6 +2653,7 @@ quality = [
     { name = "reuse", specifier = "==6.2.0" },
     { name = "ruff", specifier = "==0.16.7" },
     { name = "taplo", specifier = "==0.9.3" },
+    { name = "tomlkit", specifier = "==0.15.1" },
     { name = "typos", specifier = "==1.50.2" },
 ]
 test = [

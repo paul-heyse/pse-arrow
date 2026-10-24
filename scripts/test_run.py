@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import signal
 import subprocess
 import sys
@@ -581,7 +580,7 @@ def run_rust(
     if inherited and environment.get("PSE_RUST_TERMINAL_OWNER") != "runner":
         return subprocess.call(command, cwd=ROOT, env=environment)
     environment[resources.MARKER] = str(path)
-    run, report = rust_report_command(path, run)
+    run, report = rust_report_command(path, run, environment)
     return execute_selected(
         path,
         run,
@@ -603,41 +602,24 @@ def run_rust(
     )
 
 
-def rust_report_command(path: Path, run: list[str]) -> tuple[list[str], Path]:
-    profile = "default"
-    for index, item in enumerate(run):
-        if item == "--profile":
-            profile = run[index + 1]
-        elif item.startswith("--profile="):
-            profile = item.split("=", 1)[1]
-    configuration = ROOT / ".config/nextest.toml"
-    forwarded = []
-    index = 0
-    while index < len(run):
-        if run[index] == "--config-file":
-            configuration = Path(run[index + 1])
-            index += 2
-        elif run[index].startswith("--config-file="):
-            configuration = Path(run[index].split("=", 1)[1])
-            index += 1
-        else:
-            forwarded.append(run[index])
-            index += 1
-    run = forwarded
-    config = configuration.read_text()
+def rust_report_command(
+    path: Path, run: list[str], environment: Mapping[str, str] | None = None
+) -> tuple[list[str], Path]:
+    from scripts import test_invocation
 
-    expression = rf"(?m)(^\[profile\.{re.escape(profile)}\.junit\]\n)path\s*=\s*[^\n]+"
+    request = test_invocation.rust(run[3:], environment)
+    configurations = request.values("--config-file")
+    configuration = Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    if configurations and not configuration.is_file():
+        raise ValueError(f"Selected nextest configuration does not exist: {configuration}")
     report = path.with_suffix(".xml")
-    config, count = re.subn(
-        expression, lambda match: match[1] + "path = " + json.dumps(str(report)), config
+    config_path = test_invocation.report_configuration(
+        configuration, path.with_suffix(".toml"), request.nextest_profile, report
     )
-    if not count:
-        config += f"\n[profile.{profile}.junit]\npath = {json.dumps(str(report))}\nstore-failure-output = true\n"
-    config_path = path.with_suffix(".toml")
-    config_path.write_text(config)
-    position = run.index("--") if "--" in run else len(run)
-    run[position:position] = ["--config-file", str(config_path)]
-    return run, report
+    arguments = request.arguments(omit=frozenset({"--config-file", "--profile"}))
+    position = arguments.index("--") if "--" in arguments else len(arguments)
+    arguments[position:position] = ["--profile", request.nextest_profile, "--config-file", str(config_path)]
+    return [*run[:3], *arguments], report
 
 
 def observer_rust(
@@ -721,7 +703,7 @@ def observer_rust(
     report: Path | None = None
     if not inherited:
         configured, report = rust_report_command(
-            invocation, ["cargo", "nextest", "run", *execution]
+            invocation, ["cargo", "nextest", "run", *execution], environment
         )
         execution = configured[3:]
     os.environ.update(forwarded)

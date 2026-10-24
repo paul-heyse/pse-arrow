@@ -452,19 +452,12 @@ def native_report_config(
     root: Path, output: Path, name: str, profile: str = "local"
 ) -> Path:
     """Preserve every test setting while isolating this invocation's report."""
-    config = (root / ".config/nextest.toml").read_text()
-    config, count = re.subn(
-        rf"(?m)(^\[profile\.{re.escape(profile)}\.junit\]\n)path\s*=\s*[^\n]+",
-        lambda match: match[1] + "path = " + json.dumps(str(output / f"{name}.xml")),
-        config,
+    from scripts import test_invocation
+
+    return test_invocation.report_configuration(
+        root / ".config/nextest.toml", output / f"{name}-nextest.toml",
+        profile, output / f"{name}.xml",
     )
-    if count != 1:
-        raise ValueError(
-            f"expected one declared {profile} JUnit path in nextest configuration"
-        )
-    path = output / f"{name}-nextest.toml"
-    path.write_text(config)
-    return path
 
 
 #: Console mode for this process: stream each step's output while it is written to its

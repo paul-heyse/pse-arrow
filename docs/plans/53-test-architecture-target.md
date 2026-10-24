@@ -16,7 +16,7 @@ doc_topics: [current-work, design, validation, preparation, environment, numeric
 
 **Proposed:** bring the composed test architecture to the target in the [holistic test-architecture review](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md). Preserve federated owner-local tests, independent science, shared conformance, actual native execution, durable lifecycle, installed Python and selected parity. Make their joins consistent: selected work governs preparation, validation, effects, execution and reported assurance; immutable input/detail can be shared while mutable attempts and borrowers remain separately owned.
 
-This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents, then P00/A01–A04 (integrated into main), and subsequently **all B01–B05 on main**. Plan52 implementation is paused for its independent review; the current session owns main for this scope. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
+This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents, then P00/A01–A04 (integrated into main), and subsequently **all B01–B05 and C01–C05 on main**. Concurrent Plan52 FastMCP work retains its own implementation owner; this session owns the Plan53 invocation and assurance changes. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
 
 This coordinator owns the combined target, shared decisions, cross-plan boundaries, one package-state table, finding dispositions and inquiries. Seven companions own detailed designs and acceptance, linking here for state. Reviews own remedy reasoning, audits own diagnosis, architecture/ADRs own enduring contracts/rationale. Scheduling a finding does not resolve it; a rule decision does not establish implementation. The source review's historical source references attribute evidence, not a commit pin, freeze or ongoing churn-reconciliation obligation.
 
@@ -73,7 +73,7 @@ Document boundaries group reasoning; packages below group coherent producer/cons
 
 ## Accepted rule changes and advance publication
 
-Both source review impacts were **explicitly accepted by the operator on 2026-10-23** during plan preparation. Their acceptance governs the authorized P00/A01–A04 execution; C02/C04/F implementation remains unselected.
+Both source review impacts were **explicitly accepted by the operator on 2026-10-23** during plan preparation. Their acceptance governs the authorized P00/A01–A04 execution; C02/C04 implementation is authorized; F implementation remains unselected.
 
 | Review impact | Accepted target consequence | Publication route and dependent work |
 |---|---|---|
@@ -89,7 +89,7 @@ B02's typed refusal direction fits the existing §23.2 source-owned typed-cause 
 
 ## Package state and execution route
 
-This is the **single package progress owner**. P00, A01–A04 and B01–B05 are authorized; C–G remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. Package acceptance was **Proposed / not_run** at authoring; current execution evidence is recorded below.
+This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01–C05 are authorized; D–G remain planned and require separate execution authorization. Completion means the linked package's producer, actual consumer migrations, replacement deletions and required evidence, not merely an agreed interface. Package acceptance was **Proposed / not_run** at authoring; current execution evidence is recorded below.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
@@ -103,11 +103,11 @@ This is the **single package progress owner**. P00, A01–A04 and B01–B05 are 
 | B03 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b03) | Unused doubles/devdeps removed; seven support-enabled Rust and five support-absent Python/local controls pass with complete reconciled reports |
 | B04 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b04) | I05 resolved; nineteen families feed runtime/affected/archive consumers; migrated scientific and runtime controls and 162 tooling controls pass |
 | B05 | done | [53b](53b-test-helpers-inputs-and-fixtures.md#b05) | Compatible revision reuse and context/owner/budget refusal controls pass; two local Python cases pass with no-allocation guards through the existing result composer |
-| C01 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c01) | One invocation/config/profile/overlay interpretation with actual tool selection |
-| C02 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog/requirements/roles and before-effects guard across managed routes |
-| C03 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c03) | Actual Arrow leaves proved across installer/codegen/routes; stale declaration/check removed |
-| C04 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c04) | Complete-pass exit and typed setup/assertion-not-reached with separate cleanup |
-| C05 | planned | [53c](53c-invocation-requirements-and-outcomes.md#c05) | I07 resolved; active Python/peer/optional scope, replaced dead bodies removed |
+| C01 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c01) | One invocation/config/profile/overlay interpretation with actual tool selection |
+| C02 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c02) | Actual catalog/requirements/roles and before-effects guard across managed routes |
+| C03 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c03) | Actual Arrow leaves proved across installer/codegen/routes; stale declaration/check removed |
+| C04 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c04) | Complete-pass exit and typed setup/assertion-not-reached with separate cleanup |
+| C05 | in-progress | [53c](53c-invocation-requirements-and-outcomes.md#c05) | I07 resolved; active Python/peer/optional scope, replaced dead bodies removed |
 | D01 | planned | [53d](53d-build-discovery-and-generation.md#d01) | Nextest authenticated by existing owner; consumed generation package inputs complete |
 | D02 | planned | [53d](53d-build-discovery-and-generation.md#d02) | Existing retained build/catalog path serves fallback; equivalent correctness preparation shared |
 | D03 | planned | [53d](53d-build-discovery-and-generation.md#d03) | I06 resolved; Python ensure/install/stubs/admission split with full known validity inputs |
@@ -363,3 +363,19 @@ report errors. One hundred sixty-two focused tooling controls also pass; immutab
 producer/replay, fresh revision/refusal and scientific controls retain their stated conditions.
 No second result ledger, shared mutable workspace/database, broad repository qualification or
 measured execution-speed claim is introduced. A04 and C–G keep their existing boundaries.
+
+## C01–C05 execution checkpoint — 2026-10-24
+
+The operator authorized the complete 53c scope with FastMCP-aligned boundaries.
+Plan52i–52k own exposure, interface adaptation and assembled host qualification;
+53c owns native test selection, effect requirements and reconciled assurance.
+No second agent CLI or result authority is introduced. Native runner options and
+independently useful low-level executors retain their existing owners.
+
+Execution starts with shared pure interpretation and structured report copies,
+then actual catalogue/requirement admission and reconciled terminal semantics.
+Arrow installer/codegen consumers and active boundary/optional peer migrations
+are isolated implementation assignments; integrated acceptance stays here.
+The selected restart capability will receive an owned real lifecycle driver.
+Dormant diagnostic combinations without a production Python producer receive an
+explicit unreachable-case disposition, while real public paths retain evidence.

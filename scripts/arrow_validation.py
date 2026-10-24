@@ -187,7 +187,12 @@ def graph_command(command: Sequence[str]) -> list[str]:
     if nextest:
         if command[2:3] not in (["run"], ["list"]):
             raise ValidationError("only nextest run/list scopes are supported")
-        mode, args = "test", command[3:]
+        from scripts import test_invocation
+
+        try:
+            return test_invocation.rust(command[3:]).graph()
+        except ValueError as error:
+            raise ValidationError(str(error)) from error
     else:
         if command[1:2] == ["miri"] and command[2:3] == ["test"]:
             mode, args = "test", command[3:]
@@ -360,7 +365,8 @@ def resolve(
             raise ValidationError(
                 f"{package.name}: actual Arrow closure has no explicit {opt_in} propagation"
             )
-        features.add(f"{package.name}/{opt_in}")
+        if opt_in not in original.units[root].features:
+            features.add(f"{package.name}/{opt_in}")
     result = with_features(command, sorted(features))
     validated = original
     validated_bytes = original_bytes

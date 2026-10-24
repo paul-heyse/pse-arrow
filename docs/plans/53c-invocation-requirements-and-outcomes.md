@@ -1,6 +1,6 @@
 ---
 title: "Plan 53c: Invocation, requirements and outcomes"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
@@ -66,3 +66,20 @@ Acceptance: actual Python assertions execute, selected optional CLI missing prer
 ## Integration and limits
 
 P00's accepted rule publication precedes C02 scheduler policy changes and C04 exit changes. C01 can be designed/implemented first; D01 supplies exact nextest compatibility before depending on its metadata behavior. Shared editing surfaces include `test_run`, `validation`, `select`, nextest config, conftest, recipes and resource admission; coordinate one writer per shared surface. E01/E05 change stored layouts and consumers, not invocation semantics. 53g exercises one assembled selection→requirements→prepare→assert→drain→report journey with honest narrower low-level support. No new framework, generic scheduler or source-freeze requirement is introduced.
+
+## Authorized integration boundary — 2026-10-24
+
+Plan52i–52k own the canonical FastMCP registration, typed exposure adaptation,
+reveal, attachment and derived interfaces. C01–C04 provide coherent callable
+operation inputs, native admission and authentic structured outcomes for those
+consumers; native Cargo/nextest/pytest syntax is an executor boundary. No separate
+agent CLI, capability catalogue, scientific schema mirror or result store is built.
+Protocol success never promotes incomplete test assurance. Broad parser extraction
+stays with ADP03; shared-owner changes are coordinated at the operation seam.
+
+For C05 the operator selected activation of the external-restart peer through an
+owned real service lifecycle driver. For dormant diagnostics, test actual public
+paths and retain lower-level schema/codec coverage; explicitly dispose synthetic
+combinations with no public producer without claiming equivalent public coverage.
+Optional operator evidence is independently selected and reported; its existing
+native executor is implementation evidence, not FastMCP host qualification.

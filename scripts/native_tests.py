@@ -324,42 +324,37 @@ def rust_environment_identity(environment: Mapping[str, str]) -> dict[str, str]:
     }
 
 
-def rust_selection_identity(arguments: list[str]) -> dict:
-    """Bind execution filters/configuration independently of JUnit reporting."""
+def rust_selection_identity(arguments: list[str], environment: Mapping[str, str] | None = None) -> dict:
+    """Bind the shared effective selection independently of report placement."""
+    from scripts import test_invocation
+
+    request = test_invocation.rust(arguments, environment)
     selection = []
     configs = []
-    index = 0
-    arguments = managed_list_arguments(arguments)
-    while index < len(arguments):
-        argument = arguments[index]
-        if argument == "--":
-            selection.extend(arguments[index:])
-            break
-        name, separator, value = argument.partition("=")
-        if name in {"--config-file", "--tool-config-file"}:
-            if not separator:
-                index += 1
-                if index == len(arguments):
-                    raise ValueError(f"{name} requires a value")
-                value = arguments[index]
-            tool, path = (
-                value.split(":", 1) if name == "--tool-config-file" else ("", value)
-            )
+    for item in request.options:
+        if item.name in test_invocation.RUN_VALUE | test_invocation.RUN_FLAG | {"--profile"}:
+            continue
+        if item.name in {"--config-file", "--tool-config-file"}:
+            value = str(item.value)
+            tool, path = value.split(":", 1) if item.name == "--tool-config-file" else ("", value)
             config = tomllib.loads(Path(path).read_text())
-            # The terminal composer can add or relocate a JUnit report, including
-            # captured failure output. These fields do not select/run tests.
-            for profile in config.get("profile", {}).values():
+            for name, profile in list(config.get("profile", {}).items()):
                 profile.pop("junit", None)
-            configs.append([name, tool, config])
+                if not profile:
+                    del config["profile"][name]
+            configs.append([item.name, tool, config])
         else:
-            selection.append(argument)
-        index += 1
+            selection.extend([item.name] if item.value is None else [item.name, item.value])
+    selection.extend(request.opaque)
     if not any(item[0] == "--config-file" for item in configs):
         config = tomllib.loads((ROOT / ".config/nextest.toml").read_text())
-        for profile in config.get("profile", {}).values():
+        for name, profile in list(config.get("profile", {}).items()):
             profile.pop("junit", None)
+            if not profile:
+                del config["profile"][name]
         configs.insert(0, ["--config-file", "", config])
-    return {"arguments": selection, "configuration": configs}
+    configs.sort(key=lambda item: item[0] != "--config-file")
+    return {"arguments": selection, "profile": request.nextest_profile, "configuration": configs}
 
 
 def prepared_rust_inventory(
@@ -408,7 +403,7 @@ def prepared_rust_inventory(
         raise ValueError(
             "Rust environment changed after preparation: " + ", ".join(names)
         )
-    if prepared["selection"] != rust_selection_identity(arguments):
+    if prepared["selection"] != rust_selection_identity(arguments, environment):
         raise ValueError("Rust selection differs from prepared invocation")
     files = native.get("files")
     if not isinstance(files, dict) or not files:
@@ -775,200 +770,41 @@ def rust_fixture_bindings(
 def managed_rust_arguments(
     extra: list[str], *, include_managed_features: bool = True
 ) -> tuple[list[str], list[str]]:
-    """Consume Cargo choices in metadata; keep nextest execution choices intact."""
-    values = {
-        "-p",
-        "--package",
-        "--exclude",
-        "--bin",
-        "--example",
-        "--test",
-        "--bench",
-        "-F",
-        "--features",
-        "--build-jobs",
-        "--cargo-profile",
-        "--target",
-        "--target-dir",
-        "--manifest-path",
-        "--cargo-message-format",
-        "--config",
-        "-Z",
-    }
-    flags = {
-        "--workspace",
-        "--all",
-        "--lib",
-        "--bins",
-        "--examples",
-        "--tests",
-        "--benches",
-        "--all-targets",
-        "--all-features",
-        "--no-default-features",
-        "-r",
-        "--release",
-        "--unit-graph",
-        "--timings",
-        "--frozen",
-        "--locked",
-        "--offline",
-        "--cargo-quiet",
-        "--cargo-verbose",
-        "--ignore-rust-version",
-        "--future-incompat-report",
-    }
-    metadata_values = {"--manifest-path", "--config", "-Z"}
-    metadata_flags = {
-        "--all-features",
-        "--no-default-features",
-        "--frozen",
-        "--offline",
-    }
-    execution: list[str] = []
-    metadata: list[str] = []
-    features: list[str] = [MANAGED_FEATURES] if include_managed_features else []
-    index = 0
-    while index < len(extra):
-        argument = extra[index]
-        if argument == "--":
-            execution.extend(extra[index:])
-            break
-        name, separator, value = argument.partition("=")
-        if name in {"--binaries-metadata", "--cargo-metadata", "--archive-file"}:
-            raise ValueError("managed Rust execution owns its retained build metadata")
-        if name in {"--rerun", "-R"}:
-            raise ValueError(
-                "managed Rust inventory requires an explicit nextest selection, not rerun history"
-            )
-        if not separator and any(
-            argument.startswith(short) and len(argument) > len(short)
-            for short in ("-p", "-F", "-Z")
-        ):
-            name, value, separator = argument[:2], argument[2:], "="
-        if name in values:
-            if not separator:
-                index += 1
-                if index == len(extra):
-                    raise ValueError(f"{name} requires a value")
-                value = extra[index]
-            if name in {"--features", "-F"}:
-                features.append(value)
-            elif name in metadata_values:
-                metadata.extend([name, value])
-            elif name == "--target":
-                metadata.extend(["--filter-platform", value])
-        elif name in flags:
-            if name in metadata_flags:
-                metadata.append(name)
-        else:
-            execution.append(argument)
-        index += 1
-    return execution, [
-        *(["--features", ",".join(features)] if features else []),
-        *metadata,
-    ]
+    """Project the shared request into retained build and execution inputs."""
+    from scripts import test_invocation
+
+    request = test_invocation.rust(extra)
+    if any(request.values(name) for name in ("--binaries-metadata", "--cargo-metadata", "--archive-file")):
+        raise ValueError("managed Rust execution owns its retained build metadata")
+    return request.preparation(MANAGED_FEATURES if include_managed_features else "")
 
 
 def managed_list_arguments(extra: list[str]) -> list[str]:
-    """Inventory the same filters without run-only output/scheduling controls."""
-    values = {
-        "--success-output",
-        "--failure-output",
-        "--status-level",
-        "--final-status-level",
-        "--test-threads",
-        "-j",
-        "--jobs",
-        "--retries",
-        "--flaky-result",
-        "--max-fail",
-        "--stress-count",
-        "--stress-duration",
-        "--debugger",
-        "--tracer",
-        "--no-tests",
-        "--message-format",
-        "--message-format-version",
-        "--max-progress-running",
-    }
-    flags = {
-        "--no-run",
-        "--fail-fast",
-        "--ff",
-        "--no-fail-fast",
-        "--nff",
-        "--no-capture",
-        "--no-output-indent",
-        "--hide-progress-bar",
-        "--no-input-handler",
-    }
-    result: list[str] = []
-    index = 0
-    while index < len(extra):
-        argument = extra[index]
-        if argument == "--":
-            result.extend(extra[index:])
-            break
-        name, separator, _ = argument.partition("=")
-        if name in values:
-            if not separator:
-                index += 1
-                if index == len(extra):
-                    raise ValueError(f"{name} requires a value")
-        elif name not in flags:
-            result.append(argument)
-        index += 1
-    return result
+    """Inventory exactly the shared request without run-only controls."""
+    from scripts import test_invocation
+
+    return test_invocation.rust(extra).listing()
 
 
 def managed_cargo_profile(extra: list[str]) -> str:
-    if "--release" in extra or "-r" in extra:
-        return "release"
-    for index, argument in enumerate(extra):
-        if argument.startswith("--cargo-profile="):
-            return argument.split("=", 1)[1]
-        if argument == "--cargo-profile":
-            if index + 1 == len(extra):
-                raise ValueError("--cargo-profile requires a value")
-            return extra[index + 1]
-    return "dev"
+    from scripts import test_invocation
+
+    return test_invocation.rust(extra).cargo_profile
 
 
 def managed_rust_selection(extra: list[str]) -> list[str]:
-    """Intersect the caller's filterset union with the observer partition.
+    """Intersect the shared caller filter union with the observer partition."""
+    from scripts import test_invocation
 
-    Nextest combines repeated -E expressions with OR, so appending another
-    expression would admit ordinary tests into the observer allocation.
-    """
-    expressions: list[str] = []
-    forwarded: list[str] = []
-    tail: list[str] = []
-    index = 0
-    while index < len(extra):
-        argument = extra[index]
-        if argument == "--":
-            tail = extra[index:]
-            break
-        name, separator, value = argument.partition("=")
-        if name in {"-E", "--filterset", "--filter-expr"}:
-            if not separator:
-                index += 1
-                if index == len(extra):
-                    raise ValueError("nextest filterset requires an expression")
-                value = extra[index]
-            expressions.append(value)
-        elif argument.startswith("-E"):
-            expressions.append(argument[2:])
-        elif argument != "--ignore-default-filter":
-            forwarded.append(argument)
-        index += 1
+    request = test_invocation.rust(extra)
+    expressions = request.values("--filter-expr")
+    forwarded = request.arguments(omit=frozenset({"--filter-expr", "--ignore-default-filter"}))
+    position = forwarded.index("--") if "--" in forwarded else len(forwarded)
     expression = "test(managed_primary_)"
     if expressions:
-        expression += (
-            " and (" + " or ".join(f"({value})" for value in expressions) + ")"
-        )
-    return [*forwarded, "--ignore-default-filter", "-E", expression, *tail]
+        expression += " and (" + " or ".join(f"({value})" for value in expressions) + ")"
+    forwarded[position:position] = ["--ignore-default-filter", "-E", expression]
+    return forwarded
 
 
 def managed_rust_capture(
@@ -1013,6 +849,11 @@ def _rust_capture(
     canonical: bool = True,
     package_scope: bool = False,
 ) -> tuple[list[str], Path | None]:
+    from scripts import cargo_tools
+
+    # Refuse unsupported syntax and tool identity before worker/build preparation.
+    managed_rust_arguments(scoped, include_managed_features=managed)
+    nextest_identity = cargo_tools.selected_identity("cargo-nextest")
     provenance = provenance.resolve()
     selected = selected.resolve()
     execution, metadata_options = managed_rust_arguments(
@@ -1174,11 +1015,12 @@ def _rust_capture(
         raise ValueError("Rust Cargo configuration changed during preparation")
     native["rust_invocation"] = {
         "schema": "prepared-rust-v1",
+        "nextest": nextest_identity,
         "fixtures": fixtures,
         "source": source,
         "configuration": configuration,
         "environment": rust_environment_identity(environment),
-        "selection": rust_selection_identity([*reuse, *execution]),
+        "selection": rust_selection_identity([*reuse, *execution], environment),
         "unit_graph": json.loads(resolution.unit_graph),
         "inventory": str(selected.resolve()),
         "binaries_metadata": str(binary_metadata),

@@ -40,6 +40,7 @@ def scientific_capture_fixture(destination: Path) -> Path:
     return destination.resolve()
 
 
+@patch("scripts.cargo_tools.selected_identity", new=lambda name: {"name": name, "version": "0.9.146", "path": "/owned/cargo-nextest", "sha256": "selected"})
 class ManagedRustSelectionTests(unittest.TestCase):
     def test_explicit_package_does_not_build_the_whole_workspace(self) -> None:
         for arguments in (
@@ -508,11 +509,11 @@ class ManagedRustSelectionTests(unittest.TestCase):
                 "--nocapture",
             ]
             composed, _ = test_run.rust_report_command(
-                self.root / f"{profile}.json", original.copy()
+                self.root / f"{profile}.json", ["cargo", "nextest", "run", *original]
             )
             self.assertEqual(
                 native_tests.rust_selection_identity(original),
-                native_tests.rust_selection_identity(composed),
+                native_tests.rust_selection_identity(composed[3:]),
             )
             self.assertLess(composed.index("--config-file"), composed.index("--"))
             config = Path(composed[composed.index("--config-file") + 1])
@@ -521,7 +522,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
             )
             self.assertNotEqual(
                 native_tests.rust_selection_identity(original),
-                native_tests.rust_selection_identity(composed),
+                native_tests.rust_selection_identity(composed[3:]),
             )
 
     def test_prepared_inventory_reuses_catalog_and_preserves_exit_and_signal(
@@ -545,7 +546,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
                 patch.object(
                     test_run,
                     "rust_report_command",
-                    side_effect=lambda _path, command: (
+                    side_effect=lambda _path, command, _environment=None: (
                         command,
                         self.root / "report.xml",
                     ),
@@ -581,7 +582,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
         ):
             with (
                 self.subTest(option=option),
-                self.assertRaisesRegex(ValueError, "selection differs"),
+                self.assertRaisesRegex(ValueError, "selection differs|effective selection"),
             ):
                 native_tests.prepared_rust_inventory(
                     [*execution, option, value], environment
@@ -1438,6 +1439,7 @@ class ManagedPythonRouteTests(unittest.TestCase):
             native_tests.main()
 
 
+@patch("scripts.cargo_tools.selected_identity", new=lambda name: {"name": name, "version": "0.9.146", "path": "/owned/cargo-nextest", "sha256": "selected"})
 class NativeIgnoredSelectionTests(unittest.TestCase):
     def setUp(self) -> None:
         composition = patch.object(

@@ -1683,6 +1683,7 @@ class ValidationTests(unittest.TestCase):
                         "features": ["force-validate", "native-solvers"],
                     },
                 ),
+                patch("scripts.scientific_inputs.prepare_python"),
                 patch.object(native_tests.time, "time", return_value=1),
                 patch.object(
                     native_tests.pse_env, "default_test_width", return_value=1
