@@ -155,7 +155,7 @@ strict shear command at B02/B03 completion; D02 supplies the broader scope-end h
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | B01 | complete | 54b | Both freshness keys consumed consistently and real positive/negative invalidation controls |
-| B02 | in progress | 54b | Hygienic macro, inspected graph/target cleanup and preserved validation/source behavior |
+| B02 | complete | 54b | Hygienic macro, inspected graph/target cleanup and preserved validation/source behavior; assembled qualification remains D02 |
 | B03 | complete | 54b | Strict pinned shear, truthful group exits and retired obsolete routine detectors |
 
 B01 is independent of B02. B03 consumes A01's selected shear and B02's clean basis. Do not
@@ -171,10 +171,14 @@ dependency invalidated correctly. Identical source touches/restores launched no 
 A declared build-input touch reran its script and compiled the consumer despite generated
 write-if-changed, preserving the explicit mtime limitation.
 
-B02 and B03 are integrated. Inspected cleanup removes 44 direct lock edges without moving
+B02 and B03 are integrated. Inspected cleanup removes 42 direct lock edges without moving
 package versions, including eight unnecessary validation forwarders. Per-edge and final
 unit-graph/Arrow proofs pass; strict shear reports zero findings. The external no-direct-miette
 consumer passes three actual behavioral tests. Joined default/native/optional consumer
 compilation and scope-end qualification remain in D02. The original external fixture's
 related-diagnostic assertion was corrected: forwarding a simple leaf does not invent a
-miette related iterator; the product implementation did not need changing.
+miette related iterator; the product implementation did not need changing. Native scope-end
+compilation caught two incorrect serde removals: the conformance and benchmark consumers
+load a shared scientific-input fixture outside their target directories. Those declarations
+and precise issue-589 exceptions are restored; native contract compilation and strict shear
+now pass. The initial 44-edge count is superseded by the corrected net 42.
