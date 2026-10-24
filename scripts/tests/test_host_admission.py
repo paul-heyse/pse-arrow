@@ -50,7 +50,9 @@ def readiness_fixture(
 
 
 class HostAdmissionTests(unittest.TestCase):
-    def test_compiler_cache_has_independent_large_transfer_budget_in_light_lane(self) -> None:
+    def test_compiler_cache_has_independent_large_transfer_budget_in_light_lane(
+        self,
+    ) -> None:
         profile = host.select("compiler-cache")
         self.assertEqual(profile.memory, 8 * host.GIB)
         self.assertEqual(profile.lane, "light")

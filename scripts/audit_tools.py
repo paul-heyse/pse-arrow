@@ -25,8 +25,13 @@ COMMANDS = {
     ],
     "audit-advisories": ["cargo", "audit", "--json", "--deny", "warnings"],
     "audit-shear": [
-        "cargo", "shear", "--locked", "--check-test-targets", "--deny-warnings",
-        "--format", "json",
+        "cargo",
+        "shear",
+        "--locked",
+        "--check-test-targets",
+        "--deny-warnings",
+        "--format",
+        "json",
     ],
 }
 
@@ -57,8 +62,10 @@ def finding_status(gate: str, code: int, stdout: str, stderr: str) -> str:
         except (ValueError, KeyError, TypeError, AttributeError):
             return "failed"
         return (
-            "passed" if code == 0 and not findings
-            else "findings" if code == 1 and findings
+            "passed"
+            if code == 0 and not findings
+            else "findings"
+            if code == 1 and findings
             else "failed"
         )
     if code == 0:

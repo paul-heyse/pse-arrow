@@ -12,7 +12,9 @@ from scripts import cargo_tools, doctor
 
 
 class CargoToolsTests(unittest.TestCase):
-    def test_bootstrap_and_doctor_keep_only_the_selected_dependency_detector(self) -> None:
+    def test_bootstrap_and_doctor_keep_only_the_selected_dependency_detector(
+        self,
+    ) -> None:
         tools = set(doctor.cargo_tool_names())
         self.assertIn("cargo-shear", tools)
         self.assertIn("cargo-deny", tools)

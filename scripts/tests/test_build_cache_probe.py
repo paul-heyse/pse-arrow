@@ -28,7 +28,9 @@ class BuildCacheProbeTests(unittest.TestCase):
         stats = {"stats": {"cache_hits": {"counts": {"Rust": 1}}}}
         invocations = 0
 
-        def compiler_output(command: list[str], *, env: dict[str, str], check: bool) -> None:
+        def compiler_output(
+            command: list[str], *, env: dict[str, str], check: bool
+        ) -> None:
             nonlocal invocations
             self.assertTrue(check)
             if "--out-dir" not in command:
@@ -48,7 +50,9 @@ class BuildCacheProbeTests(unittest.TestCase):
         with (
             patch.object(probe.build_environment, "configure", return_value=selected),
             patch.object(probe.subprocess, "check_output", return_value="/rustc\n"),
-            patch.object(probe.subprocess, "run", side_effect=compiler_output) as compile_process,
+            patch.object(
+                probe.subprocess, "run", side_effect=compiler_output
+            ) as compile_process,
             patch.object(
                 probe.build_measurements,
                 "start_cache_server",
@@ -71,9 +75,13 @@ class BuildCacheProbeTests(unittest.TestCase):
         self.assertNotEqual(environment["SCCACHE_SERVER_UDS"], "/shared/cache.sock")
         self.assertEqual(compile_process.call_count, 5)
         for index in (0, 1, 4):
-            self.assertEqual(compile_process.call_args_list[index].args[0][0], "/installed/sccache")
+            self.assertEqual(
+                compile_process.call_args_list[index].args[0][0], "/installed/sccache"
+            )
         self.assertIn("--extern", compile_process.call_args_list[2].args[0])
-        self.assertTrue(compile_process.call_args_list[3].args[0][0].endswith("/consumer"))
+        self.assertTrue(
+            compile_process.call_args_list[3].args[0][0].endswith("/consumer")
+        )
         for call in compile_process.call_args_list:
             self.assertEqual(call.kwargs["env"], environment)
         for call in observe.call_args_list:

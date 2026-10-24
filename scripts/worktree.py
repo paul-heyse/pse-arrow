@@ -90,7 +90,9 @@ def main(argv: list[str] | None = None) -> int:
         run(["just", "py-sync-native" if args.native else "py-sync"], target)
     # Informational: a fresh checkout without --python legitimately lacks a venv.
     print("+ just doctor", flush=True)
-    subprocess.run(["just", "doctor"], cwd=target, env=command_environment(target), check=False)
+    subprocess.run(
+        ["just", "doctor"], cwd=target, env=command_environment(target), check=False
+    )
     print(f"worktree: created. cd {target}; remove with: git worktree remove {target}")
     return 0
 

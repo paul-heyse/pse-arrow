@@ -74,7 +74,11 @@ def main() -> None:
             if not artifact.is_file() or not (output / "pse_cache_probe.d").is_file():
                 raise ValueError("cache hit did not restore the owned Rust outputs")
             largest_entry = max(
-                (path.stat().st_size for path in (root / "cache").rglob("*") if path.is_file()),
+                (
+                    path.stat().st_size
+                    for path in (root / "cache").rglob("*")
+                    if path.is_file()
+                ),
                 default=0,
             )
             if largest_entry <= 8 * 1024**2:
@@ -96,10 +100,17 @@ def main() -> None:
             )
             executable = root / "consumer"
             subprocess.run(
-                [rustc, "--edition=2024", str(consumer), "--extern",
-                 f"pse_cache_probe={output / 'libpse_cache_probe.rlib'}",
-                 "-o", str(executable)],
-                env=env, check=True,
+                [
+                    rustc,
+                    "--edition=2024",
+                    str(consumer),
+                    "--extern",
+                    f"pse_cache_probe={output / 'libpse_cache_probe.rlib'}",
+                    "-o",
+                    str(executable),
+                ],
+                env=env,
+                check=True,
             )
             subprocess.run([str(executable)], env=env, check=True)
             subprocess.run(
