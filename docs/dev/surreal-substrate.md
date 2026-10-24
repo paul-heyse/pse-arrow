@@ -114,6 +114,10 @@ disposable database, but has no canonical namespace or user-management privilege
 Explicit init/rebuild/drop reads the existing private service credentials only for
 that lifecycle action. Opening the evidence index does not attest scientific schema,
 install modules or start a native receiver.
+After an intentional selected-service replacement, `just evidence prepare --replace-selection`
+explicitly rebinds existing credentials to that live service. It preserves the fixed tooling
+namespace/database and performs no database mutation. Ordinary prepare and all reads refuse a
+mismatched selection; the option cannot repoint credential ownership to a different database.
 
 `snapshot` authenticates an original FileStore invocation through its existing
 reader, preserving selected tests, unreported members, skipped/reused/transferred
@@ -330,6 +334,51 @@ not recorded. Unknown build/provider/input facts cannot justify a comparable pop
 speed claim. Storage-health snapshots use the explicit adapter described below. The
 [coordinator](../plans/51-engineering-workspaces-and-evidence.md) owns package status and the
 [qualification owner](../plans/51g-qualification-and-publication.md) owns assembled acceptance.
+
+### Disposable development knowledge
+
+`just context --concept ...` reads exact native owners without a service. `just knowledge`
+explicitly prepares or queries the separate derived corpus using the existing evidence operator,
+authentication, deadline and tooling database. It does not open scientific research payloads.
+
+```bash
+just knowledge build --path docs/adr/0222-derived-development-knowledge.md
+just knowledge build --concept contract-section --identity 20.5
+just knowledge import --concept declaration --identity runtime_catalogue:FrozenInspectionRequest
+just knowledge import --path docs/adr/0222-derived-development-knowledge.md
+just knowledge query --mode subjects --kind decision --native-id ADR-0222
+just knowledge query --mode graph --subject-id decision:ADR-0222 --relation superseded_by
+just knowledge query --mode productions --artifact-id generated_artifact:python/pse/_native.pyi
+just knowledge explain --mode subjects --kind decision --native-id ADR-0222
+just knowledge status
+just knowledge reset
+```
+
+Build is source-only. Import requires the explicitly installed compatible tooling schema;
+`just evidence-build` rebuilds the operator, while `just evidence rebuild` disposes and
+reinitializes the selected tooling database when its schema marker changes. Import never
+silently rebuilds it. An initial import requires an empty knowledge pointer. Replacing a cut
+requires `--expected-active GENERATION`; replay reconciles exact membership. `reset` removes
+only knowledge generations, preserving original files and the independent evidence projection.
+Select either explicit `--path` sources or one exact `--concept`/`--identity`; the latter avoids
+expanding every declaration sharing a large generated output. Exact section/package selections
+use their actual owner ranges, including sections beyond the default first-page window.
+
+The v2 corpus keeps sources, owner-native subjects, role-specific contributors, inherited topics,
+attributed excerpts, typed edges and exact declaration–generator–output assertions. Excerpt ranges
+default to the first240 lines/source,40-line chunks at most16KiB; `--range PATH:START-END` selects
+another bounded window. Section/package text is attributed only through actual owner ranges;
+sharing a source does not make every section match. Optional `--text` requires a structural
+subject selector. `--references` accepts explicit compact typed references to original owners,
+never a grant to reopen their payloads.
+
+Queries return their complete provenance source cut even with no hits. The Python wrapper checks
+current admitted repository bytes and policy contributors; external owner references remain
+unread. These observations do not validate producer fingerprints against the live registry or
+invent undeclared qualification links. Pagination binds issuer, generation and query; use the
+returned cursor JSON with the same predicates. Reads never import, refresh, start a model or
+substitute a source fallback after a native failure. The selected implementation and focused
+acceptance remain owned by [Plan52b](../plans/52b-local-knowledge-and-research.md#B04).
 
 ### Selected-service diagnostics
 

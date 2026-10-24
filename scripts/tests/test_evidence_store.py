@@ -85,6 +85,24 @@ class EvidenceStoreTests(unittest.TestCase):
             self.prepare()
         self.assertEqual(target.read_bytes(), original)
 
+    def test_explicit_reselection_preserves_credentials_and_database_boundary(self) -> None:
+        self.prepare()
+        credentials=self.state/'.tooling/evidence/credentials.json'
+        original=credentials.read_bytes()
+        self.config['instance_id']=str(uuid.uuid4())
+        resource_store.publish(self.state/'config.json',self.config)
+        result=evidence_store.prepare(self.state,deadline=self.deadline,replace_selection=True)
+        self.assertEqual(result['status'],'reselected')
+        self.assertEqual(credentials.read_bytes(),original)
+        evidence_store.selected_configuration(self.state,self.config)
+        target=self.state/'.tooling/evidence/config.json'
+        malformed=resource_store.read(target)
+        malformed['database']='foreign'
+        resource_store.publish(target,malformed)
+        with self.assertRaisesRegex(ValueError,'ownership'):
+            evidence_store.prepare(self.state,deadline=self.deadline,replace_selection=True)
+        self.assertEqual(resource_store.read(target),malformed)
+
     def test_closed_admission_does_not_prepare_tooling(self) -> None:
         self.config["admission"] = "quiesced"
         resource_store.publish(self.state / "config.json", self.config)

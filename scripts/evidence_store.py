@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from typing import TextIO
 
 
-def prepare(state: Path, *, deadline: float) -> dict[str, object]:
+def prepare(state: Path, *, deadline: float, replace_selection: bool = False) -> dict[str, object]:
     """Prepare only private tooling configuration; database DDL is separate init."""
     with surreal_server.tooling_activity(state, deadline=deadline) as (
         service,
@@ -52,10 +52,16 @@ def prepare(state: Path, *, deadline: float) -> dict[str, object]:
         credentials = directory / "credentials.json"
         with surreal_server.state_lock(state, deadline=deadline):
             if target.exists():
-                if resource_store.read(target) != config:
-                    raise ValueError(
-                        "Existing tooling selection differs; explicit fresh selection is required"
-                    )
+                previous = resource_store.read(target)
+                if previous != config:
+                    if not replace_selection:
+                        raise ValueError("Existing tooling selection differs; use prepare --replace-selection explicitly")
+                    fixed = {'version','namespace','database','credentials_file'}
+                    if set(previous) != set(config) or any(previous[key] != config[key] for key in fixed):
+                        raise ValueError('selection replacement cannot change tooling database or credential ownership')
+                    validate_credentials(credentials)
+                    resource_store.publish(target,config)
+                    return {'status':'reselected','previous_selection':previous,'config':str(target),**config}
                 validate_credentials(credentials)
                 return {"status": "prepared", "config": str(target), **config}
             if credentials.exists():
@@ -169,7 +175,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--tool", type=Path, default=ROOT / "target/debug/pse-evidence")
     result.add_argument("--timeout", type=float, default=30)
     commands = result.add_subparsers(dest="command", required=True)
-    for command in ("prepare", "init", "status", "rebuild", "drop"):
+    commands.add_parser('prepare').add_argument('--replace-selection',action='store_true',help='explicitly bind existing private tooling credentials to the selected live service; no database mutation')
+    for command in ("init", "status", "rebuild", "drop"):
         commands.add_parser(command)
     for command in ("snapshot", "import"):
         selected = commands.add_parser(command)
@@ -433,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
             cli.error("--state or PSE_SURREAL_STATE is required for service operations")
         state = args.state.absolute()
         if args.command == "prepare":
-            print(json.dumps(prepare(state, deadline=deadline), sort_keys=True))
+            print(json.dumps(prepare(state, deadline=deadline,replace_selection=args.replace_selection), sort_keys=True))
             return 0
         if args.command == "analyze":
             return analyze(args, deadline=deadline)
