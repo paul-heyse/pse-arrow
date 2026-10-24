@@ -5,8 +5,8 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-import io
 import hashlib
+import io
 import tarfile
 import tempfile
 import unittest
@@ -121,7 +121,9 @@ class DiagnosticBinaryTests(unittest.TestCase):
         return data
 
     def install(self, data: bytes) -> Path:
-        with patch.object(trace.urllib.request, "urlopen", return_value=io.BytesIO(data)):
+        with patch.object(
+            trace.urllib.request, "urlopen", return_value=io.BytesIO(data)
+        ):
             return trace.install("sccache", self.environment)
 
     def test_environment_controls_versioned_path_without_ambient_xdg(self) -> None:
@@ -164,7 +166,9 @@ class DiagnosticBinaryTests(unittest.TestCase):
                     self.spec["sha256"] = "wrong"
                 with self.assertRaises(ValueError):
                     self.install(data)
-                self.assertFalse(trace.binary_path("sccache", self.environment).exists())
+                self.assertFalse(
+                    trace.binary_path("sccache", self.environment).exists()
+                )
 
     def test_nonexecutable_symlink_and_missing_installations_refused(self) -> None:
         target = trace.binary_path("sccache", self.environment)
@@ -183,10 +187,14 @@ class DiagnosticBinaryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing or nonregular"):
             trace.install("sccache", self.environment)
 
-    def test_interrupted_publication_cannot_leave_an_accepted_partial_binary(self) -> None:
+    def test_interrupted_publication_cannot_leave_an_accepted_partial_binary(
+        self,
+    ) -> None:
         data = self.archive(["release/sccache"])
         with (
-            patch.object(trace.os, "link", side_effect=OSError("publication interrupted")),
+            patch.object(
+                trace.os, "link", side_effect=OSError("publication interrupted")
+            ),
             self.assertRaisesRegex(OSError, "publication interrupted"),
         ):
             self.install(data)

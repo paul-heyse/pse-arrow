@@ -3019,3 +3019,198 @@ kind = "depends-on"
 from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::F03"
 to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::F01"
 kind = "depends-on"
+
+# Plan54 is independently owned; native tables remain the only package/finding status.
+
+[[scope_tables]]
+path = "docs/plans/54a-compiler-cache-and-environment.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/54b-cargo-freshness-and-dependency-graph.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/54c-cross-location-reuse-and-investigations.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/54d-measurement-qualification-and-adoption.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/54-rust-build-reuse.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding",
+  "Scenario",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^((?:F|CB)[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/54-rust-build-reuse.md"
+name = "inquiry-outcomes"
+heading = "Inquiry outcomes and remaining questions"
+headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/54b-cargo-freshness-and-dependency-graph.md::package-state::B03"
+to = "docs/plans/54a-compiler-cache-and-environment.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54b-cargo-freshness-and-dependency-graph.md::package-state::B03"
+to = "docs/plans/54b-cargo-freshness-and-dependency-graph.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C01"
+to = "docs/plans/54a-compiler-cache-and-environment.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C01"
+to = "docs/plans/54a-compiler-cache-and-environment.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C01"
+to = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C02"
+to = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C03"
+to = "docs/plans/54a-compiler-cache-and-environment.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C03"
+to = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C04"
+to = "docs/plans/54b-cargo-freshness-and-dependency-graph.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C04"
+to = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54a-compiler-cache-and-environment.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54a-compiler-cache-and-environment.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54a-compiler-cache-and-environment.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54b-cargo-freshness-and-dependency-graph.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54b-cargo-freshness-and-dependency-graph.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54b-cargo-freshness-and-dependency-graph.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54c-cross-location-reuse-and-investigations.md::package-state::C05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+to = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D03"
+to = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
+kind = "depends-on"

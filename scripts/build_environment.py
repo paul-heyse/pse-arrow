@@ -33,10 +33,16 @@ def selected_cache_binary(root: Path, environment: Mapping[str, str]) -> str | N
     explicit = environment.get("PSE_SCCACHE_BINARY")
     if "PSE_SCCACHE_BINARY" in environment and not explicit:
         raise ValueError("PSE_SCCACHE_BINARY must name the real executable")
-    if wrapper and Path(wrapper).name == "sccache" and Path(wrapper).resolve() != managed:
+    if (
+        wrapper
+        and Path(wrapper).name == "sccache"
+        and Path(wrapper).resolve() != managed
+    ):
         chosen = shutil.which(wrapper, path=environment.get("PATH")) or wrapper
         if explicit and Path(explicit).resolve() != Path(chosen).resolve():
-            raise ValueError("conflicting RUSTC_WRAPPER and PSE_SCCACHE_BINARY selections")
+            raise ValueError(
+                "conflicting RUSTC_WRAPPER and PSE_SCCACHE_BINARY selections"
+            )
         return chosen
     if explicit:
         return explicit
@@ -44,7 +50,9 @@ def selected_cache_binary(root: Path, environment: Mapping[str, str]) -> str | N
     if not default.exists():
         return None
     if not default.is_file() or not os.access(default, os.X_OK):
-        raise ValueError("managed sccache is not executable; run just diagnostic-tools sccache")
+        raise ValueError(
+            "managed sccache is not executable; run just diagnostic-tools sccache"
+        )
     return str(default)
 
 
@@ -69,7 +77,9 @@ def cache_mode_problem(root: Path, environment: Mapping[str, str]) -> str | None
         return "SCCACHE_LOG disables supervised client compilation"
     if "SCCACHE_ERROR_LOG" in environment:
         return "SCCACHE_ERROR_LOG is unsupported for supervised client compilation"
-    config_path = Path(environment.get("SCCACHE_CONF", str(root / ".config/sccache.toml")))
+    config_path = Path(
+        environment.get("SCCACHE_CONF", str(root / ".config/sccache.toml"))
+    )
     config_text = config_path.read_text()
     settings = (
         json.loads(config_text)
@@ -77,10 +87,10 @@ def cache_mode_problem(root: Path, environment: Mapping[str, str]) -> str | None
         else tomllib.loads(config_text)
     )
     if not isinstance(settings, dict):
-        raise ValueError("sccache configuration must be a table")
+        return "sccache configuration must be a table"
     dist = settings.get("dist", {})
     if not isinstance(dist, dict):
-        raise ValueError("sccache distribution configuration must be a table")
+        return "sccache distribution configuration must be a table"
     if dist.get("scheduler_url") is not None:
         return "sccache distribution disables supervised client compilation"
     return None

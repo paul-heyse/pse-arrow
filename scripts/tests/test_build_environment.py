@@ -56,7 +56,9 @@ class BuildEnvironmentTests(unittest.TestCase):
 
     def test_wrappers_disabled_missing_and_explicit_overrides(self) -> None:
         with patch.object(
-            build.diagnostic_trace, "binary_path", return_value=Path("/missing/managed/sccache")
+            build.diagnostic_trace,
+            "binary_path",
+            return_value=Path("/missing/managed/sccache"),
         ):
             self.assertNotIn("RUSTC_WRAPPER", build.configure(build.ROOT, {}))
             with self.assertRaisesRegex(ValueError, "not installed"):
@@ -82,8 +84,12 @@ class BuildEnvironmentTests(unittest.TestCase):
             binary.write_bytes(b"managed executable")
             binary.chmod(0o700)
             with (
-                patch.object(build.diagnostic_trace, "binary_path", return_value=binary),
-                patch.object(build.shutil, "which", return_value="/wrong/sccache") as lookup,
+                patch.object(
+                    build.diagnostic_trace, "binary_path", return_value=binary
+                ),
+                patch.object(
+                    build.shutil, "which", return_value="/wrong/sccache"
+                ) as lookup,
             ):
                 env = build.configure(build.ROOT, {"XDG_CACHE_HOME": "/tmp/example"})
                 self.assertEqual(env["PSE_SCCACHE_BINARY"], str(binary))
@@ -115,7 +121,11 @@ class BuildEnvironmentTests(unittest.TestCase):
         disabled = build.configure(build.ROOT, {**selected, "RUSTC_WRAPPER": ""})
         self.assertEqual(disabled["RUSTC_WRAPPER"], "")
         with (
-            patch.object(build.diagnostic_trace, "binary_path", return_value=Path("/missing/managed/sccache")),
+            patch.object(
+                build.diagnostic_trace,
+                "binary_path",
+                return_value=Path("/missing/managed/sccache"),
+            ),
             patch.object(build.shutil, "which", return_value="/legacy/sccache"),
         ):
             self.assertNotIn("RUSTC_WRAPPER", build.configure(build.ROOT, {}))
@@ -169,7 +179,9 @@ class BuildEnvironmentTests(unittest.TestCase):
                 for name in ("SCCACHE_LOG", "SCCACHE_ERROR_LOG"):
                     if name in original:
                         self.assertEqual(env[name], original[name])
-                with self.assertRaisesRegex(ValueError, "supervised client compilation"):
+                with self.assertRaisesRegex(
+                    ValueError, "supervised client compilation"
+                ):
                     build.configure(build.ROOT, original, cache="on")
             json_config.write_text('{"client_side_mode":false}')
             selected = build.configure(
@@ -179,6 +191,22 @@ class BuildEnvironmentTests(unittest.TestCase):
             )
             self.assertEqual(selected["SCCACHE_CONF"], str(json_config))
             self.assertEqual(selected["SCCACHE_CLIENT_SIDE"], "1")
+
+    def test_invalid_cache_config_tables_use_the_same_mode_refusal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "sccache.json"
+            for contents in ("[]", '{"dist":[]}'):
+                with self.subTest(contents=contents):
+                    config.write_text(contents)
+                    original = {
+                        "RUSTC_WRAPPER": "/bin/sccache",
+                        "SCCACHE_CONF": str(config),
+                    }
+                    self.assertEqual(
+                        build.configure(build.ROOT, original)["RUSTC_WRAPPER"], ""
+                    )
+                    with self.assertRaisesRegex(ValueError, "must be a table"):
+                        build.configure(build.ROOT, original, cache="on")
 
     def test_target_directory_belongs_to_the_building_checkout(self) -> None:
         # The default <root>/target is Cargo's default and is never exported: sccache

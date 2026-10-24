@@ -21,8 +21,11 @@ import tomllib
 import urllib.parse
 import urllib.request
 import zipfile
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -192,9 +195,7 @@ def install(
             while chunk := response.read(1 << 20):
                 size += len(chunk)
                 if size > 256 << 20:
-                    raise ValueError(
-                        "tool archive exceeds installation allowance"
-                    )
+                    raise ValueError("tool archive exceeds installation allowance")
                 digest.update(chunk)
                 output.write(chunk)
         if digest.hexdigest() != spec["sha256"]:

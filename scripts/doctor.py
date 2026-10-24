@@ -397,7 +397,9 @@ def check_compiler_cache() -> Check:
                     code, output = run(str(actual), "--version", env=selected)
                     extra["selected_version"] = output
                     if code or not re.fullmatch(r"sccache \S+", output):
-                        problems.append(f"override version unavailable: {actual}: {output}")
+                        problems.append(
+                            f"override version unavailable: {actual}: {output}"
+                        )
                     else:
                         details.append(f"effective override: {actual} ({output})")
     return Check(

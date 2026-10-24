@@ -254,14 +254,20 @@ class CompilerCacheTests(unittest.TestCase):
         binary = Path(sys.executable).resolve()
         with (
             patch.object(cache.diagnostic_trace, "binary_path", return_value=binary),
-            patch.object(cache.diagnostic_trace, "tool_spec", return_value={"binary_sha256": "changed"}),
+            patch.object(
+                cache.diagnostic_trace,
+                "tool_spec",
+                return_value={"binary_sha256": "changed"},
+            ),
             patch.object(cache.host, "acquire") as acquire,
             pytest.raises(cache.CacheError, match="declared digest"),
         ):
             cache.ensure(self.env)
         acquire.assert_not_called()
 
-    def test_incompatible_modes_refuse_before_admission_or_compiler_launch(self) -> None:
+    def test_incompatible_modes_refuse_before_admission_or_compiler_launch(
+        self,
+    ) -> None:
         scheduler = self.root / "scheduler.json"
         scheduler.write_text('{"dist":{"scheduler_url":"http://localhost:12345"}}')
         for extra in (

@@ -1,5 +1,18 @@
 # Current work and plans
 
+[Plan54: Rust build reuse](54-rust-build-reuse.md) is a new, independently owned planning
+series for the current host's developer, agent, worktree, experiment and Python build workflows.
+Its four companions develop exact supervised compiler-cache integration, Cargo freshness and
+dependency hygiene, safe cross-location reuse and bounded capability investigations, and
+measurement/qualification/adoption. It incorporates the supplied Rust build-reuse review and
+the subsequent assessment, including logging-mode handling, benchmark-created environment
+differences and strict shear warnings. The coordinator owns finding/inquiry dispositions;
+companions own package state. The
+[54a Outcome](54a-compiler-cache-and-environment.md#verification-and-outcome--2026-10-24)
+records the authorized compiler-cache/environment implementation and bounded real-binary and
+fresh-caller acceptance. The remaining companions retain their planned scope; other plans
+retain their independent scope and remaining obligations.
+
 [Plan53: Test architecture target](53-test-architecture-target.md) schedules all R01–R08
 and DTA-001–DTA-048 from the holistic test-architecture review, including scoped no-change
 and withdrawn diagnoses. Its seven companions develop scientific assurance, helpers/inputs,

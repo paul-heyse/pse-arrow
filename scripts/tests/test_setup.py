@@ -24,6 +24,8 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
+from scripts import build_environment, diagnostic_trace
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -416,11 +418,15 @@ class EditPolicyTests(unittest.TestCase):
 
 class ConfigurationTests(unittest.TestCase):
     def test_doctor_verifies_cache_bytes_before_executing_managed_version(self) -> None:
-        from scripts import build_environment, diagnostic_trace
-
         with (
-            patch.object(diagnostic_trace, "verify_binary", side_effect=ValueError("changed bytes")),
-            patch.object(build_environment, "configure", return_value={"RUSTC_WRAPPER": ""}),
+            patch.object(
+                diagnostic_trace,
+                "verify_binary",
+                side_effect=ValueError("changed bytes"),
+            ),
+            patch.object(
+                build_environment, "configure", return_value={"RUSTC_WRAPPER": ""}
+            ),
             patch.object(doctor, "run") as run,
         ):
             check = doctor.check_compiler_cache()
@@ -430,13 +436,25 @@ class ConfigurationTests(unittest.TestCase):
         run.assert_not_called()
 
     def test_doctor_reports_cache_default_override_and_custom_wrapper(self) -> None:
-        from scripts import build_environment, diagnostic_trace
-
         default = diagnostic_trace.binary_path("sccache")
         override = Path("/explicit/sccache")
         cases = [
-            ({"RUSTC_WRAPPER": str(ROOT / "scripts/sccache"), "PSE_SCCACHE_BINARY": str(default)}, "managed default", 1),
-            ({"RUSTC_WRAPPER": str(ROOT / "scripts/sccache"), "PSE_SCCACHE_BINARY": str(override)}, "effective override", 2),
+            (
+                {
+                    "RUSTC_WRAPPER": str(ROOT / "scripts/sccache"),
+                    "PSE_SCCACHE_BINARY": str(default),
+                },
+                "managed default",
+                1,
+            ),
+            (
+                {
+                    "RUSTC_WRAPPER": str(ROOT / "scripts/sccache"),
+                    "PSE_SCCACHE_BINARY": str(override),
+                },
+                "effective override",
+                2,
+            ),
             ({"RUSTC_WRAPPER": "/explicit/custom-wrapper"}, "custom wrapper", 1),
         ]
         for selected, detail, calls in cases:
@@ -444,7 +462,11 @@ class ConfigurationTests(unittest.TestCase):
                 self.subTest(selected=selected),
                 patch.object(diagnostic_trace, "verify_binary", return_value=default),
                 patch.object(build_environment, "configure", return_value=selected),
-                patch.object(build_environment, "validate_cache_binary", side_effect=lambda _root, value: Path(value)),
+                patch.object(
+                    build_environment,
+                    "validate_cache_binary",
+                    side_effect=lambda _root, value: Path(value),
+                ),
                 patch.object(doctor, "run", return_value=(0, "sccache 0.18.0")) as run,
             ):
                 check = doctor.check_compiler_cache()
@@ -454,18 +476,20 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(run.call_args.args, (str(default), "--version"))
 
     def test_doctor_rejects_non_elf_override_before_executing_it(self) -> None:
-        from scripts import build_environment, diagnostic_trace
-
         with tempfile.TemporaryDirectory() as directory:
             override = Path(directory) / "sccache"
             override.write_text("#!/bin/sh\nprintf 'sccache 0.18.0\\n'\n")
             override.chmod(0o755)
             with (
                 patch.object(diagnostic_trace, "verify_binary"),
-                patch.object(build_environment, "configure", return_value={
-                    "RUSTC_WRAPPER": str(ROOT / "scripts/sccache"),
-                    "PSE_SCCACHE_BINARY": str(override),
-                }),
+                patch.object(
+                    build_environment,
+                    "configure",
+                    return_value={
+                        "RUSTC_WRAPPER": str(ROOT / "scripts/sccache"),
+                        "PSE_SCCACHE_BINARY": str(override),
+                    },
+                ),
                 patch.object(doctor, "run", return_value=(0, "sccache 0.18.0")) as run,
             ):
                 check = doctor.check_compiler_cache()
@@ -474,11 +498,13 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(run.call_count, 1)
 
     def test_doctor_rejects_wrong_cache_version_and_selection_failure(self) -> None:
-        from scripts import build_environment, diagnostic_trace
-
         with (
             patch.object(diagnostic_trace, "verify_binary"),
-            patch.object(build_environment, "configure", side_effect=ValueError("conflicting selections")),
+            patch.object(
+                build_environment,
+                "configure",
+                side_effect=ValueError("conflicting selections"),
+            ),
             patch.object(doctor, "run", return_value=(0, "sccache 0.17.0")),
         ):
             check = doctor.check_compiler_cache()
