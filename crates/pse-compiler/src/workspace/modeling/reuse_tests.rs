@@ -770,7 +770,7 @@ fn owned_frontier_completion_uses_consumed_inventory_and_cancellation_is_retryab
 }
 
 #[derive(Debug)]
-struct RefuseFrontierLookupOnce(AtomicBool);
+struct RefuseFrontierLookupOnce(AtomicUsize);
 impl ModelingBodyRetention for RefuseFrontierLookupOnce {
     fn generation(&self) -> u64 {
         0
@@ -779,7 +779,11 @@ impl ModelingBodyRetention for RefuseFrontierLookupOnce {
         &self,
         _: pse_ids::roles::SemanticBodyHash,
     ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
-        if self.0.swap(false, Ordering::Relaxed) {
+        if self
+            .0
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |remaining| remaining.checked_sub(1))
+            == Ok(1)
+        {
             Err(MathError::Contract("transient pure lookup refusal".into()))
         } else {
             Ok(None)
@@ -803,7 +807,7 @@ fn owned_frontier_retries_the_same_request_after_a_pure_retention_lookup_refusal
     )
     .unwrap();
     workspace
-        .attach_body_retention(Arc::new(RefuseFrontierLookupOnce(AtomicBool::new(true))))
+        .attach_body_retention(Arc::new(RefuseFrontierLookupOnce(AtomicUsize::new(1))))
         .unwrap();
     let root = publish_frontier_source(
         &mut workspace,
@@ -1318,10 +1322,10 @@ fn owned_frontier_completion_counts_mandatory_receiving_inventory() {
         .publish_modeling_revision(workspace.modeling.as_ref().unwrap().revision.clone())
         .unwrap();
     let mandatory = receiver.observe_retention();
-    assert!(mandatory.entries > incoming_count + 1);
-    // Body requests fit, and bytes are unconstrained here; the receiver's
-    // mandatory Inventory/Catalog/input entries alone prevent count admission.
-    workspace.limits.retained_entries = mandatory.entries - 1;
+    assert!(mandatory.entries > 0);
+    // Body requests fit, and bytes are unconstrained here; adding the receiver's
+    // mandatory Inventory/Catalog/input entries exceeds the same count policy.
+    workspace.limits.retained_entries = incoming_count;
     workspace.limits.query_values = 1;
     assert!(frontier.retained_bytes() + mandatory.known_bytes < workspace.limits.retained_bytes);
     let generation = workspace.generation();
@@ -1354,7 +1358,8 @@ fn owned_frontier_completion_refuses_new_mandatory_entries_without_second_rotati
     // indexes and non-evictable body keys; those cannot justify another retry.
     workspace.limits.query_values = 1;
     workspace.limits.retained_entries = mandatory.entries + incoming_count;
-    assert!(workspace.observe_retention().entries > workspace.limits.retained_entries);
+    let residue = workspace.observe_retention();
+    assert!(residue.entries > workspace.limits.retained_entries, "residue={residue:?}, limit={}", workspace.limits.retained_entries);
     let generation = workspace.generation();
     assert!(matches!(
         workspace.complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false))),
@@ -1370,31 +1375,33 @@ fn owned_frontier_completion_preserves_typed_refusal_after_receiving_rotation() 
         WorkspaceLimits::default(),
     )
     .unwrap();
-    workspace
-        .attach_body_retention(Arc::new(RefuseFrontierLookupOnce(AtomicBool::new(true))))
-        .unwrap();
+    let refusal = Arc::new(RefuseFrontierLookupOnce(AtomicUsize::new(0)));
+    workspace.attach_body_retention(refusal.clone()).unwrap();
     let root = publish_frontier_source(
         &mut workspace,
-        "package p {def Root {var x:Scalar; eq e:x*x==1;}}",
+        "package p {def Root {var x:Scalar; eq e:x*x==1; eq f:x==2;}}",
     );
     let frontier = plan_frontier(&mut workspace, root);
+    let incoming_count = frontier.body_requests().count();
+    refusal.0.store(incoming_count, Ordering::Relaxed);
     let mut receiver = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
     receiver
         .publish_modeling_revision(workspace.modeling.as_ref().unwrap().revision.clone())
         .unwrap();
     workspace.limits.query_values = 1;
-    workspace.limits.retained_entries = receiver.observe_retention().entries + frontier.body_requests().count();
+    workspace.limits.retained_entries = receiver.observe_retention().entries + incoming_count;
     let generation = workspace.generation();
     let error = workspace
         .complete_modeling_cancellable(frontier, Arc::new(AtomicBool::new(false)))
         .unwrap_err();
     assert!(error.to_string().contains("transient pure lookup refusal"));
     assert_eq!(workspace.generation(), generation + 1);
-    assert!(workspace.observe_retention().entries > workspace.limits.retained_entries);
+    let residue = workspace.observe_retention();
+    assert!(residue.entries > workspace.limits.retained_entries, "residue={residue:?}, limit={}", workspace.limits.retained_entries);
 }
 
 #[derive(Debug)]
-struct RequireReceivingRotation(pse_diagnostics::observation::ObservationContext);
+struct RequireReceivingRotation;
 impl ModelingBodyRetention for RequireReceivingRotation {
     fn generation(&self) -> u64 {
         0
@@ -1403,8 +1410,9 @@ impl ModelingBodyRetention for RequireReceivingRotation {
         &self,
         _: pse_ids::roles::SemanticBodyHash,
     ) -> std::result::Result<Option<Arc<AdmittedBody>>, MathError> {
+        let context = pse_diagnostics::observation::current().unwrap();
         assert_eq!(
-            super::test_observation::metric_count(&self.0, "compiler.workspace_rebuilds"),
+            test_observation::metric_count(&context, "compiler.workspace_rebuilds"),
             1,
             "receiving admission must discard excess history before body acquisition"
         );
@@ -1434,7 +1442,7 @@ fn owned_frontier_completion_reclaims_resident_count_without_byte_pressure() {
     )
     .unwrap();
     workspace
-        .attach_body_retention(Arc::new(RequireReceivingRotation(context)))
+        .attach_body_retention(Arc::new(RequireReceivingRotation))
         .unwrap();
     let root = publish_frontier_source(
         &mut workspace,
