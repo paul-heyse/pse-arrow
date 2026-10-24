@@ -21,14 +21,18 @@
 #
 # Intermediates stay in each checkout's own target/ (Cargo's default). A build directory
 # shared by several checkouts is unsound: Cargo keys a workspace member's unit by its
-# workspace-relative path and checks freshness by mtime, so one checkout would reuse
-# another checkout's artifact for different sources. sccache shares compilations across
+# workspace-relative path with checkout-local fingerprint state, so one checkout could
+# reuse another checkout's artifacts. sccache shares compilations across
 # checkouts instead (scripts/build_environment.py).
 
 [build]
 jobs = 16
+# Check source bytes instead of mtimes; declared build-script file inputs retain
+# Cargo's rerun-if-changed mtime behavior.
+fingerprint = "content"
 
 [unstable]
+checksum-freshness = true
 # Resolve dependency features for the whole workspace whatever `-p` selects, so each
 # recipe selection shares one build of symbolica, DataFusion and Arrow ([resolver]).
 feature-unification = true

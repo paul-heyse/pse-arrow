@@ -13,6 +13,7 @@ except the sccache compiler cache: each checkout keeps its own ``target/`` (ADR-
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -22,9 +23,20 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKTREES = Path.home() / "pse-arrow-wt"
 
 
+def command_environment(cwd: Path) -> dict[str, str]:
+    """Compose the new checkout without inheriting this checkout's router paths."""
+    environment = dict(os.environ)
+    if cwd != ROOT:
+        managed = str(ROOT / "scripts/sccache")
+        for name in ("RUSTC_WRAPPER", "PSE_NATIVE_COMPILER_CACHE"):
+            if environment.get(name) == managed:
+                environment.pop(name)
+    return environment
+
+
 def run(command: list[str], cwd: Path) -> None:
     print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=cwd, check=True)
+    subprocess.run(command, cwd=cwd, env=command_environment(cwd), check=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -78,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         run(["just", "py-sync-native" if args.native else "py-sync"], target)
     # Informational: a fresh checkout without --python legitimately lacks a venv.
     print("+ just doctor", flush=True)
-    subprocess.run(["just", "doctor"], cwd=target, check=False)
+    subprocess.run(["just", "doctor"], cwd=target, env=command_environment(target), check=False)
     print(f"worktree: created. cd {target}; remove with: git worktree remove {target}")
     return 0
 

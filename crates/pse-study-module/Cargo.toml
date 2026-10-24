@@ -19,6 +19,7 @@ module-qualification = []
 module-qualification-long-hold = ["module-qualification"]
 
 [lib]
+doctest = false
 crate-type = ["cdylib", "rlib"]
 
 [lints]

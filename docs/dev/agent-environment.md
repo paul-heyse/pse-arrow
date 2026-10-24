@@ -317,12 +317,15 @@ just worktree <name> [--ref REF] [--python | --native]
 
 creates `~/pse-arrow-wt/<name>` on a new branch from REF (default `HEAD`) and prints the
 commit and any uncommitted work it does *not* carry. It copies `.envrc.local`, allows direnv,
-links the selected skills and reports `just doctor`; `--python` builds that checkout's own
+links the selected skills and reports `just doctor`. Child setup recomposes the managed
+compiler router for the new checkout, preserving explicit custom/empty wrappers and the
+selected real cache binary. `--python` builds that checkout's own
 venv and dev extension, `--native` the linked one. Claude-created worktrees receive
 `.envrc.local` through `.worktreeinclude`. Each checkout builds into its own `target/`; never
 set `CARGO_TARGET_DIR` (sccache keys compilations on `CARGO_*` variables, and Cargo keys
-workspace units by relative path and mtime, so two checkouts sharing a target reuse each
-other's artifacts — ADR-0122). Remove a worktree with `git worktree remove <path>` once merged.
+workspace units by relative path with checkout-local fingerprint state, so sharing a target
+can reuse another checkout's artifacts despite the content-freshness policy. Keep each
+checkout isolated — ADR-0122). Remove a worktree with `git worktree remove <path>` once merged.
 
 ## Choosing tests
 

@@ -14,6 +14,10 @@ authors.workspace = true
 # Benchmarks are not a shipped artifact.
 publish = false
 
+[lib]
+doctest = false
+test = false
+
 [lints]
 workspace = true
 
@@ -26,7 +30,6 @@ force-validate = [
   "pse-engine/force-validate",
   "pse-operations/force-validate",
   "pse-relations/force-validate",
-  "pse-rules/force-validate",
   "pse-runtime/force-validate",
   "pse-schema/force-validate",
   "pse-testkit/force-validate",
@@ -43,7 +46,6 @@ pse-modeling.workspace = true
 pse-model.workspace = true
 pse-math.workspace = true
 pse-authoring.workspace = true
-pse-rules.workspace = true
 pse-backend-native.workspace = true
 pse-kernels.workspace = true
 pse-compiler.workspace = true
@@ -63,8 +65,6 @@ tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tokio.workspace = true
 tempfile.workspace = true
-url.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 serde-saphyr.workspace = true
 futures-util.workspace = true
@@ -96,3 +96,8 @@ name = "document_admission"
 harness = false
 
 [dependencies]
+
+# Shared tests/support/workflow_runtime.rs is outside the bench target directory.
+# cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
+[package.metadata.cargo-shear]
+ignored = ["tempfile"]

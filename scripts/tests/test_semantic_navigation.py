@@ -69,6 +69,8 @@ class SemanticNavigationTests(unittest.TestCase):
             ["pse-relations/force-validate"],
         )
         self.assertTrue(server["initialization_options"]["cargo"]["targetDir"])
+        self.assertIs(server["initialization_options"]["checkOnSave"], False)
+        self.assertNotIn("check", server["initialization_options"])
         self.assertEqual(build_environment.language_server_environment({}), {})
 
     def test_diagnostic_flags_preserve_explicit_linker_and_nested_selection(

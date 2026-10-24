@@ -23,9 +23,7 @@ force-validate = [
   "pse-engine/force-validate",
   "pse-operations/force-validate",
   "pse-relations/force-validate",
-  "pse-rules/force-validate",
   "pse-schema/force-validate",
-  "pse-testkit/force-validate",
 ]
 default = []
 diagnostic-taskdump = ["tokio/taskdump"]
@@ -72,7 +70,6 @@ ndarray.workspace = true
 rayon.workspace = true
 pse-admission.workspace = true
 pse-buildinfo.workspace = true
-pse-rules.workspace = true
 tracing.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
@@ -90,7 +87,6 @@ rustix.workspace = true
 faer.workspace = true
 # Normal and χ² quantiles of the fit's confidence intervals (Plan 22 S3).
 statrs.workspace = true
-url.workspace = true
 pse-backend-native.workspace = true
 pse-math.workspace = true
 pse-kernels.workspace = true
@@ -118,7 +114,6 @@ datafusion.workspace = true
 # (ADR-0125).
 parquet.workspace = true
 futures-util.workspace = true
-object_store.workspace = true
 pse-columnar.workspace = true
 pse-engine.workspace = true
 pse-diagnostics.workspace = true
@@ -137,8 +132,6 @@ egobox-doe.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
 pse-relations = { workspace = true, features = ["test-support"] }
-url.workspace = true
-pse-testkit.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }
 datafusion-common.workspace = true
 tokio.workspace = true

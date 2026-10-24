@@ -67,7 +67,7 @@ def configuration(
             + json.dumps(analyzer)
             + '\nargs = []\nfile_patterns = ["**/*.rs"]\ntimeout_seconds = 45\nrequest_timeout_seconds = 45\n'
             + server_environment
-            + "[lsp_servers.initialization_options]\ncheck.enable = false\n"
+            + "[lsp_servers.initialization_options]\ncheckOnSave = false\n"
         )
         for group, values in settings.items():
             for key, value in values.items():

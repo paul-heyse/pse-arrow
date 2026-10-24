@@ -13,6 +13,9 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 
@@ -43,11 +46,9 @@ datafusion.workspace = true
 parquet.workspace = true
 bytes.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 serde-saphyr.workspace = true
 toml.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 
 [dev-dependencies]
 pse-testkit.workspace = true

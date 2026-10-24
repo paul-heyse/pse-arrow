@@ -25,7 +25,6 @@ serde_json.workspace = true
 # The JSON Schema of an identity inside a boundary document (ADR-0116 Outcome 7).
 schemars.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 
 
 [dev-dependencies]

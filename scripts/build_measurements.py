@@ -339,6 +339,8 @@ def validate_target(
     )
     if Path(metadata["target_directory"]) != target:
         raise ValueError("effective Cargo target escapes the selected snapshot target")
+    if metadata.get("build_directory") != str(target):
+        raise ValueError("effective Cargo build directory differs from the selected snapshot target")
 
 
 def recover_target(
@@ -736,15 +738,23 @@ def process_tree_rss(pid: int) -> int:
     return total
 
 
-def edit_body(source: Path) -> tuple[Path, str]:
-    private = source / "crates/pse-compiler/src/physical_identity.rs"
+def private_edit(source: Path) -> tuple[Path, str, str]:
+    """Validate a real private-body probe before starting expensive samples."""
+    private = source / "crates/pse-compiler/src/workspace.rs"
     original = private.read_text()
-    marker = "h.u64(v.to_bits());"
+    marker = "fn name_key_heap((text,): &(String,)) -> usize {\n    text.capacity()\n}"
     if original.count(marker) != 1:
         raise ValueError("private build probe needs one exact body-edit anchor")
-    private.write_text(
-        original.replace(marker, "h.u64(std::hint::black_box(v).to_bits());")
+    return (
+        private,
+        original,
+        original.replace(marker, marker.replace("text.capacity()", "std::hint::black_box(text).capacity()")),
     )
+
+
+def edit_body(source: Path) -> tuple[Path, str]:
+    private, original, replacement = private_edit(source)
+    private.write_text(replacement)
     return private, original
 
 
@@ -756,11 +766,18 @@ def build_phases(
     screen: bool,
 ) -> None:
     """Observe each isolated edit and restoration using the same selected build."""
+    if not screen:
+        private_edit(source)
+        (source / "crates/pse-compiler/src/lib.rs").read_text()
+        (source / "docs/dev/documentation.md").read_bytes()
     sample("cold")
     for repetition in range(repetitions):
         sample(f"warm-{repetition}")
         if screen:
             continue
+        private, _, _ = private_edit(source)
+        os.utime(private, None)
+        sample(f"identical-touch-{repetition}")
         private, original = edit_body(source)
         try:
             sample(f"private-edit-{repetition}")
@@ -1518,7 +1535,7 @@ def main() -> None:
         (output / "original-source.json").read_text()
     )
     statistics_by_kind = {}
-    for kind in ("warm", "private-edit", "public-edit", "unrelated-edit"):
+    for kind in ("warm", "identical-touch", "private-edit", "public-edit", "unrelated-edit"):
         values = [
             receipt["wall_seconds"]
             for name, receipt in receipts.items()

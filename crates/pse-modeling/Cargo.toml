@@ -26,6 +26,5 @@ petgraph.workspace = true
 rpds.workspace = true
 typed-index-collections.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

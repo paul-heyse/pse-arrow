@@ -66,7 +66,6 @@ pse-columnar.workspace = true
 pse-relations.workspace = true
 pse-engine.workspace = true
 datafusion.workspace = true
-url.workspace = true
 pyo3 = { workspace = true, features = [
   "extension-module",
   "abi3-py311",
@@ -77,7 +76,6 @@ pse-runtime.workspace = true
 pse-buildinfo.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true
-pse-kernels.workspace = true
 tokio.workspace = true
 miette.workspace = true
 

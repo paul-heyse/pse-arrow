@@ -14,24 +14,23 @@ authors.workspace = true
 # A test family is never published.
 publish = false
 
+[lib]
+doctest = false
+test = false
+
 [lints]
 workspace = true
 
 [dev-dependencies]
 pse-columnar.workspace = true
-miette.workspace = true
 pse-diagnostics.workspace = true
-pse-testkit.workspace = true
 pse-engine.workspace = true
 serde_json.workspace = true
-pse-ids.workspace = true
 pse-schema.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
 pse-runtime.workspace = true
 arrow.workspace = true
 datafusion.workspace = true
-object_store.workspace = true
-url.workspace = true
 tokio.workspace = true
 tempfile.workspace = true
 
@@ -45,5 +44,4 @@ force-validate = [
   "pse-relations/force-validate",
   "pse-runtime/force-validate",
   "pse-schema/force-validate",
-  "pse-testkit/force-validate",
 ]

@@ -36,7 +36,6 @@ arrow-schema.workspace = true
 pse-ids.workspace = true
 pse-quantity.workspace = true
 thiserror.workspace = true
-miette.workspace = true
 
 [features]
 force-validate = [
