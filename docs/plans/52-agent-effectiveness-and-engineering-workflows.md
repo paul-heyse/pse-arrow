@@ -26,7 +26,8 @@ with the review's conditions intact. This coordinator owns package progress, opp
 and inquiry dispositions, shared decisions, cross-plan boundaries and overall completion.
 Companions own detailed designs and acceptance, linking here for current state. Architecture
 and ADRs retain contract/rationale authority. The maintainer subsequently authorized detailed execution of all 52a/52b on 2026-10-23,
-including their required FND00 and small G01 prerequisite slices. Other packages remain planned.
+including their required FND00 and small G01 prerequisite slices. On 2026-10-23 the maintainer also
+authorized all C01–C08/D01–D04 and their necessary prerequisite slices. Other packages remain planned.
 
 **Interface-checked baseline:** `cbda2efc6` on main. Plans49–51's delivered functionality and
 prior qualification remain at their current owners; the review is their evidence-informed
@@ -210,18 +211,18 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | B03 | done | [52b](52b-local-knowledge-and-research.md#B03) | Exact-version dossier with unresolved semantics |
 | B04 | done | [52b](52b-local-knowledge-and-research.md#B04) | Separate derived knowledge family and rebuild |
 | B05 | done | [52b](52b-local-knowledge-and-research.md#B05) | Bounded local semantic decision and second I03 outcome |
-| C01 | planned | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
-| C02 | planned | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
-| C03 | planned | [52c](52c-behavioral-and-scientific-verification.md#C03) | Mutation/fault-injection consumer |
-| C04 | planned | [52c](52c-behavioral-and-scientific-verification.md#C04) | Pure-boundary fuzz/reduced regression |
-| C05 | planned | [52c](52c-behavioral-and-scientific-verification.md#C05) | Numerical reference experiment and export |
-| C06 | planned | [52c](52c-behavioral-and-scientific-verification.md#C06) | Meaning-preserving source-aware reduction |
-| C07 | planned | [52c](52c-behavioral-and-scientific-verification.md#C07) | Focused instrumentation; native I06 outcome |
-| C08 | planned | [52c](52c-behavioral-and-scientific-verification.md#C08) | Controlled schedules; modeled I06 outcome |
-| D01 | planned | [52d](52d-execution-and-qualification-efficiency.md#D01) | Cursor watch/reconciliation and real terminal |
-| D02 | planned | [52d](52d-execution-and-qualification-efficiency.md#D02) | Feature interruption/resume/repair |
-| D03 | planned | [52d](52d-execution-and-qualification-efficiency.md#D03) | Safe build equivalence decision I07 |
-| D04 | planned | [52d](52d-execution-and-qualification-efficiency.md#D04) | Pressure/topology and truthful unknowns |
+| C01 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
+| C02 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
+| C03 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C03) | Mutation/fault-injection consumer |
+| C04 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C04) | Pure-boundary fuzz/reduced regression |
+| C05 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C05) | Numerical reference experiment and export |
+| C06 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C06) | Meaning-preserving source-aware reduction |
+| C07 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C07) | Focused instrumentation; native I06 outcome |
+| C08 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#C08) | Controlled schedules; modeled I06 outcome |
+| D01 | done | [52d](52d-execution-and-qualification-efficiency.md#D01) | Cursor watch/reconciliation and real terminal |
+| D02 | in-progress | [52d](52d-execution-and-qualification-efficiency.md#D02) | Feature interruption/resume/repair |
+| D03 | in-progress | [52d](52d-execution-and-qualification-efficiency.md#D03) | Safe build equivalence decision I07 |
+| D04 | done | [52d](52d-execution-and-qualification-efficiency.md#D04) | Pressure/topology and truthful unknowns |
 | E01 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E01) | Historical replay and I08 |
 | E02 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Verified representative fixtures and I09 |
 | E03 | planned | [52e](52e-reproducible-experiments-and-isolation.md#E03) | Reproducible regression experiment |
@@ -302,3 +303,19 @@ subsequent structured host/native/CLI acceptance above closes that selected pivo
 correspondence, native authority/state distinctions and query behavior. The requested SurrealDB,
 tooling and SurrealKV source review informed the physical realization. Semantic similarity remains
 unselected; no new database or authority is implicit. A03/A04/B02/B03's unaffected delivery remains.
+
+
+### 52c/52d execution checkpoint — 2026-10-23
+
+All twelve packages are authorized. Execution uses current Test Assessment1.2 without reopening
+settled reviews. ADR-0223 declares a separate scientific reduction document family; original
+reproduction remains exact. RC03's combination reuse unit is published at blueprint §24.1.
+D01/D04 are integrated: exact detached cursor watch and shared identity-aware kernel pressure
+observations passed 45 focused tests and two actual build/test/watch/quota controls in the isolated
+executor checkout. Their report boundaries are retained in 52d. Remaining C/D implementation and
+actual-consumer acceptance are in progress; no assembled Plan52 qualification is claimed.
+
+I05 selects ordinary existing Proptest action sequences, not another state-machine dependency.
+I06's actual native instrumentation and deterministic schedule branches remain separately tested.
+For I07 the maintainer selected safe reuse, including one actual complete-context server build;
+explanation-only fallback is reserved for unsupported contexts, not the primary target.

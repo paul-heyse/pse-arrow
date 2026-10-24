@@ -1,6 +1,6 @@
 ---
 title: "Plan 52d: Execution and qualification efficiency"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -132,3 +132,19 @@ reuse readiness; D03 changes only installation equivalence after its decision. E
 D04 observations where meaningful. Scope-end static/full feature qualification belongs to 52h;
 no repeated full powerset is scheduled per package. Delete replaced polling/reuse interpretations
 once real callers migrate while preserving useful one-shot snapshots and direct CLIs.
+
+
+## Execution checkpoint — 2026-10-23
+
+D01/D04 are **Implemented** and **Tested** at their selected boundaries. The isolated executor's
+`scripts/pse-env --resource-class light -- .venv/bin/python -m unittest scripts.tests.test_activity scripts.tests.test_activity_watch scripts.tests.test_pressure_observation scripts.tests.test_storage_health`
+passed 45 tests against baseline zero. `scripts.tests.plan52_observation_check` passed two actual
+controls: real build→test→frozen terminal, watcher interruption/reconnect, finite CPU quota/idle
+pressure, direct activity projection and disappearance. Artifacts are in
+`/home/paul/.cache/pse52-observation-20261023T1905/`. This is functional wiring evidence, not a
+performance benefit or assembled Plan52 qualification claim. No tuning or scheduler was added.
+
+D02 captures literal check argv through the existing Cargo adapter; pinned cargo-hack's displayed
+command list loses argument quoting and is not an execution input. The same tool still owns the
+complete ordered enumeration. D03's selected target includes one actual new complete-context
+custom-server build, followed by safe formatting-equivalence reuse. Both remain in progress.

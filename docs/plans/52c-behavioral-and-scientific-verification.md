@@ -1,8 +1,8 @@
 ---
 title: "Plan 52c: Behavioral and scientific verification"
-status: draft
+status: in-progress
 date: 2026-10-23
-adrs: []
+adrs: [ADR-0223]
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
@@ -20,7 +20,7 @@ No technique becomes a mandatory repository-wide score, campaign or new scientif
 
 Existing `affected.py`, cargo-llvm-cov/nextest, Proptest1.11, independent references,
 `derivative_diagnostics.rs`, strict `workflow/reproducer.rs` and the pure-ID Miri recipe remain
-foundations. Test Assessment1.0 shapes expected-result independence and plausible-bad controls.
+foundations. Test Assessment1.2 shapes expected-result independence and plausible-bad controls.
 A generator, a sanitizer, a high-precision result and a round trip establish different claims.
 
 ## Work packages
