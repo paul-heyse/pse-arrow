@@ -67,8 +67,8 @@ class CanonicalSetupProducers(unittest.TestCase):
         self.request.node.nodeid = "test_selected.py::test_selected"
         self.request.node.fixturenames = ["canonical_substrate"]
         native_marker = pytest.mark.test_requirements(native=True).mark
-        self.request.node.get_closest_marker.side_effect = (
-            lambda name: native_marker if name == "test_requirements" else None
+        self.request.node.get_closest_marker.side_effect = lambda name: (
+            native_marker if name == "test_requirements" else None
         )
         environment = patch.dict(
             os.environ,

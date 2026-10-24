@@ -609,10 +609,14 @@ class StorageHealthTests(unittest.TestCase):
         action = health.owner_actions(record)[1]
         self.assertEqual(action["command"][2], "recover-maintenance")
         self.state.mkdir(mode=0o700)
-        with patch.object(test_resources, "registry", return_value=self.root / "registry"):
+        with patch.object(
+            test_resources, "registry", return_value=self.root / "registry"
+        ):
             test_resources.service_registry_binding(self.state, establish=True)
         with (
-            patch.object(test_resources, "registry", return_value=self.root / "registry"),
+            patch.object(
+                test_resources, "registry", return_value=self.root / "registry"
+            ),
             patch.object(
                 server, "lifecycle_reservation", return_value=contextlib.nullcontext()
             ) as reserve,
