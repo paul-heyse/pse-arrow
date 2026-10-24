@@ -504,6 +504,51 @@ class ExactStoreTests(unittest.TestCase):
             events.index(("settle", "active")), events.index(("publish", "resources"))
         )
 
+    def test_interrupted_service_membership_never_exposes_unprotected_authority(self) -> None:
+        resource = "d" * 32
+        entry = files.Entry(
+            resource,
+            ["/owned/state", "fixture", "database"],
+            {"kind": "database", "service_owner": "/owned/service"},
+        )
+        family = "service-access/" + files.digest("/owned/service")
+        marker = self.store.path(family, resource)
+        publish = files.publish
+
+        def interrupt_arrival(path: Path, value: Mapping[str, object]) -> None:
+            publish(path, value)
+            if path == marker:
+                raise OSError("service marker durable, authority unpublished")
+
+        with (
+            patch.object(files, "publish", side_effect=interrupt_arrival),
+            self.assertRaisesRegex(OSError, "authority unpublished"),
+        ):
+            self.store._save(entry)
+        self.assertEqual(self.store.access_ids(family), [resource])
+        with self.assertRaises(FileNotFoundError):
+            self.store.lookup(resource)
+
+        # Retrying settles the existing protective path before authority appears.
+        self.store._save(entry)
+        self.assertEqual(self.store.lookup(resource), entry)
+        unlink = Path.unlink
+
+        def interrupt_departure(path: Path, missing_ok: bool = False) -> None:
+            if path == marker:
+                self.assertEqual(self.store.resource_snapshot(resource).phase, "disposed")
+                raise OSError("authority departed, service marker retained")
+            unlink(path, missing_ok=missing_ok)
+
+        with (
+            patch.object(Path, "unlink", interrupt_departure),
+            self.assertRaisesRegex(OSError, "marker retained"),
+            self.store.edit(resource) as selected,
+        ):
+            selected.phase = "disposed"
+        self.assertEqual(self.store.lookup(resource).phase, "disposed")
+        self.assertEqual(self.store.access_ids(family), [resource])
+
     def test_activation_without_fence_and_unknown_active_marker_refuse(self) -> None:
         files.publish(self.root / "allocations.json", {"version": 1, "owners": {}})
         with self.assertRaisesRegex(files.StoreError, "fence"):

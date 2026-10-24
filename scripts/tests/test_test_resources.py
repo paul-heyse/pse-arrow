@@ -9,6 +9,9 @@ import contextlib
 import fcntl
 import json
 import os
+import select
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -118,6 +121,40 @@ class TestResourceTests(unittest.TestCase):
                 "test": "test_module.py::test_assert_after_exit",
             }
         )
+
+    def metadata_peer(self, program: str, *arguments: str) -> subprocess.Popen[str]:
+        """A bounded child shares only this test's actual private registry."""
+        process = subprocess.Popen(
+            [sys.executable, "-u", "-c", program, *arguments],
+            cwd=resources.ROOT,
+            env={**os.environ, "PSE_TEST_RESOURCE_STATE": str(self.root / "registry")},
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        def settle() -> None:
+            if process.poll() is None:
+                process.kill()
+            process.communicate(timeout=5)
+
+        self.addCleanup(settle)
+        return process
+
+    def peer_message(self, process: subprocess.Popen[str]) -> dict:
+        assert process.stdout is not None
+        self.assertTrue(select.select([process.stdout], [], [], 5)[0], "metadata peer did not respond")
+        line = process.stdout.readline()
+        if not line:
+            _, error = process.communicate(timeout=5)
+            self.fail(f"metadata peer exited {process.returncode}: {error}")
+        return json.loads(line)
+
+    def peer_signal(self, process: subprocess.Popen[str], value: str) -> None:
+        assert process.stdin is not None
+        process.stdin.write(value + "\n")
+        process.stdin.flush()
 
     def test_codec_registration_refuses_live_lifecycle_before_publication(self) -> None:
 
@@ -510,6 +547,85 @@ class TestResourceTests(unittest.TestCase):
             self.assertRaisesRegex(resources.ResourceError, "coverage differs"),
         ):
             resources.service_resources(self.state)
+
+    def test_foreign_process_creation_and_retained_reader_block_maintenance(self) -> None:
+        identity = "foreign.py::test_storage"
+        foreign = resources.invocation(
+            "python", [{"name": identity}],
+            requirements={identity: {"effects": ["canonical"], "fixtures": [], "capacity": "canonical", "roles": []}},
+        )
+        before = resources.storage().invocation_snapshot(foreign.stem)
+        descriptor = resources.storage().path("invocation-inputs", before["descriptor"])
+        immutable = descriptor.read_bytes(), descriptor.stat().st_mtime_ns
+        program = """import json,os,select,sys,time
+from pathlib import Path
+from unittest.mock import patch
+from scripts import surreal_server as server,test_resources as resources
+state=Path(sys.argv[1]); os.environ[resources.MARKER]=sys.argv[2]
+configuration=json.loads(sys.argv[3]); identity=sys.argv[4]
+deadline=time.monotonic()+15
+def step(expected):
+    if not select.select([sys.stdin],[],[],max(0,deadline-time.monotonic()))[0]: raise TimeoutError('metadata peer release')
+    assert input()==expected
+def say(**value): print(json.dumps(value),flush=True)
+# This is a filesystem-only service fixture: configuration is supplied, while
+# lifecycle exclusion, invocation authority and resource membership are actual.
+with patch.object(server,'config_for',return_value=configuration):
+    say(status='ready')
+    step('closed')
+    payload={'state':str(state),'database':'canonical_test_'+'b'*32,'test':identity}
+    try: resources.register(payload,deadline=deadline)
+    except server.SupervisorError as error: say(status='blocked',reason=str(error))
+    else: raise AssertionError('maintenance admitted foreign creation')
+    step('create')
+    resource=resources.register(payload,deadline=deadline)
+    say(status='created',resource=resource)
+    step('read')
+    resources.record_drain(resource,deadline=deadline)
+    with resources.borrow(resource,deadline=deadline):
+        say(status='borrowed')
+        step('release')
+    say(status='released')
+"""
+        peer = self.metadata_peer(program, str(self.state), str(foreign), json.dumps(self.config), identity)
+        self.assertEqual(self.peer_message(peer), {"status": "ready"})
+        with surreal_server.lifecycle_reservation(self.state):
+            self.peer_signal(peer, "closed")
+            refused = self.peer_message(peer)
+            self.assertEqual(refused["status"], "blocked")
+            self.assertIn("lifecycle operation", refused["reason"])
+            self.assertEqual(resources.resource_status(), {})
+        self.peer_signal(peer, "create")
+        created = self.peer_message(peer)
+        self.assertEqual(created["status"], "created")
+        resource = created["resource"]
+        record = resources.resource_status(resource)
+        self.assertEqual(record["invocation"], foreign.stem)
+        self.assertEqual(record["creation_borrower"]["pid"], peer.pid)
+        with (
+            surreal_server.lifecycle_reservation(self.state),
+            self.assertRaisesRegex(surreal_server.SupervisorError, "creation still borrows"),
+        ):
+            surreal_server.require_borrowers_drained(self.state)
+        self.peer_signal(peer, "read")
+        self.assertEqual(self.peer_message(peer), {"status": "borrowed"})
+        record = resources.resource_status(resource)
+        self.assertTrue(record["drained"])
+        self.assertNotIn("creation_borrower", record)
+        self.assertEqual([borrower["pid"] for borrower in record["borrows"].values()], [peer.pid])
+        with (
+            surreal_server.lifecycle_reservation(self.state),
+            self.assertRaisesRegex(surreal_server.SupervisorError, "protected borrowers"),
+        ):
+            surreal_server.require_borrowers_drained(self.state)
+        self.peer_signal(peer, "release")
+        self.assertEqual(self.peer_message(peer), {"status": "released"})
+        _, errors = peer.communicate(timeout=5)
+        self.assertEqual((peer.returncode, errors), (0, ""))
+        with surreal_server.lifecycle_reservation(self.state):
+            surreal_server.require_borrowers_drained(self.state)
+        self.assertEqual(immutable, (descriptor.read_bytes(), descriptor.stat().st_mtime_ns))
+        self.assertEqual(set(resources.storage().invocation_snapshot(foreign.stem)["members"]), {resource})
 
     def test_projection_writes_only_membership_transitions_and_scratch_is_separate(
         self,
@@ -1484,6 +1600,135 @@ class TestResourceTests(unittest.TestCase):
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertFalse((directory / "run.log").exists())
         self.assertTrue((directory / "checks.json").exists())
+
+    def test_interrupted_scratch_membership_preserves_authority_and_reader(self) -> None:
+        directory = self.root / "build" / "interrupted-membership"
+        directory.mkdir(parents=True)
+        (directory / "run.log").write_text("owned scratch")
+        resource = resources.register_report(directory, root=self.root)
+        marker = resources.storage().path("scratch-candidates", resource)
+        publish = resources.resource_store.publish
+
+        def interrupt_arrival(path: Path, value: Mapping[str, object]) -> None:
+            publish(path, value)
+            if path == marker:
+                raise OSError("scratch candidate durable, seal unpublished")
+
+        with (
+            patch.object(resources.resource_store, "publish", side_effect=interrupt_arrival),
+            self.assertRaisesRegex(OSError, "seal unpublished"),
+        ):
+            self.finish_report(resource, {"complete": True, "required_checks_covered": True})
+        record = resources.resource_status(resource)
+        self.assertTrue(record["pin"])
+        self.assertNotIn("artifact_manifest", record)
+        self.assertTrue(marker.exists())
+        self.assertEqual(resources.reclaim_reports(), [])
+        self.assertTrue((directory / "run.log").exists())
+        self.finish_report(resource, {"complete": True, "required_checks_covered": True})
+        original = (directory / "checks.json").read_bytes()
+        unlink = Path.unlink
+
+        def interrupt_departure(path: Path, missing_ok: bool = False) -> None:
+            if path == marker:
+                # The accepted borrower is authoritative before discovery can
+                # depart; a stale candidate cannot override that protection.
+                self.assertTrue(resources.storage().resource_snapshot(resource).facts["borrows"])
+                raise OSError("reader durable, candidate departure interrupted")
+            unlink(path, missing_ok=missing_ok)
+
+        with (
+            patch.object(Path, "unlink", interrupt_departure),
+            self.assertRaisesRegex(OSError, "departure interrupted"),
+            resources.borrow_report(directory),
+        ):
+            self.fail("failed borrower publication must not expose a payload")
+        self.assertTrue(marker.exists())
+        record = resources.resource_status(resource)
+        self.assertEqual(len(record["borrows"]), 1)
+        borrower = next(iter(record["borrows"].values()))
+        self.assertEqual(borrower["pid"], os.getpid())
+        self.assertEqual(resources.reclaim_reports(), [])
+        self.assertTrue((directory / "run.log").exists())
+        self.assertEqual((directory / "checks.json").read_bytes(), original)
+        # The failed acquisition never yielded a reader. Retire only this exact
+        # fixture-owned unknown token after observing its actual process identity.
+        with resources.resource_update(resource) as selected:
+            self.assertEqual(selected["borrows"], record["borrows"])
+            selected["borrows"].clear()
+        self.assertEqual(resources.reclaim_reports(), [])
+        self.assertFalse((directory / "run.log").exists())
+        self.assertEqual((directory / "checks.json").read_bytes(), original)
+
+    def test_scratch_claim_rechecks_foreign_reader_after_eligibility(self) -> None:
+        resource, directory = self.report("racing-reader")
+        original = (directory / "checks.json").read_bytes()
+        program = """import json,select,sys,time
+from pathlib import Path
+from scripts import test_resources as resources
+deadline=time.monotonic()+15
+def step(expected):
+    if not select.select([sys.stdin],[],[],max(0,deadline-time.monotonic()))[0]: raise TimeoutError('metadata reader release')
+    assert input()==expected
+print(json.dumps({'status':'ready'}),flush=True)
+step('borrow')
+with resources.borrow_report(Path(sys.argv[1]),deadline=deadline):
+    print(json.dumps({'status':'borrowed'}),flush=True)
+    step('release')
+print(json.dumps({'status':'released'}),flush=True)
+"""
+        peer = self.metadata_peer(program, str(directory))
+        self.assertEqual(self.peer_message(peer), {"status": "ready"})
+        self.assertEqual(resources.storage().access_ids("scratch-candidates"), [resource])
+        cleanup_reason = resources.cleanup_reason
+        observations = []
+
+        def acquire_after_eligibility(
+            record: resources.ResourceRecord, *, check_units: bool = True,
+            deadline: float | None = None,
+        ) -> str | None:
+            reason = cleanup_reason(record, check_units=check_units, deadline=deadline)
+            observations.append((check_units, reason))
+            if check_units:
+                # Return the actual eligible observation, now stale: the claim
+                # must independently recheck the authority under its exclusion.
+                self.assertIsNone(reason)
+                self.peer_signal(peer, "borrow")
+                self.assertEqual(self.peer_message(peer), {"status": "borrowed"})
+            return reason
+
+        with patch.object(resources, "cleanup_reason", side_effect=acquire_after_eligibility):
+            self.assertEqual(resources.reclaim_reports(), [])
+        self.assertEqual(observations, [(True, None), (False, "protected reference or active borrow")])
+        self.assertEqual(resources.storage().access_ids("scratch-candidates"), [])
+        record = resources.resource_status(resource)
+        self.assertEqual([borrower["pid"] for borrower in record["borrows"].values()], [peer.pid])
+        self.assertTrue((directory / "run.log").exists())
+        self.assertEqual((directory / "checks.json").read_bytes(), original)
+        self.peer_signal(peer, "release")
+        self.assertEqual(self.peer_message(peer), {"status": "released"})
+        _, errors = peer.communicate(timeout=5)
+        self.assertEqual((peer.returncode, errors), (0, ""))
+        self.assertEqual(resources.reclaim_reports(), [])
+        self.assertFalse((directory / "run.log").exists())
+        self.assertEqual((directory / "checks.json").read_bytes(), original)
+
+    def test_corrupt_scratch_candidate_does_not_block_independent_compaction(self) -> None:
+        reports = dict(self.report(name) for name in ("first-candidate", "second-candidate"))
+        first, second = resources.storage().access_ids("scratch-candidates")
+        original = {identity: (directory / "checks.json").read_bytes() for identity, directory in reports.items()}
+        (reports[first] / "run.log").write_text("changed after sealing")
+        errors = resources.reclaim_reports()
+        self.assertEqual(len(errors), 1)
+        self.assertIn(first, errors[0])
+        self.assertIn("ownership changed", errors[0])
+        self.assertTrue(resources.resource_status(first)["pin"])
+        self.assertEqual(resources.resource_status(first)["cleanup"], "retained")
+        self.assertTrue((reports[first] / "run.log").exists())
+        self.assertEqual(resources.resource_status(second)["cleanup"], "compacted")
+        self.assertFalse((reports[second] / "run.log").exists())
+        for identity, directory in reports.items():
+            self.assertEqual((directory / "checks.json").read_bytes(), original[identity])
 
     def test_cleanup_sweep_retains_rejected_service_and_continues(self) -> None:
         first, _ = self.report("retired-service")
