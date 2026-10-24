@@ -141,10 +141,25 @@ def lookup_trace(
         "retention_days": inspected.get("retention_days", config.get("retention_days")),
         "source_cut": "live; no atomic snapshot or continuation guarantee",
     }
-    base, headers = telemetry_service.backend_access(state, environment=environment)
+    services = inspected.get("services")
+    backend = services.get("openobserve") if isinstance(services, dict) else None
+    if (
+        not isinstance(backend, dict)
+        or backend.get("ownership") != "verified"
+        or not isinstance(backend.get("process"), dict)
+    ):
+        return {
+            "status": "unavailable",
+            "reason": "selected_backend_not_active_or_owned",
+            "source": source,
+            "records": [],
+            "complete": False,
+        }
+    source["backend_process"] = backend["process"]
     # Both identifiers and the sole literal have closed validated vocabularies.
     sql = f"SELECT trace_id,span_id,reference_parent_span_id,reference_parent_trace_id,service_service_instance_id,operation_name,_timestamp FROM {stream} WHERE trace_id = '{trace_id}' ORDER BY _timestamp,span_id"  # noqa: S608 -- stream identifier and trace literal are validated closed vocabularies above
     try:
+        base, headers = telemetry_service.backend_access(state, environment=environment)
         code, raw = request(
             base + f"/api/{organization}/_search?type=traces",
             headers=headers,
@@ -159,6 +174,26 @@ def lookup_trace(
                 "timeout": TIMEOUT_SECONDS,
             },
         )
+        current = telemetry_service.inspect(state, environment=environment)
+        current_services = current.get("services")
+        current_backend = (
+            current_services.get("openobserve")
+            if isinstance(current_services, dict)
+            else None
+        )
+        if (
+            not isinstance(current_backend, dict)
+            or current_backend.get("ownership") != "verified"
+            or current_backend.get("process") != backend["process"]
+            or current.get("configuration") != config
+        ):
+            return {
+                "status": "stale",
+                "reason": "selected_backend_changed_during_read",
+                "source": source,
+                "records": [],
+                "complete": False,
+            }
         if code != 200:
             return {
                 "status": "unavailable",

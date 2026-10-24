@@ -466,6 +466,65 @@ class TelemetryReadTests(unittest.TestCase):
         self.assertNotIn("collector_delivery", stages)
         self.assertEqual(self.requests, [])
 
+    def test_trace_lookup_refuses_unowned_backend_before_credentials_or_http(
+        self,
+    ) -> None:
+        for backend in (
+            {"ownership": "verified", "process": None},
+            {"ownership": "unavailable", "process": {"pid": 999}},
+            None,
+        ):
+            with (
+                self.subTest(backend=backend),
+                patch.object(
+                    telemetry_service,
+                    "inspect",
+                    return_value={
+                        **self.inspected,
+                        "services": {"openobserve": backend},
+                    },
+                ),
+                patch.object(telemetry_service, "backend_access") as credentials,
+                patch.object(telemetry_query, "request") as request,
+            ):
+                answer = telemetry_query.lookup_trace(
+                    self.state, TRACE_ID, start_time_us=100, end_time_us=200
+                )
+                self.assertEqual(answer["status"], "unavailable")
+                self.assertEqual(
+                    answer["reason"], "selected_backend_not_active_or_owned"
+                )
+                self.assertEqual(answer["records"], [])
+                credentials.assert_not_called()
+                request.assert_not_called()
+
+    def test_trace_lookup_discards_records_after_backend_restarts(self) -> None:
+        restarted = {
+            **self.inspected,
+            "services": {
+                "openobserve": {**self.services["openobserve"], "process": {"pid": 999}}
+            },
+        }
+        with (
+            patch.object(
+                telemetry_service, "inspect", side_effect=[self.inspected, restarted]
+            ),
+            patch.object(
+                telemetry_service, "backend_access", return_value=(self.base, {})
+            ),
+            patch.object(
+                telemetry_query,
+                "request",
+                return_value=(200, b'{"hits":[{"trace_id":"foreign"}]}'),
+            ),
+        ):
+            answer = telemetry_query.lookup_trace(
+                self.state, TRACE_ID, start_time_us=100, end_time_us=200
+            )
+        self.assertEqual(answer["status"], "stale")
+        self.assertEqual(answer["reason"], "selected_backend_changed_during_read")
+        self.assertEqual(answer["records"], [])
+
     def test_total_deadline_bounds_slow_headers_and_body(self) -> None:
         def drip_handler(
             mode: str, stopping: threading.Event
