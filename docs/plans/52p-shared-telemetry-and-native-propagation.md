@@ -292,6 +292,48 @@ the coordinator's authorized design route when adopted, with native owners retai
 
 ## Targeted execution outcome — 2026-10-24
 
+### Authorized native-observation refinement
+
+The maintainer selected the subsequent library assessment's improvements for this execution:
+Rust-derived private settings with source-only Python bindings; measurements from actual Tokio
+executors and selected library task monitors; and direct existing-endpoint native/pipeline reads.
+Python retains environment resolution, Rust retains native validation, and native owners retain
+execution/cancellation/settlement authority. These are bounded TEL09/TEL14 prerequisites, not
+completion of 52r/52s. The existing coordinator checkpoint owns their execution state.
+
+**Implemented:** the private settings wire is generated from Rust into
+`scripts/generated/telemetry_settings.py`, guarded with the other generated roots. Python
+resolves precedence once and retains immutable encoded settings; native composition validates
+the bounded document. The public effective view remains separately redacted. The generator
+preserves legitimate bytecode caches without accepting source lookalikes or following symlinks,
+and the formatter leaves generator-owned bytes intact.
+
+**Implemented:** `tokio-metrics = "=0.5.2"` observes selected workflow/math futures; actual
+Python, receiver and canonical-tool executor registrations supply Tokio library snapshots.
+Checkpoint v5, inspection v4 and discovery v2 retain recorded target identity and coverage.
+SDK collection reads those same sources with fixed dimensions; no executor, sampler or
+workstation admission policy is added. Current-population executor gauges and process-cumulative
+selected-future counters retain their distinct lifetimes. Nested classes are not additive CPU
+or native durations, and observing or dropping a wrapper proves no scientific settlement.
+
+**Implemented:** the existing FastMCP endpoint exposes redacted configuration, attributed
+pipeline health, bounded known-trace lookup and original native process/checkpoint readers.
+Original native documents are preserved or whole-refused at the transport bound; the compact
+process summary remains the appropriate source for ordinary large checkpoints. No separate
+server, native Runtime, capture or service startup is added by those readers. The source-only
+startup and loaded-source revision fence include the generated private binding.
+
+The bounded RMCP comparison retains the current boundary. There is no handwritten Rust MCP
+protocol to replace: FastMCP owns protocol/discovery, and fixed helpers/PyO3 reach existing native
+readers. [RMCP3.7](https://github.com/modelcontextprotocol/rust-sdk/tree/rmcp-v3.7.0) can expose
+typed Rust services and propagate request metadata, but adding it here would introduce another
+transport/service boundary without eliminating the selected host or native lifetime owner.
+Its task facilities would not replace physical native settlement or optional historical telemetry.
+Revisit a cohesive replacement when an actual resident Rust service needs agent-facing control
+and can retire a complete current adapter path; no RMCP deployment is selected in this scope.
+
+### Existing accepted boundaries
+
 **Implemented:** process-host Python/Rust provider composition, bounded W3C propagation across
 fixed helpers and PyO3/native owners, coarse owner stages and correlated structured lifecycle
 diagnostics. Importing libraries or constructing Runtime instances does not install providers.

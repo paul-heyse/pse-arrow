@@ -115,7 +115,13 @@ pub fn decode_document<T: serde::de::DeserializeOwned, const N: u32>(
     if bytes.len() > MAXIMUM_DOCUMENT_BYTES {
         return Err(format("recorded document exceeds 64 MiB"));
     }
-    pse_model::document::decode_versioned::<T, N>(bytes).map_err(|error| format(error.to_string()))
+    pse_model::document::decode_versioned::<T, N>(bytes).map_err(|error| {
+        if error.location().stage == pse_model::document::DecodeStage::Header {
+            format("recorded document header unsupported or malformed; explicit readmission is required")
+        } else {
+            format(error.to_string())
+        }
+    })
 }
 /// Read exactly the supplied file; neither paths in its body nor neighbours are followed.
 pub fn read_document<T: serde::de::DeserializeOwned, const N: u32>(
@@ -688,6 +694,8 @@ mod tests {
         let unsupported = br#"{"checkpoints":"bad current body","version":9}"#;
         let error = decode_document::<FrozenEvidenceSet, 3>(unsupported).unwrap_err();
         assert!(error.to_string().contains("unsupported"));
+        assert!(error.to_string().contains("header"));
+        assert!(!error.to_string().contains("bad current body"));
     }
 
     #[test]

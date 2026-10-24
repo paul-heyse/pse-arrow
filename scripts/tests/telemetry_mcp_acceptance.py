@@ -40,6 +40,15 @@ if TYPE_CHECKING:
 async def selected(
     client: Client, name: str, arguments: Mapping[str, object], *, action: bool = False
 ) -> dict[str, object]:
+    await client.call_tool(
+        "capabilities_describe", {"capability": name, "include_schema": True}
+    )
+    selection = await client.call_tool("capabilities_select", {"capabilities": [name]})
+    callable_tools = mapping(selection.structured_content)["callable_tools"]
+    require(
+        isinstance(callable_tools, list) and name in callable_tools,
+        "mcp.selected_capability_not_callable",
+    )
     answer = await client.call_tool(
         "capabilities_invoke_action" if action else "capabilities_invoke_read",
         {"capability": name, "arguments": dict(arguments)},
@@ -69,7 +78,31 @@ async def consume(
             "native_diagnostic_checkpoint",
             {"checkpoint": ready["checkpoint"], "expected": None},
         )
-        checkpoint = mapping(image["document"])
+        require(
+            image.get("outcome") == "observed"
+            or (
+                image.get("outcome") == "detail_refused"
+                and image.get("code") == "pse.native.observation_detail_bound"
+                and "document" not in image
+            ),
+            "mcp.checkpoint_neither_exact_nor_whole_refused",
+        )
+        processes = await selected(
+            client,
+            "native_diagnostic_processes",
+            {
+                "directory": str(Path(str(ready["checkpoint"])).parent),
+                "request": {"document_version": 1, "after": None, "limit": 16},
+            },
+        )
+        require(processes.get("outcome") == "observed", "mcp.process_page_not_observed")
+        targets = [
+            item
+            for item in records(mapping(processes["document"])["processes"])
+            if item["checkpoint"] == ready["checkpoint"]
+        ]
+        require(len(targets) == 1, "mcp.exact_checkpoint_not_discovered")
+        checkpoint = targets[0]
         locator = mapping(checkpoint["locator"])
         require(locator["pid"] == ready["pid"], "mcp.native_target_substituted")
         measurements = mapping(checkpoint["runtime_metrics"])
@@ -92,14 +125,6 @@ async def consume(
             ),
             "mcp.actual_future_polls_missing",
         )
-        processes = await selected(
-            client,
-            "native_diagnostic_processes",
-            {
-                "directory": str(Path(str(ready["checkpoint"])).parent),
-                "request": {"document_version": 1, "after": None, "limit": 16},
-            },
-        )
         health = await selected(
             client, "telemetry_health", {"state": str(fixture.state)}
         )
@@ -121,6 +146,7 @@ async def consume(
             "locator": locator,
             "runtime_metrics": measurements,
             "process_discovery": processes,
+            "checkpoint_read_outcome": image["outcome"],
             "native_source_outcome": admitted["outcome"],
             "service_configuration_id": fixture.configuration_id,
         }
@@ -226,35 +252,9 @@ def run(output: Path) -> int:
             "mcp.native_metric_process_identity_changed",
         )
         receipt["producer"] = produced
-        from scripts import telemetry_query  # noqa: PLC0415 -- selected bounded owner.
-
-        for trace_id in (TRACE_A, TRACE_B):
-            trace = wait_for(
-                lambda trace_id=trace_id: telemetry_query.lookup_trace(
-                    fixture.state,
-                    trace_id,
-                    start_time_us=started_us,
-                    end_time_us=time.time_ns() // 1000,
-                ),
-                lambda answer: bool(answer.get("records")),
-                30,
-                "mcp.trace_not_visible",
-            )
-            spans = records(trace["records"])
-            require(
-                any(
-                    row.get("operation_name") == "pse.native.operation" for row in spans
-                ),
-                "mcp.native_trace_edge_missing",
-            )
-            expected_parent = (
-                "1234567890abcdef" if trace_id == TRACE_A else "2468abcdef123456"
-            )
-            require(
-                any(row.get("parent_span_id") == expected_parent for row in spans),
-                "mcp.independent_parent_missing",
-            )
-            receipt["trace_" + trace_id] = trace
+        receipt["known_traces"] = asyncio.run(
+            consume_traces(fixture, environment, started_us)
+        )
         fixture.unit_action("collector", "stop")
         receipt["collector_down_fallback"] = asyncio.run(
             consume_fallback(fixture, environment)
@@ -289,6 +289,51 @@ def run(output: Path) -> int:
         )
     )
     return 0 if receipt["status"] == "passed" else 1
+
+
+async def consume_traces(
+    fixture: Fixture, environment: dict[str, str], started_us: int
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    async with Client(
+        StdioTransport(
+            command=str(ROOT / ".venv/bin/python"),
+            args=["-m", "scripts.capabilities"],
+            cwd=str(ROOT),
+            env=environment,
+            keep_alive=False,
+        ),
+        timeout=30,
+    ) as client:
+        for trace_id, expected_parent in (
+            (TRACE_A, "1234567890abcdef"),
+            (TRACE_B, "2468abcdef123456"),
+        ):
+            deadline = time.monotonic() + 30
+            while True:
+                trace = await selected(
+                    client,
+                    "telemetry_trace_lookup",
+                    {
+                        "state": str(fixture.state),
+                        "trace_id": trace_id,
+                        "start_time_us": started_us,
+                        "end_time_us": time.time_ns() // 1000,
+                    },
+                )
+                spans = records(trace["records"])
+                if any(
+                    row.get("operation_name") == "pse.native.operation" for row in spans
+                ) and any(
+                    row.get("parent_span_id") == expected_parent for row in spans
+                ):
+                    result[trace_id] = trace
+                    break
+                require(
+                    time.monotonic() < deadline, "mcp.native_trace_edge_not_visible"
+                )
+                await asyncio.sleep(0.2)
+    return result
 
 
 async def consume_fallback(
