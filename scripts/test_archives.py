@@ -20,6 +20,8 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from scripts import (
     arrow_validation,
     cargo_tools,
@@ -62,6 +64,39 @@ RUNTIME_ENV = (
 
 class ArchiveError(ValueError):
     """A selected historical closure is unavailable or changed."""
+
+
+class ArchiveRequest(BaseModel):
+    """Host selection only; native closure admission remains below."""
+
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
+
+    output: str = Field(min_length=1)
+    package: str = Field(min_length=1)
+    filter: str = Field(min_length=1)
+    test: str | None = Field(default=None, min_length=1)
+    lib: bool = False
+    features: str = ""
+    fixture: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def selected_target(self) -> ArchiveRequest:
+        if self.lib and self.test is not None:
+            raise ValueError("select either a library or a named test target")
+        for value in self.fixture:
+            relative_input(value)
+        return self
+
+
+class ReplayRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
+
+    archive: str = Field(min_length=1)
+    output: str = Field(min_length=1)
 
 
 def digest(path: Path) -> str:
@@ -319,8 +354,9 @@ def seal(
     )
 
 
-def archive(args: argparse.Namespace) -> dict:
-    output = args.output.absolute()
+def archive(request: ArchiveRequest) -> dict:
+    """Archive one explicit pure closure, using the existing resource and child owners."""
+    output = Path(request.output).absolute()
     resource = new_output(output)
     environment = arrow_validation.rust_test_environment(os.environ)
     environment[test_run.EXECUTION_EFFECTS] = "native-local"
@@ -331,10 +367,10 @@ def archive(args: argparse.Namespace) -> dict:
         scientific_inputs.ROLE,
     ):
         environment.pop(name, None)
-    build = ["cargo", "nextest", "list", "--locked", "-p", args.package]
-    build.extend(["--test", args.test] if args.test else ["--lib"])
-    if args.features:
-        build.extend(["--features", args.features])
+    build = ["cargo", "nextest", "list", "--locked", "-p", request.package]
+    build.extend(["--test", request.test] if request.test else ["--lib"])
+    if request.features:
+        build.extend(["--features", request.features])
     resolution = native_tests.correctness_resolution(build, environment)
     metadata, graph = json.loads(resolution.metadata), json.loads(resolution.unit_graph)
     try:
@@ -356,7 +392,7 @@ def archive(args: argparse.Namespace) -> dict:
         raise
     provenance = output / "producer-provenance.json"
     selection = output / "producer-selection.json"
-    original = ["cargo", "nextest", "run", *resolution.command[3:], "-E", args.filter]
+    original = ["cargo", "nextest", "run", *resolution.command[3:], "-E", request.filter]
     execution, _worker = native_tests.ordinary_rust_capture(
         original, provenance, selection, environment, effects="native-local"
     )
@@ -367,13 +403,13 @@ def archive(args: argparse.Namespace) -> dict:
     if not selected:
         raise ArchiveError("Historical selection is empty")
     package = next(
-        package for package in metadata["packages"] if package["name"] == args.package
+        package for package in metadata["packages"] if package["name"] == request.package
     )
     package_manifest = str(Path(package["manifest_path"]).relative_to(ROOT))
     fixtures = stage_inputs(
         ROOT,
         output / "workspace",
-        ["Cargo.toml", ".config/nextest.toml", package_manifest, *args.fixture],
+        ["Cargo.toml", ".config/nextest.toml", package_manifest, *request.fixture],
     )
     source_fixtures = fixtures.copy()
     scientific_fixtures, input_roles = stage_scientific_input(
@@ -401,6 +437,20 @@ def archive(args: argparse.Namespace) -> dict:
     )
     producer = json.loads(invocation.with_suffix(".terminal.json").read_text())
     validation.write_json(output / "producer-terminal.json", producer)
+    if producer.get("process", {}).get("forwarded_signal") is not None:
+        result = {
+            "status": "interrupted",
+            "exit_code": producer["exit_code"],
+            "output": str(output),
+            "resource": resource,
+            "producer_invocation": str(invocation),
+            "producer_status": producer["status"],
+            "process": producer["process"],
+            "archive_created": False,
+        }
+        validation.write_json(output / "archive-interrupted.json", result)
+        test_resources.pin(resource, True)
+        return result
     archive_command = [
         "cargo",
         "nextest",
@@ -433,7 +483,7 @@ def archive(args: argparse.Namespace) -> dict:
         "toolchain": native["toolchain"],
         "validated_unit_graph": graph,
         "build_command": resolution.command,
-        "filter": args.filter,
+        "filter": request.filter,
         "selected": selected,
         "fixtures": fixtures,
         "input_roles": input_roles,
@@ -487,15 +537,24 @@ def archive(args: argparse.Namespace) -> dict:
     return {
         "status": "archived",
         "output": str(output),
+        "archive_manifest": str(output / "archive.json"),
         "resource": resource,
         "producer_invocation": str(invocation),
         "producer_status": producer["status"],
     }
 
 
-def inspect(directory: Path) -> dict:
+def inspect(
+    directory: Path, *, offset: int = 0, limit: int | None = None,
+    manifest_sha256: str | None = None,
+) -> dict:
+    if offset < 0 or (limit is not None and not 1 <= limit <= 100):
+        raise ArchiveError("select nonnegative offset and limit in 1..100")
     directory = directory.resolve(strict=True)
     with test_resources.reference_report(directory, None):
+        identity = digest(directory / "archive.json")
+        if manifest_sha256 is not None and identity != manifest_sha256:
+            raise ArchiveError("Historical archive manifest identity changed")
         manifest = json.loads((directory / "archive.json").read_text())
         if manifest.get("schema") != SCHEMA:
             raise ArchiveError("Unsupported archive document")
@@ -507,11 +566,19 @@ def inspect(directory: Path) -> dict:
         ):
             raise ArchiveError("Retained test archive missing or changed")
         verify_inputs(directory / "workspace", manifest["fixtures"])
+        if digest(directory / "archive.json") != identity:
+            raise ArchiveError("Historical archive manifest changed during inspection")
+        selected = manifest["selected"]
+        end = len(selected) if limit is None else offset + limit
         return {
             "status": "inspected",
             "schema": SCHEMA,
             "source_commit": manifest["source_commit"],
-            "selected": manifest["selected"],
+            "selected": selected[offset:end],
+            "archive": str(directory),
+            "manifest_sha256": identity,
+            "selection_total": len(selected),
+            "next_offset": end if end < len(selected) else None,
             "fixtures": manifest["fixtures"],
             "native_replay": manifest["native_replay"],
             "producer_invocation": manifest["producer_invocation"],
@@ -624,6 +691,10 @@ def replay(directory: Path, output: Path) -> dict:
             "source_commit": manifest["source_commit"],
             "archive": str(directory),
             "archive_receipt_sha256": digest(directory / "checks.json"),
+            "output": str(output),
+            "resource": resource,
+            "terminal": str(output / "replay-terminal.json"),
+            "process": terminal.get("process", {}),
             "workspace_remap": str(output / "workspace"),
             "fixture_manifest": fixture_manifest,
             "status": terminal["status"],
@@ -632,11 +703,12 @@ def replay(directory: Path, output: Path) -> dict:
         }
         validation.write_json(output / "replay.json", result)
         validation.write_json(output / "replay-terminal.json", terminal)
+        interrupted = terminal["status"] == "interrupted" or terminal.get("process", {}).get("forwarded_signal") is not None
         receipt = {
             "version": 5,
-            "complete": True,
+            "complete": not interrupted,
             "baseline_failures": 0,
-            "required_checks_covered": True,
+            "required_checks_covered": not interrupted,
             "input_coverage": True,
             "source_unchanged": True,
             "provenance_errors": [],
@@ -683,7 +755,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         result = (
-            archive(args)
+            archive(
+                ArchiveRequest(
+                    output=str(args.output), package=args.package, filter=args.filter,
+                    test=args.test, lib=args.lib, features=args.features, fixture=args.fixture,
+                )
+            )
             if args.operation == "archive"
             else inspect(args.archive)
             if args.operation == "inspect"

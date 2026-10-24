@@ -15,7 +15,10 @@ def main(argv: list[str] | None = None) -> int:
         "operation",
         choices=("archive", "inspect", "replay", "bisect", "compare", "tool-probe"),
     )
-    selected, remaining = parser.parse_known_args(arguments)
+    # Select only the first token. Let the actual leaf own every later option,
+    # including --help, instead of having this outer parser consume leaf help.
+    selected = parser.parse_args(arguments[:1])
+    remaining = arguments[1:]
     if selected.operation in {"archive", "inspect", "replay"}:
         from scripts import (
             test_archives,

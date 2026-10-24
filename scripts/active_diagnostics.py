@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import os
 import re
 import shutil
@@ -21,6 +20,9 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from scripts import (
     diagnostic_trace,
@@ -32,6 +34,90 @@ from scripts import (
 
 SCHEMA = "active-diagnostic-action-v1"
 CPYTHON_SYMBOL_DIRECTORY = Path(os.path.sep) / "tmp"
+
+
+class ActionInterrupted(RuntimeError):
+    """The owned helper drained after caller cancellation; do not start another step."""
+
+
+class ActionRequest(BaseModel):
+    """Validated host intent; process/tool identities are admitted at execution."""
+
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
+
+    action: Literal[
+        "python-snapshot", "python-sample", "python-perf", "gdb-launch", "gdb-core",
+        "sched", "heaptrack", "stat", "feasibility", "memray", "rr-record", "rr-replay",
+    ]
+    output: str = Field(min_length=1)
+    seconds: float = Field(default=10.0, gt=0, le=300, allow_inf_nan=False)
+    output_bytes: int = Field(default=8 << 20, ge=0, le=64 << 20)
+    pid: int | None = Field(default=None, gt=0)
+    start: str | None = Field(default=None, pattern=r"^[0-9]+$")
+    native: bool = False
+    nonblocking: bool = False
+    jit: bool = False
+    faulthandler: bool = False
+    core: str | None = Field(default=None, min_length=1)
+    executable: str | None = Field(default=None, min_length=1)
+    executable_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    events: str | None = None
+    memray_python: str | None = Field(default=None, min_length=1)
+    debuginfod: bool = False
+    rr_binary: str | None = Field(default=None, min_length=1)
+    trace: str | None = Field(default=None, min_length=1)
+    trace_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    breakpoint: str | None = None
+    perf_binary: str | None = Field(default=None, min_length=1)
+    operation: str | None = None
+    invocation: str | None = None
+    registry: str | None = Field(default=None, min_length=1)
+    command: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def selected_subject(self) -> ActionRequest:
+        attachment = self.action in {"python-snapshot", "python-sample"}
+        if self.action == "python-sample" and not self.seconds.is_integer():
+            raise ValueError("py-spy sampling requires a whole number of seconds")
+        if attachment:
+            self.attachment_subject()
+        if not attachment and (self.pid is not None or self.start is not None):
+            raise ValueError(
+                "live process attachment is supported only by explicit Python snapshot/sample actions; GDB uses owned launch or supplied core"
+            )
+        if self.registry is not None and self.invocation is None:
+            raise ValueError("--registry requires an authentic --invocation association")
+        selected_options = {
+            "native": {"python-snapshot", "python-sample"},
+            "nonblocking": {"python-snapshot", "python-sample"},
+            "jit": {"python-perf"}, "faulthandler": {"gdb-launch"},
+            "core": {"gdb-core"}, "executable": {"gdb-core"},
+            "executable_sha256": {"gdb-core"}, "events": {"stat"},
+            "memray_python": {"memray"}, "debuginfod": {"python-perf", "memray"},
+            "rr_binary": {"rr-record", "rr-replay"}, "trace": {"rr-replay"},
+            "trace_sha256": {"rr-replay"}, "breakpoint": {"rr-replay"},
+            "perf_binary": {"python-perf", "sched", "stat"},
+        }
+        for field, actions in selected_options.items():
+            value = getattr(self, field)
+            if value is not None and value is not False and self.action not in actions:
+                raise ValueError(f"{field} does not apply to {self.action}")
+        if any(not value or "\x00" in value for value in self.command):
+            raise ValueError("workload argv must contain nonempty strings without NUL")
+        if (attachment or self.action in {"feasibility", "gdb-core", "rr-replay"}) and self.command:
+            raise ValueError("selected action does not launch supplied workload argv")
+        # Omitted, explicit null and an explicit empty event selection are not
+        # interchangeable: only absence/null selects the standard perf events.
+        if self.events is not None and not re.fullmatch(r"[A-Za-z0-9_:,./=-]+", self.events):
+            raise ValueError("invalid explicit perf event selection")
+        return self
+
+    def attachment_subject(self) -> tuple[int, str]:
+        if self.pid is None or self.start is None:
+            raise ValueError("Python attachment requires exact --pid and --start")
+        return self.pid, self.start
 
 
 def regular(
@@ -370,14 +456,20 @@ def collect(
     }
 
 
-def read_action(directory: Path, *, tail: int = 0, summary_only: bool = False) -> dict:
+def read_action(
+    directory: Path, *, tail: int = 0, summary_only: bool = False,
+    action_sha256: str | None = None,
+) -> dict:
     if (
         tail < 0
         or ".." in directory.parts
         or any(item.is_symlink() for item in (directory, *directory.parents))
     ):
         raise ValueError("select an exact action directory and nonnegative tail")
+    reference = regular(directory / "action.json", action_sha256)
     record = resource_store.read(directory / "action.json")
+    regular(directory / "action.json", reference["sha256"])
+    record["action_reference"] = reference
     if record.get("schema") != SCHEMA or not isinstance(record.get("artifacts"), list):
         raise ValueError("not an active diagnostic action document")
     if summary_only:
@@ -445,23 +537,26 @@ def publish(output: Path, record: dict) -> dict:
     return record
 
 
-def execute(args: argparse.Namespace) -> dict:
-    output = args.output.absolute()
+def execute(request: ActionRequest) -> dict:
+    """Run one admitted action; its helper scope never owns an attached subject."""
+    output = Path(request.output).absolute()
     if any(path.is_symlink() for path in (output, *output.parents)):
         raise ValueError("action output must not traverse symlinks")
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
     record: dict = {
         "schema": SCHEMA,
-        "action": args.action,
+        "output": str(output),
+        "action_record": str(output / "action.json"),
+        "action": request.action,
         "started_monotonic_ns": time.monotonic_ns(),
         "target_outcome": "not observed; collection success is independent",
-        "operation": args.operation,
+        "operation": request.operation,
         "invocation": None,
         "steps": [],
         "status": "incomplete",
         "bounds": {
-            "seconds_per_step": args.seconds,
-            "text_bytes_per_stream": args.output_bytes,
+            "seconds_per_step": request.seconds,
+            "text_bytes_per_stream": request.output_bytes,
             "raw_artifact_bytes": "not capped; duration bounds execution, not raw file size",
         },
     }
@@ -477,41 +572,45 @@ def execute(args: argparse.Namespace) -> dict:
             command,
             output,
             label,
-            seconds=args.seconds if seconds is None else seconds,
-            output_bytes=args.output_bytes,
+            seconds=request.seconds if seconds is None else seconds,
+            output_bytes=request.output_bytes,
             cwd=cwd,
             environment_remove=environment_remove,
         )
         record["steps"].append(value)
+        process = value.get("process", {})
+        if value["status"] != "timed_out" and process.get("forwarded_signal") is not None:
+            raise ActionInterrupted("owned diagnostic helper interrupted; subject ownership unchanged")
         return value
 
-    command = args.command[1:] if args.command[:1] == ["--"] else args.command
+    command = request.command
 
     def perform() -> None:
-        if args.invocation is not None:
+        if request.invocation is not None:
             root, declaration, _state = run_inspection.resolve(
-                args.invocation, args.registry
+                request.invocation, Path(request.registry) if request.registry is not None else None
             )
             record["invocation"] = {
                 "registry": str(root),
                 "identity": declaration["nonce"],
             }
-        if args.action in {"python-snapshot", "python-sample"}:
-            subject = process_subject(args.pid, args.start)
+        if request.action in {"python-snapshot", "python-sample"}:
+            pid, start = request.attachment_subject()
+            subject = process_subject(pid, start)
             if subject["state"].startswith(("T", "t")):
                 raise ValueError(
                     "attachment to an already stopped target is refused; offline/owned launch is available"
                 )
-            if args.native and args.nonblocking:
+            if request.native and request.nonblocking:
                 raise ValueError(
                     "py-spy native sampling requires target pauses and cannot be nonblocking"
                 )
             record.update(
                 subject=subject,
                 effect="temporary native sampling pauses"
-                if args.native
+                if request.native
                 else "nonblocking Python snapshot"
-                if args.nonblocking
+                if request.nonblocking
                 else "temporary Python sampling pauses",
                 coverage={
                     "population": "CPython interpreter threads; Rust-owned threads without Python state are not promised",
@@ -523,18 +622,18 @@ def execute(args: argparse.Namespace) -> dict:
             record["tool"] = tool
             if tool["status"] != "available":
                 raise ValueError(tool["reason"])
-            if native_operation.start_identity(args.pid) != args.start:
+            if native_operation.start_identity(pid) != start:
                 raise ValueError("selected target identity changed before attachment")
             argv = (
-                [tool["path"], "dump", "--pid", str(args.pid), "--json"]
-                if args.action == "python-snapshot"
+                [tool["path"], "dump", "--pid", str(pid), "--json"]
+                if request.action == "python-snapshot"
                 else [
                     tool["path"],
                     "record",
                     "--pid",
-                    str(args.pid),
+                    str(pid),
                     "--duration",
-                    str(int(args.seconds)),
+                    str(int(request.seconds)),
                     "--threads",
                     "--idle",
                     "--format",
@@ -543,23 +642,23 @@ def execute(args: argparse.Namespace) -> dict:
                     str(output / "python.speedscope.json"),
                 ]
             )
-            argv += ["--native"] if args.native else []
-            argv += ["--nonblocking"] if args.nonblocking else []
-            value = step(argv, "py-spy", args.seconds + 5)
+            argv += ["--native"] if request.native else []
+            argv += ["--nonblocking"] if request.nonblocking else []
+            value = step(argv, "py-spy", request.seconds + 5)
             try:
-                record["subject_after"] = process_subject(args.pid, args.start)
+                record["subject_after"] = process_subject(pid, start)
             except (OSError, ValueError) as error:
                 record["subject_after"] = {
                     "status": "unavailable",
                     "reason": str(error),
                 }
             record["status"] = "collected" if value["exit_code"] == 0 else "unavailable"
-        elif args.action in {"gdb-launch", "gdb-core"}:
+        elif request.action in {"gdb-launch", "gdb-core"}:
             tool = selected_tool("gdb")
             record.update(
                 tool=tool,
                 effect="owned stopped-process experiment"
-                if args.action == "gdb-launch"
+                if request.action == "gdb-launch"
                 else "offline core interpretation",
             )
             if tool["status"] != "available":
@@ -576,20 +675,20 @@ def execute(args: argparse.Namespace) -> dict:
                 "-ex",
                 "set pagination off",
             ]
-            if args.action == "gdb-core":
+            if request.action == "gdb-core":
                 if (
-                    args.core is None
-                    or args.executable is None
-                    or args.executable_sha256 is None
+                    request.core is None
+                    or request.executable is None
+                    or request.executable_sha256 is None
                 ):
                     raise ValueError(
                         "offline core requires supplied core, executable and executable digest"
                     )
-                executable = regular(args.executable, args.executable_sha256)
+                executable = regular(Path(request.executable), request.executable_sha256)
                 record["subject"] = {
                     "kind": "offline-core",
                     "executable": executable,
-                    "core": regular(args.core, hash_contents=False),
+                    "core": regular(Path(request.core), hash_contents=False),
                 }
                 value = step(
                     [
@@ -598,8 +697,8 @@ def execute(args: argparse.Namespace) -> dict:
                         "thread apply all bt full",
                         "-ex",
                         "info sharedlibrary",
-                        str(args.executable),
-                        str(args.core),
+                        str(request.executable),
+                        str(request.core),
                     ],
                     "gdb",
                 )
@@ -615,7 +714,7 @@ def execute(args: argparse.Namespace) -> dict:
                     "executable": regular(executable),
                 }
                 events = "python import gdb,json; gdb.events.stop.connect(lambda e: print('PSE_ACTION_TARGET '+json.dumps({'signal':getattr(e,'stop_signal',None)}))); gdb.events.exited.connect(lambda e: print('PSE_ACTION_TARGET '+json.dumps({'exit_code':getattr(e,'exit_code',None)})))"
-                if args.faulthandler:
+                if request.faulthandler:
                     base += ["-ex", "set environment PYTHONFAULTHANDLER 1"]
                 value = step(
                     [
@@ -643,35 +742,35 @@ def execute(args: argparse.Namespace) -> dict:
                 ]
                 record["faulthandler"] = (
                     "selected CPython fault handler; Python/C stack support is interpreter/platform dependent"
-                    if args.faulthandler
+                    if request.faulthandler
                     else "not selected"
                 )
             record["coverage"] = (
                 "GDB-reported threads/libraries and symbols; optimized-out/missing frames remain raw; no portable core or library copying"
             )
             record["status"] = "collected" if value["exit_code"] == 0 else "unavailable"
-        elif args.action in {"python-perf", "sched", "heaptrack", "stat"}:
+        elif request.action in {"python-perf", "sched", "heaptrack", "stat"}:
             if not command:
                 raise ValueError(
                     "selected launch action requires literal workload argv"
                 )
             tool = (
                 selected_tool("heaptrack")
-                if args.action == "heaptrack"
-                else selected_tool("perf", args.perf_binary)
+                if request.action == "heaptrack"
+                else selected_tool("perf", Path(request.perf_binary) if request.perf_binary is not None else None)
             )
             record.update(
                 tool=tool,
                 subject={"kind": "owned-launch", "argv": command},
                 effect="allocation interception"
-                if args.action == "heaptrack"
+                if request.action == "heaptrack"
                 else "selected owned experimental capture",
             )
             if tool["status"] != "available":
                 raise ValueError(tool["reason"])
             required = []
             subject: dict = {}
-            if args.action == "python-perf":
+            if request.action == "python-perf":
                 if Path(command[0]).resolve() != Path(sys.executable).resolve():
                     raise ValueError(
                         "Python perf requires the selected interpreter as the literal executable"
@@ -679,7 +778,7 @@ def execute(args: argparse.Namespace) -> dict:
                 instrumented = [
                     command[0],
                     "-X",
-                    "perf_jit" if args.jit else "perf",
+                    "perf_jit" if request.jit else "perf",
                     *command[1:],
                 ]
                 raw = output / "perf.data"
@@ -693,9 +792,9 @@ def execute(args: argparse.Namespace) -> dict:
                         "cpu-clock:u",
                         "-F",
                         "99",
-                        *(["-k", "1"] if args.jit else []),
+                        *(["-k", "1"] if request.jit else []),
                         "--call-graph",
-                        "dwarf,16384" if args.jit else "fp",
+                        "dwarf,16384" if request.jit else "fp",
                         "-o",
                         str(raw),
                         "--",
@@ -735,7 +834,7 @@ def execute(args: argparse.Namespace) -> dict:
                             )
                     record["python_symbols"] = retained_symbols
                 decoded = raw
-                if args.jit and raw.exists():
+                if request.jit and raw.exists():
                     decoded = output / "perf.jit.data"
                     required.append(
                         step(
@@ -787,7 +886,7 @@ def execute(args: argparse.Namespace) -> dict:
                             [tool["path"], "script", "-i", str(decoded)],
                             "perf-stacks",
                             environment_remove=()
-                            if args.debuginfod
+                            if request.debuginfod
                             else ("DEBUGINFOD_URLS",),
                         )
                     )
@@ -820,7 +919,7 @@ def execute(args: argparse.Namespace) -> dict:
                 record["coverage"] = (
                     "actual decoded CPU stacks; retained map/JIT data and local interpreter/library identities; raw perf data references original symbol paths, retained copies do not rewrite them; Samply import not established"
                 )
-            elif args.action == "sched":
+            elif request.action == "sched":
                 raw = output / "sched.data"
                 subject_file = output / "launch-subject.json"
                 value = step(
@@ -866,7 +965,7 @@ def execute(args: argparse.Namespace) -> dict:
                 record["coverage"] = (
                     "perf sched record defaults to system-wide (-a) scheduler tracepoints, including unrelated host tasks; owned launch identifies the experiment, not an isolated captured population; timehist and summary filter the owned exec PID, with recorded PID/start/boot and actual thread IDs in the trace; permission refusal is a prerequisite, never CPU/proc substitution"
                 )
-            elif args.action == "heaptrack":
+            elif request.action == "heaptrack":
                 value = step(
                     [
                         tool["path"],
@@ -908,7 +1007,7 @@ def execute(args: argparse.Namespace) -> dict:
                 )
             else:
                 events = (
-                    args.events
+                    request.events
                     or "cycles:u,instructions:u,branches:u,branch-misses:u,cache-misses:u"
                 )
                 if not re.fullmatch(r"[A-Za-z0-9_:,./=-]+", events):
@@ -944,8 +1043,8 @@ def execute(args: argparse.Namespace) -> dict:
                 )
                 else "collected"
             )
-        elif args.action == "memray":
-            tool = memray_runtime(args.memray_python)
+        elif request.action == "memray":
+            tool = memray_runtime(Path(request.memray_python) if request.memray_python is not None else None)
             if not command or Path(command[0]).absolute() != Path(tool["path"]):
                 raise ValueError(
                     "Memray workload must select the exact isolated interpreter, followed by a script, -m or -c"
@@ -972,14 +1071,14 @@ def execute(args: argparse.Namespace) -> dict:
             )
             record["symbol_resolution"] = (
                 "configured debuginfod queries allowed"
-                if args.debuginfod
+                if request.debuginfod
                 else "local symbols only; DEBUGINFOD_URLS removed for the decoder"
             )
             decoded = (
                 step(
                     [tool["path"], "-m", "memray", "stats", str(raw)],
                     "memray-stats",
-                    environment_remove=() if args.debuginfod else ("DEBUGINFOD_URLS",),
+                    environment_remove=() if request.debuginfod else ("DEBUGINFOD_URLS",),
                 )
                 if raw.exists()
                 else {
@@ -1004,9 +1103,9 @@ def execute(args: argparse.Namespace) -> dict:
                 if decoded["exit_code"] != 0
                 else "collected"
             )
-        elif args.action in {"rr-record", "rr-replay"}:
+        elif request.action in {"rr-record", "rr-replay"}:
             tool = selected_tool(
-                "rr", args.rr_binary or diagnostic_trace.binary_path("rr")
+                "rr", Path(request.rr_binary) if request.rr_binary is not None else diagnostic_trace.binary_path("rr")
             )
             record.update(
                 tool=tool,
@@ -1015,7 +1114,7 @@ def execute(args: argparse.Namespace) -> dict:
             if tool["status"] != "available":
                 raise ValueError(tool["reason"])
             runtime_root = Path(tool["path"]).parent.parent
-            if args.rr_binary is None:
+            if request.rr_binary is None:
                 diagnostic_trace.verify_bundle(
                     runtime_root, diagnostic_trace.tool_spec("rr")
                 )
@@ -1029,7 +1128,7 @@ def execute(args: argparse.Namespace) -> dict:
             }
             if not record["runtime_bundle"]["libraries"]:
                 raise ValueError("rr requires its complete portable runtime bundle")
-            if args.action == "rr-record":
+            if request.action == "rr-record":
                 if not command:
                     raise ValueError("rr-record requires literal executable argv")
                 executable = Path(shutil.which(command[0]) or command[0]).resolve(
@@ -1056,12 +1155,12 @@ def execute(args: argparse.Namespace) -> dict:
                     "meaning": "recorder exit can propagate target failure; rr ps retains each recorded process exit",
                 }
             else:
-                if args.trace is None or args.trace_sha256 is None:
+                if request.trace is None or request.trace_sha256 is None:
                     raise ValueError(
                         "rr-replay requires exact --trace and --trace-sha256 from the recording action"
                     )
-                trace = args.trace.absolute()
-                record["trace"] = trace_reference(trace, args.trace_sha256)
+                trace = Path(request.trace).absolute()
+                record["trace"] = trace_reference(trace, request.trace_sha256)
                 record["subject"] = {
                     "kind": "offline-recorded-processes",
                     "trace": str(trace),
@@ -1070,8 +1169,8 @@ def execute(args: argparse.Namespace) -> dict:
                 if gdb["status"] != "available":
                     raise ValueError(gdb["reason"])
                 record["decoder"] = gdb
-                if args.breakpoint is None or not re.fullmatch(
-                    r"[A-Za-z_][A-Za-z0-9_:]*", args.breakpoint
+                if request.breakpoint is None or not re.fullmatch(
+                    r"[A-Za-z_][A-Za-z0-9_:]*", request.breakpoint
                 ):
                     raise ValueError(
                         "rr reverse control requires an explicit symbol --breakpoint"
@@ -1093,7 +1192,7 @@ def execute(args: argparse.Namespace) -> dict:
                         "-ex",
                         "set breakpoint pending on",
                         "-ex",
-                        "break " + args.breakpoint,
+                        "break " + request.breakpoint,
                         "-ex",
                         "continue",
                         "-ex",
@@ -1104,7 +1203,7 @@ def execute(args: argparse.Namespace) -> dict:
                     "rr-reverse",
                 )
                 decoded = value
-                record["trace_after"] = trace_reference(trace, args.trace_sha256)
+                record["trace_after"] = trace_reference(trace, request.trace_sha256)
             record["coverage"] = (
                 "selected Linux process tree, retained rr trace and local executable/library identities; CPU/kernel/syscall/shared-memory feasibility is experiment-specific; complete portable rr bundle required"
             )
@@ -1113,7 +1212,7 @@ def execute(args: argparse.Namespace) -> dict:
                 if decoded["exit_code"] == 0 and value["status"] == "returned"
                 else "partial"
             )
-        elif args.action == "feasibility":
+        elif request.action == "feasibility":
             record.update(
                 effect="read installed optional tool and host prerequisites",
                 subject={"kind": "host-feasibility"},
@@ -1146,6 +1245,8 @@ def execute(args: argparse.Namespace) -> dict:
 
     try:
         perform()
+    except ActionInterrupted as error:
+        record.update(status="interrupted", error=str(error))
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         record.update(status="unavailable", error=str(error))
     finally:
@@ -1227,41 +1328,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(arguments[:split])
     args.command = arguments[split + 1 :]
 
-    def validate() -> None:
-        if (
-            not math.isfinite(args.seconds)
-            or not 0 < args.seconds <= 300
-            or not 0 <= args.output_bytes <= 64 << 20
-        ):
-            raise ValueError(
-                "select a finite duration in (0,300] and text bound in 0..64MiB"
-            )
-        if args.action == "python-sample" and not args.seconds.is_integer():
-            raise ValueError("py-spy sampling requires a whole number of seconds")
-        if (
-            args.action.startswith("python-")
-            and args.action != "python-perf"
-            and (args.pid is None or args.start is None)
-        ):
-            raise ValueError("Python attachment requires exact --pid and --start")
-        if args.action not in {"python-snapshot", "python-sample"} and (
-            args.pid is not None or args.start is not None
-        ):
-            raise ValueError(
-                "live process attachment is supported only by explicit Python snapshot/sample actions; GDB uses owned launch or supplied core"
-            )
-        if args.registry is not None and args.invocation is None:
-            raise ValueError(
-                "--registry requires an authentic --invocation association"
-            )
-
     try:
-        validate()
-        record = (
-            read_action(args.output.absolute(), tail=args.tail)
-            if args.action == "read"
-            else execute(args)
-        )
+        if args.action == "read":
+            record = read_action(args.output.absolute(), tail=args.tail)
+        else:
+            values = vars(args).copy()
+            values.pop("tail")
+            for field in ("output", "core", "executable", "memray_python", "rr_binary", "trace", "perf_binary", "registry"):
+                if values[field] is not None:
+                    values[field] = str(values[field])
+            record = execute(ActionRequest.model_validate(values))
         print(json.dumps(record, indent=2))
         return (
             0
