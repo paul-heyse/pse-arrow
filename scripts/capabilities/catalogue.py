@@ -52,7 +52,9 @@ class Catalogue:
             if (item.exposure == "tool") != (item.id in tools):
                 raise ValueError(f"callable declaration/binding mismatch: {item.id}")
             if item.exposure == "deferred" and (not item.reason or not item.work_owner):
-                raise ValueError(f"deferred adaptation needs reason and owner: {item.id}")
+                raise ValueError(
+                    f"deferred adaptation needs reason and owner: {item.id}"
+                )
             if item.id in tools and tools[item.id].name != item.id:
                 raise ValueError(f"tool identity mismatch: {item.id}")
         if set(tools) - set(self.capabilities):
@@ -66,7 +68,9 @@ class Catalogue:
             for key in self.domains
         }
         self._by_workflow = {
-            key: tuple(sorted(item.id for item in capabilities if key in item.workflows))
+            key: tuple(
+                sorted(item.id for item in capabilities if key in item.workflows)
+            )
             for key in self.workflows
         }
         declaration = {
@@ -96,7 +100,9 @@ class Catalogue:
             result[item.id] = item
         return result
 
-    def browse(self, kind: str, identity: str | None, offset: int, limit: int) -> dict[str, JsonValue]:
+    def browse(
+        self, kind: str, identity: str | None, offset: int, limit: int
+    ) -> dict[str, JsonValue]:
         if offset < 0 or not 1 <= limit <= 100:
             raise ValueError("offset must be nonnegative and limit in 1..100")
         if kind == "domain":
@@ -113,18 +119,25 @@ class Catalogue:
         else:
             if identity not in entities:
                 raise ValueError(f"unknown {kind}: {identity}")
-            values = [self.capabilities[key].model_dump(mode="json") for key in members[identity]]
-        return JSON_OBJECT.validate_python({
-            "revision": self.revision,
-            "kind": kind,
-            "identity": identity,
-            "items": values[offset:offset + limit],
-            "total": len(values),
-            "next_offset": offset + limit if offset + limit < len(values) else None,
-            "availability": "declared prerequisites; not live service readiness",
-        })
+            values = [
+                self.capabilities[key].model_dump(mode="json")
+                for key in members[identity]
+            ]
+        return JSON_OBJECT.validate_python(
+            {
+                "revision": self.revision,
+                "kind": kind,
+                "identity": identity,
+                "items": values[offset : offset + limit],
+                "total": len(values),
+                "next_offset": offset + limit if offset + limit < len(values) else None,
+                "availability": "declared prerequisites; not live service readiness",
+            }
+        )
 
-    def describe(self, identity: str, *, include_schema: bool = False) -> dict[str, JsonValue]:
+    def describe(
+        self, identity: str, *, include_schema: bool = False
+    ) -> dict[str, JsonValue]:
         if identity not in self.capabilities:
             raise ValueError(f"unknown capability: {identity}")
         item = self.capabilities[identity]
@@ -133,15 +146,21 @@ class Catalogue:
             "revision": self.revision,
             "capability": item.model_dump(mode="json"),
             "callable": tool is not None,
-            "availability": "source-only" if tool else "native route or pending adaptation; not observed",
-            "guidance": [self.guides[key].model_dump(mode="json") for key in item.guides],
+            "availability": "source-only"
+            if tool
+            else "native route or pending adaptation; not observed",
+            "guidance": [
+                self.guides[key].model_dump(mode="json") for key in item.guides
+            ],
         }
         if include_schema:
             result["input_schema"] = None if tool is None else tool.parameters
             result["output_schema"] = None if tool is None else tool.output_schema
         return JSON_OBJECT.validate_python(result)
 
-    def select(self, domains: list[str], workflows: list[str], capabilities: list[str]) -> Selection:
+    def select(
+        self, domains: list[str], workflows: list[str], capabilities: list[str]
+    ) -> Selection:
         chosen = set(capabilities)
         guides = {"root"} if "root" in self.guides else set()
         for identity in domains:

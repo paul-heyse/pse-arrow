@@ -25,8 +25,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class InventoryTests(unittest.TestCase):
     def test_metadata_is_source_only_and_all_references_have_owners(self) -> None:
-        with patch.object(subject, "_just_dump", side_effect=AssertionError("startup ran Just")), patch.object(
-            subject.subprocess, "Popen", side_effect=AssertionError("startup launched a process")
+        with (
+            patch.object(
+                subject, "_just_dump", side_effect=AssertionError("startup ran Just")
+            ),
+            patch.object(
+                subject.subprocess,
+                "Popen",
+                side_effect=AssertionError("startup launched a process"),
+            ),
         ):
             domains, workflows, guides, capabilities = subject.inventory(ROOT)
         domain_ids = {row.id for row in domains}
@@ -36,8 +43,38 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(len(workflow_ids), len(workflows))
         self.assertEqual(len(guide_ids), len(guides))
         self.assertEqual(len({row.id for row in capabilities}), len(capabilities))
-        self.assertEqual(domain_ids, {"workspace", "editing", "knowledge", "environment", "validation", "execution", "diagnostics", "storage", "projects", "evidence", "experiments", "generation", "governance", "integration"})
-        self.assertEqual(workflow_ids, {"inspect-plan", "change-generated-contract", "plan-functional-review", "diagnose-run", "qualify-change", "investigate-evidence", "manage-project", "run-experiment"})
+        self.assertEqual(
+            domain_ids,
+            {
+                "workspace",
+                "editing",
+                "knowledge",
+                "environment",
+                "validation",
+                "execution",
+                "diagnostics",
+                "storage",
+                "projects",
+                "evidence",
+                "experiments",
+                "generation",
+                "governance",
+                "integration",
+            },
+        )
+        self.assertEqual(
+            workflow_ids,
+            {
+                "inspect-plan",
+                "change-generated-contract",
+                "plan-functional-review",
+                "diagnose-run",
+                "qualify-change",
+                "investigate-evidence",
+                "manage-project",
+                "run-experiment",
+            },
+        )
         for row in guides:
             self.assertTrue((ROOT / row.path).is_file(), row.path)
         for row in (*domains, *workflows, *capabilities):
@@ -47,13 +84,19 @@ class InventoryTests(unittest.TestCase):
             self.assertLessEqual(set(row.workflows), workflow_ids)
             self.assertTrue((ROOT / row.owner).is_file(), row.owner)
             self.assertTrue((ROOT / row.source).is_file(), row.source)
-            self.assertNotEqual(row.exposure, "tool", "Only the composition root owns real callable bindings")
+            self.assertNotEqual(
+                row.exposure,
+                "tool",
+                "Only the composition root owns real callable bindings",
+            )
             self.assertTrue(row.reason)
             if row.exposure == "deferred":
                 self.assertTrue(row.work_owner)
                 self.assertTrue((ROOT / row.work_owner.split("#")[0]).is_file())
 
-    def test_representative_families_retain_real_routes_and_honest_maturity(self) -> None:
+    def test_representative_families_retain_real_routes_and_honest_maturity(
+        self,
+    ) -> None:
         capabilities = {row.id: row for row in subject.inventory(ROOT)[3]}
         expected = {
             "language-navigation": ("editing", "scripts/semantic_navigation.py"),
@@ -79,21 +122,37 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(capabilities["host-implementation"].exposure, "internal")
         self.assertEqual(capabilities["git-integration"].exposure, "native")
         self.assertEqual(capabilities["scientific-python-api"].exposure, "native")
-        self.assertIn("Rust reader/parser/P0", capabilities["scientific-inputs"].description)
+        self.assertIn(
+            "Rust reader/parser/P0", capabilities["scientific-inputs"].description
+        )
         scientific_work_owner = capabilities["scientific-inputs"].work_owner
         assert scientific_work_owner is not None
         self.assertIn("ADP04", scientific_work_owner)
-        self.assertIn("Instruction retrieval only", capabilities["skill-plan-functional-extension-review"].effects)
+        self.assertIn(
+            "Instruction retrieval only",
+            capabilities["skill-plan-functional-extension-review"].effects,
+        )
 
     def test_every_current_public_recipe_is_classified_without_running_it(self) -> None:
-        declaration = json.loads(subprocess.check_output(
-            ["just", "--dump", "--dump-format", "json"], cwd=ROOT, text=True, timeout=10,
-        ))
-        expected = {name for name, row in declaration["recipes"].items() if not row.get("private")}
+        declaration = json.loads(
+            subprocess.check_output(
+                ["just", "--dump", "--dump-format", "json"],
+                cwd=ROOT,
+                text=True,
+                timeout=10,
+            )
+        )
+        expected = {
+            name
+            for name, row in declaration["recipes"].items()
+            if not row.get("private")
+        }
         pages = []
         offset = 0
         while True:
-            page = subject.inspect_entrypoints(ROOT, offset=offset, limit=100, kind="recipe")
+            page = subject.inspect_entrypoints(
+                ROOT, offset=offset, limit=100, kind="recipe"
+            )
             self.assertLessEqual(len(page["items"]), 100)
             self.assertEqual(page["unclassified_counts"]["recipe"], 0)
             pages.extend(page["items"])
@@ -105,11 +164,20 @@ class InventoryTests(unittest.TestCase):
         by_name = {row["identity"]: row for row in pages}
         self.assertEqual(by_name["evidence"]["capability"], "evidence-inspection")
         self.assertEqual(by_name["coverage"]["capability"], "verification-techniques")
-        self.assertEqual(by_name["canonical-recovery-test"]["capability"], "experiments-recovery")
-        self.assertEqual(by_name["context"]["outer_parameters"], declaration["recipes"]["context"]["parameters"])
-        self.assertIn("leaf arguments/defaults remain owned", by_name["context"]["contract"])
+        self.assertEqual(
+            by_name["canonical-recovery-test"]["capability"], "experiments-recovery"
+        )
+        self.assertEqual(
+            by_name["context"]["outer_parameters"],
+            declaration["recipes"]["context"]["parameters"],
+        )
+        self.assertIn(
+            "leaf arguments/defaults remain owned", by_name["context"]["contract"]
+        )
 
-    def test_exact_recipe_description_reaches_leaf_source_without_fabricating_schema(self) -> None:
+    def test_exact_recipe_description_reaches_leaf_source_without_fabricating_schema(
+        self,
+    ) -> None:
         result = subject.describe_recipe(ROOT, "experiment")
         self.assertEqual(result["name"], "experiment")
         self.assertFalse(result["leaf_schema_complete"])
@@ -128,12 +196,19 @@ class InventoryTests(unittest.TestCase):
             root = Path(directory)
             for path in ("scripts", "xtask/src/bin", "python/pse", ".codex/skills"):
                 (root / path).mkdir(parents=True)
-            (root / "scripts/future_inspector.py").write_text("# Inspect evidence and projects.\n")
-            declaration = {"recipes": {
-                "future-tool": {"doc": "Inspect evidence and projects", "parameters": []},
-                "evidence": {"doc": "Real declared recipe", "parameters": []},
-                "_hidden": {"private": True},
-            }}
+            (root / "scripts/future_inspector.py").write_text(
+                "# Inspect evidence and projects.\n"
+            )
+            declaration = {
+                "recipes": {
+                    "future-tool": {
+                        "doc": "Inspect evidence and projects",
+                        "parameters": [],
+                    },
+                    "evidence": {"doc": "Real declared recipe", "parameters": []},
+                    "_hidden": {"private": True},
+                }
+            }
             with patch.object(subject, "_just_dump", return_value=declaration):
                 page = subject.inspect_entrypoints(root, limit=100)
             self.assertEqual(page["unclassified_counts"]["recipe"], 1)
@@ -149,17 +224,24 @@ class InventoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "scripts").mkdir()
-            (root / "justfile").write_text("new-command *args:\n  python scripts/new.py\n")
+            (root / "justfile").write_text(
+                "new-command *args:\n  python scripts/new.py\n"
+            )
             source = root / "scripts/new.py"
             source.write_text("parser.add_argument('--original')\n")
-            declaration = {"recipes": {"new-command": {"body": [["python scripts/new.py"]]}}}
+            declaration = {
+                "recipes": {"new-command": {"body": [["python scripts/new.py"]]}}
+            }
             with patch.object(subject, "_just_dump", return_value=declaration):
                 before = subject.describe_recipe(root, "new-command")
                 source.write_text("parser.add_argument('--changed')\n")
                 after = subject.describe_recipe(root, "new-command")
                 source.write_text("#" * (300 << 10))
                 bounded = subject.describe_recipe(root, "new-command")
-            self.assertNotEqual(before["leaf_contracts"][0]["captured_sha256"], after["leaf_contracts"][0]["captured_sha256"])
+            self.assertNotEqual(
+                before["leaf_contracts"][0]["captured_sha256"],
+                after["leaf_contracts"][0]["captured_sha256"],
+            )
             self.assertIn("--changed", str(after["leaf_contracts"][0]["excerpt"]))
             self.assertTrue(bounded["leaf_contracts"][0]["source_truncated"])
             self.assertEqual(bounded["leaf_contracts"][0]["captured_bytes"], 256 << 10)
@@ -187,26 +269,41 @@ class InventoryTests(unittest.TestCase):
 
             def guarded_fdopen(descriptor: int, mode: Literal["rb"]) -> BinaryIO:
                 opened = os.fstat(descriptor)
-                self.assertNotEqual((opened.st_dev, opened.st_ino), (identity.st_dev, identity.st_ino), "outside source reached the read boundary")
+                self.assertNotEqual(
+                    (opened.st_dev, opened.st_ino),
+                    (identity.st_dev, identity.st_ino),
+                    "outside source reached the read boundary",
+                )
                 return original_fdopen(descriptor, mode)
 
             with patch.object(subject.os, "fdopen", side_effect=guarded_fdopen):
                 result = subject.describe_recipe(root, "inspect")
             self.assertNotIn(marker, str(result))
             leaves = {row["path"]: row for row in result["leaf_contracts"]}
-            self.assertEqual(set(leaves), {"scripts/linked.py", "scripts/linked_dir/secret.py", "scripts/../../outside/secret.py"})
+            self.assertEqual(
+                set(leaves),
+                {
+                    "scripts/linked.py",
+                    "scripts/linked_dir/secret.py",
+                    "scripts/../../outside/secret.py",
+                },
+            )
             for fact in leaves.values():
                 self.assertEqual(fact["state"], "unavailable")
                 self.assertEqual(fact["captured_bytes"], 0)
                 self.assertEqual(fact["excerpt"], [])
                 self.assertIsNone(fact["captured_sha256"])
 
-    def test_missing_leaf_is_an_explicit_fact_and_other_sources_remain_available(self) -> None:
+    def test_missing_leaf_is_an_explicit_fact_and_other_sources_remain_available(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "scripts").mkdir()
             (root / "scripts/present.py").write_text("parser.add_argument('--owned')\n")
-            (root / "justfile").write_text("inspect:\n  @python -m scripts.absent\n  @python scripts/present.py\n")
+            (root / "justfile").write_text(
+                "inspect:\n  @python -m scripts.absent\n  @python scripts/present.py\n"
+            )
             result = subject.describe_recipe(root, "inspect")
             leaves = {row["path"]: row for row in result["leaf_contracts"]}
             self.assertEqual(leaves["scripts/absent.py"]["state"], "unavailable")
@@ -231,24 +328,46 @@ class InventoryTests(unittest.TestCase):
                 source.symlink_to(outside)
                 return admitted
 
-            declaration = {"recipes": {"inspect": {"body": [["python scripts/owned.py"]]}}}
-            with patch.object(subject, "_just_dump", return_value=declaration), patch.object(
-                subject.workspace_sources, "selected_path", side_effect=swap_after_admission
-            ), patch.object(subject.os, "fdopen", side_effect=AssertionError("swapped source reached a read")):
+            declaration = {
+                "recipes": {"inspect": {"body": [["python scripts/owned.py"]]}}
+            }
+            with (
+                patch.object(subject, "_just_dump", return_value=declaration),
+                patch.object(
+                    subject.workspace_sources,
+                    "selected_path",
+                    side_effect=swap_after_admission,
+                ),
+                patch.object(
+                    subject.os,
+                    "fdopen",
+                    side_effect=AssertionError("swapped source reached a read"),
+                ),
+            ):
                 result = subject.describe_recipe(root, "inspect")
             self.assertEqual(result["leaf_contracts"][0]["state"], "unavailable")
             self.assertNotIn(marker, str(result))
 
-    def test_current_external_skill_links_remain_native_without_checkout_resources(self) -> None:
-        linked = [path for path in (ROOT / ".codex/skills").glob("*/SKILL.md") if not path.resolve().is_relative_to(ROOT.resolve())]
-        self.assertTrue(linked, "expected the selected native library skill link in this checkout")
+    def test_current_external_skill_links_remain_native_without_checkout_resources(
+        self,
+    ) -> None:
+        linked = [
+            path
+            for path in (ROOT / ".codex/skills").glob("*/SKILL.md")
+            if not path.resolve().is_relative_to(ROOT.resolve())
+        ]
+        self.assertTrue(
+            linked, "expected the selected native library skill link in this checkout"
+        )
         _, _, guides, capabilities = subject.inventory(ROOT)
         by_id = {row.id: row for row in capabilities}
         for path in linked:
             identity = "skill-" + path.parent.name
             self.assertEqual(by_id[identity].exposure, "native")
             self.assertEqual(by_id[identity].guides, ())
-            self.assertEqual(by_id[identity].route, (path.relative_to(ROOT).as_posix(),))
+            self.assertEqual(
+                by_id[identity].route, (path.relative_to(ROOT).as_posix(),)
+            )
             self.assertIn("outside checkout", by_id[identity].reason)
             self.assertNotIn(identity, {row.id for row in guides})
 
@@ -261,16 +380,22 @@ class InventoryTests(unittest.TestCase):
             outside.mkdir()
             marker = "outside-skill-body-must-not-be-read-a9bd"
             (outside / "SKILL.md").write_text(marker)
-            (root / ".codex/skills/fake-library").symlink_to(outside, target_is_directory=True)
+            (root / ".codex/skills/fake-library").symlink_to(
+                outside, target_is_directory=True
+            )
             (root / "justfile").write_text("inspect:\n  @true\n")
 
             def guarded_open(path: Path, *_args: object, **_kwargs: object) -> NoReturn:
-                raise AssertionError("Metadata discovery must not open skill bodies: " + str(path))
+                raise AssertionError(
+                    "Metadata discovery must not open skill bodies: " + str(path)
+                )
 
             with patch.object(Path, "open", guarded_open):
                 _, _, guides, capabilities = subject.inventory(root)
                 result = subject.inspect_entrypoints(root, kind="skill")
-            capability = next(row for row in capabilities if row.id == "skill-fake-library")
+            capability = next(
+                row for row in capabilities if row.id == "skill-fake-library"
+            )
             self.assertEqual(capability.exposure, "native")
             self.assertEqual(capability.guides, ())
             self.assertIn("outside checkout", capability.reason)
@@ -282,22 +407,47 @@ class InventoryTests(unittest.TestCase):
             self.assertNotIn(marker, str(result))
 
     def test_inspection_rejects_invalid_selection_before_starting_just(self) -> None:
-        with patch.object(subject, "_just_dump", side_effect=AssertionError("invalid request launched Just")):
-            cases: tuple[tuple[int, int, str | None], ...] = ((0, 0, None), (0, 101, None), (-1, 50, None), (0, 50, "similarity"))
+        with patch.object(
+            subject,
+            "_just_dump",
+            side_effect=AssertionError("invalid request launched Just"),
+        ):
+            cases: tuple[tuple[int, int, str | None], ...] = (
+                (0, 0, None),
+                (0, 101, None),
+                (-1, 50, None),
+                (0, 50, "similarity"),
+            )
             for offset, limit, kind in cases:
                 with self.assertRaises(ValueError):
-                    subject.inspect_entrypoints(ROOT, offset=offset, limit=limit, kind=kind)
+                    subject.inspect_entrypoints(
+                        ROOT, offset=offset, limit=limit, kind=kind
+                    )
 
     def test_just_output_is_bounded_and_failed_child_is_drained(self) -> None:
         original = subprocess.Popen
         processes: list[subprocess.Popen[bytes]] = []
 
-        def launch(_args: object, *, cwd: Path, stdout: int, stderr: int) -> subprocess.Popen[bytes]:
-            process = original([sys.executable, "-c", "import sys,time;sys.stdout.write('x'*(5<<20));sys.stdout.flush();time.sleep(30)"], cwd=cwd, stdout=stdout, stderr=stderr)
+        def launch(
+            _args: object, *, cwd: Path, stdout: int, stderr: int
+        ) -> subprocess.Popen[bytes]:
+            process = original(
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys,time;sys.stdout.write('x'*(5<<20));sys.stdout.flush();time.sleep(30)",
+                ],
+                cwd=cwd,
+                stdout=stdout,
+                stderr=stderr,
+            )
             processes.append(process)
             return process
 
-        with patch.object(subject.subprocess, "Popen", side_effect=launch), self.assertRaisesRegex(ValueError, "exceeded 4 MiB"):
+        with (
+            patch.object(subject.subprocess, "Popen", side_effect=launch),
+            self.assertRaisesRegex(ValueError, "exceeded 4 MiB"),
+        ):
             subject.inspect_entrypoints(ROOT)
         self.assertEqual(len(processes), 1)
         self.assertIsNotNone(processes[0].poll())

@@ -74,11 +74,15 @@ class Guidance:
         self._lock = RLock()
         for guide in self.guides:
             if guide.id in self._guides:
-                raise GuidanceError("duplicate_guide", guide.id, "Guide ID is repeated.")
+                raise GuidanceError(
+                    "duplicate_guide", guide.id, "Guide ID is repeated."
+                )
             path = Path(guide.path)
             if path.is_absolute() or ".." in path.parts or path.suffix.lower() != ".md":
                 raise GuidanceError(
-                    "invalid_path", guide.id, "Guide must name checkout-relative Markdown."
+                    "invalid_path",
+                    guide.id,
+                    "Guide must name checkout-relative Markdown.",
                 )
             self._guides[guide.id] = guide
         self._baseline = {guide.id: self._observe(guide) for guide in self.guides}
@@ -99,7 +103,9 @@ class Guidance:
             ) from error
         try:
             with ExitStack() as stack:
-                directory = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                directory = os.open(
+                    self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+                )
                 stack.callback(os.close, directory)
                 for part in relative.parts[:-1]:
                     directory = os.open(
@@ -116,7 +122,9 @@ class Guidance:
                 stack.callback(os.close, descriptor)
                 if not stat.S_ISREG(os.fstat(descriptor).st_mode):
                     raise GuidanceError(
-                        "invalid_source", guide.id, "Guide source must be a regular file."
+                        "invalid_source",
+                        guide.id,
+                        "Guide source must be a regular file.",
                     )
                 yield descriptor, relative.as_posix()
         except OSError as error:
@@ -128,7 +136,12 @@ class Guidance:
     def _identity(descriptor: int, path: str) -> _Identity:
         info = os.fstat(descriptor)
         return _Identity(
-            path, info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
+            path,
+            info.st_dev,
+            info.st_ino,
+            info.st_size,
+            info.st_mtime_ns,
+            info.st_ctime_ns,
         )
 
     def _observe(self, guide: Guide) -> _Identity | GuidanceError:
@@ -146,17 +159,24 @@ class Guidance:
                 return None
             if before.size > MAX_GUIDE_BYTES:
                 raise GuidanceError(
-                    "oversized_source", guide.id, "Guide exceeds the 128 KiB instruction limit."
+                    "oversized_source",
+                    guide.id,
+                    "Guide exceeds the 128 KiB instruction limit.",
                 )
             # A bounded read also protects against a writer growing the source.
             with os.fdopen(os.dup(descriptor), "rb") as source:
                 data = source.read(MAX_GUIDE_BYTES + 1)
-            if self._identity(descriptor, path) != baseline or self._observe(guide) != baseline:
+            if (
+                self._identity(descriptor, path) != baseline
+                or self._observe(guide) != baseline
+            ):
                 self._restart_required = True
                 return None
             if len(data) > MAX_GUIDE_BYTES:
                 raise GuidanceError(
-                    "oversized_source", guide.id, "Guide exceeds the 128 KiB instruction limit."
+                    "oversized_source",
+                    guide.id,
+                    "Guide exceeds the 128 KiB instruction limit.",
                 )
         try:
             content = data.decode("utf-8")
@@ -176,13 +196,18 @@ class Guidance:
         with self._lock:
             for guide_id in selected:
                 if guide_id not in self._guides:
-                    raise GuidanceError("unknown_guide", guide_id, "Guide ID is not registered.")
+                    raise GuidanceError(
+                        "unknown_guide", guide_id, "Guide ID is not registered."
+                    )
             relevant = dict.fromkeys([*self._snapshots, *selected])
             for guide_id in relevant:
                 current = self._observe(self._guides[guide_id])
                 baseline = self._baseline[guide_id]
                 if isinstance(baseline, GuidanceError):
-                    if isinstance(current, GuidanceError) and current.details == baseline.details:
+                    if (
+                        isinstance(current, GuidanceError)
+                        and current.details == baseline.details
+                    ):
                         raise current
                     self._restart_required = True
                 elif current != baseline:
@@ -206,7 +231,10 @@ class Guidance:
                         pending[guide_id] = snapshot
                 # Recheck the whole selection before making a bundle visible.
                 for guide_id in relevant:
-                    if self._observe(self._guides[guide_id]) != self._baseline[guide_id]:
+                    if (
+                        self._observe(self._guides[guide_id])
+                        != self._baseline[guide_id]
+                    ):
                         self._restart_required = True
                 if not self._restart_required:
                     self._snapshots.update(pending)
@@ -222,7 +250,9 @@ class Guidance:
             "digest": snapshot.digest if snapshot else None,
             "restart_required": self._restart_required,
             "complete": snapshot is not None,
-            "omissions": [] if snapshot else ["Restart the interface before reading this guide."],
+            "omissions": []
+            if snapshot
+            else ["Restart the interface before reading this guide."],
         }
 
 

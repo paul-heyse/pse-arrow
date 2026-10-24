@@ -48,7 +48,8 @@ class GuidanceTests(unittest.TestCase):
         first = bundle[1]
         self.assertEqual(first["content"], "# First\n[Owner](owner.md)\n")
         self.assertEqual(
-            first["digest"], sha256((self.root / self.first.path).read_bytes()).hexdigest()
+            first["digest"],
+            sha256((self.root / self.first.path).read_bytes()).hexdigest(),
         )
         self.assertEqual(first["path"], "first.md")
         self.assertEqual(first["uri"], "pse://guidance/first")
@@ -94,8 +95,14 @@ class GuidanceTests(unittest.TestCase):
     def test_unknown_and_missing_sources_are_structured_value_errors(self) -> None:
         missing = Guide(id="missing", title="Missing", path="missing.md")
         guidance = Guidance(self.root, [missing])
-        for guide_id, code in [("unknown", "unknown_guide"), ("missing", "missing_source")]:
-            with self.subTest(guide=guide_id), self.assertRaises(GuidanceError) as caught:
+        for guide_id, code in [
+            ("unknown", "unknown_guide"),
+            ("missing", "missing_source"),
+        ]:
+            with (
+                self.subTest(guide=guide_id),
+                self.assertRaises(GuidanceError) as caught,
+            ):
                 guidance.read(guide_id)
             self.assertIsInstance(caught.exception, ValueError)
             self.assertEqual(caught.exception.details["code"], code)
@@ -156,7 +163,9 @@ class GuidanceTests(unittest.TestCase):
                     (self.root / self.first.path).write_text("changed during bundle")
                 yield source
 
-        with patch("scripts.capabilities.guidance.os.fdopen", side_effect=open_then_change):
+        with patch(
+            "scripts.capabilities.guidance.os.fdopen", side_effect=open_then_change
+        ):
             bundle = guidance.instruction_bundle(["first", "second"])
         self.assertTrue(all(item["restart_required"] for item in bundle))
         self.assertTrue(all(not item["complete"] for item in bundle))
@@ -164,13 +173,20 @@ class GuidanceTests(unittest.TestCase):
     def test_planning_skill_is_exact_owned_content_without_execution(self) -> None:
         root = Path(__file__).resolve().parents[2]
         skill = Guide(
-            id="planning", title="Plan execution", kind="skill",
+            id="planning",
+            title="Plan execution",
+            kind="skill",
             path=".codex/skills/plan-execution/SKILL.md",
         )
         original = (root / skill.path).read_text()
         with (
-            patch("subprocess.run", side_effect=AssertionError("must not run commands")),
-            patch("subprocess.Popen", side_effect=AssertionError("must not start services")),
+            patch(
+                "subprocess.run", side_effect=AssertionError("must not run commands")
+            ),
+            patch(
+                "subprocess.Popen",
+                side_effect=AssertionError("must not start services"),
+            ),
             patch("os.system", side_effect=AssertionError("must not execute skills")),
         ):
             result = Guidance(root, [skill]).read("planning")
@@ -185,11 +201,15 @@ class GuidanceResourceTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "guide.md").write_text("# Owned\n[More](other.md)\n")
-            guide = Guide(id="owned", title="Owned guide", path="guide.md", kind="skill")
+            guide = Guide(
+                id="owned", title="Owned guide", path="guide.md", kind="skill"
+            )
             server = FastMCP("guidance-test")
             with patch(
                 "scripts.capabilities.guidance.os.fdopen",
-                side_effect=AssertionError("registration and listing must not read bodies"),
+                side_effect=AssertionError(
+                    "registration and listing must not read bodies"
+                ),
             ):
                 guidance = Guidance(root, [guide])
                 keys = register_guides(server, guidance)

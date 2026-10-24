@@ -64,7 +64,12 @@ def build(root: Path = ROOT) -> Runtime:
     bound, tools = bindings(root)
     catalogue = Catalogue(domains, workflows, guides, (*declared, *bound), tools)
     guidance = Guidance(root, guides)
-    server = FastMCP("pse-capabilities", instructions=INSTRUCTIONS, strict_input_validation=True, mask_error_details=True)
+    server = FastMCP(
+        "pse-capabilities",
+        instructions=INSTRUCTIONS,
+        strict_input_validation=True,
+        mask_error_details=True,
+    )
     keys = register_guides(server, guidance)
     for tool in tools.values():
         server.add_tool(tool)
@@ -75,7 +80,9 @@ def build(root: Path = ROOT) -> Runtime:
     lock = asyncio.Lock()
 
     @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def capabilities_domains(domain: str | None = None, offset: Offset = 0, limit: Limit = 20) -> dict[str, JsonValue]:
+    def capabilities_domains(
+        domain: str | None = None, offset: Offset = 0, limit: Limit = 20
+    ) -> dict[str, JsonValue]:
         """Browse exact domains, or page the capabilities of one domain. This reads loaded declarations, never probes or starts services."""
         try:
             return catalogue.browse("domain", domain, offset, limit)
@@ -83,7 +90,9 @@ def build(root: Path = ROOT) -> Runtime:
             raise refusal("pse.capabilities.unknown_domain", error) from error
 
     @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    def capabilities_workflows(workflow: str | None = None, offset: Offset = 0, limit: Limit = 20) -> dict[str, JsonValue]:
+    def capabilities_workflows(
+        workflow: str | None = None, offset: Offset = 0, limit: Limit = 20
+    ) -> dict[str, JsonValue]:
         """Browse exact workflows, or page their canonical capability identities. A workflow guides composition; it does not schedule work."""
         try:
             return catalogue.browse("workflow", workflow, offset, limit)
@@ -91,20 +100,35 @@ def build(root: Path = ROOT) -> Runtime:
             raise refusal("pse.capabilities.unknown_workflow", error) from error
 
     @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
-    async def capabilities_describe(capability: str, ctx: Context, include_schema: bool = False) -> dict[str, JsonValue]:
+    async def capabilities_describe(
+        capability: str, ctx: Context, include_schema: bool = False
+    ) -> dict[str, JsonValue]:
         """Describe one exact capability, including hidden/deferred tools. Rich schemas come from actual callable bindings, never guessed CLI grammar."""
         try:
             result = catalogue.describe(capability, include_schema=include_schema)
         except ValueError as error:
             raise refusal("pse.capabilities.unknown_capability", error) from error
         rules = await get_visibility_rules(ctx)
-        selected = {key for rule in rules if rule.get("enabled") is True for key in rule.get("keys", [])}
+        selected = {
+            key
+            for rule in rules
+            if rule.get("enabled") is True
+            for key in rule.get("keys", [])
+        }
         tool = tools.get(capability)
         result["visible"] = tool is not None and tool.key in selected
         return result
 
     async def replace(ctx: Context, selected_keys: set[str]) -> tuple[bool, list[str]]:
-        rules = [JSON_OBJECT.validate_python({"enabled": True, "keys": sorted(selected_keys)})] if selected_keys else []
+        rules = (
+            [
+                JSON_OBJECT.validate_python(
+                    {"enabled": True, "keys": sorted(selected_keys)}
+                )
+            ]
+            if selected_keys
+            else []
+        )
         async with lock:
             previous = await get_visibility_rules(ctx)
             if previous == rules:
@@ -117,11 +141,23 @@ def build(root: Path = ROOT) -> Runtime:
                 # turn a committed selection into a claimed rollback or replay effects.
                 actual = await get_visibility_rules(ctx)
                 if actual != rules:
-                    raise ToolError("pse.capabilities.selection_failed: visibility was not committed") from error
-                return True, ["selection committed; list-change notification unavailable: " + type(error).__name__]
+                    raise ToolError(
+                        "pse.capabilities.selection_failed: visibility was not committed"
+                    ) from error
+                return True, [
+                    "selection committed; list-change notification unavailable: "
+                    + type(error).__name__
+                ]
         return True, []
 
-    @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+    @server.tool(
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        }
+    )
     async def capabilities_select(
         ctx: Context,
         domains: Ids | None = None,
@@ -130,13 +166,19 @@ def build(root: Path = ROOT) -> Runtime:
     ) -> dict[str, JsonValue]:
         """Replace this attachment's view with exact selected domains/workflows/capabilities. No operation executes; checkout/service/permission context is unchanged."""
         try:
-            selected = catalogue.select(domains or [], workflows or [], capabilities or [])
+            selected = catalogue.select(
+                domains or [], workflows or [], capabilities or []
+            )
         except ValueError as error:
             raise refusal("pse.capabilities.unknown_selection", error) from error
-        selected_keys = {tools[key].key for key in selected.capabilities if key in tools}
+        selected_keys = {
+            tools[key].key for key in selected.capabilities if key in tools
+        }
         selected_keys.update(keys[key] for key in selected.guides if key in keys)
         try:
-            instructions = guidance.instruction_bundle([key for key in selected.guides if key != "root"])
+            instructions = guidance.instruction_bundle(
+                [key for key in selected.guides if key != "root"]
+            )
         except ValueError as error:
             raise refusal("pse.capabilities.guidance_unavailable", error) from error
         changed, notifications = await replace(ctx, selected_keys)
@@ -148,34 +190,79 @@ def build(root: Path = ROOT) -> Runtime:
                 if size > remaining:
                     instruction["content"] = None
                     instruction["complete"] = False
-                    instruction["omissions"] = ["selection response instruction bound; read this resource explicitly"]
+                    instruction["omissions"] = [
+                        "selection response instruction bound; read this resource explicitly"
+                    ]
                 else:
                     remaining -= size
-        return JSON_OBJECT.validate_python({
-            "revision": catalogue.revision,
-            "changed": changed,
-            "capabilities": list(selected.capabilities),
-            "callable_tools": [key for key in selected.capabilities if key in tools],
-            "non_callable": [catalogue.describe(key) for key in selected.capabilities if key not in tools],
-            "guides": [{"id": key, "uri": catalogue.guides[key].uri} for key in selected.guides],
-            "instructions": instructions,
-            "notification_omissions": notifications,
-            "compatibility_invocation": "capabilities_invoke_read",
-            "context": {"checkout": str(root), "service_selection": "unchanged", "effects": "presentation only"},
-        })
+        return JSON_OBJECT.validate_python(
+            {
+                "revision": catalogue.revision,
+                "changed": changed,
+                "capabilities": list(selected.capabilities),
+                "callable_tools": [
+                    key for key in selected.capabilities if key in tools
+                ],
+                "non_callable": [
+                    catalogue.describe(key)
+                    for key in selected.capabilities
+                    if key not in tools
+                ],
+                "guides": [
+                    {"id": key, "uri": catalogue.guides[key].uri}
+                    for key in selected.guides
+                ],
+                "instructions": instructions,
+                "notification_omissions": notifications,
+                "compatibility_invocation": "capabilities_invoke_read",
+                "context": {
+                    "checkout": str(root),
+                    "service_selection": "unchanged",
+                    "effects": "presentation only",
+                },
+            }
+        )
 
-    @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})
+    @server.tool(
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        }
+    )
     async def capabilities_reset(ctx: Context) -> dict[str, JsonValue]:
         """Restore bootstrap for this attachment. Native work is neither cancelled nor replayed; source/project/service context remains unchanged."""
         changed, notifications = await replace(ctx, set())
-        return JSON_OBJECT.validate_python({"revision": catalogue.revision, "changed": changed, "capabilities": [], "notification_omissions": notifications})
+        return JSON_OBJECT.validate_python(
+            {
+                "revision": catalogue.revision,
+                "changed": changed,
+                "capabilities": [],
+                "notification_omissions": notifications,
+            }
+        )
 
-    @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False})
-    async def capabilities_invoke_read(capability: str, arguments: dict[str, JsonValue]) -> ToolResult:
+    @server.tool(
+        annotations={
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "openWorldHint": False,
+        }
+    )
+    async def capabilities_invoke_read(
+        capability: str, arguments: dict[str, JsonValue]
+    ) -> ToolResult:
         """Invoke one exact selected read-only canonical tool when the host keeps a static tool list. First describe its real schema and select it. No shell/SQL/argv or bootstrap dispatch is accepted."""
         tool = tools.get(capability)
-        if tool is None or tool.annotations is None or tool.annotations.read_only_hint is not True:
-            raise ToolError("pse.capabilities.read_binding_required: select an actual read-only canonical tool")
+        if (
+            tool is None
+            or tool.annotations is None
+            or tool.annotations.read_only_hint is not True
+        ):
+            raise ToolError(
+                "pse.capabilities.read_binding_required: select an actual read-only canonical tool"
+            )
         # Public FastMCP dispatch retains visibility, context, strict FunctionTool
         # input validation, middleware, original result and future native admission.
         return await server.call_tool(capability, arguments)
