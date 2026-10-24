@@ -4758,7 +4758,13 @@ def storage_launch_drain_config(
     except SupervisorError:
         pass
     marker_path = state / ".maintenance-listener.json"
-    if marker_path.exists() or marker_path.is_symlink():
+    pending = config.get("derived_rebuild_pending")
+    if (
+        isinstance(pending, dict)
+        and pending.get("kind") == "initialize"
+        and pending.get("phase") == "initializing"
+        and (marker_path.exists() or marker_path.is_symlink())
+    ):
         return interrupted_initializer_drain_config(state, config, launch, deadline=deadline)
     if (
         config.get("owner") != OWNER

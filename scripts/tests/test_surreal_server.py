@@ -1956,6 +1956,20 @@ class SurrealSupervisorTests(unittest.TestCase):
         with patch.object(server, "verify_generation", side_effect=changed), self.assertRaisesRegex(server.SupervisorError, "observations changed"):
             server.storage_launch_drain_config(self.state, config, launch)
 
+    def test_non_initializer_maintenance_marker_preserves_exact_history_drain_route(self) -> None:
+        config, launch = self.interrupted_initializer_launch()
+        config["admission"] = "quiesced"
+        config["derived_rebuild_pending"]["kind"] = "rebuild"
+        config["derived_rebuild_pending"]["phase"] = "accounts"
+        server.write_json(self.state / "config.json", config)
+        history = self.state / ".profile-history"
+        history.mkdir(mode=0o700)
+        prior = {**config, "service_supervisor": launch["supervisor_generation"]}
+        server.write_json(history / (("d" * 32) + ".json"), prior)
+        with patch.object(server, "interrupted_initializer_drain_config", side_effect=AssertionError("unrelated initializer route")):
+            self.assertEqual(server.storage_launch_drain_config(self.state, config, launch), prior)
+        self.assertEqual(server.config_for(self.state), config)
+
     def test_initializer_child_failure_drains_under_existing_lifetime(self) -> None:
         config = self.initialized()
         config.update(admission="validation_required", accepting_writes=False)
