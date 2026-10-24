@@ -29,8 +29,18 @@ def main() -> int:
     tool_root = args.tool_root.resolve()
     receipts = {path: path.read_bytes() for path in tool_root.glob("*/release.json")}
     with (
-        patch.object(source, "build_context", side_effect=AssertionError("reuse attempted compiler capture")),
-        patch.object(source, "command", side_effect=AssertionError("reuse attempted a compiler, source probe or executable")),
+        patch.object(
+            source,
+            "build_context",
+            side_effect=AssertionError("reuse attempted compiler capture"),
+        ),
+        patch.object(
+            source,
+            "command",
+            side_effect=AssertionError(
+                "reuse attempted a compiler, source probe or executable"
+            ),
+        ),
     ):
         before = server.install(None, tool_root)
         binary = Path(str(before["binary"]))
@@ -41,23 +51,40 @@ def main() -> int:
             "PATH": {"PATH": "/different/caller/bin"},
             "LD_LIBRARY_PATH": {"LD_LIBRARY_PATH": "/different/runtime/libraries"},
             "RUSTC_WRAPPER": {"RUSTC_WRAPPER": "/different/worktree/scripts/sccache"},
-            "SCCACHE_CONF": {"SCCACHE_CONF": "/different/worktree/.config/sccache.toml"},
+            "SCCACHE_CONF": {
+                "SCCACHE_CONF": "/different/worktree/.config/sccache.toml"
+            },
             "CARGO_HOME": {"CARGO_HOME": "/different/cargo/home"},
         }
         for kind, environment in variants.items():
             with (
                 patch.dict(source.os.environ, environment),
                 patch.object(source, "ROOT", tool_root / "different-caller-worktree"),
-                patch.object(source.installation_context, "configuration", side_effect=AssertionError("reuse attempted caller configuration capture")),
+                patch.object(
+                    source.installation_context,
+                    "configuration",
+                    side_effect=AssertionError(
+                        "reuse attempted caller configuration capture"
+                    ),
+                ),
             ):
                 reused = server.install(None, tool_root)
                 require(reused == before, "caller change selected a different artifact")
-                require(source.admitted_receipt(reused), "launch admission refused the installed package")
+                require(
+                    source.admitted_receipt(reused),
+                    "launch admission refused the installed package",
+                )
                 # Even an explicit installer must reuse a completed package.
-                require(server.install(None, tool_root, build=True) == before, "explicit installer did not reuse the completed package")
+                require(
+                    server.install(None, tool_root, build=True) == before,
+                    "explicit installer did not reuse the completed package",
+                )
             observed.append(kind)
     require(source.digest(binary) == binary_digest, "reuse changed the executable")
-    require(all(path.read_bytes() == original for path, original in receipts.items()), "reuse rewrote original build provenance")
+    require(
+        all(path.read_bytes() == original for path, original in receipts.items()),
+        "reuse rewrote original build provenance",
+    )
     result = {
         "tool_root": str(tool_root),
         "binary": str(binary),
@@ -71,7 +98,9 @@ def main() -> int:
         "build_invocations": 0,
         "services_started": 0,
     }
-    (tool_root / "equivalence-check.json").write_text(json.dumps(result, indent=2) + "\n")
+    (tool_root / "equivalence-check.json").write_text(
+        json.dumps(result, indent=2) + "\n"
+    )
     print(json.dumps(result, indent=2))
     return 0
 

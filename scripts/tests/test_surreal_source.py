@@ -104,7 +104,9 @@ class SourceAdmissionTests(unittest.TestCase):
         with patch.object(source, "FEATURES", "storage-mem,cli,mcp"):
             self.assertNotEqual(source.installation_name(), prior)
 
-    def test_changed_patches_select_new_package_but_compiler_context_does_not(self) -> None:
+    def test_changed_patches_select_new_package_but_compiler_context_does_not(
+        self,
+    ) -> None:
         prior = source.installation_name()
         actual_digest = source.digest
         for selected in (source.INPUTS / name for name in source.PATCHES):
@@ -162,12 +164,16 @@ class SourceAdmissionTests(unittest.TestCase):
             source, "build_context", side_effect=AssertionError("passive compiler scan")
         ):
             self.assertTrue(source.admitted_receipt(receipt))
-        with patch.object(source, "build_context", side_effect=AssertionError("launch compiler scan")):
+        with patch.object(
+            source, "build_context", side_effect=AssertionError("launch compiler scan")
+        ):
             self.assertTrue(source.admitted_receipt(receipt))
 
     def test_package_selection_does_not_inspect_caller_context(self) -> None:
         prior = source.installation_name()
-        with patch.object(source, "build_context", side_effect=AssertionError("caller compiler scan")):
+        with patch.object(
+            source, "build_context", side_effect=AssertionError("caller compiler scan")
+        ):
             self.assertEqual(source.installation_name(), prior)
 
     def completed_package(self, directory: Path) -> tuple[dict, Path]:
@@ -186,18 +192,32 @@ class SourceAdmissionTests(unittest.TestCase):
         path.write_text(json.dumps(receipt))
         return receipt, path
 
-    def test_existing_completed_artifact_is_adopted_without_rebuild_or_relocation(self) -> None:
+    def test_existing_completed_artifact_is_adopted_without_rebuild_or_relocation(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
-            receipt, path = self.completed_package(root / "v3.3.4-mx1.0.0-effective-v1-original")
+            receipt, path = self.completed_package(
+                root / "v3.3.4-mx1.0.0-effective-v1-original"
+            )
             original = path.read_bytes()
             directory = root / source.installation_name()
             directory.mkdir()
             with (
                 patch.dict(source.os.environ, {"PATH": "/different/caller/bin"}),
-                patch.object(source, "verify_source", side_effect=AssertionError("completed source probe")),
-                patch.object(source, "build_context", side_effect=AssertionError("compiler scan")),
-                patch.object(source, "command", side_effect=AssertionError("compiler or executable")),
+                patch.object(
+                    source,
+                    "verify_source",
+                    side_effect=AssertionError("completed source probe"),
+                ),
+                patch.object(
+                    source, "build_context", side_effect=AssertionError("compiler scan")
+                ),
+                patch.object(
+                    source,
+                    "command",
+                    side_effect=AssertionError("compiler or executable"),
+                ),
             ):
                 self.assertEqual(source.require_installed(directory), receipt)
                 self.assertEqual(source.install(directory), receipt)
@@ -205,7 +225,9 @@ class SourceAdmissionTests(unittest.TestCase):
             self.assertFalse((directory / "source").exists())
             self.assertTrue((directory / "selection.json").exists())
 
-    def test_selected_artifact_survives_caller_worktree_and_cache_environment_changes(self) -> None:
+    def test_selected_artifact_survives_caller_worktree_and_cache_environment_changes(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
             directory = root / source.installation_name()
@@ -213,14 +235,34 @@ class SourceAdmissionTests(unittest.TestCase):
             original = path.read_bytes()
             with patch.object(source, "verify_source"):
                 source.require_installed(directory)
-            for variable in ("PATH", "LD_LIBRARY_PATH", "RUSTC_WRAPPER", "SCCACHE_CONF", "CARGO_HOME"):
+            for variable in (
+                "PATH",
+                "LD_LIBRARY_PATH",
+                "RUSTC_WRAPPER",
+                "SCCACHE_CONF",
+                "CARGO_HOME",
+            ):
                 with (
                     self.subTest(variable=variable),
-                    patch.dict(source.os.environ, {variable: "/different/worktree/value"}),
+                    patch.dict(
+                        source.os.environ, {variable: "/different/worktree/value"}
+                    ),
                     patch.object(source, "ROOT", root / "another-worktree"),
-                    patch.object(source, "build_context", side_effect=AssertionError("compiler scan")),
-                    patch.object(source.installation_context, "configuration", side_effect=AssertionError("configuration scan")),
-                    patch.object(source, "command", side_effect=AssertionError("compiler or executable")),
+                    patch.object(
+                        source,
+                        "build_context",
+                        side_effect=AssertionError("compiler scan"),
+                    ),
+                    patch.object(
+                        source.installation_context,
+                        "configuration",
+                        side_effect=AssertionError("configuration scan"),
+                    ),
+                    patch.object(
+                        source,
+                        "command",
+                        side_effect=AssertionError("compiler or executable"),
+                    ),
                 ):
                     self.assertEqual(source.require_installed(directory), receipt)
                     self.assertTrue(source.admitted_receipt(receipt))
@@ -229,13 +271,23 @@ class SourceAdmissionTests(unittest.TestCase):
     def test_ordinary_missing_package_never_compiles(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
             with (
-                patch.object(source, "install", side_effect=AssertionError("implicit compilation")),
-                patch.object(source, "build_context", side_effect=AssertionError("compiler scan")),
-                self.assertRaisesRegex(server.SupervisorError, "explicitly run build-server"),
+                patch.object(
+                    source,
+                    "install",
+                    side_effect=AssertionError("implicit compilation"),
+                ),
+                patch.object(
+                    source, "build_context", side_effect=AssertionError("compiler scan")
+                ),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "explicitly run build-server"
+                ),
             ):
                 server.install(None, Path(scratch))
 
-    def test_published_selection_refuses_corruption_without_fallback_or_compilation(self) -> None:
+    def test_published_selection_refuses_corruption_without_fallback_or_compilation(
+        self,
+    ) -> None:
         for change in ("binary", "lock", "receipt", "selection", "path"):
             with self.subTest(change=change), tempfile.TemporaryDirectory() as scratch:
                 root = Path(scratch)
@@ -259,21 +311,39 @@ class SourceAdmissionTests(unittest.TestCase):
                     value["release"] = "../release.json"
                     selection.write_text(json.dumps(value))
                 with (
-                    patch.object(source, "command", side_effect=AssertionError("compiler or executable")),
-                    patch.object(source, "build_context", side_effect=AssertionError("compiler scan")),
+                    patch.object(
+                        source,
+                        "command",
+                        side_effect=AssertionError("compiler or executable"),
+                    ),
+                    patch.object(
+                        source,
+                        "build_context",
+                        side_effect=AssertionError("compiler scan"),
+                    ),
                     self.assertRaises(source.BuildError),
                 ):
                     source.install(directory)
 
-    def test_package_patch_change_refuses_old_artifact_without_implicit_build(self) -> None:
+    def test_package_patch_change_refuses_old_artifact_without_implicit_build(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
             self.completed_package(root / "v3.3.4-mx1.0.0-effective-v1-old")
             with (
                 patch.object(source, "FEATURES", "different-package-feature"),
-                patch.object(source, "command", side_effect=AssertionError("compiler or executable")),
-                patch.object(source, "build_context", side_effect=AssertionError("compiler scan")),
-                self.assertRaisesRegex(server.SupervisorError, "explicitly run build-server"),
+                patch.object(
+                    source,
+                    "command",
+                    side_effect=AssertionError("compiler or executable"),
+                ),
+                patch.object(
+                    source, "build_context", side_effect=AssertionError("compiler scan")
+                ),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "explicitly run build-server"
+                ),
             ):
                 server.install(None, root)
 
@@ -355,11 +425,21 @@ class SourceAdmissionTests(unittest.TestCase):
             manifest.write_text(json.dumps({**declared, "identity": "0" * 64}))
             self.assertFalse(immutable.admitted_runtime_receipt(receipt, generation))
 
-    def test_caller_configuration_and_compiler_changes_preserve_installed_package(self) -> None:
+    def test_caller_configuration_and_compiler_changes_preserve_installed_package(
+        self,
+    ) -> None:
         receipt = fixture_receipt()
         with (
-            patch.object(source.installation_context, "configuration", side_effect=AssertionError("caller configuration scan")),
-            patch.object(source, "build_context", side_effect=AssertionError("caller compiler scan")),
+            patch.object(
+                source.installation_context,
+                "configuration",
+                side_effect=AssertionError("caller configuration scan"),
+            ),
+            patch.object(
+                source,
+                "build_context",
+                side_effect=AssertionError("caller compiler scan"),
+            ),
         ):
             self.assertTrue(source.admitted_receipt(receipt))
 

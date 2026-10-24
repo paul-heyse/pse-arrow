@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 ROOT = Path(__file__).resolve().parents[1]
+FOREGROUND_CACHE = "PSE_SCCACHE_FOREGROUND"
 
 
 def language_server_environment(environment: Mapping[str, str]) -> dict[str, str]:
@@ -59,6 +60,7 @@ def language_server_environment(environment: Mapping[str, str]) -> dict[str, str
         "SCCACHE_CLIENT_SIDE",
         "SCCACHE_DIRECT",
         "SCCACHE_NO_DAEMON",
+        FOREGROUND_CACHE,
         "PSE_LLVM_PREFIX",
         "LLVM_CONFIG_PATH",
         "LIBCLANG_PATH",
@@ -214,9 +216,21 @@ def configure(
                 "managed compiler cache requires its exact installed binary"
             )
         env["PSE_SCCACHE_BINARY"] = real
-        env["RUSTC_WRAPPER"] = str(managed)
+        foreground = env.get(FOREGROUND_CACHE)
+        if foreground is not None and (
+            not foreground
+            or foreground != env.get("SCCACHE_SERVER_UDS")
+            or env.get("SCCACHE_NO_DAEMON") != "1"
+        ):
+            raise ValueError(
+                "foreground compiler cache requires its selected endpoint and NO_DAEMON=1"
+            )
+        # Explicit experiments own their foreground service in the operation's
+        # allocation. Nested recipe setup must retain that same endpoint.
+        selected = real if foreground is not None else str(managed)
+        env["RUSTC_WRAPPER"] = selected
         if env.get("PSE_NATIVE_COMPILER_CACHE"):
-            env["PSE_NATIVE_COMPILER_CACHE"] = str(managed)
+            env["PSE_NATIVE_COMPILER_CACHE"] = selected
     # Each checkout, git worktrees included, builds into its own target directory. A
     # directory inherited from another checkout is not an override for this one: a
     # long-running agent or editor process started under that checkout's direnv carries

@@ -192,7 +192,8 @@ Arrow force-validation for correctness build/test closures and native libraries 
   `3549c2a97bd565fd2497` across six caller-context variants, with all original receipt bytes
   unchanged, zero compiler captures/builds and zero service starts. The
   [substrate guide](../dev/surreal-substrate.md#installed-external-server-reuse) owns the
-  enduring contract. The focused source/context/supervisor unittest command passed 295 tests
+  enduring contract. `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_surreal_server
+  scripts.tests.test_surreal_source scripts.tests.test_installation_context` passed 295 tests
   against zero failures after replacing an accidental compiler-path refusal with an explicit
   immutable-supervisor binding check. This is functional reuse evidence, not measured speed
   benefit.

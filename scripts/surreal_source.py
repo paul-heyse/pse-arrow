@@ -202,7 +202,8 @@ def installation_name() -> str:
 
 def name_for(selected: dict[str, object]) -> str:
     package = {
-        key: value for key, value in selected.items()
+        key: value
+        for key, value in selected.items()
         if key not in {"build_context", "installation_namespace"}
     }
     return f"v{VERSION}-mx{ENGINE}-package-v1-{effective_key(package)[:20]}"
@@ -217,7 +218,11 @@ def installed_receipt(path: Path) -> dict[str, object]:
     binary = directory / "source" / "target" / PROFILE / "surreal"
     if any(part.is_symlink() for part in (path, binary, *binary.parents)):
         raise BuildError("Installed server artifact must not traverse symlinks")
-    if receipt.get("binary") != str(binary) or not binary.is_file() or receipt.get("binary_sha256") != digest(binary):
+    if (
+        receipt.get("binary") != str(binary)
+        or not binary.is_file()
+        or receipt.get("binary_sha256") != digest(binary)
+    ):
         raise BuildError("Installed server binary differs from its admitted receipt")
     lock = directory / "source/Cargo.lock"
     if lock.is_symlink() or receipt.get("lockfile_sha256") != digest(lock):
@@ -252,13 +257,17 @@ def select_installed(directory: Path) -> dict[str, object] | None:
             raise BuildError("Installed server package selection is invalid")
         path = directory.parent / relative
         if path.is_symlink() or recorded.get("release_sha256") != digest(path):
-            raise BuildError("Installed server receipt differs from its package selection")
+            raise BuildError(
+                "Installed server receipt differs from its package selection"
+            )
         return installed_receipt(path)
     own = directory / "release.json"
     if own.exists():
         candidates = [own]
     else:
-        candidates = sorted(directory.parent.glob(f"v{VERSION}-mx{ENGINE}-effective-v1-*/release.json"))
+        candidates = sorted(
+            directory.parent.glob(f"v{VERSION}-mx{ENGINE}-effective-v1-*/release.json")
+        )
     for path in candidates:
         try:
             receipt = installed_receipt(path)
@@ -268,12 +277,16 @@ def select_installed(directory: Path) -> dict[str, object] | None:
             continue
         pending = directory / "selection.json.pending"
         with pending.open("w") as output:
-            json.dump({
-                "schema": "surreal-source-selection-v1",
-                "package": installation_name(),
-                "release": str(path.relative_to(directory.parent)),
-                "release_sha256": digest(path),
-            }, output, sort_keys=True)
+            json.dump(
+                {
+                    "schema": "surreal-source-selection-v1",
+                    "package": installation_name(),
+                    "release": str(path.relative_to(directory.parent)),
+                    "release_sha256": digest(path),
+                },
+                output,
+                sort_keys=True,
+            )
             output.write("\n")
             output.flush()
             os.fsync(output.fileno())
@@ -285,7 +298,9 @@ def select_installed(directory: Path) -> dict[str, object] | None:
 def require_installed(directory: Path) -> dict[str, object]:
     receipt = select_installed(directory)
     if receipt is None:
-        raise BuildError("Pinned server package is not installed; explicitly run build-server before setup or tests (no automatic compilation)")
+        raise BuildError(
+            "Pinned server package is not installed; explicitly run build-server before setup or tests (no automatic compilation)"
+        )
     return receipt
 
 
@@ -431,7 +446,9 @@ def acquire_diskann(source: Path, scratch: Path) -> None:
 def install(directory: Path) -> dict[str, object]:
     """Explicit installation only; ordinary consumers call require_installed."""
     if directory.name != installation_name():
-        raise BuildError("Installer directory differs from the pinned package namespace")
+        raise BuildError(
+            "Installer directory differs from the pinned package namespace"
+        )
     cached = select_installed(directory)
     if cached is not None:
         return cached

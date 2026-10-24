@@ -1443,7 +1443,9 @@ def default_tool_root() -> Path:
     )
 
 
-def install(version: str | None, tool_root: Path, *, build: bool = False) -> dict[str, object]:
+def install(
+    version: str | None, tool_root: Path, *, build: bool = False
+) -> dict[str, object]:
     """Reuse the pinned external package; only build-server authorizes compilation."""
     if version not in {None, "v" + surreal_source.VERSION}:
         raise SupervisorError(
@@ -1454,11 +1456,13 @@ def install(version: str | None, tool_root: Path, *, build: bool = False) -> dic
             "The managed source server supports Linux amd64/arm64 only"
         )
     try:
-        directory = checked_directory(
-            tool_root / surreal_source.installation_name()
-        )
+        directory = checked_directory(tool_root / surreal_source.installation_name())
         with state_lock(directory):
-            return (surreal_source.install(directory) if build else surreal_source.require_installed(directory))
+            return (
+                surreal_source.install(directory)
+                if build
+                else surreal_source.require_installed(directory)
+            )
     except (surreal_source.BuildError, OSError, ValueError) as error:
         raise SupervisorError(str(error)) from error
 
@@ -10423,7 +10427,9 @@ def _dispatch(args: argparse.Namespace) -> int:
             "Qualification control is only available with ensure-primary"
         )
     if args.command == "build-server":
-        output = install(args.version, args.tool_root or default_tool_root(), build=True)
+        output = install(
+            args.version, args.tool_root or default_tool_root(), build=True
+        )
     elif args.command == "module-qualification":
         output = select_module_qualification(
             args.state.absolute(), args.module_receipt, long_hold=args.long_hold

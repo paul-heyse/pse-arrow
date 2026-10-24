@@ -94,6 +94,29 @@ class BuildEnvironmentTests(unittest.TestCase):
             configured["RUSTC_WRAPPER"], str(build.ROOT / "scripts/sccache")
         )
 
+    def test_foreground_cache_survives_nested_recipe_configuration(self) -> None:
+        selected = {
+            "RUSTC_WRAPPER": str(build.ROOT / "scripts/sccache"),
+            "PSE_SCCACHE_BINARY": "/installed/sccache",
+            "PSE_NATIVE_COMPILER_CACHE": str(build.ROOT / "scripts/sccache"),
+            "SCCACHE_SERVER_UDS": "/campaign/cache.sock",
+            "SCCACHE_NO_DAEMON": "1",
+            build.FOREGROUND_CACHE: "/campaign/cache.sock",
+        }
+        env = build.configure(build.ROOT, selected, cache="on")
+        self.assertEqual(env["RUSTC_WRAPPER"], "/installed/sccache")
+        self.assertEqual(env["PSE_NATIVE_COMPILER_CACHE"], "/installed/sccache")
+        self.assertEqual(env["SCCACHE_SERVER_UDS"], "/campaign/cache.sock")
+        self.assertEqual(env["SCCACHE_CLIENT_SIDE"], "1")
+        self.assertEqual(build.configure(build.ROOT, env), env)
+        for extra in (
+            {build.FOREGROUND_CACHE: ""},
+            {build.FOREGROUND_CACHE: "/other/cache.sock"},
+            {"SCCACHE_NO_DAEMON": "0"},
+        ):
+            with self.assertRaisesRegex(ValueError, "foreground compiler cache"):
+                build.configure(build.ROOT, {**selected, **extra}, cache="on")
+
     def test_cache_modes_that_escape_supervision_fall_back_before_setup(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             config = Path(directory) / "sccache.toml"
