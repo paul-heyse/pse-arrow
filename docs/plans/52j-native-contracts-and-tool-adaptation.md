@@ -1,6 +1,6 @@
 ---
 title: "Plan 52j: Native contracts and tool adaptation"
-status: draft
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
@@ -285,3 +285,113 @@ per-owner boundary choices; unresolved material cases keep dependent exposure un
 Publish enduring contract/guidance at its existing owner through the established decision route
 where required; do not move native authority into this companion or retain a second public
 interface for historical comparison.
+
+## Execution realization — 2026-10-24
+
+**Implemented:** the single endpoint composes 65 actual operations from their binding owners.
+Family selection derives its operations from those bindings. Forty-five native declarations and
+one internal declaration retain specific reasons and native routes; they are not fake MCP
+operations or a deferred generic dispatcher. The explicit entry-point inspection covers 402
+current entries (222 recipes, 131 script candidates, 22 Python modules, eight native frontends,
+three session declarations and 16 skills), with zero unclassified entries under its stated
+top-level coverage. This is classification evidence, not all-command execution qualification.
+
+Q02's realization is a generated catalogue containing exact input/output slug, exported name,
+wire owner, receiving Rust type, schema path, native fingerprint and schema byte digest. Its
+437 native schema resources and separate authoring guidance keep their original reference
+roots. Custom native tools publish those resources and invoke the original public Python
+facades, generated codecs and Rust admission; host Pydantic models describe only host context.
+Cached resources retain their original bytes. Uncached resources verify both captured file
+identity and producer digest, refusing regeneration or mixed publication with a restart request.
+Raw authored packages remain original byte containers, never hydrated Python field mirrors.
+
+| Native operation group | Receiving authority and retained distinctions |
+|---|---|
+| Supplied source and preparation discovery | `Runtime.physical_from_documents`, `modeling_from_documents`, `ModelingPackage.preparation_discovery`; one child lifetime, no reopenable ephemeral handle or implicit canonical store. |
+| Project selection, metadata and retained revisions | `Runtime.project_select`, `project_metadata`, `modeling_revision`, source detail/preparation readers; exact deployment, original physical closure and issuing-store cursor admission. |
+| Supplied project bundle | `ProjectBundle` manifest/digest inspection remains offline and does not provision a store. |
+| Research, evidence, diagnostics and invocation records | Existing native readers and codecs preserve original operation/outcome, partial status and bounded detail; schema/transport failures remain separate. |
+| Protected stored results | Exact run/attempt/relation/window selection through the native result reader, returning bounded Arrow IPC bytes without row-shaped scientific JSON. |
+
+Q04 selects typed extraction for archive/replay and active diagnostics. Their retained CLIs
+call those same kernels; experiment dispatch leaves leaf help to its owner. Fixed main-thread
+children preserve native signal/drain policy where execution requires a process. Assessment
+uses original `Gate` expansion and result owners. Scoped Rust execution consumes Plan53c's
+shared selector, invocation normalizer, requirement tracking and terminal owner. A narrow native
+callback returns the authentic allocated invocation before execution; borrowed invocations
+retain their outer terminal owner. No handle is recovered from printed output.
+
+Read and action compatibility invokers both dispatch the exact selected registered tool through
+FastMCP. Actions retain conservative effect annotations and native admission. Read cancellation
+detaches; action cancellation signals only its owned helper and joins native drain. The response
+budget includes nested payload, keys, omissions and envelope bytes. Nonfinite producer numbers
+are refused rather than silently becoming null. Large rename previews retain immutable bytes
+behind endpoint-owned digests with bounded text readers, protected apply and reconciliation.
+
+Lazy Python/Rust/database connections replace separate session attachments. Availability,
+local preparation, actual attachment and exercised behavior remain separate. Language adapters
+retain source cuts, UTF-16 coordinates and native support. Selected database tooling retains
+source-built generation, listener/credential fencing and VIEWER authority; canonical writes
+still require their native operation APIs. Source-only startup performs no compiler setup,
+native extension import, database start or specialist enumeration. Native scientific reads
+require an explicitly prepared extension/import environment; only the two disclosed
+source/preparation actions prepare their import prerequisites.
+
+The CAP05 registration owner records per-family native retention for independent installers,
+dependency/Git/decision mutations, scientific resident workflows, campaign producers,
+recovery/service administration and full physical/ABI/stub generation. Newly exposed reads
+include exact library evidence packets and coverage correspondence. These dispositions retain
+independent functionality and its existing admission; they do not claim implementation of
+separate F/G proposals or every public scientific method as a process RPC.
+
+Enduring usage, effects, handle lifetime, preparation and restart guidance live in
+[the capability interface guide](../dev/capability-interface.md) and
+[the environment guide](../dev/agent-environment.md#canonical-capability-entry-point).
+Implementation is isolated on `plan52j-adapters`, with committed main changes integrated through
+`a9e88cdfe`. Merge back remains explicitly held for the maintainer's completion signal.
+
+## Verification and Outcome — 2026-10-24
+
+**Implemented:** ADP01–ADP05 and the necessary MCP01 lazy-lifetime prerequisite are delivered
+in the isolated branch. Q02–Q04 are resolved at this focused boundary; the coordinator owns
+their status. Independent implementation review found and closed oversized edit-preview loss,
+unbounded response metadata and mixed-generation lazy schema reads. Fixes retain complete
+preview bytes, bound the encoded response and verify generated schema identities/digests.
+The reviewer reran 11 focused cases and independently verified all 437 native resource
+digests plus authoring guidance, with zero mismatches or remaining material findings.
+
+**Tested:** all checks below use baseline zero. Python checks use the checkout's locked
+environment; native cases use its installed force-validated linked extension and an admitted
+disposable SurrealDB3.3.4/SurrealMX1.0.0/Surrealism deployment. No test was weakened to accept
+an unsupported deployment, incomplete observation or missing prerequisite.
+
+| Command / consumer | Scope and result |
+|---|---|
+| `scripts/pse-env -- .venv/bin/python -m unittest discover -s scripts/tests -p 'test_capabilit*.py'` | 115 source/host/specialist controls passed, including strict inputs, schema fidelity/snapshots, bounds, action/observer cancellation and actual Python bridge editing. |
+| `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_semantic_edits scripts.tests.test_test_archives scripts.tests.test_active_diagnostics scripts.tests.test_test_run scripts.tests.test_test_invocation scripts.tests.test_codex_session scripts.tests.test_validation_result` | 83 adjacent owner controls passed. After final main integration, 58 targeted invocation/runner/qualification/result controls passed again. |
+| `PSE_SURREAL_STATE=<admitted disposable state> scripts/pse-env --native=solver,klu,isolation,uno,petsc -- .venv/bin/python -m pytest python/pse/tests/test_capability_adapters.py -q -n 0 --basetemp=build/capabilities/native-durable-final-pytest-tmp` | Six actual unit/component/integration cases passed after final main integration: original source and preparation, native malformed/contextual refusal, offline diagnostics, durable project/revision/bundle reads and exact Arrow IPC equality after a real usable solve. |
+| `scripts/pse-env -- just unit-package pse-codegen catalogue_preserves_directional_defaults_and_names_dependent_output_types` | One selected generator test passed with explicit force-validation; 37 unrelated tests excluded. Covers directional names, native fingerprint, deterministic catalogue, byte digests and provenance. |
+| `scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation clippy -p pse-codegen --lib --locked -- -D warnings` | Touched Rust library closure passed with zero warnings. |
+| Scoped `.venv/bin/ruff check` and `.venv/bin/pyrefly check --min-severity warn` | Capability modules, changed host owners and their capability/native tests passed with zero findings/diagnostics. Direct `jsonschema==4.26.0` and `types-jsonschema==4.26.0.20261006` pins retain typed schema-test support; the generator consumes existing pinned `sha2`/`hex`. |
+| `scripts/pse-env -- just codegen`, `just codegen-check`, `just ready`, `just lint-agents`, `just turn-end` | Generation, complete generated-output comparison, prepared environment, agent wiring and root turn-end passed. Existing unrelated retired-profile cleanup deferrals were retained; no unrelated store was repaired or removed. |
+| Actual canonical STDIO action/read journeys | Scoped Rust selection/run/result, archive/inspect/replay, diagnostic feasibility/read, compilation/assessment read and contract comparison passed with authentic native output. Historical replay remains historical; the compilation journey preserved a contextual source change instead of claiming current-source qualification. Documentation build and its retained assessment also passed through the canonical action. |
+| Actual language/database consumers | Python symbol/hover/stale refusal and >20KiB Unicode preview/read/apply/reconcile passed; pinned Rust symbols/hover/references passed. Database select/info/list/query, invalid-scope refusal and bounded all-table omission passed against the admitted owned service. |
+
+Live acceptance artifacts remain under `build/capabilities/`, including
+`db-specialist-20261024T081018Z/acceptance-outcome.json` and `lifecycle/passed.json`.
+Authenticated service identity, contexts and kernel scopes were drained; the successful
+disposable fixture was retired. Earlier unsuccessful probes remain under their existing
+failure-retention contract and are stopped/drained. The original default deployment was
+left with its truthful admitted-generation refusal. An existing regular documentation asset
+was copied byte-for-byte from the main checkout for isolated publication qualification.
+
+**Not run / not claimed:** assembled 52h/H03 qualification, full-workspace Clippy or scientific
+campaigns, crash/recovery qualification, actual fresh-Codex effectful/resource/prompt presentation
+and a derived CLI. Those retain their existing 52k/G/H owners. **Measured:** no productivity,
+latency or scientific-performance improvement is claimed. Current entry-point classification
+does not establish every native command's installed readiness or functional qualification.
+
+The owning coordinator remains active. This completed companion is retained as a dependency of
+that active series until its aggregate publication/retirement boundary. The branch is committed
+and ready for the maintainer-selected integration point; main merge and worktree removal remain
+held for the explicit completion signal.

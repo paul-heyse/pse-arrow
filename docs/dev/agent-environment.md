@@ -557,9 +557,12 @@ deliberately with `just --yes <recipe>`.
 `just capabilities` launches this checkout's fixed, source-only FastMCP STDIO entry point without
 workload admission or startup preparation. Each attachment owns a process. Follow the
 [capability interface guide](capability-interface.md) for connection configuration, exact
-browse/describe/select/reset, progressive instructions and the same-endpoint read invocation route
-for hosts retaining a static callable inventory. Native tool routes remain available; specialist
-migration and effectful operation admission retain their actual owners. Restart for relevant
+browse/describe/select/reset, progressive instructions and same-endpoint read/action invocation
+for hosts retaining a static callable inventory. `just codex-session` configures this one attachment
+and demand-driven internal language/database resources. Native tool routes remain available;
+effectful operation admission, source protection and terminal/drain truth retain their native owners.
+Scientific reads require an explicitly prepared compatible extension/import environment, as the
+interface guide describes; browsing performs no such preparation. Restart for relevant
 serving code/instruction changes. This exception accepts no arbitrary executable or command.
 
 ### Focused command and source context

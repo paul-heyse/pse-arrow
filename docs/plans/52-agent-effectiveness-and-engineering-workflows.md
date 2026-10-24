@@ -277,16 +277,17 @@ is required. Package completion does not automatically resolve an opportunity's 
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 |---|---|---|---|
-| O01 | scheduled | [CAP01/CAP02/CAP05](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical model, bounded classification and source-only dispatch delivered; native adaptation and derived consumers remain ADP05/MCP04. |
+| O01 | scheduled | [CAP01/CAP02/CAP05](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical model, bounded classification and source-only dispatch delivered; ADP05 now supplies native reconciliation, while derived consumers remain MCP04. |
 | O02 | scheduled | [CAP03/MCP02](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic process-scoped reveal/reset and actual Codex exact read adaptation delivered; broader host resource/prompt and adapted-tool journeys remain MCP02. |
 | O03 | scheduled | [CAP04/G03](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Progressive native-owner guidance and planning-only selection delivered; actual editing/task-effectiveness evaluation remains G03. |
-| O04 | scheduled | [ADP01/ADP02](52j-native-contracts-and-tool-adaptation.md#ADP01) | Pydantic host types and Rust-derived native schemas with mandatory native validation/admission before effects. |
-| O05 | scheduled | [ADP03/ADP04/ADP05](52j-native-contracts-and-tool-adaptation.md#ADP03) | Refactor/adapt difficult operations across repository, preserve behavior, migrate callers and delete replacements. |
-| O06 | scheduled | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Reachable cheap bootstrap, lazy service acquisition, explicit identities and independent admission/lifetime. |
-| O07 | scheduled | [ADP02/G01/G02](52j-native-contracts-and-tool-adaptation.md#ADP02) | Independent outcomes, bounded nested content, exact handles, observation versus work cancellation/drain. |
+| O04 | resolved | [ADP01/ADP02](52j-native-contracts-and-tool-adaptation.md#ADP01) | Typed host contracts and generated native schemas/receivers delivered with malformed/contextual refusal and actual native acceptance; see 52j Outcome. |
+| O05 | resolved | [ADP03/ADP04/ADP05](52j-native-contracts-and-tool-adaptation.md#ADP03) | Typed extraction, native/specialist adaptation, single-session migration and explicit all-family native retention delivered; see 52j Outcome. |
+| O06 | resolved | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Cheap single bootstrap, lazy actual language/database connections and independent service identity/admission/drain delivered; Q03 resolved. |
+| O07 | scheduled | [ADP02/G01/G02](52j-native-contracts-and-tool-adaptation.md#ADP02) | ADP02 outcomes, bounds, handles and cancellation are delivered; assembled G01/G02 interaction consumers retain their own obligations. |
 | O08 | scheduled | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Derived reference; conditional complete/fresh-reveal Cyclopts CLI preserves absent/null/empty semantics or records supported non-adoption. |
 | O09 | scheduled | [MCP03/CAP02/CAP04](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Coherent loaded schema/handler/instructions, relevant restart, native source freshness separate, no global per-read reconstruction. |
 | O10 | scheduled | [MCP05/F01/F02](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Existing evidence/trace correlation and actual interface failures; no duplicate store or fabricated end-to-end continuity. |
+
 
 ## Unified-interface inquiries
 
@@ -300,11 +301,12 @@ or product integration. Preserve failed/inconclusive evidence and update depende
 | Inquiry | State | Owner | Decision / completion evidence |
 |---|---|---|---|
 | Q01 | open | [MCP02](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex STDIO browse/describe/select/exact-read/reset passed; host retained its initial tool inventory, so canonical same-endpoint read adaptation is selected. Broader resource/prompt and future effectful-operation presentation remain to qualify; see 52i Outcome. |
-| Q02 | open | [ADP01](52j-native-contracts-and-tool-adaptation.md#ADP01) | Bind representative native schema variants and decoders; authoring versus hydrated, local refs, recursion, enums and contextual refusal before effects. |
-| Q03 | open | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Lazy proxy acquisition, selected-service identity, thread/lifetime/cancellation/teardown with actual specialist consumers. |
-| Q04 | open | [ADP03](52j-native-contracts-and-tool-adaptation.md#ADP03) | Choose typed extraction versus faithful process adapter for archive/diagnostic examples, then apply per-family; no arbitrary shell wrapper. |
+| Q02 | resolved | [ADP01](52j-native-contracts-and-tool-adaptation.md#ADP01) | Resolved by the generated directional catalogue and original codecs/receivers, authoring/native separation, local references, numeric/enum/contextual refusals, snapshot/digest fences and six actual native unit/component/integration cases. See 52j Outcome. |
+| Q03 | resolved | [MCP01/ADP04](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Resolved by lazy owner-task connections, actual Python/Rust and selected database journeys, unavailable/stale/cancellation controls and authenticated service/context/kernel drain. See 52j Outcome. |
+| Q04 | resolved | [ADP03](52j-native-contracts-and-tool-adaptation.md#ADP03) | Typed shared archive/replay and diagnostic kernels; fixed process boundaries for native execution; original Gate/selection/invocation owners for qualification. Actual archive/replay/action/result consumers and scoped Rust execution passed. See 52j Outcome. |
 | Q05 | open | [MCP04](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Concrete CLI consumer decision; complete generation, exact activation on fresh connection and absent/null/empty forwarding. Non-adoption needs reason/revisit trigger. |
 | Q06 | open | [MCP03](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded guidance/schema/handler coherence, relevant restart/reload, source-only availability and actual catalogue preparation work; no blanket repo hash. |
+
 
 ## Package state and execution route
 
@@ -355,15 +357,15 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | CAP02 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP02) | Exact catalogue, actual schemas and bounded preparation |
 | CAP03 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic replacement/reset and actual Codex exact-read route |
 | CAP04 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP04) | Lazy protected owner guidance and planning-only selection |
-| CAP05 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP05) | Bounded whole-entrypoint classification; actual native adaptation remains ADP05 |
-| ADP01 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP01) | Native schema/decoder fidelity and Q02 |
-| ADP02 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP02) | Source-only typed-host and bounded-result prerequisite delivered; native outcomes/handles/cancellation remain |
-| ADP03 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP03) | Parser-bound extraction/adaptation and Q04 |
-| ADP04 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP04) | Native/language/database integrations and Q03 |
-| ADP05 | in-progress | [52j](52j-native-contracts-and-tool-adaptation.md#ADP05) | All-family migration and replacement retirement |
-| MCP01 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Fixed source-only STDIO bootstrap delivered; specialist acquisition/lifetimes/Q03 remain |
+| CAP05 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP05) | Bounded whole-entrypoint classification; ADP05 supplies current native adaptation/retention dispositions |
+| ADP01 | done | [52j](52j-native-contracts-and-tool-adaptation.md#ADP01) | Generated native contracts, original receivers and Q02 accepted with actual native journeys |
+| ADP02 | done | [52j](52j-native-contracts-and-tool-adaptation.md#ADP02) | Typed host requests, bounded independent outcomes, authentic handles and cancellation/drain |
+| ADP03 | done | [52j](52j-native-contracts-and-tool-adaptation.md#ADP03) | Shared typed archive/diagnostic kernels and owner-backed qualification/scoped tests; Q04 resolved |
+| ADP04 | done | [52j](52j-native-contracts-and-tool-adaptation.md#ADP04) | Actual native, Python/Rust language and selected database journeys; Q03 resolved |
+| ADP05 | done | [52j](52j-native-contracts-and-tool-adaptation.md#ADP05) | 65 callable operations; 402 classified entry points with explicit native retention and replaced session dispatch retired |
+| MCP01 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP01) | Cheap bootstrap and owned lazy specialist connections qualified by 52j |
 | MCP02 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP02) | Actual Codex source-only exact-read journey delivered; broader attachment consumers/Q01 remain |
-| MCP03 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded revision coherence and Q06 |
+| MCP03 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Native schema byte/fingerprint coherence delivered; broader loaded-handler/restart cases and Q06 remain |
 | MCP04 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Derived reference and conditional faithful CLI/Q05 |
 | MCP05 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Interface observation and evidence integration |
 
@@ -398,13 +400,12 @@ source/consumer changes; G02 consumes real canonical operations and G05 useful c
 H01–H04 close assembled scope
 once selected functionality and inquiry outcomes are ready.
 
-For the unified extension, CAP01–CAP05 and ADP02/MCP01/MCP02's source-only prerequisites now
-deliver discovery→guidance→real read→native result, including the actual host test. Continue
-Q02 native schema/decoder work and Q03 specialist lifetime inquiry with their actual consumers;
-only affected native/specialist operations wait for those actual integrations. MCP03's loaded
-revision behavior accompanies serving code/guidance changes. ADP03 adapts coherent difficult
-families with their callers, new entry points extend CAP05's canonical classification and ADP05 verifies actual
-migration/deletion. G02/G03 evaluate real workflows, F01/F02 and MCP05 integrate evidence, MCP04
+For the unified extension, CAP01–CAP05, ADP01–ADP05 and MCP01 now deliver exact discovery,
+guidance, real host/native operations and owned lazy specialists. Q02–Q04 are resolved at the
+52j focused acceptance boundary. MCP02 retains broader actual Codex presentation, MCP03 retains
+remaining loaded-handler/restart cases, and MCP04/MCP05 retain derived consumers and observation.
+New entry points still extend CAP05's canonical classification through their binding owner.
+G02/G03 evaluate real workflows, F01/F02 and MCP05 integrate evidence, MCP04
 derives references and any selected CLI. H01 reconciles all required and conditional scope before
 H02–H04. These are contract/evidence dependencies, not whole-document serial barriers. Preserve
 C04's separately recorded denied execution boundary; interface work does not authorize retry.
@@ -510,30 +511,27 @@ owns implementation, actual Codex evidence, repaired mistakes and targeted quali
 RC02's Pydantic host-contract rule/direct dependency and RC05's fixed source-only launch guidance
 are implemented for this slice; neither changes scientific contracts or native effect admission.
 
-ADP02/MCP01/MCP02 remain partially implemented at their explicit prerequisite boundaries.
-Continue ADP01's native schema fidelity and ADP03/ADP04's parser/specialist integrations before
-claiming whole-inventory adaptation or migrating their native consumers. MCP03/MCP04 still own
-broader coherence/derived consumers; G02/G03 and H01–H04 retain actual assembled agent evaluation
-and publication. Unified opportunities remain scheduled where those consumers are outstanding.
+At this 52i boundary, ADP02/MCP01/MCP02 were partial prerequisites; native schema fidelity and
+parser/specialist integration remained. The 52j checkpoint below records their subsequent
+delivery. MCP03/MCP04 still own broader coherence/derived consumers; G02/G03 and H01–H04 retain
+actual assembled agent evaluation and publication. Unified opportunities remain scheduled where
+those consumers are outstanding.
 Original a–h evidence, the C04 denial and independent Plan28/32/40/53 work are unchanged.
 
 
 ### 52j execution checkpoint — 2026-10-24
 
-The maintainer authorized the entire ADP01–ADP05 scope in an isolated `plan52j-adapters`
-worktree, initially based on `00a0adb0e`. Main retains concurrent Plan53c ownership; its
-committed invocation/assurance changes are integrated at functional boundaries. No merge
-back to main is authorized before the maintainer's completion signal.
+ADP01–ADP05 and MCP01 are delivered in isolated branch `plan52j-adapters`, integrating main
+through `a9e88cdfe`. The [52j Verification and Outcome](52j-native-contracts-and-tool-adaptation.md#verification-and-outcome--2026-10-24)
+owns the current focused acceptance, repaired findings, native retention decisions and limits.
+The canonical endpoint serves 65 real operations; 402 current entry points have specific
+classifications under the declared coverage. Native schemas retain original codecs/receivers,
+byte digests and restart fences. Actual host execution/result, source/project/result,
+Python/Rust navigation/edit and selected database consumers passed. The owned disposable
+service was stopped, its contexts/kernel scopes drained and its successful fixture retired.
 
-Typed archive/diagnostic kernels and fixed admitted action children are delivered in the
-branch. Exact read/action compatibility dispatch, bounded native-owner host queries and
-derived family membership are implemented. Native bindings and the source-generated
-schema catalogue are being integrated and require real native receiver acceptance. The
-language/database specialist adapters and single-session launch migration are implemented;
-actual selected database acceptance remains outstanding after the existing service's
-admitted-generation refusal. This is progress, not ADP or assembled Plan52 acceptance.
-
-Next work completes real native/database journeys, reconciles all retained/adapted family
-leaves, consumes the committed Plan53c outcome contract, and performs focused branch
-qualification and independent implementation review. Existing native scopes, frozen
-scientific evidence and the separate C04 denial retain their owners.
+Q02–Q04 are resolved. MCP02's broader actual Codex presentation, MCP03's remaining handler
+coherence, MCP04/MCP05 and G/H assembled work remain with their owners. This is focused 52j
+acceptance, not assembled Plan52 or scientific/performance qualification. C04 and independent
+Plan28/32/40/53 scope remain unchanged. Main-branch merge is explicitly held pending the
+maintainer's completion signal; no branch removal or main publication has occurred.

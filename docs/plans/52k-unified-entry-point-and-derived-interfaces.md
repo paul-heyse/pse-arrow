@@ -17,8 +17,13 @@ The [52i Outcome](52i-canonical-capabilities-and-progressive-reveal.md#verificat
 records MCP01's fixed source-only STDIO launch and MCP02's actual Codex browse/describe/select/
 exact-read/reset journey. This host retained its initial tool inventory; the selected same-endpoint
 read invoker delegates canonical FastMCP dispatch. These are delivered prerequisites, not full
-specialist migration or resource/prompt/effectful-tool qualification. MCP01–MCP05 below retain
-their remaining lifetime, presentation, coherence, derived-consumer and observation obligations;
+specialist migration or resource/prompt/effectful-tool qualification at that earlier boundary.
+The [52j execution](52j-native-contracts-and-tool-adaptation.md) now composes native/host actions
+and lazy specialists through the same endpoint, including exact action invocation for hosts with
+a fixed initial inventory. Its focused acceptance supplies these prerequisite slices; MCP02's
+broader actual Codex presentation, MCP03's remaining coherence work, MCP04's derivative-consumer
+decision and MCP05's observation work retain their owners. MCP01's lazy owner slice is qualified
+by 52j. MCP02–MCP05 below retain their remaining presentation, coherence, derived-consumer and observation obligations;
 the numeric coordinator alone owns their progress state.
 
 ## Target and responsibility
@@ -50,11 +55,11 @@ previously. Q01 chooses and tests the best supported configuration/reveal behavi
 question feasibility or block the architecture. Recheck selected versions and consequential source
 contracts when executing; do not substitute older FastMCP documentation for the reviewed APIs.
 
-Current [session configuration](../../scripts/codex_session.py) separately attaches Rust,
-Python and selected-database MCP services. It already preserves explicit checkout selection,
-availability versus attachment, pinned interpreter paths and database selection fencing.
-Retain those distinctions while replacing the separate required attachments with internal
-providers. [Language navigation](../../scripts/semantic_navigation.py) already owns pinned
+The review baseline's [session configuration](../../scripts/codex_session.py) separately attached
+Rust, Python and selected-database MCP services. Plan52j replaces those declarations with the
+canonical attachment and internal lazy connections, preserving explicit checkout selection,
+local preparation versus actual attachment, pinned interpreter paths and database selection
+fencing. [Language navigation](../../scripts/semantic_navigation.py) owns pinned
 bridge configuration, readiness and finite-request transport cleanup. Reuse that owner rather
 than recreate LSP position/edit semantics. Native database selection and credential handling
 remain with [the supervisor](../../scripts/surreal_server.py).

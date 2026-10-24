@@ -30,23 +30,34 @@ For a host accepting environment JSON, the connection shape is:
 Substitute the selected checkout; never borrow another worktree's interpreter. Codex's configuration
 uses the same command/args/cwd under `mcp_servers.pse-capabilities`; see the
 [official MCP configuration guide](https://learn.chatgpt.com/docs/extend/mcp). Configuration alone
-is not evidence of attachment or exercised behavior. Existing selected language/database connections
-have their own native owners; their internal migration remains separate from this source-only delivery.
+is not evidence of attachment or exercised behavior. Language and selected database operations use
+owned lazy connections inside this endpoint, retaining their native identity and admission owners.
 
 This fixed read/control launch intentionally does not enter workload admission, synchronize packages,
 prepare a compiler, start a store or import the native extension. It does not accept an arbitrary
-executable. Future effectful bindings must retain their native environment/admission owner.
+executable. Explicit actions enter their existing environment/admission owner when invoked.
+
+`just codex-session` configures this attachment for the selected checkout and disables inherited
+standalone Rust, Python and database attachments. Its `--require-*` options check local preparation;
+selected calls establish live readiness. `--without-python`, `--without-rust` and
+`--without-database` omit those resources. Equivalent attachment environment selects exact
+`PSE_CAPABILITIES_LANGUAGES` (`python,rust`), `PSE_CAPABILITIES_DATABASE` (`1` or `0`) and
+`PSE_CAPABILITIES_DATABASE_STATE` (an explicit existing deployment state). Selection does not start
+a database, change credentials or provision a project.
 
 ## Discover, describe and select
 
 Bootstrap exposes `capabilities_domains`, `capabilities_workflows`, `capabilities_describe`,
-`capabilities_select`, `capabilities_reset` and the exact compatibility read invoker.
+`capabilities_select`, `capabilities_reset`, `capabilities_invoke_read` and
+`capabilities_invoke_action`.
 
 1. Browse domains or workflows, then pass an exact ID to list their members. Results are ordered
    and paged with `offset`, `limit`, `total` and `next_offset`.
 2. Describe an exact capability. `include_schema=true` returns the actual callable contract where
    a binding exists. A native route or deferred adapter has no fabricated tool schema.
-3. Select exact `domains`, `workflows` or `capabilities`. Their union replaces the prior selected
+3. Select exact `domains`, `workflows` or `capabilities`. Selecting a family also reveals its
+   actual bound operations; describe it to see those operations and retained native routes.
+   Their union replaces the prior selected
    set; repeated identical selection is idempotent. Unknown IDs change nothing. Reset restores bootstrap.
 4. Read the returned relevant instructions or their `pse://guidance/...` resources, then call the
    operation. Descriptions retain critical interpretation/effect constraints; reading guidance is
@@ -72,10 +83,13 @@ real described schema when an ordinary revealed tool is absent. For example:
 ```
 
 This calls the same registered tool through FastMCP's normal visibility, strict validation,
-middleware and result path. It only accepts actual read-only bindings. Hidden tools, bootstrap
-recursion, arbitrary shell/SQL/argv and non-read-only bindings are refused. It is not another
-operation implementation or a workaround for native admission. Hosts supporting dynamic callable
-refresh can use ordinary revealed calls directly.
+middleware and result path. The read invoker accepts actual read-only bindings. Use
+`capabilities_invoke_action` for an explicitly selected action with the same exact
+`capability`/`arguments` shape; it advertises effectful, potentially destructive behavior.
+Both refuse hidden tools, bootstrap recursion and arbitrary command dispatch. An action's own
+schema may accept a literal launch argv where that is the native diagnostic operation's purpose.
+Neither invoker creates another operation implementation or bypasses native admission. Hosts
+supporting dynamic callable refresh can use ordinary revealed calls directly.
 
 ## Authority, coverage and incomplete results
 
@@ -84,8 +98,11 @@ integration metadata. Tags and views derive from those declarations. Actual Func
 own callable host shapes; Rust registries/catalogues remain the source of native schemas. This
 interface introduces no scientific Python field mirrors or semantic/ranked discovery.
 
-The initial callable operations read task context, exact native concepts, declared producer
-relationships, exact recipe descriptions and the current entry-point inventory. `workspace_inventory`
+Callable operations read task context, exact native concepts, declared producer relationships,
+recipe descriptions, library evidence, coverage correspondence and the current entry-point inventory.
+Environment, workload, assessment, storage and native result readers retain their original owners.
+Explicit actions adapt scoped Rust tests, archive/replay, diagnostic experiments, compilation,
+assessment, contract generation and documentation builds. `workspace_inventory`
 explicitly inspects current public recipes and bounded source candidates; startup and ordinary
 catalogue browsing do not run that inspection. Recipe outer grammar comes from Just; leaf-owner
 excerpts explicitly do not constitute a complete argument schema.
@@ -116,6 +133,46 @@ freshness contracts. No whole-repository per-read hash or automatic rebuild is i
 
 Selection commits one complete FastMCP visibility-rule replacement after guidance preparation.
 Notification failure is distinct from a committed state change. Disconnecting a client tears down
-its owned STDIO process; presentation reset neither cancels nor replays native work. General native
-cancellation/drain, specialist connection lifetimes, generated CLI fidelity and assembled agent
-qualification remain at their existing implementation-plan owners.
+its owned STDIO process; presentation reset neither cancels nor replays native work.
+
+## Native schemas, actions and protected reads
+
+`native_contract_schema` reads the generated catalogue's exact slug and input/output direction.
+Its optional original JSON Pointer selects bounded detail; local references retain the original
+root through `root_ref`. The special `authoring` selector describes applicable logical source
+sections, without pretending that raw TOML, `.pse` or Parquet packages are JSON objects.
+Native tools expose complete generated schema resources and receiving functions in their metadata;
+the original native codec and receiver still perform admission before effects. A schema-shaped
+request may fail contextual admission. A changed loaded/installed schema fingerprint refuses
+the call rather than mixing interface generations.
+
+Native scientific reads require an existing compatible extension and its explicitly prepared
+linked import environment. Prepare with `just py-sync-native-correctness`, then attach from
+`scripts/pse-env --native=solver,klu,isolation,uno,petsc -- <endpoint-command>` when those providers
+are needed. Read operations do not build providers. The two explicit source/preparation actions
+may prepare their native import prerequisites through the environment owner; their metadata
+discloses this effect. Supplied-only source/bundle inspection does not provision a database.
+
+Ephemeral source admission ends with its child lifetime and does not return a reopenable model
+handle. Durable reads name the exact canonical deployment/revision/run/attempt and preserve native
+source protection. Result windows carry bounded Arrow IPC bytes rather than per-row scientific
+JSON. Larger windows must be narrowed using the same protected native identity.
+
+Read cancellation detaches the observer; its protected native operation finishes under its owner.
+Action cancellation signals only the owned helper and waits for its native drain. Diagnostic
+attachment never makes the observed subject a cancellation target. An interrupted or lost response
+does not prove rollback or terminal settlement: inspect the returned native output/invocation and
+its independent terminal report before retrying. Borrowed invocations retain their original
+outer terminal owner. No background task scheduler or implicit retry is introduced.
+
+Language resources connect only on a selected call, retain checkout/tool/configuration identity,
+and close with the endpoint. Source cuts and UTF-16 positions remain explicit. Rename retains
+the complete preview behind an endpoint-owned `preview_sha256`; `edit_preview_read` reads exact
+before/after text chunks using Unicode codepoint offsets. Apply and reconcile take that exact
+digest, preserving complete source bytes independently of response bounds. Handles expire at
+endpoint close. Retention refuses excess at 32 previews or 64 MiB without evicting earlier handles.
+Protected apply and reconciliation report partial edits, and generated/PyO3
+declarations are not claimed to be migrated automatically. Database selection validates the
+existing owned listener, source-built generation and credentials before opening its pinned MCP
+connection. Root VIEWER credentials restrict exploratory queries; canonical project operations
+retain their separate native admission. Database tooling is not agent memory.
