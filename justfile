@@ -431,16 +431,12 @@ audit-machete:
 [group('local')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-combinations:
-    export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
-    export PATH="$PWD/.venv/bin:$PATH"
-    cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked
+    "{{ py }}" -m scripts.validation_feature_campaign combinations
 
 [group('local')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 features-no-default:
-    export CARGO_HACK_CARGO_SRC="$PWD/scripts/cargo_feature_check.py"
-    export PATH="$PWD/.venv/bin:$PATH"
-    cargo hack --keep-going check --workspace --no-default-features --locked
+    "{{ py }}" -m scripts.validation_feature_campaign no-default
 
 [group('local')]
 doctest-release:
@@ -848,12 +844,10 @@ policy:
     python3 -m scripts.validation --group policy
 
 [group('manual')]
-[doc('Coverage via cargo-llvm-cov + nextest -> lcov.info')]
+[doc('Selected LLVM changed-source coverage and actual test population; fresh output by default')]
 [positional-arguments]
-coverage output="build/coverage" *args:
-    mkdir -p "$1"
-    CARGO_LLVM_COV_TARGET_DIR="$1" "{{ py }}" -m scripts.arrow_validation llvm-cov nextest --workspace --locked --profile ci --no-fail-fast --lcov --output-path {{ quote(output / "lcov.info") }} \
-      --ignore-filename-regex '(generated/|xtask/|benches/|tests/)' "${@:2}"
+coverage output="" *args:
+    output=( ); if [[ -n "$1" ]]; then output=( --output "$1" ); fi; "{{ py }}" -m scripts.coverage_correspondence capture "${output[@]}" -- "${@:2}"
 
 [group('manual')]
 [doc('Every benchmark runs once (no timing gate)')]
@@ -937,8 +931,9 @@ udeps:
 
 [group('manual')]
 [doc('Mutation testing for one file')]
-mutants-file path:
-    cargo mutants -f {{ path }} --no-shuffle -j 2
+[positional-arguments]
+mutants-file path output="" *args:
+    output=( ); if [[ -n "$2" ]]; then output=( --output "$2" ); fi; "{{ py }}" -m scripts.assertion_sensitivity "$1" "${output[@]}" -- "${@:3}"
 
 [group('manual')]
 [doc('Unsafe surface report (cargo geiger)')]
