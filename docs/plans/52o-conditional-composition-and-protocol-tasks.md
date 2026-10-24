@@ -3,7 +3,7 @@ title: "Plan 52o: Conditional composition and protocol tasks"
 status: in-progress
 date: 2026-10-24
 adrs: []
-review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
+review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, design, libraries, environment, validation]
@@ -119,6 +119,26 @@ between source/interface checking, in-process tests, actual host behavior and in
 **Interface-checked** foundations do not establish adoption or a measured benefit. Original plan
 authoring ran no task, sandbox, service, host probe or product qualification; subsequent execution
 and its distinct limits are recorded below.
+
+## Current telemetry review and planning handoff — 2026-10-24
+
+The separate [OpenTelemetry review](../functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md)
+is now delivered. The operator accepted its RC01/RC02 for planning, and the
+[coordinator](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-rule-decisions)
+records their exact consequences and governed publication routes. New
+[52p](52p-shared-telemetry-and-native-propagation.md),
+[52q](52q-local-telemetry-pipeline-and-health.md),
+[52r](52r-operational-metrics-and-diagnostic-integration.md) and
+[52s](52s-telemetry-queries-and-agent-investigations.md) plan shared instrumentation, native local
+collection/querying, metrics and agent investigations. F02 retains the actual database propagation
+seam and I11; G/H retain composed workflows and qualification. This authoring implements no deployment.
+
+OPT01/OPT02 and the usability review's task/CodeMode decisions keep their existing boundaries.
+Telemetry can explain native progress and loss but cannot provide durable scheduling or recover a
+native effect. Conversely, a task status cannot establish trace delivery. Consume the actual telemetry
+contracts where useful to the remaining inquiry without treating them as a reason to add worker
+processes, adopt tasks or infer measured composition benefits. The checkpoint and telemetry baseline
+below remain the historical pause record, including the then-pending documentation/review.
 
 ## Execution checkpoint — pause handoff 2026-10-24
 

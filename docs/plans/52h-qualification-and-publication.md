@@ -3,7 +3,7 @@ title: "Plan 52h: Qualification and publication"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, documentation, design]
@@ -46,7 +46,7 @@ not production lane/parameter counts or a full Cartesian product of tools/config
 | Research/evidence workbench | Supplied-source comparison preserves failure→pass, missing/renamed/unmatched populations; derived knowledge links a question to actual evidence and rebuilds without changing native facts. |
 | Selected experiment | Pure historical replay has distinct producer attribution; deterministic bisect includes untestable revisions; noisy/incompatible measurements stay inconclusive; owned disposal leaves unrelated state intact. |
 | Database/tool isolation | Two deterministic representative fixtures have fresh credentials and read-back settlement; interrupted setup/cleanup remains truthful; any selected sandbox proves its narrow environment scope. |
-| Diagnosis | Host pressure/placement facts retain identities/intervals; finite trace capture shows supported continuity and explicit missing links with independent workload/restoration/cleanup outcomes. |
+| Diagnosis | Host pressure/placement facts retain identities/intervals; real application/SDK/database/module parentage is inspected through the selected continuous pipeline and finite capture. Workload, retrieval coverage, restoration and cleanup outcomes remain independent. |
 | Agent/operator integration | Describe→command→watch→read→compare→closeout works with bounded structured results, an environment failure and unrelated dirty edits. The selected canonical FastMCP route is required; optional CLI/model/UI only if adopted. |
 | Exact capability discovery | Find and invoke a useful tool outside the originally named plans by declared domain/workflow, with authentic signature, prerequisites and instructions; no semantic similarity. |
 | Reveal and guidance | Actual Codex bootstrap→selection→changed callable inventory or qualified exact same-endpoint route→reset, two independent STDIO attachments, concurrent selection and planning-only instruction retrieval. |
@@ -66,6 +66,34 @@ Actual Rust/Python/public CLI paths matter where delivered behavior crosses them
 composition does not need native solver compilation; a claim about native callback lifetime or
 public scientific reduction needs its actual linked consumer. Miri/fuzz/sanitizer/Loom each retain
 their instrumentation/observation bounds. Full solver-fleet qualification is not implied.
+
+### OpenTelemetry assembled acceptance
+
+The [OpenTelemetry review's representative scenarios](../functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md#representative-delivered-capability-scenarios)
+and 52p–52s's local acceptance shape the following real journeys. Select small populations exposing
+the distinctions; avoid repeating one integration run per package or making a Cartesian backend/
+exporter/sampler matrix. Use a real native database path for continuity and actual Codex for agent
+usability, rather than fixture-only IDs or in-process host substitutes.
+
+| Journey | Independent acceptance |
+|---|---|
+| Cross-language database operation | Authentic Python/FastMCP→Rust→SDK→server→Surrealism parentage, with concurrent siblings and reconnect/task handoff; native result/scientific meaning remains independently checked. F02 owns I11. |
+| Native wait and shutdown | Known stage, wait and drain intervals remain attributable; cancellation is an observed request rather than a fabricated terminal outcome. Provider flush/shutdown uses the right runtime/thread context. |
+| Export failure and retrieval loss | Reject/offline export, queue pressure and backend unavailability remain independently distinguishable from successful target execution. Flush/processed counts cannot prove backend delivery; local observation survives. |
+| Recovery and retention | Real Collector/backend restart and interrupted queue recovery show retained/lost windows, duplicate handling and process incarnation; retention expiry never means the native work did not happen. TQ02 owns mechanism conclusions. |
+| Metrics and reset | Independently supplied operation/interval populations, units and reset boundaries agree with native facts; normalized mappings, histogram/distribution approximations and exemplar meanings pass TQ01. |
+| Sampling and correlation | Sampled, dropped and RECORD_ONLY cases retain different export/exemplar meanings. Missing traces/exemplars do not invalidate native results or prove zero activity. |
+| Canonical investigation | Actual Codex uses typed filters, protected continuation and pipeline health, then reaches the correct native outcome or explicit unknown. Source/offline reads remain useful during service loss. |
+| Finite evidence | Capture/restoration/cleanup are separate from target execution. TQ05 qualifies any sink replacement and TEL16 publishes only explicit selected evidence through existing custody. |
+| Conditional profile/watch | An adopted profile/watch answers its concrete consumer question with supported fidelity and cleanup; justified non-adoption retains the headless/native alternative and trigger. No deployment is required merely to close an inquiry. |
+
+Producer observations and returned queries need independent expected parents, source populations and
+intervals. A direct backend fixture supports mapping tests but cannot qualify a Collector path;
+an exporter return supports producer behavior but cannot qualify durable/query-visible delivery.
+Keep the retained SDK/backend inquiries as bounded evidence. Measure enabled-versus-disabled overhead
+on a representative useful workload before claiming low overhead or wider default coverage; record
+capture/profile/sampling settings, cold/warm conditions and distributions. Functional completion and
+an unmeasured performance hypothesis remain distinct.
 
 ## Shared qualification with remaining Plan53
 
@@ -97,11 +125,15 @@ acceptance or automatically add a Plan53 qualification obligation.
 <a id="H01"></a>
 ### H01 — Reconcile actual scope, consumers and inquiry outcomes
 
-Inspect delivered producers/consumers against 52a–52o. Reconcile the original review's O01–O30/
+Inspect delivered producers/consumers against 52a–52s. Reconcile the original review's O01–O30/
 RC01–RC09, the unified-interface review's O01–O10/Q01–Q06/RC01–RC05 and the usability review's
 O01–O17/RC01–RC03/U01–U04 at their distinct coordinator tables. Preserve RC01's accepted planning
-direction versus published changes and RC02/RC03's investigation-only selections. Conditional
-CodeMode/task/provider/completion/operator-view outcomes need supported alternatives and observable
+direction versus published changes and RC02/RC03's investigation-only selections. Separately
+reconcile the OpenTelemetry review's O01–O20/RC01–RC02/TQ01–TQ05, TEL01–TEL17 and F02/I11.
+Its RC01/RC02 were accepted for planning on 2026-10-24; implementation must publish their governed
+changes before dependent work. A rejected backend mechanism does not erase required retrieval,
+health or continuity, while a conditional profile/watch may close with a useful supported alternative.
+Conditional CodeMode/task/provider/completion/operator-view outcomes need supported alternatives and observable
 revisit triggers, or actual selected delivery and acceptance. Preserve resolved I12 as direction
 selection, not host delivery. Required derived reference
 and conditional CLI decisions differ. Actual CAP05 classification plus ADP05 caller migration
@@ -168,6 +200,10 @@ substrate guides; architecture §19.4/§23.1/§24.1/§24.2 where meanings change
 and typed API documentation. Architecture edits use explicit design-edit authorization and a
 revision row; accepted ADRs are immutable. Accepted RC directions are not accepted ADR statuses.
 Publish real supported/unsupported model, bridge, replay, instrumentation and trace boundaries.
+Publish shared telemetry bootstrap/identity and sampling contracts, pipeline health and delivery
+levels, exact query coverage/reset/continuation meanings, independent service lifetimes, finite
+custody, bounded retention and recovery, supported profiling/watch choices and diagnostic fallbacks.
+TEL01/FND00 schedule the accepted RC changes; H04 reconciles the resulting enduring owners.
 Include the one-endpoint attachment/reveal procedure, native versus host schema ownership,
 loaded-revision/restart policy, cheap read/effectful admission split and actual CLI adoption/fidelity.
 Publish actual CON/NAV/LIFE contracts: valid query examples, serialized answer/completeness meanings,
@@ -192,9 +228,9 @@ series was authored or because another plan's number is lower.
 **Interface-checked:** source owners and prior Outcomes establish the baseline and integration
 seams described here. CAP/ADP/MCP delivery is recorded at the completed 52i–52k Outcomes and
 coordinator; those packages are not proposed remaining implementation. **Proposed:** remaining
-F/G/H work, CON/NAV/LIFE delivery and U/OPT inquiry outcomes or explicitly selected optional
-delivery. Recorded 52a–52e deliveries and C04's separately denied acceptance retain their exact
-boundaries; this expanded qualification does not revoke or broaden them. Documentation validation
+F/G/H and TEL01–TEL17 work, plus any still-open U/OPT inquiry outcomes or explicitly selected
+optional delivery. CON/NAV/LIFE deliveries retain their recorded Outcomes. Recorded 52a–52e deliveries
+and C04's separately denied acceptance retain their exact boundaries; this expanded qualification does not revoke or broaden them. Documentation validation
 and publication establish document usability only. No new product tests, model/service probes,
 compiler campaign or scientific qualification was run to author these amendments; actual
 authoring checks are reported in the handoff.

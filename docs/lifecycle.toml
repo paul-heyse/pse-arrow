@@ -2512,7 +2512,7 @@ heading = "Package state and execution route"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
-id_pattern = '^((?:FND|CAP|ADP|MCP|CON|NAV|LIFE|OPT|A|B|C|D|E|F|G|H)[0-9]+)\b'
+id_pattern = '^((?:FND|CAP|ADP|MCP|CON|NAV|LIFE|OPT|TEL|A|B|C|D|E|F|G|H)[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
 owner_column = 2
@@ -2639,6 +2639,113 @@ id_pattern = '^(U[0-9]+)\b'
 status_profile = "finding"
 status_column = 1
 owner_column = 2
+
+# OpenTelemetry IDs are source-qualified through separate coordinator tables.
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "opentelemetry-rules"
+heading = "OpenTelemetry rule decisions"
+headers = [
+  "Decision",
+  "Disposition",
+  "Work owner",
+  "Accepted consequence and route",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(RC[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "opentelemetry-opportunities"
+heading = "OpenTelemetry opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Required behavior or disposition",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md"
+name = "opentelemetry-inquiries"
+heading = "OpenTelemetry inquiries"
+headers = ["Inquiry", "State", "Owner", "Decision / completion evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(TQ[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL02"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL03"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL06"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL07"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL08"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL08"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL13"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL14"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL14"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL13"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL16"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL13"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL17"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL17"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL13"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::F02"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::TEL03"
+kind = "depends-on"
 
 [[relationships]]
 from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::NAV03"

@@ -3,7 +3,7 @@ title: "Plan 52f: Evidence analysis and trace correlation"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, diagnostics, performance, storage]
@@ -40,9 +40,12 @@ F01 in middleware or turn a FastMCP result into another stored outcome. Existing
 consumers remain usable while these canonical consumers migrate.
 
 Interface correlation can identify where an interaction stopped without proving a continuous
-application→SDK→server span chain. F02 still owns that finite inquiry and I11. No tool label, shared
-request ID or timestamp substitutes for an actual propagation edge; no extra telemetry database
-or mandatory exporter is selected. Native invocation/source/result identities remain unchanged.
+application→SDK→server span chain. F02 owns that integration and I11. No tool label, shared
+request ID or timestamp substitutes for an actual propagation edge. The operator-accepted
+[OpenTelemetry direction](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-rule-decisions)
+adds continuous observation alongside finite capture through 52p–52s. Native invocation/source/
+result identities remain unchanged; the selected telemetry backend supplies observations rather
+than another scientific outcome ledger.
 
 ## Test-architecture integration
 
@@ -118,42 +121,55 @@ the comparison's actual canonical/resource callers with CON02's truthful seriali
 do not advertise the complete native schema for a payload changed by a generic walker.
 
 <a id="F02"></a>
-### F02 — Finite application-to-server trace seam
+### F02 — Real application-to-database propagation and finite capture
 
-**2026-10-24 pause context:** [52o's telemetry baseline](52o-conditional-composition-and-protocol-tasks.md#telemetry-baseline--separate-review-no-deployment)
-records existing Rust tracing/capture, absent Rust OTel export and a bounded actual FastMCP SDK probe.
-It does not close this package or establish Rust/SDK/database continuity. The maintainer is preparing
-OTel documentation for a separate thorough, holistic deployment/design review before implementation.
-Assess information-access/monitoring improvements alongside native service integration, without
-turning spans into another queue, terminal or retry authority. No deployment is selected by that probe.
+**Proposed:** implement the database-specific integration selected by the
+[OpenTelemetry review O02/O07/O16](../functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md).
+[52p TEL01/TEL03](52p-shared-telemetry-and-native-propagation.md) supplies identities, providers
+and native propagation; [52q](52q-local-telemetry-pipeline-and-health.md) supplies the continuous
+pipeline. F02 alone owns the SurrealDB SDK task/header seam and I11. The historical
+[52o baseline](52o-conditional-composition-and-protocol-tasks.md#telemetry-baseline--separate-review-no-deployment)
+establishes neither export nor this continuity. No proxy, scheduler or new execution authority is
+implied by adding observation.
 
-Resolve I11 against the exact custom server and pinned SDK/transport. Begin with the existing
-operation/invocation identities and finite `surreal_server.py` trace capture. Inspect supported
-context propagation, request metadata/header and reconnect behavior at the actual SDK bridge;
-server OTel support alone does not establish application instrumentation. Associate diagnostic
-operation IDs with spans without adding them to scientific hashes or using them as execution
-permission. Prefer a narrow bridge integration to a new proxy/telemetry service.
+Inspect the exact pinned Rust SDK's gRPC dispatcher and spawned tasks alongside the custom server's
+W3C extraction. Preserve the caller's tracing/OTel context across dispatch, then inject its
+`traceparent`/`tracestate` into the actual request metadata. A context preserved in a caller future
+but lost in an SDK worker is insufficient; headers without the authentic parent are insufficient.
+Use the narrow patched dependency/integration surface when needed, with exact pins and affected
+callers migrated together. Existing server→Surrealism context extraction remains the receiving
+contract. Validate reconnect and concurrent requests so a shared worker cannot borrow another
+operation's parent. Do not use user-supplied arbitrary headers as an alternate execution route.
 
-A positive adoption supplies actual application→SDK/transport→server→Surrealism continuity for
-one selected operation, with query planning/queue/network/module interpretation retaining its
-observational limits. A lost/unsupported link is explicit, not synthesized from timestamps.
-MCP05 may attach interface request/provider references to that authentic evidence; qualify the
-edge actually supplied without promoting association to causal continuity. Use `storage_health` selected metrics with engine/service/cgroup identity and completeness.
-Capture, target workload, restoration and cleanup have independent outcomes. Span/payload limits,
-credential exclusion and optional scientific detail remain under existing capture policy.
+The selected target is actual FastMCP/Python→native Rust→SDK/transport→server→Surrealism continuity
+for a real selected database operation. Each edge retains its process/service instance and operation/
+invocation identities. Show the parent IDs at the receiving spans, not a reconstructed timestamp
+association. Keep network, queue, planning, module and commit observations distinct where the actual
+producer supplies them; absence of a stage is not evidence of zero wait or skipped work. An edge
+outside supported instrumentation is explicitly unsupported. If required continuity proves blocked,
+record the actual incompatibility and reopen the target decision with the operator; merely documenting
+the gap does not complete this selected package. Unsupported optional detail need not block it.
 
-If the exact SDK cannot propagate safely within the selected design, retain explicit operation
-association and established server→Surrealism tracing, record the unsupported seam and a concrete
-revisit trigger. Do not call that end-to-end continuity. The bounded inquiry can close with this
-supported narrower outcome; any expanded protocol guarantee needs its own selection before
-implementation. No permanent Loki/Tempo/Grafana deployment or Tokio console build is required.
-Use such free local tools only for a specific unresolved consumer question.
+Route ordinary observations through TEL05–TEL08 and consume TEL10's database/storage metrics;
+F02 does not duplicate their health, queue, reset or normalized query contracts. A selected finite
+capture still has independent setup, target, restoration and cleanup outcomes. Migrate the existing
+finite sink only under TQ05's equivalent boundedness, completeness and restoration contract; a
+Collector file is not automatically sealed evidence. No mandatory Loki/Tempo/Grafana or Tokio
+console deployment is added. Source bodies, credentials and scientific values follow TEL01's
+explicit capture policy; trace IDs stay outside scientific hashes and admission.
 
-Acceptance: real finite capture with continuity on the supported path, one unsupported link,
-bounded data and successful restoration/drain—or explicit failed restoration/cleanup without
-falsifying target outcome. Keep app tracing separate from Plan40 snapshot freshness, physical
-state and scientific usability. Publish changed blueprint §23.1 and guide meanings through the
-design route, without changing Plan40e status or reviving withdrawn provenance-proof work.
+Acceptance: one actual canonical request reaches the real custom database and Surrealism module
+with independently inspected parentage across the complete chain; concurrent siblings retain their
+own parents. Verify the transport/query span remains attributable through actual streamed response
+and decode completion, with early stream cancellation/error preserving dispatch uncertainty and
+native settlement rather than closing observation at headers or request return.
+Exercise missing context and reconnect/task handoff with truthful explicit gaps,
+plus a failed database operation whose native outcome remains unchanged. Show the same supported
+edges through continuous retrieval and one finite capture, with independent bounded data,
+restoration/drain and failed-restoration reporting. Shared fixture IDs alone do not establish these
+claims. H02 owns assembled qualification with TEL03/TEL13/TEL14; reuse a valid same-run journey
+instead of repeating it per companion. Publish changed blueprint §23.1 and substrate guide meanings
+through the accepted decision route, preserving Plan40 snapshot freshness and separate Plan40e scope.
 
 <a id="F03"></a>
 ### F03 — Optional finite multi-question evidence inquiry

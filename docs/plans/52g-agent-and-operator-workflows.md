@@ -3,7 +3,7 @@ title: "Plan 52g: Agent and operator workflows"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, environment, design, diagnostics, documentation]
@@ -52,6 +52,24 @@ wire envelope, parser mirror, operator UI or new result authority is required.
 G02/G05 may consume optional 52f F03 only after separate selection. Neither the comparison workflow
 nor original Plan53 completion depends on it. The operator's existing optional view decision I13
 remains separate from F03 and is not implicitly selected by plan amendment.
+
+## Telemetry consumer integration
+
+The [OpenTelemetry review](../functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md)
+adds an investigation path to the existing workflow: identify the native operation and process
+incarnation → inspect pipeline health and coverage → retrieve a bounded attributable answer →
+follow native evidence or an explicitly selected profile. [52s](52s-telemetry-queries-and-agent-investigations.md)
+owns typed query operations, their registration and telemetry guidance. G01/G02 compose them with
+authentic native handles and F01 comparisons; G03 evaluates actual agent use. Continuous telemetry
+neither settles a native invocation nor replaces original result readers. Source-only discovery
+must remain useful when the Collector/backend is down.
+
+[52q](52q-local-telemetry-pipeline-and-health.md) owns the selected persistent services and their
+health; G05's optional UI decision does not veto or implicitly select another service. Consume
+TEL07's independent health and TEL13's partial/sampled/retained coverage before attributing a missing
+span to application behavior. Retrieval failure must direct the agent to existing local diagnostics
+and original results. No second endpoint, semantic search, raw query console or autonomous repair loop
+is introduced. Native cancellation/recovery remains an explicit separate action.
 
 ## Work packages
 
@@ -171,7 +189,12 @@ properties without a new framework quota. Do not derive all semantic expectation
 Actual Codex evidence is necessary for host refresh, progress notifications and any selected
 completion/task/App behavior; in-process clients prove their own path only. Correlate selected
 operation, serving revision, original handle and acquisition stage when they answer a real question.
-Keep raw arguments, duplicate telemetry stores and F02's unresolved propagation edge outside this work.
+Keep raw arguments and duplicate outcome stores outside this work. Consume TEL14's exact structured
+queries and guidance in an actual Codex investigation: find a delayed stage, distinguish missing
+sampling/export from no execution, survive unavailable retrieval, and follow an authentic native
+outcome. Judge whether the answer and next read resolve the task, rather than counting exposed tools
+or spans. F02 owns propagation; G03 cannot infer its success from shared request IDs. TEL15/TEL17
+remain conditional profiling/watch mechanisms, and I13 remains the separate operator-view decision.
 
 <a id="G04"></a>
 ### G04 — Ownership-aware integration and closeout assistance

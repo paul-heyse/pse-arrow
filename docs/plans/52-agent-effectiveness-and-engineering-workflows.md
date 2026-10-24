@@ -3,7 +3,7 @@ title: "Plan 52: Agent effectiveness and engineering workflows"
 status: in-progress
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
 scenario_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
@@ -25,6 +25,9 @@ create another backlog from that earlier review. Meaningful alternatives retain 
 A scheduled opportunity is not a defect finding, and authoring is not implementation acceptance.
 The [usability review](../functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md)
 adds its own O01–O17/RC01–RC03 below, without replacing either earlier source's identities.
+The [OpenTelemetry review](../functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md)
+adds separately qualified O01–O20/RC01–RC02 at the
+[telemetry amendment](#opentelemetry-target-and-foundation-assessment--2026-10-24).
 
 The operator authorized this plan series and explicitly accepted RC01–RC09 on 2026-10-23,
 with the review's conditions intact. This coordinator owns package progress, opportunity
@@ -42,6 +45,11 @@ Subsequent 52i/52j/52k execution checkpoints below own their actual authorizatio
 On 2026-10-24 the maintainer authorized authoring 52l–52o and integrating the usability review
 into remaining Plan52 scope. RC01 was explicitly accepted for planning; RC02/RC03 were selected
 for investigation only. This authoring instruction does not authorize their production delivery.
+
+On 2026-10-24 the maintainer explicitly accepted the OpenTelemetry review's RC01 and RC02
+for planning and authorized authoring 52p–52s plus the affected existing-plan amendments.
+The selected target includes persistent native Collector/OpenObserve and shared export/retrieval
+contracts. This is plan authoring, not authorization to deploy or implement those capabilities.
 
 **Interface-checked baseline:** `cbda2efc6` on main. Plans49–51's delivered functionality and
 prior qualification remain at their current owners; the review is their evidence-informed
@@ -86,7 +94,7 @@ Extend their real operations instead of layering another system around their nam
 | Build identity | Raw Cargo/toolchain TOML hashes select custom-server installation namespaces. D03 assesses effective equivalence separately from provenance without changing canonical/scientific hashes. |
 | Fixtures | Private SurrealKit namespaces and ownership exist; seed SQL is explicitly refused. E02 adds deterministic fixture population with settlement/read-back rather than assume arbitrary imports are supported. |
 | Evidence | Six finite Arrow/DataFusion questions and a disposable projection exist. F01 adds explicit pairing/correspondence, preserving unknowns and source populations. |
-| Traces | Server→Surrealism parentage exists; application-originating context is not established. F02 targets that exact seam, preserving finite capture and independent Plan40 qualification. |
+| Traces | Server→Surrealism parentage exists; application-originating context is not established. F02 owns that seam. The telemetry amendment adds continuous collection/query alongside finite capture, preserving independent Plan40 qualification. |
 
 The resulting workflow starts with a task/source cut, discovers owners and consequences, makes
 reviewable edits, selects revealing tests, watches owned work, and compares actual outcomes.
@@ -204,7 +212,7 @@ slice through its actual route before dependent implementation; routine tooling 
 | RC06 | Typed evidence comparison and development-knowledge views retain supplied-source limits and native authority | F01 extends existing evidence operations; B04 new derived family follows RC01's declaration/decision route. Publish blueprint §19.4/§24.1 changes through design route if needed. |
 | RC07 | Thin agent actions/results retain ownership, continuation and observation-failure meaning | G01/D01/G04 ordinary tooling and guides; no new scheduler or terminal authority. |
 | RC08 | Local models/services/sandboxes activate only for justified consumers | B05/E04/G05 bounded inquiries and environment guide; free-local limits remain binding. |
-| RC09 | Finite application-to-database trace correlation, coordinated with Plan40 | F02 extends existing capture/transport owners, publishes blueprint §23.1 through design route and links exact Plan40 boundary without transferring its campaign. |
+| RC09 | Original finite application-to-database correlation, coordinated with Plan40; continuous deployment is added by the separately accepted telemetry RC01 | F02 retains the transport seam and I11; 52p–52s supply shared telemetry and retrieval. Publish blueprint §23.1 through the design route without transferring Plan40's campaign. |
 
 ## Series and cross-plan ownership
 
@@ -215,9 +223,9 @@ slice through its actual route before dependent implementation; routine tooling 
 | [52c](52c-behavioral-and-scientific-verification.md) | Discriminating test techniques, numerical investigations, reduction and safety diagnosis |
 | [52d](52d-execution-and-qualification-efficiency.md) | Owned transition watch, feature resumption, build equivalence and host pressure |
 | [52e](52e-reproducible-experiments-and-isolation.md) | Historical replay, database fixtures, regression experiments and optional isolation |
-| [52f](52f-evidence-analysis-and-trace-correlation.md) | Explicit outcome comparisons and finite end-to-end trace investigation |
+| [52f](52f-evidence-analysis-and-trace-correlation.md) | Explicit outcome comparisons and actual database trace continuity with continuous/finite investigation |
 | [52g](52g-agent-and-operator-workflows.md) | Agent-facing composition, skill discovery/evaluation, integration and optional operator UI |
-| [52h](52h-qualification-and-publication.md) | Actual-consumer reconciliation across 52a–52o, assembled acceptance, scope-end checks and publication |
+| [52h](52h-qualification-and-publication.md) | Actual-consumer reconciliation across 52a–52s, assembled acceptance, scope-end checks and publication |
 | [52i](52i-canonical-capabilities-and-progressive-reveal.md) | Canonical exposure model, exact navigation, deterministic reveal and progressive instructions |
 | [52j](52j-native-contracts-and-tool-adaptation.md) | Native schema/admission fidelity, host contracts, whole-repository tool adaptation and retirement |
 | [52k](52k-unified-entry-point-and-derived-interfaces.md) | One attachment, lazy integration, loaded revisions, derived consumers and interface observation |
@@ -225,6 +233,10 @@ slice through its actual route before dependent implementation; routine tooling 
 | [52m](52m-progressive-guidance-and-operation-availability.md) | Compact progressive guidance, accurate owners, operation dependencies/restart and supporting instruction resources |
 | [52n](52n-readiness-progress-and-edit-lifecycles.md) | Selected readiness/preparation, authentic early progress/handles and explicit preview release |
 | [52o](52o-conditional-composition-and-protocol-tasks.md) | Conditional exact-discovery read composition and task-protocol inquiries, with explicit adoption decisions |
+| [52p](52p-shared-telemetry-and-native-propagation.md) | Shared telemetry identity/configuration, Python/Rust provider lifetimes, native propagation and stage/diagnostic projection |
+| [52q](52q-local-telemetry-pipeline-and-health.md) | Persistent native Collector/OpenObserve, processing/queues, independent health, retained history and recovery |
+| [52r](52r-operational-metrics-and-diagnostic-integration.md) | Population-correct operational/preparation/database/engineering metrics and sampling/distribution/exemplar meaning |
+| [52s](52s-telemetry-queries-and-agent-investigations.md) | Typed backend queries, canonical FastMCP investigations, profile escalation, offline custody and selected watch/alert outcomes |
 
 Plans50–51 remain completed foundations. Their qualified interfaces are reusable; their counts
 are not Plan52 acceptance. Plan32 retains document/artifact lifecycle ownership. Plan40a–d's
@@ -295,7 +307,7 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O22 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Optional Bubblewrap isolation with actual server/library parser consumers, owned drain and cleanup |
 | O23 | scheduled | [F01](52f-evidence-analysis-and-trace-correlation.md#F01) | Paired comparisons preserving unmatched subjects and denominators |
 | O24 | resolved | [B04](52b-local-knowledge-and-research.md#B04) | Derived development-knowledge/experiment links, separate from scientific research |
-| O25 | scheduled | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact finite trace continuity or explicit unsupported seam |
+| O25 | scheduled | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual application/database propagation with explicit unsupported edges; the telemetry amendment expands deployment and does not permit a missing required edge to close the stronger target |
 | O26 | scheduled | [G01/G02](52g-agent-and-operator-workflows.md#G01) | Shared outcomes and selected unified FastMCP workflows; implementation in CAP/ADP/MCP packages |
 | O27 | scheduled | [G03](52g-agent-and-operator-workflows.md#G03) | Progressive instruction access and representative agent evaluations |
 | O28 | resolved | [B02](52b-local-knowledge-and-research.md#B02) | Activity-based session discovery, attribution and logical deduplication |
@@ -320,7 +332,7 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I08 | resolved | [E01 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Pure replay adopted; native archive refused before effects. Revisit only for a selected investigation that can close native deployment/ABI/license/config/data dependencies |
 | I09 | resolved | [E02 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Deterministic regeneration adopted and actually qualified; logical restore/physical copy unselected. Revisit only for a concrete fixture question whose state cannot reasonably be regenerated |
 | I10 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Private directories default; optional Bubblewrap for a concrete permission-isolation consumer. Podman unselected until a different-userspace/dependency requirement recurs |
-| I11 | open | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact SDK/transport context propagation; no fake continuity |
+| I11 | open | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact SDK task/context/header propagation and actual database/module parentage; consume TEL01/TEL03 and preserve native deadline/drain authority |
 | I12 | resolved | [G02](52g-agent-and-operator-workflows.md#G02) | Operator selected one canonical FastMCP endpoint on 2026-10-24; optional direct-versus-MCP adoption inquiry superseded. Actual host, schema and lifecycle questions remain Q01–Q06 below; no delivery claim |
 | I13 | open | [G05](52g-agent-and-operator-workflows.md#G05) | Interactive evidence use versus standalone report/plot; no product frontend |
 | I14 | open | [Endpoint lifecycle inquiry](#endpoint-shutdown-inquiry) | Assess the separately observed non-cancellation shutdown exception path after 52k delivery; identify reachable failure/independent cleanup guarantees and select a supported disposition or separately authorized remedy. No Plan53/MCP01 completion dependency or delivery claim. |
@@ -458,7 +470,136 @@ after its actual selection; non-adoption must identify the supported route and o
 | U01 | resolved | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | Selected bounded native schema/physical-value inspection alongside exact IPC under proposed ADR-0224, published before implementation. Real registered nineteen-column storage/read/IPC/lifetime assertions passed; schema inquiry does not itself validate stored IPC or scientific eligibility. |
 | U02 | resolved | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Captured bounded explicit skill resources delivered and exercised by actual Codex. Retain the lazy coherent owner; no eager/live Skills provider or unused completion for argument-free prompts. Revisit native Skills for an actual negotiation consumer compatible with capture, or completion for a useful parameter and real consuming host. See the 52m Outcome. |
 | U03 | open | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Three-way comparison, exact discovery, direct/indirect dispatch guards, real Monty and full callback deadline passed. Retained provenance increased bytes in the tested CodeMode answer; typed recurring composition was smaller. Fresh Codex, production policy/source/concurrency acceptance and RC02 selection remain. |
-| U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Restart consumer established. Memory task loss and retained native uncertainty tested; public native-backed task projection works across fresh STDIO processes. Prefer holistic native service integration; actual Codex, queued/running recovery, cancellation/drain, retention and RC03 selection remain. Telemetry baseline is recorded; its separate review/deployment is unstarted. |
+| U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Restart consumer established. Memory task loss and retained native uncertainty tested; public native-backed task projection works across fresh STDIO processes. Actual Codex, queued/running recovery, cancellation/drain, retention and RC03 selection remain. The separate telemetry review is delivered and 52p–52s are planned; no task or telemetry deployment is established. |
+
+## OpenTelemetry target and foundation assessment — 2026-10-24
+
+**Proposed:** make ordinary execution explainable across the single FastMCP endpoint, Python
+helpers/embedded boundaries, Rust operations and SurrealDB, with retained operational queries,
+population-correct metrics and an explanation of missing observations. Use persistent native
+Collector plus OpenObserve OSS as the first local pipeline, alongside finite native detail and
+profile capture. Native observations, execution, scientific outcomes and evidence custody retain
+their current authority. Telemetry supplies a diagnostic projection, not a second scheduler,
+scientific result ledger, semantic search service or mandatory interface for ordinary editing.
+
+The authoring baseline is `6e93c07c1` plus preserved concurrent Plan54 build-tooling changes.
+The review's application baseline is `640035fbf`; evidence drivers/results are retained in
+`6d5e5d273` and the review in `6f1a791f3`. Application telemetry has not been deployed.
+Build ownership changes since the review are consumed through their current structured owners;
+this amendment neither freezes the old build path nor depends on completion of Plan54.
+Core3.4, Heuristics1.0, the selected test-assessment companion, PS1.5 and the binding shape this
+focused assessment. It does not initiate a broad audit or reopen delivered Plan49–51 scope.
+
+| Foundation | Current evidence and required improvement |
+|---|---|
+| Native observation | `pse-diagnostics` already owns operation/producer IDs, coherent callback facts, phases, clocks and coverage. Export selected projections rather than recreating these meanings from span names. Preserve passive checkpoints while the backend is unavailable. |
+| Instrumentation | Rust `tracing`/DataFusion spans and caller-composed capture layers exist; the application has no Rust OTel exporter. Python API/SDK1.45.1 is available, but ordinary FastMCP serving installs no SDK. TEL01–TEL04 add process-owned composition and owner-level instrumentation. |
+| Propagation | FastMCP request propagation and a Python fixture child are tested only at their named boundaries. The bounded Rust SDK spawns a task without OTel context; its HTTP request owner can inject headers. The pinned server already extracts W3C headers. F02 owns that concrete seam after TEL01/TEL03. |
+| Query backend | A disposable OpenObserve OSS1.1.2 process accepted synthetic OTLP JSON and returned trace/log/metric queries. This establishes retrieval, not Collector delivery, restart durability, actual application continuity or overhead. TEL05–TEL08 and TEL13 qualify those consumed contracts. |
+| Signal fidelity | Resource fields normalize differently across signals; search totals were page-local; PromQL start labels were not per-point provenance. Exemplars retained IDs but appeared on inappropriate buckets. Preserve these limits and qualify stronger claims through TEL12/TEL13. |
+| Existing interface | CAP/ADP/MCP/CON/NAV/LIFE delivery supplies exact discovery, typed host/native boundaries and authentic handles. TEL14 adds telemetry capabilities through those owners; G01–G03 qualify useful combined agent workflows. |
+| Evidence and operations | F01 and existing native/offline custody own exact comparisons and evidence; telemetry can explain selected executions without becoming their result store. Existing host/build/test/service readers remain independent and provide projections at their own source boundaries. |
+
+### Shared realization and contracts
+
+Each actual process has one deliberate telemetry composition owner. Select explicit Python SDK
+bootstrap as the initial realization; experimental file configuration is an alternative with a
+concrete revisit condition, not an additional precedence layer. Rust uses existing `tracing`
+composition plus released OTel API/SDK/OTLP0.33.1 and bridge0.34.0 candidates, with exact final
+pins and feature/runtime qualification. Standard OTLP HTTP/protobuf with an explicitly compatible
+blocking HTTP client is the initial Rust export direction; the server may continue its supported
+OTLP/gRPC export to the same Collector. Do not require a new workspace crate merely to name this
+responsibility. Dependencies alone need no ADR; genuine protected contract changes use FND00.
+
+Keep native entity/revision/run/attempt/operation, MCP request, process incarnation, trace/span,
+artifact and instrumentation scope distinct. Use W3C parentage and explicit links at real
+boundaries; shared IDs and temporal overlap remain associations. Define metric populations,
+units, aggregation, reset and bounded dimensions at performing owners. SDK/Collector/backend
+availability is independent of native source coverage and scientific/controller outcome.
+A combined FastMCP read carries its source intervals and limitations, not a fabricated atomic cut.
+
+Use backend-native filtering, projection and aggregation before transport. One owned mapping
+translates normalized fields and preserves each signal's meaning; no universal query engine or
+framework-specific interpretation loop is selected. Existing host schemas remain Pydantic-owned;
+Rust scientific documents retain registry/native codecs and admission. Keep exact native records
+where consumed, and remove generic capture/export/query machinery only when the replacement's
+actual contracts and consumers qualify. Hot callbacks perform no synchronous network export;
+ordinary metrics avoid unique request/case/model/trace labels and per-scalar span creation.
+
+### Companion and package boundaries
+
+| Owner | Primary responsibility and exchanged capability |
+|---|---|
+| [52p](52p-shared-telemetry-and-native-propagation.md) | TEL01–TEL04: identity/configuration, process providers, Python/Rust handoffs and native stage/log projections. Supplies bootstrap and context mechanisms; F02 implements database transport propagation. |
+| [52q](52q-local-telemetry-pipeline-and-health.md) | TEL05–TEL08: selected native infrastructure, pipeline processing/queues, independent health and retention/recovery. Supplies actual ingest/query readiness, selected backend identity and local failure diagnostics. |
+| [52r](52r-operational-metrics-and-diagnostic-integration.md) | TEL09–TEL12: owned metric populations/views, native preparation/storage and engineering projections, sampling/distribution/exemplar semantics. Supplies operational measures and their interpretation to queries. |
+| [52s](52s-telemetry-queries-and-agent-investigations.md) | TEL13–TEL17: typed backend retrieval, canonical exposure/guidance, profile escalation, offline publication and watch/alert outcomes. Supplies useful operations, not another agent workflow or task scheduler. |
+| [52f](52f-evidence-analysis-and-trace-correlation.md) | F02/I11 retains the actual bounded SDK task/header and application→server→module seam. F01 keeps supplied-source comparisons; F03 remains separately selectable. |
+| [52g](52g-agent-and-operator-workflows.md) | G01–G03 consume actual operations in composed agent investigations; G05/I13 owns any selected operator UI. |
+| [52h](52h-qualification-and-publication.md) | H01–H04 retain whole-series reconciliation, actual assembled qualification and enduring publication, including review O20. |
+
+Conditional mechanisms are not silently required deployments. TEL15 must deliver usable existing
+native/profile escalation and settle whether Pyroscope/eBPF/context-observer additions add value.
+TEL17 must settle a concrete watch/alert consumer and supported OSS mechanism or an explicit
+headless read alternative with a revisit trigger. TEL12/TEL13 must deliver truthful example
+drill-down without assuming correct bucket membership; stronger exemplar claims require TQ01.
+An inquiry outcome cannot remove required pipeline, query or native-continuity behavior.
+
+## OpenTelemetry rule decisions
+
+These RC IDs belong only to the [OpenTelemetry review](../functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md).
+The operator explicitly accepted both on **2026-10-24**. `resolved` records the selection
+question, not implementation, accepted ADR status or qualified deployment. FND00 publishes
+each actual governed contract slice before the dependent change; ordinary tooling/dependency
+changes require no placeholder decision record.
+
+| Decision | Disposition | Work owner | Accepted consequence and route |
+|---|---|---|---|
+| RC01 | resolved | [52q/TEL05](52q-local-telemetry-pipeline-and-health.md#TEL05), [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Continuous local Collector/query service plus finite capture. Expand F02's prior finite-only target and publish the resulting blueprint §23.1/environment/substrate/capability meanings through their actual design and guide routes before relying on changed contracts. No transfer of native execution/scientific authority. |
+| RC02 | resolved | [52p/TEL01](52p-shared-telemetry-and-native-propagation.md#TEL01), [52s/TEL13](52s-telemetry-queries-and-agent-investigations.md#TEL13) | Shared identities/export/retrieval mappings and typed reads through the existing FastMCP endpoint. Preserve the Rust scientific/Python host boundary. FND00 classifies any actual new relation family, backend binding or protected-boundary change and supplies its required declaration/ADR/design route; new dependencies alone do not trigger it. |
+
+## OpenTelemetry opportunity dispositions
+
+All O IDs here are source-qualified to the OpenTelemetry review. Every opportunity has one
+primary owner; supporting packages and consumer qualification do not create additional status
+ledgers. `scheduled` means selected planning scope, including the stated bounded investigation
+where the mechanism is conditional. Historical isolated probes remain evidence, not closure.
+
+| Opportunity | Disposition | Work owner | Required behavior or disposition |
+|---|---|---|---|
+| O01 | scheduled | [TEL01](52p-shared-telemetry-and-native-propagation.md#TEL01) | One inspectable process bootstrap, effective configuration and supported provider lifecycle; explicit Python setup is baseline. |
+| O02 | scheduled | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual cross-boundary continuity using TEL02/TEL03 handoffs and the concrete SDK/server seam; I11 retains unsupported-edge truth. |
+| O03 | scheduled | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Meaningful native stage explanations with authentic source relationships and coverage, consumed by TEL13/G01. |
+| O04 | scheduled | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Queued/executing/shared-wait/response/drain distinctions survive timeout, observer loss and native settlement. |
+| O05 | scheduled | [TEL09](52r-operational-metrics-and-diagnostic-integration.md#TEL09) | Population-correct metrics, units/views/dimensions/reset meaning without a second native counter authority. |
+| O06 | scheduled | [TEL10](52r-operational-metrics-and-diagnostic-integration.md#TEL10) | Preparation, reuse, invalidation and shared producers explain repeated work without redefining cache dependencies. |
+| O07 | scheduled | [TEL10](52r-operational-metrics-and-diagnostic-integration.md#TEL10) | Operation-associated database/storage signals and actual service identity; F02 supplies parentage, not assumed enterprise features. |
+| O08 | scheduled | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Structured diagnostic projection and deliberate log/span-event representation with native outcome authority. |
+| O09 | scheduled | [TEL11](52r-operational-metrics-and-diagnostic-integration.md#TEL11) | Current build/test/qualification/host owner projections, original invocation identity and exact evidence readers. |
+| O10 | scheduled | [TEL07](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline-stage observations and local fallback, distinguishing attempted/received/query-visible from durable/complete. |
+| O11 | scheduled | [TEL05](52q-local-telemetry-pipeline-and-health.md#TEL05) | Native supervised Collector/OpenObserve and retained local querying, with TEL06/TEL08 pipeline/lifecycle qualification. |
+| O12 | scheduled | [TEL13](52s-telemetry-queries-and-agent-investigations.md#TEL13) | Backend-aware typed selected reads with real normalization, population, interval, pagination and partiality semantics. |
+| O13 | scheduled | [TEL14](52s-telemetry-queries-and-agent-investigations.md#TEL14) | Existing exact discovery/reveal/resources/invoke-read route supplies telemetry investigation; G01–G03 exercise real agent use. |
+| O14 | scheduled | [TEL12](52r-operational-metrics-and-diagnostic-integration.md#TEL12) | Distribution-to-related-example navigation; TQ01 qualifies stronger bucket/population attribution instead of assuming it. |
+| O15 | scheduled | [TEL15](52s-telemetry-queries-and-agent-investigations.md#TEL15) | Existing finite native/profile escalation plus TQ03's justified adoption or supported alternative for advanced mechanisms. |
+| O16 | scheduled | [TEL16](52s-telemetry-queries-and-agent-investigations.md#TEL16) | Bounded offline investigation with original query/source intervals, native references, loss and existing custody/publication. |
+| O17 | scheduled | [TEL17](52s-telemetry-queries-and-agent-investigations.md#TEL17) | TQ04 resolves concrete watches/OSS alerts versus headless reads; G05 owns any separately selected interactive view. |
+| O18 | scheduled | [TEL03](52p-shared-telemetry-and-native-propagation.md#TEL03) | Qualified export/runtime/shutdown behavior, no synchronous native hot-path network work, and preserved native outcomes. |
+| O19 | scheduled | [TEL12](52r-operational-metrics-and-diagnostic-integration.md#TEL12) | Owner metrics independent of trace sampling; selected detail and evidence-based sampling mechanisms fit scientific lifetimes. |
+| O20 | scheduled | [H02](52h-qualification-and-publication.md#H02) | Independent local contracts plus actual assembled SDK/Collector/backend/FastMCP/native qualification, with H01/H03/H04 reconciliation and publication. |
+
+## OpenTelemetry inquiries
+
+TQ IDs identify new decision questions. Existing I11 remains the sole database-continuity
+inquiry and I13 remains the operator-view decision; this table does not duplicate either.
+
+| Inquiry | State | Owner | Decision / completion evidence |
+|---|---|---|---|
+| TQ01 | open | [TEL12](52r-operational-metrics-and-diagnostic-integration.md#TEL12), [TEL13](52s-telemetry-queries-and-agent-investigations.md#TEL13) | Qualify actual normalized query/reset/histogram/exemplar behavior and required claims. The direct fixture establishes pointer retention only; retain limited semantics or change the specific mechanism/backend if a required stronger consumer cannot be served. |
+| TQ02 | open | [TEL08](52q-local-telemetry-pipeline-and-health.md#TEL08) | Actual Collector/backend restart, queue expiry/overflow, storage failure and retention outcomes; query visibility is not crash durability. |
+| TQ03 | open | [TEL15](52s-telemetry-queries-and-agent-investigations.md#TEL15) | Compare existing CPU/Perfetto/native capture with optional supported Pyroscope/eBPF/experimental context observation for one unresolved question; record adopted mechanism or sufficient existing route and revisit trigger. |
+| TQ04 | open | [TEL17](52s-telemetry-queries-and-agent-investigations.md#TEL17) | Demonstrate a useful exact condition/watch and OpenObserve OSS fit, or retain headless health/query reads with a consumer-based revisit; no automatic intervention or MCP scheduler follows. |
+| TQ05 | open | [TEL08](52q-local-telemetry-pipeline-and-health.md#TEL08), [TEL16](52s-telemetry-queries-and-agent-investigations.md#TEL16) | Determine whether standard finite collection/file export preserves current bounds, identities, restoration, losses and sealed evidence consumers. Delete the custom sink only after equivalent supported consumers qualify; file output alone is insufficient. |
 
 ## Package state and execution route
 
@@ -495,7 +636,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | E03 | done | [52e](52e-reproducible-experiments-and-isolation.md#E03) | Actual semantic bisection visited an untestable revision, found the known bad commit and removed only its temporary Git checkout/build output after drain; main and independent worktrees preserved; retained noisy comparison inconclusive |
 | E04 | done | [52e](52e-reproducible-experiments-and-isolation.md#E04) | Optional Bubblewrap witnesses and actual CLI/library parser consumers; Surrealism grammar uses existing pinned parser |
 | F01 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired comparisons, selective answer sections/completeness and protected same-cut native/canonical readers |
-| F02 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Finite trace seam and I11 |
+| F02 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual SDK task/header and application/server/module continuity, finite capture plus selected continuous pipeline, and I11 |
 | F03 | deferred | [52f](52f-evidence-analysis-and-trace-correlation.md#F03) | PI09 optional finite multi-question inquiry; revisit for a real repeated-question consumer over one cut and explicit selection. Unselected delivery is outside original series completion. |
 | G01 | planned | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
 | G02 | planned | [52g](52g-agent-and-operator-workflows.md#G02) | Actual unified agent workflows consuming CAP/ADP/MCP delivery; I12 selection settled |
@@ -534,6 +675,23 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
 | OPT01 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Paused after bounded real-Monty/typed/small-read comparison and dispatch/lifecycle controls; fresh host/final policy remain |
 | OPT02 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Paused after native-owner/task/STDIO-loss/projection inquiry; integrated native recovery, actual host and final selection remain |
+| TEL01 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |
+| TEL02 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL02) | Python/FastMCP providers, helper carriers and logging lifecycle |
+| TEL03 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL03) | Rust/embedded/native-child providers, context and qualified export/shutdown |
+| TEL04 | planned | [52p](52p-shared-telemetry-and-native-propagation.md#TEL04) | Native stage/wait/drain/diagnostic projections and migrated owner consumers |
+| TEL05 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL05) | Selected native Collector/OpenObserve installation and supervised owned state |
+| TEL06 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL06) | Shared processing, routing, bounded export queues and effective configuration |
+| TEL07 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline health and backend-unavailable local diagnostics |
+| TEL08 | planned | [52q](52q-local-telemetry-pipeline-and-health.md#TEL08) | Retention/restart/recovery and TQ02/TQ05 supported capture outcomes |
+| TEL09 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL09) | Owned metric populations, units, views, dimensions and reset semantics |
+| TEL10 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL10) | Native preparation/reuse/database/storage metric projections |
+| TEL11 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL11) | Current engineering build/test/qualification and host projections |
+| TEL12 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL12) | Sampling/distribution/example semantics with TQ01 stronger-claim qualification |
+| TEL13 | planned | [52s](52s-telemetry-queries-and-agent-investigations.md#TEL13) | Backend-aware typed queries, schema mapping, pagination and TQ01 |
+| TEL14 | planned | [52s](52s-telemetry-queries-and-agent-investigations.md#TEL14) | Exact canonical exposure, resources/guidance and useful selected reads |
+| TEL15 | planned | [52s](52s-telemetry-queries-and-agent-investigations.md#TEL15) | Native profiling escalation and TQ03 mechanism disposition |
+| TEL16 | planned | [52s](52s-telemetry-queries-and-agent-investigations.md#TEL16) | Bounded offline evidence publication and TQ05 consumer preservation |
+| TEL17 | planned | [52s](52s-telemetry-queries-and-agent-investigations.md#TEL17) | Concrete watch/alert investigation TQ04 and selected supported read/action consumers |
 
 <a id="FND00"></a>
 ### FND00 — Decision and declaration readiness
@@ -548,13 +706,25 @@ within contracts need neither. Do not create placeholder ADRs for every RC row.
 Publish changed architecture only through the explicit design-edit route and revision row.
 Record which prerequisite is merely designed versus declared, integrated and exercised. This
 package is incremental: B04's schema does not block A01's source-only task packet or D01's watch.
-The original, unified-interface and usability rule tables are distinct sources. Usability RC01
+The original, unified-interface, usability and OpenTelemetry rule tables are distinct sources. Usability RC01
 is accepted for planning while RC02/RC03 authorize investigation only. If a new rule
 impact appears beyond them, present that exact consequence before
 fixing the dependent target. Acceptance is the required decision/declaration in place and its
 actual consumer consuming it, not completion of a generic paperwork milestone.
+OpenTelemetry RC01/RC02 are explicitly accepted for planning; provider/backend declaration and
+any required blueprint §23.1/native contract changes precede their dependent implementation.
 
 ### Dependency order
+
+For telemetry, TEL01's semantic/configuration slice precedes TEL02/TEL03/TEL09/TEL13 integration.
+TEL05 can prepare native infrastructure independently, then TEL06/TEL07 establish the actual
+pipeline/health route. F02 follows the working TEL01/TEL03 handoff, not all metric/query packages.
+TEL04 and TEL10/TEL11 extend performing owners; TEL12 and TEL13 qualify the signals and retrieval
+they consume rather than waiting for every producer. TEL14 binds usable reads, after which
+G01–G03 exercise real investigations. TEL15/TEL16/TEL17 consume only their needed capture/custody/
+query slices; TEL08's recovery and finite-sink decisions qualify the selected infrastructure.
+H01–H04 reconcile and qualify the assembled required target and explicit conditional outcomes.
+These are capability dependencies, not whole-companion barriers or a reason to repeat campaigns.
 
 The linked Plan53 amendments consume completed 52k without changing MCP progress here. Shared
 reader and workflow migrations follow the actual 53e E05/52f F01 contract slices, not entire
@@ -779,6 +949,20 @@ changed. No native solver-fleet or feature-powerset campaign was selected for th
 reference. Worker changes were integrated in coherent commits; unrelated concurrent audit edits
 were preserved. Completed companions remain while this coordinator and G/H consumers need them.
 I14, application/database tracing, remaining Plan53 and independent Plans28/32/40 keep their owners.
+
+### OpenTelemetry authoring checkpoint — 2026-10-24
+
+The separate functional-extension review is delivered, and RC01/RC02 are explicitly accepted for
+planning. 52p–52s now develop its O01–O20 through TEL01–TEL17, five new bounded inquiries and the
+existing F02/I11/G/H owners. F02 now targets actual SDK task/header continuity as well as continuous
+and finite retrieval. Native authority and completed package Outcomes remain unchanged.
+The dependency route starts with shared identity/configuration and native service contracts; partial
+producer/query slices can integrate without waiting for a whole companion. H02 remains the assembled
+consumer owner. This checkpoint records planned work, not telemetry implementation or qualification.
+
+The 52o pause record below retains its historical then-pending review context. OPT01/OPT02 remain
+open at their own owners; the telemetry amendment neither adopts a task scheduler/CodeMode nor
+restarts their actual-host acceptance. Plan54's concurrent build changes remain independently owned.
 
 ### 52o pause checkpoint — 2026-10-24
 

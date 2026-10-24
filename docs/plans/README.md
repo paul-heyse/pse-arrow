@@ -17,7 +17,7 @@ Plan52 retains its separate capability scope and delivered foundations.
 captures the original O01–O30/RC01–RC09 and the unified-interface review's separately scoped
 O01–O10/Q01–Q06/RC01–RC05, with accepted target directions and delivered source-only interface foundations.
 Its coordinator owns scheduled packages, conditional inquiries and cross-plan boundaries;
-companions 52a–52o develop context/editing, knowledge, verification, execution, experiments,
+companions 52a–52s develop context/editing, knowledge, verification, execution, experiments,
 evidence/tracing, agent/operator workflows, canonical capabilities/reveal, native contracts/tool
 adaptation and one FastMCP attachment with derived consumers. The coordinator links the new
 [52i](52i-canonical-capabilities-and-progressive-reveal.md),
@@ -66,9 +66,17 @@ rendering limits. The
 [52o pause checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52o-pause-checkpoint--2026-10-24)
 records bounded real-Monty composition, task/native-owner and STDIO-loss inquiries, plus an OTel SDK
 baseline probe. OPT01/OPT02 remain in progress: actual host/final integration and adoption decisions
-are uncompleted. No production CodeMode, task queue or telemetry deployment is enabled. A separate
-thorough telemetry review awaits the maintainer's documentation; broader F/G/H qualification retains
-its own remaining scope.
+are uncompleted. No production CodeMode, task queue or telemetry deployment is enabled. The separate
+[OpenTelemetry amendment](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-opportunity-dispositions)
+now schedules all twenty review opportunities through new
+[52p](52p-shared-telemetry-and-native-propagation.md),
+[52q](52q-local-telemetry-pipeline-and-health.md),
+[52r](52r-operational-metrics-and-diagnostic-integration.md) and
+[52s](52s-telemetry-queries-and-agent-investigations.md), with accepted planning rule decisions.
+They develop process instrumentation/propagation, native Collector/OpenObserve operations,
+population-correct metrics and typed investigations through the existing FastMCP endpoint.
+52f retains actual database continuity; 52g/52h retain agent workflows and assembled qualification.
+The coordinator owns all package/opportunity/inquiry state; authoring establishes no deployment.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)
