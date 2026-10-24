@@ -711,3 +711,47 @@ Rust local/canonical execution and preparation invalidation. E05 supplies the or
 reader to 52l CON02 and compares answers at the same source cut; unrelated 52l packages are
 not prerequisites. A04 retains unchanged independent references and tolerances, with no blind
 repeat of the earlier inconclusive retention census or separately unselected solver redesign.
+
+#### Verification and outcome — independent follow-through
+
+**Implemented and Tested, baseline zero:** `2e5c13508` adds selected-tool path/pin drift,
+retained canonical-catalogue-before-observer ordering, missing-inventory before-effect refusal,
+and tracked package deletion/absence/recreation controls. The light `scripts/pse-env` unittest
+selection of `test_cargo_tools`, `OrdinaryRustScientificInputTests`, scoped-generation controls,
+`ManagedRustSelectionTests` and `test_python_extension` passed **62/62**. Existing mechanisms
+required no production change. Ordinary actual local/canonical retained execution remains
+separate acceptance, not inferred from these adapter controls.
+
+**Implemented and Tested, baseline zero:** `7e5c00bd3` adds five actual-file/process controls:
+interrupted service marker publication/departure, foreign creation and retained-reader exclusion,
+interrupted scratch membership, a reader acquired after eligibility, and corrupt-first-candidate
+continuation to independent compaction. The five selected `test_resource_store`/`test_test_resources`
+unittests passed **5/5** through `scripts/pse-env` in light/2 GiB mode. Service configuration is an
+explicit filesystem fixture; actual lifecycle exclusion, FileStore authority, subprocess ownership,
+publication and reclamation are exercised. This does not establish live-service restart acceptance.
+The unchanged Python fixture-settlement adapter's eight focused tests also passed **8/8** in
+light mode, retaining sibling failures, original expiry and independent receiver progress.
+
+**Implemented and Tested, baseline zero:** `scripts/pse-env --resource-class light --
+.venv/bin/python -m unittest -v scripts.tests.test_assessment_boundary` passed **4/4** at
+`511941101`. Actual MCP selection/read and its advertised output schema preserve complete
+selected answers, failed native outcomes, exact source references and sealed custody while
+large unrelated detail remains unopened. Missing selected detail refuses; oversized explicit
+source detail refuses without truncation; native full export retains exact detail. The actual
+reuse owner establishes older-origin protection before consumer publication, and both reports
+remain borrowed through the typed read. The fixture's missing required provenance was corrected;
+its directory field was also renamed to avoid shadowing `unittest.TestCase.run`.
+
+**Tested — retained report read, not fresh qualification:** the native reader and actual MCP
+`assessment_read` selected `adr-index` from the previously sealed turn-end report
+`20261024T124011.970909Z-turn-end-2085058-a503b5`. Both returned the same source reference
+`54c935a3ebf39fcd9091573d376cfb4a2f0a485a5363e18beb9af323b1f6e1db`, with the original
+resource `ce934012ba254b08905ed0e291cc37a2` borrowed while each selected detail was read.
+No source or unrelated gate detail was hydrated. This confirms current selected reader
+integration with the canonical resource registry, not current-source validity of that old run.
+
+**Remaining:** actual ordinary Rust execution, live owned-service restart/two-invocation
+acceptance, current-source native/scientific consumer acceptance, and enclosing G01/G02.
+The bounded compiler receiving-fit correction is under implementation/review and is not yet
+tested. Two concurrent-session Cargo checks were observed holding a mutual artifact-lock cycle;
+Plan53 has not launched another Cargo driver or interrupted those foreign checks.
