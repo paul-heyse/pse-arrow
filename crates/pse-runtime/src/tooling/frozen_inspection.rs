@@ -688,6 +688,41 @@ mod tests {
         let error = decode_document::<FrozenEvidenceSet, 3>(unsupported).unwrap_err();
         assert!(error.to_string().contains("unsupported"));
     }
+
+    #[test]
+    fn structured_decoder_controls_keep_actual_operation_meaning_and_refuse_bad_boundaries() {
+        use pse_diagnostics::observation::{ObservationHub, Outcome, Value};
+        // Ordinary finite structured cases. These are not coverage-guided exploration.
+        for count in [0, 1, 7, (1_u64 << 53) + 1, u64::MAX] {
+            let hub = ObservationHub::new(Policy::default());
+            let operation = hub.start("decoder.structured-control");
+            let reader = operation.reader();
+            operation.context().count("actual.calls", "count", count);
+            operation.finish(Outcome::Completed);
+            let set = FrozenEvidenceSet {
+                operations: vec![reader.snapshot(Duration::from_secs(1))],
+                ..Default::default()
+            };
+            let bytes = serde_json::to_vec(&set).unwrap();
+            let decoded = decode_document::<FrozenEvidenceSet, 3>(&bytes).unwrap();
+            decoded.validate().unwrap();
+            assert_eq!(decoded.operations.len(), 1);
+            let actual = &decoded.operations[0];
+            assert_eq!(actual.kind, "decoder.structured-control");
+            assert_eq!(actual.outcome, Some(Outcome::Completed));
+            assert_eq!(actual.metrics.iter().find(|metric| metric.name == "actual.calls").unwrap().latest,
+                       Value::Count(count));
+            // Truncation cannot silently produce a complete accepted record.
+            for end in [0, 1, bytes.len() / 2, bytes.len() - 1] {
+                assert!(decode_document::<FrozenEvidenceSet, 3>(&bytes[..end]).is_err());
+            }
+        }
+        let oversized = vec![b' '; MAXIMUM_DOCUMENT_BYTES + 1];
+        assert!(decode_document::<FrozenEvidenceSet, 3>(&oversized).unwrap_err().to_string().contains("exceeds 64 MiB"));
+        assert!(decode_document::<FrozenEvidenceSet, 3>(br#"{"version":999,"checkpoints":"invalid body"}"#)
+            .unwrap_err().to_string().contains("unsupported"));
+        assert!(decode_document::<FrozenEvidenceSet, 3>(br#"{"version":3,"checkpoints":[{"process":null}]}"#).is_err());
+    }
 }
 
 #[cfg(test)]
