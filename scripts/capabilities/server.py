@@ -33,6 +33,8 @@ from scripts.capabilities import (
     observation,
     operations,
     presentation,
+    preparation,
+    readiness,
     qualification,
     specialists,
 )
@@ -86,6 +88,7 @@ def bindings(
         host_actions.bindings,
         qualification.bindings,
         native.bindings,
+        preparation.bindings,
         lambda path: specialists.bindings(path, owner=owner),
     ):
         declared, bound = factory(root)
@@ -110,6 +113,11 @@ def build(root: Path = ROOT) -> Runtime:
     owner = specialists.Specialists(root)
     domains, workflows, guides, declared = inventory(root)
     bound, tools = bindings(root, owner=owner)
+    readiness_specs, readiness_tools = readiness.bindings(
+        root, capabilities=lambda: catalogue.capabilities, specialists=owner,
+    )
+    bound = (*bound, *readiness_specs)
+    tools.update(readiness_tools)
     catalogue = Catalogue(
         domains,
         workflows,

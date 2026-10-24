@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `a86fa42ef4ff52f50562b78bb5d4b0542de668ce2fb3cb3cd9f53f67291c2100`.
+Catalogue content revision: `bc4192cddcdfd7f81c845a10a898f435cbaea03d799815726ca92de9d1a7aa72`.
 
 ## Domains
 
@@ -521,6 +521,7 @@ Catalogue content revision: `a86fa42ef4ff52f50562b78bb5d4b0542de668ce2fb3cb3cd9f
     {
       "capabilities": [
         "product_run_read",
+        "rust_test_reference_read",
         "assessment_read",
         "coverage_correspondence_read"
       ],
@@ -528,6 +529,18 @@ Catalogue content revision: `a86fa42ef4ff52f50562b78bb5d4b0542de668ce2fb3cb3cd9f
       "guides": [],
       "id": "evidence",
       "purpose": "Read original invocation and assessment evidence; a selected pass does not qualify unexercised scope."
+    },
+    {
+      "capabilities": [
+        "capability_readiness",
+        "capability_readiness_check",
+        "python_extension_dev_stage",
+        "python_extension_native_stage"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "prepare",
+      "purpose": "Inspect selected readiness and explicitly prepare only the required owner stage."
     }
   ],
   "title": "Qualify a change"
@@ -2354,6 +2367,760 @@ Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [sc
   "work_owner": null,
   "worker_calls": [],
   "workflows": []
+}
+```
+
+### `capability_readiness` — Capability Readiness
+
+Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration source: [scripts/capabilities/readiness.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/readiness.py).
+
+```json
+{
+  "description": "Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. Receipt presence records prior preparation; current currency, import compatibility, service availability and operation qualification remain unknown until separately observed.",
+  "domain": "environment",
+  "effects": "Read declared requirements and existing owner receipt metadata only.",
+  "exposure": "tool",
+  "family": null,
+  "guides": [
+    "environment",
+    "python"
+  ],
+  "id": "capability_readiness",
+  "owner": "scripts/capabilities/readiness.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/readiness.py",
+  "title": "Capability Readiness",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "qualify-change"
+  ]
+}
+```
+
+Exact callable component key: `tool:capability_readiness@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:capability_readiness",
+        "domain:environment",
+        "workflow:qualify-change"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. Receipt presence records prior preparation; current currency, import compatibility, service availability and operation qualification remain unknown until separately observed.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "capability": {
+        "pattern": "^[a-z][a-z0-9_-]{0,95}$",
+        "type": "string"
+      }
+    },
+    "required": [
+      "capability"
+    ],
+    "type": "object"
+  },
+  "name": "capability_readiness",
+  "outputSchema": {
+    "$defs": {
+      "ExtensionArtifact": {
+        "additionalProperties": false,
+        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "properties": {
+          "binary": {
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binary",
+          "sha256",
+          "features"
+        ],
+        "type": "object"
+      },
+      "Prerequisite": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "python-extension",
+              "selected-service",
+              "language-provider",
+              "executable",
+              "checkout-environment"
+            ],
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dev",
+                  "native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "owner": {
+            "type": "string"
+          },
+          "preparation": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "owner"
+        ],
+        "type": "object"
+      },
+      "ReadinessFact": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "type": "string"
+          },
+          "observation": {
+            "default": "unobserved",
+            "enum": [
+              "unobserved",
+              "passive",
+              "live"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "ReceiptObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "currency": {
+            "const": "unknown",
+            "default": "unknown",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dev",
+                  "native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "recorded": {
+            "type": "boolean"
+          },
+          "stage": {
+            "enum": [
+              "extension",
+              "stubs"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "stage",
+          "path",
+          "recorded"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "artifact_prepared": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "capability": {
+        "type": "string"
+      },
+      "declared_requirements": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "import_compatible": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "imported_artifact": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExtensionArtifact"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "language_provider_available": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "operation_exercised": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "receipts": {
+        "items": {
+          "$ref": "#/$defs/ReceiptObservation"
+        },
+        "type": "array"
+      },
+      "requirements": {
+        "items": {
+          "$ref": "#/$defs/Prerequisite"
+        },
+        "type": "array"
+      },
+      "selected_service_available": {
+        "$ref": "#/$defs/ReadinessFact"
+      }
+    },
+    "required": [
+      "capability",
+      "requirements",
+      "declared_requirements",
+      "artifact_prepared",
+      "import_compatible",
+      "selected_service_available",
+      "language_provider_available",
+      "operation_exercised"
+    ],
+    "type": "object"
+  },
+  "title": "Capability Readiness"
+}
+```
+
+### `capability_readiness_check` — Capability Readiness Check
+
+Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration source: [scripts/capabilities/readiness.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/readiness.py).
+
+```json
+{
+  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child and actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization or source publication; native provider setup may occur through the selected environment owner. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
+  "domain": "environment",
+  "effects": "Explicit selected live import or specialist prerequisite checks; no extension build, source synchronization or stub publication.",
+  "exposure": "tool",
+  "family": null,
+  "guides": [
+    "environment",
+    "python"
+  ],
+  "id": "capability_readiness_check",
+  "owner": "scripts/capabilities/readiness.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/readiness.py",
+  "title": "Capability Readiness Check",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "attached",
+      "operation": "import-check",
+      "worker": "prep-dev"
+    },
+    {
+      "lifetime": "attached",
+      "operation": "import-check",
+      "worker": "prep-native"
+    }
+  ],
+  "workflows": [
+    "qualify-change"
+  ]
+}
+```
+
+Exact callable component key: `tool:capability_readiness_check@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:capability_readiness_check",
+        "domain:environment",
+        "workflow:qualify-change"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+  },
+  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child and actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization or source publication; native provider setup may occur through the selected environment owner. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
+  "inputSchema": {
+    "$defs": {
+      "ReadinessCheckRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "pattern": "^[a-z][a-z0-9_-]{0,95}$",
+            "type": "string"
+          },
+          "checks": {
+            "items": {
+              "enum": [
+                "import-compatible",
+                "selected-service",
+                "language-provider"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "type": "array"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "language": {
+            "anyOf": [
+              {
+                "enum": [
+                  "python",
+                  "rust"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dev",
+                  "native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "capability",
+          "checks"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "request": {
+        "$ref": "#/$defs/ReadinessCheckRequest"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "type": "object"
+  },
+  "name": "capability_readiness_check",
+  "outputSchema": {
+    "$defs": {
+      "ExtensionArtifact": {
+        "additionalProperties": false,
+        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "properties": {
+          "binary": {
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binary",
+          "sha256",
+          "features"
+        ],
+        "type": "object"
+      },
+      "Prerequisite": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "python-extension",
+              "selected-service",
+              "language-provider",
+              "executable",
+              "checkout-environment"
+            ],
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dev",
+                  "native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "owner": {
+            "type": "string"
+          },
+          "preparation": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "owner"
+        ],
+        "type": "object"
+      },
+      "ReadinessFact": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "type": "string"
+          },
+          "observation": {
+            "default": "unobserved",
+            "enum": [
+              "unobserved",
+              "passive",
+              "live"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "ReceiptObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "currency": {
+            "const": "unknown",
+            "default": "unknown",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dev",
+                  "native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "recorded": {
+            "type": "boolean"
+          },
+          "stage": {
+            "enum": [
+              "extension",
+              "stubs"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "stage",
+          "path",
+          "recorded"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "artifact_prepared": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "capability": {
+        "type": "string"
+      },
+      "declared_requirements": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "import_compatible": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "imported_artifact": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExtensionArtifact"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "language_provider_available": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "operation_exercised": {
+        "$ref": "#/$defs/ReadinessFact"
+      },
+      "receipts": {
+        "items": {
+          "$ref": "#/$defs/ReceiptObservation"
+        },
+        "type": "array"
+      },
+      "requirements": {
+        "items": {
+          "$ref": "#/$defs/Prerequisite"
+        },
+        "type": "array"
+      },
+      "selected_service_available": {
+        "$ref": "#/$defs/ReadinessFact"
+      }
+    },
+    "required": [
+      "capability",
+      "requirements",
+      "declared_requirements",
+      "artifact_prepared",
+      "import_compatible",
+      "selected_service_available",
+      "language_provider_available",
+      "operation_exercised"
+    ],
+    "type": "object"
+  },
+  "title": "Capability Readiness Check"
 }
 ```
 
@@ -16703,6 +17470,504 @@ Exposure: **native**. Owner: `scripts/python_extension.py`. Declaration source: 
 }
 ```
 
+### `python_extension_dev_stage` — Python Extension Dev Stage
+
+Exposure: **tool**. Owner: `scripts/python_extension.py`. Declaration source: [scripts/capabilities/preparation.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/preparation.py).
+
+```json
+{
+  "description": "Explicitly run one development extension owner stage in one admitted environment. environment ensures locked dependencies; prepare may build/install; stubs publishes generated outputs; stubs-check compares without publication; admit imports and fences actual bytes. Select profile and correctness/interactive validation explicitly. No automatic sync composition.",
+  "domain": "environment",
+  "effects": "Explicit selected owner stage; dependency installation, extension replacement and stub publication occur only in their chosen stages. Admission observes actual import identity; checks do not publish.",
+  "exposure": "tool",
+  "family": "python-extension",
+  "guides": [
+    "python",
+    "environment"
+  ],
+  "id": "python_extension_dev_stage",
+  "owner": "scripts/python_extension.py",
+  "prerequisites": [
+    "Selected stage owns its actual environment, compiler, extension and generator prerequisites; describing this binding prepares nothing."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": "dev",
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": null,
+      "validated": null
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/preparation.py",
+  "title": "Python Extension Dev Stage",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "attached",
+      "operation": "stage",
+      "worker": "prep-dev"
+    }
+  ],
+  "workflows": [
+    "qualify-change"
+  ]
+}
+```
+
+Exact callable component key: `tool:python_extension_dev_stage@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:python_extension_dev_stage",
+        "domain:environment",
+        "family:python-extension",
+        "workflow:qualify-change"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+  },
+  "description": "Explicitly run one development extension owner stage in one admitted environment. environment ensures locked dependencies; prepare may build/install; stubs publishes generated outputs; stubs-check compares without publication; admit imports and fences actual bytes. Select profile and correctness/interactive validation explicitly. No automatic sync composition.",
+  "inputSchema": {
+    "$defs": {
+      "StageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "default": "dev",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "environment",
+              "prepare",
+              "stubs",
+              "stubs-check",
+              "admit"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stage"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "request": {
+        "$ref": "#/$defs/StageRequest"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "type": "object"
+  },
+  "name": "python_extension_dev_stage",
+  "outputSchema": {
+    "$defs": {
+      "ExtensionArtifact": {
+        "additionalProperties": false,
+        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "properties": {
+          "binary": {
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binary",
+          "sha256",
+          "features"
+        ],
+        "type": "object"
+      },
+      "StageResult": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "exit_code": {
+            "default": 0,
+            "type": "integer"
+          },
+          "published": {
+            "default": false,
+            "type": "boolean"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "stage": {
+            "enum": [
+              "environment",
+              "prepare",
+              "stubs",
+              "stubs-check",
+              "admit"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "reused",
+              "prepared",
+              "checked",
+              "admitted",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "status"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "exit_code": {
+        "type": "integer"
+      },
+      "mode": {
+        "enum": [
+          "dev",
+          "native"
+        ],
+        "type": "string"
+      },
+      "operation": {
+        "enum": [
+          "sync",
+          "environment",
+          "prepare",
+          "stubs",
+          "stubs-check",
+          "admit"
+        ],
+        "type": "string"
+      },
+      "profile": {
+        "type": "string"
+      },
+      "stages": {
+        "items": {
+          "$ref": "#/$defs/StageResult"
+        },
+        "type": "array"
+      },
+      "validated": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "operation",
+      "mode",
+      "profile",
+      "validated",
+      "stages",
+      "exit_code"
+    ],
+    "type": "object"
+  },
+  "title": "Python Extension Dev Stage"
+}
+```
+
+### `python_extension_native_stage` — Python Extension Native Stage
+
+Exposure: **tool**. Owner: `scripts/python_extension.py`. Declaration source: [scripts/capabilities/preparation.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/preparation.py).
+
+```json
+{
+  "description": "Explicitly run one linked native extension owner stage after its admitted provider environment. environment ensures locked dependencies; prepare may build/install; stubs publishes; stubs-check compares without publication; admit imports and fences actual bytes. Select profile and correctness/interactive validation explicitly. No automatic sync composition.",
+  "domain": "environment",
+  "effects": "Explicit selected owner stage; dependency installation, extension replacement and stub publication occur only in their chosen stages. Admission observes actual import identity; checks do not publish.",
+  "exposure": "tool",
+  "family": "python-extension",
+  "guides": [
+    "python",
+    "environment"
+  ],
+  "id": "python_extension_native_stage",
+  "owner": "scripts/python_extension.py",
+  "prerequisites": [
+    "Selected stage owns its actual environment, compiler, extension and generator prerequisites; describing this binding prepares nothing."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "checkout-environment",
+      "mode": "native",
+      "owner": "scripts/pse_env.py",
+      "preparation": [],
+      "provider": null,
+      "validated": null
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/preparation.py",
+  "title": "Python Extension Native Stage",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "attached",
+      "operation": "stage",
+      "worker": "prep-native"
+    }
+  ],
+  "workflows": [
+    "qualify-change"
+  ]
+}
+```
+
+Exact callable component key: `tool:python_extension_native_stage@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:python_extension_native_stage",
+        "domain:environment",
+        "family:python-extension",
+        "workflow:qualify-change"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": true,
+    "idempotentHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": false
+  },
+  "description": "Explicitly run one linked native extension owner stage after its admitted provider environment. environment ensures locked dependencies; prepare may build/install; stubs publishes; stubs-check compares without publication; admit imports and fences actual bytes. Select profile and correctness/interactive validation explicitly. No automatic sync composition.",
+  "inputSchema": {
+    "$defs": {
+      "StageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "default": "dev",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+            "type": "string"
+          },
+          "stage": {
+            "enum": [
+              "environment",
+              "prepare",
+              "stubs",
+              "stubs-check",
+              "admit"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stage"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "request": {
+        "$ref": "#/$defs/StageRequest"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "type": "object"
+  },
+  "name": "python_extension_native_stage",
+  "outputSchema": {
+    "$defs": {
+      "ExtensionArtifact": {
+        "additionalProperties": false,
+        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "properties": {
+          "binary": {
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binary",
+          "sha256",
+          "features"
+        ],
+        "type": "object"
+      },
+      "StageResult": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "exit_code": {
+            "default": 0,
+            "type": "integer"
+          },
+          "published": {
+            "default": false,
+            "type": "boolean"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "stage": {
+            "enum": [
+              "environment",
+              "prepare",
+              "stubs",
+              "stubs-check",
+              "admit"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "reused",
+              "prepared",
+              "checked",
+              "admitted",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "status"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "exit_code": {
+        "type": "integer"
+      },
+      "mode": {
+        "enum": [
+          "dev",
+          "native"
+        ],
+        "type": "string"
+      },
+      "operation": {
+        "enum": [
+          "sync",
+          "environment",
+          "prepare",
+          "stubs",
+          "stubs-check",
+          "admit"
+        ],
+        "type": "string"
+      },
+      "profile": {
+        "type": "string"
+      },
+      "stages": {
+        "items": {
+          "$ref": "#/$defs/StageResult"
+        },
+        "type": "array"
+      },
+      "validated": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "operation",
+      "mode",
+      "profile",
+      "validated",
+      "stages",
+      "exit_code"
+    ],
+    "type": "object"
+  },
+  "title": "Python Extension Native Stage"
+}
+```
+
 ### `qualification-assessment` — Qualification groups and static checks
 
 Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: [scripts/validation_scope.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/validation_scope.py).
@@ -16928,13 +18193,176 @@ Exact callable component key: `tool:rust_test_describe@`. The following is the r
 }
 ```
 
+### `rust_test_reference_read` — Read original scoped test reference
+
+Exposure: **tool**. Owner: `scripts/capabilities/rust_references.py`. Declaration source: [scripts/capabilities/rust_references.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/rust_references.py).
+
+```json
+{
+  "description": "Read an actual scoped Rust action's invocation-reference.json before final return. The requested output alone is unconfirmed; an issued reference is checked against its original registry. Continue with product_run_read/workload_watch; no build, launch, replay or native settlement follows from reading.",
+  "domain": "execution",
+  "effects": "Read a bounded original reference and its registry identity; no workload or preparation.",
+  "exposure": "tool",
+  "family": "workload-observation",
+  "guides": [
+    "root",
+    "qualification"
+  ],
+  "id": "rust_test_reference_read",
+  "owner": "scripts/capabilities/rust_references.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/rust_references.py",
+  "title": "Read original scoped test reference",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "qualify-change"
+  ]
+}
+```
+
+Exact callable component key: `tool:rust_test_reference_read@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:rust_test_reference_read",
+        "domain:execution",
+        "family:workload-observation",
+        "workflow:qualify-change"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Read an actual scoped Rust action's invocation-reference.json before final return. The requested output alone is unconfirmed; an issued reference is checked against its original registry. Continue with product_run_read/workload_watch; no build, launch, replay or native settlement follows from reading.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "output": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "required": [
+      "output"
+    ],
+    "type": "object"
+  },
+  "name": "rust_test_reference_read",
+  "outputSchema": {
+    "$defs": {
+      "InvocationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "invocation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "ownership": {
+            "enum": [
+              "owned",
+              "borrowed"
+            ],
+            "type": "string"
+          },
+          "registry": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "terminal_owner": {
+            "enum": [
+              "native runner",
+              "original outer owner"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "invocation",
+          "registry",
+          "ownership",
+          "terminal_owner"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "outcome": {
+        "enum": [
+          "issued",
+          "not_observed"
+        ],
+        "type": "string"
+      },
+      "reader": {
+        "anyOf": [
+          {
+            "const": "product_run_read",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "reference": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/InvocationReference"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "settlement": {
+        "default": "Inspect the original native owner; absence, reference publication and reader success do not establish settlement or retry eligibility.",
+        "type": "string"
+      },
+      "source_sha256": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      }
+    },
+    "required": [
+      "outcome"
+    ],
+    "type": "object"
+  },
+  "title": "Rust Test Reference Read"
+}
+```
+
 ### `rust_test_run` — rust test run
 
 Exposure: **tool**. Owner: `scripts/test_run.py`. Declaration source: [scripts/test_run.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/test_run.py).
 
 ```json
 {
-  "description": "Run one selected package's unit or named integration tests through the native selector, normalized invocation, force-validation preparation and terminal owner. Returns the authentic invocation, actual catalogue and separate native terminal/drain evidence; borrowed invocations retain their outer reconciliation owner. Native features use the existing prepared caller environment. Protocol success never means the tests passed.",
+  "description": "Run one selected package's unit or named integration tests through the native selector, normalized invocation, force-validation preparation and terminal owner. Returns the authentic invocation, actual catalogue and separate native terminal/drain evidence; borrowed invocations retain their outer reconciliation owner. Native features use the existing prepared caller environment. If notifications are unavailable, rust_test_reference_read(output) exposes the original issued handle while this action remains attached. Protocol success never means the tests passed.",
   "domain": "validation",
   "effects": "Run the selected existing recipe/assessment with native admission and explicit retained output. Generation and documentation actions change their native output owners. No rollback, commit, push or scientific qualification follows from protocol success.",
   "exposure": "tool",
@@ -17004,7 +18432,7 @@ Exact callable component key: `tool:rust_test_run@`. The following is the regist
     "openWorldHint": true,
     "readOnlyHint": false
   },
-  "description": "Run one selected package's unit or named integration tests through the native selector, normalized invocation, force-validation preparation and terminal owner. Returns the authentic invocation, actual catalogue and separate native terminal/drain evidence; borrowed invocations retain their outer reconciliation owner. Native features use the existing prepared caller environment. Protocol success never means the tests passed.",
+  "description": "Run one selected package's unit or named integration tests through the native selector, normalized invocation, force-validation preparation and terminal owner. Returns the authentic invocation, actual catalogue and separate native terminal/drain evidence; borrowed invocations retain their outer reconciliation owner. Native features use the existing prepared caller environment. If notifications are unavailable, rust_test_reference_read(output) exposes the original issued handle while this action remains attached. Protocol success never means the tests passed.",
   "inputSchema": {
     "$defs": {
       "RustTestRequest": {
