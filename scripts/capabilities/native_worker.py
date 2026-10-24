@@ -4,13 +4,24 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
+import msgspec
+from pydantic import JsonValue
+
+from scripts.capabilities.native_schema import JSON_OBJECT
+from scripts.capabilities.operations import bounded
+
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from pse import DiagnosticReport, Runtime
     from scripts.capabilities.native import Result
 
@@ -21,13 +32,17 @@ MAXIMUM_REQUEST_BYTES = 16 << 20
 
 
 def decoded(value: object, document_type: type[T]) -> T:
-    from pse import codec
+    from pse import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
+        codec,
+    )
 
     return codec.decode_json(json.dumps(value, allow_nan=False), document_type)
 
 
 def source_documents(value: object) -> list[dict[str, bytes]]:
-    from pse.contracts.documents import ProjectDraftDocuments
+    from pse.contracts.documents import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
+        ProjectDraftDocuments,
+    )
 
     document = decoded(value, ProjectDraftDocuments)
     return [
@@ -38,51 +53,79 @@ def source_documents(value: object) -> list[dict[str, bytes]]:
 
 def scientific_error(error: Exception) -> dict[str, object]:
     """Keep native classifications and locations, never echo supplied source text."""
-    import hashlib
-
     report = cast("DiagnosticReport | None", getattr(error, "report", None))
     value: dict[str, object] = {
         "cause": type(error).__name__,
         "message": "Native receiver refused the selected input; supplied values are redacted.",
     }
     if report is not None:
-        for field in ("code", "reported_code", "failure_class", "stage", "rule", "source_refusal_proved"):
+        for field in (
+            "code",
+            "reported_code",
+            "failure_class",
+            "stage",
+            "rule",
+            "source_refusal_proved",
+        ):
             item = getattr(report, field, None)
             if item is not None:
                 value[field] = item
         value["causes"] = [
-            {"index": index, "message_sha256": hashlib.sha256(item.message.encode()).hexdigest(), "message_redacted": True}
+            {
+                "index": index,
+                "message_sha256": hashlib.sha256(item.message.encode()).hexdigest(),
+                "message_redacted": True,
+            }
             for index, item in enumerate(report.causes[:16])
         ]
         value["locations"] = [
-            {"source": item.source.to_hex(), "document": item.document.to_hex() if item.document is not None else None, "revision": item.revision.to_prefixed() if item.revision is not None else None, "start": item.start, "end": item.end}
+            {
+                "source": item.source.to_hex(),
+                "document": item.document.to_hex()
+                if item.document is not None
+                else None,
+                "revision": item.revision.to_prefixed()
+                if item.revision is not None
+                else None,
+                "start": item.start,
+                "end": item.end,
+            }
             for item in report.source_locations[:16]
         ]
         value["cause_count"] = len(report.causes)
         value["location_count"] = len(report.source_locations)
         if len(report.causes) > 16 or len(report.source_locations) > 16:
             value["complete"] = False
-            value["omissions"] = ["Native error cause/location detail is limited to the first 16 entries; supplied messages remain redacted."]
+            value["omissions"] = [
+                "Native error cause/location detail is limited to the first 16 entries; supplied messages remain redacted."
+            ]
     else:
         # msgspec locations do not require returning its offending value/message.
-        import re
-
         location = re.search(r"at `([^`]+)`", str(error))
         if location:
             value["location"] = location.group(1)
     return value
 
 
-def execute(operation: str, arguments: dict[str, object], *, scratch: Path) -> dict[str, object]:
-    import pse
-    from pse import codec, diagnostics
-    from pse.contracts import documents as contracts
-    from scripts.capabilities import native as host
+def execute(
+    operation: str, arguments: Mapping[str, object], *, scratch: Path
+) -> dict[str, object]:
+    import pse  # noqa: PLC0415 -- load native/public owners only inside an actual call
+    from pse import (  # noqa: PLC0415 -- load native/public owners only inside an actual call
+        codec,
+        diagnostics,
+    )
+    from pse.contracts import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
+        documents as contracts,
+    )
+    from scripts.capabilities import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
+        native as host,
+    )
 
     supplied = dict(arguments)
     fingerprint = supplied.pop("schema_set_fingerprint", None)
     if not isinstance(fingerprint, str):
-        raise ValueError("fixed native request requires its loaded schema fingerprint")
+        raise TypeError("fixed native request requires its loaded schema fingerprint")
     if fingerprint != pse.SCHEMA_SET_FINGERPRINT:
         return {"outcome": "stale_interface", "code": "pse.native.schema_set_mismatch"}
     physical_packages: list[dict[str, bytes]] = []
@@ -97,7 +140,11 @@ def execute(operation: str, arguments: dict[str, object], *, scratch: Path) -> d
     result: host.Result | None = None
     # Decode every generated request before Runtime construction or store access.
     if operation in {"source_admit", "preparation_discover"}:
-        source = host.Preparation.model_validate(supplied, strict=True) if operation == "preparation_discover" else host.Source.model_validate(supplied, strict=True)
+        source = (
+            host.Preparation.model_validate(supplied, strict=True)
+            if operation == "preparation_discover"
+            else host.Source.model_validate(supplied, strict=True)
+        )
         physical_packages = source_documents(source.physical)
         packages = source_documents(source.documents)
         resources = source.resources
@@ -109,15 +156,26 @@ def execute(operation: str, arguments: dict[str, object], *, scratch: Path) -> d
         physical_packages = source_documents(selected.physical)
         deployment = selected
     elif operation in {"revision_source", "revision_preparation_discover"}:
-        revision = host.RevisionPreparation.model_validate(supplied, strict=True) if operation == "revision_preparation_discover" else host.Revision.model_validate(supplied, strict=True)
+        revision = (
+            host.RevisionPreparation.model_validate(supplied, strict=True)
+            if operation == "revision_preparation_discover"
+            else host.Revision.model_validate(supplied, strict=True)
+        )
         physical_packages = source_documents(revision.physical)
         deployment = revision
         if isinstance(revision, host.RevisionPreparation):
             discovery = decoded(revision.request, contracts.PreparationDiscoveryRequest)
     elif operation == "project_bundle_inspect":
         bundle_request = host.Bundle.model_validate(supplied, strict=True)
-        bundle = pse.ProjectBundle(Path(bundle_request.path), maximum_document_bytes=bundle_request.maximum_document_bytes)
-        return {"outcome": "observed", "digest": bundle.digest, "document": codec.document_builtins(bundle.manifest)}
+        bundle = pse.ProjectBundle(
+            Path(bundle_request.path),
+            maximum_document_bytes=bundle_request.maximum_document_bytes,
+        )
+        return {
+            "outcome": "observed",
+            "digest": bundle.digest,
+            "document": codec.document_builtins(bundle.manifest),
+        }
     elif operation in {"research_read", "project_metadata"}:
         page = host.Metadata.model_validate(supplied, strict=True)
         deployment = page
@@ -128,15 +186,30 @@ def execute(operation: str, arguments: dict[str, object], *, scratch: Path) -> d
     elif operation == "diagnostic_inspect":
         diagnostic = host.Diagnostic.model_validate(supplied, strict=True)
         inspection = decoded(diagnostic.request, contracts.InspectionRequest)
-        return {"outcome": "observed", "document": codec.document_builtins(diagnostics.inspect_checkpoint(Path(diagnostic.checkpoint), inspection))}
+        return {
+            "outcome": "observed",
+            "document": codec.document_builtins(
+                diagnostics.inspect_checkpoint(Path(diagnostic.checkpoint), inspection)
+            ),
+        }
     elif operation == "evidence_inspect":
         frozen = host.Evidence.model_validate(supplied, strict=True)
         frozen_inspection = decoded(frozen.request, contracts.FrozenInspectionRequest)
         evidence = diagnostics.read_evidence(Path(frozen.path))
-        return {"outcome": "observed", "document": codec.document_builtins(diagnostics.inspect_frozen(evidence, frozen_inspection))}
+        return {
+            "outcome": "observed",
+            "document": codec.document_builtins(
+                diagnostics.inspect_frozen(evidence, frozen_inspection)
+            ),
+        }
     elif operation == "invocation_read":
         invocation = host.Invocation.model_validate(supplied, strict=True)
-        return {"outcome": "observed", "document": codec.document_builtins(diagnostics.read_invocation(Path(invocation.path)))}
+        return {
+            "outcome": "observed",
+            "document": codec.document_builtins(
+                diagnostics.read_invocation(Path(invocation.path))
+            ),
+        }
     elif operation == "result_read":
         result = host.Result.model_validate(supplied, strict=True)
         if result.end < result.start:
@@ -144,7 +217,17 @@ def execute(operation: str, arguments: dict[str, object], *, scratch: Path) -> d
         deployment = result
     else:
         raise ValueError("unknown fixed native operation")
-    if operation in {"source_admit", "preparation_discover", "project_select", "revision_source", "revision_preparation_discover"} and len(physical_packages) != 1:
+    if (
+        operation
+        in {
+            "source_admit",
+            "preparation_discover",
+            "project_select",
+            "revision_source",
+            "revision_preparation_discover",
+        }
+        and len(physical_packages) != 1
+    ):
         raise ValueError("physical source requires one complete package")
     if deployment is not None:
         resources = deployment.resources
@@ -169,27 +252,56 @@ def execute(operation: str, arguments: dict[str, object], *, scratch: Path) -> d
             package = runtime.modeling_from_documents(packages, physical)
             response: dict[str, object] = {
                 "outcome": "admitted",
-                "revision": {"identity": package.revision_id, "lifetime": "completed_child", "reopenable": False},
+                "revision": {
+                    "identity": package.revision_id,
+                    "lifetime": "completed_child",
+                    "reopenable": False,
+                },
                 "durable": False,
                 "source": codec.document_builtins(package.operation_source),
             }
             if discovery is not None:
-                response["preparation"] = codec.document_builtins(package.preparation_discovery(discovery))
+                response["preparation"] = codec.document_builtins(
+                    package.preparation_discovery(discovery)
+                )
             return response
         if selection is not None:
             physical = runtime.physical_from_documents(physical_packages[0])
-            return {"outcome": "selected", "document": codec.document_builtins(runtime.project_select(selection, physical))}
+            return {
+                "outcome": "selected",
+                "document": codec.document_builtins(
+                    runtime.project_select(selection, physical)
+                ),
+            }
         if revision is not None:
             physical = runtime.physical_from_documents(physical_packages[0])
             package = runtime.modeling_revision(revision.revision, physical)
             if discovery is not None:
-                return {"outcome": "observed", "document": codec.document_builtins(package.preparation_discovery(discovery))}
+                return {
+                    "outcome": "observed",
+                    "document": codec.document_builtins(
+                        package.preparation_discovery(discovery)
+                    ),
+                }
             if isinstance(revision, host.Revision):
-                return {"outcome": "observed", "canonical_revision": package.canonical_revision, "source": [codec.document_builtins(item) for item in package.project_source_detail(revision.logical)]}
+                return {
+                    "outcome": "observed",
+                    "canonical_revision": package.canonical_revision,
+                    "source": [
+                        codec.document_builtins(item)
+                        for item in package.project_source_detail(revision.logical)
+                    ],
+                }
         if research is not None:
-            return {"outcome": "observed", "document": codec.document_builtins(runtime.research_read(research))}
+            return {
+                "outcome": "observed",
+                "document": codec.document_builtins(runtime.research_read(research)),
+            }
         if metadata is not None:
-            return {"outcome": "observed", "document": codec.document_builtins(runtime.project_metadata(metadata))}
+            return {
+                "outcome": "observed",
+                "document": codec.document_builtins(runtime.project_metadata(metadata)),
+            }
         if result is not None:
             return read_result(runtime, result)
     finally:
@@ -199,75 +311,141 @@ def execute(operation: str, arguments: dict[str, object], *, scratch: Path) -> d
 
 def read_result(runtime: Runtime, request: Result) -> dict[str, object]:
     """Copy a bounded Arrow window while its protected native reader is alive."""
-    import base64
+    import pyarrow as pa  # noqa: PLC0415 -- load native/public owners only inside an actual call
 
-    import pyarrow as pa
-
-    stream = runtime.results(request.run, request.attempt, request.relation, start=request.start, end=request.end)
+    stream = runtime.results(
+        request.run,
+        request.attempt,
+        request.relation,
+        start=request.start,
+        end=request.end,
+    )
     with stream:
         schema = pa.schema(stream)
         sink = pa.BufferOutputStream()
         rows = 0
         with pa.ipc.new_stream(sink, schema) as writer:
             for batch in stream:
-                if batch.nbytes > request.maximum_bytes or sink.tell() + batch.nbytes + 4096 > request.maximum_bytes:
-                    return {"outcome": "incomplete_observation", "complete": False, "omissions": ["Native result exceeds the selected detail bound; narrow the row window."], "code": "pse.native.result_detail_bound", "rows_copied": 0, "message": "Narrow the original row window or increase maximum_bytes."}
+                if (
+                    batch.nbytes > request.maximum_bytes
+                    or sink.tell() + batch.nbytes + 4096 > request.maximum_bytes
+                ):
+                    return {
+                        "outcome": "incomplete_observation",
+                        "complete": False,
+                        "omissions": [
+                            "Native result exceeds the selected detail bound; narrow the row window."
+                        ],
+                        "code": "pse.native.result_detail_bound",
+                        "rows_copied": 0,
+                        "message": "Narrow the original row window or increase maximum_bytes.",
+                    }
                 writer.write_batch(batch)
                 rows += batch.num_rows
         data = sink.getvalue()
         if len(data) > request.maximum_bytes:
-            return {"outcome": "incomplete_observation", "complete": False, "omissions": ["Native result exceeds the selected detail bound; narrow the row window."], "code": "pse.native.result_detail_bound", "rows_copied": 0}
+            return {
+                "outcome": "incomplete_observation",
+                "complete": False,
+                "omissions": [
+                    "Native result exceeds the selected detail bound; narrow the row window."
+                ],
+                "code": "pse.native.result_detail_bound",
+                "rows_copied": 0,
+            }
         encoded = base64.b64encode(data).decode("ascii")
-        return {"outcome": "observed", "run": request.run, "attempt": request.attempt, "relation": request.relation, "start": request.start, "end": request.end, "rows": rows, "encoding": "arrow-ipc-stream-base64", "bytes": len(data), "chunks": [encoded[offset:offset + 8192] for offset in range(0, len(encoded), 8192)]}
+        return {
+            "outcome": "observed",
+            "run": request.run,
+            "attempt": request.attempt,
+            "relation": request.relation,
+            "start": request.start,
+            "end": request.end,
+            "rows": rows,
+            "encoding": "arrow-ipc-stream-base64",
+            "bytes": len(data),
+            "chunks": [
+                encoded[offset : offset + 8192]
+                for offset in range(0, len(encoded), 8192)
+            ],
+        }
+
+
+def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
+    if selected:
+        if len(selected) != 3 or selected[0] not in {
+            "source_admit",
+            "preparation_discover",
+        }:
+            raise ValueError(
+                "select one fixed native action, request and response file"
+            )
+        operation, source, _target = selected
+        with Path(source).open("rb") as input_file:
+            request_bytes = input_file.read(MAXIMUM_REQUEST_BYTES + 1)
+        if len(request_bytes) > MAXIMUM_REQUEST_BYTES:
+            raise ValueError("native request exceeds transport byte bound")
+        arguments = JSON_OBJECT.validate_json(request_bytes, strict=True)
+        return operation, arguments
+    raw = sys.stdin.buffer.read(MAXIMUM_REQUEST_BYTES + 1)
+    if len(raw) > MAXIMUM_REQUEST_BYTES:
+        raise ValueError("native request exceeds transport byte bound")
+    payload = JSON_OBJECT.validate_json(raw, strict=True)
+    if set(payload) != {"operation", "arguments"}:
+        raise ValueError("fixed worker envelope requires operation and arguments")
+    operation, arguments = payload["operation"], payload["arguments"]
+    if not isinstance(operation, str) or not isinstance(arguments, dict):
+        raise TypeError("invalid fixed worker envelope")
+    return operation, arguments
 
 
 def main(argv: list[str] | None = None) -> int:
     selected = sys.argv[1:] if argv is None else argv
     operation = "unknown"
-    destination: Path | None = None
+    destination = (
+        Path(selected[2])
+        if len(selected) == 3
+        and selected[0] in {"source_admit", "preparation_discover"}
+        else None
+    )
     try:
-        if selected:
-            if len(selected) != 3 or selected[0] not in {"source_admit", "preparation_discover"}:
-                raise ValueError("select one fixed native action, request and response file")
-            operation, source, target = selected
-            destination = Path(target)
-            with Path(source).open("rb") as input_file:
-                request_bytes = input_file.read(MAXIMUM_REQUEST_BYTES + 1)
-            if len(request_bytes) > MAXIMUM_REQUEST_BYTES:
-                raise ValueError("native request exceeds transport byte bound")
-            raw = json.dumps({"operation": operation, "arguments": json.loads(request_bytes)}).encode()
-        else:
-            raw = sys.stdin.buffer.read(MAXIMUM_REQUEST_BYTES + 1)
-        if len(raw) > MAXIMUM_REQUEST_BYTES:
-            raise ValueError("native request exceeds transport byte bound")
-        payload = json.loads(raw)
-        if not isinstance(payload, dict) or set(payload) != {"operation", "arguments"}:
-            raise ValueError("fixed worker envelope requires operation and arguments")
-        operation, arguments = payload["operation"], payload["arguments"]
-        if not isinstance(operation, str) or not isinstance(arguments, dict):
-            operation = "unknown"
-            raise ValueError("invalid fixed worker envelope")
+        operation, arguments = worker_request(selected)
         with tempfile.TemporaryDirectory(prefix="pse-capability-native-") as directory:
             value = execute(operation, arguments, scratch=Path(directory))
     except (ImportError, ModuleNotFoundError) as error:
-        value = {"outcome": "prerequisite_unavailable", "code": "pse.native.extension_unavailable", "cause": type(error).__name__, "remedy": "Explicitly prepare the compatible extension with just py-sync-native-correctness and reattach from a prepared native environment. Read operations never build import providers."}
+        value = {
+            "outcome": "prerequisite_unavailable",
+            "code": "pse.native.extension_unavailable",
+            "cause": type(error).__name__,
+            "remedy": "Explicitly prepare the compatible extension with just py-sync-native-correctness and reattach from a prepared native environment. Read operations never build import providers.",
+        }
     except Exception as error:
-        import msgspec
-
         native = getattr(error, "report", None) is not None
-        outcome = "native_refusal" if native else ("malformed_invocation" if isinstance(error, (ValueError, TypeError, msgspec.DecodeError)) else "unexpected_error")
+        outcome = (
+            "native_refusal"
+            if native
+            else (
+                "malformed_invocation"
+                if isinstance(error, (ValueError, TypeError, msgspec.DecodeError))
+                else "unexpected_error"
+            )
+        )
         value = {"outcome": outcome, "error": scientific_error(error)}
-    from scripts.capabilities.operations import bounded
-
     try:
         encoded = json.dumps(value, allow_nan=False)
     except (TypeError, ValueError):
-        encoded = json.dumps({"outcome": "schema_failure", "code": "pse.native.non_json_producer_output", "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied."})
+        encoded = json.dumps(
+            {
+                "outcome": "schema_failure",
+                "code": "pse.native.non_json_producer_output",
+                "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied.",
+            }
+        )
     projection = bounded(json.loads(encoded), "native_" + operation)
     value = projection.payload
     if projection.omissions:
         value["complete"] = False
-        value["omissions"] = projection.omissions
+        value["omissions"] = list[JsonValue](projection.omissions)
     if destination is None:
         print(json.dumps(value, allow_nan=False))
     else:

@@ -6,8 +6,12 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import os
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from pydantic import JsonValue, TypeAdapter
 
@@ -16,14 +20,28 @@ JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 
 def object_value(value: JsonValue) -> dict[str, JsonValue]:
     if not isinstance(value, dict):
-        raise ValueError("native schema metadata requires an object")
+        raise TypeError("native schema metadata requires an object")
     return value
 
 
 def text_value(value: JsonValue) -> str:
     if not isinstance(value, str):
-        raise ValueError("native schema metadata requires text")
+        raise TypeError("native schema metadata requires text")
     return value
+
+
+SourceIdentity = tuple[int, int, int, int, int, int]
+
+
+def source_identity(information: os.stat_result) -> SourceIdentity:
+    return (
+        information.st_dev,
+        information.st_ino,
+        information.st_size,
+        information.st_mtime_ns,
+        information.st_ctime_ns,
+        information.st_mode,
+    )
 
 
 class SchemaSet:
@@ -39,7 +57,7 @@ class SchemaSet:
         self.fingerprint = text_value(self.manifest["schema_set_fingerprint"])
         documents = self.manifest["documents"]
         if not isinstance(documents, list):
-            raise ValueError("native schema catalogue requires document rows")
+            raise TypeError("native schema catalogue requires document rows")
         self._documents: dict[tuple[str, str], dict[str, JsonValue]] = {}
         for item in documents:
             row = object_value(item)
@@ -47,18 +65,64 @@ class SchemaSet:
             if key in self._documents:
                 raise ValueError("duplicate native schema catalogue identity")
             self._documents[key] = row
+        self._sources = {
+            self._path(text_value(row["schema_path"])): source_identity(
+                self._path(text_value(row["schema_path"])).stat()
+            )
+            for row in self._documents.values()
+        }
+        self._authoring_row = object_value(self.manifest["authoring"])
+        authoring = self._path(text_value(self._authoring_row["schema_path"]))
+        self._sources[authoring] = source_identity(authoring.stat())
         self._schemas: dict[tuple[str, str], dict[str, JsonValue]] = {}
         self._authoring: dict[str, JsonValue] | None = None
         self._authoring_identity: dict[str, JsonValue] | None = None
+
+    def _path(self, relative: str) -> Path:
+        path = self.root / relative
+        if (
+            path.is_symlink()
+            or path.resolve().parent != (self.root / "docs/generated/schema").resolve()
+        ):
+            raise ValueError("native schema path escapes its generated owner")
+        return path
+
+    def _source(self, path: Path, expected_sha256: str) -> bytes:
+        try:
+            raw = self._captured_source(path)
+        except OSError as error:
+            message = "Generated schema source unavailable after interface load; restart required."
+            raise ValueError(message) from error
+        if hashlib.sha256(raw).hexdigest() != expected_sha256:
+            raise ValueError(
+                "Generated schema source disagrees with its catalogue digest; restart required."
+            )
+        return raw
+
+    def _captured_source(self, path: Path) -> bytes:
+        expected = self._sources[path]
+        message = (
+            "Generated schema source changed after interface load; restart required."
+        )
+        if path.is_symlink() or source_identity(path.stat()) != expected:
+            raise ValueError(message)
+        with path.open("rb") as source:
+            if source_identity(os.fstat(source.fileno())) != expected:
+                raise ValueError(message)
+            raw = source.read(expected[2] + 1)
+            after = source_identity(os.fstat(source.fileno()))
+        if after != expected or source_identity(path.stat()) != expected:
+            raise ValueError(message)
+        return raw
 
     def _prepared(self, slug: str, direction: str) -> dict[str, JsonValue]:
         key = (slug, direction)
         if key not in self._schemas:
             row = self._documents[key]
             path = self.root / text_value(row["schema_path"])
-            if path.resolve().parent != (self.root / "docs/generated/schema").resolve():
-                raise ValueError("native schema path escapes its generated owner")
-            schema = JSON_OBJECT.validate_json(path.read_bytes(), strict=True)
+            schema = JSON_OBJECT.validate_json(
+                self._source(path, text_value(row["schema_sha256"])), strict=True
+            )
             if schema["title"] != row["exported_name"]:
                 raise ValueError("native catalogue/schema title disagreement")
             self._schemas[key] = schema
@@ -68,7 +132,10 @@ class SchemaSet:
         return copy.deepcopy(self._prepared(slug, direction))
 
     def identity(self, slug: str, direction: str = "input") -> dict[str, JsonValue]:
-        return {**self._documents[(slug, direction)], "schema_set_fingerprint": self.fingerprint}
+        return {
+            **self._documents[(slug, direction)],
+            "schema_set_fingerprint": self.fingerprint,
+        }
 
     def read(
         self, slug: str, direction: str | None, pointer: str = ""
@@ -77,15 +144,18 @@ class SchemaSet:
         root_arguments: dict[str, JsonValue] = {"slug": slug}
         if slug == "authoring":
             if direction is not None:
-                raise ValueError("authoring guidance has no native input/output direction")
+                raise ValueError(
+                    "authoring guidance has no native input/output direction"
+                )
             if self._authoring is None:
-                path = self.root / "docs/generated/schema/authoring.schema.json"
-                raw = path.read_bytes()
+                path = self.root / text_value(self._authoring_row["schema_path"])
+                raw = self._source(path, text_value(self._authoring_row["sha256"]))
                 self._authoring = JSON_OBJECT.validate_json(raw, strict=True)
                 self._authoring_identity = {
-                    "kind": "authoring_guidance", "slug": "authoring",
-                    "schema_path": "docs/generated/schema/authoring.schema.json",
-                    "sha256": hashlib.sha256(raw).hexdigest(),
+                    "kind": "authoring_guidance",
+                    "slug": "authoring",
+                    "schema_path": self._authoring_row["schema_path"],
+                    "sha256": self._authoring_row["sha256"],
                     "registration_source": "crates/pse-codegen/src/codegen/jsonschema.rs",
                     "applicability": "Logical authored source sections before hydration only. Raw TOML, .pse and Parquet bytes are admitted by their native loaders, not as JSON-schema objects.",
                 }
@@ -93,15 +163,21 @@ class SchemaSet:
             identity = self._authoring_identity
         else:
             if direction is None or direction not in {"input", "output"}:
-                raise ValueError("native schema reads require exact input/output direction")
+                raise ValueError(
+                    "native schema reads require exact input/output direction"
+                )
             try:
                 root = self._prepared(slug, direction)
                 identity = self.identity(slug, direction)
             except KeyError as error:
-                raise ValueError("unknown exact native schema slug/direction") from error
+                raise ValueError(
+                    "unknown exact native schema slug/direction"
+                ) from error
             root_arguments["direction"] = direction
         if pointer and not pointer.startswith("/"):
-            raise ValueError("schema detail uses an empty root or an absolute JSON Pointer")
+            raise ValueError(
+                "schema detail uses an empty root or an absolute JSON Pointer"
+            )
         selected: JsonValue = root
         for encoded in pointer.split("/")[1:] if pointer else ():
             # RFC 6901 permits only ~0 and ~1 escapes. Do not reinterpret paths.
@@ -110,13 +186,24 @@ class SchemaSet:
             key = encoded.replace("~1", "/").replace("~0", "~")
             if isinstance(selected, dict) and key in selected:
                 selected = selected[key]
-            elif isinstance(selected, list) and key.isdigit() and str(int(key)) == key and int(key) < len(selected):
+            elif (
+                isinstance(selected, list)
+                and key.isdigit()
+                and str(int(key)) == key
+                and int(key) < len(selected)
+            ):
                 selected = selected[int(key)]
             else:
-                raise ValueError("schema pointer does not select an existing schema value")
+                raise ValueError(
+                    "schema pointer does not select an existing schema value"
+                )
         return {
-            "identity": identity, "pointer": pointer,
-            "root_ref": {"capability": "native_contract_schema", "arguments": root_arguments},
+            "identity": identity,
+            "pointer": pointer,
+            "root_ref": {
+                "capability": "native_contract_schema",
+                "arguments": root_arguments,
+            },
             "reference_scope": "Local $ref values resolve against the original schema root, not this selected subtree. Select their original JSON Pointer through root_ref.",
             "schema": copy.deepcopy(selected),
         }
