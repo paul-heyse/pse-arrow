@@ -200,7 +200,7 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 | I06 | resolved | [D03](53d-build-discovery-and-generation.md#d03) | Independent ordinary editable environment/extension/stub/admission stages bind actual installed bytes, supported source/tool/config/native inputs and worker admission. Actual separate native sync/repeat passed; repeat skipped installer/stub generation while fresh import retained the same digest. Named session/direnv bookkeeping is excluded only from preparation, unknown inputs remain conservative and scientific provenance is unchanged. No strict producer campaign or whole-host precision claim. |
 | I07 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Public configuration/native-route diagnostics replace dormant harness claims; synthetic schema/NativeReuse combinations retain explicit coverage limits. Separate operator, component overlap and owned restart roles are selected; actual peer acceptance is recorded in C05's Outcome. |
 | I08 | open | [F02](53f-effect-scoped-scheduling.md#f02) | Inventory actual assertions before choosing service-wide versus database-local scope; bind actual generation at invocation ownership, use covered E03 protection and demonstrate two separately started runs. No index-absence shortcut or blanket capacity relaxation. |
-| I09 | open | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Inventory immutable selected/requirement and report producers/readers/reuse/export/measurement/custody consumers in E01/E05. Select authenticated bounded conversion or explicit automatic-reuse refusal with protected original inspection and one production layout. Preserve full native semantics, old-origin protection, selected views and section completeness; no missing record becomes empty/pass. |
+| I09 | resolved | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Immutable collected objects and compact assessment v6 have one current production layout, selected/full/original readers and custody. Actual v2-to-v3 conversion completed with all original hashes and terminal content verified; historical policy/codec grants no current automatic reuse. MCP presence is not a conversion condition. Selected unit and actual assessment/Python consumers pass; enclosing joined acceptance remains G01. |
 | I10 | open | [A04](53a-scientific-assurance-and-references.md#a04-consumer-integration) | Classify and bound selected controller layout/live-root retention and PFR derivative/domain failures; repair the selected consumer boundary or identify a separately selected broader remedy. Preserve independent references and fresh original-space/numerical checks; generator reproduction alone does not close A04. |
 
 ## Recommendation and scenario correspondence
@@ -493,9 +493,9 @@ recovery/backup mutations; 262 focused supervisor controls pass.
 The first actual native repeat exposed an admission lookup mismatch and session-bookkeeping
 identity drift. Both were corrected. I06 is resolved by focused controls and two subsequent actual
 separate native sync calls: the second skipped Maturin installation and stub generation, with fresh
-import admission of the same installed binary. The actual shared registry is still version 2.
-Its cutover preserves original metadata and terminal identities but waits for old-reader cohort
-coordination and the final converter preflight. No isolated result registry substitutes for actual
+import admission of the same installed binary. At that checkpoint the shared registry remained version 2.
+The completed activation checkpoint below supersedes the subsequent blanket endpoint-presence
+restriction; original metadata and terminal identities are preserved. No isolated result registry substitutes for actual
 canonical acceptance. The metadata-only suites use the existing light allocation; heavier launch
 attempts blocked by current host memory pressure establish no test result. No whole-repository
 health campaign, measured speed claim, registry reset, unrelated service shutdown or enclosing
@@ -542,10 +542,10 @@ surrealkit fixture failures were corrected and their selected suites now pass. S
 refusals (125) and the deliberately bounded 600-second controller inquiry establish no scientific
 result. No broader repository-health repair is selected.
 
-**Not_run / pending:** shared-registry activation and joined canonical Rust/Python fixture,
-retained-reader, two-invocation/restart, same-cut evidence and selected PFR/controller acceptance.
-The exact old endpoint cohort requires coordination before cutover; original metadata, existing
-reports and canonical payloads remain intact. G01/G02 and dependent package acceptance remain
+**Not_run / pending:** joined canonical Rust/Python fixture, retained-reader,
+two-invocation/restart, same-cut evidence and selected PFR/controller acceptance at that checkpoint.
+Shared-registry activation subsequently completed without stopping MCP servers; original metadata,
+existing reports and canonical payloads remain intact. G01/G02 and dependent package acceptance remain
 in progress. Source/consumer structure establishes removed repeated work; no measured speedup,
 whole-product/solver qualification, current scientific Pass or plan-series retirement is claimed.
 
@@ -573,7 +573,7 @@ actual fresh acceptance; reproduced generators and these local discriminators al
 close A04 or I10. The owning inquiry retains that boundary.
 
 
-### Scope-end integration and remaining activation boundary
+### Scope-end integration and activation evidence
 
 **Tested:** the six actual composer/signal controls below passed (6/6, zero failures/errors)
 with ordinary build admission for the outer test driver and each fixture's original 512 MiB
@@ -615,11 +615,11 @@ successfully from the final source. A separate repeat again skipped installation
 generation while freshly admitting the same binary. Prior currency evidence retains its original
 source condition.
 
-**Remaining:** the supported old capability readers must exit before shared-registry conversion.
-The current two endpoints are not authenticated to this execution session, so retirement awaits
-the pending operator decision rather than signalling a potentially concurrent owner. Activation,
-joined canonical/scientific acceptance, final publication evidence and dependent finding closure
-remain in progress; the implemented format and existing service payloads are preserved meanwhile.
+**Updated direction:** the operator rejected blanket protection of the FastMCP implementation
+and explicitly instructed registry conversion, forced as needed, with the servers left running.
+Endpoint presence is no longer a conversion condition. Actual recorded registry ownership,
+exact metadata exclusion and durable transition recovery retain their own roles. Joined
+canonical/scientific acceptance and dependent finding closure remain separate from activation.
 
 
 **Final current-source preparation check:** after commit `99a65868d` and scope-end formatting,
@@ -631,5 +631,62 @@ native-solvers and solver-highs. Generated stubs remain unchanged after the refr
 The actual read-only shared-registry preflight refused live endpoint pid 2236276/start22796106;
 activation bytes remained identical and no pending transition file was created. Endpoint
 2817395/start22495502 was separately observed in the same supported cohort. No process belonging
-to an ambiguous or concurrent session was signalled. Both endpoint retirement and the subsequent
-controlled activation/joined acceptance remain pending the operator's coordination decision.
+to an ambiguous or concurrent session was signalled. This was the earlier guard baseline,
+superseded by the operator-directed conversion below; no endpoint retirement is required.
+
+
+### Completed registry conversion — 2026-10-24
+
+**Implemented and Tested:** commit `037c42703` removes the blanket capability-process guard and
+its obsolete process-name grammar controls. Twenty focused conversion controls pass against zero
+failures; ordinary conversion does not census unrelated MCP processes, while actual recorded
+registry owners, exact locks, originals and interruption recovery remain validated. The mistake
+was making MCP process presence a registry-format prerequisite without establishing actual
+registry activity; the operator's explicit direction corrected that excessive coupling.
+
+The actual shared registry at `/home/paul/.local/state/pse-arrow/test-resources` is now active in
+version 3 (`exact-resource-files`), conversion
+`d95fe19f0bb998a50884a73ff0b8aaaa13fc01a103b7c852667f709b1eada41a`.
+The first explicit conversion reached its 180-second deadline during resource publication;
+resuming the same fenced transition with `--seconds 600` completed successfully (exit 0):
+
+```bash
+PSE_TEST_RESOURCE_STATE=/home/paul/.local/state/pse-arrow/test-resources scripts/pse-env --resource-class light -- .venv/bin/python -m scripts.test_resources convert --seconds 600
+```
+
+Final readback verified all **5,071 retained original file hashes**, all **565 invocation terminal
+identities**, and exact retained content for all **500 original terminal documents**. All **3,762
+resource records** are converted. The original migration identity is unchanged, and the transition
+phase is `complete`. Existing databases and payloads were not reset or deleted. Both MCP processes
+remained running with their same observed start identities (2236276/22796106 and
+2817395/22495502); neither was stopped or restarted. No separate MCP repair or reload was a
+conversion prerequisite.
+
+**Tested:** `scripts/pse-env -- just turn-end` now completes with both ADR indexing and formatting
+qualified, exit 0, baseline zero, through the activated registry and compact assessment owner.
+The receipt is `build/assessment/20261024T124011.970909Z-turn-end-2085058-a503b5`. Its four deferred
+cleanup diagnostics refer to retained resources on historical unsupported server profiles;
+activation did not discard their evidence or reset those services. Formatter collateral in the
+previously clean unrelated `test_surreal_source.py` was restored. This is successful process and
+registry integration, not full product/scientific qualification or a clean scoped lint claim.
+
+
+**Tested after activation:** installed Python acceptance uses the actual canonical results registry
+and the current force-validated native extension. The two B05 local controls passed 2/2 in
+invocation `0f1b644ed7b645308f36283b6975fcae`; the five selected canonical close/retained-reader,
+admitted-solve, cancelled-waiter and authored solve/join controls passed 5/5 in
+`80f763516dcb43ffb464e51424879f2a`, including fixture teardown (119.18 seconds). Public invocation
+inspection confirms both selections are collected and frozen with complete Pass, workload exit 0,
+no missing subjects and no report errors. Source-only helpers still create no canonical test
+allocation in the two local cases. The original temporary-directory ownership refusal and the
+missing explicit local `batch_size` caused earlier assertion-not-reached errors; their failed
+invocations remain recorded. A fresh owned pytest scratch directory preserves the global `/tmp`
+ownership guard, and commit `ff11a6375` supplies `batch_size=7` in the local role settings.
+Neither correction changes MCP, canonical service contents, result ownership or the extension.
+
+These runs use `scripts/pse-env --native=solver,klu,isolation,uno,petsc --store -- .venv/bin/python
+-m scripts.native_tests python`, explicit selected node IDs, a fresh owned `--basetemp`, and the
+normal report/invocation owners. Their JUnit outputs are `build/plan53/python-local-acceptance.xml`
+and `build/plan53/python-fixture-acceptance.xml`; canonical invocation handles above own terminal
+truth. Registry conversion and selected consumer followthrough are complete; full Plan53/scientific
+qualification and the other explicitly pending G01 journeys are not claimed by this checkpoint.
