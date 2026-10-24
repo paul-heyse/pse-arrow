@@ -13,6 +13,7 @@ archive = "tar.gz"
 version = "0.163.2"
 url = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.163.2/otelcol-contrib_0.163.2_linux_amd64.tar.gz"
 sha256 = "cc19dd6a1b85ca694ef16655688e597f693d0e24d2baecdd50e2db597819eeff"
+binary_sha256 = "dbd12d55073b70add777895457040f8ede59fc1ee7198d6ae179a37087eea8bb"
 member = "otelcol-contrib"
 archive = "tar.gz"
 # The contrib distribution includes native components; its binary exceeds the ordinary CLI bound.
@@ -22,8 +23,10 @@ max_binary_bytes = "1073741824"
 version = "1.1.2"
 url = "https://downloads.openobserve.ai/releases/openobserve/v1.1.2/openobserve-v1.1.2-linux-amd64.tar.gz"
 sha256 = "225883447a9e3c75cb52d5a64ece8618cf0d8f3d2eb0b424eebb2e51b0126faa"
+binary_sha256 = "51715bf87764a92b20020081384228f1f5d9f585ef2b6d8fa0a509b76b358dde"
 member = "openobserve"
 archive = "tar.gz"
+max_binary_bytes = "1073741824"
 
 [trace-processor]
 version = "58.2"
