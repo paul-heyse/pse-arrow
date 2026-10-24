@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
+    import pytest
+
 
 @dataclass(frozen=True)
 class Requirement:
@@ -21,6 +23,11 @@ class Requirement:
     fixtures: tuple[str, ...] = ()
     capacity: str = "local"
     roles: tuple[str, ...] = ()
+    exclusion: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.exclusion not in {None, "service-generation-maintenance"}:
+            raise ValueError("Unknown test exclusion meaning")
 
     def document(self) -> dict[str, object]:
         return {
@@ -29,6 +36,8 @@ class Requirement:
         }
 
 
+POLICY_VERSION = 2
+
 LOCAL = Requirement()
 CANONICAL = Requirement(("canonical",), capacity="canonical", roles=("canonical",))
 NATIVE = Requirement(("native",), capacity="scientific", roles=("native",))
@@ -36,37 +45,71 @@ CANONICAL_NATIVE = Requirement(
     ("canonical", "native"), capacity="scientific", roles=("canonical", "native")
 )
 
-# Conservative package defaults retain today's admission. Local module exceptions
-# have explicit owners; F01 can refine declared demand without changing this seam.
-RUST_DEFAULTS = {
-    "pse-operations": CANONICAL,
-    "pse-runtime": CANONICAL_NATIVE,
-    "pse-tests-conformance": CANONICAL_NATIVE,
-    "pse-tests-engine": CANONICAL,
-    "pse-backend-native": NATIVE,
+# Reviewed namespace owners declare actual fixture/native demand. Unlisted new
+# namespaces are local; the before-effects guard refuses undeclared acquisition.
+RUST_OWNERS = {
+    "pse-operations": {
+        **{prefix: CANONICAL for prefix in (
+            "canonical::canonical_server_unit::", "canonical_analyses::race_tests::",
+            "canonical_analyses::canonical_analyses_server_unit::",
+            "canonical_artifacts::canonical_artifact_tests::", "canonical_capability_tests::",
+            "canonical_contexts::tests::", "canonical_execution::canonical_execution_server_unit::",
+            "canonical_explanations::server_tests::", "canonical_files::catalog_controls::",
+            "canonical_history::canonical_history_tests::", "canonical_lifecycle::canonical_lifecycle_tests::",
+            "canonical_projects::tests::", "canonical_results::canonical_results_server_unit::",
+            "canonical_result_retention::canonical_result_retention_server_unit::",
+            "canonical_retention::canonical_server_unit::", "canonical_retention::canonical_server_unit_exact_conflicts::",
+            "canonical_selection::canonical_server_unit::", "canonical_staging::canonical_server_unit::",
+            "canonical_studies::canonical_studies_server_unit::", "canonical_study_module_tests::",
+            "testing::canonical_server_unit::",
+        )},
+    },
+    "pse-runtime": {
+        **{f"workflow::{owner}::": CANONICAL_NATIVE for owner in (
+            "analyses", "artifacts", "caller_lifetime_tests", "connected_results",
+            "data_documents_tests", "durable", "durable_tests", "physical_cache",
+            "project_portability", "projects", "projects_consumer_tests",
+            "result_snapshot::result_pruning_tests", "result_projection", "study_tests", "study_workbench::canonical_tests",
+            "study_observation", "study_operation_admission_tests", "worker_tests",
+        )},
+        **{prefix: CANONICAL_NATIVE for prefix in (
+            "math::portable::canonical_deployment_tests::",
+            "math::portable::canonical_portable_body_tests::",
+            "workflow::modeling::canonical::", "workflow::modeling::project_comparison::",
+            "workflow::modeling::sensitivity_tests::", "workflow::fitting::covariance_tests::",
+            "workflow::live_simulation::tests::canonical_",
+        )},
+        **{f"math::{owner}::": NATIVE for owner in (
+            "initialization", "modeling", "native_child", "prediction", "solves", "staged", "surrogate", "tests",
+        )},
+        **{f"workflow::{owner}::": NATIVE for owner in (
+            "fitting", "modeling", "simulation_results", "live_simulation", "run", "results",
+        )},
+        "worker::": CANONICAL_NATIVE,
+        "managed_primary_": CANONICAL_NATIVE,
+    },
+    "pse-backend-native": {
+        **{f"{owner}::": NATIVE for owner in (
+            "kinsol::tests", "kinsol::native_build_tests", "ipopt::tests", "uno", "petsc", "root_isolation",
+            "dynamics", "highs", "clarabel_tests", "restart_tests", "scip_tests",
+            "l1_tests", "pounce_convex_tests", "measurement_tests", "solver_tests",
+        )},
+    },
+    "pse-tests-conformance": {"acceptance::": CANONICAL_NATIVE, "native_profiles::": NATIVE},
 }
-RUST_LOCAL_MODULES = {
-    "pse-runtime": (
-        "math::flows::",
-        "math::initialization::",
-        "math::modeling::",
-        "math::prediction::",
-        "math::retention::",
-        "math::settings::",
-        "math::staged::",
-        "math::tests::",
-        "workflow::controls::",
-        "workflow::diagnostic_documents::",
-        "workflow::diagnostic_rows::",
-        "workflow::diagnostics::",
-        "workflow::dynamics::",
-        "workflow::numerics::",
-        "workflow::progress_documents::",
-        "workflow::result_blocks::",
-        "workflow::result_projection::",
-        "workflow::time::",
-    ),
-}
+
+# These Python owners actually construct durable Runtime/worker contexts. Merely
+# requesting an isolated database in a new module does not imply native demand.
+PYTHON_DURABLE_OWNERS = frozenset({
+    "test_projects.py", "test_project_portability.py", "test_study_workbench.py",
+    "test_project_contexts.py", "test_project_cli.py", "test_modeling_strategies.py",
+    "test_preparation_discovery.py", "test_studies.py", "test_modeling_run.py",
+    "test_solve_settings_projection.py", "test_modeling_kernel.py", "test_plan14_acceptance.py",
+    "test_review_workflows.py", "test_scientific_boundary_adoption.py", "test_live_simulation.py",
+    "test_canonical_results.py", "test_native_workflow.py", "test_lifecycle.py",
+    "test_research.py", "test_capability_adapters.py",
+})
+
 RUST_FIXTURES = {
     "PSE_NATIVE_LANE_EXECUTABLE": (
         "pse-runtime",
@@ -103,9 +146,13 @@ RUST_PEERS = {
 
 def rust(binary: str, name: str) -> Requirement:
     package = binary.split("::", 1)[0]
-    base = RUST_DEFAULTS.get(package, LOCAL)
-    if any(name.startswith(prefix) for prefix in RUST_LOCAL_MODULES.get(package, ())):
-        base = LOCAL
+    owners = RUST_OWNERS.get(package, {})
+    matches = [prefix for prefix in owners if name.startswith(prefix)]
+    base = owners[max(matches, key=len)] if matches else LOCAL
+    # Binary ownership is explicit; worker integration cases exercise durable
+    # native process lifetime rather than a lib namespace.
+    if package == "pse-runtime" and binary == "pse-runtime::worker":
+        base = CANONICAL_NATIVE
     fixtures = tuple(
         key
         for key, (owner, test) in RUST_FIXTURES.items()
@@ -116,11 +163,21 @@ def rust(binary: str, name: str) -> Requirement:
         for key, (owner, test) in RUST_PEERS.items()
         if owner == package and test == name
     )
+    exclusion = (
+        "service-generation-maintenance" if "external-restart" in peers else None
+    )
     if "context-overlap" in peers:
         # This database-only peer still prepares an admitted native worker context.
         base = CANONICAL_NATIVE
     if any(role.startswith("operator-") for role in peers):
         fixtures += ("PSE_CANONICAL_TOOLS",)
+    if package == "pse-runtime" and name == "workflow::tests::workflow_durability_selection_uses_this_deployment":
+        base = CANONICAL_NATIVE
+    if package == "pse-operations" and name in {
+        "canonical::maintenance::tests::generated_maintenance_pages_fence_generations_and_replay_exact_effects",
+        "canonical::maintenance::tests::native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events",
+    }:
+        base = CANONICAL
     managed = (
         ("managed-primary",)
         if package == "pse-runtime" and name.startswith("managed_primary_")
@@ -131,23 +188,103 @@ def rust(binary: str, name: str) -> Requirement:
         fixtures,
         base.capacity,
         (*base.roles, *fixtures, *peers, *managed),
+        exclusion,
     )
 
 
 def python(
-    fixtures: Sequence[str], *, no_allocation: bool = False, roles: Sequence[str] = ()
+    fixtures: Sequence[str], *, no_allocation: bool = False, roles: Sequence[str] = (), owner: str = ""
 ) -> Requirement:
     canonical = "canonical_substrate" in fixtures
     if canonical and no_allocation:
         raise ValueError("Effect-free Python test cannot depend on canonical_substrate")
-    # The current canonical fixture explicitly prepares a worker context before
-    # yielding. F01 may narrow that owner; declaration follows its actual effects.
-    return Requirement(
-        CANONICAL_NATIVE.effects if canonical else (),
-        (),
-        "scientific" if canonical else "local",
-        (*CANONICAL_NATIVE.roles, *roles) if canonical else tuple(roles),
-    )
+    native = canonical and owner.rsplit("/", 1)[-1] in PYTHON_DURABLE_OWNERS
+    base = CANONICAL_NATIVE if native else CANONICAL if canonical else LOCAL
+    return Requirement(base.effects, (), base.capacity, (*base.roles, *roles))
+
+
+def python_item(item: pytest.Item) -> Requirement:
+    """Interpret the collected fixture closure and explicit markers once."""
+    declared = item.get_closest_marker("test_requirements")
+    roles = tuple(declared.kwargs.get("roles", ())) if declared else ()
+    if item.get_closest_marker("managed_primary") is not None:
+        roles += ("managed-primary",)
+    no_allocation = "no_canonical_allocation" in getattr(item, "fixturenames", ()) or item.get_closest_marker("no_canonical_allocation") is not None
+    base = python(getattr(item, "fixturenames", ()), no_allocation=no_allocation, roles=roles, owner=item.nodeid.split("::", 1)[0])
+    if declared and declared.kwargs.get("canonical"):
+        if no_allocation:
+            raise ValueError("Effect-free test declares canonical controls")
+        base = Requirement(("canonical",), ("owned-controls",), "canonical", roles)
+    if declared and declared.kwargs.get("native"):
+        base = Requirement(tuple(sorted({*base.effects, "native"})), base.fixtures, "scientific", tuple(sorted({*base.roles, "native"})), base.exclusion)
+    exclusion = declared.kwargs.get("exclusion") if declared else None
+    if exclusion:
+        base = Requirement(base.effects, base.fixtures, base.capacity, base.roles, exclusion)
+    return base
+
+
+def scheduling(requirement: Mapping[str, object]) -> tuple[str | None, int | str]:
+    """Project semantic demand onto existing runner groups, never host allocation."""
+    if requirement.get("exclusion") is not None:
+        return "store", "num-test-threads"
+    if requirement.get("capacity") == "scientific":
+        return "scientific", 2
+    effects = requirement.get("effects", ())
+    if not isinstance(effects, (list, tuple)):
+        raise ValueError("Unknown requirement effects shape")
+    if "canonical" in effects:
+        return "store", 1
+    return None, 1
+
+
+def pytest_group(requirement: Mapping[str, object]) -> str | None:
+    """Serialize actual scientific demand without grouping database-only cases."""
+    exclusion = requirement.get("exclusion")
+    if isinstance(exclusion, str):
+        return exclusion
+    return "scientific-owner" if requirement.get("capacity") == "scientific" else None
+
+
+def nextest_configuration(configuration: dict, profile: str, inventory: Mapping[str, object], requirements: Mapping[str, Mapping[str, object]]) -> None:
+    """Apply catalogue-bound scheduling to a per-run copy of repository config."""
+    import re  # noqa: PLC0415
+
+    import tomlkit  # noqa: PLC0415
+
+    overrides = tomlkit.aot()
+    observed = set()
+    suites = inventory.get("rust-suites")
+    if not isinstance(suites, dict):
+        raise ValueError("Unknown nextest scheduling catalogue shape")
+    for suite in suites.values():
+        if not isinstance(suite, dict) or not isinstance(suite.get("testcases"), dict):
+            raise ValueError("Unknown nextest scheduling suite shape")
+        binary = suite["binary-id"]
+        for name, test in suite["testcases"].items():
+            if test["filter-match"]["status"] != "matches":
+                continue
+            identity = binary + "::" + name
+            observed.add(identity)
+            if identity not in requirements:
+                raise ValueError("Scheduling requirements differ from selected catalogue")
+            requirement = requirements[identity]
+            group, threads = scheduling(requirement)
+            if group is None:
+                continue
+            if "/" in name or "/" in binary:
+                raise ValueError("Unsupported nextest scheduling test identity")
+            override = tomlkit.table()
+            override["filter"] = f"binary_id(/^{re.escape(binary)}$/) & test(/^{re.escape(name)}$/)"
+            override["test-group"] = group
+            override["threads-required"] = threads
+            overrides.append(override)
+    if observed != set(requirements):
+        raise ValueError("Scheduling requirements differ from selected catalogue")
+    profiles = configuration.setdefault("profile", tomlkit.table())
+    selected = profiles.setdefault(profile, tomlkit.table())
+    for existing in selected.get("overrides", []):
+        overrides.append(existing)
+    selected["overrides"] = overrides
 
 
 def rust_catalog(

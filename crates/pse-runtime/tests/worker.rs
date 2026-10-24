@@ -374,7 +374,7 @@ async fn canonical_fixture_store_at(state: &Path) -> pse_operations::canonical::
 }
 
 fn runtime() -> (Arc<SharedRuntime>, Runtime) {
-    runtime_with_store(pse_operations::testing::canonical_fixture_store().unwrap())
+    runtime_with_store(pse_operations::testing::canonical_native_fixture_store().unwrap())
 }
 fn runtime_with_store(
     store: pse_operations::canonical::CanonicalStore,
@@ -628,7 +628,7 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
             shared,
             sessions.bind_model(registry.clone()).unwrap(),
             pse_runtime::workflow::CanonicalDeployment::new(
-                pse_operations::testing::canonical_fixture_store().unwrap(),
+                pse_operations::testing::canonical_native_fixture_store().unwrap(),
                 pse_runtime::workflow::OuterAttestation {
                     source: Some(pse_ids::ContentHash::from_bytes([0; 32])),
                     build: pse_ids::ContentHash::from_bytes([1; 32]),

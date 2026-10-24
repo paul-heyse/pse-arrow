@@ -208,11 +208,7 @@ fn shared_runtime_on_threads(
     .unwrap()
 }
 pub(crate) fn canonical_deployment() -> CanonicalDeployment {
-    let store = match std::env::var("PSE_TEST_EXECUTION_PROFILE") {
-        Ok(profile) => pse_operations::testing::canonical_managed_fixture_store(&profile),
-        Err(_) => pse_operations::testing::canonical_fixture_store(),
-    }
-    .unwrap();
+    let store = pse_operations::testing::canonical_native_fixture_store().unwrap();
     CanonicalDeployment::new(
         store,
         OuterAttestation {

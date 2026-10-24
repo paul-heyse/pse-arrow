@@ -6,10 +6,13 @@
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
+
+import tomlkit
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from scripts import test_requirements as requirements
 from scripts import test_resources as resources
@@ -30,6 +33,88 @@ def inventory(*names: str) -> dict:
 
 
 class RequirementTests(unittest.TestCase):
+    def test_namespace_local_default_and_known_pure_native_contracts(self) -> None:
+        for binary, name in (
+            ("pse-operations", "new_module::new_case"),
+            ("pse-runtime", "workflow::new_module::new_case"),
+            ("pse-backend-native", "kinsol::build_tests::native_profile_identity_requires_provider_and_source_evidence"),
+            ("pse-backend-native", "ipopt::contract_tests::status_scope_and_finite_infinity_are_not_conflated"),
+        ):
+            with self.subTest(binary=binary, name=name):
+                demand = requirements.rust(binary, name)
+                self.assertEqual(demand, requirements.LOCAL)
+                self.assertEqual(requirements.scheduling(demand.document()), (None, 1))
+                with self.assertRaisesRegex(ValueError, "Undeclared canonical demand"):
+                    requirements.guard({name: demand.document()}, name, "canonical")
+        native = requirements.rust("pse-backend-native", "kinsol::native_build_tests::admitted_native_profile_has_concrete_adapter_identity")
+        self.assertEqual(requirements.scheduling(native.document()), ("scientific", 2))
+
+    def test_isolated_database_assertions_do_not_claim_whole_service_quiet(self) -> None:
+        for binary, name in (
+            ("pse-operations", "testing::canonical_server_unit::unowned_connections_preserve_selected_fixture_database"),
+            ("pse-operations", "canonical::canonical_server_unit::initialization_sixteen_independent_databases_complete_in_parallel"),
+            ("pse-operations", "canonical::canonical_server_unit::initialization_cancellation_cannot_establish_success"),
+            ("pse-operations", "canonical_execution::canonical_execution_server_unit::canonical_execution_expiry_cancellation_and_truthful_recovery"),
+            ("pse-operations", "canonical_selection::canonical_server_unit::blocked_product_roundtrip_shared_roots_and_bounded_frontier_cleanup"),
+            ("pse-runtime", "workflow::study_tests::canonical_study_cancellation_after_summary_close_fences_success"),
+        ):
+            with self.subTest(binary=binary, name=name):
+                demand = requirements.rust(binary, name)
+                self.assertIn("canonical", demand.effects)
+                self.assertIsNone(demand.exclusion)
+                expected = ("scientific", 2) if "native" in demand.effects else ("store", 1)
+                self.assertEqual(requirements.scheduling(demand.document()), expected)
+        owner, name = requirements.RUST_PEERS["external-restart"]
+        self.assertEqual(requirements.rust(owner, name).exclusion, "service-generation-maintenance")
+
+    def test_new_python_database_scope_does_not_imply_native_and_collected_owners_agree(self) -> None:
+        local = requirements.python(("canonical_substrate",), owner="new_namespace.py")
+        self.assertEqual(local.effects, ("canonical",))
+        self.assertIsNone(requirements.pytest_group(local.document()))
+        item = SimpleNamespace(nodeid="python/pse/tests/test_projects.py::new_durable_case", fixturenames=("canonical_substrate",), get_closest_marker=lambda _name: None)
+        native = requirements.python_item(item)
+        self.assertEqual(native.effects, ("canonical", "native"))
+        self.assertEqual(requirements.pytest_group(native.document()), "scientific-owner")
+        item.fixturenames = ("no_canonical_allocation",)
+        self.assertEqual(requirements.python_item(item), requirements.LOCAL)
+
+    def test_catalogue_scheduling_binds_exact_binary_names_and_preserves_timeouts(self) -> None:
+        catalogue = {"rust-suites": {"lib": {"binary-id": "pse-operations", "testcases": {"testing::canonical_server_unit::unowned_connections_preserve_selected_fixture_database": {"filter-match": {"status": "matches"}}}}}}
+        selected = requirements.rust_catalog(catalogue, validate_declarations=False)
+        document = tomlkit.parse('[profile.local]\nslow-timeout="60s"\n[[profile.local.overrides]]\nfilter="all()"\nslow-timeout="120s"\n')
+        requirements.nextest_configuration(document, "local", catalogue, selected)
+        overrides = document["profile"]["local"]["overrides"]
+        self.assertIn("binary_id(/^pse\\-operations$/)", overrides[0]["filter"])
+        self.assertIn("unowned_connections_preserve_selected_fixture_database", overrides[0]["filter"])
+        self.assertEqual(overrides[0]["threads-required"], 1)
+        self.assertEqual(overrides[-1]["slow-timeout"], "120s")
+        self.assertEqual(document["profile"]["local"]["slow-timeout"], "60s")
+        with self.assertRaisesRegex(ValueError, "differ from selected catalogue"):
+            requirements.nextest_configuration(document, "local", catalogue, {})
+
+    def test_unsupported_service_quiet_claim_refuses(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Unknown test exclusion"):
+            requirements.Requirement(exclusion="service-quiet")
+
+    def test_undeclared_durable_runtime_refuses_before_constructor_and_local_runtime_remains_explicit(self) -> None:
+        from scripts.tests.test_fixture_settlement import fixture_type
+
+        fixture_class = fixture_type()
+        fixture = fixture_class("state", "database", "resource")
+        native_owner = fixture_class.runtime.__globals__["pse"]
+        with (
+            patch.object(native_owner, "Runtime", return_value=Mock()) as constructor,
+            patch.object(resources, "require_effect", side_effect=resources.ResourceError("Undeclared native demand")) as demand,
+        ):
+            with self.assertRaisesRegex(resources.ResourceError, "Undeclared native"):
+                fixture.runtime(Mock())
+            constructor.assert_not_called()
+            demand.assert_called_once()
+            demand.reset_mock()
+            fixture.runtime(Mock(), ephemeral=True)
+            demand.assert_not_called()
+            self.assertTrue(constructor.call_args.kwargs["ephemeral"])
+
     def test_context_peer_declares_the_context_it_actually_prepares(self) -> None:
         owner, name = requirements.RUST_PEERS["context-overlap"]
         demand = requirements.rust(owner + "::lib", name)

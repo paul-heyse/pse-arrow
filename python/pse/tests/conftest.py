@@ -20,7 +20,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.ipc
 import pytest
-from scripts import surreal_server, test_resources
+from scripts import host_admission, surreal_server, test_requirements, test_resources
 
 import pse
 from pse._build import (
@@ -174,20 +174,21 @@ def canonical_substrate(
     registered_context = False
     try:
         try:
-            stage = "canonical-context"
-            test_resources.require_effect(
-                {"test": request.node.nodeid}, effect="native"
-            )
-            profile = os.environ.get("PSE_TEST_EXECUTION_PROFILE", "exclusive-observer")
-            worker = os.environ.get("PSE_WORKER_BINARY")
-            if worker is None:
-                receiver = surreal_server.config_for(state).get("primary_receiver")
-                if isinstance(receiver, dict):
-                    worker = str(receiver["worker_executable"])
-            surreal_server.register_context(
-                state, database, profile, Path(worker) if worker else None
-            )
-            registered_context = True
+            if "native" in test_requirements.python_item(request.node).effects:
+                stage = "canonical-context"
+                test_resources.require_effect(
+                    {"test": request.node.nodeid}, effect="native"
+                )
+                profile = os.environ.get("PSE_TEST_EXECUTION_PROFILE", "exclusive-observer")
+                worker = os.environ.get("PSE_WORKER_BINARY")
+                if worker is None:
+                    receiver = surreal_server.config_for(state).get("primary_receiver")
+                    if isinstance(receiver, dict):
+                        worker = str(receiver["worker_executable"])
+                surreal_server.register_context(
+                    state, database, profile, Path(worker) if worker else None
+                )
+                registered_context = True
             config = surreal_server.config_for(state)
             if config.get("parked"):
                 surreal_server.unpark_service(state)
@@ -209,11 +210,7 @@ def canonical_substrate(
             raise
         yield fixture
     finally:
-        fixture.drain()
-        units = (
-            surreal_server.drain_context(state, database) if registered_context else []
-        )
-        test_resources.record_drain(resource, units=units)
+        fixture.settle(registered_context=registered_context)
 
 
 def _observe_canonical_setup_failure(
@@ -358,6 +355,23 @@ def _ipc_round_trip(schema: pa.Schema) -> pa.Schema:
         pass
     with pa.ipc.open_stream(sink.getvalue()) as reader:
         return reader.schema
+
+
+@pytest.fixture(scope="session")
+def local_inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSettings:
+    """Bound local constructor/metadata controls by the current observer role."""
+    memory = host_admission.execution("functional")["observer_memory_bytes"]
+    return EngineSettings(
+        memory_limit_bytes=memory,
+        threads=host_admission.settings("functional")["compiler_cores"],
+        target_partitions=1,
+        spill_dir=str(tmp_path_factory.mktemp("local-inspection-spill")),
+        max_spill_bytes=memory // 4,
+        math_workspace_bytes=memory // 4,
+        math_worker_bytes=memory // 8,
+        math_artifact_bytes=memory // 16,
+        cache=CacheSettings(working_bytes=memory // 16, concurrent_loads=1, inflight_bytes=memory // 64, inspection_bytes=memory // 128),
+    )
 
 
 @pytest.fixture(scope="session")

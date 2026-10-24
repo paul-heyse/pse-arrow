@@ -91,6 +91,28 @@ pub(crate) fn inherit_response_ownership<F: Future>(future: F) -> impl Future<Ou
     }
 }
 
+/// Same-host clock used by fixture owners across the Rust/Python boundary.
+pub(crate) fn monotonic_nanoseconds() -> Result<u64, super::CanonicalError> {
+    #[cfg(target_os = "linux")]
+    {
+        let clock = rustix::time::clock_gettime_dynamic(rustix::time::DynamicClockId::Known(
+            rustix::time::ClockId::Monotonic,
+        )).map_err(|error| super::CanonicalError::Configuration(error.to_string()))?;
+        u64::try_from(clock.tv_sec).ok()
+            .and_then(|secs| secs.checked_mul(1_000_000_000))
+            .and_then(|secs| u64::try_from(clock.tv_nsec).ok().and_then(|ns| secs.checked_add(ns)))
+            .ok_or_else(|| super::CanonicalError::Configuration("fixture monotonic clock overflow".into()))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err(super::CanonicalError::Configuration("fixture same-host deadlines require the Linux monotonic clock".into()))
+    }
+}
+
+pub(crate) fn current_deadline() -> Option<tokio::time::Instant> {
+    OPERATION_DEADLINE.try_with(|deadline| *deadline).ok()
+}
+
 pub(crate) fn original_deadline(budget: Duration) -> tokio::time::Instant {
     let offered = tokio::time::Instant::now() + budget;
     OPERATION_DEADLINE

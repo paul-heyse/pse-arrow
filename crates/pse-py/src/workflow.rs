@@ -801,6 +801,46 @@ impl NativeRuntime {
         self.inner.close();
     }
 
+    /// Test-fixture physical cleanup is distinct from logical caller close.
+    /// All callers are snapshotted before waiting and every independent owner
+    /// observes the original same-host monotonic expiry, including child spawn.
+    #[staticmethod]
+    fn _drain_fixture_connections(
+        py: Python<'_>,
+        runtimes: Vec<PyRef<'_, NativeRuntime>>,
+        deadline_monotonic_ns: u64,
+    ) -> PyResult<()> {
+        let Some(first) = runtimes.first() else { return Ok(()); };
+        let owner = first.owner.clone();
+        let mut stores = Vec::new();
+        let mut errors = Vec::new();
+        for (index, runtime) in runtimes.iter().enumerate() {
+            match runtime.inner.fixture_connection_owners() {
+                Ok(owners) => stores.extend(owners),
+                Err(error) => errors.push(format!("fixture runtime {index}: {error}")),
+            }
+        }
+        blocking(py, &owner, async move {
+            let tasks = stores.into_iter().enumerate().map(|(index, store)| {
+                tokio::spawn(async move {
+                    (index, store.drain_fixture_connection_before(deadline_monotonic_ns).await)
+                })
+            }).collect::<Vec<_>>();
+            for task in tasks {
+                match task.await {
+                    Ok((index, Err(error))) => errors.push(format!("fixture SDK owner {index}: {error}")),
+                    Err(error) => errors.push(format!("fixture SDK drain task: {error}")),
+                    Ok((_, Ok(()))) => {},
+                }
+            }
+            if errors.is_empty() {
+                Ok(())
+            } else {
+                Err(pse_operations::canonical::CanonicalError::Configuration(errors.join("; ")).into())
+            }
+        }, || {})
+    }
+
     /// Return passive diagnostic authority without retaining this runtime caller.
     fn observations(&self) -> crate::diagnostics::NativeDiagnostics {
         crate::diagnostics::NativeDiagnostics::new(self.inner.observations().clone())

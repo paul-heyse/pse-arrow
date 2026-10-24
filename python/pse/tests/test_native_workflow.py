@@ -585,9 +585,9 @@ def test_empty_library_is_admitted_but_missing_case_is_refused(
 
 @pytest.mark.component
 def test_native_capability_discovery_and_hard_cut(
-    inspection_settings: pse.EngineSettings, no_canonical_allocation: None
+    local_inspection_settings: pse.EngineSettings, no_canonical_allocation: None
 ) -> None:
-    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    runtime = pse.Runtime(local_inspection_settings, ephemeral=True)
     try:
         capabilities = runtime.capabilities()
         assert capabilities

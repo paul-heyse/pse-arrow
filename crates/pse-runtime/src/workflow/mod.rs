@@ -455,6 +455,24 @@ impl Runtime {
         self.caller.close();
     }
 
+    /// Snapshot every canonical owner of a closed isolated-fixture caller.
+    /// An active continuation could still attach a late owner, so it remains
+    /// protective rather than being omitted from a physical-drain claim.
+    #[doc(hidden)]
+    pub fn fixture_connection_owners(&self) -> Result<Vec<pse_operations::canonical::CanonicalStore>, WorkflowError> {
+        let state = self.caller.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !state.closed {
+            return Err(contract("fixture physical drain requires logical caller close"));
+        }
+        if state.active != 0 {
+            return Err(pse_operations::canonical::CanonicalError::ConnectionBusy { activities: state.active }.into());
+        }
+        if state.stores.iter().any(|store| !store.database().starts_with("canonical_test_")) {
+            return Err(contract("fixture physical drain requires isolated canonical owners"));
+        }
+        Ok(state.stores.clone())
+    }
+
     /// Actual immutable native admission owner retained by this runtime's bound model.
     pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
         self.model.validation_context()
@@ -944,6 +962,17 @@ pub(crate) fn inherit_runtime_activity<F: Future>(future: F) -> impl Future<Outp
 mod local_caller_tests {
     use super::*;
     use std::time::Duration;
+    #[test]
+    fn fixture_snapshot_refuses_open_or_active_callers_and_allows_closed_empty() {
+        let runtime = tests::runtime();
+        assert!(runtime.fixture_connection_owners().is_err());
+        let activity = runtime.admit_activity().unwrap();
+        runtime.close();
+        assert!(runtime.fixture_connection_owners().is_err());
+        drop(activity);
+        assert!(runtime.fixture_connection_owners().unwrap().is_empty());
+    }
+
     #[test]
     fn observation_runtime_scope_stores_one_inline_future() {
         let runtime = tests::runtime();

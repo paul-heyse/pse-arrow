@@ -667,7 +667,7 @@ class ManagedRustSelectionTests(unittest.TestCase):
         config.write_text(
             config.read_text().replace("fail-fast = false", "fail-fast = true")
         )
-        with self.assertRaisesRegex(ValueError, "selection differs"):
+        with self.assertRaisesRegex(ValueError, "configuration changed"):
             native_tests.prepared_rust_inventory(execution, environment)
         config.write_text((native_tests.ROOT / ".config/nextest.toml").read_text())
         cargo.write_text("[build]\njobs = 3\n")

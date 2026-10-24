@@ -157,14 +157,6 @@ mod build_tests {
         assert!(profile_identity(PROVIDER, "declared source", &profile).is_some());
     }
     #[test]
-    fn admitted_native_profile_has_concrete_adapter_identity() {
-        let identity = build().expect("native controls require the managed qualified KLU prefix");
-        assert_eq!(
-            crate::execution::adapter(Backend::Kinsol).build(),
-            Some(identity)
-        );
-    }
-    #[test]
     fn native_profile_identity_binds_all_native_inputs_without_host_source_provenance() {
         let original = profile();
         let identity = profile_identity(PROVIDER, "declared source", &original).unwrap();
@@ -216,6 +208,19 @@ mod build_tests {
                 Some(identity)
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod native_build_tests {
+    use super::*;
+    #[test]
+    fn admitted_native_profile_has_concrete_adapter_identity() {
+        let identity = build().expect("native controls require the managed qualified KLU prefix");
+        assert_eq!(
+            crate::execution::adapter(Backend::Kinsol).build(),
+            Some(identity)
+        );
     }
 }
 

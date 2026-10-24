@@ -2212,6 +2212,20 @@ impl CanonicalStore {
         .await?;
         Ok(())
     }
+    /// Join physical owners of an isolated fixture under its original same-host
+    /// monotonic expiry. Logical caller close alone does not establish this fact.
+    #[doc(hidden)]
+    pub async fn drain_fixture_connection_before(&self, expiry_monotonic_ns: u64) -> Result<(), CanonicalError> {
+        if !self.database.starts_with("canonical_test_") {
+            return Err(CanonicalError::Configuration("physical fixture drain requires an isolated database".into()));
+        }
+        // Sampling the local instant first can only shorten the mapped offer.
+        let sampled = tokio::time::Instant::now();
+        let now = transport::monotonic_nanoseconds()?;
+        if expiry_monotonic_ns <= now { return Err(CanonicalError::Timeout); }
+        let deadline = sampled + std::time::Duration::from_nanos(expiry_monotonic_ns - now);
+        self.drain_connection_until(deadline).await
+    }
     /// Final fixture ownership may join terminal SDK callbacks after their reply
     /// woke the caller. Seal new admission before waiting for actual activity;
     /// this path grants no cancellation or early close of escaped protected reads.
@@ -2222,7 +2236,9 @@ impl CanonicalStore {
     /// Only private initialization or final fixture ownership establishes that
     /// no caller can escape. Ordinary disconnect keeps its live-activity refusal.
     async fn drain_owned_connection(&self) -> Result<(), CanonicalError> {
-        let deadline = original_deadline(REQUEST_TIMEOUT);
+        self.drain_connection_until(original_deadline(REQUEST_TIMEOUT)).await
+    }
+    async fn drain_connection_until(&self, deadline: tokio::time::Instant) -> Result<(), CanonicalError> {
         within_clock(deadline, async {
             self.result_read_drain.close_and_drain().await?;
             self.db
@@ -2246,34 +2262,33 @@ impl CanonicalStore {
     /// Drain a registered fixture locally; runner disposition owns disposal.
     #[cfg(any(test, feature = "test-support"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
-        let deadline = original_deadline(REQUEST_TIMEOUT);
+        let offered = original_deadline(REQUEST_TIMEOUT);
+        let deadline = match &self.fixture_lifetime {
+            Some(lifetime) => lifetime.settlement_deadline(offered, false)?,
+            None => crate::testing::SettlementDeadline::new(offered)?,
+        };
         if !self.database.starts_with("canonical_test_") {
             return Err(CanonicalError::Configuration(
                 "fixture removal requires an isolated test database".into(),
             ));
         }
         let mut removed = match &self.fixture_lifetime {
-            Some(lifetime) => Some(lifetime.removed.lock().await),
+            Some(lifetime) => Some(within_clock(deadline.local, async { Ok(lifetime.removed.lock().await) }).await?),
             None => None,
         };
         if removed.as_deref().is_some_and(|removed| *removed) {
             return Ok(());
         }
-        within_clock(deadline, self.result_read_drain.drain()).await?;
         if !self.seal_final_fixture_owner() {
-            // Remaining registered borrowers own eventual drain. Minting an
-            // independent caller cannot pass between this decision and seal.
-            return Ok(());
+            // Remaining registered borrowers own eventual drain. No new caller
+            // can pass between the final-owner decision and admission seal.
+            return within_clock(deadline.local, self.result_read_drain.drain()).await;
         }
-        within_clock(deadline, self.drain_fixture_connection()).await?;
         if let Some(lifetime) = &self.fixture_lifetime {
-            lifetime.drain_connections().await?;
-            crate::testing::resource_bridge(
-                "drain",
-                &serde_json::json!({
-                    "resource": lifetime.resource, "state": self.state_path, "database": self.database,
-                }),
-            )?;
+            let deadline = lifetime.settlement_deadline(deadline.local, true)?;
+            lifetime.settle(Some(self), deadline).await?;
+        } else {
+            within_clock(deadline.local, self.drain_fixture_connection()).await?;
         }
         if let Some(removed) = removed.as_mut() {
             **removed = true;

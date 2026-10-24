@@ -38,6 +38,7 @@ pse-engine = { workspace = true, optional = true }
 datafusion = { workspace = true, optional = true }
 pse-columnar = { workspace = true, optional = true }
 libc.workspace = true
+rustix.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 pse-diagnostics.workspace = true

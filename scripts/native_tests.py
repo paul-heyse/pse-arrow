@@ -225,10 +225,12 @@ def rust_configuration_paths(
     from scripts import test_invocation
 
     request = test_invocation.rust(arguments, environment)
-    for name in ("--config", "--manifest-path"):
+    for name in ("--config", "--manifest-path", "--config-file"):
         for value in request.values(name):
             if name == "--manifest-path" or "=" not in value:
                 paths.add(str((ROOT / value).absolute()))
+    for value in request.values("--tool-config-file"):
+        paths.add(str((ROOT / value.split(":", 1)[1]).absolute()))
     return sorted(paths)
 
 
@@ -843,6 +845,34 @@ def ordinary_rust_capture(
     )
 
 
+def scheduled_rust_arguments(
+    arguments: list[str], inventory: dict, requirements: dict, destination: Path,
+    environment: Mapping[str, str],
+) -> list[str]:
+    """Bind the exact collected scheduling policy before retained execution."""
+    import tomlkit  # noqa: PLC0415
+
+    from scripts import test_invocation, test_requirements  # noqa: PLC0415
+
+    request = test_invocation.rust(arguments, environment)
+    configurations = request.values("--config-file")
+    source = Path(configurations[0]) if configurations else ROOT / ".config/nextest.toml"
+    document = tomlkit.parse(source.read_text())
+    # A caller-selected config may specialize policy; its group capacities must
+    # be explicit instead of silently acquiring another scheduler's defaults.
+    groups = document.get("test-groups", {})
+    for requirement in requirements.values():
+        group, _threads = test_requirements.scheduling(requirement)
+        if group is not None and group not in groups:
+            raise ValueError(f"Selected nextest configuration lacks required group {group}")
+    test_requirements.nextest_configuration(document, request.nextest_profile, inventory, requirements)
+    destination.write_text(tomlkit.dumps(document))
+    selected = request.arguments(omit=frozenset({"--config-file"}))
+    position = selected.index("--") if "--" in selected else len(selected)
+    selected[position:position] = ["--config-file", str(destination)]
+    return selected
+
+
 def _rust_capture(
     scoped: list[str],
     provenance: Path,
@@ -988,6 +1018,8 @@ def _rust_capture(
 
         result = test_run.empty_selection(data, selected)
         raise ValueError(f"Known empty test selection; no execution: {result}")
+    policy = selected.with_name(selected.stem + "-scheduling.toml")
+    execution = scheduled_rust_arguments(execution, data, requirements, policy, environment)
     try:
         worker = (
             worker_binary(["--cargo-profile", profile], environment)
@@ -1038,7 +1070,7 @@ def _rust_capture(
         ],
         environment=environment,
     )
-    for destination in (selected, binary_metadata, cargo_metadata):
+    for destination in (selected, binary_metadata, cargo_metadata, policy):
         with destination.open("rb") as stream:
             native["files"][str(destination)] = hashlib.file_digest(
                 stream, "sha256"

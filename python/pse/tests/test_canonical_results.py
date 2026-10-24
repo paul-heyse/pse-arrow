@@ -122,7 +122,7 @@ def _physical_cache_usage(runtime: pse.Runtime) -> tuple[int, int]:
 
 @pytest.mark.component
 def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
-    inspection_settings: pse.EngineSettings,
+    local_inspection_settings: pse.EngineSettings,
     tmp_path: Path,
     admitted_study_module: str,
     no_canonical_allocation: None,
@@ -163,7 +163,7 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
 
     publish()
     with pytest.raises(pse.InspectionError) as mismatch:
-        pse.Runtime(inspection_settings, substrate=str(state))
+        pse.Runtime(local_inspection_settings, substrate=str(state))
     assert mismatch.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
     interpretation_detail = mismatch.value.report.observations["detail"]
     assert isinstance(interpretation_detail, ObservationText)
@@ -188,7 +188,7 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
             # Consume the production constructor's original clock, without a test-only
             # timeout override or an invented shorter healthy-command deadline.
             with pytest.raises(pse.InspectionError) as timeout:
-                pse.Runtime(inspection_settings, substrate=str(state))
+                pse.Runtime(local_inspection_settings, substrate=str(state))
             assert accepted.is_set()
             assert timeout.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
             assert (
@@ -811,7 +811,7 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
         # Reproduce this actual parent's identity for the same one-test subset.
         collection = (
             ["-n", "1", "--dist", "loadgroup"]
-            if request.node.nodeid.endswith("@canonical-owner")
+            if request.node.nodeid.endswith("@scientific-owner")
             else ["-n", "0"]
         )
         command = subprocess.run(

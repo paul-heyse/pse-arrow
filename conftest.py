@@ -44,30 +44,10 @@ REQUIRED_MARKERS = frozenset({"unit", "component", "integration", "performance"}
 
 
 def _test_requirement(item: pytest.Item) -> dict[str, object]:
-    declared = item.get_closest_marker("test_requirements")
-    roles = tuple(declared.kwargs.get("roles", ())) if declared else ()
-    if item.get_closest_marker("managed_primary") is not None:
-        roles += ("managed-primary",)
-    base = test_requirements.python(
-        getattr(item, "fixturenames", ()),
-        no_allocation="no_canonical_allocation" in getattr(item, "fixturenames", ())
-        or item.get_closest_marker("no_canonical_allocation") is not None,
-        roles=roles,
-    )
-    if declared and declared.kwargs.get("canonical"):
-        if item.get_closest_marker("no_canonical_allocation") is not None:
-            raise pytest.UsageError("Effect-free test declares canonical controls")
-        base = test_requirements.Requirement(
-            ("canonical",), ("owned-controls",), "canonical", roles
-        )
-    if declared and declared.kwargs.get("native"):
-        base = test_requirements.Requirement(
-            tuple(sorted({*base.effects, "native"})),
-            base.fixtures,
-            "scientific",
-            tuple(sorted({*base.roles, "native"})),
-        )
-    return base.document()
+    try:
+        return test_requirements.python_item(item).document()
+    except ValueError as error:
+        raise pytest.UsageError(str(error)) from error
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
@@ -321,8 +301,9 @@ def pytest_collection_modifyitems(
     """
     _check_markers(items)
     for item in items:
-        if "canonical" in _test_requirement(item)["effects"]:
-            item.add_marker(pytest.mark.xdist_group(name="canonical-owner"))
+        group = test_requirements.pytest_group(_test_requirement(item))
+        if group is not None:
+            item.add_marker(pytest.mark.xdist_group(name=group))
     result = yield
     _deselect_parity(config, items)
     _deselect_producer_deployment(config, items)

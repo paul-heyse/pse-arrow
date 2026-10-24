@@ -208,6 +208,11 @@ mod tests {
         assert!((candidate.primal[0].powi(3) - 1.0).abs() <= 1e-12);
         assert!((0.1..=2.0).contains(&candidate.primal[0]));
     }
+}
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
     #[test]
     fn status_scope_and_finite_infinity_are_not_conflated() {
         assert_eq!(termination(2).assurance, Assurance::None);
