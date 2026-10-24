@@ -161,7 +161,7 @@ def preflight(manifest: dict, directory: Path, environment: dict[str, str]) -> N
 def capture_json(command: list[str], environment: dict[str, str]) -> dict:
     observation: dict[str, object] = {}
     with tempfile.TemporaryFile(mode="w+") as stdout, tempfile.TemporaryFile(mode="w+") as stderr:
-        code = native_operation.run(command, environment, cwd=ROOT, observation=observation, stdout=stdout.fileno(), stderr=stderr.fileno())
+        code = native_operation.run_child_scope(command, environment, cwd=ROOT, observation=observation, stdout=stdout.fileno(), stderr=stderr.fileno())
         if code or observation.get("owned_drain") != "complete":
             stderr.seek(0)
             raise ArchiveError(f"nextest inventory failed or did not drain ({code}): {stderr.read()}")
@@ -196,7 +196,8 @@ def archive(args: argparse.Namespace) -> dict:
     environment[test_run.EXECUTION_EFFECTS] = "native-local"
     for name in (test_resources.MARKER, "PSE_NATIVE_PROVENANCE", test_run.RUST_OBSERVER):
         environment.pop(name, None)
-    build = ["cargo", "nextest", "list", "--locked", "-p", args.package, "--test", args.test]
+    build = ["cargo", "nextest", "list", "--locked", "-p", args.package]
+    build.extend(["--test", args.test] if args.test else ["--lib"])
     if args.features:
         build.extend(["--features", args.features])
     resolution = native_tests.correctness_resolution(build, environment)
@@ -225,17 +226,19 @@ def archive(args: argparse.Namespace) -> dict:
         raise ArchiveError("Historical selection is empty")
     package = next(package for package in metadata["packages"] if package["name"] == args.package)
     package_manifest = str(Path(package["manifest_path"]).relative_to(ROOT))
-    fixtures = stage_inputs(ROOT, output / "workspace", [".config/nextest.toml", package_manifest, *args.fixture])
+    fixtures = stage_inputs(ROOT, output / "workspace", ["Cargo.toml", ".config/nextest.toml", package_manifest, *args.fixture])
     environment["PSE_NATIVE_PROVENANCE"] = str(provenance)
+    native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
     invocation = test_resources.invocation("rust", selected)
     environment[test_resources.MARKER] = str(invocation)
-    test_run.run_rust(["cargo", "nextest", "run", *execution], env=environment, inventory=inventory, effects="native-local")
+    producer_command, report = test_run.rust_report_command(invocation, ["cargo", "nextest", "run", *execution])
+    test_run.execute_selected(invocation, producer_command, environment, report, selected=[{"class": item["binary_id"], "name": item["name"]} for item in selected], launch=lambda process: native_operation.run_child_scope(producer_command, environment, cwd=ROOT, observation=process))
     producer = json.loads(invocation.with_suffix(".terminal.json").read_text())
     validation.write_json(output / "producer-terminal.json", producer)
     archive_command = ["cargo", "nextest", "archive", *resolution.command[3:], "--archive-file", str(output / "tests.tar.zst")]
     archive_observation: dict[str, object] = {}
     with (output / "archive.log").open("w") as log:
-        code = native_operation.run(archive_command, environment, cwd=ROOT, observation=archive_observation, stdout=log.fileno(), stderr=log.fileno())
+        code = native_operation.run_child_scope(archive_command, environment, cwd=ROOT, observation=archive_observation, stdout=log.fileno(), stderr=log.fileno())
     if code or archive_observation.get("owned_drain") != "complete":
         raise ArchiveError(f"Archive creation failed or did not drain: {code}")
     native_tests.prepared_rust_inventory(execution, environment, inventory=inventory)
@@ -303,6 +306,7 @@ def replay(directory: Path, output: Path) -> dict:
         preflight(manifest, directory, environment)
         fixture_manifest = stage_inputs(directory / "workspace", output / "workspace", list(manifest["fixtures"]))
         extraction = output / "extracted"
+        extraction.mkdir(mode=0o700)
         common = ["--archive-file", str(directory / "tests.tar.zst"), "--extract-to", str(extraction), "--workspace-remap", str(output / "workspace")]
         inventory = capture_json(["cargo", "nextest", "list", *common, "-E", manifest["filter"], "--message-format", "json", "--config-file", str(output / "workspace/.config/nextest.toml")], environment)
         selected = test_run.rust_selected(inventory)
@@ -314,7 +318,7 @@ def replay(directory: Path, output: Path) -> dict:
         environment[test_resources.MARKER] = str(invocation)
         run = ["cargo", "nextest", "run", "--binaries-metadata", str(extraction / "target/nextest/binaries-metadata.json"), "--cargo-metadata", str(extraction / "target/nextest/cargo-metadata.json"), "--target-dir-remap", str(extraction / "target"), "--workspace-remap", str(output / "workspace"), "-E", manifest["filter"], "--config-file", str(output / "workspace/.config/nextest.toml")]
         run, report = test_run.rust_report_command(invocation, run)
-        code = test_run.execute_selected(invocation, run, environment, report, selected=[{"class": item["binary_id"], "name": item["name"]} for item in selected], details={"historical_producer": manifest["producer_invocation"], "historical_source": manifest["source_commit"], "qualification": "historical executable only"})
+        code = test_run.execute_selected(invocation, run, environment, report, selected=[{"class": item["binary_id"], "name": item["name"]} for item in selected], details={"historical_producer": manifest["producer_invocation"], "historical_source": manifest["source_commit"], "qualification": "historical executable only"}, launch=lambda process: native_operation.run_child_scope(run, environment, cwd=ROOT, observation=process))
         terminal = json.loads(invocation.with_suffix(".terminal.json").read_text())
         verify_inputs(output / "workspace", fixture_manifest)
         preflight(manifest, directory, environment)
@@ -348,7 +352,9 @@ def main(argv: list[str] | None = None) -> int:
     creation = subparsers.add_parser("archive")
     creation.add_argument("--output", type=Path, required=True)
     creation.add_argument("--package", required=True)
-    creation.add_argument("--test", required=True)
+    target = creation.add_mutually_exclusive_group()
+    target.add_argument("--test")
+    target.add_argument("--lib", action="store_true")
     creation.add_argument("--filter", required=True)
     creation.add_argument("--fixture", action="append", default=[])
     creation.add_argument("--features", default="")

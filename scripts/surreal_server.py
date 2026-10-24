@@ -1184,6 +1184,29 @@ def require_tooling_drained(state: Path) -> None:
             os.close(descriptor)
 
 
+def admitted_runtime_server(
+    state: Path, config: dict[str, object], *, deadline: float | None = None
+) -> bool:
+    """Select immutable receipt validation only for this exact bound supervisor."""
+    receipt = object_mapping(config["server"])
+    supervisor = config.get("service_supervisor")
+    if not isinstance(supervisor, dict) or supervisor.get("supervisor_script") != str(SCRIPT):
+        return surreal_source.admitted_receipt(receipt)
+    directory = SCRIPT.parent.parent
+    service = service_directory(state, deadline=deadline)
+    if (
+        SCRIPT.name != "surreal_server.py"
+        or SCRIPT.parent.name != "scripts"
+        or directory.parent != service / ".generations"
+        or supervisor.get("supervisor_executable") != str(Path(sys.executable).resolve())
+    ):
+        raise SupervisorError("Running supervisor is not its bound immutable service generation")
+    verified = verify_generation(directory)
+    if verified.files.get("scripts/surreal_server.py") != supervisor.get("supervisor_sha256"):
+        raise SupervisorError("Running supervisor differs from its immutable service generation")
+    return surreal_source.admitted_runtime_receipt(receipt, directory)
+
+
 def config_for(state: Path, *, deadline: float | None = None) -> dict[str, object]:
     if (
         any(path.is_symlink() for path in (state, *state.parents))
@@ -1257,8 +1280,7 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
             "Only the recorded authenticated loopback endpoint is supported"
         )
     if not retiring and not getattr(_LIFECYCLE, "retire_engine", False):
-        receipt = object_mapping(config["server"])
-        if not surreal_source.admitted_receipt(receipt):
+        if not admitted_runtime_server(state, config, deadline=deadline):
             raise SupervisorError(
                 "Server is not the admitted source-built MX generation"
             )

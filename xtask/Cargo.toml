@@ -44,6 +44,7 @@ default = []
 native-abi = ["dep:bindgen"]
 full-codegen = ["package-fixtures", "native-abi"]
 evidence-tools = ["dep:pse-operations", "pse-operations/evidence-query"]
+surrealql-tools = ["dep:surrealdb-syn"]
 project-tools = ["canonical-tools", "physical-admission", "product-schemas"]
 canonical-tools = [
   "dep:pse-diagnostics",
@@ -85,6 +86,7 @@ product-schemas = [
 package-fixtures = ["physical-admission", "product-schemas"]
 
 [dependencies]
+surrealdb-syn = { workspace = true, optional = true }
 libfuzzer-sys = { workspace = true, optional = true }
 pse-admission = { workspace = true, optional = true }
 pse-operations = { workspace = true, optional = true }

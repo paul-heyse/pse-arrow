@@ -82,6 +82,7 @@ class ResourceRecord(TypedDict, total=False):
     credentials_sha256: str
     tool_inputs: dict[str, dict[str, object]]
     tool_rollouts: dict[str, dict[str, str]]
+    tool_population: NotRequired[dict[str, object]]
     rollout_probe: dict[str, object]
     maintenance_selection: dict[str, object]
     maintenance_revocation_probe: dict[str, object]
