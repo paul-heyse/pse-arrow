@@ -103,6 +103,10 @@ def task_packet(
             omitted.append(f"native scope unavailable: {error}")
         selected.extend(native_inputs)
     facts = _files(tuple(dict.fromkeys(selected)), root)
+    omitted.extend(
+        "selected source unavailable: " + fact["path"]
+        for fact in facts if fact.get("availability") == "unavailable"
+    )
     by_path = {fact["path"]: fact for fact in facts}
     if any(
         by_path[path].get("digest") != fact["digest"]
@@ -187,11 +191,10 @@ def task_packet(
             {"handle": item, "basis": "caller-selected reference; payload not read"}
             for item in evidence
         ],
-        "omissions": omitted
-        + [
-            "dynamic consumers unresolved",
-            "database and session history not required or opened",
-        ],
+        "population_complete": not omitted and not relations.get("truncated", False) and not relations.get("gaps", []),
+        "omissions": omitted + relations.get("gaps", []),
+        "unknowns": ["dynamic consumers unresolved"],
+        "exclusions": ["database and session history not required or opened"],
         "authority": "native source/status owners retain authority; task packet is derived",
     }
 

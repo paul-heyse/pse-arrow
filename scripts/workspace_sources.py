@@ -781,7 +781,8 @@ def library_packet(
     else:
         pin = re.search(r"==\s*([^;\s*,]+)", spec)
     exact_version = pin[1] if pin and "*" not in pin[1] else None
-    unresolved = [
+    unresolved: list[str] = []
+    unknowns = [
         "API behavior/lifetimes and migration semantics require exact primary source or a bounded probe"
     ]
     if lock.get("version") not in ({3, 4} if ecosystem == "cargo" else {1}):
@@ -957,6 +958,7 @@ def library_packet(
                 "status": "unknown",
                 "issues": ["evidence_unavailable_or_invalid"],
             }
+            unresolved.append(kind + "_evidence_unavailable_or_invalid")
             if kind == "cargo_metadata":
                 observed = result
             else:
@@ -983,6 +985,8 @@ def library_packet(
         "references": evidence,
         "source_cut": provenance,
         "revision": git(root, "rev-parse", "HEAD") or None,
+        "population_complete": not unresolved,
         "unresolved": unresolved,
+        "unknowns": unknowns,
         "effects": "no dependency resolution, fetch, build, install or service startup",
     }

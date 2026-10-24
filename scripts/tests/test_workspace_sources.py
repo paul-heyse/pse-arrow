@@ -345,10 +345,19 @@ doc_topics = ["architecture"]
         )
         self.assertEqual(packet["observed_closure"]["status"], "unknown")
         self.assertIn("intent", packet["feature_basis"])
-        self.assertIn("lifetimes", packet["unresolved"][0])
+        self.assertIn("lifetimes", packet["unknowns"][0])
+        self.assertEqual(packet["unresolved"], [])
+        self.assertTrue(packet["population_complete"])
         self.assertEqual(
             {row["path"] for row in packet["source_cut"]}, {"Cargo.toml", "Cargo.lock"}
         )
+
+    def test_missing_requested_library_reference_is_a_real_population_gap(self) -> None:
+        self.cargo()
+        packet = sources.library_packet("sample", root=self.root, references=("missing.rs",))
+        self.assertFalse(packet["population_complete"])
+        self.assertIn("reference_unavailable:missing.rs", packet["unresolved"])
+        self.assertIn("lifetimes", packet["unknowns"][0])
 
     def test_python_project_optional_build_and_group_pins_read_uv_lock(self) -> None:
         self.write(

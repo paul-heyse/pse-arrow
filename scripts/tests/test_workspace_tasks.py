@@ -82,10 +82,23 @@ class WorkspaceTasksTests(unittest.TestCase):
                 hashlib.sha256((root / "source.rs").read_bytes()).hexdigest(),
             )
             self.assertNotIn("text", result["sources"][0])
+            self.assertTrue(result["population_complete"])
+            self.assertEqual(result["omissions"], [])
+            self.assertIn("dynamic consumers unresolved", result["unknowns"])
             self.assertIn(
                 "database and session history not required or opened",
-                result["omissions"],
+                result["exclusions"],
             )
+
+    def test_requested_missing_source_is_a_population_gap_not_an_exclusion(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(workspace_tasks.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")):
+                result = workspace_tasks.task_packet(None, ("missing.rs",), root=root)
+            self.assertFalse(result["population_complete"])
+            self.assertTrue(any("selected source unavailable" in item for item in result["omissions"]))
+            self.assertIn("dynamic consumers unresolved", result["unknowns"])
+            self.assertEqual(result["sources"][0]["availability"], "unavailable")
 
     def test_native_rows_refuse_drift_and_capture_external_status_owner(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -118,6 +131,7 @@ class WorkspaceTasksTests(unittest.TestCase):
                 any("stale rows refused" in item for item in result["omissions"])
             )
             self.assertIn(external, [fact["path"] for fact in result["sources"]])
+            self.assertFalse(result["population_complete"])
 
     def test_alternatives_bind_distinct_sources_and_follow_renamed_optional_target_dependencies(
         self,

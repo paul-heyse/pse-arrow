@@ -84,6 +84,9 @@ class GitRationale(Contract):
 class TaskContextPayload(Contract):
     schema_id: str = Field(alias="schema")
     task: str | None
+    population_complete: bool
+    unknowns: list[str]
+    exclusions: list[str]
     native_scope: list[ScopeItem]
     sources: list[SourceFact]
     relationships: RelationshipsPayload
@@ -436,7 +439,9 @@ class LibraryPayload(Contract):
     references: list[OwnerRecord]
     source_cut: list[OwnerRecord]
     revision: str | None
+    population_complete: bool
     unresolved: list[str]
+    unknowns: list[str]
     effects: str
 
 
@@ -603,11 +608,11 @@ def finish_read(result_type: type[Result], payload: object, *, population: Liter
 
 
 def task_context(value: dict) -> TaskContextResult | DetailRefused:
-    return finish_read(TaskContextResult, value, population="partial" if value["omissions"] else "complete", reasons=value["omissions"])
+    return finish_read(TaskContextResult, value, population="complete" if value["population_complete"] else "partial", reasons=value["omissions"])
 
 
 def concept_query(value: dict) -> ConceptQueryResult | DetailRefused:
-    state = "unavailable" if value["adapter_status"] == "not_implemented" else "partial" if not value["complete"] or value["next_offset"] is not None else "complete"
+    state = "unavailable" if value["adapter_status"] == "not_implemented" else "partial" if not value["complete"] or value["next_offset"] is not None or value["population"]["offset"] > 0 else "complete"
     return finish_read(ConceptQueryResult, value, population=state, reasons=value["omissions"])
 
 
@@ -679,7 +684,7 @@ def storage(value: dict) -> StorageResult | DetailRefused:
 
 
 def library(value: dict) -> LibraryResult | DetailRefused:
-    return finish_read(LibraryResult, value, population="partial" if value["unresolved"] else "complete", reasons=value["unresolved"])
+    return finish_read(LibraryResult, value, population="complete" if value["population_complete"] else "partial", reasons=value["unresolved"])
 
 
 def coverage(value: dict) -> CoverageResult | DetailRefused:

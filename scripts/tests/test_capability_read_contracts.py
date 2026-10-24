@@ -72,6 +72,15 @@ class ContractTests(unittest.TestCase):
             self.assertEqual(serialized["answer"]["population"], "partial")
             self.assertEqual(serialized["payload"]["excerpt_page"]["total"], 5)
 
+    def test_final_concept_page_retains_partial_population_even_without_next_cursor(self) -> None:
+        payload = {"schema": "workspace-domains-v1", "subjects": [], "edges": [], "productions": [], "source_facts": [], "section_ranges": [], "native_facts": [], "complete": True, "omissions": [], "unknowns": [], "coverage": "exact selected owners", "query": {"concept": "document"}, "items": [], "next_offset": None, "adapter_status": "available", "population": {"matched_count": 2, "returned_count": 0, "offset": 2, "limit": 1, "complete": True}}
+        result = answers.concept_query(payload)
+        self.assert_schema(result, answers.ConceptQueryResult)
+        self.assertEqual(result.answer.population, "partial")
+        self.assertFalse(result.complete)
+        self.assertTrue(result.payload.population.complete)
+        self.assertIsNone(result.payload.next_offset)
+
     def test_original_excerpt_text_bound_is_explicit_optional_detail_omission(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
