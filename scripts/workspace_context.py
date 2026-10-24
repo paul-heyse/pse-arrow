@@ -216,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         "--topic",
         action="append",
         default=[],
-        help="exact native metadata topic; repeated values are ANDed",
+        help="exact native metadata topic; repeated values intersect",
     )
     parser.add_argument("--role", help="exact interpreted document role")
     parser.add_argument("--document", help="exact declaring document facet")

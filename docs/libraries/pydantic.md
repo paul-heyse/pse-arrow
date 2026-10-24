@@ -263,8 +263,17 @@ Pydantic distinguishes several concepts that are often conflated in application 
 
 This supports a genuine three-state representation: absent, explicitly null, and populated.
 
-```
-from pydantic import BaseModel, MISSINGclass Patch(BaseModel):    timeout: int | None | MISSING = MISSINGPatch().model_dump()                 # {}Patch(timeout=None).model_dump()     # {'timeout': None}Patch(timeout=30).model_dump()       # {'timeout': 30}
+```python
+from pydantic import BaseModel, MISSING
+
+
+class Patch(BaseModel):
+    timeout: int | None | MISSING = MISSING
+
+
+Patch().model_dump()                 # {}
+Patch(timeout=None).model_dump()     # {'timeout': None}
+Patch(timeout=30).model_dump()       # {'timeout': 30}
 ```
 
 Pydantic automatically excludes `MISSING` values from serialization, and the sentinel is omitted from the corresponding JSON Schema type representation.

@@ -8,7 +8,7 @@ level: decision
 principles: [AP-01, AP-04, AP-07, DP-09, DP-23]
 blueprint: [§24.1]
 review: "not-required: short derived relation-family extension under existing tooling authority; Plan52 RC01 and RC06 explicitly selected by maintainer"
-evidence: "Tested: selected host composition and three pse-operations tests including authenticated custom-server constraints/replay/query/reset; actual CLI consumers. No assembled Plan52 or measured benefit claim."
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A concrete consumer needs independent writable knowledge authority or a different deployment boundary.

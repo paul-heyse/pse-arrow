@@ -737,20 +737,20 @@ class RestartPeerTests(unittest.TestCase):
             events.append("setup")
             state.mkdir()
 
-        def prepare(extra, environment):
+        def prepare(extra: list[str], environment: dict[str, str]) -> Path:
             self.assertEqual(extra, [])
             self.assertNotIn("CMAKE_TOOLCHAIN_FILE", environment)
             environment["PREPARATION_PRIVATE_INPUT"] = "not exported"
             events.append("prepare")
             return initializer
 
-        def freeze(source, destination):
+        def freeze(source: Path, destination: Path) -> Path:
             self.assertEqual(source, initializer)
             self.assertEqual(destination, directory / "tools.json")
             events.append("freeze")
             return initializer
 
-        def capture(*_):
+        def capture(*_: object) -> tuple[list[str], Path]:
             events.append("capture")
             return ["prepared"], self.directory / "worker"
 

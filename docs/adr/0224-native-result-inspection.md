@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-07, DP-21, PS-10, PS-12]
 blueprint: [§19.2, §21.1, §21.5, §23.2]
 review: "not-required: scoped native inspection/diagnostic binding within existing Rust-authoritative boundaries; Plan52l and usability RC01 selected by maintainer"
-evidence: "Interface-checked: existing protected canonical readers, schema access, scientific output selection, directional document catalogue and PyO3 DiagnosticReport bridge; production acceptance remains Plan52l CON03/CON04."
+evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A concrete inspection needs another scientific query authority or decoding loses native interpretation or protection.
