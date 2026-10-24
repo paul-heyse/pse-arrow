@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Internal fixed action transport; native operation owners retain physical drain.
 
-Worker/module identities are declared here, never supplied by an MCP request.
+Worker/module identities come from the shared fixed declaration, never an MCP request.
 Detached observation adapters have a different cancellation policy and do not use this.
 """
 
@@ -12,54 +12,18 @@ import asyncio
 import json
 import tempfile
 from contextlib import suppress
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeVar
 
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
+from scripts.capabilities.workers import WORKERS
+
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])
 T = TypeVar("T")
 
 
-@dataclass(frozen=True)
-class Worker:
-    module: str
-    operations: frozenset[str]
-    environment: tuple[str, ...] = ()
-    redact_diagnostics: bool = False
-
-
-WORKERS = {
-    "host": Worker(
-        "scripts.capabilities.host_worker",
-        frozenset({"archive", "replay", "diagnostic"}),
-    ),
-    "qualification": Worker(
-        "scripts.capabilities.qualification_worker",
-        frozenset(
-            {
-                "assessment",
-                "compilation",
-                "contracts-check",
-                "contracts-generate",
-                "documentation",
-            }
-        ),
-    ),
-    "rust-tests": Worker(
-        "scripts.capabilities.qualification_worker",
-        frozenset({"rust-test"}),
-        ("--recipe-default-class", "exclusive", "--native="),
-    ),
-    "native": Worker(
-        "scripts.capabilities.native_worker",
-        frozenset({"source_admit", "preparation_discover"}),
-        ("--native=solver,klu,isolation,uno,petsc",),
-        redact_diagnostics=True,
-    ),
-}
 
 
 async def settled(task: asyncio.Task[T]) -> T:

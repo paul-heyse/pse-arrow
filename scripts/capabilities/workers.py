@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+"""Fixed child-module declarations shared by dispatch and loaded-source fencing."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Worker:
+    module: str
+    operations: frozenset[str]
+    environment: tuple[str, ...] = ()
+    redact_diagnostics: bool = False
+
+
+WORKERS = {
+    "host": Worker(
+        "scripts.capabilities.host_worker",
+        frozenset({"archive", "replay", "diagnostic"}),
+    ),
+    "qualification": Worker(
+        "scripts.capabilities.qualification_worker",
+        frozenset(
+            {
+                "assessment",
+                "compilation",
+                "contracts-check",
+                "contracts-generate",
+                "documentation",
+            }
+        ),
+    ),
+    "rust-tests": Worker(
+        "scripts.capabilities.qualification_worker",
+        frozenset({"rust-test"}),
+        ("--recipe-default-class", "exclusive", "--native="),
+    ),
+    "native": Worker(
+        "scripts.capabilities.native_worker",
+        frozenset({"source_admit", "preparation_discover"}),
+        ("--native=solver,klu,isolation,uno,petsc",),
+        redact_diagnostics=True,
+    ),
+}
+

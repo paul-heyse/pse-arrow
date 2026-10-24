@@ -16,6 +16,7 @@ from fastmcp.tools import Tool
 from scripts.capabilities.catalogue import Catalogue
 from scripts.capabilities.coherence import Sources, install
 from scripts.capabilities.model import Capability, Domain
+from scripts.capabilities.workers import WORKERS
 
 
 class CoherenceTests(unittest.IsolatedAsyncioTestCase):
@@ -122,6 +123,37 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         copied = Sources(self.root, self.sources.sources)
         self.assertEqual(copied.revision, original)
         self.assertEqual(copied.check(copied.sources), ())
+
+    async def test_fixed_worker_edit_refuses_before_child_or_handler_effect(self) -> None:
+        for worker_name, capability, module in (
+            ("native", "native_source_admit", "scripts.capabilities.native"),
+            ("host", "experiment_archive", "scripts.capabilities.host_actions"),
+            ("qualification", "assessment_run", "scripts.capabilities.qualification"),
+        ):
+            with self.subTest(worker=worker_name):
+                relative = WORKERS[worker_name].module.replace(".", "/") + ".py"
+                worker = self.root / relative
+                worker.write_text("# Original worker generation\n")
+                sources = Sources(self.root, (relative, "scripts/first.py"))
+
+                def action() -> dict[str, str]:
+                    self.calls += 1
+                    return {"outcome": "must not execute"}
+
+                action.__module__ = module
+                tool = Tool.from_function(action, name=capability)
+                spec = Capability(id=capability, title=capability, description=capability, domain="source", owner="scripts/first.py", source="scripts/first.py", exposure="tool", effects="Test fixture counter")
+                catalogue = Catalogue((Domain(id="source", title="Source", description="Source"),), (), (), (spec,), {capability: tool}, loaded_source_revision=sources.revision)
+                endpoint = FastMCP("worker-fence")
+                endpoint.add_tool(tool)
+                interface = install(endpoint, sources, catalogue)
+                self.assertIn(relative, interface.operations[capability])
+                worker.write_text("# Newly edited child must not execute under old schema\n")
+                async with Client(endpoint) as client:
+                    result = await client.call_tool(capability, {}, raise_on_error=False)
+                self.assertTrue(result.is_error)
+                self.assertIn("pse.capabilities.restart_required", str(result.content))
+                self.assertEqual(self.calls, 0)
 
 
 if __name__ == "__main__":

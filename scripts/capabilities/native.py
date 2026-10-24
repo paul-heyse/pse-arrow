@@ -20,6 +20,7 @@ from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.operations import ReadResult, bounded
 from scripts.capabilities.process import run_worker
+from scripts.capabilities.workers import WORKERS
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -280,7 +281,7 @@ def run_child(
         "--",
         str(root / ".venv/bin/python"),
         "-m",
-        "scripts.capabilities.native_worker",
+        WORKERS["native"].module,
     ]
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
         try:

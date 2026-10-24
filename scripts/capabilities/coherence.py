@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
 
+from scripts.capabilities.workers import WORKERS
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -154,6 +156,16 @@ class Interface:
             paths = [spec.owner, spec.source]
             if module.startswith("scripts."):
                 paths.append(module.replace(".", "/") + ".py")
+            # Fixed workers are executed by name in fresh children, not imported
+            # into the serving process. Their modules and local imports still
+            # interpret the loaded contract and must share its restart fence.
+            worker = (
+                "native" if name.startswith("native_") else
+                "host" if module == "scripts.capabilities.host_actions" else
+                "qualification" if module == "scripts.capabilities.qualification" else None
+            )
+            if worker is not None:
+                paths.append(WORKERS[worker].module.replace(".", "/") + ".py")
             # Custom Tool implementations have an owner class rather than fn.
             paths.append(type(tool).__module__.replace(".", "/") + ".py")
             self.operations[name] = sources.closure(paths)
@@ -201,4 +213,7 @@ def install(server: FastMCP, sources: Sources, catalogue: Catalogue) -> Interfac
 # The server imports this module before its operation modules. Capture source
 # bytes once for this process; later build() calls cannot relabel old imports
 # with newly edited source. The launch owner performs a second composition check.
-LOADED = Sources(Path(__file__).resolve().parents[2], COMMON)
+LOADED = Sources(
+    Path(__file__).resolve().parents[2],
+    (*COMMON, *(worker.module.replace(".", "/") + ".py" for worker in WORKERS.values())),
+)
