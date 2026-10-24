@@ -30,6 +30,9 @@ from scripts.validation_scope import Gate, comprehensive, expand, functional_gat
 ROOT = Path(__file__).resolve().parents[2]
 
 
+from scripts import assessment_store, test_resources, validation_result
+from scripts.tests import assessment_fixture
+
 class QualificationSelectionTests(unittest.TestCase):
     def test_actual_owner_expansions_and_input_distinctions(self) -> None:
         self.assertEqual(subject.AssessmentSelection().gates(), comprehensive("dev"))
@@ -115,6 +118,8 @@ class QualificationSelectionTests(unittest.TestCase):
                 "required_checks_covered": False,
                 "input_coverage": True,
                 "source_unchanged": False,
+                "contextual_changes": ["unrelated source changed"],
+                "scope": [{"name": "compilation-check"}, {"name": "passed-control"}],
                 "checks": [
                     {
                         "gate": "compilation-check",
@@ -122,8 +127,11 @@ class QualificationSelectionTests(unittest.TestCase):
                         "exit_code": 1,
                         "evidence_kind": "executed",
                         "report_errors": ["relevant inputs changed"],
+                        "spawn_error": "native receiver refused startup",
                         "process": {"owned_drain": "complete"},
-                    }
+                    },
+                    {"gate": "passed-control", "status": "passed", "report_errors": [],
+                     "results": [{"nodeid": str(i), "status": "passed"} for i in range(10000)]},
                 ],
             }
 
@@ -142,7 +150,7 @@ class QualificationSelectionTests(unittest.TestCase):
                 self.assertEqual(selected_root, root)
                 self.assertEqual(gates[0].recipe, "check-library")
                 self.assertTrue(options["capture"])
-                (actual_output / "checks.json").write_text(json.dumps(native))
+                assessment_fixture.publish(actual_output, native)
                 # A printed string cannot become this adapter's result handle.
                 print("validation evidence: /not/the/result")
                 return 1
@@ -151,6 +159,8 @@ class QualificationSelectionTests(unittest.TestCase):
                 patch.object(worker, "ROOT", root),
                 patch.object(worker.validation, "fresh_output", side_effect=fresh),
                 patch.object(worker.validation, "run_gates", side_effect=run),
+                patch.object(test_resources, "registry", return_value=root / "registry"),
+                patch.object(assessment_store, "detail", wraps=assessment_store.detail) as details,
                 patch.object(
                     worker.validation,
                     "main",
@@ -170,8 +180,23 @@ class QualificationSelectionTests(unittest.TestCase):
             self.assertFalse(result["source_unchanged"])
             checks = result["checks"]
             assert isinstance(checks, list)
+            self.assertEqual(checks[0]["status"], "failed")
+            self.assertEqual(checks[0]["report_errors"], native["checks"][0]["report_errors"])
+            self.assertEqual(checks[0]["spawn_error"], "native receiver refused startup")
+            self.assertEqual(checks[0]["detail_status"], "hydrated")
+            self.assertEqual(checks[1]["detail_status"], "not_hydrated")
+            self.assertEqual(checks[1]["population"]["reported"], 10000)
+            self.assertNotIn("report_errors", checks[1])
+            self.assertEqual(details.call_count, 1)
+            self.assertEqual(details.call_args.args[1], checks[0]["detail"])
+            changes = result["contextual_changes"]
+            self.assertEqual(changes["status"], "not_hydrated")
+            self.assertEqual(set(changes["source_cut_ref"]), {"sha256"})
+            self.assertTrue(changes["reader"]["source_detail"])
+            with patch.object(test_resources, "registry", return_value=root / "registry"):
+                selected = validation_result.read_assessment(output, gate="compilation-check")
             self.assertEqual(
-                checks[0]["report_errors"],
+                selected["checks"][0]["record"]["report_errors"],
                 native["checks"][0]["report_errors"],
             )
 

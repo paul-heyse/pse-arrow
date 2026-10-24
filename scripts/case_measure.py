@@ -340,7 +340,9 @@ def functional_reference(
     if path is None:
         return None
     report = path / "checks.json" if path.is_dir() else path
-    evidence = json.loads(report.read_text())
+    from scripts import assessment_store, test_resources  # noqa: PLC0415
+    with test_resources.borrow_report(report.parent):
+        evidence = assessment_store.export(report.parent)
     checks = evidence.get("checks", [])
     if not checks or evidence.get("complete") is not True:
         raise ValueError(

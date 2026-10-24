@@ -60,6 +60,18 @@ def sync_directory(directory: Path) -> None:
         os.close(descriptor)
 
 
+def settle(path: Path) -> None:
+    """Settle an already-replaced object after an interrupted publication retry."""
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        host.validate_private_file(os.fstat(descriptor), "resource metadata")
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    sync_directory(path.parent)
+    sync_directory(path.parent.parent)
+
+
 def protected(directory: Path) -> None:
     missing = []
     current = directory
@@ -142,15 +154,18 @@ class FileStore:
         host.remaining(deadline, 1)
         protected(self.root)
         activation = self.root / "activation.json"
+        transition = self.root / "format-transition.json"
+        if transition.exists() and read(transition).get("phase") != "complete":
+            raise StoreError("Resource format conversion remains fenced; resume explicit recovery")
         if activation.exists():
             selected = read(activation)
             if (
-                selected.get("version") != 2
+                selected.get("version") != 3
                 or selected.get("format") != "exact-resource-files"
                 or not isinstance(selected.get("migration"), str)
                 or not re.fullmatch(r"[a-f0-9]{64}", selected["migration"])
             ):
-                raise StoreError("Unknown resource registry activation")
+                raise StoreError("Resource registry requires explicit quiescent format conversion")
             if read(self.root / "allocations.json") != {
                 "version": 2,
                 "format": "legacy-refusal",
@@ -195,7 +210,7 @@ class FileStore:
             raise StoreError("Invalid resource identity")
         value = read(self.path("resources", resource))
         if (
-            value.get("version") != 2
+            value.get("version") != 3
             or value.get("resource") != resource
             or value.get("phase") not in {"active", "cold", "disposed"}
             or not isinstance(value.get("identity"), list)
@@ -213,26 +228,97 @@ class FileStore:
         """
         return self._entry(resource)
 
-    def _save(self, entry: Entry) -> None:
-        marker = self.path("active", entry.resource)
+    def _save(self, entry: Entry, *, prior: Entry | None = None) -> None:
+        previous_path = self.path("resources", entry.resource)
+        previous = prior if prior is not None else self._entry(entry.resource) if previous_path.exists() else None
+        markers = self._markers(entry)
+        old_markers = self._markers(previous) if previous is not None else set()
         # Access precedes active authority, while departure publishes authority
         # before removing access. A crash may leave a stale marker, never a live
         # accepted borrower without its exact discovery path.
-        if entry.phase == "active":
-            publish(marker, {"resource": entry.resource})
+        for marker in markers:
+            if not marker.exists():
+                publish(marker, {"resource": entry.resource})
+            elif read(marker) != {"resource": entry.resource}:
+                # The resource exclusion and exact authority resolve stale
+                # discovery metadata; markers never grant their own permission.
+                publish(marker, {"resource": entry.resource})
+            else:
+                settle(marker)
         publish(
             self.path("resources", entry.resource),
             {
-                "version": 2,
+                "version": 3,
                 "resource": entry.resource,
                 "identity": entry.identity,
                 "phase": entry.phase,
                 "facts": entry.facts,
             },
         )
-        if entry.phase != "active" and marker.exists():
-            marker.unlink()
-            sync_directory(marker.parent)
+        for marker in old_markers - markers:
+            if marker.exists():
+                marker.unlink()
+                sync_directory(marker.parent)
+
+    def _markers(self, entry: Entry) -> set[Path]:
+        if entry.phase != "active":
+            return set()
+        paths = {self.path("active", entry.resource)}
+        facts = entry.facts
+        if facts.get("kind") != "evidence" and isinstance(facts.get("service_owner"), str):
+            cohort = digest(facts["service_owner"])
+            paths.add(self.path("service-access/" + cohort, entry.resource))
+        elif facts.get("kind") != "evidence" and isinstance(facts.get("unresolved_service"), str):
+            paths.add(self.path("uncovered-service-access/" + digest(facts["unresolved_service"]), entry.resource))
+        settled = (
+            facts.get("drained") is True and facts.get("pin") is False
+            and facts.get("references") == {} and facts.get("borrows") == {}
+            and not facts.get("creation_borrower")
+            and (facts.get("disposition") == "pass" or facts.get("explicit_release"))
+            and facts.get("cleanup") in {"retained", "removing"}
+        )
+        if settled:
+            if facts.get("kind") == "evidence":
+                if facts.get("artifacts") and facts.get("provenance_verified") is True:
+                    paths.add(self.path("scratch-candidates", entry.resource))
+            else:
+                paths.add(self.path("fixture-candidates", entry.resource))
+        return paths
+
+    def access_ids(
+        self, family: str, *, limit: int | None = None, after: str = "",
+        deadline: float | None = None,
+    ) -> list[str]:
+        """Read only a covered cohort; bounded sweeps do not sort its full population."""
+        deadline = clock(deadline)
+        self.ensure(deadline)
+        directory = self.root / family
+        if not directory.exists():
+            return []
+        # Directory insertion order plus a rotating cursor supplies fair bounded
+        # passes. No global sort or complete materialization for a bounded request.
+        names = []
+        deferred = []
+        found = not after
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                host.remaining(deadline, 1)
+                name = entry.name
+                if not name.endswith(".json") or not IDENTIFIER.fullmatch(name[:-5]) or entry.is_symlink():
+                    raise StoreError("Unknown resource discovery access path")
+                identity = name[:-5]
+                if found:
+                    names.append(identity)
+                    if limit is not None and len(names) == limit:
+                        return names
+                elif identity == after:
+                    found = True
+                    if limit is None or len(deferred) < limit:
+                        deferred.append(identity)
+                elif limit is None or len(deferred) < limit:
+                    deferred.append(identity)
+        remaining = None if limit is None else max(0, limit - len(names))
+        return names + (deferred if remaining is None else deferred[:remaining])
 
     @contextlib.contextmanager
     def edit(
@@ -261,11 +347,11 @@ class FileStore:
         """Settle a prior projection's durability without replacing its files."""
         marker = self.path("active", entry.resource)
         paths = []
-        if entry.phase == "active":
-            if not marker.exists() or read(marker) != {"resource": entry.resource}:
+        for access in self._markers(entry):
+            if not access.exists() or read(access) != {"resource": entry.resource}:
                 return False
-            paths.append(marker)
-        elif marker.exists():
+            paths.append(access)
+        if entry.phase != "active" and marker.exists():
             return False
         paths.append(self.path("resources", entry.resource))
         for path in paths:
@@ -349,6 +435,83 @@ class FileStore:
         ]
         return names if limit is None else names[:limit]
 
+    def _invocation_object(self, family: str, value: dict) -> str:
+        """Publish immutable owner data before any coordination pointer exposes it."""
+        identity = digest(value)
+        path = self.path(family, identity)
+        if path.exists():
+            if read(path) != value:
+                raise StoreError("Immutable invocation object differs from its digest")
+            settle(path)
+        else:
+            publish(path, value)
+        return identity
+
+    def _invocation_view(self, nonce: str) -> dict:
+        state = read(self.path("invocation-state", nonce))
+        if (
+            state.get("version") != 3
+            or state.get("phase") not in {"open", "frozen", "unresolved", "abandoned"}
+            or not isinstance(state.get("members"), dict)
+        ):
+            raise StoreError("Unknown invocation coordination authority")
+        reference = state.get("descriptor")
+        if reference is None:
+            inputs = read(self.path("invocation-staging", nonce))
+        else:
+            if not isinstance(reference, str) or not re.fullmatch(r"[a-f0-9]{64}", reference):
+                raise StoreError("Invalid collected invocation reference")
+            inputs = read(self.path("invocation-inputs", reference))
+            if digest(inputs) != reference:
+                raise StoreError("Collected invocation digest mismatch")
+        if inputs.get("nonce") != nonce or not isinstance(inputs.get("declaration"), dict):
+            raise StoreError("Invocation input association mismatch")
+        state["declaration"] = inputs["declaration"]
+        state["requirements"] = inputs.get("requirements", {})
+        state["requirement_policy"] = inputs.get("policy_version")
+        state["collected"] = reference is not None
+        terminal = state.get("terminal_ref")
+        if terminal is not None:
+            value = read(self.path("invocation-terminals", terminal))
+            if digest(value) != terminal or value.get("nonce") != nonce:
+                raise StoreError("Invalid frozen invocation terminal detail")
+            state["terminal"] = value["terminal"]
+        return state
+
+    def _publish_invocation(self, nonce: str, state: dict, *, deadline: float | None = None) -> None:
+        from scripts import test_requirements  # noqa: PLC0415
+        deadline = clock(deadline)
+        host.remaining(deadline, 1)
+        inputs = {
+            "version": 1,
+            "policy_version": state.get("requirement_policy", test_requirements.POLICY_VERSION),
+            "nonce": nonce,
+            "declaration": state["declaration"],
+            "requirements": state.get("requirements", {}),
+        }
+        coordination = {key: value for key, value in state.items()
+                        if key not in {"declaration", "requirements", "requirement_policy", "collected", "terminal"}}
+        coordination["version"] = 3
+        reference = state.get("descriptor")
+        if reference is not None:
+            if digest(inputs) != reference:
+                raise StoreError("Collected invocation facts are immutable")
+        elif state.get("collected"):
+            reference = self._invocation_object("invocation-inputs", inputs)
+            coordination["descriptor"] = reference
+            state["descriptor"] = reference
+        else:
+            staging = self.path("invocation-staging", nonce)
+            if not staging.exists() or read(staging) != inputs:
+                publish(staging, inputs)
+        if "terminal" in state:
+            coordination["terminal_ref"] = self._invocation_object(
+                "invocation-terminals", {"nonce": nonce, "terminal": state["terminal"]}
+            )
+        host.remaining(deadline, 1)
+        publish(self.path("invocation-state", nonce), coordination)
+        host.remaining(deadline, 1)
+
     def create_invocation(
         self, declaration: Mapping[str, object], *, deadline: float | None = None
     ) -> None:
@@ -359,14 +522,15 @@ class FileStore:
             path = self.path("invocation-state", nonce)
             if path.exists():
                 raise StoreError("Invocation identity already exists")
-            publish(
-                path,
+            self._publish_invocation(
+                nonce,
                 {
-                    "version": 2,
+                    "version": 3,
                     "declaration": dict(declaration),
                     "phase": "open",
                     "members": {},
                 },
+                deadline=deadline,
             )
 
     @contextlib.contextmanager
@@ -377,16 +541,9 @@ class FileStore:
         self.ensure(deadline)
         with self.lock("invocations", nonce, deadline):
             path = self.path("invocation-state", nonce)
-            state = read(path)
-            if (
-                state.get("version") != 2
-                or state.get("phase")
-                not in {"open", "frozen", "unresolved", "abandoned"}
-                or not isinstance(state.get("members"), dict)
-            ):
-                raise StoreError("Unknown invocation coordination authority")
+            state = self._invocation_view(nonce)
             yield state
-            publish(path, state)
+            self._publish_invocation(nonce, state, deadline=deadline)
 
     def register(
         self,
@@ -441,9 +598,9 @@ class FileStore:
                         "publication": "not-started",
                     }
                     state["members"][resource] = member
-                    publish(coordination, state)
+                    self._publish_invocation(str(invocation), state, deadline=deadline)
                     member["publication"] = "uncertain"
-                    publish(coordination, state)
+                    self._publish_invocation(str(invocation), state, deadline=deadline)
                 with self.lock("resources", resource, deadline):
                     # Reserve exact access before authority publication. A crashed
                     # bare registration must not silently recreate this identity.
@@ -535,7 +692,7 @@ class FileStore:
                 return list(state["members"])
             self._settle_members(state, nonce, deadline)
             state.update(phase="frozen", terminal=terminal, terminal_identity=identity)
-            publish(self.path("invocation-state", nonce), state)
+            self._publish_invocation(nonce, state, deadline=deadline)
             if on_frozen is not None:
                 on_frozen()
             return list(state["members"])
@@ -546,9 +703,9 @@ class FileStore:
         deadline = clock(deadline)
         self.ensure(deadline)
         with self.lock("invocations", nonce, deadline):
-            state = read(self.path("invocation-state", nonce))
+            state = self._invocation_view(nonce)
             if (
-                state.get("version") != 2
+                state.get("version") != 3
                 or state.get("phase") != "frozen"
                 or not isinstance(state.get("terminal"), dict)
                 or state.get("terminal_identity") != digest(state["terminal"])
@@ -562,9 +719,9 @@ class FileStore:
         Publication replaces a whole file. This detached view grants no payload
         protection and deliberately does not call ensure, edit, freeze or migrate.
         """
-        state = read(self.path("invocation-state", nonce))
+        state = self._invocation_view(nonce)
         if (
-            state.get("version") != 2
+            state.get("version") != 3
             or state.get("phase") not in {"open", "frozen", "unresolved", "abandoned"}
             or not isinstance(state.get("members"), dict)
             or not isinstance(state.get("declaration"), dict)
@@ -778,7 +935,7 @@ class FileStore:
                         "publication": "durable",
                     }
             for nonce, state in invocations.items():
-                publish(self.path("invocation-state", nonce), state)
+                self._publish_invocation(nonce, state, deadline=deadline)
             # A waiting old writer rejects this durable version before activation.
             publish(
                 legacy,
@@ -791,7 +948,7 @@ class FileStore:
             publish(
                 activation,
                 {
-                    "version": 2,
+                    "version": 3,
                     "format": "exact-resource-files",
                     "migration": digest(manifest),
                 },

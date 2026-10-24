@@ -317,7 +317,7 @@ def product_result(
         "selection_state": evidence.get(
             "selection_state",
             "collected"
-            if selected or declaration.get("collection_owner")
+            if state["collected"]
             else "uncollected",
         ),
         "refusal": evidence.get("refusal"),

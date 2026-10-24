@@ -493,13 +493,13 @@ def activity(
     """Publish actual SQL activity under the existing service admission owner."""
     record, _, _ = fixture(resource, _population_recovery=_population_recovery)
     with contextlib.ExitStack() as owned:
+        owned.enter_context(test_resources.borrow(resource))
         with surreal_server.context_admission(
             Path(record["state"]), wait_for_lifecycle=False
         ):
             record, config, credentials = fixture(
                 resource, _population_recovery=_population_recovery
             )
-            owned.enter_context(test_resources.borrow(resource))
             with test_resources.resource_update(resource) as current:
                 current["drained"] = False
                 current["creation_borrower"] = {

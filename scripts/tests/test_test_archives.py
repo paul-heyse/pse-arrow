@@ -18,6 +18,9 @@ from scripts import test_resources as resources
 from scripts import validation
 
 
+from scripts import assessment_store
+from scripts.tests import assessment_fixture
+
 class ArchiveClosureTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
@@ -142,7 +145,7 @@ class ArchiveClosureTests(unittest.TestCase):
             resource = resources.register_report(self.archive, root=self.root)
             validation.write_json(self.archive / "archive.json", self.manifest)
             receipt = {
-                "version": 5,
+                "version": 6,
                 "complete": True,
                 "required_checks_covered": True,
                 "input_coverage": True,
@@ -153,6 +156,7 @@ class ArchiveClosureTests(unittest.TestCase):
                     {"gate": "producer", "status": "passed", "log": "archive.json"}
                 ],
             }
+            assessment_fixture.publish(self.archive, receipt)
             archives.seal(
                 self.archive, resource, receipt, ["archive.json"], ["tests.tar.zst"]
             )
@@ -180,6 +184,35 @@ class ArchiveClosureTests(unittest.TestCase):
                     resources.resource_status(resource), check_units=False
                 )
             )
+
+    def corrupt_unselected_sealed_detail(self) -> None:
+        self.enterContext(patch.object(resources, "registry", return_value=self.root / "registry"))
+        self.enterContext(patch.object(resources.host, "inherit", return_value=None))
+        resource = resources.register_report(self.archive, root=self.root)
+        validation.write_json(self.archive / "archive.json", self.manifest)
+        receipt = assessment_fixture.publish(self.archive, {
+            "checks": [{"gate": "producer", "status": "passed", "log": "archive.json"}],
+            "source_files": {"historical": "a" * 64},
+        })
+        archives.seal(self.archive, resource, receipt, ["archive.json"], ["tests.tar.zst"])
+        image = assessment_store.root(self.archive)
+        selected = self.archive / "details" / (image["source_cut"]["sha256"] + ".json")
+        selected.write_text("{}")
+
+    def test_inspection_checks_the_entire_sealed_archive(self) -> None:
+        self.corrupt_unselected_sealed_detail()
+        with self.assertRaisesRegex(resources.ResourceError, "ownership changed"):
+            archives.inspect(self.archive)
+
+    def test_replay_checks_entire_sealed_archive_before_executable_preparation(self) -> None:
+        self.corrupt_unselected_sealed_detail()
+        with (
+            patch.object(archives.arrow_validation, "rust_test_environment", return_value={}),
+            patch.object(archives, "new_output", return_value="unpublished-control"),
+            patch.object(archives, "preflight", side_effect=AssertionError("unverified archive prepared")),
+            self.assertRaisesRegex(resources.ResourceError, "ownership changed"),
+        ):
+            archives.replay(self.archive, self.root / "build" / "replay")
 
 
 class ScientificArchiveBridgeTests(unittest.TestCase):

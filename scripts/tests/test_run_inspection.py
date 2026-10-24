@@ -79,6 +79,15 @@ class RunInspectionTests(unittest.TestCase):
             tail=tail,
         )
 
+    def test_collected_empty_selection_is_known_before_terminal_publication(self) -> None:
+        self.path = test_resources.invocation("rust", [])
+        self.assertEqual(self.read()["selection_state"], "uncollected")
+        test_resources.publish_selection(self.path, [])
+        result = self.read()
+        self.assertEqual(result["selection_state"], "collected")
+        self.assertEqual(result["selected_count"], 0)
+        self.assertEqual(result["terminal_status"], "missing")
+
     def test_pass_and_complete_failure_have_authentic_frozen_identity(self) -> None:
         self.freeze(
             code=1,
@@ -133,8 +142,10 @@ class RunInspectionTests(unittest.TestCase):
         self.assertIn("outside selected catalog", result["report_errors"][0])
         state_path = self.registry / "invocation-state" / self.path.name
         image = json.loads(state_path.read_text())
-        image["terminal"]["complete"] = True
-        resource_store.publish(state_path, image)
+        detail_path = self.registry / "invocation-terminals" / (image["terminal_ref"] + ".json")
+        detail = resource_store.read(detail_path)
+        detail["terminal"]["complete"] = True
+        resource_store.publish(detail_path, detail)
         with self.assertRaisesRegex(ValueError, "Invalid frozen"):
             self.read()
 

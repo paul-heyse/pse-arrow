@@ -146,7 +146,7 @@ def finish(
             ),
             "process": dict(process),
             "setup_failures": dict(setup_failures),
-            "requirements": dict(image.get("requirements", {})),
+            "requirements_ref": image.get("descriptor"),
             "peer_invocations": dict(image.get("peer_invocations", {})),
             "cleanup_observations": dict(image.get("cleanup_observations", {})),
             "assurance": "pass"
@@ -464,6 +464,7 @@ def empty_selection(
     if rust_selected(inventory):
         raise ValueError("Empty-selection refusal received selected tests")
     path = resources.invocation("rust", [])
+    resources.publish_selection(path, [])
     artifacts = (
         {source.name: validation_receipts.digest(source)} if source is not None else {}
     )

@@ -340,7 +340,8 @@ def seal(
     provenance: list[str],
     scratch: list[str],
 ) -> None:
-    validation.write_json(directory / "checks.json", receipt)
+    from scripts import assessment_store  # noqa: PLC0415
+    assessment_store.publish(directory, receipt)
     roles = {
         str(path.relative_to(directory)): "evidence"
         for path in directory.rglob("*")
@@ -511,7 +512,7 @@ def archive(request: ArchiveRequest) -> dict:
     }
     validation.write_json(output / "archive.json", manifest)
     receipt = {
-        "version": 5,
+        "version": 6,
         "complete": True,
         "baseline_failures": 0,
         "required_checks_covered": True,
@@ -566,7 +567,7 @@ def inspect(
     if offset < 0 or (limit is not None and not 1 <= limit <= 100):
         raise ArchiveError("select nonnegative offset and limit in 1..100")
     directory = directory.resolve(strict=True)
-    with test_resources.reference_report(directory, None):
+    with test_resources.reference_report(directory, None, full_integrity=True):
         identity = digest(directory / "archive.json")
         if manifest_sha256 is not None and identity != manifest_sha256:
             raise ArchiveError("Historical archive manifest identity changed")
@@ -615,7 +616,7 @@ def replay(directory: Path, output: Path) -> dict:
     ):
         environment.pop(name, None)
     resource = new_output(output)
-    with test_resources.reference_report(directory, output / "checks.json"):
+    with test_resources.reference_report(directory, output / "checks.json", full_integrity=True):
         manifest = json.loads((directory / "archive.json").read_text())
         preflight(manifest, directory, environment)
         fixture_manifest = stage_inputs(
@@ -723,7 +724,7 @@ def replay(directory: Path, output: Path) -> dict:
             or terminal.get("process", {}).get("forwarded_signal") is not None
         )
         receipt = {
-            "version": 5,
+            "version": 6,
             "complete": not interrupted,
             "baseline_failures": 0,
             "required_checks_covered": not interrupted,

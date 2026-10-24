@@ -32,6 +32,9 @@ from scripts.validation_scope import FUNCTIONAL_SCOPES, Gate
 ROOT = Path(__file__).resolve().parents[2]
 
 
+from scripts import assessment_store
+from scripts.tests import assessment_fixture
+
 class NativePythonImportIdentity(unittest.TestCase):
     def setUp(self) -> None:
         width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)
@@ -695,7 +698,7 @@ class ExecutionContracts(unittest.TestCase):
             ),
         }
         return {
-            "version": 5,
+            "version": 6,
             "input_coverage": True,
             "complete": True,
             "provenance_errors": [],
@@ -767,7 +770,7 @@ class ExecutionContracts(unittest.TestCase):
             "provenance_errors": [],
             **receipt,
         }
-        validation.write_json(origin / "checks.json", receipt)
+        assessment_fixture.publish(origin, receipt)
         resource = test_resources.register_report(origin, root=owner)
         test_resources.finish_report(
             resource,

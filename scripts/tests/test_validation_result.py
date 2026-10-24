@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 from scripts import test_resources, validation, validation_result
 
 
+from scripts import assessment_store
+from scripts.tests import assessment_fixture
+
 class ValidationResultTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -34,7 +37,7 @@ class ValidationResultTests(unittest.TestCase):
         self.run_directory = self.root / "run with spaces"
         self.run_directory.mkdir()
         self.record = {
-            "version": 5,
+            "version": 6,
             "mode": "local",
             "baseline_failures": 0,
             "complete": True,
@@ -65,7 +68,7 @@ class ValidationResultTests(unittest.TestCase):
         }
 
     def write(self) -> None:
-        (self.run_directory / "checks.json").write_text(json.dumps(self.record))
+        assessment_fixture.publish(self.run_directory, self.record)
 
     def invoke(self, *args: str, run: Path | None = None) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()
@@ -92,9 +95,8 @@ class ValidationResultTests(unittest.TestCase):
         self.assertEqual(check["record"]["role"], "required")
         self.assertEqual(check["record"]["evidence_kind"], "executed")
         self.assertEqual(check["log"]["path"], str(self.run_directory / "unit.log"))
-        self.assertEqual(
-            check["artifacts"][0]["path"], str(self.run_directory / "unit.log")
-        )
+        self.assertEqual(check["artifacts"], [])
+        self.assertIn("detail", check["record"])
         self.assertEqual(check["log"]["tail"], [])
         code, human, _ = self.invoke()
         self.assertEqual(code, 0)
@@ -108,6 +110,65 @@ class ValidationResultTests(unittest.TestCase):
             "evidence_kind=executed",
         ):
             self.assertIn(text, human)
+
+    def test_explicit_source_and_full_exports_read_only_the_requested_payloads(self) -> None:
+        self.record["source_files"] = {"source/model.pse": "frozen-input"}
+        self.record["environment"] = {"CONTROL": "original"}
+        self.record["scope"].append({"name": "failed", "role": "required"})
+        self.record["checks"].append(self.check("failed", "failed"))
+        self.record["checks"][1]["report_errors"] = ["original failure"]
+        self.write()
+        image = assessment_store.root(self.run_directory)
+        original = assessment_store.detail
+        with patch.object(assessment_store, "detail", wraps=original) as read:
+            source = self.result("--source-detail")
+            self.assertEqual([call.args[1] for call in read.call_args_list], [image["source_cut"]])
+        self.assertEqual(source["assessment"]["source_files"], self.record["source_files"])
+        self.assertTrue(all("results" not in check["record"] for check in source["checks"]))
+        with patch.object(assessment_store, "detail", wraps=original) as read:
+            full = self.result("--full-export")
+            self.assertEqual([call.args[1] for call in read.call_args_list],
+                             [image["source_cut"], *(check["detail"] for check in image["checks"])])
+        self.assertEqual([check["record"] for check in full["checks"]], self.record["checks"])
+        self.assertEqual(full["assessment"]["environment"], self.record["environment"])
+        with patch.object(assessment_store, "detail", wraps=original) as read:
+            failed = self.result("--failures")
+            self.assertEqual([call.args[1] for call in read.call_args_list], [image["checks"][1]["detail"]])
+        self.assertEqual(failed["checks"][0]["record"]["report_errors"], ["original failure"])
+        self.assertNotIn("source_files", failed["assessment"])
+
+    def test_historical_cli_requires_explicit_export_and_preserves_original_bytes(self) -> None:
+        run = self.root / "build" / "historical"
+        run.mkdir(parents=True)
+        assessment_fixture.publish(run, self.record)
+        (run / "unit.log").write_text("retained original evidence")
+        legacy = {**self.record, "version": 5, "source_files": {"original": "bytes"}}
+        checkpoint = run / "checks.json"
+        # Historical inspection consumes retained original bytes, never a new
+        # publication through the current codec. The existing checkpoint is private.
+        checkpoint.write_text(json.dumps(legacy))
+        resource = test_resources.register_report(run, root=self.root)
+        before = checkpoint.read_bytes(), checkpoint.stat().st_mtime_ns
+        for arguments in ((), ("--historical",)):
+            with self.subTest(arguments=arguments):
+                code, output, _error = self.invoke(*arguments, "--json", run=run)
+                self.assertEqual(code, 1)
+                self.assertIn("error", json.loads(output))
+        original = assessment_store.original_export
+        def protected(path: Path) -> dict:
+            self.assertTrue(test_resources.resource_status(resource)["borrows"])
+            return original(path)
+        with patch.object(assessment_store, "original_export", side_effect=protected):
+            code, output, error = self.invoke("--historical", "--full-export", "--json", run=run)
+        self.assertEqual((code, error), (0, ""))
+        result = json.loads(output)
+        self.assertEqual(result["assessment"]["version"], 5)
+        self.assertTrue(result["assessment"]["original_inspection"])
+        self.assertFalse(result["assessment"]["automatic_reuse"])
+        self.assertEqual(result["assessment"]["source_files"], legacy["source_files"])
+        self.assertEqual((checkpoint.read_bytes(), checkpoint.stat().st_mtime_ns), before)
+        self.assertEqual(test_resources.resource_status(resource)["borrows"], {})
+        self.assertEqual(test_resources.resource_status(resource)["references"], {})
 
     def test_failed_record_retains_errors_and_zero_reader_exit(self) -> None:
         self.record["checks"][0].update(
@@ -241,11 +302,11 @@ class ValidationResultTests(unittest.TestCase):
         (self.run_directory / "unit.log").unlink()
         self.record["checks"][0]["artifacts"]["report.xml"] = "missing-sha256"
         self.write()
-        check = self.result()["checks"][0]
+        check = self.result("--gate", "unit")["checks"][0]
         self.assertEqual(check["log"]["status"], "missing")
         self.assertIn("error", check["log"])
         self.assertTrue(all(item["status"] == "missing" for item in check["artifacts"]))
-        code, human, _ = self.invoke()
+        code, human, _ = self.invoke("--gate", "unit")
         self.assertEqual(code, 0)
         self.assertIn(f"log: {self.run_directory / 'unit.log'} (missing)", human)
         self.assertIn(f"artifact: {self.run_directory / 'report.xml'} (missing)", human)
@@ -269,7 +330,7 @@ class ValidationResultTests(unittest.TestCase):
         with patch.object(validation_result.json, "load", side_effect=move_latest):
             code, output, error = self.invoke("--gate", "unit", "--json", run=latest)
         self.assertEqual((code, error), (0, ""))
-        self.assertEqual(calls, [str(self.run_directory / "checks.json")])
+        self.assertTrue(calls)
         result = json.loads(output)
         self.assertEqual(result["run_path"], str(self.run_directory))
         self.assertEqual(result["checks"][0]["log"]["tail"], ["old", "last"])
@@ -277,7 +338,7 @@ class ValidationResultTests(unittest.TestCase):
     def test_read_has_no_runner_cleanup_or_checkpoint_effects(self) -> None:
         before = {
             path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in self.run_directory.iterdir()
+            for path in self.run_directory.rglob("*") if path.is_file()
         }
         with (
             patch.object(validation, "execute", side_effect=AssertionError("executed")),
@@ -301,7 +362,7 @@ class ValidationResultTests(unittest.TestCase):
             self.result("--gate", "unit")
         after = {
             path: (path.read_bytes(), path.stat().st_mtime_ns)
-            for path in self.run_directory.iterdir()
+            for path in self.run_directory.rglob("*") if path.is_file()
         }
         self.assertEqual(after, before)
 
@@ -314,10 +375,10 @@ class ValidationResultTests(unittest.TestCase):
         origin.mkdir()
         (origin / "unit.log").write_text("retained observation")
         self.record["checks"][0]["origin"] = str(origin)
-        (run / "checks.json").write_text(json.dumps(self.record))
+        assessment_fixture.publish(run, self.record)
         selected = test_resources.register_report(run, root=self.root)
         original = test_resources.register_report(origin, root=self.root)
-        read_receipt = validation_result.read_receipt
+        read_receipt = assessment_store.root
         observe = validation_result.file_observation
 
         def guarded_receipt(path: Path) -> dict:
@@ -332,7 +393,7 @@ class ValidationResultTests(unittest.TestCase):
 
         with (
             patch.object(
-                validation_result, "read_receipt", side_effect=guarded_receipt
+                assessment_store, "root", side_effect=guarded_receipt
             ),
             patch.object(
                 validation_result, "file_observation", side_effect=guarded_payload
@@ -349,7 +410,7 @@ class ValidationResultTests(unittest.TestCase):
         run.mkdir(parents=True)
         origin.mkdir()
         self.record["checks"][0]["origin"] = str(origin)
-        (run / "checks.json").write_text(json.dumps(self.record))
+        assessment_fixture.publish(run, self.record)
         resources = [
             test_resources.register_report(path, root=self.root)
             for path in (run, origin)

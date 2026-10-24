@@ -61,7 +61,7 @@ def invocation_snapshot(
     root, declaration, state = run_inspection.resolve(handle, registry)
     activation = resource_store.read(root / "activation.json")
     if (
-        activation.get("version") != 2
+        activation.get("version") != 3
         or activation.get("format") != "exact-resource-files"
         or not isinstance(activation.get("migration"), str)
         or len(activation["migration"]) != 64
@@ -217,7 +217,7 @@ def invocation_snapshot(
         "version": 2,
         "authority": "filestore:"
         + snapshot_digest({"registry": str(root), "activation": activation}),
-        "codec": "exact-resource-files-invocation-v2",
+        "codec": "exact-resource-files-invocation-v3",
         "source_id": declaration["nonce"],
         "snapshot_digest": snapshot_digest(
             {

@@ -27,6 +27,9 @@ from scripts import (
 )
 
 
+from scripts import assessment_store
+from scripts.tests import assessment_fixture
+
 class EvidenceSourceTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
@@ -177,7 +180,7 @@ class EvidenceSourceTests(unittest.TestCase):
 
     def test_assessment_owner_codec_gate_denominator_and_reuse(self) -> None:
         report = {
-            "version": 5,
+            "version": 6,
             "scope": [{"name": "executed"}, {"name": "never"}],
             "complete": False,
             "source_unchanged": True,
@@ -201,8 +204,9 @@ class EvidenceSourceTests(unittest.TestCase):
                 }
             ],
         }
-        (self.root / "checks.json").write_text(json.dumps(report))
+        assessment_fixture.publish(self.root, report)
         snapshot = evidence_sources.assessment_snapshot(self.root)
+        self.assertEqual(snapshot["codec"], "assessment-v6")
         self.assertEqual(
             [f["status"] for f in snapshot["facts"] if f["kind"] == "python_test"],
             ["failure", "unreported", "skipped"],

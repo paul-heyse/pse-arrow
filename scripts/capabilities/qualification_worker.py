@@ -107,7 +107,18 @@ def execute(operation: str, document: str) -> dict[str, object]:
         for name, handler in previous.items():
             signal.signal(name, handler)
     path = output / "checks.json"
-    receipt = json.loads(path.read_text()) if path.is_file() else {}
+    from scripts import assessment_store, test_resources  # noqa: PLC0415
+
+    receipt = {}
+    summaries = {}
+    failed = set()
+    if path.is_file():
+        with test_resources.borrow_report(output):
+            image = assessment_store.root(output)
+            summaries = {check["gate"]: check for check in image["checks"]}
+            failed = {check["gate"] for check in image["checks"]
+                      if check["status"] in {"failed", "interrupted", "blocked"}}
+            receipt = assessment_store.selected(output, image, gates=failed)
     checks = receipt.get("checks", [])
     if any(check.get("status") == "interrupted" for check in checks):
         code = 128 + validation.RECEIVED_SIGNAL
@@ -123,20 +134,30 @@ def execute(operation: str, document: str) -> dict[str, object]:
         "input_coverage": receipt.get("input_coverage", False),
         "source_unchanged": receipt.get("source_unchanged"),
         "provenance_errors": receipt.get("provenance_errors", []),
-        "contextual_changes": receipt.get("contextual_changes", []),
+        "contextual_changes": {
+            "status": "not_hydrated" if receipt else "unavailable",
+            "source_cut_ref": receipt.get("source_cut_ref"),
+            "reader": {"capability": "assessment_read", "directory": str(output),
+                       "source_detail": True},
+        },
         "scope": receipt.get("scope", []),
         "checks": [
             {
-                key: check.get(key)
-                for key in (
+                **{key: check.get(key) for key in (
                     "gate",
                     "status",
                     "exit_code",
                     "evidence_kind",
                     "resource_invocation",
                     "process",
-                    "report_errors",
-                )
+                )},
+                **{key: check[key] for key in (
+                    "report_errors", "spawn_error", "dependencies",
+                    "changed_source", "changed_environment",
+                ) if key in check},
+                "detail": summaries[check["gate"]]["detail"],
+                "population": summaries[check["gate"]]["population"],
+                "detail_status": "hydrated" if check["gate"] in failed else "not_hydrated",
             }
             for check in checks
         ],

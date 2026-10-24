@@ -24,11 +24,15 @@ from scripts import (
 from scripts.validation_scope import Gate
 
 
+from scripts import assessment_store, resource_store
+from scripts.tests import assessment_fixture
+
 class CaseMeasurementTests(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
+        self.enterContext(patch.object(test_resources, "registry", return_value=self.root / "registry"))
 
     def reference(self) -> dict:
         return {
@@ -55,7 +59,7 @@ class CaseMeasurementTests(unittest.TestCase):
 
     def consume(self, report: dict) -> dict | None:
         path = self.root / "checks.json"
-        path.write_text(json.dumps(report))
+        assessment_fixture.publish(path.parent, report)
         return case_measure.functional_reference(
             path,
             snapshot={"Cargo.lock": "current"},
@@ -70,7 +74,7 @@ class CaseMeasurementTests(unittest.TestCase):
         )
         report = self.reference()
         report.update(
-            version=4,
+            version=6,
             source_files={"Cargo.lock": "previous"},
             environment={"PSE_MEMORY_MAX": "4G"},
             provenance_errors=["historical provider identity unavailable"],
@@ -93,6 +97,16 @@ class CaseMeasurementTests(unittest.TestCase):
         self.assertEqual(
             consumed["reported_provenance_errors"], report["provenance_errors"]
         )
+
+    def test_historical_functional_reference_is_not_promoted_to_current_evidence(self) -> None:
+        report = self.reference()
+        self.consume(report)
+        path = self.root / "checks.json"
+        resource_store.publish(path, {**report, "version": 5})
+        before = path.read_bytes()
+        with self.assertRaisesRegex(ValueError, "automatic reuse refused"):
+            case_measure.functional_reference(path, snapshot={}, environment={})
+        self.assertEqual(path.read_bytes(), before)
 
     def test_actual_test_failures_and_missing_terminal_results_are_refused(
         self,
@@ -160,7 +174,7 @@ class CaseMeasurementTests(unittest.TestCase):
                 ),
                 1,
             )
-        emitted = json.loads((output / "checks.json").read_text())
+        emitted = assessment_store.export(output)
         self.assertTrue(emitted["complete"])
         self.assertEqual(emitted["checks"][0]["status"], "failed")
         self.assertEqual(

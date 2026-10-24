@@ -8,7 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from scripts import test_resources
+from scripts import assessment_store, test_resources
 from scripts.validation_scope import input_identity
 
 
@@ -152,9 +152,8 @@ def _reuse_guarded(
     reason: str | None,
     consumer: Path | None,
 ) -> list[dict]:
-    prior = json.loads((parent / "checks.json").read_text())
-    if prior.get("version") != 5:
-        raise ValueError("reuse requires an current version 5 report")
+    image = assessment_store.root(parent)
+    prior = assessment_store.selected(parent, image, gates=reuse | transfer)
     if not prior.get("input_coverage"):
         raise ValueError("retained report lacks trustworthy input coverage")
     declarations = {g["name"]: g for g in json.loads(json.dumps(scope))}
@@ -185,7 +184,7 @@ def _reuse_guarded(
             if digest(origin_report) != origin_digest:
                 raise ValueError("changed original report")
             # Preserve syntax validation of the authenticated original report.
-            json.loads(origin_report.read_text())
+            assessment_store.root(origin)
             current_inputs = input_identity(
                 declarations[name]["input_scope"], snapshot, environment
             )
@@ -193,9 +192,10 @@ def _reuse_guarded(
                 raise ValueError("missing scoped input identity")
             changes = changed(check["inputs"]["files"], current_inputs["files"])
             for artifact, expected in check.get("artifacts", {}).items():
-                path = (origin / artifact).resolve()
-                path.relative_to(origin.resolve())
-                if digest(path) != expected:
+                data, _custody = test_resources.read_report_file(
+                    origin, artifact, require_sealed=True
+                )
+                if hashlib.sha256(data).hexdigest() != expected:
                     raise ValueError("changed retained artifact")
             if name in reuse:
                 if check["inputs"] != current_inputs:

@@ -246,7 +246,7 @@ def assessment_snapshot(directory: Path) -> EvidenceSnapshot:
             )
     return source_snapshot(
         "assessment:" + str(directory.absolute()),
-        "assessment-v5",
+        "assessment-v6",
         str(directory.absolute()),
         receipt,
         facts,

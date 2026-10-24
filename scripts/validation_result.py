@@ -11,16 +11,16 @@ import os
 import sys
 from pathlib import Path
 
-from scripts import run_inspection, test_resources
+from scripts import assessment_store, run_inspection, test_resources
 from scripts.validation_receipts import qualified
 
 
 def read_receipt(run: Path) -> dict:
-    """Read the runner's atomic version 5 checkpoint once, checking readable shape."""
-    with (run / "checks.json").open() as stream:
-        receipt = json.load(stream)
-    if not isinstance(receipt, dict) or receipt.get("version") != 5:
-        raise ValueError("expected an assessment version 5 record")
+    """Explicit complete export through the versioned assessment owner."""
+    with test_resources.borrow_report(run):
+        receipt = assessment_store.export(run)
+    if not isinstance(receipt, dict) or receipt.get("version") != 6:
+        raise ValueError("expected a current assessment record")
     for field, kind in (
         ("scope", list),
         ("checks", list),
@@ -92,7 +92,7 @@ def selected_result(
     tail: int,
     origins: dict[str, Path],
 ) -> dict:
-    recorded = {check["gate"] for check in receipt["checks"]}
+    recorded = set(receipt.get("recorded_gates", [check["gate"] for check in receipt["checks"]]))
     checks = []
     for check in receipt["checks"]:
         if gate is not None and gate != check["gate"]:
@@ -121,7 +121,7 @@ def selected_result(
         "assessment": {
             key: value
             for key, value in receipt.items()
-            if key not in {"checks", "scope"}
+            if key not in {"checks", "scope", "recorded_gates"}
         },
         "scope": receipt["scope"],
         "checks": checks,
@@ -135,7 +135,8 @@ def selected_result(
 
 
 def read_assessment(
-    run: Path, *, gate: str | None = None, failures: bool = False, tail: int = 0
+    run: Path, *, gate: str | None = None, failures: bool = False, tail: int = 0,
+    source_detail: bool = False, full_export: bool = False, historical: bool = False,
 ) -> dict:
     """Read authentic selected assessment detail while its owners remain borrowed."""
     if tail < 0:
@@ -143,7 +144,16 @@ def read_assessment(
     run = run.resolve(strict=True)
     with contextlib.ExitStack() as borrows:
         borrows.enter_context(test_resources.borrow_report(run))
-        receipt = read_receipt(run)
+        if historical:
+            if not full_export:
+                raise ValueError("Historical inspection requires explicit full export")
+            receipt = assessment_store.original_export(run)
+            receipt = {**receipt, "original_inspection": True, "automatic_reuse": False}
+        else:
+            image = assessment_store.root(run)
+            names = {check["gate"] for check in image["checks"]
+                     if full_export or gate == check["gate"] or failures and not qualified(check)}
+            receipt = assessment_store.selected(run, image, gates=names, source=source_detail or full_export)
         if gate is not None and gate not in {item["name"] for item in receipt["scope"]}:
             raise UnknownGateError(f"gate {gate!r} is not in this run's scope")
         origins: dict[str, Path] = {}
@@ -248,6 +258,9 @@ def main(argv: list[str] | None = None) -> int:
         "--tail", type=int, default=20, help="log tail lines (default 20; 0 disables)"
     )
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--source-detail", action="store_true")
+    parser.add_argument("--full-export", action="store_true")
+    parser.add_argument("--historical", action="store_true")
     args = parser.parse_args(argv)
     if args.tail < 0:
         parser.error("--tail must be nonnegative")
@@ -310,7 +323,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     try:
         result = read_assessment(
-            args.run_path, gate=args.gate, failures=args.failures, tail=args.tail
+            args.run_path, gate=args.gate, failures=args.failures, tail=args.tail,
+            source_detail=args.source_detail, full_export=args.full_export, historical=args.historical,
         )
     except UnknownGateError as error:
         parser.error(str(error))

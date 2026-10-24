@@ -583,7 +583,8 @@ def execute(
 
 
 def checkpoint(output: Path, receipt: dict) -> None:
-    write_json(output / "checks.json", receipt)
+    from scripts import assessment_store  # noqa: PLC0415
+    assessment_store.publish(output, receipt)
     failures = [
         {"gate": check["gate"], **result}
         for check in receipt["checks"]
@@ -745,7 +746,7 @@ def run_gates(
         "relative": str(output.relative_to(root)),
     }
     receipt: dict = {
-        "version": 5,
+        "version": 6,
         "mode": "local",
         "baseline_failures": 0,
         "scope": [asdict(gate) for gate in gates],
@@ -1346,7 +1347,8 @@ def main(argv: list[str] | None = None) -> int:
         # Outside a gate's process wait; checks.json keeps the last checkpoint.
         print(f"validation interrupted; partial evidence: {output}", flush=True)
         return 128 + RECEIVED_SIGNAL
-    checks = json.loads((output / "checks.json").read_text())["checks"]
+    from scripts import assessment_store  # noqa: PLC0415
+    checks = assessment_store.root(output)["checks"]
     unsuccessful = [
         check["gate"] for check in checks if not validation_receipts.qualified(check)
     ]

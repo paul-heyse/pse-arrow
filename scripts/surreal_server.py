@@ -526,7 +526,7 @@ def require_borrowers_drained(state: Path) -> None:
     """Native-free registered contexts also own an admitted service lifetime."""
     owner = service_directory(state)
     require_tooling_drained(owner)
-    for record in test_resources.resource_status().values():
+    for record in test_resources.service_resources(owner).values():
         if not isinstance(record, dict):
             raise SupervisorError("Unresolved service resource registry entry")
         if record.get("kind") == "evidence" or record.get("cleanup") == "removed":
@@ -538,9 +538,9 @@ def require_borrowers_drained(state: Path) -> None:
             raise SupervisorError(
                 "An accepted fixture creation still borrows this storage service; actual settlement and drain are unobserved"
             )
-        if record.get("kind") == "namespace" and record.get("borrows"):
+        if record.get("borrows"):
             raise SupervisorError(
-                "An enclosing tooling namespace still has protected borrowers"
+                "An admitted service resource still has protected borrowers"
             )
         cleaner = record.get("cleaner")
         if (
@@ -1486,6 +1486,7 @@ def file_digest(path: Path) -> str:
 def setup(args: argparse.Namespace) -> dict[str, object]:
     args.interpretation = args.interpretation or SUBSTRATE_INTERPRETATION
     if (args.state / "config.json").exists():
+        test_resources.service_registry_binding(args.state.absolute())
         config = config_for(args.state.absolute())
         if config["interpretation"] != args.interpretation:
             raise SupervisorError("Existing state has a different interpretation")
@@ -1618,6 +1619,7 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             else not bool(args.execution_profile)
             or args.execution_profile in {"functional", "wide"}
         )
+        test_resources.service_registry_binding(state, establish=True)
         write_json(state / "config.json", config)
         (state / "tmp").mkdir(mode=0o700)
         payload_files.root(state, config).mkdir(mode=0o700, parents=True)
@@ -4180,24 +4182,29 @@ def drain_context(
     state: Path, database: str, *, deadline: float | None = None
 ) -> list[dict[str, str]]:
     """Cooperatively drain only the receiver associated with this exact context."""
-    if not (state / ".contexts" / f"{database}.json").exists():
-        base = config_for(state)
-        if (
-            "execution" not in object_mapping(base["resources"])
-            and base.get("primary_receiver") is None
-        ):
-            # A registered codec-only database never admitted a native receiver.
-            return []
-    selected = receiver_context(state, database)
-    config = config_for(selected)
-    if config["database"] != database:
-        raise SupervisorError(
-            "Drain requires an explicit receiver database association"
-        )
     deadline = time.monotonic() + 45 if deadline is None else deadline
     previous = getattr(_STARTUP, "deadline", None)
-    _STARTUP.deadline = deadline if previous is None else min(previous, deadline)
+    deadline = deadline if previous is None else min(previous, deadline)
+    _STARTUP.deadline = deadline
     try:
+        remaining(deadline)
+        if not (state / ".contexts" / f"{database}.json").exists():
+            base = config_for(state)
+            if (
+                "execution" not in object_mapping(base["resources"])
+                and base.get("primary_receiver") is None
+            ):
+                # A registered codec-only database never admitted a native receiver.
+                return []
+        selected = receiver_context(state, database)
+        config = config_for(selected)
+        if config["database"] != database:
+            raise SupervisorError(
+                "Drain requires an explicit receiver database association"
+            )
+        # The caller's clock includes configuration/identity observation and
+        # child startup. Never signal a receiver under an expired original offer.
+        remaining(deadline)
         observed = primary_observation(selected)
         group = observed.get("ControlGroup", "")
         if observed["ActiveState"] in {"inactive", "failed"} and (
@@ -4224,6 +4231,7 @@ def drain_context(
                 raise SupervisorError(
                     "Receiver identity changed before cooperative drain"
                 )
+            remaining(deadline)
             signal.pidfd_send_signal(descriptor, signal.SIGINT)
             while True:
                 completion = native_operation.drained(
@@ -7121,6 +7129,7 @@ def backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
     with lifecycle_reservation(state):
+        test_resources.service_registry_binding(state)
         return _backup(state, config, destination)
 
 
@@ -8916,6 +8925,7 @@ def recover_maintenance(
     state: Path, initializer: list[str], verifier: Path | None = None
 ) -> dict[str, object]:
     with lifecycle_reservation(state):
+        test_resources.service_registry_binding(state)
         config = config_for(state)
         if verifier is not None:
             config["payload_verifier"] = payload_verifier(verifier)
@@ -9205,6 +9215,7 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
         "config.json",
         ".supervisor.lock",
         "lifecycle-owner.json",
+        ".resource-owner/registry.json",
     }
     for path in state.rglob("*"):
         metadata_scratch = metadata_write_scratch(path, state)
@@ -9279,8 +9290,18 @@ def restore(
     manifest, original, _inventory = validated_restore_backup(source, interpretation)
     state = checked_directory(state)
     with lifecycle_reservation(state):
+        binding = state / ".resource-owner"
+        if binding.exists() or binding.is_symlink():
+            # An interrupted first publication can leave its established local
+            # registry binding. Verify that exact owner; never import a backup's
+            # resource authority or infer coverage for a previously live state.
+            if binding.is_symlink() or not binding.is_dir() or set(binding.iterdir()) != {
+                binding / "registry.json"
+            }:
+                raise SupervisorError("Unknown restore resource authority retained")
+            test_resources.service_registry_binding(state)
         if any(
-            path.name not in {".supervisor.lock", "lifecycle-owner.json"}
+            path.name not in {".supervisor.lock", "lifecycle-owner.json", ".resource-owner"}
             and not metadata_write_scratch(path, state)
             for path in state.iterdir()
         ):
@@ -9312,6 +9333,7 @@ def restore(
         }
         # Publish the fresh, closed identity before any bytes of the old database or
         # credentials. Every interruption is recoverable only through this owner.
+        test_resources.service_registry_binding(state, establish=True)
         write_json(state / "config.json", selected)
         return recover_maintenance(state, [])
 

@@ -76,6 +76,8 @@ class ResourceRecord(TypedDict, total=False):
     test: str | None
     state: str
     service_generation: str
+    service_owner: str
+    unresolved_service: NotRequired[str]
     service_namespace: str
     namespace_creation: str
     credentials_sha256: str
@@ -202,11 +204,14 @@ def resource_update(
                 raise ResourceError("Unknown resource identity")
             record = entry_facts(entry)
             identity = resource_identity(record)
+            acquired = {key: record.get(key) for key in ("service_owner", "service_generation", "unresolved_service")}
             if identity != entry.identity:
                 raise ResourceError("Resource facts contradict logical identity")
             yield record
             if resource_identity(record) != identity:
                 raise ResourceError("Resource update cannot replace logical identity")
+            if any(record.get(key) != value for key, value in acquired.items()):
+                raise ResourceError("Resource update cannot replace its acquired service binding")
             entry.phase = resource_phase(record)
     except FileNotFoundError as error:
         raise ResourceError("Unknown resource identity") from error
@@ -254,6 +259,49 @@ def registry() -> Path:
             )
         return path
     return host.root_path().parent / "test-resources"
+
+
+def service_registry_binding(owner: Path, *, establish: bool = False, deadline: float | None = None) -> None:
+    """Bind covered discovery to the actual service, including empty cohorts."""
+    path = owner / ".resource-owner" / "registry.json"
+    existing = resource_store.read(path) if path.exists() else None
+    if existing is not None and existing.get("registry") != str(registry().resolve()):
+        raise ResourceError("Service resource registry coverage differs from selected authority")
+    if existing is None and not establish:
+        raise ResourceError("Service resource registry coverage is unestablished")
+    store = storage()
+    store.ensure(resource_store.clock(deadline))
+    identity = registry().resolve().stat()
+    activation = resource_store.read(registry() / "activation.json")
+    expected = {"version": 1, "registry": str(registry().resolve()),
+                "identity": [identity.st_dev, identity.st_ino], "activation": activation}
+    if existing is not None:
+        if existing != expected:
+            raise ResourceError("Service resource registry coverage differs from selected authority")
+    elif establish:
+        resource_store.publish(path, expected)
+    else:
+        raise ResourceError("Service resource registry coverage is unestablished")
+
+
+def service_resources(owner: Path, *, deadline: float | None = None) -> dict[str, ResourceRecord]:
+    deadline = resource_store.clock(deadline)
+    service_registry_binding(owner, deadline=deadline)
+    store = storage()
+    for resource in store.access_ids("uncovered-service-access/" + resource_store.digest(str(owner)), deadline=deadline):
+        entry = store.lookup(resource, deadline=deadline)
+        if entry.phase == "active" and entry.facts.get("unresolved_service") == str(owner):
+            raise ResourceError("Original service association remains unresolved; quiet is unestablished")
+    result = {}
+    for resource in store.access_ids("service-access/" + resource_store.digest(str(owner)), deadline=deadline):
+        entry = store.lookup(resource, deadline=deadline)
+        if entry.phase != "active":
+            continue  # a protected interrupted departure can leave a stale marker
+        record = entry_facts(entry)
+        if record.get("service_owner") != str(owner):
+            raise ResourceError("Service access projection contradicts its authority")
+        result[resource] = record.copy()
+    return result
 
 
 def execution_owner(*, deadline: float | None = None) -> dict | None:
@@ -304,12 +352,16 @@ def invocation(
     nonce = uuid.uuid4().hex
     path = directory / f"{nonce}.json"
     declaration = {
-        "version": 1,
+        "version": 2,
         "nonce": nonce,
         "kind": kind,
         "selected": list(selected),
         "terminal_owner": terminal_owner,
     }
+    if kind == "python" and selected:
+        declaration["collection_owner"] = {
+            "pid": os.getpid(), "start": operation.start_identity(os.getpid()), "boot": host.boot()
+        }
     storage().create_invocation(declaration)
     producer = {
         "pid": os.getpid(),
@@ -353,8 +405,15 @@ def invocation(
                 for item in selected
             }
         )
-    resource_store.publish(path, declaration)
+        # Supplied selected identities are already collected. Empty selections
+        # stay explicitly staged until the runner/collector seals even an empty catalogue.
+        state["collected"] = bool(selected)
+    resource_store.publish(path, invocation_locator(declaration))
     return path
+
+
+def invocation_locator(declaration: Mapping[str, object]) -> dict:
+    return {key: declaration[key] for key in ("version", "nonce", "kind", "terminal_owner")}
 
 
 def read_invocation(path: Path) -> InvocationRecord:
@@ -366,11 +425,17 @@ def read_invocation(path: Path) -> InvocationRecord:
         raise ResourceError("Invocation must be a private owned file")
     record = json.loads(path.read_text())
     if (
-        record.get("version") != 1
+        record.get("version") != 2
         or not IDENTIFIER.fullmatch(str(record.get("nonce", "")))
-        or not isinstance(record.get("selected"), list)
     ):
         raise ResourceError("Invalid test invocation")
+    image = resource_store.FileStore(path.parent.parent).invocation_snapshot(record["nonce"])
+    declaration = image["declaration"]
+    if invocation_locator(declaration) != record:
+        raise ResourceError("Invocation locator differs from collected authority")
+    record = declaration
+    if not isinstance(record.get("selected"), list):
+        raise ResourceError("Invalid selected test identities")
     selected = record["selected"]
     if any(
         not isinstance(item, dict)
@@ -405,8 +470,8 @@ def publish_selection(path: Path, selected: Sequence[Mapping[str, str]]) -> None
                 ).document()
                 for item in selected
             }
-        resource_store.publish(path, declaration)
         state["declaration"] = dict(declaration)
+        state["collected"] = True
 
 
 def publish_python_requirements(
@@ -467,8 +532,9 @@ def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
                     "Python collector differs from its selected invocation"
                 )
             record.update(selected=selected, collection_owner=collector)
-            resource_store.publish(path, record)
             state["declaration"] = dict(record)
+            state["requirements"] = {identity: requirements[identity] for identity in identities}
+            state["collected"] = True
             return True
         if owner == collector:
             if record["selected"] != selected:
@@ -532,6 +598,8 @@ def require_effect(payload: Mapping[str, object], *, effect: str = "canonical") 
     from scripts import test_requirements
 
     try:
+        if not image.get("collected") or image.get("requirement_policy") != test_requirements.POLICY_VERSION:
+            raise ResourceError("Current collected requirement policy is unavailable; effects refused")
         test_requirements.guard(image.get("requirements", {}), str(test), effect)
     except ValueError as error:
         raise ResourceError(str(error)) from error
@@ -596,11 +664,13 @@ def observe_peer(payload: Mapping[str, object], child: Path, *, role: str) -> No
         or terminal.get("evidence", {}).get("assurance") != "pass"
     ):
         raise ResourceError("Peer has no complete reconciled Pass")
+    if image.get("requirement_policy") != test_requirements.POLICY_VERSION or not image.get("collected"):
+        raise ResourceError("Historical peer requirement policy cannot supply a current role")
     if declaration["kind"] == "rust":
         observed = {
             value
-            for item in declaration["selected"]
-            for value in test_requirements.rust(item["binary_id"], item["name"]).roles
+            for requirement in image.get("requirements", {}).values()
+            for value in requirement.get("roles", [])
         }
         if role not in observed:
             raise ResourceError("Peer selected catalog lacks its required role")
@@ -649,6 +719,8 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
         from scripts import test_requirements
 
         try:
+            if not image.get("collected") or image.get("requirement_policy") != test_requirements.POLICY_VERSION:
+                raise ResourceError("Current collected requirement policy is unavailable; effects refused")
             test_requirements.guard(image.get("requirements", {}), test, "canonical")
             if payload.get("execution_profile") is not None:
                 test_requirements.guard(image.get("requirements", {}), test, "native")
@@ -709,6 +781,8 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
         generation, namespace = current["instance_id"], current["namespace"]
         if not isinstance(generation, str) or not isinstance(namespace, str):
             raise ResourceError("Invalid service generation or namespace")
+        service_owner = surreal_server.service_directory(state, deadline=deadline)
+        service_registry_binding(service_owner, establish=True, deadline=deadline)
         facts = {
             "pid": os.getppid() if payload.get("executable") else os.getpid(),
             "start": operation.start_identity(
@@ -719,6 +793,7 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
             "test": test,
             "state": str(state),
             "service_generation": generation,
+            "service_owner": str(service_owner),
             "namespace": namespace,
             "database": database,
             "kind": kind,
@@ -953,15 +1028,26 @@ def borrow(
     deadline: float | None = None,
     store: resource_store.FileStore | None = None,
 ) -> Generator[str, None, None]:
+    from scripts import surreal_server  # noqa: PLC0415
+    selected_store = storage() if store is None else store
+    snapshot = entry_facts(selected_store.lookup(resource, deadline=deadline))
+    admission = (
+        contextlib.nullcontext()
+        if snapshot["kind"] == "evidence"
+        else surreal_server.context_admission(Path(snapshot["state"]), deadline=deadline, wait_for_lifecycle=False)
+    )
     token = uuid.uuid4().hex
-    with resource_update(resource, deadline=deadline, store=store) as record:
+    with admission, resource_update(resource, deadline=deadline, store=selected_store) as record:
         if not isinstance(record, dict) or record["cleanup"] in {"removing", "removed"}:
             raise ResourceError(
                 "Origin is unknown or unavailable for reference acquisition"
             )
+        if any(record.get(key) != snapshot.get(key) for key in ("state", "service_owner", "service_generation", "kind")):
+            raise ResourceError("Resource service association changed during borrower admission")
         record["borrows"][token] = {
             "pid": os.getpid(),
             "start": operation.start_identity(os.getpid()),
+            "boot": host.boot(),
         }
     try:
         yield token
@@ -1056,12 +1142,75 @@ def borrow_report(
             yield
 
 
+def read_report_file(
+    directory: Path, relative: str, *, require_sealed: bool = False,
+    deadline: float | None = None,
+) -> tuple[bytes, dict[str, object]]:
+    """Authenticate the exact selected bytes observed by one protected reader.
+
+    The caller holds its report borrow. Unknown reports remain explicit inspection
+    inputs; a known sealed owner must match its recorded root inode and digest.
+    This does not hydrate or hash any unselected source or gate detail.
+    """
+    resource = report_resource(directory, deadline=deadline)
+    record = resource_status(resource, deadline=deadline) if resource is not None else None
+    manifest = report_manifest(record) if record is not None else None
+    if require_sealed and (record is None or record.get("artifact_policy_version") != 1 or manifest is None):
+        raise ResourceError("Origin requires qualified ownership and a sealed receipt before reuse")
+    if record is not None and "artifact_manifest" in record and manifest is None:
+        raise ResourceError("Known report has an invalid sealed artifact manifest")
+
+    directory_owned = record is not None and isinstance(record.get("owner_root"), str) and isinstance(record.get("directory_identity"), list)
+    if manifest is not None and not directory_owned:
+        raise ResourceError("Sealed report directory ownership is unavailable")
+
+    def observed(stream: BufferedReader) -> tuple[bytes, list[int]]:
+        information = os.fstat(stream.fileno())
+        if relative == "checks.json" or relative.startswith("details/"):
+            host.validate_private_file(information, "assessment metadata")
+        elif not stat.S_ISREG(information.st_mode) or information.st_uid != os.getuid():
+            raise ResourceError("Evidence artifact ownership changed")
+        return stream.read(), [information.st_dev, information.st_ino, information.st_uid]
+
+    if record is not None and directory_owned:
+        with report_directory(record) as descriptor, artifact_file(descriptor, relative) as (_, _, stream):
+            data, identity = observed(stream)
+    else:
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            with artifact_file(descriptor, relative) as (_, _, stream):
+                data, identity = observed(stream)
+        finally:
+            os.close(descriptor)
+    observed_digest = hashlib.sha256(data).hexdigest()
+    if manifest is not None:
+        expected = manifest["entries"].get(relative)
+        if expected is None or expected["identity"] != identity or expected["digest"] != observed_digest or (relative == "checks.json" and manifest["receipt_digest"] != observed_digest):
+            raise ResourceError("Sealed assessment artifact ownership or digest changed: " + relative)
+        custody: dict[str, object] = {"status": "sealed", "resource": resource, "receipt_digest": manifest["receipt_digest"], "automatic_reuse": record is not None and record.get("artifact_policy_version") == 1}
+
+    elif record is not None:
+        custody = {"status": "unsealed-producer-checkpoint" if directory_owned else "registered-unqualified-inspection", "resource": resource, "automatic_reuse": False}
+    else:
+        custody = {"status": "unregistered-inspection", "automatic_reuse": False}
+    return data, custody
+
+
+def read_report_root(
+    directory: Path, *, require_sealed: bool = False,
+    deadline: float | None = None,
+) -> tuple[bytes, dict[str, object]]:
+    """Read and authenticate one small root from the same file descriptor."""
+    return read_report_file(directory, "checks.json", require_sealed=require_sealed, deadline=deadline)
+
+
 @contextlib.contextmanager
 def reference_report(
     directory: Path,
     consumer: Path | None,
     *,
     deadline: float | None = None,
+    full_integrity: bool = False,
 ) -> Generator[None, None, None]:
     """Borrow before reading; transfer protection under the optional caller deadline."""
     resource = report_resource(directory, deadline=deadline)
@@ -1070,23 +1219,25 @@ def reference_report(
             "Origin requires qualified ownership and a sealed receipt before reuse"
         )
     with borrow(resource, deadline=deadline):
-        selected = resource_status(resource, deadline=deadline)
-        manifest = report_manifest(selected)
-        if selected.get("artifact_policy_version") != 1 or manifest is None:
-            raise ResourceError("Origin lacks an unchanged sealed receipt")
-        original_digest = file_digest(directory / "checks.json")
-        if original_digest != manifest["receipt_digest"]:
-            raise ResourceError("Origin lacks an unchanged sealed receipt")
-        with report_directory(selected) as descriptor:
-            verify_manifest_files(descriptor, manifest)
-        yield
+        _, custody = read_report_root(directory, require_sealed=True, deadline=deadline)
+        original_digest = str(custody["receipt_digest"])
+        if full_integrity:
+            selected = resource_status(resource, deadline=deadline)
+            manifest = report_manifest(selected)
+            if manifest is None:
+                raise ResourceError("Origin lacks an unchanged sealed receipt")
+            with report_directory(selected) as descriptor:
+                verify_manifest_files(descriptor, manifest)
         if consumer is not None:
-            digest = file_digest(directory / "checks.json")
-            if digest != original_digest:
-                raise ResourceError("Origin receipt changed during reference transfer")
             retain_reference(
-                resource, str(consumer.resolve()), digest, deadline=deadline
+                resource, str(consumer.resolve()), original_digest, deadline=deadline
             )
+        # Durable dependent custody precedes any caller publication. A failed
+        # caller may retain a reference; it must never expose an unprotected origin.
+        yield
+        _, after = read_report_root(directory, require_sealed=True, deadline=deadline)
+        if after["receipt_digest"] != original_digest:
+            raise ResourceError("Origin receipt changed during reference transfer")
 
 
 ARTIFACT_ROLES = frozenset({"receipt", "provenance", "evidence", "scratch", "unknown"})
@@ -1281,7 +1432,7 @@ def report_outcome(receipt: Mapping[str, object]) -> tuple[bool, bool]:
             and len({check["gate"] for check in checks}) == len(checks)
         )
     passed = (
-        receipt.get("version") == 5
+        receipt.get("version") == 6
         and complete
         and receipt.get("required_checks_covered") is True
         and qualified
@@ -1319,9 +1470,8 @@ def finish_report(
         for name, role in roles.items()
     ):
         raise ResourceError("Producer must declare valid roles and the checks receipt")
-    if json.loads((directory / "checks.json").read_text()) != json.loads(
-        json.dumps(receipt)
-    ):
+    from scripts import assessment_store  # noqa: PLC0415
+    if assessment_store.export(directory) != json.loads(json.dumps(receipt)):
         raise ResourceError("Finalized receipt differs from the outcome being sealed")
     checks = receipt.get("checks", [])
     if not isinstance(checks, list) or any(
@@ -1336,6 +1486,7 @@ def finish_report(
                 raise ResourceError(
                     "Receipt-consumed evidence cannot be disposable scratch"
                 )
+    roles = {**roles, **assessment_store.artifact_roles(directory)}
     entries: dict[str, ReportArtifact] = {}
     with report_directory(selected) as descriptor:
         for path in directory.rglob("*"):
@@ -1404,28 +1555,14 @@ def reclaim_reports() -> list[str]:
     store.ensure(deadline)
     cursor_path = registry() / "cleanup-cursor.json"
     with store.lock("sweeps", "cleanup", deadline):
-        cursor = (
-            resource_store.read(cursor_path).get("after", "")
-            if cursor_path.exists()
-            else ""
-        )
+        cursors = resource_store.read(cursor_path) if cursor_path.exists() else {}
         candidates = []
-        visited = store.active_ids(limit=64, after=str(cursor), deadline=deadline)
-        for resource in visited:
-            record = resource_status(resource, deadline=deadline)
-            if (
-                record.get("disposition") == "pass"
-                and not record.get("pin", True)
-                and not record.get("references")
-                and not record.get("borrows")
-            ):
-                candidates.append(resource)
-                if len(candidates) == 4:
-                    break
-        if candidates:
-            resource_store.publish(cursor_path, {"after": candidates[-1]})
-        elif visited:
-            resource_store.publish(cursor_path, {"after": visited[-1]})
+        for family in ("scratch-candidates", "fixture-candidates"):
+            visited = store.access_ids(family, limit=4, after=str(cursors.get(family, "")), deadline=deadline)
+            candidates.extend(visited)
+            if visited:
+                cursors[family] = visited[-1]
+        resource_store.publish(cursor_path, cursors)
     errors = []
     for resource in candidates:
         try:
@@ -1853,6 +1990,7 @@ def main() -> int:
             "register",
             "setup-failure",
             "drain",
+            "record-drain",
             "list",
             "status",
             "pin",
@@ -1860,6 +1998,8 @@ def main() -> int:
             "release-reference",
             "reclaim",
             "migrate",
+            "convert",
+            "original",
             "resume",
             "abandon",
         ),
@@ -1873,6 +2013,7 @@ def main() -> int:
         help="apply exact invocation abandonment instead of inspection",
     )
     parser.add_argument("--seconds", type=float, default=30)
+    parser.add_argument("--service", type=Path, action="append", default=[])
     parser.add_argument("--storage", action="store_true")
     parser.add_argument(
         "--terminal-owner", choices=("runner", "standalone", "assessment")
@@ -1892,7 +2033,18 @@ def main() -> int:
                 *(["--storage"] if args.storage else []),
             ]
         )
-    if args.action == "migrate":
+    if args.action in {"convert", "original"}:
+        from scripts import resource_conversion  # noqa: PLC0415
+        if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
+            parser.error("conversion/original inspection requires an exact PSE_TEST_RESOURCE_STATE")
+        if args.action == "convert":
+            services = [*args.service, *([Path(os.environ["PSE_SURREAL_STATE"])] if os.environ.get("PSE_SURREAL_STATE") else [])]
+            print(json.dumps(resource_conversion.convert(registry(), deadline=time.monotonic() + args.seconds, services=services)))
+        elif not args.resource:
+            parser.error("original inspection requires an exact invocation identity")
+        else:
+            print(json.dumps(resource_conversion.original(registry(), args.resource)))
+    elif args.action == "migrate":
         if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
             parser.error(
                 "migration requires an explicitly selected PSE_TEST_RESOURCE_STATE; inspect and authorize its existing content first"
@@ -1910,7 +2062,7 @@ def main() -> int:
                 )
             )
         )
-    elif args.action in {"register", "drain", "setup-failure"}:
+    elif args.action in {"register", "drain", "record-drain", "setup-failure"}:
         payload = json.load(sys.stdin)
         if args.action == "register":
             print(json.dumps({"resource": register(payload)}))
@@ -1919,18 +2071,24 @@ def main() -> int:
             print(json.dumps({"observed": True}))
         else:
             resource = str(payload["resource"])
-            record = resource_status(resource)
+            expires = payload.get("deadline_monotonic_ns")
+            if type(expires) is not int or expires <= 0:
+                raise ResourceError("Drain requires its original monotonic deadline")
+            deadline = expires / 1_000_000_000
+            host.remaining(deadline, 1)
+            record = resource_status(resource, deadline=deadline)
             state = Path(record["state"])
             units = payload.get("units", [])
-            if (state / ".contexts" / f"{record['database']}.json").exists():
+            if args.action == "drain" and (state / ".contexts" / f"{record['database']}.json").exists():
                 from scripts import surreal_server  # noqa: PLC0415 -- owner cycle
 
                 units = [
                     *units,
-                    *surreal_server.drain_context(state, record["database"]),
+                    *surreal_server.drain_context(state, record["database"], deadline=deadline),
                 ]
-            record_drain(resource, units=units)
-            print(json.dumps({"drained": True}))
+            if args.action == "record-drain" or not payload.get("physical_only", False):
+                record_drain(resource, units=units, deadline=deadline)
+            print(json.dumps({"drained": args.action == "record-drain" or not payload.get("physical_only", False), "units": units}))
     elif args.action in {"list", "status"}:
         print(json.dumps(resource_status(args.resource), sort_keys=True))
     else:

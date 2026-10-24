@@ -239,6 +239,7 @@ class NamespaceTests(unittest.TestCase):
             tool.fixture(resource)
 
     def test_lifecycle_reservation_wins_before_child_submission(self) -> None:
+        resource = self.register()
         with (
             patch.object(tool, "verify"),
             patch.object(
@@ -253,7 +254,7 @@ class NamespaceTests(unittest.TestCase):
             patch.object(tool.native_operation, "run_child_scope") as child,
             self.assertRaisesRegex(server.SupervisorError, "closed owner"),
         ):
-            tool.execute(Path("binary"), "resource", self.root, "sync")
+            tool.execute(Path("binary"), resource, self.root, "sync")
         child.assert_not_called()
 
     def test_failed_cli_keeps_unknown_server_activity_protected(self) -> None:

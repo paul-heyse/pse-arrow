@@ -42,6 +42,9 @@ from scripts.validation_scope import (
 )
 
 
+from scripts import assessment_store
+from scripts.tests import assessment_fixture
+
 class ValidationTests(unittest.TestCase):
     def test_functional_scopes_supply_actual_portable_producer_receipt(self) -> None:
         self.assertEqual(expand(("producer-fixture",))[0].input_scope, "rust-product")
@@ -174,7 +177,8 @@ class ValidationTests(unittest.TestCase):
                 "def run(root, output, gates, **kwargs):\n"
                 "    captured['gates'] = [asdict(gate) for gate in gates]\n"
                 "    captured['change_reason'] = kwargs['change_reason']\n"
-                "    (output / 'checks.json').write_text(json.dumps({'checks': []}))\n"
+                "    from scripts.tests.assessment_fixture import publish\n"
+                "    publish(output, {'checks': []})\n"
                 "    return 0\n"
                 "with patch.object(validation, 'fresh_output', side_effect=fresh), patch.object(validation, 'run_gates', side_effect=run), patch.object(preflight, 'main', return_value=0) as prerequisite:\n"
                 "    code = validation.main()\n"
@@ -260,7 +264,7 @@ class ValidationTests(unittest.TestCase):
             "provenance_errors": [],
             **receipt,
         }
-        validation.write_json(directory / "checks.json", receipt)
+        assessment_fixture.publish(directory, receipt)
         resource = test_resources.register_report(directory, root=self.root)
         test_resources.finish_report(
             resource,
@@ -465,7 +469,7 @@ class ValidationTests(unittest.TestCase):
             code = validation.run_gates(
                 self.root, self.output, [Gate("first"), Gate("last")], capture=False
             )
-        receipt = json.loads((self.output / "checks.json").read_text())
+        receipt = assessment_store.export(self.output)
         self.assertEqual(code, 1)
         self.assertTrue(receipt["complete"])
         self.assertEqual([check["exit_code"] for check in receipt["checks"]], [7, 0])
@@ -540,7 +544,8 @@ class ValidationTests(unittest.TestCase):
             self.assertTrue((self.output / name).exists())
         self.assertEqual(manifest["pure.log"]["role"], "evidence")
         self.assertEqual(record["artifacts"], {})
-        self.assertEqual(test_resources.reclaim(resource), "compacted")
+        self.assertEqual(test_resources.reclaim(resource), "no disposable report artifacts")
+        self.assertEqual(test_resources.resource_status(resource)["cleanup"], "compacted")
         self.assertEqual(
             (self.output / "source.diff").read_bytes(), b"authored uncommitted patch"
         )
@@ -605,7 +610,7 @@ class ValidationTests(unittest.TestCase):
                 [Gate("first", report="{output}/bad.xml"), Gate("last")],
                 capture=False,
             )
-        receipt = json.loads((self.output / "checks.json").read_text())
+        receipt = assessment_store.export(self.output)
         self.assertEqual(code, 1)
         self.assertEqual(len(receipt["checks"]), 2)
         self.assertTrue(receipt["checks"][0]["report_errors"])
@@ -816,7 +821,7 @@ class ValidationTests(unittest.TestCase):
         with patch.object(validation, "execute", side_effect=execute):
             code = validation.run_gates(self.root, self.output, gates, capture=False)
         self.assertEqual(code, 0)
-        checks = json.loads((self.output / "checks.json").read_text())["checks"]
+        checks = assessment_store.export(self.output)["checks"]
         for gate, check in zip(gates, checks, strict=True):
             command = commands[gate.name]
             self.assertEqual(command[command.index("--profile") + 1], gate.profile)
@@ -864,7 +869,7 @@ class ValidationTests(unittest.TestCase):
                 ],
                 capture=False,
             )
-        receipt = json.loads((self.output / "checks.json").read_text())
+        receipt = assessment_store.export(self.output)
         self.assertEqual(code, 1)
         self.assertEqual(
             [c["status"] for c in receipt["checks"]], ["failed", "blocked", "passed"]
@@ -981,7 +986,7 @@ class ValidationTests(unittest.TestCase):
                 ),
                 1,
             )
-        receipt = json.loads((self.output / "checks.json").read_text())
+        receipt = assessment_store.export(self.output)
         self.assertEqual(
             [c["status"] for c in receipt["checks"]], ["interrupted", "not_run"]
         )
@@ -1138,7 +1143,7 @@ class ValidationTests(unittest.TestCase):
                 1,
             )
             called.assert_called_once()
-        record = json.loads((self.output / "checks.json").read_text())["checks"][0]
+        record = assessment_store.export(self.output)["checks"][0]
         self.assertEqual(record["selected"], [{"class": "pse-runtime", "name": name}])
         self.assertEqual(record["status"], "failed")
 
@@ -1180,7 +1185,7 @@ class ValidationTests(unittest.TestCase):
                 ),
                 1,
             )
-        receipt = json.loads((self.output / "checks.json").read_text())
+        receipt = assessment_store.export(self.output)
         self.assertEqual(
             [item["status"] for item in receipt["checks"]], ["failed", "blocked"]
         )
@@ -1224,7 +1229,7 @@ class ValidationTests(unittest.TestCase):
         self.seal_origin(
             origin,
             {
-                "version": 5,
+                "version": 6,
                 "input_coverage": True,
                 "scope": [{"name": "producer-fixture"}],
                 "checks": [{"gate": "producer-fixture", "status": "passed"}],
@@ -1296,7 +1301,7 @@ class ValidationTests(unittest.TestCase):
                 "python-attestation.json"
             )
         )
-        receipt = json.loads((self.output / "checks.json").read_text())
+        receipt = assessment_store.export(self.output)
         self.assertEqual(receipt["checks"][1]["status"], "failed")
 
     def test_native_fixture_precedes_every_fixture_receipt_consumer(self) -> None:
@@ -1379,20 +1384,16 @@ class ValidationTests(unittest.TestCase):
             "artifacts": {log.name: validation_receipts.digest(log)},
             "inputs": validation.input_identity("unknown", {"src": "old"}, {}),
         }
-        validation.write_json(
-            self.output / "checks.json",
+        self.seal_origin(
+            self.output,
             {
-                "version": 5,
+                "version": 6,
                 "source_files": {"src": "old"},
                 "input_coverage": True,
                 "environment": {},
                 "checks": [check],
                 "scope": scope,
             },
-        )
-        self.seal_origin(
-            self.output,
-            json.loads((self.output / "checks.json").read_text()),
             {"test.log": "evidence"},
         )
         use = validation_receipts.reuse_checks
@@ -1416,6 +1417,19 @@ class ValidationTests(unittest.TestCase):
         )[0]
         self.assertEqual(transferred["evidence_kind"], "reviewed-transfer")
         self.assertEqual(transferred["changed_inputs"], ["src"])
+        original = log.with_suffix(".original")
+        log.rename(original)
+        try:
+            log.write_text("original execution")
+            with self.assertRaises((ValueError, OSError)):
+                use(self.output, {"src": "old"}, {}, scope, {"test"}, set(), None)
+            log.unlink()
+            log.symlink_to(original.name)
+            with self.assertRaises((ValueError, OSError)):
+                use(self.output, {"src": "old"}, {}, scope, {"test"}, set(), None)
+        finally:
+            log.unlink(missing_ok=True)
+            original.rename(log)
         log.write_text("tampered")
         with self.assertRaises(ValueError):
             use(self.output, {"src": "new"}, {}, scope, set(), {"test"}, "reviewed")
@@ -1431,7 +1445,7 @@ class ValidationTests(unittest.TestCase):
             "inputs": validation.input_identity("unknown", {"src": "old"}, {}),
         }
         receipt = {
-            "version": 5,
+            "version": 6,
             "input_coverage": True,
             "checks": [check],
             "scope": scope,
@@ -1542,7 +1556,7 @@ class ValidationTests(unittest.TestCase):
                 inventory.call_count, 1
             )  # provenance owns the initial capture
             self.assertEqual(result, expected)
-            receipt = json.loads((output / "checks.json").read_text())
+            receipt = assessment_store.export(output)
             self.assertEqual(receipt["contextual_changes"], [path])
             self.assertEqual(
                 receipt["checks"][0]["status"], "passed" if expected == 0 else "failed"
