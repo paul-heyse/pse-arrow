@@ -129,12 +129,14 @@ discriminate.
 - The diagnosis does not challenge either policy. It concerns their application to comparisons
   whose references support, and whose claims need, finer discrimination.
 
-**Uncertainty.** Two things are not established:
-- how much of each allowance current results actually use;
-- whether expectation tolerances combine absolute and relative parts by maximum or by sum.
+**Uncertainty.** How much of each allowance current results actually use is not established.
+Expectation tolerances add their parts: allowance = absolute + relative·|expected|. That rule
+is asserted independently at `crates/pse-compiler/src/workspace/modeling/tests.rs:4056-4093`,
+where 0.25 + 0.001·1000 gives 1.25.
 
-Two probes would settle it: record β for the nine complementarity fixtures, and perturb one
-PC-SAFT coefficient by about 1e-5 relative to confirm the fixtures still pass.
+Two probes would settle the remaining question: record β for the nine complementarity
+fixtures, and perturb one PC-SAFT coefficient by about 1e-5 relative to confirm the fixtures
+still pass.
 
 ## <a id="dta-003"></a>DTA-003 — Three computed references used as expectations have no committed generator
 
@@ -195,8 +197,11 @@ behavior.
 - *Established:* HiGHS.
 - *Suspected:* no unit test stating independent expected categories was found for the Clarabel
   mapping (`crates/pse-backend-native/src/conic.rs:916-936`) or the POUNCE mapping
-  (`pounce.rs:1108`). Real-solver outcome tests may cover some codes indirectly; that was not
-  traced.
+  (`pounce.rs:1108`).
+  - Clarabel's mapping is an exhaustive match over the library's closed status enum, so a
+    dropped arm cannot compile. Whether each status maps to the right category is still
+    unasserted.
+  - Real-solver outcome tests may cover some codes indirectly; that was not traced.
 
 **Counterevidence.** Uno, SCIP, KINSOL and Ipopt do state independent expectations:
 - `uno.rs:708+` lists named categories;
@@ -226,15 +231,21 @@ reasoning predicts it still passes.
 - An error in the primitive Jacobian or Hessian propagates into both the jets and the checks.
 - Second-order jets receive no independent challenge here.
 
-**Counterevidence.** Two other checks reach the PR model:
+**Counterevidence.** Three other checks reach the PR model:
+- `crates/pse-math/src/implicit_property_tests.rs:174-201` checks PR implicit second
+  derivatives against a hand-derived implicit-function oracle at 2e-11.
 - FeOS and teqp oracles check `ln_phi`, pressure and residual caloric properties, at the
   allowance discussed in [DTA-002](#dta-002).
 - Modeling conformance runs a shared central-difference derivative diagnostic with
-  `Inconclusive` handling and a known truncation-bias control
-  (`crates/pse-backend-native/src/derivative_diagnostics.rs:85-92,192-251,385`).
+  `Inconclusive` handling, a known truncation-bias control
+  (`crates/pse-backend-native/src/derivative_diagnostics.rs:85-92,192-251,385`) and
+  wrong-partial and missing-support controls (`derivative_dynamics.rs:323-329`).
 
-**Uncertainty.** Moderate. It is not established how discriminating the conformance
-derivative diagnostic is for this model.
+**Uncertainty.** Moderate. The residual gap is narrower than the test file alone suggests. The
+shared diagnostic is first-order only and samples at the start point. It compares entries
+below 1 in magnitude absolutely, at 1e-4, in normalized coordinates
+(`derivative_diagnostics.rs:334-345`). Second order is covered generally by
+[DTA-020](#dta-020).
 
 ## <a id="dta-006"></a>DTA-006 — Rejection tests often assert only `is_err()`, so with opaque inputs they can pass for an unrelated reason
 
@@ -260,7 +271,9 @@ control:
 - the domain-refusal corpus (`crates/pse-modeling/src/domain_schema.rs:229-270`);
 - relation admission (`crates/pse-relations/tests/admission.rs:143-232,302-379`).
 
-Every `pub enum *Error` carries a typed diagnostic code, so a reason is cheap to assert.
+Where a refusal has a typed reason (domain, realization and objective refusals), tests assert
+it. The dominant modeling refusal class has no typed reason, which is
+[DTA-028](doubles-and-coupling.md#dta-028).
 
 ## <a id="dta-007"></a>DTA-007 — Floating comparisons are re-authored per file, several accept non-finite expectations or mismatched lengths, and the declared finite comparison contract is unused
 
@@ -297,3 +310,111 @@ probably enforces vector dimensions, though that was not verified.
   - `near` (`tests/support/plan14.rs:154-159`);
   - `close_scaled` (`kkt/sensitivity/tests.rs:636`).
 - No blanket tolerance is shared across unrelated quantities.
+- `approx` 0.5.1 is already in `Cargo.lock` (library lead). Its relative comparison returns
+  false when exactly one side is infinite, and its slice comparisons require equal lengths.
+  Those are the two gaps above.
+
+## <a id="dta-020"></a>DTA-020 — Sensitivities, covariances and their validity verdicts are tested only on problems with constant curvature and linear constraints
+
+**Principles:** PS-07, PS-12, PS-13, DP-11, DP-23; companion §1, §4, §7.
+
+**Claim at risk.** Several published second-order results are correct for nonlinear models:
+- parametric sensitivities and the inverse reduced Hessian;
+- exact-Hessian and propagated covariances;
+- the `second_order` and `certified` validity verdicts.
+
+**Diagnosis.** Every KKT-level and end-to-end test of these quantities uses a constant
+Lagrangian Hessian with zero constraint curvature (Σλᵢ∇²gᵢ = 0):
+- `crates/pse-backend-native/src/kkt/sensitivity/tests.rs:21-28`: a quadratic objective with
+  linear `g` and `h`.
+- `kkt/tests.rs:8`: "f = ½xᵀQx with linear rows g = Ax".
+- `crates/pse-runtime/src/workflow/modeling/sensitivity_tests.rs:30-48`: quadratic and linear
+  models, reused by `uncertainty_tests.rs`.
+- `fitting/covariance_tests.rs:22-30`: "On a linear model…".
+- `fitting/p09_tests.rs:1194-1200`: "no residual curvature".
+- The independent references were drawn from the same class: sIPOPT on a QP
+  (`python/pse/parity/tests/test_sensitivity_parity.py:1-14`) and parmest on a model linear in
+  its parameters (`test_covariance_parity.py:1-13`).
+- No authored reference fixture requests sensitivities or covariances.
+- The shared conformance derivative check is first-order only
+  (`crates/pse-runtime/src/workflow/modeling/conformance.rs:2150-2156`).
+
+**Consequence (conceals defects).** Each of these defects vanishes when curvature is constant
+and constraints are linear, so all of them would pass:
+- a wrong sign or weight on the multiplier-weighted constraint Hessian (solvers differ in their
+  multiplier sign conventions);
+- a Hessian evaluated at a stale or normalized point;
+- missing row scaling of constraint Hessians;
+- mishandling of the objective factor.
+
+Sensitivities, exact covariances and confidence intervals for nonlinear fits would then be
+published wrong. The second-order-sufficiency inertia check could flip, so a result could be
+certified or withheld wrongly. NLP solutions themselves remain protected by first-order KKT
+validation.
+
+**Counterevidence.**
+- Second derivatives do have independent expectations elsewhere:
+  - primitive, authored-expression and PR implicit Hessians against hand-derived values
+    (`crates/pse-math/src/derivative_tests.rs:978-1012`; `implicit_property_tests.rs:174-201`);
+  - the IDAS second-order adjoint against finite differences on a nonlinear reactor
+    (`crates/pse-backend-native/src/dynamics/adjoint_tests.rs:836-860`);
+  - arclength curvature on nonlinear residuals.
+- Withholding decisions are well controlled ([Strengths](README.md#strengths-to-preserve)).
+
+**Uncertainty.** Whether the derived path shares Hessian assembly with the Ipopt callback, which
+would give indirect evidence through convergence, was not traced.
+
+**Probe.** Solve `min x²+y² s.t. x·y = p`, or an exponential-decay fit with an exact Hessian.
+Compare dx/dp, the reduced Hessian and the covariance against hand-derived values or against
+central differences of re-solves.
+
+**Related.** [DA-010](../audit/structure-and-invariants.md#da-010) is a separate production
+cause and was not reexamined.
+
+## <a id="dta-021"></a>DTA-021 — Reference coverage counts a definition once any fixture instantiates it, so parameter-selected variants that nothing discriminates count as covered
+
+**Principles:** PS-13, PS-06, DP-23; companion §4, §7.
+
+**Claim at risk.** Each unit model is compared with a reference. The conformance coverage row
+reads "definition instantiated by an authored fixture".
+
+**Diagnosis.** `coverage` (`crates/pse-runtime/src/workflow/modeling/conformance.rs:356-400`)
+counts instantiated definitions, not the `when` arms that parameters select. Some fixtures also
+use conditions under which arms cannot be told apart.
+
+*Heat exchanger: the default arm has no solved fixture.*
+- `HeatExchanger` defaults to `cocurrent:Boolean=false`
+  (`packages/reference/process/models/heat-exchanger.pse:7`), which selects the countercurrent
+  arm (`:24-27`).
+- Every solved fixture sets `cocurrent=true`
+  (`packages/reference/seed-data/models/unit-fixtures.pse:130-133`; `exchanger-costing.pse`).
+
+*Mixer: the default arm cannot be distinguished.*
+- The default `minimize` pressure arm of `Mixer` is checked only by `mixer_saponification`.
+- There both inlets are at 101,325 Pa and the outlet is accepted within ±100 Pa, so a min, max,
+  mean or either-inlet relation all pass.
+- The `equality` arm is never instantiated.
+
+*PID: derivative action has no generated reference.*
+- PID derivative action is on by default.
+- The parity and control fixtures set Td = 0 (`python/pse/parity/tests/test_pid_parity.py:43-44`).
+- Derivative action is compared only against `cstr_controller_reference`, which has no
+  generator ([DTA-003](#dta-003)).
+
+**Consequence (conceals defects).** Swapping the countercurrent temperature differences, or
+substituting `smooth_max` for `smooth_min`, passes every reference check. Coverage still
+reports the definition as covered. For the heat exchanger, the default arrangement is the
+unchecked one.
+
+**Suspected wider footprint.**
+- Other parameter-selected arms, which were spot-checked only. Separator split bases, pressure
+  changer variants, ControlVolume0D bases and both PFR schemes are covered.
+- The logarithmic mean has `valid(a>0 and b>0 and a!=b)`, which refuses a balanced
+  countercurrent exchanger whose end differences are equal. The only LMTD fixture uses 20 K and
+  10 K.
+
+**Counterevidence.** Per-definition coverage has a failing control. Temperature-difference forms
+are checked analytically at 1e-10 K. `smooth_min` is exercised by the complementarity fixtures.
+
+**Uncertainty.** The arms read as consistent today; the gap is missing evidence, not an
+established defect.

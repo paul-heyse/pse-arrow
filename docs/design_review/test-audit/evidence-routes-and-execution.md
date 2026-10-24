@@ -43,6 +43,13 @@ signals intact, so this is a deliberate policy. The terminal evidence itself is 
 cannot be overwritten by a later report. The finding records the gap between that policy and
 the reconciliation claim; it does not select between them.
 
+**Related.** `test_run.py:117` counts child exits 0, 1 and 100 as "complete" for both pytest and
+nextest. For nextest, exit 1 means an unexpected failure. Report-error checks limit the
+consequence.
+
+A runner profile mismatch ([DTA-022](test-execution-system.md#dta-022)) can make every
+selected test `not_run` while the command still exits 0.
+
 ## <a id="dta-013"></a>DTA-013 — Some committed tests and evidence controls have no route that runs them
 
 **Principles:** AP-05, DP-23, DP-24; companion §4, §6.
@@ -150,7 +157,10 @@ obligation". Section 24.1 says tests own their isolated databases and mutable st
   effect only with `--dist loadgroup`, which only `native_tests.python_command` injects
   (`scripts/native_tests.py:562-571`). Bare `pytest` uses the `addopts` default
   `-n 16 --dist=worksteal` (`pyproject.toml`), so canonical component tests spread across 16
-  workers. The reason for the group is not recorded in code.
+  workers. The reason for the group is not recorded in code. The fixed `-n 16` also ignores
+  the allocation width that only the runner applies. That contradicts
+  `docs/dev/agent-environment.md:175-177`, which says ordinary pytest takes the allocation
+  width.
 - *The stack policy is lost.* `just affected --run` replaces itself with
   `scripts/pse-env -- cargo nextest …` (`scripts/affected.py:212-216`). That bypasses
   `arrow_validation.rust_test_environment`, the only place `RUST_MIN_STACK` is set
@@ -197,6 +207,22 @@ production-structure finding; it is not reexamined here.
   `workflow::tests::durability_selection_validates_positive_lease_and_heartbeat_intervals`
   (`.config/nextest.toml:116`). The check extracted every `test(=…)` term and grepped each
   final path segment as a `fn` in `crates/`, `tests/`, `xtask/` and `benches/`.
+
+**Correction (second pass).** The one stale term (`.config/nextest.toml:116`) sits in the
+exclusion list of the database-only `store` override. That group's cap equals the thread
+count, so this stale term has no scheduling effect today. The list that carries exclusivity is
+the first override (about lines 46-71). The structural risk stands.
+
+Four store-fixture modules match no store override:
+- `canonical_contexts::tests`;
+- `canonical_lifecycle::canonical_lifecycle_tests`;
+- `canonical_projects::tests`;
+- `canonical_explanations::server_tests`.
+
+This is harmless at the current cap but would escape any lower one.
+
+[DTA-023](test-execution-system.md#dta-023) diagnoses the general cause, name-keyed runner
+tables. This finding keeps its identity as the scheduling manifestation.
 
 **Consequence.** Renaming an exclusive test silently moves it into shared execution, where
 timing-sensitive assertions can become intermittent.
@@ -286,8 +312,17 @@ database per test is a deliberate isolation premise.
 [DTA-012](#dta-012) weakens that last benefit at the exit-status level. Some tests target
 schema installation itself.
 
-**Uncertainty.** No measurement was taken. Whether the per-test bridge and schema cost is
-material relative to test bodies is unknown.
+**Python side.** The Python `canonical_substrate` fixture likewise initializes a full database
+per test through `initialize_database` (`python/pse/tests/conftest.py:84-133`). About 78 test
+functions use it.
+
+**Uncertainty.** The per-test cost is unattributed. One recorded nextest run gives an order of
+magnitude without attributing it (*Measured*). Run `217bd5e6` (2026-10-23, nextest 0.9.146,
+default profile) selected 27 tests across pse-runtime, pse-operations and pse-backend-native,
+with `pse-runtime/canonical-tests` among its features. Its fastest test took 12.6 s and the run
+took 333 s of wall time. That was read from the nextest record store and exported as a trace.
+Whether the bridge and schema share is material relative to test bodies or server contention
+is not established.
 
 ## <a id="dta-019"></a>DTA-019 — Shared fault and counting doubles in pse-testkit have had no consumers since 2026-10-06, and test dependencies are declared beyond their use
 
@@ -315,5 +350,27 @@ material relative to test bodies is unknown.
 object-store path may exist that should consume them and is under-tested; that was not
 established.
 
-**Related.** [DA-024](../audit/local-reasoning-and-assurance.md#da-024) concerns bespoke machinery without a
+**Related.** The recipe-level counterpart is the dead `python-runner-unit-test` recipe in
+[DTA-023](test-execution-system.md#dta-023). [DA-024](../audit/local-reasoning-and-assurance.md#da-024) concerns bespoke machinery without a
 production consumer. It was not reexamined, and this finding does not refresh it.
+
+## <a id="dta-025"></a>DTA-025 — Rust canonical fixture setup failures surface as product test failures
+
+**Principles:** DP-21, AP-05; companion §6.
+
+**Diagnosis.**
+- Fixture infrastructure errors are returned as the production `CanonicalError::Configuration`
+  (`crates/pse-operations/src/testing.rs:140-219,324-399`). These cover a missing
+  `PSE_SURREAL_STATE`, a bridge timeout or non-zero exit, and executor panics.
+- Callers unwrap them (e.g. `crates/pse-operations/src/canonical_lifecycle.rs:288`), so the
+  failure is recorded as a test failure.
+- The result vocabulary has an `error` state (`scripts/validation.py:371-373`), but Rust runs
+  never produce it, and `scripts/test_run.py:92` maps every non-pass to `failure`.
+- pytest, by contrast, reports fixture failures as setup errors.
+
+**Consequence (obstructs diagnosis).** A store that degrades mid-run reads as N product failures
+plus N pinned databases ([DTA-015](#dta-015)).
+
+**Counterevidence.** Store readiness is checked before the run (`pse_env.require_store`), the
+messages are specific, and nextest has no per-test setup phase to report separately. Severity is
+low.
