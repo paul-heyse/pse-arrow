@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 262
+revision: 263
 date: 2026-10-24
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 263 | 2026-10-24 | Clarify bounded owned-frontier receiving admission: full prospective count/bytes, one reconstructible-generation retry, retained products and original typed refusals (§14.3). | Maintainer-authorized Plan53 A04/G02 correction within existing decisions; PSE_DESIGN_EDIT=1 authorizes publication. Thirteen focused compiler controls pass; scientific consumer acceptance remains separate. |
 | 262 | 2026-10-24 | ADR-0224: protected native schema/readable result inspection and structured private decode diagnostics (§19.2/§21.1/§21.5/§23.2); owner-defined exact tooling requests and truthful selected answers (§24.1). | Maintainer-authorized Plan52l execution; PSE_DESIGN_EDIT=1 authorizes publication. ADR remains proposed; scoped acceptance and limits stay at Plan52l. |
 | 261 | 2026-10-24 | Publish Plan53 preparation, immutable invocation/detail, selective discovery/custody and effect-scoped scheduling contracts (§24.1). | Maintainer-authorized D/E/F/G execution; .design-edit authorizes publication within existing decisions. Implemented mechanisms have targeted controls; registry activation, assembled acceptance and scientific limits remain at the coordinator. |
 | 260 | 2026-10-23 | Publish operator-accepted Plan53 RC01/RC02 target: complete-Pass managed exit and corresponding selected effect requirements (§24.1). | Maintainer-authorized P00 execution; .design-edit authorizes publication. Behavior remains planned in C02/C04/F01/F02; no implementation or qualification claimed. |
