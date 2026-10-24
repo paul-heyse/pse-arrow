@@ -1,5 +1,11 @@
 # Functional opportunity reviews
 
+The [agent tool discovery and access review](agent-tool-discovery-and-access-2026-10-24.md)
+assesses repository-wide agent tooling, including capabilities beyond Plans47/50/51/52.
+It recommends source-backed conceptual discovery and selected optional FastMCP access,
+compares CLI alternatives, and records Pydantic 2.14 and generated-CLI probe results.
+Its opportunities and rule clarifications are proposals; existing plans retain scheduled scope.
+
 The [agent-effectiveness review](agent-effectiveness-opportunities-2026-10-23.md) explores
 reasoning and source context, semantic editing, behavioral/scientific verification, execution,
 local research and operator interfaces on the completed Plans50–51 foundation. Its recommendations
