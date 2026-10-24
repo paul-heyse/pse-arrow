@@ -118,6 +118,7 @@ scope = "History"
 patterns = [
   "library-utilization.md",
   "design_review/audit/**/*.md",
+  "design_review/test-audit/**/*.md",
   "design_review/reviews/audits/**/*.md",
 ]
 scope = "Reference"
