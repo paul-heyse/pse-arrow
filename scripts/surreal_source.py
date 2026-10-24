@@ -115,12 +115,7 @@ def effective_key(selected: dict[str, object]) -> str:
     return installation_context.identity(selected)
 
 
-def admitted_receipt(
-    receipt: dict,
-    selected: dict[str, object] | None = None,
-    *,
-    revalidate: bool = False,
-) -> bool:
+def _receipt_inputs(receipt: dict) -> dict | None:
     """Old incomplete receipts are never silently promoted to safe equivalence."""
     if (
         receipt.get("schema") != RECEIPT_SCHEMA
@@ -130,28 +125,83 @@ def admitted_receipt(
         or not isinstance(receipt.get("inputs"), dict)
         or not isinstance(receipt["inputs"].get("installation_namespace"), str)
     ):
+        return None
+    return receipt["inputs"]
+
+
+def _closed_passive_receipt(receipt: dict, recorded: dict) -> bool:
+    context = recorded.get("build_context")
+    if (
+        not isinstance(context, dict)
+        or context.get("schema") != installation_context.SCHEMA
+    ):
         return False
-    recorded = receipt["inputs"]
-    if selected is None and not revalidate:
-        # A passive consumer authenticates the already-built generation. It does
-        # not ask the compiler/native toolchain to requalify a running server.
-        context = recorded.get("build_context")
-        if (
-            not isinstance(context, dict)
-            or context.get("schema") != installation_context.SCHEMA
-        ):
+    if any(
+        not context.get(name)
+        for name in (
+            "configuration", "toolchain_declaration", "tools", "toolchain",
+            "native", "owners",
+        )
+    ):
+        return False
+    try:
+        declaration = installation_context.canonical(
+            tomllib.loads((ROOT / "rust-toolchain.toml").read_text())
+        )
+        return (
+            receipt.get("effective_key") == effective_key(recorded)
+            and {
+                key: value
+                for key, value in recorded.items()
+                if key not in {"build_context", "installation_namespace"}
+            }
+            == source_inputs()
+            and context["toolchain_declaration"] == declaration
+        )
+    except (OSError, ValueError):
+        return False
+
+
+def admitted_runtime_receipt(receipt: dict, generation: Path) -> bool:
+    """Authenticate a compiled receipt inside its verified immutable runtime.
+
+    Compilation configuration keeps its original path-bearing identity. This
+    consumer cannot reinterpret those paths as a compiler invocation in the
+    copied runtime tree. The controller still performs full launch revalidation.
+    """
+    if generation != ROOT or generation.parent.name != ".generations":
+        return False
+    # The direct-script supervisor binds this canonical module alias before its
+    # reciprocal imports; use that existing lifecycle owner, never load another.
+    from scripts import surreal_server  # noqa: PLC0415 -- runtime generation owner
+
+    try:
+        verified = surreal_server.verify_generation(generation)
+        required = (
+            "scripts/surreal_source.py", "rust-toolchain.toml",
+            *("scripts/surrealdb-source/" + name for name in PATCHES),
+        )
+        if any(verified.files.get(name) != digest(generation / name) for name in required):
             return False
-        if any(
-            not context.get(name)
-            for name in (
-                "configuration",
-                "toolchain_declaration",
-                "tools",
-                "toolchain",
-                "native",
-                "owners",
-            )
-        ):
+    except (surreal_server.SupervisorError, OSError, ValueError):
+        return False
+    recorded = _receipt_inputs(receipt)
+    return recorded is not None and _closed_passive_receipt(receipt, recorded)
+
+
+def admitted_receipt(
+    receipt: dict,
+    selected: dict[str, object] | None = None,
+    *,
+    revalidate: bool = False,
+) -> bool:
+    recorded = _receipt_inputs(receipt)
+    if recorded is None:
+        return False
+    if selected is None and not revalidate:
+        # Ordinary passive consumers also verify current compiler configuration.
+        # Only admitted_runtime_receipt has a verified immutable runtime route.
+        if not _closed_passive_receipt(receipt, recorded):
             return False
         try:
             configs, _, _ = installation_context.configuration(
@@ -165,22 +215,9 @@ def admitted_receipt(
                     ),
                 },
             )
-            declaration = installation_context.canonical(
-                tomllib.loads((ROOT / "rust-toolchain.toml").read_text())
-            )
         except (OSError, ValueError):
             return False
-        return (
-            receipt.get("effective_key") == effective_key(recorded)
-            and {
-                key: value
-                for key, value in recorded.items()
-                if key not in {"build_context", "installation_namespace"}
-            }
-            == source_inputs()
-            and context["configuration"] == configs
-            and context["toolchain_declaration"] == declaration
-        )
+        return recorded["build_context"]["configuration"] == configs
     current = (
         inputs(Path(recorded["installation_namespace"]))
         if selected is None
