@@ -22503,7 +22503,7 @@ class ResultInspectionDocumentRefused(msgspec.Struct, frozen=True, forbid_unknow
 
 
 class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="schema"):
-    """A page of the complete original field inventory, without reading Arrow rows."""
+    """A page of the admitted registry field inventory, without validating stored Arrow rows."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
@@ -22543,7 +22543,7 @@ class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown
     manifest: str
     #: Exact next original coordinate, preserving holes; repeat with start=next_row.
     next_row: Annotated[int, msgspec.Meta(ge=0)] | None
-    #: Every selected and context cell was representable, independent of scientific usability.
+    #: Every returned selected and context cell was representable, independent of population/scientific usability.
     readable_complete: bool
     #: Recorded rows intersecting the complete selected range, not just the returned prefix.
     recorded_rows: Annotated[int, msgspec.Meta(ge=0)]
@@ -22561,7 +22561,9 @@ class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown
 
 
 class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Actual original Arrow field, including nested datatype/field metadata."""
+    """Admitted registry Arrow field, including nested datatype/field metadata.
+    Schema-only discovery does not independently validate the stored file schema.
+    """
 
     #: Original Arrow datatype using arrow_schema's own JSON encoding, including nested fields.
     datatype_json: str
@@ -30764,4 +30766,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f"
+SCHEMA_SET_FINGERPRINT = "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa"

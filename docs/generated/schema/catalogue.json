@@ -4044,7 +4044,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
       "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-      "schema_sha256": "e72dcf8045888452b98354aa981ba7f0bc3a1109f6a07ebafb5da813042f0bcc",
+      "schema_sha256": "7f9e0c189b0d7588008ba5e443b18823f1f93212bf1b50882fe13f5bcc1f3ee4",
       "slug": "result-inspection-document",
       "version": 1,
       "wire": "FlatV1"
@@ -5310,6 +5310,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:11fcba973f2cbfc4f9f0a3cb8e187c21716180ffe39a0d2f7dac3e2402222b4f",
+  "schema_set_fingerprint": "blake3:ff3ce1224c479111e48bdcdb6c1b90622742cc50d6db80a760fb6bd529d7adaa",
   "version": 1
 }
