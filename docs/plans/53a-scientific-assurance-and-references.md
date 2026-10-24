@@ -3,7 +3,7 @@ title: "Plan 53a: Scientific assurance and references"
 status: in-progress
 date: 2026-10-23
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
+review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
 scenario_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/53-test-architecture-target.md
@@ -53,6 +53,32 @@ These independent analytic expectations were checked against the actual sign/sca
 Resolve I02 for the three missing committed entrypoints named in `references.pse`: `pfr_reference`, `cstr_controller_reference`, `decay_fit_reference`. Recover a verifiable independent generator or commit a reduced-equation generator with exact inputs, equations/method, numerical tolerances, exact software environment, output locator and correspondence to the consumed PFR/controller/decay artifacts. Use established numerical routines suitable for the declared method; do not build a parallel ODE solver. Respect the clean-room IDAES boundary: inspect behavior, never copy reference code/docstrings/comments.
 
 Reproduce the frozen reference claim in that declared environment. If a discrepancy appears, inspect derivation, inputs, rounding and method independently; do not overwrite goldens from current production outputs. Publish the reason and reviewed reference change before migrating consumers. Retain frozen inputs and independent derivation with the generator; remove stale unreproducible locator claims once replaced. Installed parity keeps its exact IDAES environment and fails rather than skips missing prerequisites.
+
+<a id="a04-consumer-integration"></a>
+### Remaining A04 consumer integration
+
+**Proposed — [PI08](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI08):**
+retain the successful reference reproduction recorded below and resolved I02/DTA-003. The remaining
+obligation is acceptance through the real selected consumers, not another generator rewrite.
+Coordinator inquiry I10 owns the bounded decision; A04 retains implementation/acceptance ownership.
+
+| Selected consumer | Evidence and next discriminating inquiry | Repair boundary and acceptance |
+|---|---|---|
+| Integrated controller | Retained report reaches a missing guard/numerical-input layout invariant in `region_composition`; inspect actual authored consumed inputs versus complete declared layout. | Correct the selected fixture/layout integration and demonstrate all consumed inputs correspond before its actual native/reference assertions. Do not weaken complete-layout admission. |
+| Simultaneous controller | Retained report reaches `Workspace::admit_live_root` compiler retention admission; inspect the live preparation/retention set and necessary peak lifetime. | Remove avoidable retained state or establish sufficient explicit receiving premises for this selected case. The limit is not an OS-memory/functional-slot diagnosis; justify any budget change from required live work, never merely a green report. |
+| PFR | Retained report has closure-validity refusals and 24 suspicious entries in 1,877 derivative comparisons, without missing sparsity. Examine sampling/step/scaling, cancellation, domain and actual derivative premises separately. | Distinguish production derivative error, invalid evaluation/envelope and diagnostic numerical effects using independent selected evidence. Preserve original-space physical/fresh numerical checks; neither harmless noise nor a production defect is established in advance. |
+
+Before rerunning, check whether the relevant premise changed and select the smallest run that
+settles it. Targeted wrong-case controls must expose the corrected contract, followed by the actual
+selected native/reference consumer journey. The independent PFR/controller/decay inputs, equations,
+frozen values and existing tolerances remain unchanged; do not loosen them or increase budgets
+simply to obtain passing output. Preparation shared by D02/D03 never certifies a new numerical state.
+
+If a selected failure requires a broader solver/formulation redesign, record its exact cause,
+needed decision and constrained A04/S01 evidence at this owner. Seek separate selection for that
+broader remedy; keep acceptance incomplete or explicitly dispositioned rather than moving it into
+repository health or counting generator passes as consumer success. No full solver-fleet,
+reference-regeneration, benchmark or environment-capacity campaign follows from this inquiry.
 
 ## Integration and completion
 

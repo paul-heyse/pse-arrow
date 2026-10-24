@@ -2697,11 +2697,7 @@ status_profile = "finding"
 status_column = 1
 owner_column = 2
 
-[[relationships]]
-from = "docs/plans/53-test-architecture-target.md::package-state::C01"
-to = "docs/plans/53-test-architecture-target.md::package-state::D01"
-kind = "depends-on"
-
+# C01 is delivered; remaining D01 now qualifies compatibility on that foundation.
 [[relationships]]
 from = "docs/plans/53-test-architecture-target.md::package-state::C02"
 to = "docs/plans/53-test-architecture-target.md::package-state::P00"
@@ -2752,11 +2748,7 @@ from = "docs/plans/53-test-architecture-target.md::package-state::D02"
 to = "docs/plans/53-test-architecture-target.md::package-state::C03"
 kind = "depends-on"
 
-[[relationships]]
-from = "docs/plans/53-test-architecture-target.md::package-state::D02"
-to = "docs/plans/53-test-architecture-target.md::package-state::D01"
-kind = "depends-on"
-
+# D02 consumes D01 metadata compatibility only; its generation-input work is not a barrier.
 [[relationships]]
 from = "docs/plans/53-test-architecture-target.md::package-state::D03"
 to = "docs/plans/53-test-architecture-target.md::package-state::C03"
@@ -2800,4 +2792,36 @@ kind = "depends-on"
 [[relationships]]
 from = "docs/plans/53-test-architecture-target.md::package-state::G02"
 to = "docs/plans/53-test-architecture-target.md::package-state::G01"
+kind = "depends-on"
+
+# Remaining-architecture inquiry gates; shared E01/F01 design slices are not whole-package barriers.
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::D03"
+to = "docs/plans/53-test-architecture-target.md::inquiry-outcomes::I06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::E01"
+to = "docs/plans/53-test-architecture-target.md::inquiry-outcomes::I09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::E05"
+to = "docs/plans/53-test-architecture-target.md::inquiry-outcomes::I09"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::F02"
+to = "docs/plans/53-test-architecture-target.md::inquiry-outcomes::I08"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/53-test-architecture-target.md::package-state::A04"
+to = "docs/plans/53-test-architecture-target.md::inquiry-outcomes::I10"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::F03"
+to = "docs/plans/52-agent-effectiveness-and-engineering-workflows.md::package-state::F01"
 kind = "depends-on"

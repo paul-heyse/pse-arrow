@@ -3,7 +3,7 @@ title: "Plan 53: Test architecture target"
 status: in-progress
 date: 2026-10-23
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
+review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
 scenario_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/53-test-architecture-target.md
@@ -16,7 +16,7 @@ doc_topics: [current-work, design, validation, preparation, environment, numeric
 
 **Proposed:** bring the composed test architecture to the target in the [holistic test-architecture review](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md). Preserve federated owner-local tests, independent science, shared conformance, actual native execution, durable lifecycle, installed Python and selected parity. Make their joins consistent: selected work governs preparation, validation, effects, execution and reported assurance; immutable input/detail can be shared while mutable attempts and borrowers remain separately owned.
 
-This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents, then P00/A01–A04 (integrated into main), and subsequently **all B01–B05 and C01–C05 on main**. Concurrent Plan52 FastMCP work retains its own implementation owner; this session owns the Plan53 invocation and assurance changes. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
+This series captures all R01–R08, DTA-001–DTA-048, S01–S09, the accepted RC01/RC02, investigations and preservation/deletion obligations. The operator authorized creation of these plan documents, then P00/A01–A04 (integrated into main), and subsequently **all B01–B05 and C01–C05 on main**. Plan52 retains canonical interface ownership. The 2026-10-24 amendment authoring integrates the remaining-architecture review; it does not authorize D–G implementation or alter completed P00/A/B/C evidence. RC01/RC02 were separately explicitly accepted on 2026-10-23. The execution checkpoint below records implemented changes and their bounded evidence; publication of a target alone does not establish product qualification.
 
 This coordinator owns the combined target, shared decisions, cross-plan boundaries, one package-state table, finding dispositions and inquiries. Seven companions own detailed designs and acceptance, linking here for state. Reviews own remedy reasoning, audits own diagnosis, architecture/ADRs own enduring contracts/rationale. Scheduling a finding does not resolve it; a rule decision does not establish implementation. The source review's historical source references attribute evidence, not a commit pin, freeze or ongoing churn-reconciliation obligation.
 
@@ -24,21 +24,37 @@ Use the full selected standard: Core3.4, Efficient Architecture Heuristics1.0, T
 
 ## Foundation assessment and current-work reconciliation
 
-**Interface-checked:** one substantive reconciliation against the current checkout on 2026-10-23 informed this plan. It followed the review into the affected existing owners and Plan52's current checkpoints/source; it did not repeat the diagnostic audit, qualify enclosing subsystems or adopt unrelated concurrent changes. Source inspection establishes available contracts, not tested combined behavior.
+**Interface-checked:** the original 2026-10-23 foundation assessment and the 2026-10-24
+improvement review support this revision. One focused authoring reconciliation inspected decisive
+preparation, requirement, result, resource and capability consumers. Nextest authentication and
+B/C delivery are foundations; the source still exposes the remaining mutable-requirement,
+full-before-selected reader and active-discovery work described below. During authoring, 52k closed through `117d62969`; its
+[Outcome](52k-unified-entry-point-and-derived-interfaces.md#verification-and-outcome--2026-10-24)
+records component and actual-host evidence with support limits. Per the operator, **52k is complete
+before actioning remaining Plan53 scope**: consume its delivered target and supported host/restart
+contracts without interim interfaces or transferring delivery. That Outcome remains the evidence
+owner; it does not establish the remaining F/G/H or Plan53 assembled qualification. No new audit, commit pin, continuing
+churn reconciliation, enclosing qualification or benchmark campaign is introduced.
 
 | Foundation | Current evidence and resulting plan decision |
 |---|---|
-| Scientific acceptance | Existing independent resolver/unit conversion, analytic primitive Hessians, shared model checks, nonlinear production owners, PID dynamics and durable readback are substantive. Preserve them. Add the named independent regime, variant, integrated composition, nonlinear curvature/covariance and reference-reproduction evidence in 53a. No escaped policy-projection fault was established for DTA-001. |
-| Compiler admission | `workspace/modeling.rs::publish_modeling` and `publish_modeling_revision` already support `Arc<ModelingRevision>` reuse with exact context/physical-owner and receiving-budget checks. B05 adopts these operations, retaining fresh mutable attempts and fresh admission/invalidation tests. No new preparation cache is needed. |
-| Invocation/build | Ordinary `_rust_capture` retains nextest binaries/Cargo metadata. Existing `arrow_validation.resolve` proves actual selected Arrow leaves. C/D unify their consumers; no replacement runner or feature-name-only proof. Actual catalog and shared requirement correspondence remain target work. |
-| Tools/generation | `cargo_tools.selected_identity` plus `.config/diagnostic-tools.toml` authenticate cargo-hack/llvm-cov/mutants/fuzz, but not nextest. `validation_scope.INPUT_SCOPES['generation']` exists but omits consumed selected package/fixture-projection inputs. D01 repairs these specific premises. |
+| Scientific acceptance | A01–A03 and independent reference reproduction have selected passing evidence. Preserve those discriminators and DTA-001's scoped no-change judgment. A04 still needs selected PFR/controller consumer acceptance; PI08 separates layout, compiler retention and derivative/domain questions from reference provenance. |
+| Compiler admission | `workspace/modeling.rs::publish_modeling` and `publish_modeling_revision` already support `Arc<ModelingRevision>` reuse with exact context/physical-owner and receiving-budget checks. B05 delivered compatible reuse with fresh mutable attempts and context/owner/budget refusal controls; new numerical states still require fresh checks. No new preparation cache is needed. |
+| Invocation/build | Ordinary `_rust_capture` retains nextest binaries/Cargo metadata. Existing `arrow_validation.resolve` proves actual selected Arrow leaves. C01–C03 delivered normalized selection, actual catalogue/requirement correspondence and Arrow-leaf proof. D consumes those foundations; no replacement runner or feature-name-only proof. |
+| Tools/generation | `cargo_tools.selected_identity` plus `.config/diagnostic-tools.toml` already authenticate nextest 0.9.146 as well as the other selected tools; D01 qualifies consumed metadata compatibility without rebuilding that owner. `validation_scope.INPUT_SCOPES['generation']` exists but omits consumed selected package/fixture-projection inputs. D01 repairs these specific premises. |
 | Feature resume | `validation_feature_campaign` already captures literal cargo-hack argv, ordered complete combinations, tool/compiler/native context, conservative Rust inputs and authenticated passing origins. Standalone campaigns use the retained assessment owner. Preserve failure/interruption history and reused-versus-fresh meaning; do not recreate enumeration/resume or treat this as complete assembled qualification. |
 | Installation context | `installation_context` and `surreal_source` now have a closed effective-context owner with fail-closed unknown/shared/dangling-target guards. Plan52d records one actual complete-context build and formatting-equivalence reuse plus changed-context refusal, within that supported server-build domain. This is a useful foundation, not a generic Cargo interpreter or proof that Python preparation inputs are complete. D03 assesses the extension's actual domain. |
-| Optional evidence | Plan52c owns coverage, semantic challenges, finite decoder exploration, native diagnostic instrumentation and scientific reduction. Source includes exploration setup/feedback limits and native normal-lifecycle/build-qualification distinctions; checkpoint evidence limits remain narrower than full fuzz/sanitizer/scientific qualification. Concurrent reduction/diagnostic source and 52c edits remain that owner's work. These mechanisms neither replace named independent scientific expectations nor block Plan53 on whole Plan52 completion. |
-| Resource/evidence | FileStore declaration/state, pending/uncertain protection, exact borrowers, terminal composer and original result/reuse readers already have real consumers. E preserves them while separating immutable selection/detail from mutable state. Existing aggregate snapshots and scoped combination reuse remain valid, not a general missing-cache defect. |
-| Scheduling | Actual pure controls and two local Python consumers have removable accidental dependencies. Per-run exclusivity does not establish service-wide quiet; remaining canonical capacity independence is unproven. F narrows only demonstrated barriers and keeps necessary protection. |
+| Optional evidence | Plan52c/C04 is excluded from this amendment and is neither a prerequisite nor a proposed followup. Existing optional evidence does not replace independent scientific expectations. PI09 is separately selectable under 52f F03, outside original Plan53 completion. |
+| Resource/evidence | FileStore declaration/state, pending/uncertain protection, exact borrowers, terminal composer and original result/reuse readers already have real consumers. E preserves them while separating immutable collected selection/requirements and protected detail from mutable membership/progress; derived service/scratch projections make discovery selective. Existing aggregate snapshots and scoped combination reuse remain valid, not a general missing-cache defect. |
+| Scheduling | Pure Rust controls retain removable accidental barriers; B05 already removed the two local Python fixture consumers, leaving their residual scheduling coupling for F01. Per-run exclusivity does not establish service-wide quiet; remaining canonical capacity independence is unproven. F narrows only demonstrated barriers and keeps necessary protection. |
 
-[Plan52](52-agent-effectiveness-and-engineering-workflows.md) retains O08–O17 and its I05–I07/tool capability delivery. Plan53 owns the specific test-architecture corrections and their consumer integration. Share an existing implementation/evidence source when it satisfies both scopes; record distinct acceptance at each owner without duplicating live progress or moving unrelated work. Plan52's scientific reducer/diagnostic changes are not assumed tested by this plan. Plans28/32/40 retain independent scientific/workspace/substrate authority. No dependency on completing an entire other plan is introduced; use an actual needed contract slice or explicitly retain its conservative fallback.
+[Plan52](52-agent-effectiveness-and-engineering-workflows.md) retains its evidence/trace and
+agent-workflow targets. Plan53 owns the test-architecture corrections and actual consumer
+migrations. Share implementation/evidence where premises match, with separate acceptance at each
+owner. Completed 52k is the operator-selected execution baseline; the rest of Plan52 is not a
+whole-series prerequisite. Plans28/32/40 retain independent scientific/workspace/substrate scope.
+The separately observed endpoint shutdown concern has a bounded Plan52 inquiry and no Plan53
+closure dependency. No unrelated reducer, tracing or repository-health campaign is introduced.
 
 ## Combined target and document boundaries
 
@@ -65,11 +81,41 @@ Maintain selected/executed/assertion-not-reached/not-run, raw child/reconciled a
 | [53b: Helpers, inputs and fixtures](53b-test-helpers-inputs-and-fixtures.md) | R02/R03 source-owned refusals, narrow helpers, immutable input/admission | Sufficient consumed scientific closures, stable observations/reasons, intentional support variants, two effect-free consumers |
 | [53c: Invocation, requirements and outcomes](53c-invocation-requirements-and-outcomes.md) | R04/R06 one interpretation/catalog, actual requirements/validation, truthful outcomes | Selected identity/effects/roles, actual validation proof and reconciled managed result |
 | [53d: Build, discovery and generation](53d-build-discovery-and-generation.md) | R05 consumed identities, retained build, Python preparation, generation/capture | Compatible prepared artifacts and complete conservative inputs |
-| [53e: Resource and evidence lifetimes](53e-resource-and-evidence-lifetimes.md) | R07 immutable header, independent cleanup, service access, custody, compact progress | Protected exact association/detail, honest cleanup facts and versioned readers |
+| [53e: Resource and evidence lifetimes](53e-resource-and-evidence-lifetimes.md) | R07 immutable collected identities/requirements, composed cleanup, selective discovery, custody/readers | Protected exact association/detail, honest cleanup facts and versioned readers |
 | [53f: Effect-scoped scheduling](53f-effect-scoped-scheduling.md) | R08 actual exclusion scope and explicit local settings | Pure controls independent, real service/timing/native/canonical protection retained |
 | [53g: Qualification and publication](53g-qualification-and-publication.md) | Joined S01–S09 acceptance, enduring owners and retirement | Assembled evidence with actual support limits, then current contract publication |
 
 Document boundaries group reasoning; packages below group coherent producer/consumer migrations. No companion completion is an automatic whole-system barrier. Shared editing surfaces (manifests/locks, `test_run`/`validation`, nextest/conftest, runtime/conformance fixtures and FileStore/readers) need explicit single writers during execution, even for logically independent packages.
+
+## Remaining-architecture amendment integration — 2026-10-24
+
+The operator authorized revising these documents from the
+[improvement review](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md).
+**Proposed:** PI01–PI08/PI10 refine the remaining target and packages below; package states and
+DTA dispositions remain authoritative at their existing tables. These references identify design
+sources, not a second progress register. Existing companions provide coherent boundaries; no new
+plan document is required.
+
+| Review amendment | Owning work and integration consequence |
+|---|---|
+| [PI01](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI01) | D01/D02/D04: qualify existing tool identity, retain ordinary build/catalogue, complete package inputs, remove specific generation overlap and choose scope before byte reads. |
+| [PI02](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI02) | D03/I06: independent environment/extension/stub/admission operations, supported currency domains and canonical/native consumers. |
+| [PI03](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI03) | E01/I09 with F01/F02: immutable collected identities and semantic requirements, uncollected staging and actual acquired bindings kept distinct. |
+| [PI04](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI04) | E05/I09 with E04 and 52f/52g: complete reader/custody inventory, mandatory summary, selective gate/source detail, full export and explicit section completeness. |
+| [PI05](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI05) | E02: one original settlement clock across actual Rust/Python bridges, independent results and physical drain. Endpoint teardown remains outside this correction. |
+| [PI06](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI06) | E03/E04 with F02: selective service/generation and scratch discovery, known coverage and membership-transition writes. |
+| [PI07](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI07) | F01–F03/I08 with E01: shared exclusion meanings, assertion-led service scope and current role declarations without new capacity policy. |
+| [PI08](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI08) | A04/I10 and G01: bounded selected-consumer layout/retention/derivative-domain correction, separate from reproduced reference provenance. |
+| [PI09](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI09) | [52f F03](52f-evidence-analysis-and-trace-correlation.md#F03): concrete optional finite multi-question operation. Operator selected separate selectability, not required Plan53 delivery. |
+| [PI10](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI10) | G01/G02 with 52g/52h: shared authentic journeys, separate native/scientific/host/custody/cleanup assertions and coordinated publication. |
+
+The amendment changes no accepted rule beyond the already accepted RC01/RC02. Enduring changed
+contracts still use their existing design/decision and generator routes before dependent behavior
+where required. A new incompatible rule impact, if exposed by I06/I08/I09/I10, requires its exact
+operator decision; this authoring does not invent or pre-approve one. AP-04's semantic distinctions,
+AP-07's physical work and independent scientific assurance remain joint constraints. There is no
+new cache, universal invocation/result type, scheduler, store, numeric cost model or mandatory
+benchmark. Library mechanisms and material limits are retained at their package owners.
 
 ## Accepted rule changes and advance publication
 
@@ -112,18 +158,33 @@ This is the **single package progress owner**. P00, A01–A04, B01–B05 and C01
 | D02 | planned | [53d](53d-build-discovery-and-generation.md#d02) | Existing retained build/catalog path serves fallback; equivalent correctness preparation shared |
 | D03 | planned | [53d](53d-build-discovery-and-generation.md#d03) | I06 resolved; Python ensure/install/stubs/admission split with full known validity inputs |
 | D04 | planned | [53d](53d-build-discovery-and-generation.md#d04) | Overlap generated once; scope chosen before byte reads with full required provenance |
-| E01 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e01) | One selected header, compact membership and safe stored-state/reader cutover |
-| E02 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e02) | Independent sibling cleanup/drain continues within original deadline/cancellation |
-| E03 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e03) | Conservative service/generation active-access lookup preserves authority/save ordering |
-| E04 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e04) | Custody always retained; nonempty scratch projection alone selects reclaim candidates |
-| E05 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e05) | I09 resolved; compact atomic roots/versioned readers preserve original detail and reuse checks |
-| F01 | planned | [53f](53f-effect-scoped-scheduling.md#f01) | Shared requirements remove pure/two local Python barriers; necessary protection retained |
+| E01 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e01) | Immutable collected identities/requirements, compact membership and safe stored-state/reader cutover |
+| E02 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e02) | Independent sibling cleanup/drain crosses Rust/Python bridges within one original deadline/cancellation |
+| E03 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e03) | Selective service/generation access with established coverage and protective membership-transition writes |
+| E04 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e04) | Custody retained; separate nonempty scratch discovery avoids full active scans and ineligible-prefix starvation |
+| E05 | planned | [53e](53e-resource-and-evidence-lifetimes.md#e05) | I09 resolved; selective summary/gate/source/full-export readers preserve detail, section completeness and reuse custody |
+| F01 | planned | [53f](53f-effect-scoped-scheduling.md#f01) | Shared exclusion/requirement meanings remove pure/residual local Python barriers; real protection retained |
 | F02 | planned | [53f](53f-effect-scoped-scheduling.md#f02) | I08 resolved; actual chosen service/database scope survives two separate runs |
 | F03 | planned | [53f](53f-effect-scoped-scheduling.md#f03) | Explicit sufficient bounded local settings and role premises; canonical barrier retained |
 | G01 | planned | [53g](53g-qualification-and-publication.md#g01) | Functional scope/deletions complete, joined S01–S09 and selected scope-end qualification |
 | G02 | planned | [53g](53g-qualification-and-publication.md#g02) | Enduring owners/outcomes/current-work/retirement reconciled without other-plan closure |
 
-Start with P00 publication, consequential inquiry decisions and ready independent A01/A03/B01/B03/E02/E04 work. D01 establishes consumed nextest compatibility; C01 establishes the pure interpretation/catalog seam, then C02 the shared requirements/association and C03 actual validation. C04 needs their selected managed-route slices and P00, not whole C05 or E. C05 migrates actual optional/boundary roles through C02. B04's sufficient scientific closure precedes narrowing dependent input capture; B05 can reuse the existing sufficient admitted revision early without waiting for an ideal minimal closure. B03/C01/C03/D01 then allow D02; I06/C03 allow D03; D04 may make conservative correctness repairs before B04 permits narrower scope. E01 consumes actual catalog identity, E03 serves conservative service access, E05 cuts over readers with C04/E04 facts. F01 follows C02/B05; F02 follows I08 and needed E03 protection. E02/E04/F03 need no entire companion barrier. G01 follows all functional migrations/deletions; G02 closes publication/retirement after real evidence. An early slice never marks its enclosing package complete.
+The remaining route starts from delivered P00/A01–A03/B/C and completed 52k. Resolve shaping
+contracts/inquiries early: I06 preparation domain; I09 reader/custody transition; E01/F01/F02
+semantic requirement and exclusion meaning. D01's existing-tool compatibility and sufficient
+package-input repair, D04 capture/generation changes and E02's bridge correction can proceed
+without whole-companion barriers. A04/I10's selected scientific inquiry is independent where its
+actual prerequisites permit.
+
+D02 consumes delivered C01/C03/B03 and relevant D01 compatibility; D03 conditionally skips only
+after I06/C03 support it. E01 migrates immutable facts and actual readers; E04/E05 coordinate
+custody and reader cutover through I09 rather than leaving consumers for a later inventory phase.
+E03 supplies covered service discovery before F02 relaxation. F01 uses agreed exclusion meanings;
+F02 uses I08's assertion decision and implemented protection. F03 consumes current role settings.
+G01 joins actual migrated/deleted capabilities with separate scientific/host/custody assertions;
+G02 publishes enduring meaning and retires only material whose readers release it. Optional 52f
+F03 can join the comparison consumer when separately selected; it is not a barrier. These are
+contract dependencies, not a requirement to finish entire documents in order.
 
 ## Inquiry outcomes and remaining questions
 
@@ -136,10 +197,11 @@ Each inquiry has a decision product, scoped evidence and explicit dependent beha
 | I03 | resolved | [B01](53b-test-helpers-inputs-and-fixtures.md#b01) | Existing counters establish no new semantic-body admissions, not exact Salsa memo hits. Other query claims use one private observer with positive cold/invalidation and missing/truncated refusal controls; independent fresh results remain. |
 | I04 | resolved | [B02](53b-test-helpers-inputs-and-fixtures.md#b02) | Source-owned reasons fit §23.2; migrated constructors/forwarders preserve ValidationInvariant, ModelingContract, declaration and real source location. Codec/changed-prose controls pass; untouched contracts explicitly remain Unclassified. |
 | I05 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Nineteen declared families use real bounded package/P0/parser closure, exact data/source bytes, directory membership/absence and explicit synthetic substitutions. Drift refuses publication; unknown affected edges broaden. Full sufficient closures adopted without a minimality claim. |
-| I06 | open | [D03](53d-build-discovery-and-generation.md#d03) | Establish extension installer/build/stub/native consumed-input and binary-identity domain, mutable boundaries and unknown fallback. Reuse only known complete premises; otherwise prepare conservatively. |
+| I06 | open | [D03](53d-build-discovery-and-generation.md#d03) | Define independent environment/extension/stub/admission currency for ordinary editable dev/native correctness, including interpreter/PyO3/config/native inputs, membership/absence, installed RPATH-transformed bytes and parent/worker replacement. Unknown/missing inputs prepare conservatively; no strict producer campaign or all-Python/whole-host precision claim. |
 | I07 | resolved | [C05](53c-invocation-requirements-and-outcomes.md#c05) | Public configuration/native-route diagnostics replace dormant harness claims; synthetic schema/NativeReuse combinations retain explicit coverage limits. Separate operator, component overlap and owned restart roles are selected; actual peer acceptance is recorded in C05's Outcome. |
-| I08 | open | [F02](53f-effect-scoped-scheduling.md#f02) | Identify true service-quiet versus database-local claims; select once-per-invocation owned service or justified narrower assertion and demonstrate two-run isolation. Retain protection until then; no blanket capacity relaxation. |
-| I09 | open | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Establish selected-header/receipt reader and protected-origin inventory plus bounded stored-format transition. Choose authenticated migration or explicit reuse refusal with protected inspection. No missing record becomes empty/pass; no permanent parallel production path. |
+| I08 | open | [F02](53f-effect-scoped-scheduling.md#f02) | Inventory actual assertions before choosing service-wide versus database-local scope; bind actual generation at invocation ownership, use covered E03 protection and demonstrate two separately started runs. No index-absence shortcut or blanket capacity relaxation. |
+| I09 | open | [E01/E05](53e-resource-and-evidence-lifetimes.md#e01) | Inventory immutable selected/requirement and report producers/readers/reuse/export/measurement/custody consumers in E01/E05. Select authenticated bounded conversion or explicit automatic-reuse refusal with protected original inspection and one production layout. Preserve full native semantics, old-origin protection, selected views and section completeness; no missing record becomes empty/pass. |
+| I10 | open | [A04](53a-scientific-assurance-and-references.md#a04-consumer-integration) | Classify and bound selected controller layout/live-root retention and PFR derivative/domain failures; repair the selected consumer boundary or identify a separately selected broader remedy. Preserve independent references and fresh original-space/numerical checks; generator reproduction alone does not close A04. |
 
 ## Recommendation and scenario correspondence
 
@@ -185,7 +247,7 @@ One primary work owner below coordinates contributors and closes only on actual 
 | [DTA-021](../design_review/test-audit/oracles-and-acceptance.md#dta-021) | S01 | resolved | [A02](53a-scientific-assurance-and-references.md#a02) | Solved countercurrent and unequal-pressure min-vs-max/mean cases; PID nonzero-Td dynamics retained and generator handled by A04. |
 | [DTA-022](../design_review/test-audit/test-execution-system.md#dta-022) | S03, S05 | resolved | [C01](53c-invocation-requirements-and-outcomes.md#c01) | Single aliases/env/default/custom-config/profile/report/association interpretation; opaque arguments preserved, unsupported scope refuses. |
 | [DTA-023](../design_review/test-audit/test-execution-system.md#dta-023) | S03 | resolved | [C02](53c-invocation-requirements-and-outcomes.md#c02) | Actual selected campaign-role correspondence catches lost member in nonempty union; obsolete recipe references removed. |
-| [DTA-024](../design_review/test-audit/test-execution-system.md#dta-024) | S05, S08 | scheduled | [D01](53d-build-discovery-and-generation.md#d01) | Existing tool identity extended to nextest; consumed selected package/fixture generation inputs included; Plan52 combo resume preserved. |
+| [DTA-024](../design_review/test-audit/test-execution-system.md#dta-024) | S05, S08 | scheduled | [D01](53d-build-discovery-and-generation.md#d01) | Existing nextest identity retained and metadata compatibility qualified; consumed package/fixture generation inputs complete; Plan52 combination resume preserved. |
 | [DTA-025](../design_review/test-audit/evidence-routes-and-execution.md#dta-025) | S06 | resolved | [C04](53c-invocation-requirements-and-outcomes.md#c04) | Authenticated typed setup failure and assertion-not-reached, no panic parsing; exact-generation preflight bounds repeats without hiding failure. |
 | [DTA-026](../design_review/test-audit/test-execution-system.md#dta-026) | S03 | resolved | [C01](53c-invocation-requirements-and-outcomes.md#c01) | Shared pure interpretation and explicit performing composition; C02/C04 migrate consumers/delete reciprocal duplicated meaning, not file-count cleanup. |
 | [DTA-027](../design_review/test-audit/doubles-and-coupling.md#dta-027) | S02 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Nineteen declared family roots/projections derive real package/import/data closure once; actual Rust/Python/conformance/runtime consumers use it. Authentic transport and bounded synthetic meanings remain distinct. |
@@ -199,17 +261,17 @@ One primary work owner below coordinates contributors and closes only on actual 
 | [DTA-035](../design_review/test-audit/execution-efficiency.md#dta-035) | S02 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | Invocation-captured science replaces shared package embeddings in migrated consumers; source-only reload controls pass without changing consumer code. True local embeddings and fresh numerical attempts remain. |
 | [DTA-036](../design_review/test-audit/execution-efficiency.md#dta-036) | S02 | resolved | [B04](53b-test-helpers-inputs-and-fixtures.md#b04) | One captured closure feeds conservative affected preview for imported source, data, membership and absence. Unknown/new/deleted edges broaden; coverage overlay cannot prune selection. Focused controls pass. |
 | [DTA-037](../design_review/test-audit/execution-efficiency.md#dta-037) | S02, S05 | scheduled | [D04](53d-build-discovery-and-generation.md#d04) | Overlapping aggregate generation once with actual roots; independent recipes/Python/native ABI/missing-extra-untracked checks retained. |
-| [DTA-038](../design_review/test-audit/execution-efficiency.md#dta-038) | S06, S07 | scheduled | [E01](53e-resource-and-evidence-lifetimes.md#e01) | Immutable selected header; mutable compact members under original locks/deadline/transitions/freeze; interrupt/header mismatch controls. |
+| [DTA-038](../design_review/test-audit/execution-efficiency.md#dta-038) | S06, S07 | scheduled | [E01](53e-resource-and-evidence-lifetimes.md#e01) | Immutable collected identities/semantic requirements; compact members, Python staging/nested subsets and original locks/deadline/transitions/freeze; interrupted publication/header mismatch controls. |
 | [DTA-039](../design_review/test-audit/execution-efficiency.md#dta-039) | S02, S07 | scheduled | [D04](53d-build-discovery-and-generation.md#d04) | Select scope before byte access; full promised provenance and distinct mutable hashes, symlink/mode/add/delete/absence preserved. |
 | [DTA-040](../design_review/test-audit/execution-efficiency.md#dta-040) | S08 | disproved — blanket reuse indictment | [E05](53e-resource-and-evidence-lifetimes.md#e05) | Retain valid aggregate snapshot and scoped reuse/transfer/Plan52 combo resume; historical execution not automatically current. No global redesign selected. |
 | [DTA-041](../design_review/test-audit/execution-efficiency.md#dta-041) | S06 | superseded — withdrawn diagnosis | [E01](53e-resource-and-evidence-lifetimes.md#e01) | Retain authenticated pending/uncertain recovery, writer fences/borrowers/late effects/terminal/unknown protection; no disposal-only simplification. |
-| [DTA-042](../design_review/test-audit/execution-efficiency.md#dta-042) | S06, S09 | scheduled | [E02](53e-resource-and-evidence-lifetimes.md#e02) | Independent drain/cleanup continues with aggregate errors/original deadline; E03 scoped access and retained-reader/race controls; unknown retained. |
+| [DTA-042](../design_review/test-audit/execution-efficiency.md#dta-042) | S06, S09 | scheduled | [E02](53e-resource-and-evidence-lifetimes.md#e02) | Independent drain/cleanup crosses Rust/Python bridges with aggregate errors and one outer deadline; E03 covered scoped discovery and retained-reader/race controls preserve unknowns. |
 | [DTA-043](../design_review/test-audit/execution-efficiency.md#dta-043) | S09 | scheduled | [F02](53f-effect-scoped-scheduling.md#f02) | I08 actual service-wide isolation or legitimate database-local claim; two separate-run control, ordinary unbounded mode retained. |
-| [DTA-044](../design_review/test-audit/execution-efficiency.md#dta-044) | S04, S09 | scheduled — narrow consumers only | [F01](53f-effect-scoped-scheduling.md#f01) | B05 removes two accidental consumers; broad unnecessary-barrier diagnosis unestablished. Retain remaining canonical barrier; revisit only actual wider supported scope with demand/lifetime evidence. |
+| [DTA-044](../design_review/test-audit/execution-efficiency.md#dta-044) | S04, S09 | scheduled — narrow consumers only | [F01](53f-effect-scoped-scheduling.md#f01) | B05 removed two accidental fixture consumers; F01 removes residual scheduling coupling; broad unnecessary-barrier diagnosis remains unestablished. Retain remaining canonical barrier; revisit only actual wider supported scope with demand/lifetime evidence. |
 | [DTA-045](../design_review/test-audit/execution-efficiency.md#dta-045) | S09 | scheduled | [F01](53f-effect-scoped-scheduling.md#f01) | Pure KINSOL/Ipopt controls shed unrelated reservation via C02/RC02; genuine native/thread/timing/heavy requirements stay. |
-| [DTA-046](../design_review/test-audit/execution-efficiency.md#dta-046) | S09 | scheduled | [F03](53f-effect-scoped-scheduling.md#f03) | Explicit sufficient local settings, ceilings distinct from demand, 8-GiB functional versus 144-GiB observer role; no OOM inference/planner/blanket parallelism. |
-| [DTA-047](../design_review/test-audit/execution-efficiency.md#dta-047) | S06, S07 | scheduled | [E04](53e-resource-and-evidence-lifetimes.md#e04) | Custody/sealing and protected-origin reuse retained; explicit nonempty scratch projection selects reclaim candidates. |
-| [DTA-048](../design_review/test-audit/execution-efficiency.md#dta-048) | S07, S08 | scheduled | [E05](53e-resource-and-evidence-lifetimes.md#e05) | Compact atomic root + immutable detail, one versioned reader, crash/corruption/selective hydration/original diagnostic/graph checks preserved. |
+| [DTA-046](../design_review/test-audit/execution-efficiency.md#dta-046) | S09 | scheduled | [F03](53f-effect-scoped-scheduling.md#f03) | Explicit sufficient local settings consume current role declarations; host/store demand and ceilings remain distinct, without copied historical envelopes, OOM inference, planner or blanket parallelism. |
+| [DTA-047](../design_review/test-audit/execution-efficiency.md#dta-047) | S06, S07 | scheduled | [E04](53e-resource-and-evidence-lifetimes.md#e04) | Custody/sealing and origins retained; selective nonempty scratch discovery avoids full active scans/prefix starvation, with protective membership-transition publication. |
+| [DTA-048](../design_review/test-audit/execution-efficiency.md#dta-048) | S07, S08 | scheduled | [E05](53e-resource-and-evidence-lifetimes.md#e05) | Compact root and protected immutable detail; one coordinated reader/custody cutover, summary/gate/source/full-export views, independent section completeness and original diagnostic/native graph checks. |
 
 ## Verification, deletion and closure
 

@@ -3,7 +3,7 @@ title: "Plan 52f: Evidence analysis and trace correlation"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, diagnostics, performance, storage]
@@ -44,6 +44,15 @@ application→SDK→server span chain. F02 still owns that finite inquiry and I1
 request ID or timestamp substitutes for an actual propagation edge; no extra telemetry database
 or mandatory exporter is selected. Native invocation/source/result identities remain unchanged.
 
+## Test-architecture integration
+
+**Proposed:** [PI04](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI04)
+refines F01's native section selection and reader consumers alongside 53e E05; completed 52k is
+the execution baseline for canonical bindings. [PI09](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI09)
+is separately selectable F03 below, per the operator's 2026-10-24 choice. It is not required to
+close F01, original Plan53 or the originally selected Plan52 target. No new companion is needed:
+comparison semantics and finite inquiry preparation already belong to this owner.
+
 ## Work packages
 
 <a id="F01"></a>
@@ -63,6 +72,14 @@ once and perform relational work in one selected engine context. Persistent quer
 facts/cut through existing discovery, with explicit stale/missing populations and rebuildability.
 Do not widen native EvidenceSnapshot codecs into arbitrary knowledge notes.
 
+Select requested answer sections before query acquisition at the existing native owner. Keep
+compact mandatory source/coverage/denominator meanings, with explicit optional contexts,
+by-operation/association/capture detail and their own bounds/completeness. Current primary-row
+truncation does not describe subsidiary `LIMIT 10001` sections. Preserve full semantic denominators
+and ambiguity checks before display limits; do not infer completeness from a small serialized
+result. Canonical middleware remains a final response safeguard. Full explicit export remains
+legitimate, and ordinary selected reads avoid unrelated hydration through 53e E05's versioned reader.
+
 For measurements, retain sample membership, pairing/order and relevant input/start/cache/build/
 provider/capture conditions. Incompatible or unavailable associations remain so; a distribution
 cannot repair confounding or prove causality/flakiness. Existing unsupported Criterion-to-invocation
@@ -74,7 +91,7 @@ renamed/ambiguous subject, changed selection and mismatched measurement context.
 specify expected pairs/denominators and show an inconclusive noisy cohort. Offline server-down
 analysis and indexed same-cut results agree; duplicate import does not double outcomes. G05's operator view and the canonical FastMCP comparison consumer consume this contract.
 Qualify one real canonical request/result read with the same independent expected pairs and
-source cut as the native/offline reader, preserving bounded details and unsupported association. Delete replaced heuristic comparison parsers once their
+source cut as the native/offline reader, preserving per-section completeness, bounded details and unsupported association. Include large optional sections and a compact selected answer whose essential claims survive the host result bound. Delete replaced heuristic comparison parsers once their
 callers move; historical source results remain unchanged.
 
 <a id="F02"></a>
@@ -108,11 +125,47 @@ falsifying target outcome. Keep app tracing separate from Plan40 snapshot freshn
 state and scientific usability. Publish changed blueprint §23.1 and guide meanings through the
 design route, without changing Plan40e status or reviving withdrawn provenance-proof work.
 
+<a id="F03"></a>
+### F03 — Optional finite multi-question evidence inquiry
+
+**Proposed, separately selectable:** consume one explicit baseline/candidate source cut and a
+finite list of existing typed evidence questions under one `EvidenceAnalysis` owner. It already
+creates one DataFusion context and bounded pool, parses/registers sources once, and exposes
+`ask(&mut self, ...)`. Execute the questions sequentially because they mutate a temporary selected
+view; no concurrent mutation of that context is supported. Validate finite question and cumulative
+output limits before work, using explicit native admission and the existing per-question bounds.
+Return each question's outcome/completeness, original source identities and the supplied cut.
+
+This is an operation-shaped inquiry over the finite question vocabulary, not arbitrary SQL,
+a generic batch executor, durable analysis handles or another cache. Expose selected behavior
+through existing registry/document generators and completed canonical bindings. Keep the native/
+offline single-question operation independently useful, particularly for tiny inquiries and
+independent cancellation. Add no new analysis-session expiry/reconnect/retention protocol.
+
+A cancelled or failed question retains its authentic outcome; completed answers cannot imply
+whole-inquiry completion. Any remaining unexecuted questions are explicit. A failure does not
+silently reuse a prior question's temporary view. The existing DataFusion query context supports
+reuse; stream drop alone cannot bound aggregation/sorting intermediates or process RSS. Preserve
+F01's independently specified pairs/denominators, PI04's selective sections and protected originals.
+The [review's exact library sources](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#library-mechanisms-and-adoption-limits)
+record enabling mechanisms and their limits; parse-once analysis is an existing foundation,
+not new functionality claimed by this package.
+
+**Selection and acceptance:** defer implementation until an actual F01/52g investigation needs
+several related questions over the same cut and the operator selects F03. Then show one analysis
+preparation serves several sequential questions; native/offline/canonical pairs and denominators
+match independent expectations; duplicate import does not duplicate outcomes; per-question errors,
+limits, unexecuted population and cancellation stay explicit. Qualify the actual comparison
+consumer, not just a synthetic batch. No measured speed benefit is claimed. Keep F03 deferred if
+single-question requests suffice; no original Plan53 obligation or required Plan52 journey waits
+for this choice. Its own selected delivery, if authorized later, includes any replaced caller
+migration/deletion and its targeted and assembled acceptance.
+
 ## Verification and dependencies
 
 **Proposed:** F01 can begin with existing evidence sources independently of most series work.
 F02 consumes delivered Plan40 identities/capture and FND00's relevant design slice, not all of
 Plan40 qualification. Actual transport and database behavior need real bounded consumers in
 addition to pure interpretation fixtures. Force-validation accompanies Arrow-consuming checks.
-52h qualifies composed investigations; neither a complete trace nor a passing comparison engine
+53e E05 owns the assessment reader/custody migration and F01 migrates its actual comparison consumers with it; F03 can wait independently. 52h and 53g can share an authentic same-cut journey while retaining distinct assertions. 52h qualifies composed investigations; neither a complete trace nor a passing comparison engine
 establishes a scientifically valid result or a measured performance improvement.

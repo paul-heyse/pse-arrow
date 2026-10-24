@@ -3,7 +3,7 @@ title: "Plan 52g: Agent and operator workflows"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, environment, design, diagnostics, documentation]
@@ -32,6 +32,26 @@ Unavailable capability is a truthful result, not permission for hidden setup or 
 Reuse `workspace_context`, `activity`, `run_inspection`, `validation_result`, documentation/native
 scope and existing result readers. Instructions already route by scope; refine discovery where
 real tasks need it. Existing Codex access and local tools suffice; no paid evaluation platform.
+
+## Test-architecture consumer integration
+
+**Proposed:** consume [PI02/PI04/PI10](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI10)
+through delivered 52k contracts and revised 53d/53e owners. G01/G02 retain actual structured
+handles, independently useful preparation responsibilities and demand-shaped protected result
+reads; they do not define another preparation policy or evidence format. An available native route
+and a callable canonical operation remain distinct exposure decisions at the existing catalogue.
+Source-only describe/browse does not ensure a build, import the extension or acquire a store.
+
+When readers change, migrate G01/G02/G05 with E05's versioned owner boundary: mandatory native
+outcome and selection/source-cut summary, explicit selected/failure/source detail and full export,
+plus per-section presentation completeness. A compact answer is useful only if essential native
+claims survive and omitted detail has a meaningful next read. Protected evidence links retain
+their original custody, including reused older origins and service-down inspection. No generic
+wire envelope, parser mirror, operator UI or new result authority is required.
+
+G02/G05 may consume optional 52f F03 only after separate selection. Neither the comparison workflow
+nor original Plan53 completion depends on it. The operator's existing optional view decision I13
+remains separate from F03 and is not implicitly selected by plan amendment.
 
 ## Work packages
 
@@ -165,6 +185,6 @@ all-capabilities prerequisite. G02 implements the selected canonical workflow in
 operator-view decision. CAP/ADP/MCP own underlying interface mechanisms, and any CLI remains
 conditional under MCP04. G03 uses actual task
 observations; G04 consumes declared ownership and source relationships. Targeted command/parser/
-composition fixtures accompany changed behavior, while 52h owns assembled agent/operator journeys
+composition fixtures accompany changed behavior, while 52h and 53g coordinate applicable describe→prepare→execute→watch/read, relevant schema/restart, interrupted protected-read and explicit-comparison executions without duplicating acceptance authority. Share runs only when source/inputs/population/mode/guarantees agree; host attachment, native outcome, scientific adequacy, custody and cleanup retain separate assertions. 52h owns assembled agent/operator journeys
 and scope-end checks. No tool transport or dashboard changes native terminal, scientific, scope
 or authorization truth.

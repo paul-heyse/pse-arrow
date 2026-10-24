@@ -3,7 +3,7 @@ title: "Plan 52: Agent effectiveness and engineering workflows"
 status: in-progress
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/agent-tool-discovery-and-access-2026-10-24.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
 scenario_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
@@ -187,6 +187,34 @@ closure. F02 neither completes that campaign nor reinstates withdrawn environmen
 proof work. Plan28's separate scientific campaigns are not prerequisites merely because a
 representative native case is used here. Do not edit/retire those plans as part of authoring.
 
+## Remaining test-architecture integration — 2026-10-24
+
+The operator authorized plan revisions from the
+[remaining-architecture review](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md),
+with completed 52k as the starting condition before remaining Plan53 execution. The
+[52k Outcome](52k-unified-entry-point-and-derived-interfaces.md#verification-and-outcome--2026-10-24)
+now records its completed component and actual-host evidence. Existing MCP package, Q01–Q06 and
+qualification owners remain unchanged; this amendment consumes delivery without extending its
+claims to the remaining Plan52/Plan53 assembled scope.
+
+**Proposed:** 53d owns preparation changes; 53e owns immutable invocation facts, protected reader/
+custody migration, fixture settlement and selective discovery; 53f owns actual effect/exclusion
+scope. Plan52's F01/G01/G02/G05 consumers migrate alongside relevant reader/contracts, and H01/H02
+coordinate authentic joined journeys with 53g. Preserve separate native/scientific/host/custody/
+cleanup assertions and do not sum shared executions into broader coverage. PI04's native question
+section selection/completeness belongs to F01; PI10 supplies the joined qualification route.
+These are linked amendments within existing owners, not transfer of 52k delivery or a dependency
+on completing all Plan52 work.
+
+PI09 is **separately selectable**, per the operator's 2026-10-24 choice: [52f F03](52f-evidence-analysis-and-trace-correlation.md#F03)
+fully describes a finite multi-question inquiry over the existing typed question vocabulary and
+one source cut. It stays deferred until a concrete multi-question consumer and separate selection
+justify delivery. Its unselected implementation does not block original Plan52 or Plan53 closure.
+The existing F01 single-question path and G05 optional-view inquiry retain their meanings.
+The review's separate endpoint-shutdown observation is I14 below; it is not a Plan53 amendment or
+an automatic reopening of delivered MCP01/Q03. No additional rule change is introduced beyond
+already accepted decisions; new incompatible contract impacts use the normal explicit decision route.
+
 ## Opportunity dispositions
 
 Rows retain their native package owners; selected implementation and inquiry outcomes are recorded
@@ -249,6 +277,29 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I11 | open | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact SDK/transport context propagation; no fake continuity |
 | I12 | resolved | [G02](52g-agent-and-operator-workflows.md#G02) | Operator selected one canonical FastMCP endpoint on 2026-10-24; optional direct-versus-MCP adoption inquiry superseded. Actual host, schema and lifecycle questions remain Q01–Q06 below; no delivery claim |
 | I13 | open | [G05](52g-agent-and-operator-workflows.md#G05) | Interactive evidence use versus standalone report/plot; no product frontend |
+| I14 | open | [Endpoint lifecycle inquiry](#endpoint-shutdown-inquiry) | Assess the separately observed non-cancellation shutdown exception path after 52k delivery; identify reachable failure/independent cleanup guarantees and select a supported disposition or separately authorized remedy. No Plan53/MCP01 completion dependency or delivery claim. |
+
+<a id="endpoint-shutdown-inquiry"></a>
+### Endpoint shutdown inquiry — separate post-delivery concern
+
+**Interface-checked:** the improvement review and focused authoring inspection find
+`Specialists.close` awaiting language/database connections sequentially without per-sibling error
+collection; a non-cancellation exception can stop later close attempts. This shares neither
+examined implementation nor required protocol migration with 53e E02's fixture settlement.
+MCP01/Q03's recorded owned-drain evidence remains intact; no new executed failure is claimed.
+
+**Proposed — I14:** the Plan52 endpoint lifecycle owner checks this path against the completed
+52k implementation and actual connection context managers. Determine which exceptions can escape,
+which independent owners remain live, required ordering/cancellation and the desired shutdown
+outcome. Source evidence may settle the decision; a bounded shutdown-failure control is useful
+only where reachability or protection remains uncertain. Do not run a new host campaign merely
+to author the plan or import fixture clock semantics into this different lifetime.
+
+Close the inquiry with a supported no-change judgment, or the exact gap and a separately selected
+repair owner/acceptance; preserve uncertainty if it cannot yet be settled. A positive repair
+selection must include independent sibling settlement and truthful retained failures, under the
+endpoint's actual lifetime contract. It does not silently reopen completed MCP delivery, add a
+new required Plan53 package or authorize production correction through this document revision.
 
 ## Unified-interface rule decisions
 
@@ -344,8 +395,9 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | E02 | done | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Actual v2 populations, exact rows/edges/permissions, query equivalence, SIGINT/read-only settlement and sibling-preserving reclamation passed |
 | E03 | done | [52e](52e-reproducible-experiments-and-isolation.md#E03) | Actual semantic bisection visited an untestable revision, found the known bad commit and removed only its temporary Git checkout/build output after drain; main and independent worktrees preserved; retained noisy comparison inconclusive |
 | E04 | done | [52e](52e-reproducible-experiments-and-isolation.md#E04) | Optional Bubblewrap witnesses and actual CLI/library parser consumers; Surrealism grammar uses existing pinned parser |
-| F01 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired evidence comparisons |
+| F01 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired comparisons, selective answer sections/completeness and protected same-cut native/canonical readers |
 | F02 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Finite trace seam and I11 |
+| F03 | deferred | [52f](52f-evidence-analysis-and-trace-correlation.md#F03) | PI09 optional finite multi-question inquiry; revisit for a real repeated-question consumer over one cut and explicit selection. Unselected delivery is outside original series completion. |
 | G01 | planned | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
 | G02 | planned | [52g](52g-agent-and-operator-workflows.md#G02) | Actual unified agent workflows consuming CAP/ADP/MCP delivery; I12 selection settled |
 | G03 | planned | [52g](52g-agent-and-operator-workflows.md#G03) | Task-focused instruction/evaluation consumer |
@@ -390,6 +442,11 @@ fixing the dependent target. Acceptance is the required decision/declaration in 
 actual consumer consuming it, not completion of a generic paperwork milestone.
 
 ### Dependency order
+
+The linked Plan53 amendments consume completed 52k without changing MCP progress here. Shared
+reader and workflow migrations follow the actual 53e E05/52f F01 contract slices, not entire
+companion barriers. Optional F03 consumes F01's supplied-cut/comparison semantics only after
+separate selection. I14 is a separate post-delivery disposition, not an MCP/Plan53 dependency.
 
 Start independent source-grounded work: A01/A02, B02/B03, C01–C05, D01–D04, E02 and F01.
 G01's small early interaction slice accompanies the first context/watch/result consumers; its

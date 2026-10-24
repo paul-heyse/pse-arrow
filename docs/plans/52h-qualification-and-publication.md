@@ -3,7 +3,7 @@ title: "Plan 52h: Qualification and publication"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
+review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
 doc_role: plan
 doc_owner: docs/plans/52-agent-effectiveness-and-engineering-workflows.md
 doc_topics: [current-work, validation, documentation, design]
@@ -59,6 +59,31 @@ Actual Rust/Python/public CLI paths matter where delivered behavior crosses them
 composition does not need native solver compilation; a claim about native callback lifetime or
 public scientific reduction needs its actual linked consumer. Miri/fuzz/sanitizer/Loom each retain
 their instrumentation/observation bounds. Full solver-fleet qualification is not implied.
+
+## Shared qualification with remaining Plan53
+
+**Proposed — [PI10](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI10):**
+completed 52k is the starting condition for the remaining test-architecture work. H01/H02 consume
+53d preparation and 53e protected-reader migrations as actual contracts, not an interface promise.
+Coordinate the [53g shared journeys](53g-qualification-and-publication.md#shared-executions-with-separate-acceptance):
+describe→prepare→execute→watch/read; relevant extension/schema change and restart; interrupted
+publication/reuse and offline read; independent drain failure with an escaped reader; the selected
+two-invocation service/database claim; and explicit same-cut comparison.
+
+Use one execution for several assertions only when actual source, inputs, selected population,
+mode and guarantees match. Each owner references authentic evidence for its own acceptance:
+MCP success does not prove native Pass, native controls do not prove Codex attachment, physical
+cleanup does not rewrite frozen scientific assurance, and compact presentation is not native
+completeness. Do not sum overlapping counts into coverage. Keep genuinely different modes/runs
+separate; no Cartesian campaign or new combined result ledger is introduced.
+
+H01 reconciles native reader and canonical/workflow consumers when E05 changes, including section
+bounds, retained origins and explicit full export. H02 uses current supported host routes from
+52k and independent source/native expectations. A04's scientific qualification remains with 53a/
+53g and is not substituted by successful reference generation or endpoint presentation. Optional
+52f F03 joins only if separately selected; original Plan52/Plan53 completion excludes its unselected
+delivery. The separately recorded endpoint-shutdown inquiry also does not reopen completed MCP
+acceptance or automatically add a Plan53 qualification obligation.
 
 ## Work packages
 

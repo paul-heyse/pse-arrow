@@ -3,7 +3,7 @@ title: "Plan 53f: Effect-scoped scheduling"
 status: draft
 date: 2026-10-23
 adrs: []
-review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
+review_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md]
 scenario_sources: [docs/design_review/reviews/design_review_test-architecture-target_2026-10-23.md]
 doc_role: plan
 doc_owner: docs/plans/53-test-architecture-target.md
@@ -14,37 +14,95 @@ doc_topics: [current-work, design, validation, environment]
 
 ## Target and limits
 
-**Proposed:** scheduling reflects actual effects and supported protection scope under [R08](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md#r08). C02 owns requirement meaning, nextest/pytest and host/service owners perform scheduling, and the [coordinator](53-test-architecture-target.md#package-state-and-execution-route) owns progress. Accepted RC02 removes demonstrated accidental barriers while retaining necessary native/timing/canonical protection. No global capacity planner, default serial queue, automatic concurrency increase or change to ordinary unbounded build mode is selected.
+**Proposed:** scheduling reflects actual effects and supported protection scope under
+[R08](../design_review/reviews/design_review_test-architecture-target_2026-10-23.md#r08) and
+[PI07](../plan_improvement_reviews/test-architecture-remaining-2026-10-24.md#PI07). C02's shared
+requirement owner remains the semantic foundation; nextest/pytest and host/service owners
+execute scheduling. The [coordinator](53-test-architecture-target.md#package-state-and-execution-route)
+owns progress. Accepted RC02 removes demonstrated accidental barriers while retaining necessary
+native/timing/canonical protection. No global capacity planner, default serial queue, automatic
+concurrency increase or change to ordinary unbounded build mode is selected.
 
-DTA-044 does not establish that the remaining canonical barrier is unnecessary. Remove B05's two accidental fixture consumers, then retain canonical-owner exclusion for actual canonical work. Configured ceilings, resident demand, retained diagnostic state, live borrowers and timing isolation are different quantities. A per-run exclusive group cannot promise quiet across separate runs.
+**Interface-checked:** `Requirement` currently owns effects, fixtures, capacity and roles;
+exclusion/quiet meanings remain separately expressed in scheduler configuration. Canonical effects
+or scientific capacity do not imply service-wide quiet. B05's two local Python cases are already
+fixture-free; remove their residual scheduling coupling without redoing their delivered migration.
+DTA-044 still does not establish that the remaining canonical barrier is unnecessary.
 
 ## Work packages
 
 <a id="f01"></a>
-### F01 — Remove proven pure-control barriers through shared requirements
+### F01 — One requirement interpretation, including actual exclusion meanings
 
-After P00 publishes RC02 and C02 supplies actual catalog correspondence, remove broad scheduler requirements from pure KINSOL profile-identity and Ipopt status/bounds controls. Retain native thread pools, MKL/heavy scientific and timing requirements for cases that actually need them. Use existing [nextest groups and thread requirements](https://nexte.st/docs/configuration/test-groups/); human group displays are not a stable machine schema.
+Extend the existing requirement owner only with the exclusion/quiet distinctions actual cases
+need. Keep semantic demand separate from placement widths and actual service/generation acquisition.
+Derive per-run nextest/pytest scheduling from those meanings rather than a second effect-policy
+table. Agree the descriptor with E01 before its immutable requirement migration; no universal
+capacity taxonomy or exact-name acceptance manifest is needed. Preserve C02's actual catalogue
+correspondence and before-creation guard.
 
-Migrate `.config/nextest.toml`, root/Python conftest grouping and managed pytest scheduler selection as consumers of the same effect facts. B05's capability and constructor/module-evidence Python cases lose their accidental canonical fixture and group together. A renamed/split/new test with unchanged effects retains the requirement or produces an exact stale/missing mapping refusal, rather than silently running unprotected. Keep C02's actual effect guard before creation.
+Remove broad requirements from demonstrably pure KINSOL profile-identity and Ipopt status/bounds
+controls. Preserve native pools, MKL/heavy scientific and timing needs where real. Existing
+[nextest groups/thread requirements](https://nexte.st/docs/configuration/test-groups/) are execution
+mechanisms; human group displays are not stable machine metadata. Migrate nextest overrides,
+root/Python conftest grouping and managed pytest selection together. B05's capability and
+constructor/module-evidence cases shed the residual canonical group while remaining store-free.
 
-Acceptance compares actual selected requirements across managed affected/native/Python routes, shows known pure cases require no solver/canonical reservation, and confirms genuine native/timing/canonical cases retain protection. Delete broad regex interpretations and route-specific duplicated tables only where replaced by the selected declaration contract. No benchmark is required to establish removal of the accidental barrier.
+**Acceptance:** actual selected requirements agree across affected/native/Python routes; renamed,
+split or new cases preserve meanings or refuse exact stale/missing correspondence before effects.
+Known pure cases lose unrelated reservations; genuine timing/native/canonical cases retain them.
+Delete broad regex interpretations/route-specific policy tables only where the shared owner
+replaces them. No benchmark is needed to establish removal of an accidental barrier.
 
 <a id="f02"></a>
-### F02 — Honest service-quiet scope
+### F02 — Resolve the assertion before selecting service-quiet scope
 
-Resolve I08 for tests that assert service-wide quiet: choose an invocation-owned supervised service once per relevant invocation, or narrow the assertion to the selected database when that is the true supported claim. A separate service per test is not the default. An invocation-owned service includes creation borrower, generation identity, actual member association, shutdown/drain and retained-reader protection; E03 supplies conservative active-access checks, not an absence-based safety shortcut.
+Resolve inquiry I08 by inventorying actual claims, not just current group names. For example,
+`fixture_connections_preserve_deployment_database` asserts database existence; that alone does
+not require a private service per test. Choose database-local assertion/protection where that is
+the intended claim. For genuine service-wide quiet, select one supervised invocation-owned
+service per relevant invocation, including creation borrower, generation identity, actual member
+association, shutdown/drain and retained-reader protection. Actual bindings remain with the
+invocation/fixture owner, not a sealed semantic requirement or host placement declaration.
 
-A service-wide claim must survive two separately started runs, including one registering/retaining access while another asks for quiet/maintenance. A merely nextest-exclusive or pytest-local group does not satisfy it. If process/service isolation cannot supply the claimed supported scope, preserve conservative protection and report the unsupported claim until an explicit narrower assertion is selected. Do not quietly weaken a real scientific/lifecycle requirement to make parallelism possible.
+E03 supplies selective access discovery with known writer coverage. Missing index entries or a
+per-run exclusive group cannot establish quiet across independent invocations. Preserve barriers
+until the selected claim and lifecycle protection are implemented. A service per test is not the
+default; narrowing a real scientific/lifecycle requirement merely to permit parallelism is invalid.
 
-Migrate service fixture selection, assertion owner and cleanup consumers together. Preserve ordinary unbounded builds and actual timing isolation. Remove replaced shared-service assumptions only after the chosen scope and cross-run control pass. This package does not widen remaining canonical concurrency.
+**Acceptance:** two separately started invocations exercise creation, retained access and
+maintenance under the chosen service/database claim. Include one registering/retaining access
+while another requests quiet/maintenance. Migrate service selection, assertion and cleanup
+consumers together; delete replaced shared-service assumptions only after cross-run controls pass.
+If neither isolation nor the justified narrower assertion supplies the supported claim, retain
+conservative protection and an explicit unsupported outcome. This does not widen canonical
+concurrency or reopen completed 52k delivery.
 
 <a id="f03"></a>
-### F03 — Explicit bounded local settings without capacity fiction
+### F03 — Explicit sufficient local settings from current role owners
 
-Use explicit smaller bounded settings for local fixtures whose responsibility permits them, retaining real test inputs and receiving-budget refusals. A configured 64 GiB ceiling is not reservation or measured demand. Keep the functional-store 8 GiB role distinct from the exclusive observer's 144 GiB envelope (72 GiB receiver + 64 GiB observer + 8 GiB control), and keep host versus store demand distinct. These are selected role premises, not a machine-wide scheduling model.
+Use smaller explicit bounded settings where the local fixture responsibility permits them,
+retaining real inputs and receiving-budget refusals. Consume current role declarations in
+`.config/agent-capacity.toml` and environment owners; do not copy historical numeric envelopes
+into another scheduling policy. Functional slots, store slots, compiler limits, OS ceilings,
+retained diagnostics and actual resident demand are distinct. A ceiling is not reservation or
+measured consumption, and a compiler live-root admission limit is not an OS-memory problem.
 
-Targeted tests verify the intended role settings are passed and sufficient for the same functional case, with the meaningful limit/refusal controls preserved. No OOM cause is inferred from historical width-16 startup failures versus width-4 success. Widen concurrency only if a concrete supported claim is later selected and actual simultaneous demand/lifetime premises are established; retain the barrier meanwhile. A future quantitative throughput/capacity claim would require its own declared measured baseline and conditions, not a probe campaign to close this plan.
+**Acceptance:** targeted controls show the chosen role settings reach the receiver and suffice
+for the same functional case, including meaningful budget/limit refusals. Preserve the current
+ordinary unbounded build selection and timing isolation. Infer no OOM cause from historical
+width-16 versus width-4 starts. Retain remaining canonical protection; any later throughput or
+concurrency proposal requires its own supported demand/lifetime premises and, for numeric claims,
+a declared measured baseline. Such a campaign is not required to close this package.
 
 ## Integration and completion
 
-C02 is the semantic prerequisite for F01; B05 migration is necessary before removing the two Python groups. F02's scope decision and lifecycle contract precede relaxing service-quiet exclusion. F03 does not depend on blanket barrier removal. Coordinate conftest/nextest/service fixtures with C/B/E writers. 53g qualifies the chosen cross-run scope and preserved native/timing/canonical cases; no unsupported wider concurrency is required for completion. Retain canonical protection and document its support boundary rather than leave an invented optimization backlog.
+Delivered C02/B05 are foundations. F01's exclusion meaning precedes E01's immutable requirement
+cutover; scheduler consumers can migrate when their actual prerequisite slice exists. F02's I08
+outcome and implemented E03 coverage/protection precede any quiet-scope relaxation. F03 is
+independent of blanket barrier removal. Coordinate nextest/conftest/service declarations with
+the B/C/E consumers under one writer per shared surface.
+
+53g qualifies the chosen two-invocation scope and retained native/timing/canonical cases. Less
+exclusion establishes no measured speed/capacity claim. Preserve actual canonical protection and
+its support boundary without adding an invented optimization backlog.
