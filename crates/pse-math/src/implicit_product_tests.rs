@@ -2463,3 +2463,99 @@ fn zero_state_traversal_keeps_value_only_child_of_original_first_guard_after_num
         );
     }
 }
+
+proptest::proptest! {
+    #![proptest_config(proptest::test_runner::Config::with_cases(32))]
+    #[test]
+    fn implicit_product_generated_edits_reprepare_against_analytic(
+        edits in proptest::collection::vec((-8_i32..8,-8_i32..8,proptest::bool::ANY),1..7)
+    ) {
+        let (factory,_,_)=coupled(2,64);
+        let mut reused=factory.create().unwrap();
+        let flag=factory.cancel.flag();
+        let context=EvaluationContext {cancelled:flag.as_ref(),max_result_bytes:1<<20};
+        for (a,b,swap) in edits {
+            let parameters=[f64::from(a)/4.,f64::from(b)/4.];
+            let expected=analytic(&parameters);
+            let outputs=if swap {vec![1,0]} else {vec![0,1]};
+            let columns=if swap {vec![1,0]} else {vec![0,1]};
+            // Both cold and retained providers must agree with the closed-form state,
+            // not just with one another. Every edit prepares a fresh keyed demand.
+            let mut cold=factory.create().unwrap();
+            for provider in [&mut reused,&mut cold] {
+                let request=provider.prepare(ProviderRequest {outputs:outputs.clone(),order:DerivativeOrder::First,demand:ProviderDemand::SelectedColumns {columns:columns.clone()}}).unwrap();
+                let mut buffer=ProviderBuffer::new(&request);
+                let actual=buffer.fill(provider,&parameters,&request,Default::default(),&context).unwrap();
+                for (row,&output) in outputs.iter().enumerate() {
+                    close(&actual.values[row..row+1],&[expected.values[output]]);
+                    for (column,&coordinate) in columns.iter().enumerate() {
+                        close(&actual.jacobian[row*2+column..row*2+column+1],&[expected.jacobian[output*2+coordinate]]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn generated_wrong_coordinate_association_shrinks_to_concrete_regression() {
+    use proptest::{prelude::*,test_runner::{Config,RngSeed,TestError,TestRunner}};
+    // Strategy identity: vec((0..8,0..8),1..7), ChaCha seed 5202.
+    // Fault: retain the previous input while the caller edits parameter a.
+    let mut runner=TestRunner::new(Config {cases:64,rng_seed:RngSeed::Fixed(5202),failure_persistence:None,..Config::default()});
+    let strategy=proptest::collection::vec((0_i32..8,0_i32..8),1..7);
+    let result=runner.run(&strategy,|edits| {
+        let (factory,_,_)=coupled(2,64);
+        let mut provider=factory.create().unwrap();
+        let flag=factory.cancel.flag();
+        let context=EvaluationContext {cancelled:flag.as_ref(),max_result_bytes:1<<20};
+        let request=provider.prepare(ProviderRequest {outputs:vec![0,1],order:DerivativeOrder::Value,demand:ProviderDemand::CompleteJets}).unwrap();
+        let mut buffer=ProviderBuffer::new(&request);
+        let mut previous=[0.,0.];
+        for (a,b) in edits {
+            let current=[f64::from(a),f64::from(b)];
+            // Explicit association fault at the real provider boundary: evaluate
+            // retained preparation with the stale prior inputs rather than the edit.
+            let wrong=buffer.fill(&mut provider,&previous,&request,Default::default(),&context).unwrap();
+            let expected=analytic(&current).values;
+            for (actual,expected) in wrong.values.iter().zip(expected) {
+                prop_assert!((actual-expected).abs()<1e-10);
+            }
+            previous=current;
+        }
+        Ok(())
+    });
+    let Err(TestError::Fail(_,minimal))=result else {panic!("wrong stale association was not detected")};
+    assert_eq!(minimal,vec![(0,1)],"concrete minimized input is retained with the seed and strategy");
+    assert_eq!(analytic(&[0.,1.]).values,vec![1./3.,2./3.]);
+    assert_eq!(analytic(&[0.,0.]).values,vec![0.,0.]);
+}
+
+#[test]
+fn implicit_product_legal_step_sweep_exports_actual_selected_values() {
+    let (factory,_,_)=coupled(2,64);
+    let mut provider=factory.create().unwrap();
+    let flag=factory.cancel.flag();
+    let context=EvaluationContext {cancelled:flag.as_ref(),max_result_bytes:1<<20};
+    let request=provider.prepare(ProviderRequest {outputs:vec![0],order:DerivativeOrder::First,demand:ProviderDemand::SelectedColumns {columns:vec![0]}}).unwrap();
+    let mut buffer=ProviderBuffer::new(&request);
+    let point=[1.5,0.25];
+    let derivative=buffer.fill(&mut provider,&point,&request,Default::default(),&context).unwrap().jacobian[0];
+    close(&[derivative],&[13./12.]);
+    let mut samples=Vec::new();
+    for exponent in 1..=17 {
+        let step=10_f64.powi(-exponent);
+        let mut values=Vec::new();let mut failure=None;
+        for parameter in [point[0]-step,point[0]+step] {
+            match buffer.fill(&mut provider,&[parameter,point[1]],&request,Default::default(),&context) {
+                Ok(result)=>values.push(result.values[0]),
+                Err(error)=>{failure=Some(error.to_string());break;}
+            }
+        }
+        let complete=failure.is_none() && values.len()==2 && point[0]+step!=point[0] && point[0]-step!=point[0];
+        samples.push(serde_json::json!({"case":"implicit-coupled","point":point,"coordinate":"p0","coordinate_unit":"dimensionless","output_unit":"dimensionless","coordinate_scale":1.,"step":step,"central":true,"complete":complete,"failure":failure,"analytic":derivative,"numeric":complete.then(||(values[1]-values[0])/(2.*step)),"reference":"13/12","values":values}));
+    }
+    if let Some(path)=std::env::var_os("PSE_IMPLICIT_NUMERICAL_OUTPUT") {
+        std::fs::write(path,serde_json::to_vec_pretty(&serde_json::json!({"schema":"implicit-product-step-sweep-v1","oracle":"A=[[1,1],[2,-1]], rhs=[a*a+b,a*b]; independent derivative at a=1.5,b=.25 is 13/12","samples":samples})).unwrap()).unwrap();
+    }
+}

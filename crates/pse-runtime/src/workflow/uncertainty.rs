@@ -823,4 +823,40 @@ mod projection_tests {
         jacobian.values = vec![2.0, 3.0, 2.0, 3.0];
         assert!(propagate_for_test(Ok(&covariance), Ok(&jacobian)).is_err());
     }
+    proptest::proptest! {
+        #![proptest_config(proptest::test_runner::Config::with_cases(64))]
+        #[test]
+        fn covariance_semantic_scaling_and_keyed_permutation(
+            a in 1_i32..20, b in -10_i32..10, c in 1_i32..20,
+            j0 in -8_i32..8, j1 in -8_i32..8,
+            d0 in 1_i32..8, d1 in 1_i32..8, swap in proptest::bool::ANY,
+        ) {
+            let (a,b,c,j0,j1,d0,d1)=(f64::from(a),f64::from(b),f64::from(c),f64::from(j0),f64::from(j1),f64::from(d0),f64::from(d1));
+            // Independent latent-error model: theta0=a*e0, theta1=b*e0+c*e1.
+            // Var(j.theta)=(j0*a+j1*b)^2+(j1*c)^2; no production matrix multiply.
+            let expected=(j0*a+j1*b).powi(2)+(j1*c).powi(2);
+            let values=[a*a*d0*d0, a*b*d0*d1, a*b*d0*d1, (b*b+c*c)*d1*d1];
+            let order=if swap {[1,0]}else{[0,1]};
+            let id=|n|SemanticId::from_bytes([n;16]);
+            let covariance=ParameterCovariance {
+                version:pse_model::document::Version,
+                origin:CovarianceOrigin::External {label:"independent latent errors".into(),assumptions:vec!["unit independent e0,e1".into()]},
+                parameters:order.iter().map(|i|id(1+*i as u8)).collect(),
+                parameter_quantities:order.iter().map(|i|id(11+*i as u8)).collect(),
+                parameter_units:order.iter().map(|i|id(21+*i as u8)).collect(),verified:None,
+                scales:order.iter().map(|i|FiniteBound::try_new([d0,d1][*i]).unwrap()).collect(),
+                values:order.iter().flat_map(|i| order.iter().map(move |j|FiniteBound::try_new(values[2*i+j]).unwrap())).collect(),
+            };
+            let jacobian=Jacobian {outputs:vec![id(3)],parameters:vec![id(1),id(2)],values:vec![j0/d0,j1/d1]};
+            let actual=propagate_for_test(Ok(&covariance),Ok(&jacobian)).unwrap().unwrap();
+            proptest::prop_assert!((actual.values[0]-expected).abs() <= 1e-10*expected.max(1.));
+            proptest::prop_assert_eq!(actual.outputs,vec![id(3)]);
+            // Withheld is a valid unavailable result; malformed extent remains an error.
+            let withheld=Upstream {quantity:DerivedQuantity::ParametricSensitivity,reason:WithheldReason::ResponsesUnavailable,detail:"incomplete response".into()};
+            proptest::prop_assert!(propagate_for_test(Ok(&covariance),Err(withheld)).unwrap().is_err());
+            let invalid=Jacobian {values:vec![],..jacobian};
+            proptest::prop_assert!(propagate_for_test(Ok(&covariance),Ok(&invalid)).is_err());
+        }
+    }
+
 }
