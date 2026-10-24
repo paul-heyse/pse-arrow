@@ -21,7 +21,9 @@ def junit(identity: str, name: str = "selected") -> bytes:
 
 
 class CorrespondenceTests(unittest.TestCase):
-    def test_rejection_branch_is_missing_then_observed_without_test_attribution(self) -> None:
+    def test_rejection_branch_is_missing_then_observed_without_test_attribution(
+        self,
+    ) -> None:
         path = "crates/example/src/lib.rs"
         file = {
             "filename": str(coverage.ROOT / path),
@@ -62,7 +64,9 @@ class CorrespondenceTests(unittest.TestCase):
                 output = root / ("fresh" if changed else "stale")
                 output.mkdir()
 
-                def run(*args, **kwargs):
+                def run(
+                    *_args: object, changed: bool = changed, **_kwargs: object
+                ) -> subprocess.CompletedProcess[bytes]:
                     if changed:
                         report.write_bytes(junit("new", "only-executed"))
                     return subprocess.CompletedProcess([], 0 if changed else 1)
@@ -109,6 +113,27 @@ class CorrespondenceTests(unittest.TestCase):
                 else:
                     self.assertIsNone(capture["population"])
                     self.assertIn("not replaced", capture["population_error"])
+
+    def test_junit_refuses_bounded_dtd_and_entity_declarations(self) -> None:
+        self.assertEqual(
+            coverage.population(junit("control")),
+            [
+                {
+                    "binary": "actual-binary",
+                    "test": "selected",
+                    "outcome": "passed",
+                }
+            ],
+        )
+        for declaration in (
+            b'<!DOCTYPE testsuites><testsuites uuid="bounded"><testcase classname="owned" name="selected"/></testsuites>',
+            b'<!DOCTYPE testsuites [<!ENTITY case_name "not-expanded">]><testsuites uuid="bounded"><testcase classname="owned" name="&case_name;"/></testsuites>',
+        ):
+            with (
+                self.subTest(document=declaration),
+                self.assertRaisesRegex(ValueError, "malformed nextest JUnit"),
+            ):
+                coverage.population(declaration)
 
     def test_unsupported_llvm_protocol_and_config_are_not_guessed(self) -> None:
         with self.assertRaisesRegex(ValueError, "protocol"):

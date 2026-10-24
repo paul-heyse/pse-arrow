@@ -11,7 +11,6 @@ import hashlib
 import json
 import re
 import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
@@ -19,6 +18,8 @@ from typing import TYPE_CHECKING, TypedDict
 from scripts import document_metadata as metadata
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from markdown_it import MarkdownIt
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -149,8 +150,8 @@ def aggregate(
     documents: set[str] | None = None,
     read_source: Callable[[str], bytes] | None = None,
 ) -> list[ScopeItem]:
+    selected = set(documents or ())
     if documents is not None:
-        selected = set(documents)
         # Native status ownership can cross documents. Select the complete declared
         # connected component before parsing, while preserving one interpretation.
         while True:

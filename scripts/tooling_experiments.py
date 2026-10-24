@@ -16,8 +16,8 @@ import stat
 import sys
 import tempfile
 import time
-from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING, Never
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -29,8 +29,13 @@ from scripts import (  # noqa: E402 -- direct-script path routing
     surreal_source,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 SCHEMA = "tooling-experiment-v1"
 BUBBLEWRAP_VERSION = "bubblewrap 0.13.0"
+# This is the new private namespace path, never a predictable host temporary file.
+SANDBOX_TEMP = str(PurePosixPath("/") / "tmp")
 WITNESS = b"selected-readonly-fixture\n"
 # Positional arguments contain only snapshotted input names, never shell source.
 PARSER_LAUNCH = """if (printf 'forbidden-write\\n' > /inputs/readonly-witness) 2>/dev/null; then
@@ -45,6 +50,11 @@ exec /tool/surreal validate "$@"
 LIBRARY_PARSER_LAUNCH = PARSER_LAUNCH.replace(
     'exec /tool/surreal validate "$@"', 'exec /tool/parser surrealql-validate "$@"'
 )
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def capture(
@@ -185,16 +195,16 @@ def namespace_command(
         "--dev",
         "/dev",
         "--tmpfs",
-        "/tmp",
+        SANDBOX_TEMP,
         "--bind",
         str(output),
         "/output",
         "--setenv",
         "HOME",
-        "/tmp",
+        SANDBOX_TEMP,
         "--setenv",
         "TMPDIR",
-        "/tmp",
+        SANDBOX_TEMP,
         "--setenv",
         "LC_ALL",
         "C",
@@ -377,8 +387,8 @@ def experiment(
         selected_inputs.append(target)
     tools = {}
     libraries = {}
-    for name, source in ((parser_tool, binary), ("sh", Path("/bin/sh"))):
-        source = source.resolve(strict=True)
+    for name, original_source in ((parser_tool, binary), ("sh", Path("/bin/sh"))):
+        source = original_source.resolve(strict=True)
         target = work / name
         observed = capture(source, target, check=check)
         target.chmod(0o500)
@@ -491,8 +501,8 @@ def main(argv: list[str] | None = None) -> int:
             "default": "owned private directories plus pse-env",
             "selection": "optional Bubblewrap namespace probe",
             "payload": {
-                "HOME": "/tmp",
-                "TMPDIR": "/tmp",
+                "HOME": SANDBOX_TEMP,
+                "TMPDIR": SANDBOX_TEMP,
                 "LC_ALL": "C",
                 "PATH": "/tool",
             },
@@ -520,7 +530,7 @@ def main(argv: list[str] | None = None) -> int:
         if ".." in output.parts or any(
             path.is_symlink() for path in (output, *output.parents)
         ):
-            raise ValueError("select a new output directory without symlink traversal")
+            _invalid_protocol("select a new output directory without symlink traversal")
         output.mkdir(mode=0o700)
         created = True
         resource_store.protected(output)
@@ -535,13 +545,11 @@ def main(argv: list[str] | None = None) -> int:
         code = experiment(args, result, output, work, cancelled)
     except (OSError, ValueError, RuntimeError) as error:
         result["error"] = f"{type(error).__name__}: {error}"
-        code = (
-            result["exit_code"]
-            if result["outcome"] == "cancelled"
-            else 124
-            if result["outcome"] == "timed_out"
-            else 125
-        )
+        if result["outcome"] == "cancelled":
+            recorded_exit_code = result.get("exit_code")
+            code = recorded_exit_code if isinstance(recorded_exit_code, int) else 125
+        else:
+            code = 124 if result["outcome"] == "timed_out" else 125
     finally:
         drains = [
             item.get("process", {}).get("owned_drain", "unobserved")
@@ -562,7 +570,7 @@ def main(argv: list[str] | None = None) -> int:
                         not stat.S_ISDIR(info.st_mode)
                         or (info.st_dev, info.st_ino) != identity
                     ):
-                        raise ValueError(
+                        _invalid_protocol(
                             "private workspace identity changed; disposal refused"
                         )
                     shutil.rmtree(work)

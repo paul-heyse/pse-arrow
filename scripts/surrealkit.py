@@ -226,6 +226,7 @@ def fixture(
     resource: str,
     *,
     _population_recovery: bool = False,
+    _activity_borrow: str | None = None,
 ) -> tuple[test_resources.ResourceRecord, dict[str, object], dict[str, object]]:
     record = test_resources.resource_status(resource)
     if (
@@ -235,10 +236,22 @@ def fixture(
         or record.get("cleanup") != "retained"
     ):
         raise ToolError("Tooling requires an acknowledged registered namespace owner")
+    borrows = record.get("borrows")
+    if _activity_borrow is not None:
+        # Revalidation admits only the exact borrow just acquired by activity.
+        # Other tokens remain protected even when owned by this same process.
+        expected_borrow = {
+            _activity_borrow: {
+                "pid": os.getpid(),
+                "start": native_operation.start_identity(os.getpid()),
+                "boot": test_resources.host.boot(),
+            }
+        }
+        if borrows != expected_borrow:
+            raise ToolError("Tooling activity borrow differs from its admitted owner")
+        borrows = {}
     if not _population_recovery and (
-        record.get("drained") is not True
-        or record.get("creation_borrower")
-        or record.get("borrows")
+        record.get("drained") is not True or record.get("creation_borrower") or borrows
     ):
         raise ToolError(
             "Prior tooling activity requires exact settlement and drain before reuse"
@@ -251,7 +264,7 @@ def fixture(
         if record.get("tool_population", {}).get("phase") != "population_submitted":
             raise ToolError("Only the original pending population admits recovery")
         borrower = record.get("creation_borrower")
-        if record.get("borrows") or (
+        if borrows or (
             borrower
             and test_resources.borrower_alive(borrower)
             and borrower.get("pid") != os.getpid()
@@ -493,12 +506,14 @@ def activity(
     """Publish actual SQL activity under the existing service admission owner."""
     record, _, _ = fixture(resource, _population_recovery=_population_recovery)
     with contextlib.ExitStack() as owned:
-        owned.enter_context(test_resources.borrow(resource))
+        borrow = owned.enter_context(test_resources.borrow(resource))
         with surreal_server.context_admission(
             Path(record["state"]), wait_for_lifecycle=False
         ):
             record, config, credentials = fixture(
-                resource, _population_recovery=_population_recovery
+                resource,
+                _population_recovery=_population_recovery,
+                _activity_borrow=borrow,
             )
             with test_resources.resource_update(resource) as current:
                 current["drained"] = False
@@ -542,11 +557,11 @@ def _population_sql(
         )
         specific = next(
             (
-                str(item["error"])
+                item["error"]
                 for item in errors
-                if "not executed" not in str(item["error"]).lower()
+                if "not executed" not in item["error"].lower()
             ),
-            str(errors[0]["error"])
+            errors[0]["error"]
             if errors
             else "acknowledgment unavailable (empty response)",
         )
@@ -738,7 +753,7 @@ def settle_population(resource: str) -> dict[str, object]:
                 surrealkit_population.READINESS_ANSWER
             ]:
                 raise ToolError("Population readiness ordered answer differs")
-        proof = {
+        proof: dict[str, object] = {
             **expected,
             "phase": "settled",
             "rows": {

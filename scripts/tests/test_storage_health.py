@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 import msgspec
 
 from scripts import evidence_sources
+from scripts import pressure_observation as pressure
 from scripts import storage_health as health
 from scripts import surreal_diagnostics as diagnostics
 from scripts import surreal_server as server
@@ -182,15 +183,14 @@ class StorageHealthTests(unittest.TestCase):
         self.assertGreater(total, 0)
         self.assertEqual(record.host["filesystem_available_bytes"].status, "available")
         self.assertEqual(record.correspondence, "unknown")
-        self.assertIsNotNone(record.host_pressure)
+        if record.host_pressure is None or record.host_pressure.identity is None:
+            self.fail("Expected original host pressure identity")
         self.assertEqual(record.host_pressure.identity.group, None)
         self.assertIn("cpu.pressure", record.host_pressure.fields)
         self.assertFalse(self.state.exists())
         self.assertEqual(health.read(self.save(record)), record)
 
     def test_pressure_serialization_refuses_different_service_cgroup(self) -> None:
-        from scripts import pressure_observation as pressure
-
         record = fixture(self.state)
         record.cgroup.pressure = pressure.Sample(
             "partial",
@@ -205,6 +205,8 @@ class StorageHealthTests(unittest.TestCase):
             },
         )
         self.assertEqual(health.read(self.save(record)), record)
+        if record.cgroup.pressure.identity is None:
+            self.fail("Expected the selected cgroup identity")
         record.cgroup.pressure.identity.inode = 21
         with self.assertRaisesRegex(ValueError, "pressure differs"):
             health.read(self.save(record))

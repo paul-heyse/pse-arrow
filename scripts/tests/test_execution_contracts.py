@@ -33,8 +33,6 @@ from scripts.validation_scope import FUNCTIONAL_SCOPES, Gate
 ROOT = Path(__file__).resolve().parents[2]
 
 
-
-
 class NativePythonImportIdentity(unittest.TestCase):
     def setUp(self) -> None:
         width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)

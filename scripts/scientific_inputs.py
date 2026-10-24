@@ -15,8 +15,11 @@ import subprocess
 import tempfile
 import time
 import tomllib
-from collections.abc import Mapping, MutableMapping, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, MutableMapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = Path("tests/fixtures/scientific-inputs.toml")
@@ -123,7 +126,8 @@ def prepare_python(
     arguments: Sequence[str], environment: MutableMapping[str, str]
 ) -> None:
     """Prepare in the pytest controller before workers start, including bare pytest."""
-    from scripts import test_invocation
+    # selected input preparation owner; import must not prepare capabilities
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.python(arguments)
     paths = [Path(arg.split("::", 1)[0]).resolve() for arg in request.targets]
@@ -158,9 +162,8 @@ def affected(changes: Sequence[tuple[str, str]], *, root: Path = ROOT) -> dict:
     relevant = [
         path
         for _, path in changes
-        if path.startswith(inventory)
+        if path.startswith((inventory, "tests/fixtures/scientific/"))
         or path in SHARED_INPUTS
-        or path.startswith("tests/fixtures/scientific/")
     ]
     if not relevant:
         return {"consumers": [], "families": [], "unknown": []}

@@ -9,12 +9,22 @@ fixture/peer exceptions, rather than a second manifest of every test name.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Never, Protocol, TypedDict
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    import pytest
+
+class MarkerLike(Protocol):
+    @property
+    def kwargs(self) -> Mapping[str, object]: ...
+
+
+class TestItemLike(Protocol):
+    @property
+    def nodeid(self) -> str: ...
+
+    def get_closest_marker(self, name: str) -> MarkerLike | None: ...
 
 
 class RequirementDocument(TypedDict):
@@ -241,6 +251,11 @@ RUST_PEERS = {
 }
 
 
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
+
+
 def rust(binary: str, name: str) -> Requirement:
     package = binary.split("::", 1)[0]
     owners = RUST_OWNERS.get(package, {})
@@ -308,10 +323,15 @@ def python(
     return Requirement(base.effects, (), base.capacity, (*base.roles, *roles))
 
 
-def python_item(item: pytest.Item) -> Requirement:
+def python_item(item: TestItemLike) -> Requirement:
     """Interpret the collected fixture closure and explicit markers once."""
     declared = item.get_closest_marker("test_requirements")
-    roles = tuple(declared.kwargs.get("roles", ())) if declared else ()
+    role_values = declared.kwargs.get("roles", ()) if declared else ()
+    if not isinstance(role_values, (list, tuple)) or any(
+        not isinstance(role, str) for role in role_values
+    ):
+        raise TypeError("Declared test roles must be a sequence of strings")
+    roles = tuple(role_values)
     if item.get_closest_marker("managed_primary") is not None:
         roles += ("managed-primary",)
     no_allocation = (
@@ -338,6 +358,8 @@ def python_item(item: pytest.Item) -> Requirement:
         )
     exclusion = declared.kwargs.get("exclusion") if declared else None
     if exclusion:
+        if not isinstance(exclusion, str):
+            raise TypeError("Declared test exclusion must be a string")
         base = Requirement(
             base.effects, base.fixtures, base.capacity, base.roles, exclusion
         )
@@ -352,7 +374,7 @@ def scheduling(requirement: Mapping[str, object]) -> tuple[str | None, int | str
         return "scientific", 2
     effects = requirement.get("effects", ())
     if not isinstance(effects, (list, tuple)):
-        raise ValueError("Unknown requirement effects shape")
+        _invalid_protocol("Unknown requirement effects shape")
     if "canonical" in effects:
         return "store", 1
     return None, 1
@@ -381,10 +403,10 @@ def nextest_configuration(
     observed = set()
     suites = inventory.get("rust-suites")
     if not isinstance(suites, dict):
-        raise ValueError("Unknown nextest scheduling catalogue shape")
+        _invalid_protocol("Unknown nextest scheduling catalogue shape")
     for suite in suites.values():
         if not isinstance(suite, dict) or not isinstance(suite.get("testcases"), dict):
-            raise ValueError("Unknown nextest scheduling suite shape")
+            _invalid_protocol("Unknown nextest scheduling suite shape")
         binary = suite["binary-id"]
         for name, test in suite["testcases"].items():
             if test["filter-match"]["status"] != "matches":
@@ -426,7 +448,7 @@ def rust_catalog(
 ) -> dict[str, RequirementDocument]:
     suites = inventory.get("rust-suites")
     if not isinstance(suites, dict):
-        raise ValueError("Unknown nextest catalogue shape")
+        _invalid_protocol("Unknown nextest catalogue shape")
     result: dict[str, RequirementDocument] = {}
     found_roles: set[str] = set()
     for suite in suites.values():
@@ -465,7 +487,9 @@ def validate_roles(
     observed: set[str] = set()
     for requirement in requirements.values():
         declared = requirement.get("roles", [])
-        if not isinstance(declared, (list, tuple)) or any(not isinstance(role, str) for role in declared):
+        if not isinstance(declared, (list, tuple)) or any(
+            not isinstance(role, str) for role in declared
+        ):
             raise TypeError("Unknown requirement roles shape")
         observed.update(declared)
     missing = set(roles) - observed

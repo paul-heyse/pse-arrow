@@ -16,14 +16,26 @@ import json
 import os
 import re
 import time
-from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
 from scripts import host_admission as host
 from scripts import native_operation as operation
 from scripts import resource_store as files
 from scripts import test_resources as resources
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Mapping, Sequence
+
+
+class ConversionTransition(TypedDict):
+    version: int
+    phase: str
+    original_activation: dict[str, object]
+    services: list[str]
+    sources: NotRequired[dict[str, str]]
+
 
 FAMILIES = ("invocations", "invocation-state", "resources")
 SOURCE = re.compile(r"(?:invocations|invocation-state|resources)/[a-f0-9]{32}\.json")
@@ -77,7 +89,7 @@ def read_file(parent: int, name: str, remaining: int) -> bytes:
         return data
 
 
-def validate_transition(value: dict) -> None:
+def validate_transition(value: Mapping[str, object]) -> None:
     activation = value.get("original_activation")
     if (
         value.get("version") != 1
@@ -115,11 +127,16 @@ def validate_transition(value: dict) -> None:
         raise files.StoreError("Invalid conversion source authority")
 
 
-def originals(root: Path, transition: dict, deadline: float) -> dict[str, bytes]:
+def originals(
+    root: Path, transition: Mapping[str, object], deadline: float
+) -> dict[str, bytes]:
     validate_transition(transition)
     result = {}
     size = 0
-    for name, expected in transition["sources"].items():
+    source_images = transition.get("sources")
+    if not isinstance(source_images, dict):
+        raise files.StoreError("Conversion originals require a bound source population")
+    for name, expected in source_images.items():
         host.remaining(deadline, 1)
         data = read_image(root / "original-v2" / name, MAX_BYTES - size)
         if hashlib.sha256(data).hexdigest() != expected:
@@ -385,7 +402,11 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
         activation = files.read(root / "activation.json")
         if activation.get("version") == 3 and not transition_path.exists():
             return activation
-        transition = files.read(transition_path) if transition_path.exists() else None
+        transition: ConversionTransition | None = (
+            cast("ConversionTransition", files.read(transition_path))
+            if transition_path.exists()
+            else None
+        )
         if transition is not None:
             validate_transition(transition)
         if transition is None:
@@ -506,7 +527,7 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
                     raise files.StoreError(
                         "Original invocation changed during fenced conversion"
                     )
-                store._publish_invocation(nonce, state)
+                store._publish_invocation(nonce, state)  # noqa: SLF001 -- fenced format-transition friend of the storage owner
                 files.publish(
                     store.path("invocations", nonce),
                     resources.invocation_locator(declaration),
@@ -550,7 +571,7 @@ def convert(root: Path, *, deadline: float, services: Sequence[Path] = ()) -> di
                         service_roots.add(owner)
                     else:
                         entry.facts["unresolved_service"] = unresolved
-                store._save(entry, prior=prior)
+                store._save(entry, prior=prior)  # noqa: SLF001 -- fenced format-transition friend of the storage owner
         activation = {
             **transition["original_activation"],
             "version": 3,

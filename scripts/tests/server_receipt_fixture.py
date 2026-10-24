@@ -6,9 +6,11 @@ from __future__ import annotations
 
 import os
 import tomllib
-import unittest
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    import unittest
 from unittest.mock import patch
 
 from scripts import installation_context, surreal_source

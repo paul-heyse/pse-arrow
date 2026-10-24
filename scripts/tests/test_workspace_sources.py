@@ -437,8 +437,10 @@ doc_topics = ["architecture"]
         self,
     ) -> None:
         self.cargo()
+
         def digest(path: str) -> str:
             return hashlib.sha256((self.root / path).read_bytes()).hexdigest()
+
         context: dict = {
             "target": "chosen-target",
             "features": ["fast"],

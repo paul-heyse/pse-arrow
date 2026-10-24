@@ -19,7 +19,7 @@ def reference(case: str, point: float) -> tuple[Decimal, Decimal]:
     """Closed-form derivative, independent of finite-difference machinery."""
     with localcontext() as context:
         context.prec = 100
-        x = Decimal.from_float(point)
+        x = Decimal(point)
         if case.startswith("log-"):
             return (1 + x).ln(), 1 / (1 + x)
         return x**3, 3 * x**2
@@ -40,9 +40,7 @@ def investigate(document: dict) -> dict:
             "input": "exact binary64",
             "authority": "local analytic formula; not a physical-model certificate",
         }
-        scale = Decimal.from_float(sample["coordinate_scale"]) / Decimal.from_float(
-            sample["row_scale"]
-        )
+        scale = Decimal(sample["coordinate_scale"]) / Decimal(sample["row_scale"])
         with localcontext() as context:
             context.prec = 100
             expected = derivative * scale
@@ -50,10 +48,10 @@ def investigate(document: dict) -> dict:
                 if comparison["label"].startswith("jac_g"):
                     comparison["reference_normalized"] = str(expected)
                     comparison["sampling_error"] = float(
-                        abs(Decimal.from_float(comparison["numeric"]) - expected)
+                        abs(Decimal(comparison["numeric"]) - expected)
                     )
                     comparison["derivative_error"] = float(
-                        abs(Decimal.from_float(comparison["analytic"]) - expected)
+                        abs(Decimal(comparison["analytic"]) - expected)
                     )
     implicit = document.get("implicit_products")
     if implicit is not None:
@@ -66,10 +64,10 @@ def investigate(document: dict) -> dict:
                 sample["reference_decimal"] = str(expected)
                 if sample["complete"]:
                     sample["sampling_error"] = float(
-                        abs(Decimal.from_float(sample["numeric"]) - expected)
+                        abs(Decimal(sample["numeric"]) - expected)
                     )
                     sample["derivative_error"] = float(
-                        abs(Decimal.from_float(sample["analytic"]) - expected)
+                        abs(Decimal(sample["analytic"]) - expected)
                     )
     # Preserve the Plan14 independent logarithm fixture rather than promoting the
     # diagnostic's own function evaluations into a value oracle.
@@ -95,9 +93,9 @@ def investigate(document: dict) -> dict:
 
 
 def plot(document: dict, output: Path) -> None:
-    import matplotlib  # noqa: PLC0415 -- explicit optional investigation tool
+    import matplotlib as mpl  # noqa: PLC0415 -- explicit optional investigation tool
 
-    matplotlib.use("Agg")
+    mpl.use("Agg")
     from matplotlib import pyplot as plt  # noqa: PLC0415
 
     figure, axes = plt.subplots(1, 2, figsize=(11, 4), layout="constrained")

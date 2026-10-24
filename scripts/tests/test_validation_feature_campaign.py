@@ -63,7 +63,7 @@ class FeatureCampaignTests(unittest.TestCase):
 
     def execute(
         self,
-        root: Path,
+        _root: Path,
         output: Path,
         name: str,
         command: list[str],

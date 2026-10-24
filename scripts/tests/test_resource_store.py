@@ -504,7 +504,9 @@ class ExactStoreTests(unittest.TestCase):
             events.index(("settle", "active")), events.index(("publish", "resources"))
         )
 
-    def test_interrupted_service_membership_never_exposes_unprotected_authority(self) -> None:
+    def test_interrupted_service_membership_never_exposes_unprotected_authority(
+        self,
+    ) -> None:
         resource = "d" * 32
         entry = files.Entry(
             resource,
@@ -536,7 +538,9 @@ class ExactStoreTests(unittest.TestCase):
 
         def interrupt_departure(path: Path, missing_ok: bool = False) -> None:
             if path == marker:
-                self.assertEqual(self.store.resource_snapshot(resource).phase, "disposed")
+                self.assertEqual(
+                    self.store.resource_snapshot(resource).phase, "disposed"
+                )
                 raise OSError("authority departed, service marker retained")
             unlink(path, missing_ok=missing_ok)
 

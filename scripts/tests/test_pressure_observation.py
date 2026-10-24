@@ -59,6 +59,8 @@ class PressureTests(unittest.TestCase):
         self.assertNotIn("full.total", host.fields["cpu.pressure"].values)
         selected = self.sample()
         self.assertEqual(selected.status, "observed")
+        if selected.identity is None:
+            self.fail("Expected the selected cgroup identity")
         self.assertEqual(selected.identity.group, "/parent/child")
         self.assertEqual(selected.fields["cpu.pressure"].values["full.total"], 4)
         self.assertEqual(selected.fields["io.stat"].values["8:0.rbytes"], 100)
@@ -93,6 +95,8 @@ class PressureTests(unittest.TestCase):
         self.assertEqual(
             diff["fields"]["io.stat"]["9:0.rbytes"]["status"], "unavailable"
         )
+        if second.identity is None:
+            self.fail("Expected the observed cgroup identity")
         second.identity.boot = "new-boot"
         self.assertEqual(pressure.delta(first, second)["status"], "unavailable")
 
@@ -108,8 +112,12 @@ class PressureTests(unittest.TestCase):
         with patch.object(pressure, "read", side_effect=denied):
             selected = self.sample()
         self.assertEqual(selected.status, "partial")
-        self.assertIn("PermissionError", selected.fields["io.stat"].reason)
-        self.assertIn("FileNotFoundError", selected.fields["memory.events"].reason)
+        io_reason = selected.fields["io.stat"].reason
+        memory_reason = selected.fields["memory.events"].reason
+        if io_reason is None or memory_reason is None:
+            self.fail("Expected original unavailable-field reasons")
+        self.assertIn("PermissionError", io_reason)
+        self.assertIn("FileNotFoundError", memory_reason)
         self.assertEqual(selected.fields["cpu.stat"].status, "available")
         for kind, value in (
             ("psi", "some avg10=nan avg60=0 avg300=0 total=0"),
@@ -158,6 +166,8 @@ class PressureTests(unittest.TestCase):
             if group == "/parent/child":
                 count += 1
                 if count > 1:
+                    if value.inode is None:
+                        self.fail("Expected the original selected inode")
                     value.inode += 1
             return value
 

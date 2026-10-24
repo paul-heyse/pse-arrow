@@ -288,7 +288,9 @@ def source(
         role = str(metadata.get("doc_role", "reference"))
         owner = str(metadata.get("doc_owner", relative))
         selected_topics = metadata.get("doc_topics", [])
-        if not isinstance(selected_topics, list) or any(not isinstance(topic, str) for topic in selected_topics):
+        if not isinstance(selected_topics, list) or any(
+            not isinstance(topic, str) for topic in selected_topics
+        ):
             raise ValueError("document topics must be a list of strings")
         topics = list(selected_topics)
         status = metadata.get("status", "")

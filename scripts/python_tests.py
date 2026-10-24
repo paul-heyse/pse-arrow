@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     extra = sys.argv[1:]
-    from scripts import test_invocation
+    # explicit Python test preparation owner
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.python(extra)
     controls = {item.name for item in request.options}

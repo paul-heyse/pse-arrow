@@ -15,10 +15,21 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING, TypedDict
 from unittest.mock import patch
 
-from scripts import native_operation, test_resources, test_run
+from scripts import (
+    case_measure,
+    native_operation,
+    native_tests,
+    run_inspection,
+    test_resources,
+    test_run,
+)
 from scripts import regression_experiments as driver
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 class RegressionTests(unittest.TestCase):
@@ -217,8 +228,6 @@ raise SystemExit(driver.main())
                 },
                 "runner",
             )
-            from scripts import run_inspection
-
             result = run_inspection.product_result(str(invocation))
         self.assertEqual(driver.classify_product(result), 128)
         result["report_rows"][0]["status"] = "failure"
@@ -259,15 +268,19 @@ raise SystemExit(driver.main())
     def test_real_rust_adapter_uses_selected_preparation_and_existing_terminal_owner(
         self,
     ) -> None:
-        from scripts import native_tests
-
         checkout = self.root / "candidate"
         (checkout / ".config").mkdir(parents=True)
         (checkout / ".config/nextest.toml").write_text("[profile.default]\n")
         output = self.root / "trial"
         output.mkdir()
 
-        def capture(command, provenance, selection, environment, **options):
+        def capture(
+            command: list[str],
+            provenance: Path,
+            selection: Path,
+            environment: Mapping[str, str],
+            **options: object,
+        ) -> tuple[list[str], Path | None]:
             self.assertEqual(options, {"effects": "native-local"})
             self.assertEqual(native_tests.ROOT, checkout)
             self.assertIn("--locked", command)
@@ -288,7 +301,13 @@ raise SystemExit(driver.main())
             provenance.write_text("{}")
             return ["--retries", "0"], None
 
-        def execute(command, environment, *, cwd, observation):
+        def execute(
+            command: list[str],
+            environment: Mapping[str, str],
+            *,
+            cwd: Path,
+            observation: dict[str, object],
+        ) -> int:
             self.assertEqual(cwd, checkout)
             self.assertEqual(environment[test_run.EXECUTION_EFFECTS], "native-local")
             config = Path(command[command.index("--config-file") + 1])
@@ -343,7 +362,7 @@ raise SystemExit(driver.main())
         )
         calls = 0
 
-        def interrupted(command, cwd, log):
+        def interrupted(command: list[str], cwd: Path, log: Path) -> tuple[int, dict]:
             nonlocal calls
             calls += 1
             if calls == 2:
@@ -392,22 +411,27 @@ Path({str(evidence)!r}).write_text(json.dumps({{'code':code, 'process':observati
         self.assertFalse(Path(f"/proc/{ready.read_text()}").exists())
 
 
+class ComparisonPair(TypedDict):
+    order: list[str]
+    baseline: dict[str, str]
+    candidate: dict[str, str]
+
+
 class ComparisonTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
 
-    def declaration(
-        self, ratios: list[float], *, incompatible: bool = False, pressure: bool = True
-    ) -> Path:
-        pairs = []
+    def declaration(self, ratios: list[float], *, incompatible: bool = False) -> Path:
+        pairs: list[ComparisonPair] = []
         for index, ratio in enumerate(ratios):
-            pair = {
-                "order": ["baseline", "candidate"]
+            order = (
+                ["baseline", "candidate"]
                 if index % 2 == 0
                 else ["candidate", "baseline"]
-            }
+            )
+            references: dict[str, dict[str, str]] = {}
             for side, value in (("baseline", 10), ("candidate", 10 * ratio)):
                 directory = self.root / f"{index}-{side}"
                 (directory / "warm-0").mkdir(parents=True)
@@ -445,11 +469,17 @@ class ComparisonTests(unittest.TestCase):
                 }
                 (directory / "warm-0/source-files.json").write_text(json.dumps(files))
                 (directory / "warm-0/result.json").write_text(json.dumps(sample_result))
-                pair[side] = {
+                references[side] = {
                     "path": f"{index}-{side}/summary.json",
                     "sample": "warm-0",
                 }
-            pairs.append(pair)
+            pairs.append(
+                {
+                    "order": order,
+                    "baseline": references["baseline"],
+                    "candidate": references["candidate"],
+                }
+            )
         path = self.root / "pairs.json"
         _value, conditions, baseline = driver.measurement(
             pairs[0]["baseline"], self.root
@@ -492,7 +522,7 @@ class ComparisonTests(unittest.TestCase):
         self,
     ) -> None:
         result = driver.compare(
-            self.declaration([0.8, 0.8, 0.8], incompatible=True, pressure=False), 0.1
+            self.declaration([0.8, 0.8, 0.8], incompatible=True), 0.1
         )
         self.assertEqual(result["status"], "inconclusive")
         self.assertIn(
@@ -531,8 +561,6 @@ class ComparisonTests(unittest.TestCase):
     def test_case_population_does_not_join_criterion_to_harness_invocations(
         self,
     ) -> None:
-        from scripts import case_measure
-
         csv = self.root / "raw.csv"
         csv.write_text(
             "sample_measured_value,iteration_count,unit\n42,1,ns\n43,1,ns\n41,1,ns\n"

@@ -13,11 +13,20 @@ import subprocess
 import tomllib
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Never
+
+from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 
 from scripts import arrow_validation, cargo_tools, validation, validation_scope
 
 ROOT = Path(__file__).resolve().parents[1]
 EXCLUSIONS = r"(generated/|xtask/|benches/|tests/)"
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def context(arguments: list[str], branch: bool) -> dict:
@@ -91,15 +100,15 @@ def junit_path(arguments: list[str]) -> Path:
     default = profiles.get("default", {}).get("junit", {})
     path = profiles.get(profile, {}).get("junit", {}).get("path", default.get("path"))
     if not isinstance(path, str):
-        raise ValueError("selected nextest profile has no known JUnit path")
+        _invalid_protocol("selected nextest profile has no known JUnit path")
     store = selected.get("store", {}).get("dir", "target/nextest")
     return ROOT / store / profile / path
 
 
 def population(raw: bytes) -> list[dict]:
     try:
-        root = ET.fromstring(raw)
-    except ET.ParseError as error:
+        root = DefusedET.fromstring(raw, forbid_dtd=True)
+    except (ET.ParseError, DefusedXmlException) as error:
         raise ValueError("malformed nextest JUnit") from error
     if root.tag != "testsuites" or not root.get("uuid"):
         raise ValueError("unsupported nextest JUnit identity")
@@ -164,6 +173,7 @@ def changed_regions(base: str, path: str) -> list[dict[str, int]]:
             ["git", "ls-files", "--error-unmatch", "--", path],
             cwd=ROOT,
             capture_output=True,
+            check=False,
         ).returncode
     ):
         source = ROOT / path
@@ -183,7 +193,7 @@ def line_counts(segments: list[list]) -> dict[int, int]:
     ):
         raise ValueError("unsupported LLVM segment record")
     for index, segment in enumerate(segments):
-        line, column, count, has_count, _entry, *rest = segment
+        line, _column, count, has_count, _entry, *rest = segment
         if not has_count or (len(rest) and rest[0]):
             continue
         end = segments[index + 1] if index + 1 < len(segments) else [line + 1, 1]
@@ -211,7 +221,7 @@ def correspondence(
         for unit in report["data"]
         for f in unit["files"]
     }
-    rows = []
+    rows: list[dict[str, object]] = []
     for path, regions in sorted(changes.items()):
         if not path.endswith(".rs") or re.search(EXCLUSIONS, path):
             continue
@@ -276,7 +286,7 @@ def capture(output: Path | None, arguments: list[str], branch: bool) -> int:
         ]
     )
     env = dict(os.environ, CARGO_LLVM_COV_TARGET_DIR=str(output / "target"))
-    record = {
+    record: dict[str, object] = {
         "schema": "coverage-correspondence-v1",
         "context": selected,
         "command": command,
@@ -298,7 +308,7 @@ def capture(output: Path | None, arguments: list[str], branch: bool) -> int:
             if before is not None and (
                 raw == before[0] or original_identity == before[1]
             ):
-                raise ValueError("nextest JUnit was not replaced by this capture")
+                _invalid_protocol("nextest JUnit was not replaced by this capture")
             executed = population(raw)
             (output / "population.xml").write_bytes(raw)
             record["population_sha256"] = hashlib.sha256(raw).hexdigest()
@@ -322,7 +332,8 @@ def capture(output: Path | None, arguments: list[str], branch: bool) -> int:
 
 
 def inspect(directory: Path, base: str) -> dict:
-    from scripts import affected
+    # selected operation owner; source-only discovery must not prepare this lifecycle
+    from scripts import affected  # noqa: PLC0415
 
     record = json.loads((directory / "capture.json").read_text())
     if (

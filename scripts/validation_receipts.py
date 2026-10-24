@@ -7,9 +7,15 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Never
 
 from scripts import assessment_store, test_resources
 from scripts.validation_scope import input_identity
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def digest(path: Path) -> str:
@@ -251,14 +257,14 @@ def native_inventory(log: str) -> dict:
     inventory = inventories[0]
     suites = inventory["rust-suites"]
     if not isinstance(suites, dict):
-        raise ValueError("unsupported nextest suite catalogue")
+        _invalid_protocol("unsupported nextest suite catalogue")
     for suite in suites.values():
         if (
             not isinstance(suite, dict)
             or not isinstance(suite.get("binary-id"), str)
             or not isinstance(suite.get("testcases"), dict)
         ):
-            raise ValueError("unsupported nextest binary catalogue")
+            _invalid_protocol("unsupported nextest binary catalogue")
         for name, test in suite["testcases"].items():
             if (
                 not isinstance(name, str)

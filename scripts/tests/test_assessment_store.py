@@ -23,7 +23,11 @@ class AssessmentStoreTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.assessment_dir = Path(temporary.name)
         self.enterContext(
-            patch.object(test_resources, "registry", return_value=self.assessment_dir / "registry")
+            patch.object(
+                test_resources,
+                "registry",
+                return_value=self.assessment_dir / "registry",
+            )
         )
         self.receipt = publish(
             self.assessment_dir,
@@ -78,7 +82,9 @@ class AssessmentStoreTests(unittest.TestCase):
                 "unregistered-inspection",
             )
             self.assertFalse(summary["assessment"]["reader_custody"]["automatic_reuse"])
-            selected = validation_result.read_assessment(self.assessment_dir, gate="chosen")
+            selected = validation_result.read_assessment(
+                self.assessment_dir, gate="chosen"
+            )
             self.assertEqual(read.call_count, 1)
         self.assertEqual(
             selected["checks"][0]["record"]["report_errors"], ["original cause"]
@@ -91,7 +97,11 @@ class AssessmentStoreTests(unittest.TestCase):
         self,
     ) -> None:
         root = store.root(self.assessment_dir)
-        path = self.assessment_dir / "details" / (root["checks"][0]["detail"]["sha256"] + ".json")
+        path = (
+            self.assessment_dir
+            / "details"
+            / (root["checks"][0]["detail"]["sha256"] + ".json")
+        )
         original = path.read_bytes()
         path.write_text("{}")
         with self.assertRaisesRegex(ValueError, "digest mismatch"):
@@ -103,7 +113,9 @@ class AssessmentStoreTests(unittest.TestCase):
         # An explicitly selected unrelated summary still works; unavailable detail
         # cannot erase the original recorded population or imply Pass.
         self.assertFalse(
-            validation_result.read_assessment(self.assessment_dir)["checks"][0]["qualified"]
+            validation_result.read_assessment(self.assessment_dir)["checks"][0][
+                "qualified"
+            ]
         )
 
     def test_failed_root_replacement_keeps_previous_complete_cut(self) -> None:
@@ -131,7 +143,9 @@ class AssessmentStoreTests(unittest.TestCase):
         old = {**self.receipt, "version": 5}
         resource_store.publish(
             path, old
-        ) if self.assessment_dir.stat().st_mode & 0o077 == 0 else path.write_text(json.dumps(old))
+        ) if self.assessment_dir.stat().st_mode & 0o077 == 0 else path.write_text(
+            json.dumps(old)
+        )
         with self.assertRaisesRegex(ValueError, "automatic reuse refused"):
             store.root(self.assessment_dir)
         self.assertEqual(store.original_export(self.assessment_dir), old)
@@ -350,7 +364,9 @@ class AssessmentStoreTests(unittest.TestCase):
             for key, value in changed.items()
             if key not in store.SUMMARY | {"scope", "checks"}
         }
-        selected = self.assessment_dir / "details" / (resource_store.digest(source) + ".json")
+        selected = (
+            self.assessment_dir / "details" / (resource_store.digest(source) + ".json")
+        )
         before = (self.assessment_dir / "checks.json").read_bytes()
         sync = resource_store.sync_directory
         failed = False

@@ -40,62 +40,62 @@ def rows(name: str = NAME) -> dict[str, list[dict[str, object]]]:
     for project, revisions in (("alpha", 3), ("beta", 2), ("gamma", 1)):
         problem = "fixture_" + project
         result["canonical_projects"].append(
-            dict(
-                key=problem,
-                title="Synthetic fixture " + project,
-                deleted=False,
-                generation=revisions,
-            )
+            {
+                "key": problem,
+                "title": "Synthetic fixture " + project,
+                "deleted": False,
+                "generation": revisions,
+            }
         )
         result["canonical_problems"].append(
-            dict(
-                key=problem,
-                head=problem + "_r" + str(revisions - 1),
-                sequence=revisions - 1,
-            )
+            {
+                "key": problem,
+                "head": problem + "_r" + str(revisions - 1),
+                "sequence": revisions - 1,
+            }
         )
         result["canonical_project_branches"].append(
-            dict(
-                key=problem,
-                project=problem,
-                problem=problem,
-                name="main",
-                origin_revision=problem + "_r0",
-                generation=revisions,
-            )
+            {
+                "key": problem,
+                "project": problem,
+                "problem": problem,
+                "name": "main",
+                "origin_revision": problem + "_r0",
+                "generation": revisions,
+            }
         )
         for revision in range(revisions):
             key = problem + "_r" + str(revision)
             result["canonical_revisions"].append(
-                dict(
-                    key=key,
-                    problem=problem,
-                    sequence=revision,
-                    parent=None
+                {
+                    "key": key,
+                    "problem": problem,
+                    "sequence": revision,
+                    "parent": None
                     if revision == 0
                     else problem + "_r" + str(revision - 1),
-                    operation="synthetic-fixture-" + key,
-                    request=b"fixture-only-v1",
-                    interpretation="unactivated-fixture",
-                )
+                    "operation": "synthetic-fixture-" + key,
+                    "request": b"fixture-only-v1",
+                    "interpretation": "unactivated-fixture",
+                }
             )
             result["canonical_project_contexts"].append(
-                dict(
-                    key=key,
-                    project=problem,
-                    scope="fixture",
-                    revision=key,
-                    source_identity="fixture-source-v1",
-                    physical_context="fixture",
-                    physical_revision="fixture-r0",
-                    physical_source_identity="fixture-physical-v1",
-                    effective_from_us=revision,
-                    effective_to_us=None,
-                    recorded_sequence=revision,
-                    corrects=None,
-                    deleted=False,
-                    request=b"fixture-only-v1",
-                )
+                {
+                    "key": key,
+                    "project": problem,
+                    "scope": "fixture",
+                    "revision": key,
+                    "source_identity": "fixture-source-v1",
+                    "physical_context": "fixture",
+                    "physical_revision": "fixture-r0",
+                    "physical_source_identity": "fixture-physical-v1",
+                    "effective_from_us": revision,
+                    "effective_to_us": None,
+                    "recorded_sequence": revision,
+                    "corrects": None,
+                    "deleted": False,
+                    "request": b"fixture-only-v1",
+                }
             )
     # Uneven project and eligibility distributions expose filter/order mistakes.
     for study, count in (
@@ -111,64 +111,64 @@ def rows(name: str = NAME) -> dict[str, list[dict[str, object]]]:
                 {"synthetic_fixture_evidence": scenario}, sort_keys=True
             ).encode()
             result["canonical_study_points"].append(
-                dict(
-                    key=key,
-                    study=study,
-                    ordinal=ordinal,
-                    occurrence=ordinal,
-                    seed_solution=None,
-                    policy=b"fixture-only-v1",
-                    descriptor=b"fixture-only-v1",
-                    admission=None,
-                    facts=marker,
-                    outcome=None if scenario == "unobserved" else marker,
-                    run=key + "_unexecuted",
-                    revision=ordinal % 3,
-                    assigned=False,
-                    settled=scenario != "unobserved",
-                    attempt=None,
-                    start=None,
-                )
+                {
+                    "key": key,
+                    "study": study,
+                    "ordinal": ordinal,
+                    "occurrence": ordinal,
+                    "seed_solution": None,
+                    "policy": b"fixture-only-v1",
+                    "descriptor": b"fixture-only-v1",
+                    "admission": None,
+                    "facts": marker,
+                    "outcome": None if scenario == "unobserved" else marker,
+                    "run": key + "_unexecuted",
+                    "revision": ordinal % 3,
+                    "assigned": False,
+                    "settled": scenario != "unobserved",
+                    "attempt": None,
+                    "start": None,
+                }
             )
             result["canonical_study_readiness"].append(
-                dict(
-                    key=key,
-                    point=key,
-                    study=study,
-                    ordinal=ordinal,
-                    source_revision=ordinal % 3,
-                    pending=0 if eligible else 1,
-                    eligible=eligible,
-                    premises=None,
-                    dirty=not eligible,
-                    notify=False,
-                    notify_revision=0,
-                    notify_after="",
-                )
+                {
+                    "key": key,
+                    "point": key,
+                    "study": study,
+                    "ordinal": ordinal,
+                    "source_revision": ordinal % 3,
+                    "pending": 0 if eligible else 1,
+                    "eligible": eligible,
+                    "premises": None,
+                    "dirty": not eligible,
+                    "notify": False,
+                    "notify_revision": 0,
+                    "notify_after": "",
+                }
             )
     for n in range(10):
         result["canonical_analysis_nodes"].append(
-            dict(
-                key="fixture_n" + str(n),
-                analysis="fixture_unexecuted",
-                semantic="synthetic-fixture",
-                kind="fixture",
-            )
+            {
+                "key": "fixture_n" + str(n),
+                "analysis": "fixture_unexecuted",
+                "semantic": "synthetic-fixture",
+                "kind": "fixture",
+            }
         )
     # A hub with seven outgoing relations, a small chain and an isolated node.
     for n, (source, target) in enumerate([(0, n) for n in range(1, 8)] + [(7, 8)]):
         result["canonical_analysis_edges"].append(
-            dict(
-                key="fixture_e" + str(n),
-                analysis="fixture_unexecuted",
-                source="fixture_n" + str(source),
-                target="fixture_n" + str(target),
-                kind="synthetic-fixture",
-                evidence_artifact=None,
-                evidence_block=None,
-                evidence_row=None,
-                evidence_field=None,
-            )
+            {
+                "key": "fixture_e" + str(n),
+                "analysis": "fixture_unexecuted",
+                "source": "fixture_n" + str(source),
+                "target": "fixture_n" + str(target),
+                "kind": "synthetic-fixture",
+                "evidence_artifact": None,
+                "evidence_block": None,
+                "evidence_row": None,
+                "evidence_field": None,
+            }
         )
     return result
 
@@ -246,9 +246,9 @@ def checks(name: str = NAME) -> list[tuple[str, list[dict[str, object]]]]:
     JSON normalizations make decimal, byte, NONE and record identities explicit.
     Selecting the whole table also detects unexpected/missing rows.
     """
-    result = []
+    result: list[tuple[str, list[dict[str, object]]]] = []
     for table, records in rows(name).items():
-        expected = []
+        expected: list[dict[str, object]] = []
         columns = []
         for field in records[0]:
             value = next(
@@ -271,7 +271,7 @@ def checks(name: str = NAME) -> list[tuple[str, list[dict[str, object]]]]:
                 ("record::id(in) AS source_record", "record::id(out) AS target_record")
             )
         for row in sorted(records, key=lambda item: str(item["key"])):
-            normalized = {}
+            normalized: dict[str, object] = {}
             for field, value in row.items():
                 normalized[field] = (
                     None
@@ -291,7 +291,7 @@ def checks(name: str = NAME) -> list[tuple[str, list[dict[str, object]]]]:
             expected.append(normalized)
         result.append(
             (
-                "SELECT " + ",".join(columns) + " FROM " + table + " ORDER BY key;",
+                "SELECT " + ",".join(columns) + " FROM " + table + " ORDER BY key;",  # noqa: S608 -- identifiers/expressions come only from the fixed generated fixture vocabulary
                 expected,
             )
         )

@@ -27,7 +27,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 if TYPE_CHECKING:
     from collections.abc import (
@@ -47,6 +47,11 @@ from scripts.validation_scope import (
     functional_gates,
     input_identity,
 )
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def command_env() -> dict[str, str]:
@@ -478,7 +483,8 @@ def native_report_config(
     root: Path, output: Path, name: str, profile: str = "local"
 ) -> Path:
     """Preserve every test setting while isolating this invocation's report."""
-    from scripts import test_invocation
+    # selected operation owner; source-only discovery must not prepare this lifecycle
+    from scripts import test_invocation  # noqa: PLC0415
 
     return test_invocation.report_configuration(
         root / ".config/nextest.toml",
@@ -940,7 +946,8 @@ def run_gates(
                 record["selected"] = validation_receipts.enumeration_selection(
                     output, listing
                 )
-                from scripts import test_requirements
+                # selected operation owner; source-only discovery must not prepare this lifecycle
+                from scripts import test_requirements  # noqa: PLC0415
 
                 record["requirements"] = test_requirements.rust_catalog(
                     validation_receipts.native_inventory(
@@ -1029,7 +1036,7 @@ def run_gates(
                         not campaign["required_checks_covered"]
                         and record["status"] == "passed"
                     ):
-                        raise ValueError(
+                        _invalid_protocol(
                             "feature campaign is missing successful complete coverage"
                         )
                 except (OSError, ValueError, KeyError, TypeError) as error:

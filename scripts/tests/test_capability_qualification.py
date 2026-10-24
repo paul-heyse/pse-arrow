@@ -32,8 +32,6 @@ from scripts.validation_scope import Gate, comprehensive, expand, functional_gat
 ROOT = Path(__file__).resolve().parents[2]
 
 
-
-
 class QualificationSelectionTests(unittest.TestCase):
     def test_actual_owner_expansions_and_input_distinctions(self) -> None:
         self.assertEqual(subject.AssessmentSelection().gates(), comprehensive("dev"))

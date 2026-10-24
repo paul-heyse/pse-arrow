@@ -113,7 +113,11 @@ class KnowledgeStoreTests(unittest.TestCase):
         self,
     ) -> None:
         def run(
-            _state: Path, _tool: Path, arguments: list[str], *, deadline: float,
+            _state: Path,
+            _tool: Path,
+            arguments: list[str],
+            *,
+            deadline: float,
             stdout: TextIO | None = None,
         ) -> int:
             del deadline

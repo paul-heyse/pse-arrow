@@ -52,6 +52,12 @@ def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
     )
 
 
+def record(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise TypeError("Expected an original owner record")
+    return value
+
+
 class AdministrativeTransportTests(unittest.TestCase):
     def test_preserves_multiline_comment_and_literal_bytes_and_explicit_errors(
         self,
@@ -1652,7 +1658,10 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "SCRIPT", script),
             patch.object(server, "surreal_source", frozen),
             patch.object(
-                server._STARTUP, "deadline", time.monotonic() + 30, create=True  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
+                server._STARTUP,
+                "deadline",
+                time.monotonic() + 30,
+                create=True,  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
             ),
             patch.object(server, "storage_launch", return_value={"binding": binding}),
             patch.object(
@@ -1930,7 +1939,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(retained["service_supervisor"], replacement)
         self.assertTrue(retained["unit_materialized"])
         self.assertFalse(retained["accepting_writes"])
-        self.assertEqual(retained["derived_rebuild_pending"]["phase"], "initializing")
+        self.assertEqual(
+            record(retained["derived_rebuild_pending"])["phase"], "initializing"
+        )
 
     def test_materialization_lost_ack_recovers_exact_private_declaration_only_after_drain(
         self,
@@ -2047,7 +2058,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             "supervisor_generation": replacement,
             "server_generation": config["server"],
             "service_class": config.get("service_class", "functional"),
-            "server_memory_bytes": config["resources"]["server_memory_bytes"],
+            "server_memory_bytes": record(config["resources"])["server_memory_bytes"],
         }
         server.write_json(self.state / "config.json", config)
         server.write_json(self.state / "service-launch.json", launch)
@@ -2097,7 +2108,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 marker = json.loads(json.dumps(original))
                 candidate = dict(launch)
                 if changed == "owner":
-                    marker["owner"]["nonce"] = "c" * 32
+                    record(marker["owner"])["nonce"] = "c" * 32
                 elif changed == "generation":
                     marker["supervisor"] = config["service_supervisor"]
                 elif changed == "bound":
@@ -2131,7 +2142,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             verified = verify(directory)
             path = self.state / ".maintenance-listener.json"
             marker = server.read_json(path)
-            marker["owner"]["nonce"] = "c" * 32
+            record(marker["owner"])["nonce"] = "c" * 32
             server.write_json(path, marker)
             return verified
 
@@ -2146,8 +2157,8 @@ class SurrealSupervisorTests(unittest.TestCase):
     ) -> None:
         config, launch = self.interrupted_initializer_launch()
         config["admission"] = "quiesced"
-        config["derived_rebuild_pending"]["kind"] = "rebuild"
-        config["derived_rebuild_pending"]["phase"] = "accounts"
+        record(config["derived_rebuild_pending"])["kind"] = "rebuild"
+        record(config["derived_rebuild_pending"])["phase"] = "accounts"
         server.write_json(self.state / "config.json", config)
         history = self.state / ".profile-history"
         history.mkdir(mode=0o700)

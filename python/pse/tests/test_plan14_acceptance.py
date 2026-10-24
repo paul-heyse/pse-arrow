@@ -70,7 +70,6 @@ def test_public_native_process_and_exact_results(
     runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3] / "packages/reference"
 
-
     physical_documents = package_documents(root / "physical")
     assert physical_documents is not None
     physical = runtime.physical_from_documents(physical_documents)

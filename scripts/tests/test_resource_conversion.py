@@ -486,7 +486,7 @@ class ProcessCohortTests(unittest.TestCase):
         (path / "cmdline").write_bytes(b"python\0")
         read_text = Path.read_text
 
-        def unreadable(path: Path, *args, **kwargs):
+        def unreadable(path: Path, *args: str | None, **kwargs: str | None) -> str:
             if path.name == "stat":
                 raise PermissionError("injected unreadable live peer")
             return read_text(path, *args, **kwargs)

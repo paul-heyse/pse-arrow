@@ -97,11 +97,11 @@ def run(output: Path) -> int:
         )
         missing = coverage_correspondence.inspect(before, "HEAD")
         validation.write_json(output / "unreached-fresh.json", missing)
-        assert missing['fresh']
-        assert missing['population_status'] == 'observed'
+        assert missing["fresh"]
+        assert missing["population_status"] == "observed"
         row = next(row for row in missing["regions"] if row["path"] == TARGET)
-        assert row['branches']
-        assert all(branch['true_count'] == 0 for branch in row['branches'])
+        assert row["branches"]
+        assert all(branch["true_count"] == 0 for branch in row["branches"])
         assert (
             coverage_correspondence.capture(
                 after,
@@ -118,20 +118,22 @@ def run(output: Path) -> int:
         )
         reached = coverage_correspondence.inspect(after, "HEAD")
         validation.write_json(output / "reached-fresh.json", reached)
-        assert reached['fresh']
-        assert reached['population_status'] == 'observed'
+        assert reached["fresh"]
+        assert reached["population_status"] == "observed"
         row = next(row for row in reached["regions"] if row["path"] == TARGET)
         assert any(branch["true_count"] > 0 for branch in row["branches"])
-        assert len(reached['population']) == 1
-        assert reached['population'][0]['test'].endswith('scientific_replay_authority_binds_exact_records')
+        assert len(reached["population"]) == 1
+        assert reached["population"][0]["test"].endswith(
+            "scientific_replay_authority_binds_exact_records"
+        )
         with patch.dict(
             os.environ,
             {"RUSTFLAGS": os.environ.get("RUSTFLAGS", "") + " -C opt-level=1"},
         ):
             drift = coverage_correspondence.inspect(after, "HEAD")
         validation.write_json(output / "build-drift.json", drift)
-        assert not drift['fresh']
-        assert drift['regions'] == []
+        assert not drift["fresh"]
+        assert drift["regions"] == []
     finally:
         # Refuse to overwrite any unexpected concurrent edit of this narrow probe.
         if source.read_bytes() != changed:
@@ -141,8 +143,8 @@ def run(output: Path) -> int:
         source.write_bytes(original)
     stale = coverage_correspondence.inspect(output / "reached", "HEAD")
     validation.write_json(output / "source-drift.json", stale)
-    assert not stale['fresh']
-    assert stale['regions'] == []
+    assert not stale["fresh"]
+    assert stale["regions"] == []
     fallback = affected_fallback(output, output / "reached")
     validation.write_json(output / "affected-fallback.json", fallback)
     pattern = r"replace > with >= in QualifiedScientificRecipe::scratch_bytes"
@@ -179,8 +181,8 @@ def run(output: Path) -> int:
         )
         record = json.loads((directory / "sensitivity.json").read_text())
         assert code == expected_exit, (label, code)
-        assert record['baseline_status'] == 'passed'
-        assert record['protocol_status'] == 'observed'
+        assert record["baseline_status"] == "passed"
+        assert record["protocol_status"] == "observed"
         assert record["unchanged_during_run"]
         outcomes = [
             row
@@ -188,7 +190,7 @@ def run(output: Path) -> int:
             if isinstance(row["original"]["scenario"], dict)
         ]
         assert len(outcomes) == 1
-        assert outcomes[0]['classification'] == expected
+        assert outcomes[0]["classification"] == expected
         baseline = next(
             row["original"]
             for row in record["outcomes"]
@@ -197,8 +199,8 @@ def run(output: Path) -> int:
         build = next(
             phase for phase in baseline["phase_results"] if phase["phase"] == "Build"
         )
-        assert '--locked' in build['argv']
-        assert '--lib' in build['argv']
+        assert "--locked" in build["argv"]
+        assert "--lib" in build["argv"]
         mutations.append(
             {
                 "selection": label,

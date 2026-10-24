@@ -16,9 +16,34 @@ import signal
 import subprocess
 import sys
 from pathlib import Path
+from typing import Never, NotRequired, TypedDict
 
 from scripts import cargo_tools, installation_context, validation, validation_receipts
 from scripts.validation_scope import declared, input_identity
+
+
+class FeatureCombination(TypedDict):
+    index: int
+    literal_argv: list[str]
+    status: str
+    attempts: list[dict]
+    history: NotRequired[dict]
+    evidence_kind: NotRequired[str]
+    origin: NotRequired[dict]
+
+
+class FeatureCampaign(TypedDict):
+    schema: str
+    baseline_failures: int
+    frozen: dict
+    combinations: list[FeatureCombination]
+    complete: bool
+    required_checks_covered: bool
+    source_unchanged: bool
+    evidence_kind: str
+    parent: dict[str, str] | None
+    reuse_applicable: NotRequired[bool]
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = "validation-feature-campaign-v1"
@@ -42,6 +67,11 @@ OPERATIONAL = installation_context.OPERATIONAL | {
     "OLDPWD",
     "PSE_NEXTEST_DEFAULT_THREADS",
 }
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def compiler_context(root: Path, env: dict[str, str]) -> dict:
@@ -149,7 +179,7 @@ def run(
         "compiler_context": compiler_context(root, env),
         "force_validation": "arrow-unit-graph-force-validation-v1",
     }
-    receipt = {
+    receipt: FeatureCampaign = {
         "schema": SCHEMA,
         "baseline_failures": 0,
         "frozen": frozen,
@@ -165,10 +195,11 @@ def run(
     }
     if resume_from is not None:
         parent = resume_from.resolve()
-        receipt["parent"] = {
+        parent_reference = {
             "path": str(parent),
             "sha256": validation_receipts.digest(parent / "feature-campaign.json"),
         }
+        receipt["parent"] = parent_reference
         previous = validation_receipts.feature_campaign(parent)
         receipt["reuse_applicable"] = previous["frozen"] == frozen
         for current, old in zip(
@@ -186,7 +217,7 @@ def run(
                     {
                         "path": str(parent),
                         "index": old["index"],
-                        "sha256": receipt["parent"]["sha256"],
+                        "sha256": parent_reference["sha256"],
                     },
                 )
                 validation_receipts.feature_combination_origin(
@@ -296,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"validation evidence: {selected}", flush=True)
             return validation.run_gates(ROOT, selected, [gate], reuse_from=resume)
         if output is None:
-            raise ValueError("assessment feature output missing")
+            _invalid_protocol("assessment feature output missing")
         return run(ROOT, output.resolve(), args.mode, resume_from=resume)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"feature campaign refused: {error}", file=sys.stderr)

@@ -12,7 +12,9 @@ from scripts import cargo_tools
 
 
 class CargoToolsTests(unittest.TestCase):
-    def test_real_tool_path_and_declared_pin_are_part_of_selected_identity(self) -> None:
+    def test_real_tool_path_and_declared_pin_are_part_of_selected_identity(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             declaration = root / ".config/diagnostic-tools.toml"
@@ -27,12 +29,16 @@ class CargoToolsTests(unittest.TestCase):
             with patch.object(cargo_tools, "ROOT", root):
                 with patch.object(cargo_tools.shutil, "which", return_value=str(first)):
                     original = cargo_tools.selected_identity("cargo-nextest")
-                with patch.object(cargo_tools.shutil, "which", return_value=str(second)):
+                with patch.object(
+                    cargo_tools.shutil, "which", return_value=str(second)
+                ):
                     relocated = cargo_tools.selected_identity("cargo-nextest")
                     self.assertEqual(original["sha256"], relocated["sha256"])
                     self.assertNotEqual(original, relocated)
                     declaration.write_text('[cargo-tools]\ncargo-nextest="0.9.147"\n')
-                    with self.assertRaisesRegex(ValueError, "version differs from 0.9.147"):
+                    with self.assertRaisesRegex(
+                        ValueError, "version differs from 0.9.147"
+                    ):
                         cargo_tools.selected_identity("cargo-nextest")
 
     def test_pins_reject_override_but_leave_other_explicit_versions(self) -> None:

@@ -228,8 +228,8 @@ def configuration(
     ]
     records, raw, executables = [], [], []
     seen = set()
-    for directory in directories:
-        directory = directory.resolve()
+    for original_directory in directories:
+        directory = original_directory.resolve()
         if directory in seen:
             continue
         seen.add(directory)
@@ -242,10 +242,10 @@ def configuration(
             continue
         document = tomllib.loads(selected.read_text())
         for table, values in document.items():
-            if table in {"alias"}:
+            if table == "alias":
                 continue  # built-in `build` cannot be replaced by a Cargo alias
             if table == "target":
-                for name, settings in values.items():
+                for settings in values.values():
                     if set(settings) - {"linker", "rustflags", "rustdocflags"}:
                         raise ContextError(
                             f"Unsupported Cargo target configuration in {selected}"
@@ -312,7 +312,7 @@ def tree(path: Path) -> dict:
                 entries.append([name, str(candidate.resolve()), "directory"])
                 visit(candidate, name + "/")
             elif candidate.is_symlink():
-                entries.append([name, os.readlink(candidate), "missing-link-target"])
+                entries.append([name, str(candidate.readlink()), "missing-link-target"])
 
     visit(resolved, "")
     return {

@@ -11,11 +11,17 @@ import os
 import subprocess
 import time
 from pathlib import Path
+from typing import Never
 
 from scripts import native_operation, native_tests
 
 ROOT = Path(__file__).resolve().parents[1]
 NORMAL = "highs::mip_tests::callback_binding_normal_and_interrupted_teardown_keeps_context_until_native_return"
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def digest(path: Path) -> str:
@@ -46,17 +52,18 @@ def run(
                 stdout=stdout.fileno(),
                 stderr=stderr.fileno(),
             )
-            return {
-                "command": command,
-                "exit_code": code,
-                "timed_out": False,
-                "ownership": observation,
-            }
         except subprocess.TimeoutExpired:
             return {
                 "command": command,
                 "exit_code": None,
                 "timed_out": True,
+                "ownership": observation,
+            }
+        else:
+            return {
+                "command": command,
+                "exit_code": code,
+                "timed_out": False,
                 "ownership": observation,
             }
 
@@ -185,7 +192,7 @@ def main() -> int:
             and message["profile"]["test"]
         ]
         if len(binaries) != 1:
-            raise ValueError("expected one actual selected native test executable")
+            _invalid_protocol("expected one actual selected native test executable")
         binary = binaries[0]
         record["native_identity"] = native_tests.native_provenance(
             {"selection": "highs lifecycle", "target": target},
@@ -197,7 +204,7 @@ def main() -> int:
             [str(binary), "--list", "--format", "terse"], env=environment, text=True
         )
         if f"{NORMAL}: test" not in inventory:
-            raise ValueError(
+            _invalid_protocol(
                 "actual executable does not contain the selected lifecycle control"
             )
         (output / "test-inventory.txt").write_text(inventory)
@@ -235,7 +242,7 @@ def main() -> int:
             and "highs-sys" in message.get("package_id", "")
         ]
         if len(native) != 1:
-            raise ValueError("expected one actual Cargo-owned HiGHS supplier")
+            _invalid_protocol("expected one actual Cargo-owned HiGHS supplier")
         archive = Path(native[0]["out_dir"]) / "lib/libhighs.a"
         cache = Path(native[0]["out_dir"]) / "build/CMakeCache.txt"
         cache_text = cache.read_text()
@@ -260,7 +267,7 @@ def main() -> int:
             if line.endswith("pse_backend_native::highs::callback")
         ]
         if len(callbacks) != 1:
-            raise ValueError("expected one actual Rust HiGHS callback symbol")
+            _invalid_protocol("expected one actual Rust HiGHS callback symbol")
         callback_symbols = [
             line.split()[-1]
             for line in rust_symbols.splitlines()
@@ -269,7 +276,7 @@ def main() -> int:
             and len(line.split()) == 3
         ]
         if len(callback_symbols) != 1:
-            raise ValueError("actual Rust callback symbol association is ambiguous")
+            _invalid_protocol("actual Rust callback symbol association is ambiguous")
         callback_assembly = subprocess.check_output(
             ["objdump", "-d", "--disassemble=" + callback_symbols[0], str(binary)],
             text=True,
@@ -294,7 +301,7 @@ def main() -> int:
         }
         record["rust_instrumented"] = rust_instrumented
         if not native_instrumented or not rust_instrumented:
-            raise ValueError("selected Rust/native instrumentation was not observed")
+            _invalid_protocol("selected Rust/native instrumentation was not observed")
         record["normal"] = run(
             [str(binary), "--exact", NORMAL, "--nocapture"],
             environment,
@@ -304,11 +311,12 @@ def main() -> int:
         )
         adopted = qualify_asan(record["normal"], native_instrumented, rust_instrumented)
         record["status"] = "tested-normal-lifecycle" if adopted else "not-qualified"
-        return 0 if adopted else 1
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         record["status"] = "unavailable"
         record["error"] = str(error)
         return 1
+    else:
+        return 0 if adopted else 1
     finally:
         (output / "lifecycle.json").write_text(json.dumps(record, indent=2) + "\n")
         print(output / "lifecycle.json")

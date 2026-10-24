@@ -12,7 +12,9 @@ from scripts import assertion_sensitivity as sensitivity
 
 
 class SensitivityTests(unittest.TestCase):
-    def test_both_phases_keep_validated_compile_flags_and_only_test_gets_filter(self) -> None:
+    def test_both_phases_keep_validated_compile_flags_and_only_test_gets_filter(
+        self,
+    ) -> None:
         common, tests = sensitivity.split_arguments(
             [
                 "--locked",

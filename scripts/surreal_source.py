@@ -19,6 +19,10 @@ import tarfile
 import tempfile
 import urllib.request
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 from scripts import installation_context, pse_env
 
@@ -114,21 +118,24 @@ def effective_key(selected: dict[str, object]) -> str:
     return installation_context.identity(selected)
 
 
-def _receipt_inputs(receipt: dict) -> dict | None:
+def _receipt_inputs(receipt: Mapping[str, object]) -> dict[str, object] | None:
     """Old incomplete receipts are never silently promoted to safe equivalence."""
+    recorded = receipt.get("inputs")
     if (
         receipt.get("schema") != RECEIPT_SCHEMA
         or receipt.get("surrealmx_version") != ENGINE
         or not receipt.get("raw_provenance")
         or not receipt.get("lockfile_sha256")
-        or not isinstance(receipt.get("inputs"), dict)
-        or not isinstance(receipt["inputs"].get("installation_namespace"), str)
+        or not isinstance(recorded, dict)
+        or not isinstance(recorded.get("installation_namespace"), str)
     ):
         return None
-    return receipt["inputs"]
+    return recorded
 
 
-def _closed_passive_receipt(receipt: dict, recorded: dict) -> bool:
+def _closed_passive_receipt(
+    receipt: Mapping[str, object], recorded: dict[str, object]
+) -> bool:
     context = recorded.get("build_context")
     if (
         not isinstance(context, dict)
@@ -161,7 +168,7 @@ def _closed_passive_receipt(receipt: dict, recorded: dict) -> bool:
         return False
 
 
-def admitted_runtime_receipt(receipt: dict, generation: Path) -> bool:
+def admitted_runtime_receipt(receipt: Mapping[str, object], generation: Path) -> bool:
     """Authenticate a compiled receipt inside its verified immutable runtime.
 
     Compilation configuration remains original build provenance. Runtime reuse
@@ -190,7 +197,7 @@ def admitted_runtime_receipt(receipt: dict, generation: Path) -> bool:
     return recorded is not None and _closed_passive_receipt(receipt, recorded)
 
 
-def admitted_receipt(receipt: dict) -> bool:
+def admitted_receipt(receipt: Mapping[str, object]) -> bool:
     """Validate package/provenance metadata; launch owners verify executable bytes."""
     recorded = _receipt_inputs(receipt)
     return recorded is not None and _closed_passive_receipt(receipt, recorded)

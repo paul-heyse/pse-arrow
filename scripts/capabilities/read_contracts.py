@@ -703,7 +703,9 @@ def concept_query(value: object) -> ConceptQueryResult | DetailRefused:
     )
 
 
-def producer_relationships(value: object) -> ProducerRelationshipsResult | DetailRefused:
+def producer_relationships(
+    value: object,
+) -> ProducerRelationshipsResult | DetailRefused:
     selected = RelationshipsPayload.model_validate(value)
     return finish_read(
         ProducerRelationshipsResult,
@@ -756,9 +758,7 @@ def environment(value: object) -> EnvironmentResult | DetailRefused:
 def knowledge(value: object) -> KnowledgeResult | DetailRefused:
     selected = KnowledgePayload.model_validate(value)
     page = selected.excerpt_page
-    partial = page is not None and (
-        page.offset > 0 or page.next_offset is not None
-    )
+    partial = page is not None and (page.offset > 0 or page.next_offset is not None)
     omitted = any(item.text_complete is False for item in selected.excerpts)
     reasons: list[str] = []
     if partial:

@@ -74,12 +74,14 @@ def decoded(value: object, document_type: type[T]) -> T:
             while pending and len(locations) < 16:
                 item, parent = pending.popleft()
                 index = len(locations)
-                locations.append({
-                    "path": safe_path(list(item.absolute_path), keys),
-                    "schema_path": list(item.absolute_schema_path),
-                    "rule": item.validator,
-                    "parent": parent,
-                })
+                locations.append(
+                    {
+                        "path": safe_path(list(item.absolute_path), keys),
+                        "schema_path": list(item.absolute_schema_path),
+                        "rule": item.validator,
+                        "parent": parent,
+                    }
+                )
                 pending.extend((child, index) for child in islice(item.context, 17))
             raise StructuralInputError(locations, complete=not pending) from error
         raise
@@ -100,7 +102,9 @@ def source_documents(value: object) -> list[dict[str, bytes]]:
 class StructuralInputError(ValueError):
     """Safe structural facts from the published owner schema after decode refusal."""
 
-    def __init__(self, locations: list[dict[str, object]], *, complete: bool = True) -> None:
+    def __init__(
+        self, locations: list[dict[str, object]], *, complete: bool = True
+    ) -> None:
         super().__init__("Generated input refused")
         self.locations = locations
         self.complete = complete

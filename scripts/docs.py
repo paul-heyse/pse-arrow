@@ -75,7 +75,7 @@ def document_scope(
     if matches(relative, publication["exclude"]):
         return None
     if collection is None:
-        matching = []
+        matching: list[dict] = []
         for candidate in config["collections"]:
             base = Path(candidate["root"])
             if base.is_absolute() or ".." in base.parts:
@@ -154,7 +154,8 @@ def discover(root: Path, config: dict) -> list[Page]:
             if not isinstance(status, str):
                 raise ValueError(f"{relative}: status must be a string")  # noqa: TRY004 -- invalid publication input uses ValueError
             scope = document_scope(relative, status, config, collection)
-            assert scope is not None  # publication exclusions were applied above
+            if scope is None:
+                raise ValueError(f"{relative}: selected publication has no scope")
             pages.append(
                 Page(relative, title, body, collection["title"], scope, status)
             )

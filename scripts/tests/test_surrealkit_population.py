@@ -57,7 +57,7 @@ class PopulationTests(unittest.TestCase):
         if query == "INFO FOR NS;":
             return [{"databases": {}}]
         if query in self.readbacks:
-            return copy.deepcopy(self.readbacks[query])
+            return [copy.deepcopy(row) for row in self.readbacks[query]]
         if query.startswith("SELECT VALUE ordinal"):
             return [population.READINESS_ANSWER]
         if query == "SELECT * FROM canonical_projects:fixture_viewer_forbidden;":
@@ -96,6 +96,53 @@ class PopulationTests(unittest.TestCase):
             self.assertEqual(
                 self.queries.count(population.READINESS.format(hint=hint) + ";"), 2
             )
+
+    def test_exact_activity_borrow_refuses_forged_stale_and_concurrent_tokens(
+        self,
+    ) -> None:
+        resource = tool.provision(self.state)
+        with resources.borrow(resource) as token:
+            original = copy.deepcopy(resources.resource_status(resource)["borrows"])
+            observed, _, _ = tool.fixture(resource, _activity_borrow=token)
+            self.assertEqual(observed["borrows"], original)
+            for change in (
+                "wrong-token",
+                "missing-token",
+                "pid",
+                "start",
+                "boot",
+                "concurrent",
+            ):
+                with self.subTest(change=change):
+                    try:
+                        with resources.resource_update(resource) as record:
+                            record["borrows"] = copy.deepcopy(original)
+                            if change == "missing-token":
+                                record["borrows"].clear()
+                            elif change == "concurrent":
+                                # Matching process identity cannot admit another token.
+                                record["borrows"]["another-token"] = copy.deepcopy(
+                                    original[token]
+                                )
+                            elif change == "pid":
+                                record["borrows"][token]["pid"] = -1
+                            elif change in {"start", "boot"}:
+                                record["borrows"][token][change] = "stale-owner"
+                        with (
+                            patch.object(resources, "namespace_sql") as sql,
+                            self.assertRaisesRegex(tool.ToolError, "borrow differs"),
+                        ):
+                            tool.fixture(
+                                resource,
+                                _activity_borrow="forged-token"
+                                if change == "wrong-token"
+                                else token,
+                            )
+                        sql.assert_not_called()
+                    finally:
+                        with resources.resource_update(resource) as record:
+                            record["borrows"] = copy.deepcopy(original)
+        self.assertFalse(resources.resource_status(resource)["borrows"])
 
     def test_unknown_population_refuses_before_any_activity(self) -> None:
         with (
@@ -226,7 +273,10 @@ class PopulationTests(unittest.TestCase):
         self.assertEqual(artifacts[0].stat().st_mode & 0o777, 0o600)
         evidence = server.read_json(artifacts[0])
         self.assertEqual(evidence["response"], response)
-        self.assertEqual(evidence["errors"][1], {"statement": 1, "error": response[1]})
+        errors = evidence["errors"]
+        if not isinstance(errors, list):
+            self.fail("Expected original statement failure rows")
+        self.assertEqual(errors[1], {"statement": 1, "error": response[1]})
         self.assertEqual(
             evidence["sql_sha256"],
             hashlib.sha256(population.sql().encode()).hexdigest(),
@@ -384,13 +434,14 @@ class PopulationTests(unittest.TestCase):
         self.assertIn("BEGIN TRANSACTION", population.sql())
         self.assertTrue(population.sql().endswith("COMMIT TRANSACTION;"))
         # Deterministic expected answers are independently derived from rows.
-        ready = sorted(
-            row["ordinal"]
-            for row in population.rows()["canonical_study_readiness"]
-            if row["study"] == "fixture_alpha"
-            and row["eligible"]
-            and row["ordinal"] >= 4
-        )
+        ready = []
+        for row in population.rows()["canonical_study_readiness"]:
+            ordinal = row["ordinal"]
+            if not isinstance(ordinal, int):
+                self.fail("Expected original readiness ordinal")
+            if row["study"] == "fixture_alpha" and row["eligible"] and ordinal >= 4:
+                ready.append(ordinal)
+        ready.sort()
         self.assertEqual(
             [str(value) for value in ready[:4]], population.READINESS_ANSWER
         )

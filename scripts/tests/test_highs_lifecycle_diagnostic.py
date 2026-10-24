@@ -26,7 +26,9 @@ class LifecycleQualificationTests(unittest.TestCase):
         self.assertFalse(qualify_asan({"exit_code": -9, "timed_out": True}, True, True))
         self.assertFalse(qualify_asan({"exit_code": 1, "timed_out": False}, True, True))
 
-    def test_refused_or_failed_build_never_claims_unsupported_instrumentation(self) -> None:
+    def test_refused_or_failed_build_never_claims_unsupported_instrumentation(
+        self,
+    ) -> None:
         for code, expected in [(125, "admission-refused"), (2, "build-failed")]:
             with tempfile.TemporaryDirectory() as directory:
                 output = Path(directory) / "capture"

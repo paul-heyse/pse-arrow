@@ -433,10 +433,7 @@ def preparation_inputs(
 
     # Cross compilation and additional Maturin environment selection do not
     # belong to the supported ordinary editable domain. They still prepare.
-    if any(
-        name.startswith("PYO3_CROSS") or name.startswith("MATURIN_")
-        for name in environment
-    ):
+    if any(name.startswith(("PYO3_CROSS", "MATURIN_")) for name in environment):
         return None
     files = validation.sources(ROOT, scope=stage)
     if any(
@@ -817,7 +814,8 @@ def diagnostic_sync(mode: str = "dev") -> int:
             str(output),
         ],
     ]
-    for command in commands:
+    for original_command in commands:
+        command = original_command
         if command[1:2] == ["build"]:
             command = validated_maturin_command(command, environment)
         result = subprocess.call(command, cwd=ROOT, env=environment)

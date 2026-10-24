@@ -12,13 +12,13 @@ import json
 import os
 import re
 import uuid
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 from scripts import resource_store
 
 if TYPE_CHECKING:
     from collections.abc import Collection
+    from pathlib import Path
 
 VERSION = 6
 SUMMARY = frozenset(
@@ -49,6 +49,11 @@ CHECK_SUMMARY = frozenset(
         "origin_digest",
     }
 )
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def immutable(run: Path, value: dict) -> dict[str, str]:
@@ -138,7 +143,7 @@ def root(run: Path) -> dict:
         data, custody = test_resources.read_report_root(run)
     value = json.loads(data)
     if not isinstance(value, dict):
-        raise ValueError("invalid assessment root")
+        _invalid_protocol("invalid assessment root")
     if value.get("version") != VERSION:
         raise ValueError(
             "historical assessment requires explicit original export; automatic reuse refused"
@@ -227,7 +232,7 @@ def original_export(run: Path) -> dict:
         data, _ = test_resources.read_report_root(run)
     value = json.loads(data)
     if not isinstance(value, dict):
-        raise ValueError("invalid historical assessment root")
+        _invalid_protocol("invalid historical assessment root")
     if value.get("version") != 5:
         raise ValueError(
             "original export expects an unchanged historical v5 assessment"

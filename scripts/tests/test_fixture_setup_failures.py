@@ -11,8 +11,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from pse.tests.canonical_fixture import CanonicalFixture
 from types import ModuleType
-from unittest.mock import Mock, patch
+from unittest.mock import DEFAULT, Mock, patch
 
 import pytest
 
@@ -87,13 +93,20 @@ class CanonicalSetupProducers(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
-    def mock(self, owner: object, name: str, **kwargs: object) -> Mock:
-        target = patch.object(owner, name, **kwargs)
+    def mock(
+        self,
+        owner: object,
+        name: str,
+        *,
+        create: bool = False,
+        return_value: object = DEFAULT,
+    ) -> Mock:
+        target = patch.object(owner, name, create=create, return_value=return_value)
         result = target.start()
         self.addCleanup(target.stop)
         return result
 
-    def generator(self):
+    def generator(self) -> Generator[CanonicalFixture, None, None]:
         return self.plugin.canonical_substrate.__wrapped__(self.request)
 
     def assert_observed(self, stage: str) -> None:

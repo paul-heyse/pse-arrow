@@ -20,6 +20,10 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -166,7 +170,7 @@ def main() -> int:
         command = ["cargo", *arguments]
         graphs = []
 
-        def validation_capture(scope: list[str]) -> bytes:
+        def validation_capture(scope: Sequence[str]) -> bytes:
             selected = [cargo, *scope[1:]]
             data = capture(selected, env=environment)
             graphs.append(

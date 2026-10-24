@@ -220,7 +220,13 @@ class IntactNativeResultTests(unittest.TestCase):
         self.assertEqual(response.omissions, [])
         self.assertEqual(response.payload, value)
         self.assertEqual(
-            base64.b64decode("".join(text_value(chunk) for chunk in list_value(response.payload["chunks"])), validate=True),
+            base64.b64decode(
+                "".join(
+                    text_value(chunk)
+                    for chunk in list_value(response.payload["chunks"])
+                ),
+                validate=True,
+            ),
             original,
         )
 
@@ -359,7 +365,9 @@ class NativeSchemaTests(unittest.TestCase):
             {"kind": "schema", "offset": 0, "limit": 2, "unknown": True},
         ):
             invalid = copy.deepcopy(arguments)
-            object_value(at(invalid, "request"))["view"] = JSON_OBJECT.validate_python(view)
+            object_value(at(invalid, "request"))["view"] = JSON_OBJECT.validate_python(
+                view
+            )
             self.assertFalse(validator.is_valid(invalid))
         document = {
             "document_version": 1,
@@ -383,9 +391,7 @@ class NativeSchemaTests(unittest.TestCase):
                     result = await client.call_tool("native_result_inspect", arguments)
                 self.assertEqual(child.call_args.args[:2], (ROOT, "result_inspect"))
                 self.assertEqual(child.call_args.args[2]["request"], request)
-                Draft202012Validator(schema).validate(
-                    result.structured_content
-                )
+                Draft202012Validator(schema).validate(result.structured_content)
                 self.assertEqual(at(result.structured_content, "payload"), observed)
                 self.assertEqual(
                     at(result.structured_content, "operation"), "native_result_inspect"
@@ -394,9 +400,7 @@ class NativeSchemaTests(unittest.TestCase):
                 object_value(at(invalid_output, "payload", "document"))["reason"] = (
                     "invented"
                 )
-                self.assertFalse(
-                    Draft202012Validator(schema).is_valid(invalid_output)
-                )
+                self.assertFalse(Draft202012Validator(schema).is_valid(invalid_output))
 
         asyncio.run(exercise())
 

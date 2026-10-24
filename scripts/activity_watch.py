@@ -128,9 +128,7 @@ def _snapshot_body(selected: dict, deadline: float) -> dict:
             deadline=deadline,
         )
         if fields["LoadState"] == "not-found":
-            raise ValueError(
-                "selected unit disappeared; terminal and drain unknown"
-            )
+            raise ValueError("selected unit disappeared; terminal and drain unknown")
         state = (
             "running"
             if fields["ActiveState"] in {"active", "activating", "deactivating"}
@@ -148,15 +146,11 @@ def _snapshot_body(selected: dict, deadline: float) -> dict:
         if not attempt.get("caller_alive") and state == "waiting":
             state = "observation-lost"
         return {"state": state, "attempt": attempt, "result_reference": None}
-    result = run_inspection.product_result(
-        handle, registry=Path(selected["registry"])
-    )
+    result = run_inspection.product_result(handle, registry=Path(selected["registry"]))
     terminal = result.get("terminal")
     state = "declared"
     if terminal is not None:
-        state = (
-            "result-complete" if terminal.get("complete") else "result-incomplete"
-        )
+        state = "result-complete" if terminal.get("complete") else "result-incomplete"
     elif result.get("phase") in {"abandoned", "unresolved"}:
         state = "observation-lost"
     elif result.get("producer", {}).get("association") == "captured-metadata":
@@ -212,7 +206,6 @@ def snapshot(selected: dict, deadline: float) -> dict:
         }
     else:
         return observed
-
 
 
 def watch(

@@ -118,7 +118,8 @@ def native_provenance(
 
 def native_root_features(selection: list[str], *, managed: bool) -> str:
     """Select declared native opt-ins only on the actual requested workspace roots."""
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.rust(selection)
     requested = list(request.values("--package"))
@@ -222,7 +223,8 @@ def rust_configuration_paths(
         )
     )
     paths.update(str(cargo_home / name) for name in ("config", "config.toml"))
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.rust(arguments, environment)
     for name in ("--config", "--manifest-path", "--config-file"):
@@ -298,7 +300,8 @@ def rust_selection_identity(
     arguments: list[str], environment: Mapping[str, str] | None = None
 ) -> dict:
     """Bind the shared effective selection independently of report placement."""
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.rust(arguments, environment)
     selection = []
@@ -378,7 +381,8 @@ def prepared_rust_inventory(
         list(prepared["configuration"])
     ):
         raise ValueError("Rust Cargo configuration changed after preparation")
-    from scripts import cargo_tools
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import cargo_tools  # noqa: PLC0415
 
     if prepared["nextest"] != cargo_tools.selected_identity("cargo-nextest"):
         raise ValueError("Prepared nextest tool identity changed before execution")
@@ -520,7 +524,8 @@ PYTHON_DEFAULT_SELECTION = ("-o", "testpaths=python/pse/tests")
 
 def python_command(extra: list[str], *, managed: bool = False) -> list[str]:
     """Keep user selection within one process's declared runtime budget."""
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.python(extra)
     selected, forwarded = request.marker, list(request.forwarded)
@@ -651,7 +656,8 @@ def native_lane_binary(extra: list[str], environment: Mapping[str, str]) -> Path
 
 def selected_rust_fixtures(inventory: dict) -> set[str]:
     """Preparation consumes the same requirements as actual effect admission."""
-    from scripts import test_requirements
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_requirements  # noqa: PLC0415
 
     catalog = test_requirements.rust_catalog(inventory, validate_declarations=False)
     selected = {
@@ -672,7 +678,8 @@ def prepare_rust_fixtures(
 ) -> dict[str, str]:
     """Prepare selected artifacts within the original source/configuration capture."""
     selected = selected_rust_fixtures(inventory)
-    from scripts import test_requirements
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_requirements  # noqa: PLC0415
 
     requirements = test_requirements.rust_catalog(
         inventory, validate_declarations=False
@@ -732,7 +739,8 @@ def rust_fixture_bindings(
     provenance: Path, environment: Mapping[str, str]
 ) -> dict[str, str]:
     """Forward only exact source-bound fixture roles in the prepared artifact set."""
-    from scripts import test_requirements
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_requirements  # noqa: PLC0415
 
     native = json.loads(provenance.read_text())
     prepared = native.get("rust_invocation", {})
@@ -769,7 +777,8 @@ def managed_rust_arguments(
     extra: list[str], *, include_managed_features: bool = True
 ) -> tuple[list[str], list[str]]:
     """Project the shared request into retained build and execution inputs."""
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.rust(extra)
     if any(
@@ -782,20 +791,23 @@ def managed_rust_arguments(
 
 def managed_list_arguments(extra: list[str]) -> list[str]:
     """Inventory exactly the shared request without run-only controls."""
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     return test_invocation.rust(extra).listing()
 
 
 def managed_cargo_profile(extra: list[str]) -> str:
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     return test_invocation.rust(extra).cargo_profile
 
 
 def managed_rust_selection(extra: list[str]) -> list[str]:
     """Intersect the shared caller filter union with the observer partition."""
-    from scripts import test_invocation
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_invocation  # noqa: PLC0415
 
     request = test_invocation.rust(extra)
     expressions = request.values("--filter-expr")
@@ -892,7 +904,8 @@ def _rust_capture(
     canonical: bool = True,
     package_scope: bool = False,
 ) -> tuple[list[str], Path | None]:
-    from scripts import cargo_tools
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import cargo_tools  # noqa: PLC0415
 
     # Refuse unsupported syntax and tool identity before worker/build preparation.
     managed_rust_arguments(scoped, include_managed_features=managed)
@@ -1006,7 +1019,8 @@ def _rust_capture(
             f"managed Rust inventory failed with exit {inventory.returncode}"
         )
     data = validation_receipts.native_inventory(inventory.stdout)
-    from scripts import test_requirements
+    # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+    from scripts import test_requirements  # noqa: PLC0415
 
     packages = {
         item["id"]: item["name"] for item in json.loads(resolution.metadata)["packages"]
@@ -1023,7 +1037,8 @@ def _rust_capture(
         active_features=active_features,
     )
     if not requirements:
-        from scripts import test_run
+        # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+        from scripts import test_run  # noqa: PLC0415
 
         result = test_run.empty_selection(data, selected)
         raise ValueError(f"Known empty test selection; no execution: {result}")
@@ -1046,7 +1061,8 @@ def _rust_capture(
             environment,
         )
     except Exception as error:
-        from scripts import test_run
+        # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+        from scripts import test_run  # noqa: PLC0415
 
         failed = test_run.preparation_failure(data, "fixture-preparation")
         error.add_note(f"Selected invocation: {failed}")
@@ -1229,7 +1245,8 @@ def main() -> int:
     kind, *extra = sys.argv[1:]
     path = os.environ.get("PSE_NATIVE_PROVENANCE")
     if kind == "python":
-        from scripts import test_invocation
+        # selected test lifecycle owner; preserve source-only discovery and reciprocal imports
+        from scripts import test_invocation  # noqa: PLC0415
 
         request = test_invocation.python(extra)
         controls = {item.name for item in request.options}

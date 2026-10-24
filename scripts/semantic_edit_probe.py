@@ -15,6 +15,12 @@ from pathlib import Path
 from scripts import semantic_edits, semantic_navigation
 
 
+def _require_probe(condition: object, reason: object) -> None:
+    """Probe checks remain explicit even if Python assertion optimization is enabled."""
+    if not condition:
+        raise AssertionError(reason)
+
+
 def processes() -> set[int]:
     """Observe only language/bridge process names, without reading their environments."""
     selected = set()
@@ -78,7 +84,9 @@ async def cancelled_request(root: Path, language: str) -> dict:
         await task
     except asyncio.CancelledError:
         remaining = sorted(processes() - before)
-        assert not remaining, f"cancelled request leaked owned processes: {remaining}"
+        _require_probe(
+            not remaining, f"cancelled request leaked owned processes: {remaining}"
+        )
         return {"cancelled": True, "new_processes_after_close": remaining}
     raise AssertionError("request did not propagate cancellation")
 
@@ -122,13 +130,15 @@ def probe(language: str) -> dict:
         observed = asyncio.run(
             semantic_navigation.request(root, language, calls, fixture=True)
         )
-        assert all(not item["isError"] for item in observed["results"]), observed[
-            "results"
-        ]
-        assert observed["results"][1]["result"]["status"] in {
-            "renameable",
-            "default_behavior",
-        }
+        _require_probe(
+            all(not item["isError"] for item in observed["results"]),
+            observed["results"],
+        )
+        _require_probe(
+            observed["results"][1]["result"]["status"]
+            in {"renameable", "default_behavior"},
+            "Selected semantic-edit qualification assertion failed",
+        )
         selected = semantic_edits.preview(
             root,
             cut,
@@ -136,11 +146,14 @@ def probe(language: str) -> dict:
             producer="real mcpls:" + language,
         )
         if language == "rust":
-            assert len(selected["files"]) == 2, (
-                "Rust rename did not reach the cross-file consumer"
+            _require_probe(
+                len(selected["files"]) == 2,
+                "Rust rename did not reach the cross-file consumer",
             )
         applied = semantic_edits.apply(selected, root / "rename-receipt.json")
-        assert applied["complete"]
+        _require_probe(
+            applied["complete"], "Selected semantic-edit qualification assertion failed"
+        )
         if language == "rust":
             command = [
                 "rustc",
@@ -181,7 +194,7 @@ def probe(language: str) -> dict:
         # Code-action edits describe the original cut; restore this owned fixture
         # before independently qualifying the selected extraction.
         action_result = observed["results"][3]["result"]
-        semantic_edits._complete(action_result)
+        semantic_edits.require_complete(action_result)
         action_observation = {"returned": action_result}
         if language == "python":
             for name, content in cut.items():
@@ -191,7 +204,7 @@ def probe(language: str) -> dict:
                 for item in action_result.get("actions", [])
                 if item.get("edit") and not item.get("command")
             ]
-            assert actions, "Pyrefly did not return an editable extraction"
+            _require_probe(actions, "Pyrefly did not return an editable extraction")
             action = actions[0]
             action_preview = semantic_edits.preview(
                 root,
@@ -202,7 +215,10 @@ def probe(language: str) -> dict:
             action_applied = semantic_edits.apply(
                 action_preview, root / "action-receipt.json"
             )
-            assert action_applied["complete"]
+            _require_probe(
+                action_applied["complete"],
+                "Selected semantic-edit qualification assertion failed",
+            )
             action_run = subprocess.run(
                 [sys.executable, str(root / "model.py")],
                 text=True,
@@ -233,16 +249,19 @@ def probe(language: str) -> dict:
             )
         )
         negative = {"response": failure["results"]}
-        assert failure["results"][0]["isError"], (
-            "invalid source position was reported as successful"
+        _require_probe(
+            failure["results"][0]["isError"],
+            "invalid source position was reported as successful",
         )
-        assert failure["results"][0]["result"]["error"]["code"] == -32602, (
-            "invalid-position rejection was not observed"
+        _require_probe(
+            failure["results"][0]["result"]["error"]["code"] == -32602,
+            "invalid-position rejection was not observed",
         )
         cancellation = asyncio.run(cancelled_request(root, language))
         remaining = sorted(processes() - before_processes)
-        assert not remaining, (
-            f"request-owned language processes survived cleanup: {remaining}"
+        _require_probe(
+            not remaining,
+            f"request-owned language processes survived cleanup: {remaining}",
         )
         return {
             "language": language,

@@ -14,10 +14,14 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import resource_store
 from scripts import tooling_experiments as tooling
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ToolingExperimentTests(unittest.TestCase):
@@ -62,7 +66,7 @@ class ToolingExperimentTests(unittest.TestCase):
         return code, json.loads(stdout.getvalue())
 
     def staged(
-        self, command: list[str], output: Path, label: str, work: Path, deadline: float
+        self, command: list[str], output: Path, label: str, work: Path, _deadline: float
     ) -> dict:
         self.calls.append((command, label))
         stdout = (
@@ -89,7 +93,10 @@ class ToolingExperimentTests(unittest.TestCase):
             "truncated": False,
         }
 
-    def configured(self, callback=None):
+    def configured(
+        self,
+        callback: Callable[[list[str], Path, str, Path, float], dict] | None = None,
+    ) -> contextlib.ExitStack:
         stack = contextlib.ExitStack()
         stack.enter_context(
             patch.object(
@@ -164,7 +171,9 @@ class ToolingExperimentTests(unittest.TestCase):
         self.binary.chmod(0o500)
         expected = self.parser_report(valid=False)
 
-        def library(command, output, label, work, deadline):
+        def library(
+            command: list[str], output: Path, label: str, work: Path, deadline: float
+        ) -> dict:
             observed = self.staged(command, output, label, work, deadline)
             if label == "parser":
                 (output / "parser.stdout.txt").write_text(json.dumps(expected))
@@ -234,7 +243,9 @@ class ToolingExperimentTests(unittest.TestCase):
             )
 
     def test_namespace_refusal_does_not_run_unconfined_parser(self) -> None:
-        def refused(command, output, label, work, deadline):
+        def refused(
+            command: list[str], output: Path, label: str, work: Path, deadline: float
+        ) -> dict:
             if label == "parser":
                 self.calls.append((command, label))
                 return {
@@ -254,7 +265,9 @@ class ToolingExperimentTests(unittest.TestCase):
         self.assertEqual(self.calls[-1][0][0], str(self.bwrap))
 
     def test_parser_error_is_independent_of_successful_cleanup(self) -> None:
-        def invalid(command, output, label, work, deadline):
+        def invalid(
+            command: list[str], output: Path, label: str, work: Path, deadline: float
+        ) -> dict:
             result = self.staged(command, output, label, work, deadline)
             if label == "parser":
                 result["exit_code"] = 1
@@ -267,7 +280,9 @@ class ToolingExperimentTests(unittest.TestCase):
         )
 
     def test_unknown_drain_retains_only_owned_workspace(self) -> None:
-        def unresolved(command, output, label, work, deadline):
+        def unresolved(
+            command: list[str], output: Path, label: str, work: Path, deadline: float
+        ) -> dict:
             result = self.staged(command, output, label, work, deadline)
             if label == "parser":
                 result["process"]["owned_drain"] = "unresolved"
@@ -284,7 +299,9 @@ class ToolingExperimentTests(unittest.TestCase):
         self.assertEqual(unrelated.read_text(), "preserve")
 
     def test_cancellation_keeps_signal_and_drain(self) -> None:
-        def cancelled(command, output, label, work, deadline):
+        def cancelled(
+            command: list[str], output: Path, label: str, work: Path, deadline: float
+        ) -> dict:
             result = self.staged(command, output, label, work, deadline)
             if label == "parser":
                 result["exit_code"] = 128 + signal.SIGTERM
@@ -299,7 +316,7 @@ class ToolingExperimentTests(unittest.TestCase):
         self.assertEqual(result["cleanup"], "complete")
 
     def test_preparation_cancellation_launches_nothing(self) -> None:
-        def admit(_path):
+        def admit(_path: Path | None) -> tuple[Path, dict]:
             os.kill(os.getpid(), signal.SIGTERM)
             return self.receipt, self.release
 

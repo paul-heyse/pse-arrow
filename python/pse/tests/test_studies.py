@@ -1019,7 +1019,6 @@ def test_flash_sweep_prepares_structure_once_per_lane(
     runtime = canonical_substrate.runtime(engine_settings, ephemeral=ephemeral)
     reference = Path(__file__).resolve().parents[3] / "packages/reference"
 
-
     physical_documents = package_documents(reference / "physical")
     assert physical_documents is not None
     physical = runtime.physical_from_documents(physical_documents)

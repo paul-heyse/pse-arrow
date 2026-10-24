@@ -187,7 +187,8 @@ def graph_command(command: Sequence[str]) -> list[str]:
     if nextest:
         if command[2:3] not in (["run"], ["list"]):
             raise ValidationError("only nextest run/list scopes are supported")
-        from scripts import test_invocation
+        # selected Arrow-closure owner; do not prepare native tests on import
+        from scripts import test_invocation  # noqa: PLC0415
 
         try:
             return test_invocation.rust(command[3:]).graph()

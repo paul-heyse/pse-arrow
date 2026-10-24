@@ -102,6 +102,8 @@ quality = [
   "opentelemetry-api==1.45.1",
   "jsonschema==4.26.0",
   "types-jsonschema==4.26.0.20261006",
+  "defusedxml==0.7.1",
+  "types-defusedxml==0.7.0.20260504",
 ]
 test = [
   "pytest==9.1.1",

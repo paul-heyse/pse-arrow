@@ -351,7 +351,9 @@ def _run(args: argparse.Namespace) -> int:
                 selection.update(topics=args.topic, cursor=cursor)
             input_path = Path(directory) / "input.json"
             if selection is None:
-                raise RuntimeError("selected input is required for this knowledge operation")
+                raise RuntimeError(
+                    "selected input is required for this knowledge operation"
+                )
             resource_store.publish(input_path, selection)
             arguments.extend(["--input", str(input_path)])
         result = native(

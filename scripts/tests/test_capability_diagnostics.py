@@ -203,14 +203,23 @@ class DiagnosticTests(unittest.TestCase):
             ),
         )
         value = native_worker.scientific_error(self.error(report))
-        self.assertEqual((len(records(value["causes"])), value["cause_count"]), (16, 18))
-        self.assertEqual((len(records(value["contexts"])), value["context_count"]), (16, 19))
-        self.assertEqual((len(records(value["related"])), value["related_count"]), (8, 10))
+        self.assertEqual(
+            (len(records(value["causes"])), value["cause_count"]), (16, 18)
+        )
+        self.assertEqual(
+            (len(records(value["contexts"])), value["context_count"]), (16, 19)
+        )
+        self.assertEqual(
+            (len(records(value["related"])), value["related_count"]), (8, 10)
+        )
         self.assertFalse(value["complete"])
         self.assertNotIn("secret", json.dumps(value))
 
     def test_structural_error_uses_only_preprojected_locations(self) -> None:
-        location: dict[str, object] = {"path": ["schema_declared", 2, "<redacted-key>"], "rule": "type"}
+        location: dict[str, object] = {
+            "path": ["schema_declared", 2, "<redacted-key>"],
+            "rule": "type",
+        }
         value = native_worker.scientific_error(
             native_worker.StructuralInputError([location])
         )

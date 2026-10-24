@@ -551,7 +551,7 @@ INPUT_ENVIRONMENT = (
 
 def includes_input(scope: str | None, name: str) -> bool:
     """Select declared inputs before opening bytes; unknown scopes remain broad."""
-    paths = INPUT_SCOPES.get(scope)
+    paths = INPUT_SCOPES.get(scope) if scope is not None else None
     return (
         paths is None
         or (
@@ -571,7 +571,7 @@ def includes_input(scope: str | None, name: str) -> bool:
 
 def input_identity(scope: str, snapshot: dict, environment: dict) -> dict:
     """Project captured identities; preserve absent paths, modes and symlink hashes."""
-    paths = INPUT_SCOPES.get(scope)
+    paths = INPUT_SCOPES.get(scope) if scope is not None else None
     return {
         "scope": scope,
         "version": INPUT_SCOPE_VERSION,

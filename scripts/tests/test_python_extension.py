@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -16,7 +17,13 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import arrow_validation, python_extension
+from scripts import (
+    arrow_validation,
+    native_cache,
+    native_operation,
+    native_tests,
+    python_extension,
+)
 from scripts.tests.test_arrow_validation import Cargo, graph, package, unit
 
 if TYPE_CHECKING:
@@ -244,11 +251,6 @@ class PythonExtensionTests(unittest.TestCase):
 
 class PreparationCurrencyTests(unittest.TestCase):
     def setUp(self) -> None:
-        import os
-        import sys
-
-        from scripts import native_tests
-
         self.directory = self.enterContext(tempfile.TemporaryDirectory())
         self.root = Path(self.directory)
         self.enterContext(patch.object(python_extension, "ROOT", self.root))
@@ -301,7 +303,7 @@ class PreparationCurrencyTests(unittest.TestCase):
             )
         )
 
-    def inputs(self, stage="python-extension"):
+    def inputs(self, stage: str = "python-extension") -> dict[str, object] | None:
         return python_extension.preparation_inputs(
             stage, "dev", "dev", self.environment, validated=True
         )
@@ -366,8 +368,6 @@ class PreparationCurrencyTests(unittest.TestCase):
     def test_session_transport_changes_reuse_preparation_but_unknown_build_inputs_invalidate(
         self,
     ) -> None:
-        from scripts import native_tests
-
         first = {
             **self.environment,
             **dict.fromkeys(
@@ -463,8 +463,6 @@ class PreparationCurrencyTests(unittest.TestCase):
     def test_native_currency_consumes_only_admitted_managed_generation_identities(
         self,
     ) -> None:
-        from scripts import native_operation
-
         environment = dict(self.environment)
         for name in (
             "IPOPT_DIR",
@@ -509,8 +507,6 @@ class PreparationCurrencyTests(unittest.TestCase):
     def test_native_install_receipt_reuses_authenticated_unscoped_admission_across_operations(
         self,
     ) -> None:
-        from scripts import native_cache, native_operation
-
         environment = dict(self.environment)
         prefixes = []
         for name in (

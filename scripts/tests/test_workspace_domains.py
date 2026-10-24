@@ -457,11 +457,20 @@ kind = "depends-on"
         owner = domains.workspace_sources.relationships
 
         def changed_after_owner_read(
-            symbol: str | tuple[str, ...] = (), *, root: Path = domains.ROOT,
-            limit: int = 40, predicates: dict[str, str] | None = None,
+            symbol: str | tuple[str, ...] = (),
+            *,
+            root: Path = domains.ROOT,
+            limit: int = 40,
+            predicates: dict[str, str] | None = None,
             exact_paths: tuple[str, ...] = (),
         ) -> dict:
-            result = owner(symbol, root=root, limit=limit, predicates=predicates, exact_paths=exact_paths)
+            result = owner(
+                symbol,
+                root=root,
+                limit=limit,
+                predicates=predicates,
+                exact_paths=exact_paths,
+            )
             path = (
                 self.root
                 / "docs/generated/source-relationships/fixture/relationships.json"

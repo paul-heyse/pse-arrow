@@ -43,8 +43,21 @@ class WorkspaceTasksTests(unittest.TestCase):
             }
             original = workspace_sources.source
 
-            def selected(relative: str, *, root: Path = workspace_sources.ROOT, revision: str | None = None, max_bytes: int = 4 << 20, expected_digest: str | None = None) -> dict:
-                result = original(relative, root=root, revision=revision, max_bytes=max_bytes, expected_digest=expected_digest)
+            def selected(
+                relative: str,
+                *,
+                root: Path = workspace_sources.ROOT,
+                revision: str | None = None,
+                max_bytes: int = 4 << 20,
+                expected_digest: str | None = None,
+            ) -> dict:
+                result = original(
+                    relative,
+                    root=root,
+                    revision=revision,
+                    max_bytes=max_bytes,
+                    expected_digest=expected_digest,
+                )
                 if relative == plan:
                     result["owner"] = owner
                 return result
@@ -123,7 +136,13 @@ class WorkspaceTasksTests(unittest.TestCase):
             (root / plan).write_text("# Old plan\n")
             (root / external).write_text("# Canonical status owner\n")
 
-            def aggregate(_selected_root: Path, _policy: dict, *, documents: set[str] | None = None, read_source: Callable[[str], bytes] | None = None) -> list[dict]:
+            def aggregate(
+                _selected_root: Path,
+                _policy: dict,
+                *,
+                documents: set[str] | None = None,
+                read_source: Callable[[str], bytes] | None = None,
+            ) -> list[dict]:
                 del documents
                 if read_source is None:
                     self.fail("Expected the original selected source reader")

@@ -151,7 +151,6 @@ def pytest_configure(config: pytest.Config) -> None:
     # The controller captures before xdist workers are launched. Workers inherit
     # the explicit immutable role and never perform their own source reads.
     if not hasattr(config, "workerinput"):
-
         prepare_python(config.invocation_params.args, os.environ)
     markexpr = str(config.option.markexpr)
     if config.option.performance:

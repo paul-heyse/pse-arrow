@@ -161,7 +161,7 @@ class SetupObservationTests(unittest.TestCase):
                                 "assertion_reach": reach,
                             }
                         )
-                    check = {
+                    check: dict[str, object] = {
                         "status": "passed" if status == "passed" else "failed",
                         "exit_code": 0 if status == "passed" else 1,
                         "report_errors": [],

@@ -14,7 +14,6 @@ use pse_modeling::{Bindings, Limits, PhysicalScope, specialize::root_instance};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// Whole current source documents: the tests do not copy scientific function bodies.
-
 fn workspace() -> (CompilerWorkspace, Vec<pse_modeling::Declaration>) {
     let text = format!(
         "{}\n{FIXTURE}",

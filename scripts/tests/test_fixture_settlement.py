@@ -49,9 +49,9 @@ def fixture_type() -> type[Fixture]:
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     fake_pse = types.ModuleType("pse")
-    fake_pse.Runtime = Borrower
+    fake_pse.__dict__["Runtime"] = Borrower
     fake_build = types.ModuleType("pse._build")
-    fake_build._NativeRuntime = FixtureNativeDrain  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
+    fake_build.__dict__["_NativeRuntime"] = FixtureNativeDrain
     with patch.dict(
         sys.modules, {"pse": fake_pse, "pse._build": fake_build, spec.name: module}
     ):

@@ -449,6 +449,8 @@ class ActivityTests(unittest.TestCase):
         self.assertEqual(observed.status, "unavailable")
         self.assertIsNone(observed.identity)
         self.assertEqual(observed.fields, {})
+        if observed.reason is None:
+            self.fail("Expected the original incarnation-change reason")
         self.assertIn("incarnation changed", observed.reason)
 
 

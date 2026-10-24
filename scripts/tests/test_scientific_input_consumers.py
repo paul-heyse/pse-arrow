@@ -32,7 +32,7 @@ class ScientificConsumerTests(unittest.TestCase):
         modules.start()
         self.addCleanup(modules.stop)
         spec.loader.exec_module(self.consumer)
-        self.consumer._REFERENCE_ROOT = self.root / "packages/reference"  # noqa: SLF001 -- exercise the original owner failure/consistency boundary
+        self.consumer.__dict__["_REFERENCE_ROOT"] = self.root / "packages/reference"
         self.package = self.root / "packages/reference/example"
         self.package.mkdir(parents=True)
         (self.package / "package.toml").write_text("live manifest")

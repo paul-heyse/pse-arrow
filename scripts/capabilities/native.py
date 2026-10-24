@@ -402,10 +402,12 @@ class NativeTool(Tool):
                 "code": "pse.native.host_envelope_refused",
                 "fields": [
                     {
-                        "location": list[JsonValue](safe_path(
-                            list(item["loc"]),
-                            schema_keys(self._binding.request.model_json_schema()),
-                        )),
+                        "location": list[JsonValue](
+                            safe_path(
+                                list(item["loc"]),
+                                schema_keys(self._binding.request.model_json_schema()),
+                            )
+                        ),
                         "code": item["type"],
                     }
                     for item in error.errors(include_input=False)[:32]

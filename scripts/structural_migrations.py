@@ -69,8 +69,8 @@ def json_source_bytes(source: str) -> tuple[str, dict]:
     Keep import aliases, comments and local shadows. A selected caller still owns
     the Path-like receiver contract; dynamic dispatch is outside this migration.
     """
-    import libcst as cst
-    from libcst.metadata import (
+    import libcst as cst  # noqa: PLC0415 -- LibCST is loaded only for explicit structural migration
+    from libcst.metadata import (  # noqa: PLC0415 -- LibCST is loaded only for explicit structural migration
         MetadataWrapper,
         PositionProvider,
         QualifiedNameProvider,
@@ -87,10 +87,13 @@ def json_source_bytes(source: str) -> tuple[str, dict]:
     class Transform(cst.CSTTransformer):
         METADATA_DEPENDENCIES = (QualifiedNameProvider, PositionProvider)
 
-        def leave_Call(
+        def leave_Call(  # noqa: N802 -- LibCST names this visitor callback
             self, original_node: cst.Call, updated_node: cst.Call
         ) -> cst.Call:
-            position = self.get_metadata(PositionProvider, original_node).start
+            span = self.get_metadata(PositionProvider, original_node, None)
+            if span is None:
+                raise ValueError("selected source position is unavailable")
+            position = span.start
             # ast-grep reports byte columns; LibCST reports Unicode code points.
             line = source.splitlines()[position.line - 1]
             byte_column = len(line[: position.column].encode("utf-8"))

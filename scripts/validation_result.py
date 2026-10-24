@@ -156,7 +156,7 @@ def read_assessment(
             if not full_export:
                 raise ValueError("Historical inspection requires explicit full export")
             receipt = assessment_store.original_export(run)
-            receipt = {**receipt, "original_inspection": True, "automatic_reuse": False}
+            receipt.update(original_inspection=True, automatic_reuse=False)
         else:
             image = assessment_store.root(run)
             names = {

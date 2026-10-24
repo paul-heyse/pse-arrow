@@ -108,7 +108,9 @@ class InspectOptions(TypedDict, total=False):
     seconds: float
 
 
-def _read_header(raw: bytes, maximum: int, checkouts: set[str], relative: str) -> HistoryHeader:
+def _read_header(
+    raw: bytes, maximum: int, checkouts: set[str], relative: str
+) -> HistoryHeader:
     if not raw.endswith(b"\n") or len(raw) > maximum:
         raise ValueError("oversized_or_partial_header")
     return _header(json.loads(raw), checkouts, relative)
@@ -325,7 +327,9 @@ def inspect(
             or continuation.get("selection") != selection
         ):
             raise ValueError("history continuation belongs to another selection")
-        state: HistoryCheckpoint = cast("HistoryCheckpoint", copy.deepcopy(continuation))
+        state: HistoryCheckpoint = cast(
+            "HistoryCheckpoint", copy.deepcopy(continuation)
+        )
         if state["discovery_complete"] and state["read_complete"]:
             state["frontier"] = [
                 {"root": i, "path": ".", "position": 0} for i in range(len(roots))
@@ -415,8 +419,14 @@ def inspect(
                             with source_path.open("rb") as stream:
                                 raw = stream.readline(max_record_bytes + 1)
                             read_bytes += len(raw)
-                            header = _read_header(raw, max_record_bytes, checkouts, relative)
-                            source.update(session_id=header["session_id"], parent_session_id=header["parent_session_id"], direct=header["direct"])
+                            header = _read_header(
+                                raw, max_record_bytes, checkouts, relative
+                            )
+                            source.update(
+                                session_id=header["session_id"],
+                                parent_session_id=header["parent_session_id"],
+                                direct=header["direct"],
+                            )
                         except (ValueError, TypeError, AttributeError) as error:
                             source["gaps"] = [
                                 "oversized_or_partial_header"
@@ -656,7 +666,9 @@ def inspect(
     }
 
 
-def recall(sessions: Path, checkout: Path, query: str, **options: Unpack[InspectOptions]) -> dict:
+def recall(
+    sessions: Path, checkout: Path, query: str, **options: Unpack[InspectOptions]
+) -> dict:
     """Find selected literal rationale text, returning exact attribution, not text."""
     return inspect(sessions, checkout, query=query, **options)
 

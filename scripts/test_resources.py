@@ -377,7 +377,7 @@ def invocation(
     host.protected(directory)
     nonce = uuid.uuid4().hex
     path = directory / f"{nonce}.json"
-    declaration = {
+    declaration: dict[str, object] = {
         "version": 2,
         "nonce": nonce,
         "kind": kind,
@@ -415,7 +415,8 @@ def invocation(
                 }
     with storage().invocation_edit(nonce) as state:
         state["producer"] = producer
-        from scripts import test_requirements
+        # selected fixture owner; retain reciprocal lifecycle boundary
+        from scripts import test_requirements  # noqa: PLC0415
 
         state["requirements"] = (
             dict(requirements)
@@ -493,7 +494,8 @@ def publish_selection(path: Path, selected: Sequence[Mapping[str, str]]) -> None
             raise ResourceError("Runner inventory differs from selected invocation")
         declaration["selected"] = [dict(item) for item in selected]
         if declaration["kind"] == "rust":
-            from scripts import test_requirements
+            # selected fixture owner; retain reciprocal lifecycle boundary
+            from scripts import test_requirements  # noqa: PLC0415
 
             state["requirements"] = {
                 item["binary_id"] + "::" + item["name"]: test_requirements.rust(
@@ -542,7 +544,8 @@ def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
             raise ResourceError(
                 "Python collection lacks actual requirement declarations"
             )
-        from scripts import test_requirements
+        # selected fixture owner; retain reciprocal lifecycle boundary
+        from scripts import test_requirements  # noqa: PLC0415
 
         try:
             test_requirements.validate_roles(
@@ -628,7 +631,8 @@ def require_effect(payload: Mapping[str, object], *, effect: str = "canonical") 
     image = storage().invocation_snapshot(str(nonce))
     if image["phase"] != "open" or image["declaration"] != declaration:
         raise ResourceError("Invocation membership is closed; effects refused")
-    from scripts import test_requirements
+    # selected fixture owner; retain reciprocal lifecycle boundary
+    from scripts import test_requirements  # noqa: PLC0415
 
     try:
         if (
@@ -680,7 +684,10 @@ def observe_setup_failure(payload: Mapping[str, object]) -> None:
 
 def observe_peer(payload: Mapping[str, object], child: Path, *, role: str) -> None:
     """Join an actual frozen peer through this registry's immutable identity."""
-    from scripts import run_inspection, test_requirements
+    from scripts import (  # noqa: PLC0415 -- selected fixture owner; retain reciprocal lifecycle boundary
+        run_inspection,
+        test_requirements,
+    )
 
     marker = os.environ.get(MARKER)
     if not marker:
@@ -750,6 +757,7 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
         raise ResourceError("Canonical fixture requires --execution-effects canonical")
     marker = os.environ.get(MARKER)
     declaration = read_invocation(Path(marker)) if marker else None
+    image = None
     if declaration is not None:
         image = storage().invocation_snapshot(declaration["nonce"])
         if image["phase"] != "open" or image.get("declaration") != declaration:
@@ -758,11 +766,13 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
             )
     nonce, test = selected_test(payload, declaration=declaration)
     if nonce is not None and test is not None:
-        from scripts import test_requirements
+        # selected fixture owner; retain reciprocal lifecycle boundary
+        from scripts import test_requirements  # noqa: PLC0415
 
         try:
             if (
-                not image.get("collected")
+                image is None
+                or not image.get("collected")
                 or image.get("requirement_policy") != test_requirements.POLICY_VERSION
             ):
                 raise ResourceError(

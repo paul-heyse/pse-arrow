@@ -49,6 +49,25 @@ def peer_result(resource: str) -> tuple[dict[str, object], dict[str, object]]:
     }
 
 
+def object_record(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise TypeError("Expected the original invocation owner record")
+    return value
+
+
+def subjects(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise TypeError("Expected original selected subjects")
+    return [object_record(row) for row in value]
+
+
+def has_context_role(subject: dict[str, object]) -> bool:
+    roles = object_record(subject["requirements"])["roles"]
+    if not isinstance(roles, list):
+        raise TypeError("Expected original subject roles")
+    return "context-overlap" in roles
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -217,10 +236,10 @@ def main() -> int:
             item["resource"]["disposition"] == "pass"
             and item["resource"]["cleanup"] == "removed"
             and item["invocation"]["assurance"] == "pass"
-            and item["invocation"]["terminal"]["complete"] is True
+            and object_record(item["invocation"]["terminal"])["complete"] is True
             and any(
-                "context-overlap" in subject["requirements"]["roles"]
-                for subject in item["invocation"]["subjects"]
+                has_context_role(subject)
+                for subject in subjects(item["invocation"]["subjects"])
             )
             for item in records.values()
         )

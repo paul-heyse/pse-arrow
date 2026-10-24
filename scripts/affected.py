@@ -148,7 +148,8 @@ def main(argv: list[str] | None = None) -> int:
             seeds.add(name)
         elif not path.startswith(("python/", "docs/")) and path not in WORKSPACE_WIDE:
             unowned.append(f"{status} {path}")
-    from scripts import scientific_inputs
+    # selected verification owner; context discovery remains source-only
+    from scripts import scientific_inputs  # noqa: PLC0415
 
     try:
         scientific = scientific_inputs.affected(changes)
@@ -211,7 +212,8 @@ def main(argv: list[str] | None = None) -> int:
         "qualification": "dependency reach only; not exhaustive behavior coverage",
     }
     if args.coverage is not None:
-        from scripts.coverage_correspondence import inspect
+        # selected verification owner; context discovery remains source-only
+        from scripts.coverage_correspondence import inspect  # noqa: PLC0415
 
         try:
             result["coverage"] = inspect(args.coverage, args.base)

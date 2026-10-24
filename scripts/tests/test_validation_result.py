@@ -34,7 +34,7 @@ class ValidationResultTests(unittest.TestCase):
         self.addCleanup(registry.stop)
         self.run_directory = self.root / "run with spaces"
         self.run_directory.mkdir()
-        self.record = {
+        self.record: dict = {
             "version": 6,
             "mode": "local",
             "baseline_failures": 0,

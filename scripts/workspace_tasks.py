@@ -65,9 +65,7 @@ def task_packet(
         if relative not in native_inputs:
             if len(native_inputs) >= 30:
                 raise ValueError("native task source bound exceeded")
-            native_inputs[relative] = workspace_sources.source(
-                relative, root=root
-            )
+            native_inputs[relative] = workspace_sources.source(relative, root=root)
         return native_inputs[relative]["text"].encode("utf-8")
 
     if task:

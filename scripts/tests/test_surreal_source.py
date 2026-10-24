@@ -12,12 +12,21 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from types import ModuleType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import ModuleType
 from unittest.mock import patch
 
 from scripts import surreal_server as server
 from scripts import surreal_source as source
 from scripts.tests.server_receipt_fixture import fixture_context, fixture_receipt
+
+
+def record(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise TypeError("Expected an original owner record")
+    return value
 
 
 class SourceAdmissionTests(unittest.TestCase):
@@ -396,13 +405,13 @@ class SourceAdmissionTests(unittest.TestCase):
                 if change == "effective_key":
                     candidate["effective_key"] = "0" * 64
                 elif change in {"configuration", "tools"}:
-                    candidate["inputs"]["build_context"][change] = {}
+                    record(candidate["inputs"]["build_context"])[change] = {}
                 elif change == "patch":
-                    candidate["inputs"]["patches"][source.PATCHES[0]] = "0" * 64
+                    record(candidate["inputs"]["patches"])[source.PATCHES[0]] = "0" * 64
                 else:
-                    candidate["inputs"]["build_context"]["toolchain_declaration"] = {
-                        "changed": True
-                    }
+                    record(candidate["inputs"]["build_context"])[
+                        "toolchain_declaration"
+                    ] = {"changed": True}
                 if change != "effective_key":
                     candidate["effective_key"] = immutable.effective_key(
                         candidate["inputs"]
@@ -483,7 +492,7 @@ class SourceAdmissionTests(unittest.TestCase):
                 json.dumps(source.build_request(selected))
             )
 
-            def execute(arguments: list[str], **kwargs: object) -> str:
+            def execute(arguments: list[str], **_kwargs: object) -> str:
                 if arguments[0] == str(source.ROOT / "scripts/pse-env"):
                     binary = target / source.PROFILE / "surreal"
                     binary.parent.mkdir()

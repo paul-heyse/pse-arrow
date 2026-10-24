@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import subprocess
 import sys
@@ -245,8 +246,6 @@ class CargoFeatureCheckTests(unittest.TestCase):
             patch.object(adapter.subprocess, "run") as execute,
         ):
             expect_equal(adapter.main(), 0)
-        import json
-
         expect_equal(json.loads(capture.read_text()), arguments)
         qualify.assert_not_called()
         execute.assert_not_called()

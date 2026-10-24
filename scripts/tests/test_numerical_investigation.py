@@ -10,7 +10,9 @@ from scripts.numerical_investigation import investigate, reference
 
 
 class NumericalInvestigationTests(unittest.TestCase):
-    def test_decimal_exact_input_oracle_and_wrong_derivative_remain_visible(self) -> None:
+    def test_decimal_exact_input_oracle_and_wrong_derivative_remain_visible(
+        self,
+    ) -> None:
         value, derivative = reference("analytic-cubic", 2.0)
         self.assertEqual((value, derivative), (Decimal(8), Decimal(12)))
         sample = {

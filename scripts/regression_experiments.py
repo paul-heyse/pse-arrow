@@ -16,6 +16,7 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Never
 
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -30,6 +31,11 @@ TEST_NAME = (
 )
 BINARY = "pse-admission::authoring_load_package"
 SUBJECT = BINARY + "::" + TEST_NAME
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def digest(path: Path) -> str:
@@ -132,7 +138,7 @@ def rust_trial(checkout: Path, output: Path) -> dict:
     code supplies the selected product, never the predicate or runner adapter.
     Native/schema journeys need their own supported adapter, not this pure route.
     """
-    from scripts import (
+    from scripts import (  # noqa: PLC0415 -- selected operation owner; source-only discovery must not prepare this lifecycle
         arrow_validation,
         native_tests,
         run_inspection,
@@ -257,7 +263,6 @@ def evaluate(checkout: Path, output: Path, expected: str, repetitions: int) -> i
             if code != 125
             else "mixed trials are inconclusive",
         )
-        return code
     except (
         OSError,
         ValueError,
@@ -270,6 +275,8 @@ def evaluate(checkout: Path, output: Path, expected: str, repetitions: int) -> i
             code=128, reason=f"infrastructure: {type(error).__name__}: {error}"
         )
         return 128
+    else:
+        return code
     finally:
         validation.write_json(output / "predicate.json", outcome)
 
@@ -415,7 +422,6 @@ def bisect(args: argparse.Namespace) -> tuple[int, dict]:
             result.update(status="inconclusive", code=125, possible_commits=candidates)
         else:
             result.update(status="aborted", code=max(code, 128))
-        return result["code"], result
     except (
         OSError,
         ValueError,
@@ -429,6 +435,8 @@ def bisect(args: argparse.Namespace) -> tuple[int, dict]:
             reason=f"infrastructure: {type(error).__name__}: {error}",
         )
         return 128, result
+    else:
+        return result["code"], result
     finally:
         if checkout_identity is not None and args.cleanup and drained:
             try:
@@ -706,7 +714,7 @@ def compare(path: Path, max_relative_spread: float) -> dict:
                 value, actual, reference = measurement(pair[side], path.parent)
                 key = reference["sha256"], reference["sample"]
                 if key in membership:
-                    raise ValueError("sample membership is reused across pairs")
+                    _invalid_protocol("sample membership is reused across pairs")
                 membership.add(key)
                 values[side] = value
                 all_conditions.append(actual)
@@ -830,7 +838,6 @@ def main(argv: list[str] | None = None) -> int:
                 destination.write("\n")
             code = 0 if result["status"] == "descriptive" else 125
         print(json.dumps(result, indent=2))
-        return code
     except (
         OSError,
         ValueError,
@@ -840,6 +847,8 @@ def main(argv: list[str] | None = None) -> int:
     ) as error:
         print(f"regression-experiments: {error}", file=sys.stderr)
         return 128
+    else:
+        return code
 
 
 if __name__ == "__main__":

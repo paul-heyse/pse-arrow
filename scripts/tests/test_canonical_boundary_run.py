@@ -14,11 +14,15 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 from scripts.tests import canonical_boundary_run as boundary
 from scripts.tests import plan30_context_overlap_run as overlap
 from scripts.tests import plan50_database_fixture as database_fixture
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class RestartPeerTests(unittest.TestCase):
@@ -88,7 +92,12 @@ class RestartPeerTests(unittest.TestCase):
     def test_actual_stop_precedes_down_ack_and_restart_precedes_complete(self) -> None:
         events = []
 
-        def wait(directory, name, process, deadline):
+        def wait(
+            directory: Path,
+            name: str,
+            process: subprocess.Popen[bytes],
+            _deadline: float,
+        ) -> dict:
             self.assertEqual(directory, self.control)
             self.assertIs(process, self.process)
             events.append(name)
@@ -156,15 +165,15 @@ class RestartPeerTests(unittest.TestCase):
         with (
             patch.object(boundary, "wait_record", return_value=self.ready),
             patch.object(boundary.server, "stop") as stop,
+            self.assertRaisesRegex(RuntimeError, "another service"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "another service"):
-                boundary.restart_handshake(
-                    self.state,
-                    self.control,
-                    self.process,
-                    time.monotonic() + 5,
-                    **self.options,
-                )
+            boundary.restart_handshake(
+                self.state,
+                self.control,
+                self.process,
+                time.monotonic() + 5,
+                **self.options,
+            )
         stop.assert_not_called()
 
     def test_missing_peer_is_bounded_and_child_exit_is_not_an_ack(self) -> None:
@@ -196,15 +205,15 @@ class RestartPeerTests(unittest.TestCase):
             ),
             patch.object(boundary.server, "write_json") as publish,
             patch.object(boundary.server, "start") as start,
+            self.assertRaisesRegex(RuntimeError, "did not stop"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "did not stop"):
-                boundary.restart_handshake(
-                    self.state,
-                    self.control,
-                    self.process,
-                    time.monotonic() + 5,
-                    **self.options,
-                )
+            boundary.restart_handshake(
+                self.state,
+                self.control,
+                self.process,
+                time.monotonic() + 5,
+                **self.options,
+            )
         publish.assert_not_called()
         start.assert_not_called()
 
@@ -229,15 +238,15 @@ class RestartPeerTests(unittest.TestCase):
             ),
             patch.object(boundary.server, "write_json"),
             patch.object(boundary.server, "start") as start,
+            self.assertRaisesRegex(RuntimeError, "actual closed"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "actual closed"):
-                boundary.restart_handshake(
-                    self.state,
-                    self.control,
-                    self.process,
-                    time.monotonic() + 5,
-                    **self.options,
-                )
+            boundary.restart_handshake(
+                self.state,
+                self.control,
+                self.process,
+                time.monotonic() + 5,
+                **self.options,
+            )
         start.assert_not_called()
 
     def test_rust_peer_owns_a_distinct_authentic_selected_invocation(self) -> None:
@@ -283,7 +292,9 @@ class RestartPeerTests(unittest.TestCase):
         self.assertEqual(early.args[1], {"parent": parent, "child": str(child)})
 
     @contextlib.contextmanager
-    def cohort_authority(self):
+    def cohort_authority(
+        self,
+    ) -> Generator[tuple[dict[str, dict], dict[str, dict], dict[str, str], Mock]]:
         registry = self.directory / "registry"
         parent_path = registry / "invocations" / "parent.json"
         child_path = registry / "invocations" / "child.json"
@@ -458,7 +469,7 @@ class RestartPeerTests(unittest.TestCase):
         reserved = False
 
         @contextlib.contextmanager
-        def reservation(*_, **__):
+        def reservation(*_: object, **__: object) -> Generator[None]:
             nonlocal reserved
             reserved = True
             try:
@@ -466,23 +477,35 @@ class RestartPeerTests(unittest.TestCase):
             finally:
                 reserved = False
 
-        def assert_reserved(*_, **__):
+        def assert_reserved(*_: object, **__: object) -> None:
             self.assertTrue(reserved)
 
         with self.cohort_authority() as (_, _, _, query):
             original_query = query.return_value
-            query.side_effect = lambda *args, **kwargs: (
+            query.side_effect = lambda *_args, **_kwargs: (
                 assert_reserved(),
                 original_query,
             )[1]
-            wait = boundary.wait_record.side_effect
+            wait_mock = boundary.wait_record
+            if not isinstance(wait_mock, Mock):
+                self.fail("cohort fixture must own the wait_record mock")
+            wait = wait_mock.side_effect
+            if not callable(wait):
+                self.fail(
+                    "cohort wait_record fixture must provide its callable phase reader"
+                )
 
-            def wait_phase(directory, name, *args):
+            def wait_phase(
+                directory: Path,
+                name: str,
+                process: subprocess.Popen[bytes],
+                deadline: float,
+            ) -> dict:
                 if name == "complete.json":
                     self.assertFalse(
                         reserved, "peer fixture cleanup must regain admission"
                     )
-                return wait(directory, name, *args)
+                return wait(directory, name, process, deadline)
 
             with (
                 patch.object(
@@ -629,17 +652,17 @@ class RestartPeerTests(unittest.TestCase):
         initializer.chmod(0o700)
         events = []
 
-        def register(payload):
+        def register(payload: dict[str, object]) -> str:
             self.assertEqual(payload["directory"], str(control))
             self.assertFalse(control.exists())
             events.append("registered")
             return "1" * 32
 
-        def handshake(*_, **__):
+        def handshake(*_: object, **__: object) -> None:
             self.assertTrue(control.is_dir())
             events.append("created")
 
-        def setup(_):
+        def setup(_: Path) -> None:
             self.assertNotIn("CMAKE_TOOLCHAIN_FILE", os.environ)
             state.mkdir()
 
@@ -734,17 +757,19 @@ class RestartPeerTests(unittest.TestCase):
             ),
             patch.object(boundary.native_tests, "ordinary_rust_capture") as capture,
             patch.object(boundary.server, "setup") as setup,
+            self.assertRaisesRegex(RuntimeError, "undeclared canonical"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "undeclared canonical"):
-                boundary.restart_journey(directory, "unadmitted-test")
+            boundary.restart_journey(directory, "unadmitted-test")
         self.assertFalse(directory.exists())
         capture.assert_not_called()
         setup.assert_not_called()
 
     def test_restart_cannot_use_an_existing_directory(self) -> None:
-        with patch.object(boundary.native_tests, "ordinary_rust_capture") as capture:
-            with self.assertRaisesRegex(ValueError, "fresh owned"):
-                boundary.restart_journey(self.directory, "component-peer")
+        with (
+            patch.object(boundary.native_tests, "ordinary_rust_capture") as capture,
+            self.assertRaisesRegex(ValueError, "fresh owned"),
+        ):
+            boundary.restart_journey(self.directory, "component-peer")
         capture.assert_not_called()
 
 

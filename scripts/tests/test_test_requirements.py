@@ -8,14 +8,15 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import tomlkit
 
 from scripts import test_requirements as requirements
 from scripts import test_resources as resources
+from scripts.tests.test_fixture_settlement import fixture_type
 
 
 def inventory(*names: str) -> dict:
@@ -30,6 +31,15 @@ def inventory(*names: str) -> dict:
             }
         }
     }
+
+
+@dataclass
+class SelectedPythonItem:
+    nodeid: str
+    fixturenames: tuple[str, ...]
+
+    def get_closest_marker(self, name: str) -> None:
+        del name
 
 
 class RequirementTests(unittest.TestCase):
@@ -106,10 +116,9 @@ class RequirementTests(unittest.TestCase):
         local = requirements.python(("canonical_substrate",), owner="new_namespace.py")
         self.assertEqual(local.effects, ("canonical",))
         self.assertIsNone(requirements.pytest_group(local.document()))
-        item = SimpleNamespace(
+        item = SelectedPythonItem(
             nodeid="python/pse/tests/test_projects.py::new_durable_case",
             fixturenames=("canonical_substrate",),
-            get_closest_marker=lambda _name: None,
         )
         native = requirements.python_item(item)
         self.assertEqual(native.effects, ("canonical", "native"))
@@ -158,8 +167,6 @@ class RequirementTests(unittest.TestCase):
     def test_undeclared_durable_runtime_refuses_before_constructor_and_local_runtime_remains_explicit(
         self,
     ) -> None:
-        from scripts.tests.test_fixture_settlement import fixture_type
-
         fixture_class = fixture_type()
         fixture = fixture_class("state", "database", "resource")
         native_owner = fixture_class.runtime.__globals__["pse"]

@@ -9,10 +9,16 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Never
 
 from scripts import arrow_validation, cargo_tools, native_tests, validation
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _invalid_protocol(message: str) -> Never:
+    """Keep this owner's document/observation refusals in its ValueError contract."""
+    raise ValueError(message)
 
 
 def classification(outcome: str) -> str:
@@ -104,7 +110,7 @@ def split_arguments(arguments: list[str]) -> tuple[list[str], list[str]]:
 
 def decode_outcomes(value: object) -> tuple[list[dict], str]:
     if not isinstance(value, dict) or not isinstance(value.get("outcomes"), list):
-        raise ValueError("unsupported cargo-mutants outcome protocol")
+        _invalid_protocol("unsupported cargo-mutants outcome protocol")
     rows = value["outcomes"]
     if any(
         not isinstance(row, dict)
@@ -210,7 +216,7 @@ def run(
         (output / "selected.diff").write_bytes(patch)
         command += ["--in-diff", str(output / "selected.diff")]
     command += ["--", *test_arguments]
-    record = {
+    record: dict[str, object] = {
         "schema": "assertion-sensitivity-v1",
         "tool": tool,
         "command": command,
@@ -267,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="compose selected native test root features; launch through pse-env --native",
     )
-    import sys
+    import sys  # noqa: PLC0415 -- selected operation owner; source-only discovery must not prepare this lifecycle
 
     supplied = list(sys.argv[1:] if argv is None else argv)
     boundary = supplied.index("--") if "--" in supplied else len(supplied)

@@ -19,8 +19,11 @@ import subprocess
 import sys
 import time
 import uuid
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 from scripts import (
     native_operation,
@@ -193,7 +196,7 @@ def restart_cohort(
         raise RuntimeError("Restart child is not the exact selected Rust peer")
     store = test_resources.storage()
     for declaration in (parent, child):
-        image = store.invocation_snapshot(declaration["nonce"], deadline=deadline)
+        image = store.invocation_snapshot(declaration["nonce"])
         if image["phase"] != "open" or image["declaration"] != declaration:
             raise RuntimeError("Restart cohort invocation is no longer open")
         if declaration is child:

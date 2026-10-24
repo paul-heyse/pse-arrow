@@ -26,7 +26,9 @@ def selection(suite: unittest.TestSuite) -> list[dict[str, str]]:
     return result
 
 
-def requirements(suite: unittest.TestSuite) -> dict[str, dict[str, object]]:
+def requirements(
+    suite: unittest.TestSuite,
+) -> dict[str, test_requirements.RequirementDocument]:
     """Class-local declarations accompany the loader's actual selected cases."""
     result = {}
     for item in suite:
@@ -36,7 +38,7 @@ def requirements(suite: unittest.TestSuite) -> dict[str, dict[str, object]]:
             owner, _, name = item.id().rpartition(".")
             demand = getattr(item, "test_requirements", test_requirements.LOCAL)
             if not isinstance(demand, test_requirements.Requirement):
-                raise ValueError("Unknown setup test requirements")
+                raise TypeError("Unknown setup test requirements")
             result[owner + "::" + name] = demand.document()
     return result
 

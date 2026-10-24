@@ -349,7 +349,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             reference = None
             if args.native_reference:
-                reference = _selected_json(args.native_reference, 16 << 10, "native reference selection exceeds 16KiB")
+                reference = _selected_json(
+                    args.native_reference,
+                    16 << 10,
+                    "native reference selection exceeds 16KiB",
+                )
             identity = args.identity or (
                 args.task if args.concept == "plan-package" else None
             )
@@ -372,7 +376,13 @@ def main(argv: list[str] | None = None) -> int:
                 {key: value for key, value in supplied.items() if value is not None}
             )
             result = workspace_domains.query(request, root=ROOT)
-        except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError) as error:
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            subprocess.SubprocessError,
+        ) as error:
             parser.exit(1, f"context: exact concept unavailable: {error}\n")
         print(json.dumps(result, sort_keys=True, indent=None if args.json else 2))
         return 0
@@ -450,7 +460,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.compare:
             result["alternatives"] = workspace_tasks.alternatives(
-                _selected_json(args.compare, 64 << 10, "alternative document exceeds 64KiB")
+                _selected_json(
+                    args.compare, 64 << 10, "alternative document exceeds 64KiB"
+                )
             )
             if args.library:
                 result["alternatives"]["selected_research"] = result["library"]
@@ -464,7 +476,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.retrospective or args.recall:
             continuation = None
             if args.history_checkpoint:
-                continuation = _selected_json(args.history_checkpoint, 16 << 20, "history checkpoint exceeds 16MiB")
+                continuation = _selected_json(
+                    args.history_checkpoint,
+                    16 << 20,
+                    "history checkpoint exceeds 16MiB",
+                )
             result["retrospective"] = session_retrospective.inspect(
                 args.sessions,
                 ROOT,
@@ -481,7 +497,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.history_excerpt:
             result["history_excerpt"] = session_retrospective.read_excerpt(
                 args.sessions,
-                _selected_json(args.history_excerpt, 16 << 10, "history locator exceeds 16KiB"),
+                _selected_json(
+                    args.history_excerpt, 16 << 10, "history locator exceeds 16KiB"
+                ),
                 archived_sessions=args.archived_sessions,
             )
     except (OSError, ValueError, TypeError, subprocess.SubprocessError) as error:

@@ -178,7 +178,9 @@ def _require_unit_incarnation(unit: dict[str, str], after: dict[str, str]) -> No
     if after.get("LoadState") == "not-found" or any(
         after.get(key) != unit.get(key) for key in ("InvocationID", "ControlGroup")
     ):
-        raise ValueError("selected unit incarnation changed during pressure observation")
+        raise ValueError(
+            "selected unit incarnation changed during pressure observation"
+        )
 
 
 def unit_pressure(unit: dict[str, str]) -> pressure_observation.Sample:

@@ -254,7 +254,12 @@ class RunInspectionTests(unittest.TestCase):
         original = run_inspection.artifact_observation
         observed = []
 
-        def inspect(path: Path, digest: str, tail: int, record: test_resources.ResourceRecord | None) -> dict:
+        def inspect(
+            path: Path,
+            digest: str,
+            tail: int,
+            record: test_resources.ResourceRecord | None,
+        ) -> dict:
             observed.append(path.name)
             return original(path, digest, tail, record)
 

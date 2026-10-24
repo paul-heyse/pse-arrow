@@ -9,9 +9,13 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import setup_report, test_requirements, test_resources
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
 
 class SetupReportTests(unittest.TestCase):
@@ -22,9 +26,9 @@ class SetupReportTests(unittest.TestCase):
         with (
             patch.dict(os.environ, {"PSE_TEST_REQUIRED_ROLES": "missing-peer"}),
             patch.object(setup_report.test_run, "execute_selected") as launch,
+            self.assertRaisesRegex(ValueError, "Required selected role missing"),
         ):
-            with self.assertRaisesRegex(ValueError, "Required selected role missing"):
-                setup_report.execute(suite, Path("unused"))
+            setup_report.execute(suite, Path("unused"))
         launch.assert_not_called()
 
     def test_actual_loader_selection_and_class_requirements_feed_managed_composer(
@@ -47,10 +51,21 @@ class SetupReportTests(unittest.TestCase):
             ),
         ):
 
-            def execute(path, command, environment, report, *, selected):
+            def execute(
+                path: Path,
+                command: Sequence[str],
+                environment: Mapping[str, str],
+                _report: Path,
+                *,
+                selected: list[dict[str, str]],
+            ) -> int:
                 declaration = test_resources.read_invocation(path)
                 self.assertEqual(declaration["kind"], "unittest")
                 self.assertEqual(declaration["selected"], [{"name": identity}])
+                self.assertEqual(
+                    [case["class"] + "::" + case["name"] for case in selected],
+                    [identity],
+                )
                 state = test_resources.storage().invocation_snapshot(path.stem)
                 self.assertEqual(
                     state["requirements"][identity]["roles"], ["setup-control"]

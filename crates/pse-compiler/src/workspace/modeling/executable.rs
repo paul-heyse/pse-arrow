@@ -1635,7 +1635,10 @@ impl CompilerWorkspace {
         // These extents belong to the complete owned frontier, independently of
         // resident query history. An oversize incoming root cannot be made to fit
         // by discarding a generation, and must not initiate a rotation.
-        if !self.live_root_fits(live_keys.len().max(self.limits.query_values), frontier_bytes) {
+        if !self.live_root_fits(
+            live_keys.len().max(self.limits.query_values),
+            frontier_bytes,
+        ) {
             return Err(CompileError::Limit("live root working set"));
         }
         let (mut capacity, mut count, mut working) =
@@ -1654,7 +1657,8 @@ impl CompilerWorkspace {
             }
             self.rebuild(self.inputs.clone())?;
             rotated = true;
-            (capacity, count, working) = self.live_root_working_set(live_keys.len(), frontier_bytes);
+            (capacity, count, working) =
+                self.live_root_working_set(live_keys.len(), frontier_bytes);
         }
         // One receiving generation at most. Required source/context extent and
         // the entire incoming frontier still face the unchanged finite policy.

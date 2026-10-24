@@ -98,7 +98,6 @@ class ParityContext:
     def reference_documents(self) -> tuple[Mapping[str, bytes], ...]:
         """Immutable library source bytes; no admitted model packages or results."""
         if self._reference_documents is None:
-
             self._reference_documents = tuple(
                 MappingProxyType(p) for p in family_packages("parity")
             )
