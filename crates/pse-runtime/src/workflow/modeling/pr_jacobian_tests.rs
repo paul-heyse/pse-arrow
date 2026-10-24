@@ -1953,7 +1953,11 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
     let analysis = ModelingAnalysis {
         root,
         instance: pse_modeling::specialize::root_instance(root),
-        bindings: Bindings::default(),
+        // The model path map resolves explicit caller demands, not all symbols.
+        bindings: Bindings {
+            demand: vec!["u".into(), "v".into()],
+            ..Default::default()
+        },
         limits: Limits::default(),
         case: Default::default(),
         order: DerivativeOrder::Second,
@@ -1978,6 +1982,10 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
     }
     let model = &prepared.model.model.compiled().model;
     let coordinate_ids = [model.paths["u"], model.paths["v"]];
+    assert_ne!(coordinate_ids[0], coordinate_ids[1]);
+    let columns = prepared.model.case.compiled().plan.columns();
+    assert_eq!(columns.len(), coordinate_ids.len());
+    assert!(coordinate_ids.iter().all(|id| columns.contains(id)));
     let row_ids = ["mixed", "other"].map(|path| {
         model
             .equations

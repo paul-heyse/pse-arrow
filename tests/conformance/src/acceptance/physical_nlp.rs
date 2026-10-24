@@ -280,10 +280,14 @@ async fn authored_countercurrent_and_unequal_pressure_variants() {
             .expect("authored variant fixture")
             .declaration_id
             .as_id();
+        // Keep this witness on the actual native route even when the water-only
+        // mixer can be eliminated completely by algebraic presolve.
+        let mut settings = profile(Backend::Ipopt, false);
+        settings.presolve = pse_backend_native::presolve::Policy::Off;
         let prepared = seed_prepare(
             &package,
             case,
-            profile(Backend::Ipopt, false),
+            settings,
             &CancelSource::new(),
         )
         .await
@@ -296,7 +300,7 @@ async fn authored_countercurrent_and_unequal_pressure_variants() {
             report.diagnostic()
         );
         let Outcome::Native(native) = &report.outcome else {
-            panic!("actual native solve required");
+            panic!("{name}: actual native solve required; outcome={:?}", report.outcome);
         };
         assert!(
             native
