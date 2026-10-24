@@ -36,6 +36,12 @@ MAX_GUIDE_BYTES = 128 * 1024
 MAX_SKILL_FILES = 64
 MAX_SKILL_BYTES = 1024 * 1024
 
+# Entries include every file and descendant directory. The package root is
+# depth zero and does not count against the descendant-directory limit.
+MAX_SKILL_ENTRIES = 128
+MAX_SKILL_DIRECTORIES = 64
+MAX_SKILL_DEPTH = 8
+
 
 class SupportingFile(TypedDict):
     id: str
@@ -49,6 +55,9 @@ class PackageLimits(TypedDict):
     file_bytes: int
     files: int
     package_bytes: int
+    entries: int
+    directories: int
+    depth: int
 
 
 class SkillManifest(TypedDict):
@@ -129,22 +138,47 @@ class Guidance:
         try:
             members: dict[str, _Identity] = {}
             total = 0
+            entries = 0
+            directories = 0
+            files = 0
 
-            def walk(descriptor: int, parent: Path) -> None:
-                nonlocal total
-                for name in sorted(os.listdir(descriptor)):
-                    info = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
-                    if stat.S_ISLNK(info.st_mode):
-                        raise GuidanceError("package_symlink", guide.id, "Skill packages cannot contain symlinked paths.")
+            def walk(descriptor: int, parent: Path, depth: int) -> None:
+                nonlocal total, entries, directories, files
+                # scandir(fd) keeps enumeration beneath the held directory and
+                # closes its own duplicate, not our no-follow descriptor. Count
+                # before retaining/sorting names or opening descendants: file and
+                # byte limits alone cannot bound empty directory populations.
+                names: list[tuple[str, bool]] = []
+                with os.scandir(descriptor) as scan:
+                    for entry in scan:
+                        entries += 1
+                        if entries > MAX_SKILL_ENTRIES:
+                            raise GuidanceError("oversized_package", guide.id, "Skill package exceeds its entry limit.")
+                        info = entry.stat(follow_symlinks=False)
+                        if stat.S_ISLNK(info.st_mode):
+                            raise GuidanceError("package_symlink", guide.id, "Skill packages cannot contain symlinked paths.")
+                        directory = stat.S_ISDIR(info.st_mode)
+                        if directory:
+                            directories += 1
+                            if directories > MAX_SKILL_DIRECTORIES or depth >= MAX_SKILL_DEPTH:
+                                raise GuidanceError("oversized_package", guide.id, "Skill package exceeds its directory or depth limit.")
+                        elif stat.S_ISREG(info.st_mode):
+                            files += 1
+                            if files > MAX_SKILL_FILES:
+                                raise GuidanceError("oversized_package", guide.id, "Skill package exceeds its file limit.")
+                        else:
+                            raise GuidanceError("invalid_source", guide.id, "Skill sources must be regular files.")
+                        names.append((entry.name, directory))
+                for name, directory in sorted(names):
                     relative = parent / name
-                    if stat.S_ISDIR(info.st_mode):
+                    if directory:
                         child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
                                         dir_fd=descriptor)
                         try:
-                            walk(child, relative)
+                            walk(child, relative, depth + 1)
                         finally:
                             os.close(child)
-                    elif stat.S_ISREG(info.st_mode):
+                    else:
                         source = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
                                          dir_fd=descriptor)
                         try:
@@ -157,10 +191,8 @@ class Guidance:
                         total += observed.size
                         if observed.size > MAX_GUIDE_BYTES:
                             raise GuidanceError("oversized_source", guide.id, "A skill file exceeds the 128 KiB limit.")
-                        if len(members) > MAX_SKILL_FILES or total > MAX_SKILL_BYTES:
-                            raise GuidanceError("oversized_package", guide.id, "A skill package exceeds 64 files or 1 MiB.")
-                    else:
-                        raise GuidanceError("invalid_source", guide.id, "Skill sources must be regular files.")
+                        if total > MAX_SKILL_BYTES:
+                            raise GuidanceError("oversized_package", guide.id, "A skill package exceeds the 1 MiB limit.")
 
             parent = Path(guide.path).parent
             with ExitStack() as stack:
@@ -174,7 +206,7 @@ class Guidance:
                                          dir_fd=descriptor)
                     stack.callback(os.close, descriptor)
                     relative /= part
-                walk(descriptor, relative)
+                walk(descriptor, relative, 0)
             if guide.path not in members:
                 raise GuidanceError("missing_source", guide.id, "Skill main source is missing or inaccessible.")
             return dict(sorted(members.items()))
@@ -250,7 +282,9 @@ class Guidance:
                 "guide_id": guide_id, "guide_digest": self._snapshots[guide_id].digest,
                 "package_digest": self._package_digest(captured),
                 "complete": True,
-                "limits": {"file_bytes": MAX_GUIDE_BYTES, "files": MAX_SKILL_FILES, "package_bytes": MAX_SKILL_BYTES},
+                "limits": {"file_bytes": MAX_GUIDE_BYTES, "files": MAX_SKILL_FILES, "package_bytes": MAX_SKILL_BYTES,
+                           "entries": MAX_SKILL_ENTRIES, "directories": MAX_SKILL_DIRECTORIES,
+                           "depth": MAX_SKILL_DEPTH},
                 "files": [
                     {"id": self._file_id(path), "path": Path(path).relative_to(Path(guide.path).parent).as_posix(),
                      "uri": guide.uri if path == guide.path else guide.uri + "/files/" + self._file_id(path),

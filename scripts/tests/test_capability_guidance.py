@@ -27,7 +27,7 @@ from scripts.capabilities.guidance import (
 from scripts.capabilities.model import Guide
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Iterator
     from typing import IO, Literal
 
     from scripts.capabilities.guidance import _Identity, _Snapshot
@@ -273,6 +273,135 @@ class SkillPackageTests(unittest.TestCase):
         with self.assertRaises(GuidanceError) as caught:
             guidance.read_support("owned", supporting["id"])
         self.assertEqual(caught.exception.details["code"], "restart_required")
+
+    def test_streaming_entry_bound_refuses_before_sorting_or_descending(self) -> None:
+        for index in range(24):
+            (self.directory / ("empty-" + str(index))).mkdir()
+        real_scandir = os.scandir
+        scanned = 0
+        yielded = 0
+
+        @contextmanager
+        def counted(descriptor: int) -> Generator[Iterator[os.DirEntry[str]], None, None]:
+            nonlocal scanned
+            scanned += 1
+            with real_scandir(descriptor) as scan:
+                def entries() -> Iterator[os.DirEntry[str]]:
+                    nonlocal yielded
+                    for entry in scan:
+                        yielded += 1
+                        self.assertLessEqual(yielded, 5, "must stop at entry limit plus one")
+                        yield entry
+                yield entries()
+
+        with (
+            patch("scripts.capabilities.guidance.MAX_SKILL_ENTRIES", 4),
+            patch("scripts.capabilities.guidance.os.scandir", side_effect=counted),
+            patch("scripts.capabilities.guidance.os.listdir", side_effect=AssertionError("must stream entries")),
+            patch("scripts.capabilities.guidance.sorted", side_effect=AssertionError("must refuse before sorting excess"), create=True),
+            patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("must not read bodies")),
+        ):
+            guidance = Guidance(self.root, [self.guide])
+            with self.assertRaises(GuidanceError) as caught:
+                guidance.read("owned")
+        self.assertEqual(caught.exception.details["code"], "oversized_package")
+        self.assertEqual((scanned, yielded), (1, 5))
+
+    def test_directory_bound_refuses_many_empty_directories_before_sorting(self) -> None:
+        for index in range(24):
+            (self.directory / ("empty-" + str(index))).mkdir()
+        real_scandir = os.scandir
+        scanned = 0
+        yielded = 0
+
+        @contextmanager
+        def counted(descriptor: int) -> Generator[Iterator[os.DirEntry[str]], None, None]:
+            nonlocal scanned
+            scanned += 1
+            with real_scandir(descriptor) as scan:
+                def entries() -> Iterator[os.DirEntry[str]]:
+                    nonlocal yielded
+                    for entry in scan:
+                        yielded += 1
+                        self.assertLessEqual(yielded, 4, "two allowed directories plus one excess and main file")
+                        yield entry
+                yield entries()
+
+        with (
+            patch("scripts.capabilities.guidance.MAX_SKILL_DIRECTORIES", 2),
+            patch("scripts.capabilities.guidance.os.scandir", side_effect=counted),
+            patch("scripts.capabilities.guidance.sorted", side_effect=AssertionError("must refuse directory excess before sorting"), create=True),
+            patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("must not read bodies")),
+        ):
+            guidance = Guidance(self.root, [self.guide])
+            with self.assertRaises(GuidanceError) as caught:
+                guidance.manifest("owned")
+        self.assertEqual(caught.exception.details["code"], "oversized_package")
+        self.assertEqual(scanned, 1)
+        self.assertLessEqual(yielded, 4)
+
+    def test_depth_bound_refuses_before_opening_excess_descendant(self) -> None:
+        self.support.unlink()
+        self.support.parent.rmdir()
+        parent = self.directory
+        for index in range(24):
+            parent /= "level-" + str(index)
+            parent.mkdir()
+        real_scandir = os.scandir
+        real_open = os.open
+        scanned = 0
+        opened: list[str | bytes | os.PathLike[str] | os.PathLike[bytes]] = []
+
+        @contextmanager
+        def counted_scan(descriptor: int) -> Generator[Iterator[os.DirEntry[str]], None, None]:
+            nonlocal scanned
+            scanned += 1
+            self.assertLessEqual(scanned, 3, "root plus two allowed levels")
+            with real_scandir(descriptor) as scan:
+                yield scan
+
+        def counted_open(path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+                         flags: int, *, dir_fd: int | None = None) -> int:
+            opened.append(path)
+            return real_open(path, flags, dir_fd=dir_fd)
+
+        with (
+            patch("scripts.capabilities.guidance.MAX_SKILL_DEPTH", 2),
+            patch("scripts.capabilities.guidance.os.scandir", side_effect=counted_scan),
+            patch("scripts.capabilities.guidance.os.open", side_effect=counted_open),
+            patch("scripts.capabilities.guidance.os.fdopen", side_effect=AssertionError("must not read bodies")),
+        ):
+            guidance = Guidance(self.root, [self.guide])
+            with self.assertRaises(GuidanceError) as caught:
+                guidance.read("owned")
+        self.assertEqual(caught.exception.details["code"], "oversized_package")
+        self.assertEqual(scanned, 3)
+        self.assertNotIn("level-2", opened)
+
+    def test_streaming_scan_refuses_directory_symlinks_before_following_them(self) -> None:
+        real_scandir = os.scandir
+        with tempfile.TemporaryDirectory() as outside:
+            for target in (self.support.parent, Path(outside)):
+                with self.subTest(target=target):
+                    alias = self.directory / "alias-directory"
+                    alias.symlink_to(target, target_is_directory=True)
+                    with patch("scripts.capabilities.guidance.os.scandir", wraps=real_scandir) as scan:
+                        guidance = Guidance(self.root, [self.guide])
+                        with self.assertRaises(GuidanceError) as caught:
+                            guidance.read("owned")
+                    self.assertEqual(caught.exception.details["code"], "package_symlink")
+                    self.assertEqual(scan.call_count, 1)
+                    alias.unlink()
+
+    def test_bounded_membership_is_deterministic_and_exposes_traversal_limits(self) -> None:
+        (self.directory / "z-last.md").write_text("last")
+        (self.directory / "a-first.md").write_text("first")
+        manifest = Guidance(self.root, [self.guide]).manifest("owned")
+        paths = [item["path"] for item in manifest["files"]]
+        self.assertEqual(paths, sorted(paths))
+        self.assertEqual(manifest["limits"]["entries"], 128)
+        self.assertEqual(manifest["limits"]["directories"], 64)
+        self.assertEqual(manifest["limits"]["depth"], 8)
 
     def test_package_size_count_and_symlink_refusals(self) -> None:
         cases = ((1, MAX_GUIDE_BYTES + 1, "oversized_source"),
