@@ -378,7 +378,9 @@ impl EvidenceSnapshot {
         if !matches!(
             self.codec.as_str(),
             "exact-resource-files-invocation-v2"
+                | "exact-resource-files-invocation-v3"
                 | "assessment-v5"
+                | "assessment-v6"
                 | "active-diagnostic-action-v1"
                 | "process-cost-v5"
                 | "host-admission-ledger-v1"
