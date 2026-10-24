@@ -749,7 +749,12 @@ bounded, without an atomic population or continuation guarantee.
 
 The ordinary environment boundary and fixed scientific worker launcher share passive native
 host selection. The private settings carrier contains secrets and is excluded from shell
-exports and environment explanations. Embedded Python/Rust SDKs share the actual process
+exports and environment explanations. Its shape comes from the Rust settings declaration through
+the existing schema generator into `scripts/generated/telemetry_settings.py`. This private
+source-only binding imports neither the scientific extension nor the SDK. The Python host resolves
+precedence once and retains immutable encoded settings; decoded views cannot mutate that selection.
+Rust validates the bounded resolved document before composition. Public inspection is a separate
+redacted projection, never the private settings document. Embedded Python/Rust SDKs share the actual process
 incarnation; real native children replace it with their own. Long-lived hosts drain providers
 after native work settles. The private one-shot native lane performs no synchronous network
 drain on scientific exit; its final batches, or all spans from a short solve, may be lost.
@@ -759,8 +764,11 @@ backend retention are separate from a healthy service or successful SDK shutdown
 The repository Codex attachment forwards names of supported `OTEL_*`, `PSE_TELEMETRY_STATE`
 and `XDG_STATE_HOME` settings through its checked-in `env_vars` allowlist. It stores no secret
 values. Restart an existing attachment to change its process-owned telemetry selection.
-Full database transport continuity and general FastMCP telemetry-query exposure retain their
-separate Plan52 owners.
+The canonical FastMCP endpoint exposes `telemetry_configuration`, `telemetry_health` and
+`telemetry_trace_lookup`. Configuration and local producer health belong to the calling MCP
+process; target process observations use the original native diagnostic readers. These selected
+reads start no services. Full database transport continuity and general telemetry query/pagination
+semantics retain their separate Plan52 owners.
 
 ### Project and evidence commands
 

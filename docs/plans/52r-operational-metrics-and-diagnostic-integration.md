@@ -154,6 +154,12 @@ preserve native diagnostic intervals/checkpoints whose contracts are not replace
 <a id="TEL10"></a>
 ### TEL10 — Preparation/reuse and database metrics at native owners
 
+The authorized 52p/52q refinement supplies a bounded prerequisite: actual registered-executor and
+selected-future snapshots shared by native checkpoints and OTel callbacks. Its outcome remains
+with 52p; general metric populations/views, scientific preparation/cache counts and the database
+families below remain this package's work. Tokio queue/poll measurements neither establish those
+scientific populations nor supply equivalent Rayon scheduler measurements.
+
 Project the preparation populations from actual modeling/compiler/math/engine owners. Distinguish
 cold structural construction, valid retained reuse, value rebind/rebuild, artifact/compiler misses,
 shared-flight production and waiters. Source-issued artifact/build/dependency references belong in

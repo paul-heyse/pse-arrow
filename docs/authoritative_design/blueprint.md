@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 264
+revision: 265
 date: 2026-10-24
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 265 | 2026-10-24 | Refine accepted shared telemetry with one generated private settings wire, actual registered-executor/selected-future observations and original native/selected pipeline reads through FastMCP (§23.1). | Maintainer-authorized Plan52p/52q refinement; PSE_DESIGN_EDIT=1 authorizes publication within existing diagnostic/scientific ownership. Acceptance and source-coverage limits remain at the owning coordinator. |
 | 264 | 2026-10-24 | Publish accepted Plan52 OpenTelemetry RC01/RC02: process-owned SDK composition/context, observational pipeline health, independently owned native collection/query services and seven-day ordinary retention (§23.1). | Maintainer-authorized Plan52p/52q execution; `.design-edit` authorizes publication within existing scientific/Python contracts. Implementation and scoped qualification remain at the owning coordinator. |
 | 263 | 2026-10-24 | Clarify bounded owned-frontier receiving admission: full prospective count/bytes, one reconstructible-generation retry, retained products and original typed refusals (§14.3). | Maintainer-authorized Plan53 A04/G02 correction within existing decisions; PSE_DESIGN_EDIT=1 authorizes publication. Thirteen focused compiler controls pass; scientific consumer acceptance remains separate. |
 | 262 | 2026-10-24 | ADR-0224: protected native schema/readable result inspection and structured private decode diagnostics (§19.2/§21.1/§21.5/§23.2); owner-defined exact tooling requests and truthful selected answers (§24.1). | Maintainer-authorized Plan52l execution; PSE_DESIGN_EDIT=1 authorizes publication. ADR remains proposed; scoped acceptance and limits stay at Plan52l. |

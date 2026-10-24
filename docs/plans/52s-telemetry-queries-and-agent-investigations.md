@@ -174,6 +174,11 @@ moved; retained manual inquiry drivers remain historical evidence while depended
 <a id="TEL14"></a>
 ### TEL14 — Existing-endpoint bindings, discovery, guidance and availability
 
+The authorized 52p/52q refinement includes bounded configuration/health/known-trace bindings and
+direct original native process/checkpoint readers. Their acceptance belongs to the existing
+52p/52q checkpoint. This supplies useful source-attributed investigation primitives; the full
+TEL13 query/normalization/continuation contracts and remaining TEL14 consumers below stay open.
+
 Bind actual TEL13 reads and TEL07 health through existing FastMCP capability composition,
 Pydantic host contracts, exact domain/workflow discovery and selected tools/resources. Derive
 reference/schema publication from those definitions. Keep fixed-inventory invoke-read usable;

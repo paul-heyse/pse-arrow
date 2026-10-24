@@ -17,6 +17,29 @@ source surface; they do not establish assembled or all-context qualification.
 
 Optional shared telemetry adds coarse owner spans and selected typed diagnostic logs through
 the [native Collector/OpenObserve service](agent-environment.md#optional-native-telemetry).
+
+Process checkpoints also carry typed runtime measurements from registered actual executors.
+Tokio supplies configured workers, approximate alive tasks, global injection-queue depth and
+cumulative worker busy duration where supported. The queue excludes worker-local queues, and busy
+duration is elapsed poll activity rather than process CPU time. Registration coverage identifies
+missing sources; selected Python, receiver and canonical-tool composition roots are covered,
+not every secondary tool executor in the repository. Registration refusal limits diagnostics,
+never execution admission or workstation capacity.
+
+Library task monitors cover the selected workflow, mathematical-submission and mathematical-job
+futures. Their counts and poll, wake-to-poll and pending-to-wake durations are process-wide by
+class. Classes can nest, so their durations cannot be added into exclusive CPU or native execution
+time. A dropped wrapper, completed request or zero observed queue is no native settlement proof.
+Rayon reservations and pool observations retain their own meanings; no Tokio-style Rayon queue
+measurement is inferred.
+
+The existing checkpoint publisher and optional SDK callbacks read those same native sources.
+Executor exports use gauges over the currently registered population, including cumulative busy
+time, which can decrease when an executor disappears. Selected-future event/duration counters are
+cumulative within the process incarnation. Metrics use fixed role/class dimensions; exact executor
+registration identities stay in native detail. Observation adds no executor or independent sampler,
+and the diagnostic reader retains no runtime registration token. Fresh native reads remain useful
+with export disabled or the backend down.
 It is a diagnostic projection; these native readers remain authoritative when export fails.
 `just telemetry health` observes independently available stages without probing scientific work.
 For an already known trace, use an explicit microsecond interval:

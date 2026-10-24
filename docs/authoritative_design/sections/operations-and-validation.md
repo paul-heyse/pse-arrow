@@ -149,6 +149,26 @@ prove receipt; ingest acceptance, query visibility and crash survival remain sep
 Passive effective-configuration and pipeline-health reads start no service or scientific work and
 retain unavailable, unsupported, lost, sampled, expired and unknown observations.
 
+The resolved private host-settings wire is declared by Rust serde types and projected through the
+existing schema generator into source-only Python bindings. Python owns environment resolution;
+immutable encoded settings and native validation preserve that single selection. Public effective
+configuration is a separate redacted projection and exposes no private credential document.
+
+Registered native executor owners supply library measurements to the existing typed process
+checkpoints and optional OTel callbacks. Observers create no executor and retain no registration
+token. Selected composition roots and fixed future classes define coverage; this is not a universal
+executor census. Queue depth excludes worker-local queues, worker busy time is not process CPU,
+and nested future poll/idle durations are not exclusive execution intervals. Executor exports are
+gauges over the current registered population; selected-future counters are process cumulative.
+Absent or refused observation sources are not zero work or failed scientific admission.
+
+The single FastMCP endpoint provides selected redacted configuration, pipeline health, bounded
+known-trace lookup and original native process/checkpoint/operation readers. Calling-process SDK
+state is distinct from the recorded native target. Native documents are preserved or refused as
+whole excessive detail; telemetry neither reinterprets native outcomes nor grants stop, cancellation
+or resource-release authority. General historical query and metric consumers retain their own
+implementation and qualification scope.
+
 Telemetry services have independently owned native user-service lifetimes and persistent state,
 separate from scientific store/scratch and workload allocations. Explicit installation/setup/start/
 stop/enablement select exact artifacts and configured generations. The operator selected login

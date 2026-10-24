@@ -62,6 +62,20 @@ the executable host composes SDK providers before FastMCP startup when selected;
 serving creates no SDK and imports no scientific extension. FastMCP uses its native telemetry
 mode. Logs stay off MCP stdout, fixed helpers inherit bounded W3C context, and helper shutdown
 follows their native work owners. Library import alone is not SDK activation.
+
+Select `telemetry_configuration`, `telemetry_health` or `telemetry_trace_lookup` for redacted
+calling-process selection, independently attributed pipeline observations or one bounded known
+trace. The health read does not know every producer's SDK state; successful export counters do not
+establish a particular record's visibility. When the backend is unavailable, configuration and
+native checkpoint reads remain independent sources.
+
+`native_diagnostic_processes` discovers the selected original diagnostic directory;
+`native_diagnostic_checkpoint` reads an exact checkpoint with optional source-issued identity;
+`native_diagnostic_inspect` explains an exact operation. Their runtime measurements belong to the
+recorded target, never the helper that reads them. Original native schemas and source times are
+preserved; excessive detail is refused as a whole rather than rewriting identities or counts.
+These reads never construct a scientific Runtime. Discovery grants no process-stop or native
+resource-release authority.
 [Plan52o's pause handoff](../plans/52o-conditional-composition-and-protocol-tasks.md#execution-checkpoint--pause-handoff-2026-10-24)
 records current feasibility evidence and remaining acceptance. Its drivers under `scripts/tests/`
 are `capability_composition_inquiry`, `capability_tasks_inquiry` and `capability_telemetry_inquiry`.
