@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import subprocess
 import tempfile
 from pathlib import Path
@@ -30,8 +31,15 @@ def main() -> None:
         rustc = subprocess.check_output(
             ["rustup", "which", "rustc"], env=env, text=True
         ).strip()
+        # In client-side mode, publication sends the compressed artifact over
+        # daemon IPC. A tiny probe cannot detect the upstream 8 MiB frame limit.
+        payload = random.Random(54).randbytes(4 * 1024**2)
+        (root / "payload.bin").write_bytes(payload)
         source = root / "probe.rs"
-        source.write_text("pub fn value(x: u64) -> u64 { x.wrapping_add(1) }\n")
+        source.write_text(
+            'pub static DATA: &[u8] = include_bytes!("payload.bin");\n'
+            "pub fn value(x: u64) -> u64 { x.wrapping_add(1) }\n"
+        )
         output = root / "objects"
         output.mkdir()
         command = [
@@ -65,6 +73,23 @@ def main() -> None:
             hits = delta["stats"]["cache_hits"]["counts"].get("Rust", 0)
             if hits < 1:
                 raise ValueError("eligible repeated Rust compilation had no cache hit")
+            consumer = root / "consumer.rs"
+            consumer.write_text(
+                "fn main() {\n"
+                " assert_eq!(pse_cache_probe::value(41), 42);\n"
+                f" assert_eq!(pse_cache_probe::DATA.len(), {len(payload)});\n"
+                " assert_eq!(pse_cache_probe::DATA.iter().map(|&b| u64::from(b))"
+                f".sum::<u64>(), {sum(payload)});\n"
+                "}\n"
+            )
+            executable = root / "consumer"
+            subprocess.run(
+                [rustc, "--edition=2024", str(consumer), "--extern",
+                 f"pse_cache_probe={output / 'libpse_cache_probe.rlib'}",
+                 "-o", str(executable)],
+                env=env, check=True,
+            )
+            subprocess.run([str(executable)], env=env, check=True)
             subprocess.run(
                 [*command, "-C", f"incremental={root / 'incremental'}"],
                 env=env,
@@ -76,6 +101,8 @@ def main() -> None:
                         "compiler": rustc,
                         "cache_delta": delta,
                         "incremental_passthrough": True,
+                        "restored_payload_bytes": len(payload),
+                        "restored_payload_checksum_verified": True,
                     },
                     indent=2,
                 )

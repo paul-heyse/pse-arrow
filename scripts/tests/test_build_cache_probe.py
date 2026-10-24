@@ -44,9 +44,12 @@ class BuildCacheProbeTests(unittest.TestCase):
         self.assertEqual(environment["RUSTC_WRAPPER"], "/installed/sccache")
         self.assertNotEqual(environment["SCCACHE_DIR"], "/shared/cache")
         self.assertNotEqual(environment["SCCACHE_SERVER_UDS"], "/shared/cache.sock")
-        self.assertEqual(compile_process.call_count, 3)
+        self.assertEqual(compile_process.call_count, 5)
+        for index in (0, 1, 4):
+            self.assertEqual(compile_process.call_args_list[index].args[0][0], "/installed/sccache")
+        self.assertIn("--extern", compile_process.call_args_list[2].args[0])
+        self.assertTrue(compile_process.call_args_list[3].args[0][0].endswith("/consumer"))
         for call in compile_process.call_args_list:
-            self.assertEqual(call.args[0][0], "/installed/sccache")
             self.assertEqual(call.kwargs["env"], environment)
         for call in observe.call_args_list:
             self.assertEqual(call.args[0], environment)
