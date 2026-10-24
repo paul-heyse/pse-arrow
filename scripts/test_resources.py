@@ -337,11 +337,22 @@ def invocation(
         state["producer"] = producer
         from scripts import test_requirements
 
-        state["requirements"] = dict(requirements) if requirements is not None else {
-            (str(item["binary_id"]) + "::" + str(item["name"]) if kind == "rust" else str(item["name"])):
-            (test_requirements.rust(str(item["binary_id"]), str(item["name"])) if kind == "rust" else test_requirements.LOCAL).document()
-            for item in selected
-        }
+        state["requirements"] = (
+            dict(requirements)
+            if requirements is not None
+            else {
+                (
+                    str(item["binary_id"]) + "::" + str(item["name"])
+                    if kind == "rust"
+                    else str(item["name"])
+                ): (
+                    test_requirements.rust(str(item["binary_id"]), str(item["name"]))
+                    if kind == "rust"
+                    else test_requirements.LOCAL
+                ).document()
+                for item in selected
+            }
+        )
     resource_store.publish(path, declaration)
     return path
 
@@ -389,24 +400,33 @@ def publish_selection(path: Path, selected: Sequence[Mapping[str, str]]) -> None
             from scripts import test_requirements
 
             state["requirements"] = {
-                item["binary_id"] + "::" + item["name"]:
-                test_requirements.rust(item["binary_id"], item["name"]).document()
+                item["binary_id"] + "::" + item["name"]: test_requirements.rust(
+                    item["binary_id"], item["name"]
+                ).document()
                 for item in selected
             }
         resource_store.publish(path, declaration)
         state["declaration"] = dict(declaration)
 
 
-def publish_python_requirements(path: Path, requirements: Mapping[str, Mapping[str, object]]) -> None:
+def publish_python_requirements(
+    path: Path, requirements: Mapping[str, Mapping[str, object]]
+) -> None:
     """Actual fixture closure publishes demand before selected test execution."""
     record = read_invocation(path)
     with storage().invocation_edit(record["nonce"]) as state:
-        if state["phase"] != "open" or state["declaration"] != record or record["kind"] != "python":
+        if (
+            state["phase"] != "open"
+            or state["declaration"] != record
+            or record["kind"] != "python"
+        ):
             raise ResourceError("Requirements require the open collected invocation")
         current = state.setdefault("requirements", {})
         for identity, requirement in requirements.items():
             if identity in current and current[identity] != requirement:
-                raise ResourceError("Python collectors disagree about selected requirements")
+                raise ResourceError(
+                    "Python collectors disagree about selected requirements"
+                )
             current[identity] = dict(requirement)
 
 
@@ -423,11 +443,16 @@ def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
             raise ResourceError("Python collection contains duplicate identities")
         requirements = state.get("requirements", {})
         if any(identity not in requirements for identity in identities):
-            raise ResourceError("Python collection lacks actual requirement declarations")
+            raise ResourceError(
+                "Python collection lacks actual requirement declarations"
+            )
         from scripts import test_requirements
 
         try:
-            test_requirements.validate_roles({identity: requirements[identity] for identity in identities}, test_requirements.required_roles(os.environ))
+            test_requirements.validate_roles(
+                {identity: requirements[identity] for identity in identities},
+                test_requirements.required_roles(os.environ),
+            )
         except ValueError as error:
             raise ResourceError(str(error)) from error
         collector = {
@@ -521,15 +546,25 @@ def observe_setup_failure(payload: Mapping[str, object]) -> None:
     nonce, test = selected_test(payload, declaration=declaration)
     stage, code = payload.get("stage"), payload.get("code")
     reach = payload.get("assertion_reach")
-    if (payload.get("kind") != "infrastructure" or not isinstance(stage, str)
+    if (
+        payload.get("kind") != "infrastructure"
+        or not isinstance(stage, str)
         or not re.fullmatch(r"[a-z0-9-]{1,128}", stage)
-        or code != "runtime::infrastructure" or reach not in {"unknown", "not-reached"}):
+        or code != "runtime::infrastructure"
+        or reach not in {"unknown", "not-reached"}
+    ):
         raise ResourceError("Invalid source-typed setup failure")
     producer = os.getppid() if payload.get("executable") else os.getpid()
     observation = {
-        "kind": "infrastructure", "stage": stage, "code": code,
+        "kind": "infrastructure",
+        "stage": stage,
+        "code": code,
         "assertion_reach": reach,
-        "producer": {"pid": producer, "start": operation.start_identity(producer), "boot": host.boot()},
+        "producer": {
+            "pid": producer,
+            "start": operation.start_identity(producer),
+            "boot": host.boot(),
+        },
     }
     with storage().invocation_edit(str(nonce)) as state:
         if state["phase"] != "open" or state["declaration"] != declaration:
@@ -547,20 +582,35 @@ def observe_peer(payload: Mapping[str, object], child: Path, *, role: str) -> No
     parent = read_invocation(Path(marker))
     nonce, test = selected_test(payload, declaration=parent)
     root, declaration, image = run_inspection.resolve(str(child))
-    if root != registry() or declaration["nonce"] == nonce or image["phase"] != "frozen":
-        raise ResourceError("Peer requires a distinct frozen invocation in the same registry")
+    if (
+        root != registry()
+        or declaration["nonce"] == nonce
+        or image["phase"] != "frozen"
+    ):
+        raise ResourceError(
+            "Peer requires a distinct frozen invocation in the same registry"
+        )
     terminal = image["terminal"]
-    if terminal.get("complete") is not True or terminal.get("evidence", {}).get("assurance") != "pass":
+    if (
+        terminal.get("complete") is not True
+        or terminal.get("evidence", {}).get("assurance") != "pass"
+    ):
         raise ResourceError("Peer has no complete reconciled Pass")
     if declaration["kind"] == "rust":
-        observed = {value for item in declaration["selected"] for value in test_requirements.rust(item["binary_id"], item["name"]).roles}
+        observed = {
+            value
+            for item in declaration["selected"]
+            for value in test_requirements.rust(item["binary_id"], item["name"]).roles
+        }
         if role not in observed:
             raise ResourceError("Peer selected catalog lacks its required role")
     with storage().invocation_edit(str(nonce)) as state:
         if state["phase"] != "open" or state["declaration"] != parent:
             raise ResourceError("Frozen parent cannot acquire a peer observation")
         state.setdefault("peer_invocations", {})[str(test)] = {
-            "invocation": declaration["nonce"], "terminal_identity": image["terminal_identity"], "role": role,
+            "invocation": declaration["nonce"],
+            "terminal_identity": image["terminal_identity"],
+            "role": role,
         }
 
 
@@ -577,7 +627,8 @@ def observe_cleanup(payload: Mapping[str, object], failures: Sequence[str]) -> N
         if state["phase"] != "open" or state["declaration"] != declaration:
             raise ResourceError("Frozen invocation cannot change cleanup observation")
         state.setdefault("cleanup_observations", {})[str(test)] = {
-            "status": "failed" if failures else "complete", "failures": list(failures),
+            "status": "failed" if failures else "complete",
+            "failures": list(failures),
         }
 
 

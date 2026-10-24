@@ -50,15 +50,23 @@ def _test_requirement(item: pytest.Item) -> dict[str, object]:
         roles += ("managed-primary",)
     base = test_requirements.python(
         getattr(item, "fixturenames", ()),
-        no_allocation="no_canonical_allocation" in getattr(item, "fixturenames", ()) or item.get_closest_marker("no_canonical_allocation") is not None,
+        no_allocation="no_canonical_allocation" in getattr(item, "fixturenames", ())
+        or item.get_closest_marker("no_canonical_allocation") is not None,
         roles=roles,
     )
     if declared and declared.kwargs.get("canonical"):
         if item.get_closest_marker("no_canonical_allocation") is not None:
             raise pytest.UsageError("Effect-free test declares canonical controls")
-        base = test_requirements.Requirement(("canonical",), ("owned-controls",), "canonical", roles)
+        base = test_requirements.Requirement(
+            ("canonical",), ("owned-controls",), "canonical", roles
+        )
     if declared and declared.kwargs.get("native"):
-        base = test_requirements.Requirement(tuple(sorted({*base.effects, "native"})), base.fixtures, "scientific", tuple(sorted({*base.roles, "native"})))
+        base = test_requirements.Requirement(
+            tuple(sorted({*base.effects, "native"})),
+            base.fixtures,
+            "scientific",
+            tuple(sorted({*base.roles, "native"})),
+        )
     return base.document()
 
 
@@ -66,6 +74,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     """Check declared native fixture demand before setup or the test body."""
     if "native" in _test_requirement(item)["effects"]:
         test_resources.require_effect({"test": item.nodeid}, effect="native")
+
 
 #: The parity reference. Moving it is an ADR (plan §7).
 PARITY_IDAES_VERSION = "2.13.0"
@@ -333,7 +342,8 @@ def pytest_collection_finish(session: pytest.Session) -> None:
             item.user_properties.append(("nodeid", item.nodeid))
     if invocation_path and session.items:
         test_resources.publish_python_requirements(
-            Path(invocation_path), {item.nodeid: _test_requirement(item) for item in session.items}
+            Path(invocation_path),
+            {item.nodeid: _test_requirement(item) for item in session.items},
         )
     if xdist.is_xdist_worker(session):
         return  # The controller publishes and verifies the common worker catalog.

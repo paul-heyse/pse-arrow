@@ -412,7 +412,9 @@ fn canonical_fixture_with_profile(
             })
             .as_ref()
             .map_err(|error| {
-                crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}"))
+                crate::canonical::CanonicalError::Configuration(format!(
+                    "fixture executor: {error}"
+                ))
             }),
     )?;
     let resource = fixture_setup_result(
@@ -492,7 +494,10 @@ pub fn canonical_fixture_peer(
     )?;
     fixture_setup_result("canonical-peer-open", lifetime.execute(peer.open()))?;
     fixture_setup_result("canonical-peer-retain", lifetime.retain_peer(peer.clone()))?;
-    fixture_setup_result("canonical-peer-borrow", peer.borrow_fixture(&borrowed_owner))
+    fixture_setup_result(
+        "canonical-peer-borrow",
+        peer.borrow_fixture(&borrowed_owner),
+    )
 }
 
 #[cfg(test)]

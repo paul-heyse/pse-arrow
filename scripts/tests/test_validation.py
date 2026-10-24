@@ -1653,7 +1653,15 @@ class ValidationTests(unittest.TestCase):
                 self.assertIsInstance(environment, dict)
                 assert isinstance(environment, dict)
                 test_resources.publish_python_requirements(
-                    Path(environment[test_resources.MARKER]), {"node": {"effects": [], "fixtures": [], "capacity": "local", "roles": []}}
+                    Path(environment[test_resources.MARKER]),
+                    {
+                        "node": {
+                            "effects": [],
+                            "fixtures": [],
+                            "capacity": "local",
+                            "roles": [],
+                        }
+                    },
                 )
                 test_resources.publish_python_collection(
                     Path(environment[test_resources.MARKER]), ["node"]

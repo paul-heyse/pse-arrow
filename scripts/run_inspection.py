@@ -187,7 +187,9 @@ def product_result(
             "identity": identity,
             "selection": item,
             "outcome": outcomes.get(identity, "unreported"),
-            "requirements": evidence.get("requirements", state.get("requirements", {})).get(identity),
+            "requirements": evidence.get(
+                "requirements", state.get("requirements", {})
+            ).get(identity),
         }
         for identity, item in zip(catalog, selected, strict=True)
         if (subject is None or subject == identity)
@@ -312,7 +314,12 @@ def product_result(
             offset : offset + limit
         ],
         "selected_count": len(selected),
-        "selection_state": evidence.get("selection_state", "collected" if selected or declaration.get("collection_owner") else "uncollected"),
+        "selection_state": evidence.get(
+            "selection_state",
+            "collected"
+            if selected or declaration.get("collection_owner")
+            else "uncollected",
+        ),
         "refusal": evidence.get("refusal"),
         "subjects": subjects[offset : offset + limit],
         "selected_unreported": unreported[offset : offset + limit],
@@ -321,10 +328,19 @@ def product_result(
         "report_errors": evidence.get("report_errors", []),
         "workload_exit": evidence.get("workload_exit"),
         "assurance": evidence.get("assurance", "unknown"),
-        "peer_invocations": {key: value for key, value in evidence.get("peer_invocations", {}).items() if key in {item["identity"] for item in subjects[offset : offset + limit]}},
-        "cleanup_observations": {key: value for key, value in evidence.get("cleanup_observations", {}).items() if key in {item["identity"] for item in subjects[offset : offset + limit]}},
+        "peer_invocations": {
+            key: value
+            for key, value in evidence.get("peer_invocations", {}).items()
+            if key in {item["identity"] for item in subjects[offset : offset + limit]}
+        },
+        "cleanup_observations": {
+            key: value
+            for key, value in evidence.get("cleanup_observations", {}).items()
+            if key in {item["identity"] for item in subjects[offset : offset + limit]}
+        },
         "setup_failures": {
-            key: value for key, value in evidence.get("setup_failures", {}).items()
+            key: value
+            for key, value in evidence.get("setup_failures", {}).items()
             if key in {item["identity"] for item in subjects[offset : offset + limit]}
         },
         "process": evidence.get("process", {}),

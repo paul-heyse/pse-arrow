@@ -666,7 +666,10 @@ fn decode_edge(
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
-#[allow(clippy::expect_used, reason = "selected optional evidence must fail on missing prerequisites")]
+#[allow(
+    clippy::expect_used,
+    reason = "selected optional evidence must fail on missing prerequisites"
+)]
 pub(crate) fn operator_evidence_directory() -> String {
     let directory = std::env::var("PSE_DIAGNOSTIC_EVIDENCE")
         .expect("selected operator evidence requires PSE_DIAGNOSTIC_EVIDENCE");

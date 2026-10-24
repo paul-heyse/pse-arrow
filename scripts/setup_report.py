@@ -45,17 +45,30 @@ def execute(suite: unittest.TestSuite, output: Path) -> int:
     """Bind actual setup selection to the existing managed outcome composer."""
     selected = selection(suite)
     demands = requirements(suite)
-    test_requirements.validate_roles(demands, test_requirements.required_roles(os.environ))
+    test_requirements.validate_roles(
+        demands, test_requirements.required_roles(os.environ)
+    )
     output = output.resolve()
     selected_path = output / "setup-test-selected.json"
     selected_path.write_text(json.dumps(selected, indent=2) + "\n")
     path = test_resources.invocation(
-        "unittest", [{"name": item["class"] + "::" + item["name"]} for item in selected],
+        "unittest",
+        [{"name": item["class"] + "::" + item["name"]} for item in selected],
         requirements=demands,
     )
     return test_run.execute_selected(
-        path, [sys.executable, "-m", "scripts.setup_report", str(output), "--child", "--selected", str(selected_path)],
-        {**os.environ, test_resources.MARKER: str(path)}, output / "setup-test.xml",
+        path,
+        [
+            sys.executable,
+            "-m",
+            "scripts.setup_report",
+            str(output),
+            "--child",
+            "--selected",
+            str(selected_path),
+        ],
+        {**os.environ, test_resources.MARKER: str(path)},
+        output / "setup-test.xml",
         selected=selected,
     )
 
@@ -74,7 +87,9 @@ def main() -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     if not args.child:
         suite = unittest.TestSuite(
-            loader.discover(str(root / "scripts/tests"), pattern=path.name, top_level_dir=str(root))
+            loader.discover(
+                str(root / "scripts/tests"), pattern=path.name, top_level_dir=str(root)
+            )
             for path in sorted((root / "scripts/tests").glob("test_*.py"))
             if "unittest.TestCase" in path.read_text()
         )

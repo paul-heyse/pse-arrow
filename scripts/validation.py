@@ -14,7 +14,6 @@ import hashlib
 import json
 import os
 import platform
-import re
 import secrets
 import shlex
 import shutil
@@ -455,8 +454,10 @@ def native_report_config(
     from scripts import test_invocation
 
     return test_invocation.report_configuration(
-        root / ".config/nextest.toml", output / f"{name}-nextest.toml",
-        profile, output / f"{name}.xml",
+        root / ".config/nextest.toml",
+        output / f"{name}-nextest.toml",
+        profile,
+        output / f"{name}.xml",
     )
 
 
@@ -913,8 +914,11 @@ def run_gates(
                 from scripts import test_requirements
 
                 record["requirements"] = test_requirements.rust_catalog(
-                    validation_receipts.native_inventory((output / listing["log"]).read_text()),
-                    required_roles=gate.required_roles, validate_declarations=False,
+                    validation_receipts.native_inventory(
+                        (output / listing["log"]).read_text()
+                    ),
+                    required_roles=gate.required_roles,
+                    validate_declarations=False,
                 )
             except (ValueError, KeyError, TypeError) as error:
                 record["status"] = (
