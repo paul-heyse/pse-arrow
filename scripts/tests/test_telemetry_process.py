@@ -423,7 +423,6 @@ assert len(closed)==3 and len(set(closed))==3,closed
 
     def test_context_restoration_and_refusal(self) -> None:
 
-
         before = current_carrier()
         with inherited_context({"PSE_TELEMETRY_CARRIER": json.dumps(PARENT)}):
             self.assertEqual(current_carrier(), PARENT)

@@ -315,7 +315,9 @@ class Fixture:
         config = service._configuration(self.state)  # noqa: SLF001 -- Authenticated disposable fixture control.
         unit = str(mapping(config["units"])["collector"])
         before = service._checked_process(  # noqa: SLF001 -- Authenticated disposable fixture control.
-            config, "collector", service._observe(unit, None)  # noqa: SLF001 -- Authenticated disposable fixture control.
+            config,
+            "collector",
+            service._observe(unit, None),  # noqa: SLF001 -- Authenticated disposable fixture control.
         )
         require(before is not None, "fixture.kill_requires_current_collector")
         previous = mapping(before)
@@ -324,7 +326,9 @@ class Fixture:
         try:
             require(
                 service._checked_process(  # noqa: SLF001 -- Authenticated disposable fixture control.
-                    config, "collector", service._observe(unit, None)  # noqa: SLF001 -- Authenticated disposable fixture control.
+                    config,
+                    "collector",
+                    service._observe(unit, None),  # noqa: SLF001 -- Authenticated disposable fixture control.
                 )
                 == previous,
                 "fixture.collector_changed_before_signal",
@@ -764,7 +768,9 @@ def main_campaign(fixture: Fixture, receipt: dict[str, object]) -> None:
             "_timestamp",
         )
     }
-    metric = checked_text(baseline["metric_name"], "pse_pipeline_acceptance_" + trace_id)
+    metric = checked_text(
+        baseline["metric_name"], "pse_pipeline_acceptance_" + trace_id
+    )
     instance = checked_text(
         baseline["service_instance_id"],
         r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
@@ -1133,7 +1139,9 @@ def run(
                 with suppress(service.TelemetryServiceError):
                     service.start(fixture.state)
                 wait_for(
-                    partial(fixture.journal_contains, "collector", "is not a directory"),
+                    partial(
+                        fixture.journal_contains, "collector", "is not a directory"
+                    ),
                     bool,
                     timeout,
                     "fixture.storage_failure_reason_not_observed",

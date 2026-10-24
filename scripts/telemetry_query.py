@@ -72,7 +72,9 @@ def request(
         raise OSError("Telemetry read failed or exceeded its total deadline") from error
 
 
-def _answer(raw: bytes, limit: int) -> tuple[dict[str, object], list[dict[str, object]]]:
+def _answer(
+    raw: bytes, limit: int
+) -> tuple[dict[str, object], list[dict[str, object]]]:
     value = json.loads(raw)
     if not isinstance(value, dict):
         raise TypeError("Telemetry backend returned an unsupported answer")

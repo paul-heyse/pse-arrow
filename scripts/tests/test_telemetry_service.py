@@ -59,8 +59,11 @@ class TelemetryServiceTests(unittest.TestCase):
         )
 
     def setup(
-        self, *, ports: Mapping[str, int] | None = None,
-        organization: str = "default", streams: Mapping[str, str] | None = None,
+        self,
+        *,
+        ports: Mapping[str, int] | None = None,
+        organization: str = "default",
+        streams: Mapping[str, str] | None = None,
         retention_days: int = 7,
     ) -> dict[str, object]:
         with patch.object(service, "_systemctl", self.systemctl):
@@ -68,7 +71,9 @@ class TelemetryServiceTests(unittest.TestCase):
                 self.state,
                 environment=self.environment,
                 binaries=self.binaries,
-                ports=ports, organization=organization, streams=streams,
+                ports=ports,
+                organization=organization,
+                streams=streams,
                 retention_days=retention_days,
             )
 
@@ -83,7 +88,8 @@ class TelemetryServiceTests(unittest.TestCase):
             mapping(result["endpoints"])["collector_health"], "http://127.0.0.1:13133/"
         )
         self.assertEqual(
-            mapping(result["endpoints"])["collector_metrics"], "http://127.0.0.1:8888/metrics"
+            mapping(result["endpoints"])["collector_metrics"],
+            "http://127.0.0.1:8888/metrics",
         )
         self.assertNotIn("Authorization", json.dumps(result))
         self.assertEqual((self.state / "service.env").stat().st_mode & 0o777, 0o600)
@@ -350,8 +356,10 @@ class TelemetryServiceTests(unittest.TestCase):
                 service._checked_process(config, "collector", observed | {key: wrong})  # noqa: SLF001 -- reject changed ownership evidence
 
     def test_unit_paths_escape_specifiers_and_execution_variables(self) -> None:
+        escaped = service._unit_quote('/fixture/a $b %c "d"')  # noqa: SLF001 -- exercise private unit-path escaping boundary
         self.assertEqual(
-            service._unit_quote('/fixture/a $b %c "d"'), '"/fixture/a $b %%c \\"d\\""'  # noqa: SLF001 -- exercise private unit-path escaping boundary
+            escaped,
+            '"/fixture/a $b %%c \\"d\\""',
         )
         self.assertIn("$$b", service._unit_quote("/fixture/$b", execution=True))  # noqa: SLF001 -- exercise private unit-path escaping boundary
         with self.assertRaisesRegex(

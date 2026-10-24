@@ -48,9 +48,7 @@ def _collector_samples(code: int, raw: bytes) -> list[dict[str, object]]:
                 and math.isfinite(sample.value)
             ):
                 if len(samples) == 256:
-                    raise ValueError(
-                        "Collector self metrics exceed selected series"
-                    )
+                    raise ValueError("Collector self metrics exceed selected series")
                 samples.append(
                     {
                         "name": sample.name,
@@ -130,9 +128,7 @@ def health(
         and isinstance(collector.get("process"), dict)
     ):
         try:
-            code, raw = telemetry_query.request(
-                endpoints_view["collector_metrics"]
-            )
+            code, raw = telemetry_query.request(endpoints_view["collector_metrics"])
             samples = _collector_samples(code, raw)
             stages["collector_delivery"] = {
                 "status": "observed",

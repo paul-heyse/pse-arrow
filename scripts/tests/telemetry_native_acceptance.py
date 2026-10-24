@@ -153,7 +153,7 @@ def producer() -> dict[str, object]:
                 try:
                     require(
                         stream.next_batch() is not None,
-                        "native_fixture.unparented_pull_failed",
+                        "native_fixture.parentless_pull_failed",
                     )
                 finally:
                     stream.close()

@@ -910,7 +910,7 @@ doc-lint:
 
 [group('manual')]
 [doc('ADR lint, index check, and register lint')]
-[script("bash", "scripts/pse-env", "--docs", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "light", "--", "bash", "-euo", "pipefail")]
 adr-lint:
     python3 -m scripts.validation --group adr-lint
 

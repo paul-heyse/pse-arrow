@@ -467,7 +467,9 @@ class TelemetryReadTests(unittest.TestCase):
         self.assertEqual(self.requests, [])
 
     def test_total_deadline_bounds_slow_headers_and_body(self) -> None:
-        def drip_handler(mode: str, stopping: threading.Event) -> type[BaseHTTPRequestHandler]:
+        def drip_handler(
+            mode: str, stopping: threading.Event
+        ) -> type[BaseHTTPRequestHandler]:
             class Drip(BaseHTTPRequestHandler):
                 def do_GET(self) -> None:
                     data = (

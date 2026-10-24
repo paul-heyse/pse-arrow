@@ -65,7 +65,9 @@ def _record(value: object, name: str) -> dict[str, object]:
 
 def _units(config: Mapping[str, object]) -> dict[str, str]:
     value = _record(config.get("units"), "unit")
-    if set(value) != set(TOOLS) or any(not isinstance(unit, str) for unit in value.values()):
+    if set(value) != set(TOOLS) or any(
+        not isinstance(unit, str) for unit in value.values()
+    ):
         raise TelemetryServiceError("Telemetry unit declaration is invalid")
     return {name: unit for name, unit in value.items() if isinstance(unit, str)}
 
@@ -819,9 +821,7 @@ def _publish_units(
 def _start(config: Mapping[str, object], environment: Mapping[str, str] | None) -> None:
     units = _units(config)
     ports = _ports(_record(config.get("ports"), "port"))
-    observations = {
-        name: _observe(unit, environment) for name, unit in units.items()
-    }
+    observations = {name: _observe(unit, environment) for name, unit in units.items()}
     processes = {
         name: _checked_process(config, name, observed)
         for name, observed in observations.items()
@@ -872,9 +872,7 @@ def _stop(config: Mapping[str, object], environment: Mapping[str, str] | None) -
     units = _units(config)
     # Verify *both* current owners before stopping either. A stale PID or unit
     # name alone is never authority to stop a process.
-    observations = {
-        name: _observe(unit, environment) for name, unit in units.items()
-    }
+    observations = {name: _observe(unit, environment) for name, unit in units.items()}
     processes = {
         name: _checked_process(config, name, observed)
         for name, observed in observations.items()
@@ -946,9 +944,7 @@ def enable(
         config = _configuration(selected)
         _publish_units(config, environment)
         units = _units(config)
-        _systemctl(
-            "enable", *units.values(), environment=environment
-        )
+        _systemctl("enable", *units.values(), environment=environment)
     return inspect(selected, environment=environment)
 
 
@@ -963,7 +959,5 @@ def disable(
         for name, unit in units.items():
             observed = _observe(unit, environment)
             _checked_process(config, name, observed)
-        _systemctl(
-            "disable", *units.values(), environment=environment
-        )
+        _systemctl("disable", *units.values(), environment=environment)
     return inspect(selected, environment=environment)

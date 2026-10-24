@@ -1,0 +1,211 @@
+select: cargo nextest run --no-fail-fast -p pse-compiler -p pse-relations --lib --locked --features pse-relations/force-validate -E '(test(real_recipe_persistence_feasibility) | test(authored_checker_publication_cost_and_boundaries)) & (package(pse-compiler))' --features pse-compiler/persistence-probe --success-output immediate --status-level pass --profile local
+warning: type does not implement `Debug`; consider adding `#[derive(Debug)]` or a manual implementation
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:49:1
+   |
+49 | pub struct CollisionHasher;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: requested on the command line with `-W missing-debug-implementations`
+
+warning: missing documentation for a struct
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:49:1
+   |
+49 | pub struct CollisionHasher;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: requested on the command line with `-W missing-docs`
+
+warning: type does not implement `Debug`; consider adding `#[derive(Debug)]` or a manual implementation
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:59:1
+   |
+59 | pub struct Interner { map: Map, capture: bool }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:59:1
+   |
+59 | pub struct Interner { map: Map, capture: bool }
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:61:5
+   |
+61 |     pub fn new(seed: (Node, NodeId)) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:72:5
+   |
+72 |     pub fn capture_input(&self, node: &Node) {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:77:5
+   |
+77 |     pub fn get(&self, node: &Node) -> Option<&NodeId> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:91:5
+   |
+91 |     pub fn insert(&mut self, node: Node, id: NodeId) -> Option<NodeId> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: type does not implement `Debug`; consider adding `#[derive(Debug)]` or a manual implementation
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:182:1
+    |
+182 | / pub struct Report {
+183 | |     pub policy: &'static str,
+184 | |     pub input_shapes: BTreeMap<String, usize>,
+185 | |     pub lookup_shapes: BTreeMap<String, usize>,
+...   |
+198 | |     pub combined_framed_key_paths_ns_per_operation: Vec<f64>,
+199 | | }
+    | |_^
+
+warning: missing documentation for a struct
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:182:1
+    |
+182 | pub struct Report {
+    | ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:183:5
+    |
+183 |     pub policy: &'static str,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:184:5
+    |
+184 |     pub input_shapes: BTreeMap<String, usize>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:185:5
+    |
+185 |     pub lookup_shapes: BTreeMap<String, usize>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:186:5
+    |
+186 |     pub lookups: usize,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:187:5
+    |
+187 |     pub hits: usize,
+    |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:188:5
+    |
+188 |     pub misses: usize,
+    |     ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:189:5
+    |
+189 |     pub retained_nodes: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:190:5
+    |
+190 |     pub full_program_and_collision_controls: bool,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:191:5
+    |
+191 |     pub projection_iterations_per_sample: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:192:5
+    |
+192 |     pub replay_iterations_per_sample: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:193:5
+    |
+193 |     pub projection_ns_per_operation: Vec<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:194:5
+    |
+194 |     pub replay_std_ns_per_operation: Vec<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:195:5
+    |
+195 |     pub replay_fx_ns_per_operation: Vec<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:196:5
+    |
+196 |     pub terminal_framed_key_ns_per_operation: Vec<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:197:5
+    |
+197 |     pub structure_framed_key_ns_per_operation: Vec<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:198:5
+    |
+198 |     pub combined_framed_key_paths_ns_per_operation: Vec<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a function
+   --> crates/pse-math/src/../../../docs/design_review/evidence/graph-hash-followups-2026-10-09/factorable-inquiry.rs:212:1
+    |
+212 | pub fn measure(plan: &CasePlan, values: &CaseValues, cancel: &Arc<AtomicBool>, policy: u8) -> Report {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `pse-math` (lib) generated 27 warnings
+    Finished `dev` profile [optimized + debuginfo] target(s) in 0.26s
+   Compiling erased-serde v0.4.10
+   Compiling thin-vec v0.2.20
+   Compiling salsa-macros v0.28.4
+   Compiling typetag v0.2.23
+   Compiling egobox-gp v0.36.4
+   Compiling egobox-moe v0.35.5
+   Compiling salsa v0.28.4
+   Compiling egobox-ego v0.38.1
+   Compiling pse-math v0.0.1 (/home/paul/pse-arrow/crates/pse-math)
+   Compiling pse-compiler v0.0.1 (/home/paul/pse-arrow/crates/pse-compiler)
+    Finished `test` profile [optimized + debuginfo] target(s) in 51.70s
+────────────
+ Nextest run ID c6c9aedf-0c7d-4478-9df1-c389f5f99cb6 with nextest profile: local
+    Starting 2 tests across 1 binary (232 tests and 1 binary skipped)
+        PASS [   0.155s] (1/2) pse-compiler typed_math::portable::tests::recipe_persistence_probe::real_recipe_persistence_feasibility
+  stdout ───
+
+    running 1 test
+    RECIPE_PERSISTENCE_PROBE {"payload_bytes":24652,"snapshot_bytes":109261,"recipe_retained_bytes":58883,"original_body_descriptor_bytes":37535,"original_body_math_retained_bytes":871,"fresh_restore_persisted_query_executions":0,"fresh_restore_unpersisted_query_executions":1,"payload_change_reexecutions":1,"context_change_reexecutions":1,"corrupt_truncated_restore_refused":true,"lru_recomputation":true,"decode_iterations_per_sample":100,"restore_iterations_per_sample":10,"decode_ns_per_operation":[56368,58115,56503,62205,56867,59784,56903],"restore_and_fetch_ns_per_operation":[972312,965544,964015,977147,979445,964141,961080],"qualified_fixture_reconstruction_ns_per_operation":[2485940,2590395,2559906,2713278,2562375,2496969,2527777],"reconstructed_body_evaluator_compile_ns_per_operation":[69476,60786,61347,59246,60047,69726,56137],"original_body_evaluator_compile_ns_per_operation":[10490,10440,10409,10730,10409,11350,9840],"reconstructed_body_worker_and_evaluation_ns_per_operation":[7110,6809,6380,6679,5900,7039,6329],"reconstruction_and_evaluator_iterations_per_sample":1,"protected_read_and_runtime_qualification_measured":false,"mathematical_reconstruction_avoided":false}
+    test typed_math::portable::tests::recipe_persistence_probe::real_recipe_persistence_feasibility ... ok
+
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 233 filtered out; finished in 0.15s
+
+
+        PASS [   1.330s] (2/2) pse-compiler typed_math::portable::tests::authored_checker_probe::authored_checker_publication_cost_and_boundaries
+  stdout ───
+
+    running 1 test
+    AUTHORED_CHECKER_PROBE {"samples_per_case":7,"fixture":"authored-scalar-32-unselected-functions","direct_checker_is_separate_comparator_not_internal_publication_timer":true,"parse_and_initialization_excluded":true,"measurements":[{"case":"unchanged","declarations":37,"publication_succeeds":true,"direct_no_document_checker_ns":[5026437,5044196,4906793,5865320,5122182,5073565,5133132],"publication_ns":[5949,5399,4260,17289,6870,6280,6769],"downstream_preparation_ns":[1021923,977145,959646,1165764,1023692,980454,1039952],"failed_publication_previous_inventory_still_prepares":false},{"case":"unrelated","declarations":37,"publication_succeeds":true,"direct_no_document_checker_ns":[5436354,5059385,5347278,5085813,5113002,5039446,6655635],"publication_ns":[5528109,5159560,5224945,5112492,5172079,5031916,5201156],"downstream_preparation_ns":[1555692,1394681,1413110,1411560,1485156,1395751,1422780],"failed_publication_previous_inventory_still_prepares":false},{"case":"selected","declarations":37,"publication_succeeds":true,"direct_no_document_checker_ns":[5022396,6045579,5040045,5493480,5388316,5072244,5014237],"publication_ns":[5098802,5315760,5445793,5329380,5528339,5170968,5755165],"downstream_preparation_ns":[1577041,1685844,1980028,1735802,1867225,1664486,1591451],"failed_publication_previous_inventory_still_prepares":false},{"case":"span","declarations":37,"publication_succeeds":true,"direct_no_document_checker_ns":[4982579,4954881,4990348,4965319,4933731,4921473,4950851],"publication_ns":[5269262,5047776,5040976,5322900,5072304,5067394,5067765],"downstream_preparation_ns":[1492576,1341284,1342354,1339744,1326255,1330195,1343775],"failed_publication_previous_inventory_still_prepares":false},{"case":"revert","declarations":37,"publication_succeeds":true,"direct_no_document_checker_ns":[5036856,5023037,5065324,5605313,5198576,5326089,4975069],"publication_ns":[5113832,5091863,5542848,5155019,5271472,5244434,5035856],"downstream_preparation_ns":[1439428,1385872,1547172,1410230,1460028,1393791,1331084],"failed_publication_previous_inventory_still_prepares":false},{"case":"membership-insert","declarations":38,"publication_succeeds":true,"direct_no_document_checker_ns":[5258754,5204786,5255903,5423194,5284372,6135524,5398526],"publication_ns":[5311041,5382046,5331119,5502380,6496823,5496740,5565416],"downstream_preparation_ns":[1314236,1455128,1365033,1405850,1647667,1428139,1528884],"failed_publication_previous_inventory_still_prepares":false},{"case":"membership-delete","declarations":37,"publication_succeeds":true,"direct_no_document_checker_ns":[5086792,5080764,5031436,5130530,5593744,5207216,5630492],"publication_ns":[5225155,5101422,5227905,5181788,5734876,5247494,5354848],"downstream_preparation_ns":[1572251,1415820,1446548,1406901,1673136,1330605,1522794],"failed_publication_previous_inventory_still_prepares":false},{"case":"absent","declarations":37,"publication_succeeds":false,"direct_no_document_checker_ns":[3197059,3189680,3524911,3634265,3404648,3162301,5200166],"publication_ns":[3152152,3143662,3209849,3226068,3391209,3178391,4013114],"downstream_preparation_ns":[994244,1053851,1016412,1021832,1009413,968495,1104167],"failed_publication_previous_inventory_still_prepares":true},{"case":"absence-to-present","declarations":38,"publication_succeeds":true,"direct_no_document_checker_ns":[5298831,5386766,5444392,5330339,5329608,5368807,5414714],"publication_ns":[5538908,5470841,5451842,5385866,5349287,5424533,5466861],"downstream_preparation_ns":[1567011,1566511,1569951,1504975,1456478,1560572,1559821],"failed_publication_previous_inventory_still_prepares":false},{"case":"context-denied","declarations":37,"publication_succeeds":false,"direct_no_document_checker_ns":[219738,282374,273764,256296,227967,285094,260785],"publication_ns":[206228,212958,278864,248696,212928,270145,225187],"downstream_preparation_ns":[942457,1268488,957306,971015,945367,1058290,957096],"failed_publication_previous_inventory_still_prepares":true}]}
+    test typed_math::portable::tests::authored_checker_probe::authored_checker_publication_cost_and_boundaries ... ok
+
+    test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 233 filtered out; finished in 1.33s
+
+
+────────────
+     Summary [   1.333s] 2 tests run: 2 passed, 232 skipped
