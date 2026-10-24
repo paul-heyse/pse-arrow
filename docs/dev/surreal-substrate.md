@@ -1043,6 +1043,23 @@ beta metadata setup and the repository's qualified SQL expectations. It refuses
 ambient targets, explicit actors, external/file inputs, seeds, changed schema files,
 coverage overrides and unowned rollout changes. Expansion requires qualification.
 
+Named disposable population operations are a separate admitted path:
+`just surrealkit populate --resource ID --population readiness-graph-v1` installs the
+generated schema and a deterministic small project/revision/readiness/analysis-graph
+specimen in that namespace. Its opaque evidence bytes are synthetic fixture data,
+never activated scientific results. Each fixture receives new namespace/VIEWER
+credentials and remains bound to its exact service generation. Arbitrary seed
+directories and SQL are still refused.
+
+Mutation acknowledgment and child drain do not establish settlement. The operation
+independently reads complete expected tables and relation endpoints, compares indexed,
+ordinary and full-scan readiness answers, and verifies VIEWER read/creation denial with
+privileged absence checks. Interrupted submission stays pinned and unavailable for
+ordinary tooling. `just surrealkit population-settle --resource ID` verifies that
+original population without resubmitting its mutations; partial/different content
+refuses. Disposal remains with the existing invocation/resource owner. Deterministic
+regeneration is selected; logical restore and physical copying are not adopted here.
+
 The complete disposable generated-contract control is:
 
 ```bash

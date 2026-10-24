@@ -401,6 +401,86 @@ server, then `just surreal reconfigure --execution-profile plan28-reference
 [local substrate guide](surreal-substrate.md) owns state selection and lifecycle;
 ordinary canonical consumers do not require the managed study profile.
 
+## Selected reproducible experiments
+
+`just experiment` composes explicit investigations through the existing test-result,
+resource and measurement owners. Ordinary regeneration remains the default; no test
+archive or sandbox is created automatically.
+
+```bash
+just experiment archive --output build/my-archive --package pse-admission \
+  --test authoring_load_package \
+  --filter 'test(explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans)' \
+  --fixture tests/fixtures/packages/minimal_explicit \
+  --fixture tests/fixtures/packages/minimal_named
+just experiment inspect build/my-archive
+just experiment replay build/my-archive --output build/my-replay
+```
+
+Archive creation prepares and executes the selected producer, then freezes its
+nextest executable archive, exact selection, validated unit graph, configuration,
+declared fixtures and runtime-library context. Replay remaps those fixtures into a
+private workspace and produces a new invocation with historical producer attribution.
+It never qualifies edited source. `inspect` reads sealed ownership/provenance without
+launching binaries. Missing/changed inputs refuse; nextest is pinned with the other
+protocol-sensitive Cargo tools. Native deployment/ABI/license/config/data closure
+is not packaged: a selected native archive refuses before compilation/execution and
+the investigation instead regenerates the exact revision through its native owner.
+
+Investigation reports remain pinned under `scripts.test_resources`. Replay acquires
+an exact receipt/digest reference before using its origin; releasing a pin alone does
+not remove an active reference or bypass drain. Use that owner's `status`,
+`release-reference --receipt PATH --digest SHA256`, `release` and `reclaim` operations
+for an explicitly finished investigation. Archive/extracted binary detail is declared
+disposable; retained summaries and provenance remain available after reclamation.
+
+```bash
+just experiment bisect --repo /path/to/repository --good FULL_SHA --bad FULL_SHA \
+  --predicate authoring-load-package --output build/my-search --cleanup
+just experiment compare --pairs /path/to/paired-samples.json --output build/comparison.json
+```
+
+The initial regression adapter uses the exact authored-package semantic test. It
+freezes its controller outside the historical checkout, verifies both endpoint
+predicates, and traverses an independently owned checkout with its own target directory.
+Changed/missing predicate source is untestable; setup/infrastructure errors abort.
+Bounded repeated mixed outcomes and skipped ambiguous intervals remain inconclusive.
+Cleanup requires authenticated descendant drain and matching owned-directory identity.
+Main's dirty source is never checked out or reset by the search.
+
+Comparisons consume named samples from existing build/case reports, exact observed
+input/start/cache/build/native conditions and explicit baseline/candidate source
+inventory treatment. Declare at least three independent pairs and their execution
+order. Missing context/pressure, uncontrolled cache, reused membership and noisy
+samples remain inconclusive; output is descriptive and selects no automatic winner.
+Criterion populations do not acquire fabricated invocation membership. See the
+`scripts.regression_experiments.measurement` adapter for each supported producer's
+condition projection; this finite route is separate from Plan52f's broader analysis.
+
+Private directories plus `pse-env` remain the default tooling environment. For a
+selected permission-isolation question, `just experiment tool-probe surrealql-validate
+--input FILE --output build/my-probe` uses optional Bubblewrap 0.13.0 and the admitted
+server CLI. It freezes selected inputs/runtime, disables networking, exposes only
+owned writable output/private temporary state, and records parser, drain and cleanup
+outcomes separately. It does not qualify database execution or a solver in a container.
+
+The 3.3.4 server CLI validator's core parser disables experimental grammar; its
+`validate` command does not apply `SURREAL_CAPS_ALLOW_EXPERIMENTAL`. For Surrealism
+syntax, use the existing pinned `surrealdb-syn` parser through a selected tooling build:
+
+```bash
+scripts/pse-env --resource-class build -- .venv/bin/python -m scripts.arrow_validation \
+  build -p xtask --bin xtask --no-default-features --features surrealql-tools --locked
+just experiment tool-probe surrealql-validate --parser-binary target/debug/xtask \
+  --input crates/pse-operations/src/generated/surreal.surql --output build/my-module-parse
+```
+
+That command reports the parser version compiled from the lockfile and the
+`all-features` syntax profile. Parsing module/file syntax loads no module or file and
+grants no runtime capability. A server CLI grammar rejection is retained as that
+profile's diagnostic, rather than silently falling back to another parser. Podman
+images remain unselected until a concrete different-userspace/dependency requirement.
+
 ## Bundles, logs and preflight
 
 `just turn-end`, `just ready` and `just hygiene` are groups of the assessment runner

@@ -1,6 +1,6 @@
 ---
 title: "Plan 52e: Reproducible experiments and isolation"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -131,3 +131,90 @@ route needs a stable predicate, not completion of archives, models or the whole 
 C06 can simplify later cases; F01 compares retained outcomes. Targeted fixture/closure/driver tests
 precede a representative real consumer. 52h owns assembled native/database/Python scope and
 scope-end checks. Cleanup success, replay fidelity and scientific outcome remain separate claims.
+
+## Targeted execution outcome — 2026-10-24
+
+**Implemented:** `just experiment` composes selected archive/inspect/replay, semantic Git
+bisection, retained-sample comparison and optional confined parser experiments through the
+existing invocation, resource and measurement owners. SurrealKit owns named deterministic
+population submission and independent settlement. Operator workflows and retention rules live
+in the [environment guide](../dev/agent-environment.md#selected-reproducible-experiments) and
+[substrate guide](../dev/surreal-substrate.md). No scientific runtime document family or second
+experiment scheduler was introduced.
+
+**Tested — E01:** an actual force-validated `pse-admission` authored-package case produced
+`build/plan52e-evidence/archive-v4`, including its two declared authored fixtures. Producer
+`e0717f5349d8424d8206acf41c83e3a0` passed the one selected test. Actual replay from a remapped
+workspace passed after the main checkout changed, with independent invocation
+`60928e16dbfd4c519cf260fafe7dc364`; `replay-current-head` passed again after subsequent commits.
+The archive/replay commands were the environment guide's concrete `archive`, `inspect` and
+`replay` sequence under `scripts/pse-env --resource-class build --`. Active replay references
+refused reclamation; an earlier completed archive released its disposable binary detail while
+retaining its provenance. The native selection `pse-backend-native` / `highs_incumbents_streamed`
+refused before compilation or execution because its deployment/ABI/license/config/data closure
+is not archived. This is historical executable evidence, not current-source qualification.
+
+**Tested — E03:** `just experiment bisect --repo <owned-history> --good <good> --bad <bad>
+--predicate authoring-load-package --output <new-search> --cleanup` traversed an actual private
+nine-commit Git history using the real force-validated authored-package test. It visited good
+revision 0, bad 8, bad 4, unsupported 2 (exit125), and good 3, and identified the known first bad
+commit `0cbd040d28afed64d47b4fb9a0db325785e6b688`. Four product invocations and their driver scopes
+recorded complete drain and zero report errors. Cleanup removed only the experiment's temporary
+Git checkout and build output; main, its history and independent worktrees remained intact.
+`build/plan52e-evidence/e03-actual-20261023/acceptance.json` retains the actual invocation identities
+and visited predicates. The two `experiment compare` controls consumed authentic retained
+process-cost samples and returned inconclusive/exit125 for uncontrolled cache, reused sample
+membership and missing pressure facts; the stricter noise threshold also detected the observed
+spread. This establishes honest refusal, not a performance improvement or universal causal claim.
+
+**Tested — E04:** the optional Bubblewrap0.13.0 parser experiment confined selected read-only
+inputs and executable/runtime files, disabled networking and exposed owned output/private
+temporary state. Actual valid and invalid server-CLI inputs retained their expected outcomes
+with complete process drain and cleanup. The full generated schema exposed the 3.3.4 server
+CLI's disabled experimental grammar: its `validate` path does not apply the experimental
+capability environment setting. Source inspection selected the already pinned
+`surrealdb-syn==3.3.4` parser through `xtask --features surrealql-tools`, using its all-features
+parse-only profile. The confined library parser accepted the full generated schema and a
+Surrealism module call, and rejected malformed input. It executes no module, file or SQL.
+`library-parser-valid` / `library-parser-invalid` retain these separate outcomes. The targeted
+Rust command `scripts/pse-env --resource-class build -- .venv/bin/python -m
+scripts.arrow_validation nextest run -p xtask --bin xtask --no-default-features --features
+surrealql-tools --locked -E 'test(surrealql_tools::tests::)'` passed 3 tests against zero expected
+failures after correcting a module fixture to the supported `FROM f"..." UNSIGNED` syntax.
+Podman and a permanent image/service pipeline remain unselected; revisit if a concrete consumer
+requires a different userspace or dependency environment that private directories/Bubblewrap
+cannot provide. Native solvers and database execution inside that sandbox remain unqualified.
+
+**Mistakes corrected:** the first archive producer composition bypassed the selected result
+composer, and its child launch did not establish drain. The replacement uses the existing
+`execute_selected` composer and drained child scopes. Actual replay also revealed nextest's
+required extraction directory and workspace-root manifest; both are now staged explicitly.
+Initial failed setup/replay artifacts retain their original partial outcomes rather than
+manufactured terminal records. The actual database consumer additionally exposed frozen
+supervisor receipt checks incorrectly interpreting build-configuration paths relative to a
+runtime snapshot. Verified generations now authenticate their closed build receipt without
+weakening main-checkout configuration checks or full launch revalidation.
+
+**Deliberate limits:** deterministic regeneration is selected over logical restore and physical
+store copying. Native archival is unselected until a concrete investigation justifies complete
+deployment closure; regenerate that exact historical revision through the native owner instead.
+No automatic archive-every-test retention, arbitrary seed execution, generic sandbox command
+wrapper, automatic comparison winner or production-scale fixture was added. Plan52h retains
+assembled qualification, hygiene and manual checks; no whole-series qualification or measured
+productivity/performance benefit follows from this focused acceptance.
+
+**Tested — tooling controls:** `scripts/pse-env --resource-class build -- .venv/bin/python
+-m unittest scripts.tests.test_test_archives scripts.tests.test_regression_experiments
+scripts.tests.test_tooling_experiments scripts.tests.test_surrealkit_population
+scripts.tests.test_surrealkit scripts.tests.test_surrealkit_persistent_fixture
+scripts.tests.test_surreal_source` passed 88 tests against zero expected failures.
+`scripts/pse-env --resource-class build -- just ready` passed after the optional parser
+dependency edge and diagnostic tool selection changed. Its cleanup observer separately deferred
+three pre-existing resources with unsupported server profiles; it did not release or modify
+those historical owners. These are focused tooling/environment checks, not assembled
+Plan52 qualification.
+
+The E02 actual fresh-service consumer remains in progress. Its immutable-receipt repair passed
+focused controls; actual initialization then exposed stale configuration being written back
+after a generation update. That failure and its pending allocation remain owned while the
+generation/materialization recovery is repaired; population acceptance is not yet claimed.
