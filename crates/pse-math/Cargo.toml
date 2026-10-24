@@ -49,4 +49,5 @@ miette.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+proptest.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }

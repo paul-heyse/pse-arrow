@@ -21,3 +21,10 @@ sha256 = "55d9175d88139f775aca36981c55c2f3bca227434217750fc3ee2619501e269b"
 member = "bin/rr"
 archive = "portable-tar"
 prefix = "rr-5.10.0-Linux-x86_64"
+
+# Protocol-sensitive Cargo diagnostics. One declaration serves bootstrap, CI and reuse.
+[cargo-tools]
+cargo-hack = "0.6.45"
+cargo-llvm-cov = "0.9.1"
+cargo-mutants = "27.1.0"
+cargo-fuzz = "0.13.2"
