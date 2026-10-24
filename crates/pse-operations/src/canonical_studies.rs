@@ -2925,6 +2925,17 @@ mod canonical_studies_server_unit {
 
     #[tokio::test]
     async fn canonical_candidates_inspection_matches_populated_dispatch_and_native_index() {
+        candidates_inspection_fixture(false).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "explicit operator evidence requires its captured native executor"]
+    async fn canonical_operator_query_evidence() {
+        crate::canonical_explanations::operator_evidence_directory();
+        candidates_inspection_fixture(true).await;
+    }
+
+    async fn candidates_inspection_fixture(operator: bool) {
         let (store, _, revision) = fixture().await;
         let points = (0..80)
             .map(|ordinal| occurrence(&revision, ordinal, vec![]))
@@ -2968,12 +2979,14 @@ mod canonical_studies_server_unit {
         );
         let module = store.inspect_study_module().await.unwrap();
         assert!(module["scope"].as_str().unwrap().contains("no execution"));
-        crate::canonical_explanations::qualify_operator(
-            &store,
-            "query",
-            &serde_json::json!({"study":"query-inspection","after":15}),
-        )
-        .await;
+        if operator {
+            crate::canonical_explanations::qualify_operator(
+                &store,
+                "query",
+                &serde_json::json!({"study":"query-inspection","after":15}),
+            )
+            .await;
+        }
         store.remove_isolated_fixture().await.unwrap();
     }
 

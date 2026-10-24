@@ -35,6 +35,7 @@ def main() -> int:
     parser.add_argument("directory", type=Path)
     arguments = parser.parse_args()
     directory = arguments.directory.resolve()
+    os.environ["PSE_PLAN30_C1_CONTROL"] = str(directory)
     if arguments.action == "prepare":
         directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         python_native = producer_deployment.file_observation(
@@ -75,7 +76,6 @@ def main() -> int:
         raise RuntimeError(
             "Actual C1 execution requires its admitted observer owner and explicit profile"
         )
-    os.environ["PSE_PLAN30_C1_CONTROL"] = str(directory)
     expected_python_native = json.loads((directory / "python-native.json").read_text())
     if arguments.action in {"run", "python-child"}:
         current_python_native = producer_deployment.file_observation(
@@ -105,6 +105,8 @@ def main() -> int:
                 "-m",
                 "pytest",
                 str(ROOT / "scripts/tests/test_plan30_context_overlap.py"),
+                "-m",
+                "component",
                 "-n",
                 "0",
                 "-q",

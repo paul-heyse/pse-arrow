@@ -202,6 +202,16 @@ def test_generated_settings_admit_native_defaults_and_expose_named_diagnostics(
     assert isinstance(report.causes, tuple)
     assert isinstance(report.related, tuple)
     assert isinstance(report.contexts, tuple)
+    assert report.code is DiagnosticCode.CONFIG_INVALID
+    assert report.reported_code == "config.invalid"
+    assert report.failure_class is FailureClass.CONFIG_INVALID
+    envelope = report.envelope
+    assert envelope.code is report.code
+    assert envelope.class_ is report.boundary_class
+    assert envelope.observations == report.observations
+    assert codec.decode_json(
+        codec.encode_json(envelope), documents.BoundaryDiagnosticOutput
+    ) == envelope
     with pytest.raises(AttributeError):
         _mutate(report, "code", "changed")
 

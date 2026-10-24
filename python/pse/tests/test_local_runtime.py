@@ -11,7 +11,17 @@ import pse
 from pse import codec
 from pse.contracts import documents
 from pse.contracts.documents import SourceDelta
-from pse.contracts.enums import NativeSolveIntent
+from pse.contracts.enums import (
+    DiagnosticCode,
+    DiagnosticRule,
+    DiagnosticStage,
+    FailureClass,
+    NativeBackend,
+    NativeBoundaryClass,
+    NativeSolveIntent,
+    PresolvePolicyKind,
+    ReusePolicy,
+)
 from pse.tests.test_native_workflow import (
     declaration,
     identity,
@@ -250,3 +260,61 @@ def test_frozen_advice_uses_actual_native_cohort_and_survives_replay(
         == frozen
     )
     runtime.close()
+
+
+@pytest.mark.unit
+def test_native_reuse_refusal_keeps_public_code_and_envelope(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        physical = runtime.physical_from_documents(physical_documents())
+        package = runtime.modeling_from_documents(
+            [package_documents("""package reuse {
+                def First { var x:Scalar; eq root:x==1; }
+                def Changed { var x:Scalar; var y:Scalar;
+                    eq first:x==1; eq second:y==2; }
+            }""")],
+            physical,
+        )
+        cases = {row.name: row.declaration_id for row in package.declarations()}
+        first = package.prepare_solve(
+            cases["First"],
+            pse.SolveSettings(
+                backend=NativeBackend.KINSOL,
+                intent=NativeSolveIntent.ROOT,
+                presolve=PresolvePolicyKind.OFF,
+            ),
+        )
+        changed = package.prepare_solve(
+            cases["Changed"],
+            pse.SolveSettings(
+                backend=NativeBackend.KINSOL,
+                intent=NativeSolveIntent.ROOT,
+                presolve=PresolvePolicyKind.OFF,
+                controls=pse.SolveControls(reuse=ReusePolicy.REQUIRE_REUSE),
+            ),
+        )
+        result = runtime.start([first, changed]).wait()
+        assert not result.usable
+        reports = [report for report in result.diagnostics()
+                   if report.code is DiagnosticCode.NATIVE_REUSE]
+        assert len(reports) == 1
+        report = reports[0]
+        assert report.rule is DiagnosticRule.NATIVE_REUSE
+        assert report.stage is DiagnosticStage.WORKFLOW
+        assert report.boundary_class is NativeBoundaryClass.INCOMPATIBLE
+        assert report.reported_code == "native.reuse"
+        assert report.failure_class is FailureClass.CAPABILITY_BACKEND
+        envelope = report.envelope
+        assert isinstance(envelope, documents.BoundaryDiagnosticOutput)
+        assert envelope.code is report.code
+        assert envelope.rule is report.rule
+        assert envelope.stage is report.stage
+        assert envelope.class_ is report.boundary_class
+        assert envelope.observations == report.observations
+        assert tuple(source.to_hex() for source in envelope.sources) == report.source_ids
+        assert report.observations["backend"].value == "kinsol"
+        assert report.observations["reuse_refusal"].value == "structure"
+    finally:
+        runtime.close()

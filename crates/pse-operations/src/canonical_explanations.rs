@@ -666,6 +666,18 @@ fn decode_edge(
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
+#[allow(clippy::expect_used, reason = "selected optional evidence must fail on missing prerequisites")]
+pub(crate) fn operator_evidence_directory() -> String {
+    let directory = std::env::var("PSE_DIAGNOSTIC_EVIDENCE")
+        .expect("selected operator evidence requires PSE_DIAGNOSTIC_EVIDENCE");
+    assert!(
+        std::env::var_os("PSE_CANONICAL_TOOLS").is_some(),
+        "selected operator evidence requires its captured PSE_CANONICAL_TOOLS executable"
+    );
+    directory
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
 #[allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -676,12 +688,7 @@ pub(crate) async fn qualify_operator(
     kind: &str,
     input: &serde_json::Value,
 ) {
-    let Ok(directory) = std::env::var("PSE_DIAGNOSTIC_EVIDENCE") else {
-        return;
-    };
-    if std::env::var_os("PSE_CANONICAL_TOOLS").is_none() {
-        return;
-    }
+    let directory = operator_evidence_directory();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -1299,6 +1306,17 @@ mod server_tests {
 
     #[tokio::test]
     async fn canonical_graph_explanation_preserves_isolates_parallel_edges_and_protected_inputs() {
+        graph_explanation_fixture(false).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "explicit operator evidence requires its captured native executor"]
+    async fn canonical_operator_graph_evidence() {
+        operator_evidence_directory();
+        graph_explanation_fixture(true).await;
+    }
+
+    async fn graph_explanation_fixture(operator: bool) {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_graph_{}", uuid::Uuid::new_v4().simple());
@@ -1539,7 +1557,9 @@ mod server_tests {
                 .unwrap()
                 .is_empty()
         );
-        qualify_operator(&store, "graph", &serde_json::to_value(&request).unwrap()).await;
+        if operator {
+            qualify_operator(&store, "graph", &serde_json::to_value(&request).unwrap()).await;
+        }
         if let Ok(directory) = std::env::var("PSE_DIAGNOSTIC_EVIDENCE") {
             std::fs::write(std::path::Path::new(&directory).join("analysis-graph.json"),serde_json::to_vec_pretty(&serde_json::json!({"conditions":{"nodes":3,"parallel_edges":130,"isolates":1,"page_limit":1,"protected_artifact_bytes":24},"semantic":first,"physical":physical})).unwrap()).unwrap();
         }

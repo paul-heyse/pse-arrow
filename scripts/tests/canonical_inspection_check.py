@@ -15,7 +15,10 @@ from scripts import surreal_server as server
 
 
 def run(state: Path, database: str, kind: str, request: Path, evidence: Path) -> None:
-    initializer = Path(os.environ["PSE_CANONICAL_TOOLS"])
+    selected_initializer = os.environ.get("PSE_CANONICAL_TOOLS")
+    if not selected_initializer:
+        raise ValueError("Selected operator evidence requires PSE_CANONICAL_TOOLS")
+    initializer = Path(selected_initializer)
     if not initializer.is_absolute() or not os.access(initializer, os.X_OK):
         raise ValueError(
             "Actual operator control requires its captured canonical-tools artifact"
