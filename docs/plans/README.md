@@ -93,7 +93,11 @@ now schedules all twenty review opportunities through new
 They develop process instrumentation/propagation, native Collector/OpenObserve operations,
 population-correct metrics and typed investigations through the existing FastMCP endpoint.
 52f retains actual database continuity; 52g/52h retain agent workflows and assembled qualification.
-The coordinator owns all package/opportunity/inquiry state; authoring establishes no deployment.
+The coordinator owns all package/opportunity/inquiry state. Its
+[52p/52q checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52p52q-execution-checkpoint--2026-10-24)
+links the isolated shared telemetry/service implementation, actual Python/Rust/native-child and
+pipeline acceptance, remaining integration work and explicit delivery limits. Permanent activation
+and telemetry merge await the maintainer's Plan54 cutover signal.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

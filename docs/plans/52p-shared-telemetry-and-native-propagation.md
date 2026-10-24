@@ -308,7 +308,7 @@ the actual API and admitted a fresh import. The same extension was reused by the
 Python/PyO3 acceptance cases below; cases do not each rebuild it.
 
 **Tested:** `scripts/pse-env --native=solver,klu,isolation,uno,petsc -- .venv/bin/python -m
-scripts.tests.telemetry_native_acceptance --output /tmp/pse-plan52pq-native-20261024-g237`
+scripts.tests.telemetry_native_acceptance --output /tmp/pse-plan52pq-native-current-20261024-m822`
 passed enabled, disabled, refused-exporter and delayed-exporter cases, zero failures against zero.
 Enabled export contained sixteen native spans and thirty native logs, with independently selected
 A/B parents, integer process PID and shared Python/Rust process incarnation. Actual model editing,
@@ -317,6 +317,41 @@ Missing/invalid context produced a fresh root rather than leaking a previous par
 export produced no records. HTTP503 and delayed transport preserved native outcomes; their export
 delivery remains unestablished. These are real PyO3 boundaries, not an assembled Python→private
 child or Rust→database→Surrealism journey, and their elapsed times establish no speedup.
+
+**Tested:** the same native environment with `python -m
+scripts.tests.telemetry_native_child_acceptance --output
+/tmp/pse-plan52pq-native-child-frozen-20261024-l721` passed disabled, enabled, refused and delayed
+modes, zero failures against zero. Each mode preserved the original three 2/4/2 solves, exact
+reservation release and actual process reap. Enabled export identified all three real child
+process incarnations and independently verified one child→launch parent edge; two child-root
+edges were unobserved and remain unestablished. No parent-only record was accepted as child
+continuity. The first case included cold compilation and Cargo lock waiting; these timings
+are not scientific execution benchmarks.
+
+**Tested:** `just unit-package pse-runtime` with the `tooling::telemetry`,
+`cancellation_before_entry_releases_admission_without_starting` and
+`native_convergence_retains_original_refusal_and_terminal_assessor_cause` filter selection
+passed thirteen actual default-feature tests, zero failures against zero. It covers bounded
+carriers, actual task/thread hops, independent producer links, ended initiators, native log
+context, current-thread-host HTTP export, ambient header isolation and short-child exit behavior.
+The two separately requested private-child controls were absent from that default-feature
+binary; they require the distinct native selection rather than being counted as passes here.
+**Tested:** `just unit-native-capability-package pse-runtime pse-runtime/solver-kinsol
+solver,klu,isolation,uno,petsc` with the
+`private_native_late_output_and_cancellation_hold_parent_charges_until_reap` and
+`private_native_process_death_foreign_attempt_and_original_residual_refuse_after_reap`
+filter selection passed both actual native-local controls, zero failures against zero. They
+preserve real death/foreign/invalid/truncated response refusal, original deadline versus owned
+cancellation, live reservation charges and process reap before release. These original controls
+do not initialize exporters and establish no additional exported cancellation parent chain.
+
+The fixed native-local `scripts.test_run.run_rust` owner with `cargo nextest run -p xtask
+--bin pse-worker --features xtask/package-fixtures` and the four named budget controls
+(`parsed_default_budget_admits_default_compiler_scratch`,
+`explicit_smaller_budget_retains_its_compilation_admission_limit`,
+`selected_reference_budget_consumes_exact_allocated_fields`,
+`explicit_worker_budget_cannot_exceed_the_supervised_slot`) passed all four tests against zero
+failures. Both routes verified the actual force-validation closure and original native owners.
 
 **Tested:** `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_diagnostic_trace
 scripts.tests.test_telemetry_config scripts.tests.test_telemetry_process
@@ -338,17 +373,39 @@ per-job demands, nested numerical threading and ownership exclusions retain thei
 contracts. Already running canonical services retain their frozen launch policy until readmission;
 the branch's shared defaults have not yet been merged into main. Both checkouts' local Cargo
 selection is 32. No throughput or performance improvement is inferred from configuration alone.
+The separate obsolete four-build-owner admission ceiling was subsequently removed entirely;
+this narrow correction is already committed on main as `2298a9ff5`, with its documentation in
+`53c6f1865`. Seventeen simultaneously registered build owners and a sixty-four-owner conflict
+check passed, while explicit scientific timing/reference exclusion and liveness remain intact.
+Main's focused `scripts.tests.test_build_mode` selection passed nine tests against zero failures.
 
 Mistakes corrected include a stale URL import after main's dependency pruning, unsigned tracing
 PID decoding in the child acceptance fixture, and scope-end Python typing/lint findings. Initial
 native acceptance compilation was intentionally interrupted to replace its accidental four-core
 allocation; this was not a scientific assertion failure. The initial cold build also emitted
 upstream native-compiler warnings; a subsequent warm build does not erase that observation.
+An independent reviewer found a credentialed lookup missing backend ownership checks; the
+correction and actual-service recheck are recorded in 52q's outcome. Prepared native selections
+whose script/configuration inputs changed during these repairs were refused and rerun against
+frozen inputs; refused preparations were never counted as executed scientific tests.
 
 The deliberate private one-shot deviation is no synchronous export drain on process exit, because
 that path is inside the scientific reap/deadline contract. Some or all short-child records can be
 lost; unobserved edges remain unestablished. Long-lived workers and embedded hosts still shut down
-after native settlement. Actual child acceptance, current Rust unit execution and remaining
-scope-end qualification are being finalized at the coordinator. Permanent service activation,
+after native settlement.
+
+**Tested:** `scripts/pse-env -- just hygiene` passed all 23 selected checks against zero failures,
+with unchanged source inputs. This includes workspace/all-target Clippy with `-D warnings` in
+default and no-default modes, Ruff, Pyrefly, import/boundary/pin checks, all generated outputs and
+Rust documentation. Pyrefly reported zero diagnostics with seven existing/documented suppressions;
+the four deliberately invalid reader-input controls have narrowly explained test-only type
+suppressions, not production type escapes. `scripts/pse-env -- just governance` passed all six
+selected checks against zero failures with unchanged inputs. Earlier aggregate failures from
+four nested-condition Clippy findings and a stale capability revision were corrected, then the
+complete hygiene selection passed. Native-linked Clippy and final documentation publication are
+being finalized at the coordinator; full feature-powerset/product/performance campaigns are not
+claimed by these selected checks.
+
+Permanent service activation,
 main merge and worktree retirement await the maintainer's Plan54 cutover signal. F02/I11,
 TEL09–TEL17, broader 52h qualification and measured benefits retain their existing owners.

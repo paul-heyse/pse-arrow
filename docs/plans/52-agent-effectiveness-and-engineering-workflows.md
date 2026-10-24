@@ -975,14 +975,19 @@ absent. Native join/reap/deadline contracts are unchanged. The bounded finite ca
 its distinct preservation contract; broader database continuity and retrieval/custody work retain
 their owners above.
 
-Committed main through `4e2297917` has been integrated, including dependency pruning and build
+Committed main through `1820f12e7` has been integrated, including dependency pruning and build
 tooling. Shared telemetry implementation is committed as `db8baeaaf`; the linked force-validated
 extension, generated actual-API stubs, all four actual Python/PyO3 acceptance modes and 65 focused
 Python checks passed. The [52p outcome](52p-shared-telemetry-and-native-propagation.md#targeted-execution-outcome--2026-10-24)
 records their exact boundaries and the full-workstation policy acceptance. A fresh actual pipeline
 case also rechecked signal delivery, restart recovery and controlled retention after the final
-Python HTTP-client fixes. Private-child telemetry acceptance and scope-end checks remain
-in progress; these focused passes do not close those obligations. The maintainer additionally
+Python HTTP-client fixes. All four private-child acceptance modes subsequently passed; only one
+of three enabled child-parent export edges was observed, and the other two remain unestablished.
+The default runtime selection passed thirteen tests, the native child cancellation/death selection
+passed two, and the actual worker budget selection passed four. Hygiene passed all twenty-three
+checks and governance all six; the additional native-feature Clippy graph exposed one remaining
+map-entry finding in the scientific-input tooling. These focused passes do not close broader
+52h or application/database continuity obligations. The maintainer additionally
 selected full workstation CPU use: `dbd959332` removes ordinary four-core allocations, defaults
 Cargo to 32 logical jobs, supplies 16 physical runner lanes and uses all 32 SMT CPUs in quota/
 affinity. The live native-compiler launch and 430 combined capacity/environment/supervisor tests
@@ -991,9 +996,30 @@ native acceptance compilation was deliberately interrupted to replace its accide
 placement; no scientific test failure is inferred. The maintainer freed disk space and final
 native qualification resumed with the existing compilation artifacts preserved. The original
 child numerical/reservation/reap assertions passed all four modes; the enabled telemetry fixture's
-unsigned-PID wire decoder was corrected and its export assertions are being rerun. Permanent
+unsigned-PID wire decoder was corrected and its actual export assertions passed with the explicit
+missing-edge limits above. Permanent
 service activation, merge to main and worktree removal remain deferred to the maintainer's Plan54
 completion/cutover signal. No telemetry service from isolated acceptance remains active.
+
+### 52p/52q native-observation refinement — 2026-10-24
+
+The maintainer authorized completing the remaining TEL01–TEL08 scope with the library assessment's
+shared private settings contract, library-native runtime measurements and selected direct FastMCP
+readers. The existing OTel pipeline remains selected. Rust settings supply the private wire shape;
+Python keeps environment resolution, and generated source-only bindings must not initialize native
+science. Actual executor owners supply typed snapshots to both existing diagnostic checkpoints and
+OTel, preserving cancellation, native settlement, missing coverage and distinct process/executor
+identity. The selected task-monitor dependency is exactly pinned; no scheduler policy or artificial
+workstation resource cap follows from instrumentation.
+
+TEL09's runtime-source projection and TEL14's configuration/health/known-trace bindings are bounded
+prerequisite slices within this execution, not adoption of their full packages. General metric
+populations, query pagination, profiling, custody, watches and F02/I11 retain their existing owners.
+RMCP receives a bounded adapter comparison, with existing FastMCP/PyO3 boundaries retained unless a
+separately selected replacement demonstrably removes a complete path. The next integration exercises
+actual STDIO/native consumers and failure fallback; prior passing checks retain their original inputs
+and limits. Scope-end checks follow functional implementation. Deployment and final merge still await
+the already recorded Plan54 cutover signal.
 
 ### OpenTelemetry authoring checkpoint — 2026-10-24
 
