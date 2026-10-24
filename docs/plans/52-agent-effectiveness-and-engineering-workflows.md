@@ -159,7 +159,7 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O16 | resolved | [D02](52d-execution-and-qualification-efficiency.md#D02) | Exact feature enumeration and safe per-combination reuse |
 | O17 | resolved | [D03](52d-execution-and-qualification-efficiency.md#D03) | Safe effective-build equivalence or conservative explained fallback |
 | O18 | resolved | [E01 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Actual selected remapped historical replay and protected retention; unsupported native closure refuses |
-| O19 | scheduled | [E02](52e-reproducible-experiments-and-isolation.md#E02) | Owned representative database baselines with verified population |
+| O19 | resolved | [E02 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Actual independently settled v2 populations, permission/query equivalence, interrupted read-only settlement and isolated cleanup |
 | O20 | resolved | [D04](52d-execution-and-qualification-efficiency.md#D04) | Actual pressure/placement facts and explicit experiments |
 | O21 | resolved | [E03 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Actual Git/Rust search found known bad revision through an unsupported revision; noisy retained comparison inconclusive |
 | O22 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Optional Bubblewrap isolation with actual server/library parser consumers, owned drain and cleanup |
@@ -188,7 +188,7 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I06 | resolved | [C07/C08](52c-behavioral-and-scientific-verification.md#C07) | Actual GDB lifecycle and deterministic production schedules selected; ASan unqualified after task denial; Loom not adopted for std/native path, with a pure-protocol revisit trigger |
 | I07 | resolved | [D03](52d-execution-and-qualification-efficiency.md#targeted-execution-outcome--2026-10-24) | Parsed TOML equivalence selected inside complete context; actual cold build/reuse passed; unsupported context and unknown targets refuse |
 | I08 | resolved | [E01 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Pure replay adopted; native archive refused before effects. Revisit only for a selected investigation that can close native deployment/ABI/license/config/data dependencies |
-| I09 | open | [E02](52e-reproducible-experiments-and-isolation.md#E02) | Deterministic population/logical restore; physical copy only if separately justified |
+| I09 | resolved | [E02 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Deterministic regeneration adopted and actually qualified; logical restore/physical copy unselected. Revisit only for a concrete fixture question whose state cannot reasonably be regenerated |
 | I10 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Private directories default; optional Bubblewrap for a concrete permission-isolation consumer. Podman unselected until a different-userspace/dependency requirement recurs |
 | I11 | open | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact SDK/transport context propagation; no fake continuity |
 | I12 | open | [G02](52g-agent-and-operator-workflows.md#G02) | Thin MCP consumer benefit versus direct CLI; no second dispatcher |
@@ -225,7 +225,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | D03 | done | [52d](52d-execution-and-qualification-efficiency.md#D03) | Safe build equivalence decision I07 |
 | D04 | done | [52d](52d-execution-and-qualification-efficiency.md#D04) | Pressure/topology and truthful unknowns |
 | E01 | done | [52e](52e-reproducible-experiments-and-isolation.md#E01) | Actual remapped replay, distinct producer/result, dependency refusal and protected detail reclamation; native archival unselected |
-| E02 | in-progress | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Named population and settlement controls delivered; actual fresh-service acceptance repairing immutable runtime receipt interpretation |
+| E02 | done | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Actual v2 populations, exact rows/edges/permissions, query equivalence, SIGINT/read-only settlement and sibling-preserving reclamation passed |
 | E03 | done | [52e](52e-reproducible-experiments-and-isolation.md#E03) | Actual semantic bisection visited an untestable revision, found the known bad commit and removed only its temporary Git checkout/build output after drain; main and independent worktrees preserved; retained noisy comparison inconclusive |
 | E04 | done | [52e](52e-reproducible-experiments-and-isolation.md#E04) | Optional Bubblewrap witnesses and actual CLI/library parser consumers; Surrealism grammar uses existing pinned parser |
 | F01 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired evidence comparisons |
@@ -341,8 +341,8 @@ comparison and optional Bubblewrap/server/library parser consumers. Native archi
 remain unselected under the recorded revisit conditions. FND00 required no new runtime document
 family for these existing-owner tooling records.
 
-E02's named populations and settlement controls are implemented. Actual fresh-service acceptance
-has repaired immutable receipt context, interrupted publication and drain recovery, and is now
-qualifying full-schema transport and explicit database setup. Its package remains in progress
-until actual isolated populations, permission/query checks and cleanup complete. Other FND00/G01
+E02's actual disposable-service acceptance passed after repairing immutable receipt context,
+interrupted publication/drain recovery, full-schema transport, explicit database setup and unique
+fixture identities. The Outcome retains original failures and corrected acceptance separately.
+E01–E04 and I08–I10 are complete at their selected focused boundaries. Other FND00/G01
 obligations, C04's separately recorded denial boundary and Plan52f–52h retain their scope.

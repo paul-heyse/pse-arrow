@@ -1,6 +1,6 @@
 ---
 title: "Plan 52e: Reproducible experiments and isolation"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md]
@@ -154,6 +154,20 @@ retaining its provenance. The native selection `pse-backend-native` / `highs_inc
 refused before compilation or execution because its deployment/ABI/license/config/data closure
 is not archived. This is historical executable evidence, not current-source qualification.
 
+**Tested — E02:** `scripts/pse-env --native= --resource-class build -- .venv/bin/python -m
+scripts.tests.surrealkit_fixture_check --state <owned-disposable-service> --tool-root
+<owned-surrealkit-tools> --evidence build/plan52e-evidence/database-populations-v3` exited 0.
+The actual SurrealDB 3.3.4 / SurrealMX 1.0.0 service passed 21 SurrealKit cases and 10 direct
+generated-contract cases. Two independently settled `readiness-graph-v2` namespaces had
+identical declared content with fresh owner/VIEWER credentials: 3 projects, 6 revisions and
+contexts, 26 study points and readiness rows, 10 graph nodes and 8 enforced edges. Full readback,
+relation endpoints, VIEWER read/write denial and bidirectional sibling-namespace refusal passed.
+Ordinary, forced-index and no-index ordered readiness answers all returned `[4,6,10,12]`;
+actual plans and catalogs are retained without a performance claim. A third fixture received
+real SIGINT after mutation submission, remained pinned/unavailable, then settled its original
+content through read-only recovery. All three fresh namespaces were reclaimed independently;
+`qualification.json` and `disposal.json` prove the sibling remained intact until its own removal.
+
 **Tested — E03:** `just experiment bisect --repo <owned-history> --good <good> --bad <bad>
 --predicate authoring-load-package --output <new-search> --cleanup` traversed an actual private
 nine-commit Git history using the real force-validated authored-package test. It visited good
@@ -199,6 +213,19 @@ acknowledgement. Failure closure now refreshes authoritative configuration. Lost
 acknowledgements require exact private unit bytes and independently drained ownership; the
 interrupted initializer's private marker can authenticate an unbound generation for drain only,
 without persisting or executing that reconstructed selection.
+The direct fixture installer also flattened generated SQL, letting a line comment swallow the
+remaining declarations. Root namespace administration now reuses bounded HTTP and preserves
+the full SQL bytes; strict administrative callers still require all-OK outcomes, while intentional
+negative oracles retain explicit statement errors. Explicit owned database creation precedes
+schema installation: selecting a nonexistent database had made its first declaration fail before
+later DDL created the context. The actual preflight then passed all 989 statements and independently
+read back the exact 79 tables and 171 functions.
+The first population transaction then exposed duplicate synthetic operation/run/occurrence
+values covered by generated UNIQUE indexes. Private per-statement diagnostics now preserve the
+submitted SQL digest and received response vector; the wrapper previously discarded that
+specific error. Corrected synthetic identities use the new `readiness-graph-v2` population.
+The invalid v1 execution route was removed, and existing v1 submissions retain their original
+identity and failed/incomplete evidence for explicit disposal.
 
 **Deliberate limits:** deterministic regeneration is selected over logical restore and physical
 store copying. Native archival is unselected until a concrete investigation justifies complete
@@ -212,14 +239,33 @@ productivity/performance benefit follows from this focused acceptance.
 -m unittest scripts.tests.test_test_archives scripts.tests.test_regression_experiments
 scripts.tests.test_tooling_experiments scripts.tests.test_surrealkit_population
 scripts.tests.test_surrealkit scripts.tests.test_surrealkit_persistent_fixture
-scripts.tests.test_surreal_source` passed 88 tests against zero expected failures.
+scripts.tests.test_surreal_source scripts.tests.test_surreal_server
+scripts.tests.test_test_resources` passed 423 tests against zero expected failures after the
+supervisor recovery, root transport, versioned fixture fixes and final formatting were integrated.
 `scripts/pse-env --resource-class build -- just ready` passed after the optional parser
 dependency edge and diagnostic tool selection changed. Its cleanup observer separately deferred
 three pre-existing resources with unsupported server profiles; it did not release or modify
 those historical owners. These are focused tooling/environment checks, not assembled
 Plan52 qualification.
+`scripts/pse-env --resource-class build -- just turn-end` passed ADR indexing and formatting;
+its cleanup observer separately deferred four existing unsupported-profile owners. It did not
+dispose those unrelated resources. Full hygiene and assembled qualification remain with 52h.
 
-The E02 actual fresh-service consumer remains in progress. Its immutable-receipt repair passed
-focused controls; actual initialization then exposed stale configuration being written back
-after a generation update. That failure and its pending allocation remain owned while the
-generation/materialization recovery is repaired; population acceptance is not yet claimed.
+The repaired original disposable service initialized successfully after normal allocation
+reconciliation authenticated the interrupted owner. Preliminary failed/interrupted beta and v1
+population runs retain their original outcomes and private diagnostics. No recorded population
+transaction was retried or rewritten; diagnosis used a new registered fixture. For one interrupted
+preliminary beta owner, explicit namespace cleanup preceded the additional independent child-scope
+observation; the retained evidence records that ordering. The subsequent observation confirmed
+the unchanged bound scopes had drained, and no surviving owned descendants remained. This does
+not retroactively claim a pre-cleanup observation. The fresh successful consumer above exercised
+the full selected acceptance sequence independently.
+
+**Tested — closeout:** `database-populations-v3/service-close.json` records all ten E02-owned
+namespaces absent, the disposable unit inactive with no surviving listener/process, drained
+contexts and service allocation, and normal host reconciliation releasing that allocation.
+The exact temporary diagnostic drop-in was removed after shutdown. Failed preliminary stages
+and diagnostics were retained without credentials and with their original failure/incomplete
+dispositions. Fully merged E02/E03/E04 worktrees and branches were removed; main, unrelated
+`history.txt` edits and the independent Plan53a worktree were preserved. The active historical
+archive and retained summaries remain under their declared investigation resource owners.

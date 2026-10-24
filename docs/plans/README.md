@@ -19,9 +19,9 @@ the coordinator links their outcomes and remaining series scope. Its
 records the integrated scientific/tooling delivery and completed D01–D04 scope. C04 retains blocked
 coverage-guided acceptance after automatic task denial; the ordinary structured controls passed.
 [52e's outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24)
-records selected historical replay, actual semantic Git bisection and optional confined parser
-experiments. Its remaining actual database-population acceptance is in progress at the
-coordinator's E02 owner. Other packages remain planned, and targeted acceptance does not
+records selected historical replay, actual semantic Git bisection, isolated database populations
+and optional confined parser experiments, including corrected failures and owned cleanup.
+Other packages remain planned, and targeted acceptance does not
 establish assembled Plan52 qualification.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
