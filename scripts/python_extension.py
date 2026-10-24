@@ -571,17 +571,21 @@ def extension_prepare(
         "python-extension", mode, profile, environment, validated=validated
     )
     path = stage_receipt("extension", environment)
-    try:
-        installed = capture(environment, validated=validated, native=mode == "native")
-    except (ValueError, OSError, subprocess.SubprocessError):
-        installed = None
     previous = read_receipt(path)
-    if (
-        inputs is not None
-        and previous == {"inputs": inputs, "artifact": installed}
-        and installed is not None
-    ):
-        return 0
+    if inputs is not None and previous.get("inputs") == inputs:
+        # A stale or unsupported preparation must build regardless of the old
+        # installed bytes. Import/hash them only when they can establish reuse.
+        try:
+            installed = capture(
+                environment, validated=validated, native=mode == "native"
+            )
+        except (ValueError, OSError, subprocess.SubprocessError):
+            installed = None
+        if installed is not None and previous == {
+            "inputs": inputs,
+            "artifact": installed,
+        }:
+            return 0
     if validated:
         command = validated_maturin_command(command, environment)
     result = subprocess.call(command, cwd=ROOT, env=environment)

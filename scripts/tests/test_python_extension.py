@@ -365,6 +365,75 @@ class PreparationCurrencyTests(unittest.TestCase):
                     )
             self.assertEqual(installer.call_count, 4)
 
+    def test_ineligible_reuse_never_imports_the_replaced_binary(self) -> None:
+        installed = {
+            "binary": "/installed/native.so",
+            "sha256": "installed-transformed-bytes",
+            "features": ["force-validate"],
+        }
+        events: list[str] = []
+
+        def install(*_args: object, **_kwargs: object) -> int:
+            events.append("install")
+            return 0
+
+        def capture(*_args: object, **_kwargs: object) -> dict[str, object]:
+            events.append("capture")
+            return installed
+
+        with (
+            patch.object(python_extension.subprocess, "call", side_effect=install),
+            patch.object(python_extension, "capture", side_effect=capture),
+        ):
+            self.assertEqual(
+                python_extension.extension_prepare("dev", "dev", self.environment), 0
+            )
+            self.assertEqual(events, ["install", "capture"])
+            events.clear()
+            self.assertEqual(
+                python_extension.extension_prepare("dev", "dev", self.environment), 0
+            )
+            self.assertEqual(events, ["capture"], "eligible reuse still checks bytes")
+            events.clear()
+            (self.root / "crates/pse-py/src/lib.rs").write_text("changed Rust")
+            self.assertEqual(
+                python_extension.extension_prepare("dev", "dev", self.environment), 0
+            )
+            self.assertEqual(events, ["install", "capture"])
+            events.clear()
+            with patch.object(python_extension, "preparation_inputs", return_value=None):
+                self.assertEqual(
+                    python_extension.extension_prepare("dev", "dev", self.environment),
+                    0,
+                )
+            self.assertEqual(events, ["install", "capture"])
+
+    def test_failed_install_has_no_import_and_changed_inputs_cannot_publish(self) -> None:
+        with (
+            patch.object(python_extension.subprocess, "call", return_value=17),
+            patch.object(python_extension, "capture") as capture,
+        ):
+            self.assertEqual(
+                python_extension.extension_prepare("dev", "dev", self.environment), 17
+            )
+        capture.assert_not_called()
+        self.assertFalse(
+            python_extension.stage_receipt("extension", self.environment).exists()
+        )
+
+        def install(*_args: object, **_kwargs: object) -> int:
+            (self.root / "crates/pse-py/src/lib.rs").write_text("changed during build")
+            return 0
+
+        with (
+            patch.object(python_extension.subprocess, "call", side_effect=install),
+            self.assertRaisesRegex(ValueError, "inputs changed during preparation"),
+        ):
+            python_extension.extension_prepare("dev", "dev", self.environment)
+        self.assertFalse(
+            python_extension.stage_receipt("extension", self.environment).exists()
+        )
+
     def test_session_transport_changes_reuse_preparation_but_unknown_build_inputs_invalidate(
         self,
     ) -> None:
