@@ -1789,6 +1789,93 @@ class SurrealSupervisorTests(unittest.TestCase):
                 self.assertEqual(selected["instance_id"], config["instance_id"])
                 self.assertFalse(selected["accepting_writes"])
 
+    def test_initialize_listener_failure_preserves_published_generation_and_materialization(self) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        worker = self.root / "captured-worker"
+        worker.write_bytes(b"fixture worker")
+        replacement = server.publish_generation(self.state, worker)
+        self.assertNotEqual(replacement, config["service_supervisor"])
+
+        def failed_listener(_state: Path) -> str:
+            current = server.config_for(self.state)
+            current.update(service_supervisor=replacement, unit_materialized=True)
+            server.write_json(self.state / "config.json", current)
+            raise server.SupervisorError("listener setup failed after publication")
+
+        with (
+            patch.object(server, "private_offline_state"),
+            patch.object(server, "drain_maintenance_listener"),
+            patch.object(server, "maintenance_endpoint", side_effect=failed_listener),
+            self.assertRaisesRegex(server.SupervisorError, "listener setup failed after publication"),
+        ):
+            server.initialize(self.state, ["/current/xtask"])
+        retained = server.config_for(self.state)
+        self.assertEqual(retained["service_supervisor"], replacement)
+        self.assertTrue(retained["unit_materialized"])
+        self.assertFalse(retained["accepting_writes"])
+        self.assertEqual(retained["derived_rebuild_pending"]["phase"], "initializing")
+
+    def test_materialization_lost_ack_recovers_exact_private_declaration_only_after_drain(self) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}):
+            server.materialize_service(self.state, config, self.allocation)
+            declaration = self.root / "user-config/systemd/user" / server.unit_name(self.state)
+            before = declaration.read_bytes()
+            config.pop("unit_materialized")
+            server.write_json(self.state / "config.json", config)
+            with (
+                server.lifecycle_reservation(self.state),
+                patch.object(server, "all_contexts_drained") as drain,
+                patch.object(server, "service_readiness", return_value=server.ServiceObservation(
+                    server.Readiness.ACTIONABLE_ABSENT, self.state, config["instance_id"],
+                    server.unit_name(self.state), "exact drained fixture",
+                    manager={"ActiveState": "inactive", "ControlGroup": ""},
+                )),
+            ):
+                server.materialize_service(self.state, config, self.allocation)
+            drain.assert_called_once_with(self.state)
+            self.assertEqual(declaration.read_bytes(), before)
+            self.assertTrue(server.config_for(self.state)["unit_materialized"])
+
+    def test_materialization_lost_ack_refuses_changed_foreign_or_undrained_unit(self) -> None:
+        config = self.initialized()
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}):
+            server.materialize_service(self.state, config, self.allocation)
+            declaration = self.root / "user-config/systemd/user" / server.unit_name(self.state)
+            before = declaration.read_bytes()
+            config.pop("unit_materialized")
+            server.write_json(self.state / "config.json", config)
+            for change in ("content", "mode", "symlink", "undrained"):
+                with self.subTest(change=change):
+                    if change == "content":
+                        declaration.write_bytes(before + b"# foreign declaration\n")
+                    elif change == "mode":
+                        declaration.chmod(0o644)
+                    elif change == "symlink":
+                        declaration.unlink()
+                        target = self.root / "redirected-unit"
+                        target.write_bytes(before)
+                        target.chmod(0o600)
+                        declaration.symlink_to(target)
+                    with (
+                        server.lifecycle_reservation(self.state),
+                        patch.object(server, "all_contexts_drained"),
+                        patch.object(server, "service_readiness", return_value=readiness_fixture(server.Readiness.MISMATCH)),
+                        self.assertRaisesRegex(server.SupervisorError, "materialization|inactive drained"),
+                    ):
+                        server.materialize_service(self.state, config, self.allocation)
+                    self.assertNotIn("unit_materialized", server.config_for(self.state))
+                    if declaration.is_symlink():
+                        declaration.unlink()
+                    declaration.write_bytes(before)
+                    declaration.chmod(0o600)
+
     def test_initializer_child_failure_drains_under_existing_lifetime(self) -> None:
         config = self.initialized()
         config.update(admission="validation_required", accepting_writes=False)

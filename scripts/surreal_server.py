@@ -4981,9 +4981,36 @@ def materialize_service(
     placement = storage_placement(config, owner)
     text = f"[Unit]\nDescription=pse-arrow owned storage {config['instance_id']}\nStartLimitIntervalSec=300\nStartLimitBurst=3\n\n[Service]\nType=exec\nExecStart={executable}\nKillMode=control-group\nTimeoutStopSec=45\nRestart={restart}\nRestartSec=5\nSlice={placement['slice']}\nMemoryMax={placement['memory_bytes']}\nCPUQuota={integer(placement['cpu_threads']) * 100}%\nMemorySwapMax=0\nTasksMax=128\nStandardOutput=null\nStandardError=null\n\n[Install]\nWantedBy=default.target\n"
     if path.exists() and not config.get("unit_materialized"):
-        raise SupervisorError(
-            "Existing user unit is not this generation's materialization"
-        )
+        selected = config_for(state)
+        # Recover a lost publication ACK only for the exact private declaration
+        # under its closed, drained lifecycle owner. Equality never proves drain.
+        if (
+            getattr(_LIFECYCLE, "state", None) != state
+            or config.get("accepting_writes") is not False
+            or config.get("admission") not in {"quiesced", "validation_required"}
+            or any(candidate.is_symlink() for candidate in (path, *path.parents))
+            or not path.is_file()
+            or path.stat().st_uid != os.getuid()
+            or stat.S_IMODE(path.stat().st_mode) != 0o600
+            or path.read_text() != text
+            or any(selected.get(key) != config.get(key) for key in (
+                "instance_id", "service_supervisor", "server", "resources", "service_class",
+            ))
+        ):
+            raise SupervisorError(
+                "Existing user unit is not this generation's materialization"
+            )
+        all_contexts_drained(state)
+        observed = service_readiness(state, config, deadline=getattr(_STARTUP, "deadline", None))
+        if (
+            observed.phase is not Readiness.ACTIONABLE_ABSENT
+            or observed.state != state
+            or observed.unit != unit_name(state)
+            or observed.instance_id != config["instance_id"]
+            or observed.manager.get("ActiveState") not in {"inactive", "failed"}
+            or observed.listener_owned
+        ):
+            raise SupervisorError("Materialization recovery requires the exact inactive drained service")
     temporary = path.with_suffix(".pending")
     temporary.write_text(text)
     temporary.chmod(0o600)
@@ -7244,6 +7271,10 @@ def maintenance_endpoint(state: Path) -> str:
     else:
         private_offline_state(state, config)
         bootstrap = fresh_root_authority(state, config)
+        if not config.get("unit_materialized"):
+            # Prove a retained declaration against its current generation before
+            # publishing the next one. A lost ACK cannot authorize replacement.
+            materialize_service(state, config)
         config["service_supervisor"] = publish_generation(state)
         write_json(state / "config.json", config)
         write_json(
@@ -8680,6 +8711,14 @@ def initialize_rebuild(
             raise SupervisorError("Initializer owner changed; admission remains closed")
         maintenance_phase(state, selected, "validated")
     finally:
+        # Listener setup can publish a supervisor and materialize its unit before
+        # failing. Preserve those authoritative effects, including their ACK,
+        # rather than rolling them back with this caller's pre-start snapshot.
+        current = config_for(state)
+        if current.get("instance_id") != selected.get("instance_id"):
+            raise SupervisorError("Initializer service identity changed; admission remains closed")
+        selected.clear()
+        selected.update(current)
         selected["accepting_writes"] = False
         write_json(state / "config.json", selected)
         # Settle the listener's ownership as well as its physical process. A
