@@ -35,11 +35,20 @@ class Domain(Contract):
     guides: tuple[str, ...] = ()
 
 
+class WorkflowStep(Contract):
+    id: Identifier
+    capabilities: tuple[str, ...]
+    purpose: str
+    guides: tuple[str, ...] = ()
+    default: bool = True
+
+
 class Workflow(Contract):
     id: Identifier
     title: str
     description: str
     guides: tuple[str, ...] = ()
+    steps: tuple[WorkflowStep, ...] = ()
 
 
 class Capability(Contract):

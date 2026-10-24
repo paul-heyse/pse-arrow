@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,7 @@ from fastmcp.server.transforms.visibility import (
 from fastmcp.tools import (
     ToolResult,  # noqa: TC002 -- FastMCP evaluates tool return annotations.
 )
+from mcp.types import ResourceLink, TextContent
 from pydantic import Field, JsonValue
 
 from scripts.capabilities import (
@@ -222,6 +224,7 @@ def build(root: Path = ROOT) -> Runtime:
         return True, []
 
     @server.tool(
+        output_schema=presentation.SelectionReceipt.model_json_schema(mode="serialization"),
         annotations={
             "readOnlyHint": True,
             "destructiveHint": False,
@@ -234,69 +237,48 @@ def build(root: Path = ROOT) -> Runtime:
         domains: Ids | None = None,
         workflows: Ids | None = None,
         capabilities: Ids | None = None,
-    ) -> dict[str, JsonValue]:
-        """Replace this attachment's view with exact selected domains/workflows/capabilities. No operation executes; checkout/service/permission context is unchanged."""
+        workflow_steps: Annotated[dict[str, Ids], Field(max_length=32)] | None = None,
+    ) -> ToolResult:
+        """Replace this attachment's view using exact IDs and default workflow steps; workflow_steps adds optional named groups. Read complete instructions deliberately through returned resources. No operation executes; checkout/service/permission context is unchanged."""
         try:
             selected = catalogue.select(
-                domains or [], workflows or [], capabilities or []
+                domains or [], workflows or [], capabilities or [], workflow_steps
             )
         except ValueError as error:
             raise refusal("pse.capabilities.unknown_selection", error) from error
         selected_keys = {
             tools[key].key for key in selected.capabilities if key in tools
         }
-        selected_keys.update(keys[key] for key in selected.guides if key in keys)
+        selected_keys.update(value for key, value in keys.items()
+                             if key.split("/", 1)[0] in selected.guides)
         selected_keys.update(
-            presentation_view.workflow_keys[key] for key in workflows or []
+            presentation_view.workflow_keys[key] for key in dict.fromkeys([*(workflows or []), *(workflow_steps or {})])
         )
         try:
-            instructions = guidance.instruction_bundle(
-                [key for key in selected.guides if key != "root"]
-            )
+            instructions = guidance.references(selected.guides)
         except ValueError as error:
             raise refusal("pse.capabilities.guidance_unavailable", error) from error
         changed, notifications = await replace(ctx, selected_keys)
-        remaining = 256 * 1024
-        for instruction in instructions:
-            content = instruction.get("content")
-            if isinstance(content, str):
-                size = len(content.encode())
-                if size > remaining:
-                    instruction["content"] = None
-                    instruction["complete"] = False
-                    instruction["omissions"] = [
-                        "selection response instruction bound; read this resource explicitly"
-                    ]
-                else:
-                    remaining -= size
-        return JSON_OBJECT.validate_python(
-            {
-                "revision": catalogue.revision,
-                "interface": interface.status(),
-                "changed": changed,
-                "capabilities": list(selected.capabilities),
-                "callable_tools": [
-                    key for key in selected.capabilities if key in tools
-                ],
-                "non_callable": [
-                    catalogue.describe(key)
-                    for key in selected.capabilities
-                    if key not in tools
-                ],
-                "guides": [
-                    {"id": key, "uri": catalogue.guides[key].uri}
-                    for key in selected.guides
-                ],
-                "instructions": instructions,
-                "notification_omissions": notifications,
-                "compatibility_invocation": "capabilities_invoke_read",
-                "action_invocation": "capabilities_invoke_action",
-                "context": {
-                    "checkout": str(root),
-                    "service_selection": "unchanged",
-                    "effects": "presentation only",
-                },
-            }
+        receipt = presentation.SelectionReceipt(
+            revision=catalogue.revision,
+            interface=interface.status(),
+            changed=changed,
+            capabilities=list(selected.capabilities),
+            callable_tools=[key for key in selected.capabilities if key in tools],
+            non_callable=[key for key in selected.capabilities if key not in tools],
+            workflow_steps=list(selected.steps),
+            instruction_resources=[presentation.InstructionReference.model_validate(item) for item in instructions],
+            instructions_complete=all(item["complete"] for item in instructions),
+            notification_omissions=notifications,
+            context=presentation.SelectionContext(checkout=str(root)),
+        )
+        value = receipt.model_dump(mode="json")
+        return ToolResult(
+            content=[TextContent(type="text", text=json.dumps(value, sort_keys=True)),
+                     *(ResourceLink(type="resource_link", uri=item.uri, name=item.id,
+                                    description="Read complete captured owned guidance.", mime_type="application/json")
+                       for item in receipt.instruction_resources)],
+            structured_content=value,
         )
 
     @server.tool(
@@ -385,7 +367,7 @@ def build(root: Path = ROOT) -> Runtime:
             }
         ),
         resource_names={
-            **{guide.uri: guide.id for guide in guides},
+            **guidance.resource_owners(),
             presentation.CAPABILITY_TEMPLATE: "capability_description",
         },
         prompt_names=frozenset(

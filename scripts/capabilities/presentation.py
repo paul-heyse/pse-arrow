@@ -13,8 +13,10 @@ from fastmcp.exceptions import PromptError, ResourceError
 from fastmcp.prompts import Prompt
 from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools, Transform
 from mcp.types import ToolAnnotations
+from pydantic import JsonValue
 
 from scripts.capabilities.diagnostics import refusal
+from scripts.capabilities.model import Contract
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -67,6 +69,42 @@ class ContentAnnotations(Transform):
         return self.annotate(tool) if tool is not None else None
 
 
+class InstructionReference(Contract):
+    id: str
+    uri: str
+    path: str
+    digest: str | None
+    complete: bool
+    restart_required: bool
+    omissions: list[str]
+    supporting_manifest: str | None = None
+    package_digest: str | None = None
+
+
+class SelectionContext(Contract):
+    checkout: str
+    service_selection: str = "unchanged"
+    effects: str = "presentation only"
+
+
+class SelectionReceipt(Contract):
+    revision: str
+    interface: dict[str, JsonValue]
+    changed: bool
+    capabilities: list[str]
+    callable_tools: list[str]
+    non_callable: list[str]
+    workflow_steps: list[str]
+    instruction_resources: list[InstructionReference]
+    instructions_complete: bool
+    instructions_embedded: bool = False
+    instruction_access: str = "Read each complete guide resource and, when relevant, its captured supporting-file manifest. Retrieval does not activate a skill or authorize work."
+    notification_omissions: list[str]
+    compatibility_invocation: str = "capabilities_invoke_read"
+    action_invocation: str = "capabilities_invoke_action"
+    context: SelectionContext
+
+
 @dataclass(frozen=True)
 class Presentation:
     """Keys the composition root includes in its atomic workflow selection."""
@@ -111,7 +149,7 @@ def register(server: FastMCP, catalogue: Catalogue, guidance: Guidance) -> Prese
                     "pse.capabilities.workflow_hidden: select the complete workflow"
                 )
         try:
-            instructions = guidance.instruction_bundle(selection.guides)
+            instructions = guidance.references(selection.guides)
         except ValueError as error:
             raise PromptError(
                 str(refusal("pse.capabilities.guidance_unavailable"))
@@ -129,10 +167,8 @@ def register(server: FastMCP, catalogue: Catalogue, guidance: Guidance) -> Prese
                 }
                 for key in selection.capabilities
             ],
-            "instruction_resources": [
-                {key: value for key, value in item.items() if key != "content"}
-                for item in instructions
-            ],
+            "instruction_resources": instructions,
+            "workflow_steps": list(selection.steps),
             "instructions_embedded": False,
             "instruction_access": "Read complete owned instructions through the listed resources. This prompt is a compact workflow index; no instruction body is truncated or duplicated here.",
             "effects": "Instruction retrieval only; no selection or workflow execution.",

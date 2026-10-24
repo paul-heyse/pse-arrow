@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from scripts import workspace_sources
-from scripts.capabilities.model import Capability, Domain, Guide, Workflow
+from scripts.capabilities.model import Capability, Domain, Guide, Workflow, WorkflowStep
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -94,7 +94,6 @@ def _family(
     prefixes: str = "",
     sources: str = "",
     guides: tuple[str, ...] = (),
-    workflows: tuple[str, ...] = (),
     route: tuple[str, ...] = (),
     prerequisites: tuple[str, ...] = (),
     exposure: Literal[
@@ -113,7 +112,6 @@ def _family(
             description=description,
             effects=effects,
             guides=guides,
-            workflows=workflows,
             route=route,
             prerequisites=prerequisites,
             exposure=exposure,
@@ -139,7 +137,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="context affected default",
             sources="scripts/workspace_context.py scripts/workspace_sources.py scripts/workspace_domains.py scripts/affected.py",
             guides=("root",),
-            workflows=("inspect-plan", "change-generated-contract"),
             route=("just", "context"),
         ),
         _family(
@@ -150,7 +147,6 @@ def _families() -> tuple[_Family, ...]:
             "Compiler/language-server symbol operations and exact source cuts; textual leads are not semantic edges.",
             "Language-server attachment and selected source reads are explicit.",
             guides=("rust", "python"),
-            workflows=("inspect-plan",),
             route=(".venv/bin/python", "-m", "scripts.semantic_navigation", "--help"),
             work_owner=ADP04,
         ),
@@ -163,7 +159,6 @@ def _families() -> tuple[_Family, ...]:
             "Preview reads sources; explicit apply mutates selected authored files.",
             sources="scripts/structural_migrations.py scripts/semantic_edit_probe.py",
             guides=("rust", "python", "generated"),
-            workflows=("change-generated-contract",),
             route=(".venv/bin/python", "-m", "scripts.semantic_edits", "--help"),
             work_owner=ADP04,
         ),
@@ -177,7 +172,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="knowledge",
             sources="scripts/session_retrospective.py",
             guides=("root",),
-            workflows=("inspect-plan", "investigate-evidence"),
             route=("just", "knowledge", "--help"),
             work_owner=ADP03,
         ),
@@ -191,7 +185,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="lib-outline skills-sync skills-check fetch-external",
             sources="scripts/fetch-external.sh .config/library-skills.toml docs/libraries/README.md",
             guides=("root",),
-            workflows=("plan-functional-review",),
             route=("just", "context", "--library"),
         ),
         _family(
@@ -219,7 +212,6 @@ def _families() -> tuple[_Family, ...]:
             prefixes="check-native- check-pipeline- check-solver-",
             sources="scripts/build_cache_probe.py scripts/build_measurements.py scripts/compiler_cache.py scripts/native_cache.py scripts/native_pipeline_cache.py scripts/sccache",
             guides=("environment", "rust"),
-            workflows=("qualify-change",),
             route=("just", "check-package"),
         ),
         _family(
@@ -256,7 +248,6 @@ def _families() -> tuple[_Family, ...]:
             prefixes="unit- feature-absence",
             sources="scripts/arrow_validation.py scripts/test_invocation.py scripts/test_requirements.py scripts/validation.py scripts/validation_scope.py scripts/case_audit.py scripts/test_resources.py scripts/validation_feature_campaign.py scripts/native_tests.py scripts/python_tests.py python/pse/conformance.py",
             guides=("qualification", "rust", "python"),
-            workflows=("qualify-change",),
             route=("just", "assessment-list"),
         ),
         _family(
@@ -270,7 +261,6 @@ def _families() -> tuple[_Family, ...]:
             prefixes="lint- clippy fmt features-",
             sources="scripts/check_agent_config.py scripts/check_python_contracts.py scripts/check_generated.py scripts/reuse_lint.py scripts/setup_report.py",
             guides=("qualification", "root"),
-            workflows=("qualify-change",),
             route=("just", "assessment-list"),
         ),
         _family(
@@ -283,7 +273,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="coverage mutants-file unsafe-surface",
             sources="scripts/coverage_correspondence.py scripts/boundary_fuzz.py scripts/audit_tools.py xtask/src/bin/frozen-inspection-fuzz.rs xtask/src/bin/inspection-fuzz-seeds.rs",
             guides=("qualification",),
-            workflows=("qualify-change",),
             route=("just", "coverage"),
         ),
         _family(
@@ -296,7 +285,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="activity result reference-run",
             sources="scripts/activity_watch.py scripts/run_inspection.py scripts/validation_result.py scripts/validation_receipts.py scripts/reference_run.py scripts/test_run.py scripts/build_observation.py scripts/pressure_observation.py scripts/invocation_disposition.py",
             guides=("environment", "qualification"),
-            workflows=("diagnose-run", "qualify-change"),
             route=("just", "activity"),
             work_owner=ADP03,
         ),
@@ -310,7 +298,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="diagnostics",
             sources="python/pse/_inspection.py python/pse/_diagnostic_query.py python/pse/_diagnostic_launch.py python/pse/_diagnostic_query_child.py scripts/numerical_investigation.py",
             guides=("diagnostics",),
-            workflows=("diagnose-run", "investigate-evidence"),
             route=("just", "diagnostics", "--help"),
             work_owner=ADP04,
         ),
@@ -327,7 +314,6 @@ def _families() -> tuple[_Family, ...]:
                 "The selected profiler/debugger and its native process permissions must be available.",
             ),
             guides=("diagnostics",),
-            workflows=("diagnose-run",),
             route=("just", "diagnostics", "active", "--help"),
             work_owner=ADP04,
         ),
@@ -341,7 +327,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="surreal surreal-module surrealkit surreal-test surreal-fixture-test canonical-init",
             sources="scripts/surreal_diagnostics.py scripts/surrealism_module.py scripts/surrealkit.py scripts/surrealkit_maintenance.py scripts/surrealkit_population.py scripts/surrealkit_source.py scripts/surreal_source.py scripts/surreal_telemetry.py scripts/surreal_rollout_producer.py scripts/grpc_wire.py xtask/src/surrealql_tools.rs",
             guides=("storage", "diagnostics"),
-            workflows=("manage-project", "diagnose-run"),
             route=("just", "surreal", "--help"),
             work_owner=ADP04,
         ),
@@ -368,7 +353,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="project project-build",
             sources="xtask/src/project_runtime.rs xtask/src/bin/pse-project.rs python/pse/_artifacts.py python/pse/_transfer.py python/pse/_runs.py python/pse/modeling.py python/pse/_modeling.py python/pse/_physical.py python/pse/_analyses.py python/pse/_research.py python/pse/_workflow.py python/pse/_strategies.py python/pse/_study_workbench.py",
             guides=("storage", "python"),
-            workflows=("manage-project",),
             route=("just", "project", "--help"),
             work_owner=ADP04,
         ),
@@ -381,7 +365,6 @@ def _families() -> tuple[_Family, ...]:
             "Imports the compiled boundary only when the user actually uses the native Python API.",
             sources="python/pse/_array.py python/pse/governance.py",
             guides=("python", "qualification"),
-            workflows=("manage-project", "qualify-change"),
             route=("python/pse/__init__.py",),
             exposure="native",
             work_owner=ADP04,
@@ -396,7 +379,6 @@ def _families() -> tuple[_Family, ...]:
             "Explicit capture builds/runs the native reader and writes a capsule; retained capsule reads are separate.",
             sources="xtask/src/scientific_inputs.rs tests/fixtures/scientific-inputs.toml python/pse/_scientific_inputs.py",
             guides=("qualification", "python"),
-            workflows=("qualify-change", "investigate-evidence"),
             route=(".venv/bin/python", "-m", "scripts.scientific_inputs", "--help"),
             work_owner=ADP04,
         ),
@@ -410,7 +392,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="evidence evidence-build evidence-regen",
             sources="xtask/src/bin/pse-evidence.rs scripts/evidence_sources.py scripts/evidence_projection.py scripts/evidence_store.py scripts/evidence_detail.py scripts/evidence-regen.sh",
             guides=("qualification", "storage"),
-            workflows=("investigate-evidence",),
             route=("just", "evidence", "--help"),
             work_owner=ADP04,
         ),
@@ -424,7 +405,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="experiment canonical-test canonical-portable-test canonical-recovery-test",
             sources="scripts/tooling_experiments.py scripts/regression_experiments.py scripts/test_archives.py xtask/src/bin/pse-canonical-recovery.rs xtask/src/canonical_recovery.rs",
             guides=("environment", "qualification"),
-            workflows=("run-experiment",),
             route=("just", "experiment", "--help"),
             work_owner=ADP03,
         ),
@@ -439,7 +419,6 @@ def _families() -> tuple[_Family, ...]:
             prefixes="bench-",
             sources="scripts/case_measure.py scripts/thermodynamic_feeds.py scripts/thermodynamic_campaign.py scripts/plan14_reference.py scripts/pfr_reference.py scripts/cstr_controller_reference.py scripts/decay_fit_reference.py scripts/feos_entropy_reference.py scripts/idaes_srk_reference.py scripts/idaes_nrtl_reference.py scripts/pr_stability_reference.py scripts/gross2001_bank.py xtask/src/feos_reference.rs",
             guides=("qualification",),
-            workflows=("run-experiment", "qualify-change"),
             route=("just", "case-measure"),
         ),
         _family(
@@ -453,7 +432,6 @@ def _families() -> tuple[_Family, ...]:
             prefixes="codegen",
             sources="scripts/check_generated.py xtask/src/main.rs python/pse/_build.py",
             guides=("generated", "rust", "python"),
-            workflows=("change-generated-contract",),
             route=("just", "codegen"),
         ),
         _family(
@@ -466,7 +444,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="docs docs-rust docs-serve docs-test doc-lint plan",
             sources="scripts/document_metadata.py scripts/docs.py",
             guides=("docs", "decisions"),
-            workflows=("inspect-plan", "plan-functional-review"),
             route=("just", "docs"),
         ),
         _family(
@@ -480,7 +457,6 @@ def _families() -> tuple[_Family, ...]:
             prefixes="adr-",
             sources="scripts/check_register.py",
             guides=("decisions",),
-            workflows=("inspect-plan",),
             route=("just", "adr-new"),
         ),
         _family(
@@ -506,7 +482,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="worktree gh-setup gh-setup-check labels-sync wheels-check",
             sources="scripts/gh-setup.sh scripts/github-config.py scripts/labels-sync.sh .agents/roles/README.md",
             guides=("root", "environment"),
-            workflows=("qualify-change",),
             route=("just", "worktree"),
             exposure="native",
             reason="Native Git and isolated worktrees remain useful access; generic closeout automation is separately owned by Plan52g G04.",
@@ -521,7 +496,6 @@ def _families() -> tuple[_Family, ...]:
             recipes="producer-deployment producer-identity pse-worker",
             sources="scripts/producer-cargo scripts/producer_cargo.py scripts/workspace.rs xtask/src/producer_identity.rs xtask/src/producer_preparation.rs xtask/src/producer_history.rs xtask/src/bin/pse-worker.rs xtask/src/bin/pse-native-lane.rs",
             guides=("environment",),
-            workflows=("run-experiment",),
             route=("just", "producer-deployment", "--help"),
             work_owner=ADP04,
         ),
@@ -566,18 +540,6 @@ def _guides() -> tuple[Guide, ...]:
                 "Decision and plan rules",
                 ".claude/rules/decisions.md",
                 "markdown",
-            ),
-            (
-                "plan-review",
-                "Prepare a design review",
-                ".codex/skills/plan-design-review/SKILL.md",
-                "skill",
-            ),
-            (
-                "execute-plan",
-                "Execute authorized plan scope",
-                ".codex/skills/execute-plan/SKILL.md",
-                "skill",
             ),
             (
                 "generated",
@@ -702,8 +664,84 @@ def inventory(
             ),
         )
     )
+    # These intent groups are the only authored workflow membership. Optional
+    # groups are revealed deliberately through capabilities_select.workflow_steps.
+    def step(identity: str, purpose: str, *capabilities: str,
+             default: bool = True, guides: tuple[str, ...] = ()) -> WorkflowStep:
+        return WorkflowStep(id=identity, purpose=purpose, capabilities=capabilities,
+                            default=default, guides=guides)
+
+    steps = {
+        "inspect-plan": (
+            step("scope", "Read the exact task owner and page its current native scope without authorizing execution.",
+                 "workspace_task_context", "document_scope_query"),
+            step("source-navigation", "Follow a selected source symbol or original source evidence when scope needs clarification.",
+                 "navigation_definition", "navigation_references", "knowledge_source_corpus", default=False),
+            step("native-route", "Inspect an exact native recipe when the plan names a command.",
+                 "workspace_recipe_describe", default=False),
+        ),
+        "change-generated-contract": (
+            step("declaration", "Read task context, locate authored producers and inspect the exact generated native schema before editing.",
+                 "workspace_task_context", "workspace_producer_relationships", "native_contract_schema"),
+            step("edit", "Preview and deliberately apply an authored source change; reconcile any interrupted apply.",
+                 "navigation_rename_preview", "navigation_action_preview", "edit_preview_read", "edit_preview_apply", "edit_preview_reconcile", default=False),
+            step("regenerate", "Run the original generator after editing its declaration, then compare generated contracts.",
+                 "contracts_generate", "contracts_check", default=False),
+        ),
+        "plan-functional-review": (
+            step("prepare", "Retrieve the planning skill and original capability context; preserve the inquiry and planning phase boundary.",
+                 "skill-plan-functional-extension-review", "workspace_concepts_query",
+                 guides=("skill-plan-functional-extension-review",)),
+            step("library-sources", "Inspect exact library/source evidence relevant to the selected functional inquiry.",
+                 "library_source_packet", "document_scope_query", default=False),
+        ),
+        "diagnose-run": (
+            step("original-result", "Read the authentic invocation and separate workload, assurance and drain outcomes before choosing diagnostics.",
+                 "product_run_read", "workload_watch"),
+            step("scientific-detail", "Read selected native invocation/evidence and offline scientific diagnostics in an already prepared environment.",
+                 "native_invocation_read", "native_evidence_inspect", "native_diagnostic_inspect", default=False),
+            step("active-experiment", "Perform only a deliberately selected diagnostic experiment and read its retained original record.",
+                 "diagnostic_action", "diagnostic_action_read", default=False),
+        ),
+        "qualify-change": (
+            step("select", "Describe the relevant assessment and test closure before choosing correctness scope.",
+                 "assessment_select", "rust_test_describe"),
+            step("execute", "Run the selected native checks at the authorized qualification boundary and retain authentic results.",
+                 "compilation_check", "rust_test_run", "assessment_run", default=False),
+            step("evidence", "Read original invocation and assessment evidence; a selected pass does not qualify unexercised scope.",
+                 "product_run_read", "assessment_read", "coverage_correspondence_read", default=False),
+        ),
+        "investigate-evidence": (
+            step("source", "Read attributed original source evidence with explicit completeness.",
+                 "knowledge_source_corpus"),
+            step("retained-run", "Follow an authentic run or diagnostic action record without rerunning its subject.",
+                 "product_run_read", "diagnostic_action_read", default=False),
+            step("native-evidence", "Inspect exact native scientific evidence in the selected existing environment.",
+                 "native_evidence_inspect", "native_invocation_read", default=False),
+            step("archive", "Inspect original historical archive bytes without treating them as current-source qualification.",
+                 "experiment_inspect", default=False),
+        ),
+        "manage-project": (
+            step("context", "Inspect exact project metadata and revision source in an already prepared native environment.",
+                 "native_project_metadata", "native_revision_source"),
+            step("select", "Deliberately select an existing project through its native owner.",
+                 "native_project_select", default=False),
+            step("source-admission", "Discover exact preparation requirements and explicitly admit authored source through its native validator.",
+                 "native_preparation_discover", "native_revision_preparation_discover", "native_source_admit", default=False),
+            step("results", "Inspect selected original project/result/research artifacts without asserting a solve outcome.",
+                 "native_project_bundle_inspect", "native_result_read", "native_result_inspect", "native_research_read", default=False),
+        ),
+        "run-experiment": (
+            step("archive", "Create an explicitly selected pure-test archive with original isolation and recovery ownership.",
+                 "experiment_archive"),
+            step("inspect", "Verify exact retained archive bytes before interpreting or replaying historical results.",
+                 "experiment_inspect"),
+            step("replay", "Deliberately replay historical executables into fresh output; replay does not qualify current source.",
+                 "experiment_replay", default=False),
+        ),
+    }
     workflows = tuple(
-        Workflow(id=identity, title=title, description=description, guides=guides)
+        Workflow(id=identity, title=title, description=description, guides=guides, steps=steps[identity])
         for identity, title, description, guides in (
             (
                 "inspect-plan",
@@ -779,9 +817,6 @@ def inventory(
                 exposure="native",
                 effects="Instruction retrieval only; no workflow execution.",
                 guides=(guide_id,) if within_checkout else (),
-                workflows=("plan-functional-review",)
-                if name == "plan-functional-extension-review"
-                else (),
                 route=(relative,),
                 reason="An owned instruction package remains native guidance, not a callable placeholder."
                 if within_checkout
