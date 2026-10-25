@@ -138,6 +138,14 @@ contracts use the short-ADR route where appropriate. Ordinary bug fixes, refacto
 third-party dependency changes and truthful wording repairs do not acquire an invented ADR gate.
 No new crate or major pinned-family move is selected by this proposal.
 
+**56a execution decision — 2026-10-25:** the operator authorized A01–A03 and the minimal
+B01/C03/F01 prerequisite slices needed for end-to-end A03, and explicitly selected source-owned
+physical identity aliases. RC07: accept that narrow extension to ADR-0115 through
+[ADR-0226](../adr/0226-source-owned-physical-identities.md) and its scoped review before dependent
+code. Existing physical wrappers remain authoritative; identity bytes and framing are preserved.
+RC01–RC06 remain pending. The reader slice uses existing retained physical source references and
+producer-recorded assessment facts; no payload redesign or storage reset is authorized here.
+
 P00 produces only the needed decision/review artifacts for confirmed changes before their dependent
 code. Focused authoring advice is not a substitute for a required formal review. The recent audit
 can supply its bounded input after reconciling affected owner changes; no unrelated new audit or

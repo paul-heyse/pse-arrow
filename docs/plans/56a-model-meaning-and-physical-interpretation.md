@@ -1,8 +1,8 @@
 ---
 title: "Plan 56a: Model meaning and physical interpretation"
-status: draft
+status: in-progress
 date: 2026-10-25
-adrs: []
+adrs: [ADR-0226]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
 scenario_sources: [docs/design_review/audit/system-architecture.md]
 doc_role: plan
@@ -149,3 +149,18 @@ affine values versus differences, repeated symbols in different contexts, missin
 and result inspection without out-of-band YAML parsing. Exercise both executable bundles and
 bounded result views with their distinct contracts. Targeted validated package tests accompany
 implementation; G owns composed installed/native journeys. No tests ran to establish this proposal.
+
+## Execution checkpoint — 2026-10-25
+
+The operator authorized A01–A03 plus minimal working boundary-emission, governing-permission and
+retained-context prerequisites. Source-owned physical identity aliases were explicitly selected;
+ADR-0226 and its scoped review precede that dependent implementation. RC01–RC06 are not adopted.
+
+A01 reuses the existing generated visitor. A02 consumes already-transitive resolved numeric/guard
+support rather than inventing another walker. A03 uses the original run's retained physical rows
+and receipt; the governing aggregate fact remains separate from selected-product usability.
+Current stored Assessment facts suffice for this reader slice without a completion schema change.
+No store reset, inline payload redesign, broad B01 migration or full F01 partition is selected.
+
+Next: integrate the occurrence/binder and per-mode products, then complete original-context public
+readers and their cross-boundary acceptance. Companion package closure remains with its own owner.

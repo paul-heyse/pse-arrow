@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 273
+revision: 274
 date: 2026-10-25
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 274 | 2026-10-25 | Record selected source-owned physical identity alias direction (§4.1/§5.1/§8.1/§21.1). | Maintainer-authorized Plan56a RC07, proposed ADR-0226 and independent Accept design review; implementation and qualification remain with Plan56a. |
 | 273 | 2026-10-25 | Publish selected Plan55 actual developer/native/MCP/CLI qualification, fresh Codex attachment boundary, repaired static evidence, metadata completeness limits and original fixture teardown (§24.2). | Maintainer-authorized Plan55 F03 closeout through existing .design-edit authorization; composed selected results and exclusions remain at Plan55f, proposed ADR-0224 unchanged. |
 | 272 | 2026-10-25 | Publish Plan55 derived-client/lifetime, selected native model and nested inspection v2, exact knowledge/evidence and passive validation contracts (§21.1/§24.1). | Maintainer-authorized Plan55 implementation and explicit .design-edit authorization; proposed ADR-0224 remains proposed. Qualification remains at Plan55f. |
 | 271 | 2026-10-25 | Publish completed Plan52 feature qualification: 505 depth-two and 34 no-default configurations, unchanged relevant compiler inputs and retained documentation drift (§24.2). | Maintainer-authorized Plan52 closeout via explicit `PSE_DESIGN_EDIT=1`; original receipts, composed functional boundaries, R-55 deferrals and proposed ADR status remain unchanged. |

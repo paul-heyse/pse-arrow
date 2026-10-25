@@ -25,6 +25,11 @@ versioned projections is [ADR-0089](../../adr/0089-semantic-identity-projections
 
 ### 5.1 Forms of identity
 
+> Decision: [ADR-0226](../../adr/0226-source-owned-physical-identities.md) (proposed) permits
+> source-owned identity aliases through the registry declaration route (§4.1). Aliases preserve
+> the source type's bytes, framing and domain-specific schema facet; they do not mint another
+> identity or merge physical domains sharing a storage base.
+
 > Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — entity identities are declared on registry key columns, inherited by
 > foreign keys, and generated as typed ids; bytes and minting are unchanged (Plan 22 B1, B3,
 > B7, implemented). As built, modeling roots, definitions and members are declarations and

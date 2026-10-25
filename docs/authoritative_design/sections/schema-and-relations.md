@@ -24,6 +24,11 @@ either generated from the registry or checked against it.
 
 ### 4.1 What is declared once
 
+> Decision: [ADR-0226](../../adr/0226-source-owned-physical-identities.md) (proposed) supplements
+> ADR-0115: identity declarations may name an existing source-owned Rust type. Generation
+> aliases that owner and retains the shared model, Arrow, schema, Python and native role projections.
+> Source paths are generation metadata, not scientific identity or persisted physical meaning.
+
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Canonical object versions, membership, products, execution and result envelopes extend this declaration route. Finite scientific f64 storage uses authoritative bit bytes and a derived finite projection; explicitly declared diagnostics may preserve raw nonfinite bits. Full-range unsigned fields lower to native checked decimal integers. Reader, schema, codec and structural-function interpretations are versioned.
 
 > Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) retains typed entity identities and one shared decision vocabulary. Under proposed [ADR-0164](../../adr/0164-unify-simulation-substrate.md), the registry declares canonical store fields, keys and native lowerings; named relational row checks remain separate from structural transition guards and scientific admission.

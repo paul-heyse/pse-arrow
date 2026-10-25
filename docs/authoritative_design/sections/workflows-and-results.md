@@ -1464,6 +1464,10 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 
+> Decision: [ADR-0226](../../adr/0226-source-owned-physical-identities.md) (proposed) extends
+> declared identity projection to existing physical types, preserving Rust-owned documents and
+> generated Python aliases. Plan56a owns implementation and actual boundary qualification.
+
 `ResultInspectionRequest` and its version-2 schema/children/metadata/values/refusal document are
 Rust-owned members of the directional catalogue under proposed ADR-0224. Required version headers
 are checked before body decoding; old inspection documents are not reinterpreted. PyO3 and

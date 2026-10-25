@@ -38,6 +38,11 @@ empty-inventory vector).
 
 ### 8.1 QuantityType
 
+> Decision: [ADR-0226](../../adr/0226-source-owned-physical-identities.md) (proposed) retains
+> the physical owner's identity wrappers at generated boundaries. Typed references and readable
+> projections still require admission against the exact selected physical context; Python aliases
+> are annotations, not membership or conversion proofs.
+
 > Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — internal anonymous contracts retain declared public quantity boundaries.
 
 > Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — a quantity kind
