@@ -159,6 +159,21 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     emit(&mut tree, "README", index);
     emit(&mut tree, "enums", enums(reg));
     emit(&mut tree, "frames", frames());
+    tree.relationships
+        .push(super::provenance::SourceRelationship {
+            declaration_key: "pse_ids::Frame".into(),
+            declaration_kind: "rust_enum".into(),
+            source_path: Some("crates/pse-ids/src/derive.rs".into()),
+            source_symbol: Some("Frame".into()),
+            source_role: "type_definition".into(),
+            source_identity: None,
+            generator_path: "crates/pse-codegen/src/codegen/markdown/mod.rs".into(),
+            generator_symbol: "generate".into(),
+            output_path: "docs/generated/frames.md".into(),
+            direction: None,
+            contract_sections: Vec::new(),
+            basis: "declared".into(),
+        });
     let extensions = EXTENSION_TYPES
         .iter()
         .map(|extension| {
@@ -313,5 +328,27 @@ mod tests {
         }
         assert!(frames.contains("\n## Runtime and workflows\n"));
         assert!(page("README").contains("- [Hash frames](frames.md)"));
+        let relationships: Vec<_> = tree
+            .relationships
+            .iter()
+            .filter(|item| item.output_path == "docs/generated/frames.md")
+            .collect();
+        assert_eq!(relationships.len(), 1);
+        let relationship = relationships[0];
+        assert_eq!(relationship.declaration_kind, "rust_enum");
+        assert_eq!(relationship.declaration_key, "pse_ids::Frame");
+        assert_eq!(
+            relationship.source_path.as_deref(),
+            Some("crates/pse-ids/src/derive.rs")
+        );
+        assert_eq!(relationship.source_symbol.as_deref(), Some("Frame"));
+        assert_eq!(relationship.source_role, "type_definition");
+        assert_eq!(relationship.source_identity, None);
+        assert_eq!(
+            relationship.generator_path,
+            "crates/pse-codegen/src/codegen/markdown/mod.rs"
+        );
+        assert_eq!(relationship.generator_symbol, "generate");
+        assert_eq!(relationship.basis, "declared");
     }
 }

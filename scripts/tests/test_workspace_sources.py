@@ -545,5 +545,29 @@ doc_topics = ["architecture"]
         )
 
 
+class RepositoryProducerTests(unittest.TestCase):
+    def test_frames_reference_names_its_actual_type_and_generator(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        result = sources.relationships(
+            root=root, exact_paths=("docs/generated/frames.md",)
+        )
+        self.assertEqual(len(result["items"]), 1)
+        relationship = result["items"][0]
+        self.assertEqual(relationship["declaration_kind"], "rust_enum")
+        self.assertEqual(relationship["declaration_key"], "pse_ids::Frame")
+        self.assertEqual(
+            relationship["source_path"], "crates/pse-ids/src/derive.rs"
+        )
+        self.assertEqual(relationship["source_symbol"], "Frame")
+        self.assertEqual(relationship["source_role"], "type_definition")
+        self.assertIsNone(relationship["source_identity"])
+        self.assertEqual(
+            relationship["generator_path"],
+            "crates/pse-codegen/src/codegen/markdown/mod.rs",
+        )
+        self.assertEqual(relationship["generator_symbol"], "generate")
+        self.assertEqual(relationship["basis"], "declared")
+
+
 if __name__ == "__main__":
     unittest.main()

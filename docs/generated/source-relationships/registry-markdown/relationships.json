@@ -206,6 +206,20 @@
     {
       "basis": "declared",
       "contract_sections": [],
+      "declaration_key": "pse_ids::Frame",
+      "declaration_kind": "rust_enum",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/markdown/mod.rs",
+      "generator_symbol": "generate",
+      "output_path": "docs/generated/frames.md",
+      "source_identity": null,
+      "source_path": "crates/pse-ids/src/derive.rs",
+      "source_role": "type_definition",
+      "source_symbol": "Frame"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.algorithm_arguments@1",
       "declaration_kind": "relation",
       "direction": null,
