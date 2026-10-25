@@ -1,7 +1,7 @@
 ---
 title: MCP capability acceptance assessment
 date: 2026-10-25
-status: complete-with-gaps
+status: complete
 doc_role: evidence
 doc_owner: docs/dev/capability-interface.md
 doc_topics: [validation, diagnostics, environment]
@@ -11,7 +11,127 @@ doc_retention: while-dependent
 
 # MCP capability acceptance assessment — 2026-10-25
 
-## Verdict and practical consequences
+
+## Correction outcome — 2026-10-25
+
+**The selected correction scope passed. Tested:** all eight selected fresh Codex workflows
+passed, the complete managed setup run passed **2,426 tests**, and fresh coverage capture
+plus its canonical MCP reader passed. Combined original and correction evidence now gives
+**94/94 callable capabilities at least one independently checked positive path**. This is
+not a fresh exhaustive semantic rerun of all 94 bindings or whole-platform qualification.
+
+**Implemented:** coverage argument composition, runtime currency classification, persistent
+service telemetry selection, collector settlement checks, replay preflight ordering, async
+setup discovery, descriptor-backed test logging, and the missing frames producer relationship
+were corrected. The later instruction to convert historical runs and delete their worktree
+superseded the earlier retention-only choice: all seven related report resources were
+converted to current physical custody, and the sole historical worktree and branch were
+removed. Original bytes, outcomes and provenance meanings were preserved.
+
+The original assessment below remains historical evidence. Its failed attempts, 93/94 count,
+unrun fallback and retained-worktree statements describe the state before these corrections.
+Current results and disposition are recorded here rather than rewriting those observations.
+
+### Corrections and disposition
+
+| Finding or gap | Current result | Independent acceptance |
+| --- | --- | --- |
+| MCP-A01: coverage producer | Corrected. LLVM-only reporting options are excluded only from scope interpretation and retained in executed argv; unknown/malformed scope options still refuse. | Real fresh capture: one signed-zero test passed, 53 unselected. CLI-to-STDIO reader returned complete, fresh, observed data with that exact population. Git base HEAD has no changed-source regions; no changed-region coverage or assertion-adequacy claim follows. |
+| MCP-A02: runtime currency | Corrected for the six named observation/output selectors through the existing shared identity owner. Unknown compiler/environment inputs and actual artifact witnesses remain conservative. | Joined native telemetry/MCP passed under all six changed selectors **without `--prepare`**, including source admission, the exact two-worker metric/trace joins and usable native producer outcome. |
+| Continuous private telemetry | Corrected. Service setup records its selected telemetry path; child configuration and launch identity consume it. Legacy selection migration is offline, bounded and restricted to dedicated original ownership. | Continuous F02 and its finite comparison each passed two independent 11-span parent chains. A separate finite-only journey also passed. Shared-allocation refusal, dead-caller release and held-ledger expiry controls preserve unrelated work and original clocks. |
+| Collector-down fallback | Qualified. The fixture waits for the authenticated original incarnation and cgroup to settle, accepting inactive or failed terminal unit state; unknown/replacement identities refuse. | Actual collector stop followed by MCP health/configuration reads passed: collector unavailable, configuration readable. |
+| MCP-A03: replay/custody | Future known preflight refusals create no output, report resource or persistent consumer reference. Existing report disposal guards remain unchanged. Historical evidence moved through the owner-controlled converter. | Replay refusal/success regressions passed; 92 resource controls passed, including creation/publication interruption, read-only recovery, mixed-batch refusal, same-process timeout retry and protected old/current locators. Seven real reports were verified before and after old-worktree removal. |
+| Async test discovery and XML runner | Corrected. One unittest discovery pass includes async-only cases once with requirements intact; real subprocess controls own descriptor-backed stderr. | Both formerly failing XML cases passed; final complete setup run: 2,426 passed, zero failures/errors/skips, 282.070 seconds. |
+| Frames producer lookup | Corrected with the actual `pse_ids::Frame` type, Rust owner and markdown emitter in the existing relationship representation. | Generator unit passed; workspace-source module 16/16 passed; real STDIO and fresh Codex exact-path lookup returned the declared relationship. Regeneration and all six selected comparison leaves passed through the original owners. |
+
+No dependency pins, scientific wire schemas or MCP catalogue counts changed: 11 bootstrap
+tools, 14 domains, eight workflows and 141 entries remain. The implementation uses the
+existing owners and mechanisms; the supplied [FastMCP reference](../libraries/fastmcp.md),
+[OpenTelemetry reference](../libraries/OpenTelemetry_Rust.md) and
+[Serde/Schemars reference](../libraries/Serde_serde_json_and_Schemars.md) informed the work.
+The installed pins, rather than newer overview examples, governed implementation.
+
+### Current verification and original attempts
+
+Current local evidence is under `build/mcp-corrections/20261025T183742Z/`, abbreviated
+`C/` here. `C/coverage-index.json` preserves the combined per-binding basis and failed host
+attempt alongside successful outcomes. Exact commands and conditions remain in the lane
+receipts and logs. Every check uses the zero failure target; overlapping populations are
+not summed.
+
+| Command / lane | Result and scope | Evidence |
+| --- | --- | --- |
+| Coverage/parser/currency/archive unit selection | 78 focused tests passed. | `scope-currency-replay-unit-corrected.log` |
+| Service/telemetry/host-admission unit selection | 368 tests passed before the final dedicated dead-caller refinement; three refined migration controls then passed. The complete final setup run re-exercised this current code. | `telemetry-service-unit-final.log`, `legacy-migration-guarded.log`, `setup-final/` |
+| Custody resource unit module | Final 92/92 passed after recovery and static corrections. | `custody-static-correction-tests.log` |
+| `just check-package pse-codegen`; selected generator unit; workspace sources | Compile and one generator unit passed; workspace sources 16/16 passed. | `codegen-check.log`, `codegen-frame-test.log`, `workspace-sources-final.log` |
+| `just setup-test-report …/setup-final` | One clean 2,426-case run passed. Ordinary recipe, with the existing native dependency loader path; no extra enclosing native admission. | `setup-final.log`, `setup-final/setup-test.xml` |
+| Real STDIO source/protocol census | 21 cases/420 tool calls passed; all 94 malformed-envelope cases reached the intended refusal. | `source-current/lane.json` |
+| Fresh actual Codex workflows | All eight selected workflows passed, plus a second diagnose-run journey reading the independently known continuous trace/span. | `host/*/{case,outcome}.json`, `events.jsonl` |
+| Four disposable native journeys | Continuous/finite parentage, independent finite capture, joined telemetry/MCP without preparation, and canonical project/result/LP/IPC/nested controls all passed, each exit zero. | `native/lane.json` and its original child receipts |
+| `just hygiene` plus corrected failing leaves | Original full hygiene failed lint-py/typecheck in new code; all other leaves passed. Ruff and Pyrefly reruns passed, zero diagnostics with seven existing suppressions unchanged. This is a repaired composite result, not a second clean full hygiene run. | `hygiene/`, `lint-py-final.log`, `typecheck-final.log`; final fixture-only closeout reruns also passed |
+| Governance and native contract/data lints | All passed. No feature powerset or performance campaign was added for this tooling/generator correction. | `governance.log`, `lint-native-contracts.log`, `lint-native-data.log` |
+| Ordinary native restoration | Prepared/published native, validated dev extension after fixture teardown. The final artifact bytes match the successful prepared Codex result-reader artifact; the restored-model probe passed both controls. | `ordinary-native-restoration.json`, `native/restored-model/receipt.json` |
+| Documentation and lifecycle validation | Both passed: 667 chapters published; 1,401 lifecycle scope items validated, no errors. | `docs-final.log`, `document-lifecycle-final.log` |
+
+The first full setup attempt had an unnecessary enclosing native admission that expired;
+its failures remain in `setup.log`. A normal attempt without the required existing native
+loader could not import one test module and refused its failed-loader selection
+(`setup-normal.log`). With that prerequisite supplied, the first complete run had one
+old fixture missing its newly required telemetry selection; that fixture was corrected,
+its 17-case module passed, and the final complete 2,426-case run passed. None of these
+original attempts was replaced by the clean result.
+
+One unprepared Codex native read correctly refused because that attachment omitted many
+other, conservatively bound environment inputs. A fresh explicitly prepared attachment
+then read the independently known nested `fresh` value. This prerequisite result does not
+undo the separate no-preparation proof for the six corrected runtime selectors. Native
+preparation occurred once in that successful host journey; no uncertain scientific action
+was replayed. Current generation acceptance regenerated the implemented Frame relationship
+and compared outputs; it did not repeat the original temporary source-marker experiment.
+
+### Historical conversion and physical closeout
+
+The user-authorized conversion moved the five retained runs and two associated cold replays
+to `C/converted-runs/<resource-id>/`. Stable IDs and original logical identities remain;
+current physical locations are separate custody metadata. Original receipt bytes and
+pass/failure/incomplete/provenance flags are unchanged. The original empty failed replay
+still has no invented receipt or producer manifest.
+
+| Original retained run | Stable resource ID |
+| --- | --- |
+| Archive | `59aa931096c9406da23c7b44051392b9` |
+| Generated contracts check | `54b9050c68f442a1b4154b25eddd0c1b` |
+| Generated contracts | `a35cd98bf8104172a72c66757e720650` |
+| Generator restore | `00f05894ba824ff9b3c630b45fb421a1` |
+| Original failed host replay | `21aa6e3c979047f78ab51d83b39dc80e` |
+
+The associated replay IDs are `017fdb71a1964cdb902cd95f589a8a86` and
+`bdc314f36bdd44ba8a1a2c26e27676ec`. `C/historical-conversion.json` records the returned
+locations; original snapshots, conversion verification and post-removal reader checks are
+retained alongside it. Six existing roots remained byte-identical through protected old
+and current locators. The native archive inspector passed at its returned current path
+both before and after deletion. Ordinary native operations should use those returned
+physical paths rather than assuming every historical absolute CLI path is compatible.
+
+The registry inventory found exactly those seven authorities under the historical
+checkout. After conversion, independent identity, clean-tree, ancestry and observed
+cwd/open-file/mapped-file checks permitted normal Git worktree removal and merged-branch
+deletion. `C/worktree-retirement.json` records success: only the main worktree remains.
+There was no forced deletion, fabricated provenance or weakening of disposal eligibility.
+
+All four new native journeys completed original context/kernel retirement and telemetry
+stop/drain/unit/state cleanup; their held controllers were reaped. The ordinary native
+extension was restored afterward. Existing pre-selection storage profiles still require
+explicit stopped, quiesced readmission before current-code startup; no ordinary live
+service was automatically migrated or restarted.
+
+Historical lost-ACK drain remains unobserved. Coverage still does not prove assertion
+adequacy, telemetry is not result/settlement authority, and no whole scientific/solver,
+profiler, parity, performance or cross-platform qualification is claimed.
+
+
+## Original verdict and practical consequences
 
 **Full-contract acceptance is withheld.** The approved campaign is complete as an
 assessment: every selected area was exercised or assigned an explicit failure or
@@ -34,7 +154,7 @@ implementation status. Findings below are proposals for disposition by their exi
 owners. No whole scientific platform, performance, parity, other operating system or
 complete profiler/solver matrix qualification is claimed.
 
-## Baseline and conditions
+## Original baseline and conditions
 
 The initial main checkout was clean at
 `b5bdac9da763bf1a70f20b0599de0edad8a955f9`. The isolation checkout stayed at that product
@@ -94,7 +214,7 @@ component tests support an area but do not substitute for its protocol or native
 | Coverage, regression and static checks | Fresh coverage producer failed before tests; component composite passed; full hygiene initially failed two leaves, both corrected and rerun successfully | Coverage logs; C; A |
 | Freshness and retirement | Old host refused changed serving source; fresh host accepted restored source. Owned native fixtures settled; five report resources block worktree retirement | I freshness and retirement handoff; N/R cleanup |
 
-## Capability coverage matrix
+## Original capability coverage matrix
 
 **Interface-checked:** every entry below was described; all 94 tool entries additionally
 had input/output schema and effect/lifetime correspondence checked against real wire
@@ -315,7 +435,7 @@ contained 1,885 same-trace server spans, including 1,462 executor and 409 receiv
 spans, and 2,294 spans over all traces; workload exit zero, no omitted spans or capture
 errors, restoration complete. Its pass does not replace the failed continuous case.
 
-## Workflow outcomes
+## Original workflow outcomes
 
 The final host assessor requires workflow selection, owned guidance read before the
 operation, `get_prompt`, exact schema description before invocation, exact ordered
@@ -356,7 +476,7 @@ source restoration and old-host teardown, a new actual host passed with
 `restart_required=false`. The old host had ten calls; the fresh host had ten. Codex marked
 the refused item as failed while preserving typed content, which the final assessor reads.
 
-## Failures, refusals and uncertainty
+## Original failures, refusals and uncertainty
 
 ### Product and owner gaps requiring separate disposition
 
@@ -421,7 +541,7 @@ no uncertain action was automatically replayed to obtain a convenient success.
 | Two async tests errored under XML runner because redirected stderr lacks `fileno` | Run those two unchanged through stdlib unittest with real file streams; preserve original runner errors. |
 | New acceptance scripts failed initial lint/type checking | Structural narrowing and checked subprocess handles fixed the owned scripts; both failing leaves were rerun successfully. No ignores or new suppressions. |
 
-## Recovery and physical cleanup
+## Original recovery and physical cleanup
 
 Lost-ACK injection dropped the response after exactly one original Rust unit completed.
 The caller timed out; a new endpoint recovered the original test/product/watch references
@@ -470,7 +590,7 @@ was fabricated and incomplete producer status was preserved.
 The original enclosing navigation attempt's exit 125 and transient allocation warning
 remain recorded even though the allocation was absent on later observation.
 
-## Commands, counts and evidence
+## Original commands, counts and evidence
 
 All rows use the zero failure target. Overlapping command populations are not summed.
 Exact invocations and modes are retained in the corresponding lane JSON and logs.

@@ -298,6 +298,7 @@ class DispatchTests(unittest.TestCase):
         }
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
+        config["telemetry_state"] = str(Path(temporary.name) / "telemetry")
         config["server"] = {"binary_sha256": "1" * 64}
         config["study_module"] = fixture_module(Path(temporary.name) / "modules")
         allocation = server.object_mapping(config["resources"])
