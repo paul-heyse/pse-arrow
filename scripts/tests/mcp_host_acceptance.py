@@ -71,44 +71,147 @@ def assess(path: Path, case: dict) -> dict:
             completed = True
         require(kind not in {"turn.failed", "error"}, "host turn failed")
         item = event.get("item")
-        if not isinstance(item, dict) or item.get("type") in {"reasoning", "agent_message"}:
+        if not isinstance(item, dict) or item.get("type") in {
+            "reasoning",
+            "agent_message",
+        }:
             continue
-        require(item.get("type") == "mcp_tool_call" and item.get("server") == "pse-capabilities", "noncanonical host execution")
+        require(
+            item.get("type") == "mcp_tool_call"
+            and item.get("server") == "pse-capabilities",
+            "noncanonical host execution",
+        )
         identity = str(item["id"])
         if kind == "item.started":
             require(identity not in pending, "duplicate call identity")
             pending[identity] = item
         if kind == "item.completed":
             original = pending.pop(identity, None)
-            require(original is not None, "unmatched host completion")
-            require(all(original.get(key) == item.get(key) for key in ("server", "tool", "arguments")), "host call arguments changed")
-            require(item.get("status") == "completed" and item.get("error") is None, "host call transport failed")
+            if original is None:
+                raise ValueError("unmatched host completion")
+            require(
+                all(
+                    original.get(key) == item.get(key)
+                    for key in ("server", "tool", "arguments")
+                ),
+                "host call arguments changed",
+            )
+            require(
+                item.get("status") == "completed" and item.get("error") is None,
+                "host call transport failed",
+            )
             arguments = object_value(item.get("arguments"))
             tool = str(item["tool"])
-            require(tool in {"capabilities_domains", "capabilities_workflows", "capabilities_describe", "capabilities_select", "capabilities_reset", "capabilities_invoke_read", "capabilities_invoke_action", "read_resource", "list_resources", "get_prompt", "list_prompts"}, "unexpected host tool")
+            require(
+                tool
+                in {
+                    "capabilities_domains",
+                    "capabilities_workflows",
+                    "capabilities_describe",
+                    "capabilities_select",
+                    "capabilities_reset",
+                    "capabilities_invoke_read",
+                    "capabilities_invoke_action",
+                    "read_resource",
+                    "list_resources",
+                    "get_prompt",
+                    "list_prompts",
+                },
+                "unexpected host tool",
+            )
             result = object_value(item.get("result"))
-            require(not result.get("is_error", result.get("isError", False)), "host received tool refusal")
+            require(
+                not result.get("is_error", result.get("isError", False)),
+                "host received tool refusal",
+            )
             calls.append({"tool": tool, "arguments": arguments, "result": result})
     require(started and completed and not pending, "host journey incomplete")
-    require(calls and calls[-1]["tool"] == "capabilities_reset", "host did not finish with reset")
-    selection = [row for row in calls if row["tool"] == "capabilities_select" and case["workflow"] in row["arguments"].get("workflows", [])]
+    require(
+        calls and calls[-1]["tool"] == "capabilities_reset",
+        "host did not finish with reset",
+    )
+    selection = [
+        row
+        for row in calls
+        if row["tool"] == "capabilities_select"
+        and case["workflow"] in row["arguments"].get("workflows", [])
+    ]
     require(selection, "workflow never selected")
-    first_operation = next((index for index, row in enumerate(calls) if row["tool"] in {"capabilities_invoke_read", "capabilities_invoke_action"}), len(calls))
+    first_operation = next(
+        (
+            index
+            for index, row in enumerate(calls)
+            if row["tool"] in {"capabilities_invoke_read", "capabilities_invoke_action"}
+        ),
+        len(calls),
+    )
     preparation = calls[:first_operation]
-    require(any(row["tool"] == "get_prompt" and row["arguments"].get("name") == "workflow_" + case["workflow"] for row in preparation), "workflow prompt not retrieved before operation")
-    selected_content = object_value(selection[0]["result"].get("structured_content", selection[0]["result"].get("structuredContent")))
-    instruction_uris = {row["uri"] for row in selected_content.get("instruction_resources", [])}
-    require(any(row["tool"] == "read_resource" and row["arguments"].get("uri") in instruction_uris for row in preparation), "selected original guidance not read before operation")
-    invoked = [row for row in calls if row["tool"] in {"capabilities_invoke_read", "capabilities_invoke_action"}]
+    require(
+        any(
+            row["tool"] == "get_prompt"
+            and row["arguments"].get("name") == "workflow_" + case["workflow"]
+            for row in preparation
+        ),
+        "workflow prompt not retrieved before operation",
+    )
+    selected_content = object_value(
+        selection[0]["result"].get(
+            "structured_content", selection[0]["result"].get("structuredContent")
+        )
+    )
+    instruction_uris = {
+        row["uri"] for row in selected_content.get("instruction_resources", [])
+    }
+    require(
+        any(
+            row["tool"] == "read_resource"
+            and row["arguments"].get("uri") in instruction_uris
+            for row in preparation
+        ),
+        "selected original guidance not read before operation",
+    )
+    invoked = [
+        row
+        for row in calls
+        if row["tool"] in {"capabilities_invoke_read", "capabilities_invoke_action"}
+    ]
     require(len(invoked) == len(case["steps"]), "host omitted or replayed an operation")
     prior: list[dict] = []
     for row, step in zip(invoked, case["steps"], strict=True):
-        before = calls[:calls.index(row)]
-        require(any(item["tool"] == "capabilities_describe" and item["arguments"] == {"capability": step["capability"], "include_schema": True} for item in before), "real operation schema not described before invocation")
-        require(step.get("expected") or step.get("assertions"), "operation lacks an independent expected fact")
-        require(row["arguments"] == {"capability": step["capability"], "arguments": resolve(step["arguments"], prior)}, "host request differs from authorized exact case")
-        require(row["tool"] == ("capabilities_invoke_action" if step.get("action", False) else "capabilities_invoke_read"), "wrong invocation effects")
-        value = row["result"].get("structured_content", row["result"].get("structuredContent"))
+        before = calls[: calls.index(row)]
+        require(
+            any(
+                item["tool"] == "capabilities_describe"
+                and item["arguments"]
+                == {"capability": step["capability"], "include_schema": True}
+                for item in before
+            ),
+            "real operation schema not described before invocation",
+        )
+        require(
+            step.get("expected") or step.get("assertions"),
+            "operation lacks an independent expected fact",
+        )
+        require(
+            row["arguments"]
+            == {
+                "capability": step["capability"],
+                "arguments": resolve(step["arguments"], prior),
+            },
+            "host request differs from authorized exact case",
+        )
+        require(
+            row["tool"]
+            == (
+                "capabilities_invoke_action"
+                if step.get("action", False)
+                else "capabilities_invoke_read"
+            ),
+            "wrong invocation effects",
+        )
+        value = row["result"].get(
+            "structured_content", row["result"].get("structuredContent")
+        )
         require(isinstance(value, dict), "operation omitted structured result")
         prior.append(value)
         expected_fields(unwrap(value), step.get("expected", {}))
@@ -120,7 +223,17 @@ def assess(path: Path, case: dict) -> dict:
                 else:
                     selected = object_value(selected)[key]
             expected_fields(selected, assertion["value"], "selected assertion")
-    return {"status": "passed", "calls": len(calls), "operations": [row["arguments"]["capability"] for row in invoked], "exact_requests": True, "independent_fields": True, "described_schemas": True, "guidance_read": True, "workflow_prompt": True, "reset": True}
+    return {
+        "status": "passed",
+        "calls": len(calls),
+        "operations": [row["arguments"]["capability"] for row in invoked],
+        "exact_requests": True,
+        "independent_fields": True,
+        "described_schemas": True,
+        "guidance_read": True,
+        "workflow_prompt": True,
+        "reset": True,
+    }
 
 
 def run(case: dict, output: Path) -> dict:
@@ -129,8 +242,60 @@ def run(case: dict, output: Path) -> dict:
     original = codex_session.ROOT
     codex_session.ROOT = root
     try:
-        forwarded = (["-c", "mcp_servers.pse-capabilities.env_vars=" + json.dumps(case["forward_environment"])] if case.get("forward_environment") else [])
-        command, _ = codex_session.session_description(state=Path(case["state"]) if case.get("state") else None, database=bool(case.get("state")), rust=False, python=False, require_database=False, require_rust=False, arguments=[*forwarded, "-c", 'mcp_servers.pse-capabilities.tools.capabilities_invoke_action.approval_mode="approve"', "-a", "never", "--disable", "shell_tool", "exec", "--json", "--ephemeral", "--sandbox", "read-only", "--color", "never", "-"])
+        forwarded = (
+            [
+                "-c",
+                "mcp_servers.pse-capabilities.env_vars="
+                + json.dumps(case["forward_environment"]),
+            ]
+            if case.get("forward_environment")
+            else []
+        )
+        if case.get("native_endpoint"):
+            # Explicit documented native attachment; ordinary bootstrap stays cheap.
+            forwarded.extend(
+                [
+                    "-c",
+                    "mcp_servers.pse-capabilities.command="
+                    + json.dumps(str(root / "scripts/pse-env")),
+                    "-c",
+                    "mcp_servers.pse-capabilities.args="
+                    + json.dumps(
+                        [
+                            "--native=solver,klu,isolation,uno,petsc",
+                            "--",
+                            str(root / ".venv/bin/python"),
+                            "-m",
+                            "scripts.capabilities",
+                        ]
+                    ),
+                ]
+            )
+        command, _ = codex_session.session_description(
+            state=Path(case["state"]) if case.get("state") else None,
+            database=bool(case.get("state")),
+            rust=False,
+            python=False,
+            require_database=False,
+            require_rust=False,
+            arguments=[
+                *forwarded,
+                "-c",
+                'mcp_servers.pse-capabilities.tools.capabilities_invoke_action.approval_mode="approve"',
+                "-a",
+                "never",
+                "--disable",
+                "shell_tool",
+                "exec",
+                "--json",
+                "--ephemeral",
+                "--sandbox",
+                "read-only",
+                "--color",
+                "never",
+                "-",
+            ],
+        )
     finally:
         codex_session.ROOT = original
     prompt = (
@@ -148,16 +313,37 @@ def run(case: dict, output: Path) -> dict:
     )
     (output / "case.json").write_text(json.dumps(case, indent=2) + "\n")
     (output / "prompt.txt").write_text(prompt)
-    receipt: dict = {"status": "failed", "baseline_failures": 0, "workflow": case["workflow"], "layer": "actual-codex"}
+    receipt: dict = {
+        "status": "failed",
+        "baseline_failures": 0,
+        "workflow": case["workflow"],
+        "layer": "actual-codex",
+    }
     process = None
     try:
-        with (output / "events.jsonl").open("wb") as events, (output / "stderr.log").open("wb") as errors:
-            process = subprocess.Popen(command, cwd=root, stdin=subprocess.PIPE, stdout=events, stderr=errors, start_new_session=True)
+        with (
+            (output / "events.jsonl").open("wb") as events,
+            (output / "stderr.log").open("wb") as errors,
+        ):
+            process = subprocess.Popen(
+                command,
+                cwd=root,
+                stdin=subprocess.PIPE,
+                stdout=events,
+                stderr=errors,
+                start_new_session=True,
+            )
             process.communicate(prompt.encode(), timeout=case.get("timeout", 600))
         receipt["exit_code"] = process.returncode
         require(process.returncode == 0, "Codex process failed")
         receipt.update(assess(output / "events.jsonl", case))
-    except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError) as error:
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        subprocess.SubprocessError,
+    ) as error:
         receipt.update(error=type(error).__name__, reason=str(error))
     finally:
         if process is not None:
