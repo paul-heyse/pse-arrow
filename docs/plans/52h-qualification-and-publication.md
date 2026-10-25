@@ -1,6 +1,6 @@
 ---
 title: "Plan 52h: Qualification and publication"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -239,14 +239,107 @@ series was authored or because another plan's number is lower.
 
 ## Current verification boundary
 
-**Interface-checked:** source owners and prior Outcomes establish the baseline and integration
-seams described here. CAP/ADP/MCP delivery is recorded at the completed 52i–52k Outcomes and
-coordinator; those packages are not proposed remaining implementation. **Proposed:** remaining
-F/G/H, the scheduled LIFE04/MCP06 follow-ups, and any still-open U/OPT inquiry outcomes or explicitly
-selected optional delivery. TEL01–TEL17 retain their delivered scoped Outcomes and separate F02/I11
-and assembled qualification limits; this amendment does not reopen them. CON/NAV/LIFE deliveries
-retain their recorded Outcomes. Recorded 52a–52e deliveries
-and C04's separately denied acceptance retain their exact boundaries; this expanded qualification does not revoke or broaden them. Documentation validation
-and publication establish document usability only. No new product tests, model/service probes,
-compiler campaign or scientific qualification was run to author these amendments; actual
-authoring checks are reported in the handoff.
+**Implemented; Tested at their recorded scopes:** delivered F01/F02, G01–G04, LIFE04/MCP06
+and I14's selected independent-cleanup repair have actual native/host consumers. C04 is closed
+through the accepted structured fallback; denied instrumentation remains unqualified. CAP/ADP/MCP,
+CON/NAV/LIFE and TEL01–TEL17 retain their independent Outcomes. Completed conditional inquiries
+recommend ordinary typed/native readers and headless reports; production CodeMode/tasks/Apps/F03
+batching remain unselected, and proposed deferral is not operator acceptance. The coordinator
+owns that remaining selection state. The checkpoint below preserves its then-current evidence;
+the final Outcome records repaired assembled qualification and its exclusions. Document publication
+alone establishes no product behavior, scientific result or performance benefit.
+
+## Execution checkpoint — 2026-10-25
+
+F01/F02, G01–G04, LIFE04/MCP06 and the selected independent-cleanup repair are implemented
+with their scoped actual-consumer evidence in the companion Outcomes. F02 now has real
+concurrent continuous/finite FastMCP/Python→Rust→SDK→server→Surrealism parent chains,
+separate native outcomes, capture/restoration and original-owner drain. The application/SDK
+seam is no longer an unimplemented prerequisite. Optional production CodeMode/tasks/Apps
+and F03 batching remain unselected; completed inquiries and recommended ordinary alternatives
+do not imply operator acceptance. G05's headless report delivery is distinct from the open
+operator-view disposition.
+
+Scope-end hygiene passed its product/static leaves, including Ruff/Pyrefly, imports, engine/
+solver/family checks, all generated contracts, default/no-default Clippy and Rust docs. Its
+two failed ADR index leaves passed after regeneration. Linked-native/all-target Clippy and
+the full governance bundle passed separately. The first broad host suite failed with22
+failures/65errors and no skips; failed subtest rows additionally prevented exact terminal
+reconciliation. Those original results remain failed. Necessary repairs preserve production
+admission/ownership/report truth: close the native profile operation set and its pre-import
+currency check, tolerate explicitly unavailable optional telemetry configuration in minimal
+controllers, align strict storage-health identity with the original telemetry incarnation,
+and migrate stale orchestration/service fixtures to their current owners. Existing linked
+codec controls require the native loader environment.
+
+After those repairs, full Ruff/Pyrefly and generation passed. Source was frozen at
+`68b3891b7` before native/Python acquisition and the repeated full host suite. An earlier
+native batch compiled successfully but refused before test dispatch when helper source changed
+during preparation; it is not a product failure or passing test population. The frozen rerun
+reuses warm compiled artifacts. Actual Codex telemetry investigation, broader Python functional
+consumers, the complete feature enumeration and final publication remain pending. This is
+a checkpoint, not assembled Plan52 completion.
+
+## Verification and Outcome — remaining MCP scope, 2026-10-25
+
+**Implemented:** the required remaining capability target now includes native same-cut paired evidence analysis with selected sections, authentic continuous/finite application→Rust→SDK→server→Surrealism propagation, current-artifact admission and complete admitted wire/route agreement, independent endpoint cleanup, recurring agent workflows, integration proposals and headless comparison reports. The original source/native owners remain authoritative. Source-only/offline access does not acquire scientific execution authority. The coordinator's existing tables own package and inquiry dispositions; this Outcome records acceptance rather than a second status ledger.
+
+**Tested, composed selected qualification; baseline zero:** all commands below used this Linux workstation, the pinned nightly, Python3.14, explicit Arrow force-validation wherever consumed, 32 compiler jobs and ordinary uncapped placement. Explicit scientific/store roles retain their own contracts. Prior passing local package Outcomes retain their original source and modes; these results supplement them rather than claim a new full-product campaign.
+
+| Command / mode | Actual result and boundary |
+|---|---|
+| `just unit-package pse-operations 'test(evidence_query::) | test(evidence::tests::) | test(canonical::transport::tests::) | test(canonical::lifetime::tests::)'` | 57 passed, zero failed. Default native evidence/SDK transport/lifetime selection. Runtime telemetry/admission's separate 17-case selection and evidence projection's 9-case selection passed; populations may overlap and are not summed. |
+| `PSE_SURREAL_STATE=<owned fixture> just unit-native-package pse-runtime 'canonical-tests,native-solvers' 'test(canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication) | test(canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science) | test(canonical_study_cancellation_after_summary_close_fences_success) | test(study_committed_claim_start_and_summary_lost_ack_settle_exact_identity) | test(evidence_native_scoped_roles_complete_generation_and_cursor_fences) | test(canonical::transport::lifetime_tests::) | test(private_native_late_output_and_cancellation_hold_parent_charges_until_reap) | test(private_native_process_death_foreign_attempt_and_original_residual_refuse_after_reap)' -p pse-operations` | Source68b3891b7:16 passed, zero failed,1,959 excluded,133.955s; invocation `f5dfbe052f734e1fa24d22c21db713bc`. Original-owner service stop and context drain passed. The earlier successful compile followed by changed-helper preparation refusal dispatched no tests and is not a product failure or pass. |
+| `scripts/pse-env -- just setup-test-report <fresh output>` with only the validated native loader path added | Full corrected-context run selected2,226 host controls: one failure and one error remained. Both stale test fixtures were repaired; their complete affected modules then passed26/26. Earlier22-failure/65-error and unsuitable real-native-wrapped attempts remain failed/interrupted. This is composite repaired acceptance, not a fresh clean2,226-case pass. Explicit async-only supplement passed97/97. |
+| `just native-python <output> -m 'unit or component' --maxfail=0 --continue-on-collection-errors --basetemp=<owned path> -q` | Original309-case run:285 passed,23 failed,one error. Affected diagnostics/budget controls passed4/4, managed controls13/13 plus13 host controls, parity fixture3/3; the two CLI/portable-project cases passed after the original dedicated `just project-build`. The final five adapters/lazy-descriptor cases passed5/5 in45.88s at97ce2efb1; invocation `44bc0527dee34c0c8d18fe99d0e3f8c9`. This composes repaired coverage of the original selection, not a clean rerun of309. |
+| Native preparation/currency controls | `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_python_extension scripts.tests.test_native_tests scripts.tests.test_scientific_input_consumers` passed91/91. Observer metadata and the runtime capsule do not spuriously invalidate extension preparation; Rust still checks the exact capsule locator and file bytes. Unknown compiler inputs remain bound. |
+| Capacity/service controls | The full affected host/server policy modules passed339/339 after provisioning ordinary functional/exclusive store roles at16GiB and deriving the default server role from that policy. Scientific workers, finite ancestor accounting, reference/timing contracts and uncapped ordinary builds remain separate. |
+| `just hygiene`, failed-leaf reruns, `just lint-solver-contracts`, `just governance` | Product/static hygiene leaves passed. Its two stale ADR index/frontmatter leaves passed after index regeneration. Linked-native/all-target Clippy passed with zero warnings; all six governance stages passed. Final full Ruff passed; Pyrefly reported zero diagnostics, with seven existing configured suppressions unchanged. |
+| `just py-sync-native-correctness`; `just codegen` | Original owner preparation passed; all ten generation targets passed. No native/stub/registry output was hand-edited. |
+
+### Corrected mistakes
+
+**Implemented; Tested:** integration exposed a missing profile member in the native operation declaration union and an eager reverse dependency from that contract leaf into composition. One authoritative leaf now declares the full operation set, and profile consumers use it. Minimal controllers explicitly tolerate unavailable optional telemetry configuration; strict health probes retain the original telemetry incarnation. Targeted controls and the full scope-end static leaves exercise those fixes.
+
+The initial native preparation treated ordinary pytest metadata and the invocation's runtime scientific capsule as compiler inputs. The repair excludes only the known observer keys and separates only the capsule from extension preparation identity; it does not weaken Rust fixture locator/byte checks or ignore genuine CMake/CUDA/Conda selectors. A selected endpoint with a genuinely different environment still uses exactly one explicit original-owner preparation. No effectful read silently rebuilds the extension.
+
+Broad Python qualification also exposed an undersized2GiB disposable receiver: its actual service OOM/restart preceded the lazy-study setup failure, while the exact triggering request/memory-growth cause remains unproved. Ordinary functional/exclusive store roles now coherently provision16GiB through their existing policy; the broad test population was not replayed against the undersized fixture. The succeeding five-case consumer used a fresh48GiB aggregate/16GiB receiver/32GiB worker fixture and authentic initializer, stopped/drained and retired only that owned successful fixture. Failed fixtures and reports remain retained. Stale test-only typed expectations, managed ownership and parity fixture assumptions were updated to current owners instead of loosening production checks.
+
+### Deliberate limits and dispositions
+
+**Implemented; Tested at the named scopes:** C04 uses the maintainer-accepted structured fallback. Coverage-guided fuzzing, sanitizer feedback and the earlier intermittent decoder-crash cause remain unqualified; no reproduction loop or unsupported safety claim follows. Thread-owned bounded decoder reuse passed its normal controls without proving that historical crash eliminated.
+
+**Proposed, not operator acceptance:** completed CodeMode/task/operator-view/F03 inquiries recommend typed original readers, acknowledged native work handles, headless reports and the existing single-question analysis. Production CodeMode, protocol tasks/Docket, Apps/interactive UI and multi-question batching remain unselected. Their original alternatives and concrete-consumer revisit triggers remain in52f/52g/52o and the coordinator; no deployment was added merely to close an inquiry. Actual task outer-claim/middleware failure and missing host negotiation stay failed/unqualified independently of passing native uncertainty controls.
+
+No fresh full solver-fleet, broad scientific model, IDAES parity, performance/overhead, distribution/wheel, other-platform or whole-product qualification is claimed. Telemetry delivery/query visibility, native outcomes, capture/restoration and physical cleanup remain distinct. Earlier incomplete feature attempts and failed Python/host/consumer observations retain their original results; they are not rewritten as clean runs. Formal proposed ADR status and independent Plan28/32/40/53/54 obligations are unchanged.
+
+### Actual Codex telemetry and current-native recovery boundary
+
+**Tested, bounded:** the actual TEL14 Codex investigation made15 canonical calls and no actions,
+retrieving real pipeline health and one exact independently checked F02 trace/span, including its
+parent and native busy/idle intervals. An explicitly absent configuration produced typed unavailable
+rather than a fabricated outage. The native read initially refused before import because this
+endpoint had genuinely different CMake/CUDA/Conda/compiler environment inputs; original
+`tel14-codex/partial-observation.json` retains those facts and the unsuccessful enclosing assessor.
+
+**Tested, mixed:** the subsequent actual Codex recovery at97ce2efb1 made nine calls, including
+exactly one explicitly authorized `python_extension_native_stage` preparation in the selected
+endpoint environment. That original owner returned exit0 and prepared artifact
+`b48526e640e5a48d15c4d3d4cd306bce301a6ee72a13a3f68993479a1c299e26`.
+The original `native_result_inspect` then passed native admission and returned two successive
+one-field schema pages under the same manifest, preserving the original run/attempt/relation/window.
+The selected three-field/one-row values request returned typed `context_extent` before acquiring
+result values: all mandatory context descriptors for this deeply nested study relation exceed the
+inspector's existing64KiB descriptor bound. Its15fields do not exceed the32context-field limit.
+Reducing row count cannot remove mandatory descriptor context. No values were truncated or returned;
+selected point/state/usability cells and `readable_complete` remain unknown. Schema selection's
+cancelled terminal/unknown usability is not substituted for those row cells.
+
+The original enclosing recovery assessor failed while assuming an observed values shape. It stays
+failed. `tel14-native-recovery/partial-observation.json` independently checks only preparation,
+current-native admission, protected schema continuation, exact typed refusal and final reset.
+The owned original F02 service stopped and all contexts drained; its data was retained, with no
+science replay or database deletion. This is positive current-native schema recovery and truthful
+bounded value unavailability, not a passing value-reader journey. The prior52l real wide-result
+acceptance retains its different source and conditions. Current-session attachment must restart
+when its loaded interface is stale; successful fresh-child consumption does not update it in place.

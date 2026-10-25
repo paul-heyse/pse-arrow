@@ -450,7 +450,11 @@ Readable cells preserve original widths through their field descriptors and exac
 with explicit null, finite/nonfinite and unavailable distinctions. Unsupported nested/storage or
 oversized cells report unavailable with `readable_complete=false`; they are never normalized into
 zero or null. Pages retain original coordinates, including coverage holes. Unknown fields, changed
-manifests and finite response/context limits refuse explicitly. The native protected reader still
+manifests and finite response/context limits refuse explicitly. In particular, deeply nested
+mandatory context descriptors can exceed the readable inspector's 64 KiB document bound before
+values are acquired; a smaller row window does not shrink that schema context. Preserve the typed
+`context_extent` refusal and unknown row values. The separate bounded IPC reader remains available
+under its original byte allowance; its success is not implied by schema paging. The native protected reader still
 validates original batches before selected-cell transport; this is not a projected-storage decode
 or a measured speed claim. Exact Arrow IPC remains the complete scientific data path.
 

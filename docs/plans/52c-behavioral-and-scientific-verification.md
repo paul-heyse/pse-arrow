@@ -1,6 +1,6 @@
 ---
 title: "Plan 52c: Behavioral and scientific verification"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: [ADR-0223]
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
@@ -243,9 +243,9 @@ is made. Required assembled qualification stays with 52h and must preserve these
 **Implemented:** C01–C08 functionality is integrated with its actual owners and public consumers.
 C01/C02/C03/C05/C06/C08 meet their selected focused acceptance; C07 selects the ordinary GDB
 diagnostic route. C04's ordinary structured fallback is **Tested**, and its optional harnesses are
-**Interface-checked**, but coverage-guided acceptance remains blocked by the execution boundary
-above. This companion therefore remains in progress; neither implementation nor compilation
-silently closes the unexecuted campaign. No assembled Plan52 or performance/productivity claim
+**Interface-checked**. At the original instrumentation boundary the coverage-guided campaign
+remained unexecuted; the later maintainer-accepted structured fallback below closes C04
+without claiming that campaign passed. C01–C08 now meet their selected acceptance. No assembled Plan52 or performance/productivity claim
 is made. The simulation-diagnostics and qualification guides own enduring operation.
 
 | Package | Actual selected evidence against zero failures | Supported conclusion and limits |

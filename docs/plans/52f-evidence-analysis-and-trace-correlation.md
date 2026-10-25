@@ -264,9 +264,10 @@ Separate real HTTP/2 SDK controls cover absent context, stream completion, error
 and dispatch uncertainty; operations controls cover connection/reconnect lifetime. Selected
 functional continuity proves neither exact-once/durable telemetry nor whole-product behavior.
 
-**Interface-checked and Tested, inquiry only:** F03 used one native analysis for sequential
-existing questions and authentic comparison consumers. 52o retains actual CodeMode/small-read
-comparison evidence. Ordinary typed comparison/original readers remain delivered. Production
+**Interface-checked and Tested, inquiry only:** F03’s native unit control uses a supplied fixture
+to verify sequential existing questions under one analysis. Authentic F01 single-question
+consumers retain their separate source oracles; no authentic production multi-question caller
+is claimed. 52o retains actual CodeMode/small-read comparison evidence. Ordinary typed comparison/original readers remain delivered. Production
 multi-question, CodeMode, task and Apps adoption remain unselected; recommended deferral is
 not operator acceptance. A concrete repeated same-cut question is the revisit condition.
 

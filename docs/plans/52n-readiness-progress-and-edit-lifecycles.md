@@ -324,3 +324,13 @@ recorded scope, including unobserved drain and Codex progress-rendering limits. 
 CodeMode/tasks, interactive UI and human operator use remain unselected or unestablished at their
 existing owners. H02/H03 retain assembled and scope-end qualification; no full campaign, scientific
 adequacy or measured productivity claim follows from this read/admission delivery.
+
+### Current-source recovery consumer — 2026-10-25
+
+**Tested, bounded:** [52h](52h-qualification-and-publication.md#actual-codex-telemetry-and-current-native-recovery-boundary)
+records the actual post-writer-repair selected-environment preparation and native import/read
+admission. Genuine environment differences remained stale until the original owner prepared
+exactly once; runtime capsule/observer controls separately preserve Rust fixture byte/locator
+checks. Protected schema continuation passed, while a descriptor-bound values request remained
+explicitly unavailable. This supplements the earlier artifact-specific LIFE04 consumer without
+recasting its source or the failed enclosing values assessor.

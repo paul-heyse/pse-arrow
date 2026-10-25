@@ -43,13 +43,13 @@ adaptation and one FastMCP attachment with derived consumers. The coordinator li
 and its prerequisite slices are delivered at the selected host/native/actual-consumer boundaries;
 the coordinator links their outcomes and remaining series scope. Its
 [52c/52d checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52c52d-execution-checkpoint--2026-10-24)
-records the integrated scientific/tooling delivery and completed D01–D04 scope. C04 retains blocked
-coverage-guided acceptance after automatic task denial; the ordinary structured controls passed.
+records the integrated scientific/tooling delivery and completed D01–D04 scope. C04 is complete through the maintainer-accepted structured fallback; coverage-guided fuzzing
+and sanitizers remain unqualified after automatic task denial, with no retry or equivalent claim.
 [52e's outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24)
 records selected historical replay, actual semantic Git bisection, isolated database populations
 and optional confined parser experiments, including corrected failures and owned cleanup.
-Other packages remain planned, and targeted acceptance does not
-establish assembled Plan52 qualification.
+Their original targeted acceptance does not establish broader assembled qualification;
+[52h](52h-qualification-and-publication.md) owns the current remaining-scope results.
 The [52i execution checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52i-execution-checkpoint--2026-10-24)
 links delivered canonical discovery/classification, progressive guidance, fixed STDIO serving and
 actual Codex exact-read access. The [52j checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52j-execution-checkpoint--2026-10-24)
@@ -84,9 +84,9 @@ foreground progress and preview release, with actual native/STDIO/Codex acceptan
 rendering limits. The
 [52o pause checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52o-pause-checkpoint--2026-10-24)
 records bounded real-Monty composition, task/native-owner and STDIO-loss inquiries, plus an OTel SDK
-baseline probe. OPT01/OPT02 remain in progress: actual host/final integration and adoption decisions
-are uncompleted. CodeMode and protocol-task deployment remain unselected here; the later telemetry
-cutover is recorded below. The separate
+baseline probe. The [resumed inquiry Outcome](52o-conditional-composition-and-protocol-tasks.md#resumed-inquiry-verification-and-outcome--2026-10-24)
+records actual Codex comparison, host/middleware task limits and original native uncertainty controls.
+Production CodeMode/task adoption remains unselected; the later telemetry cutover is recorded below. The separate
 [OpenTelemetry amendment](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-opportunity-dispositions)
 now schedules all twenty review opportunities through new
 [52p](52p-shared-telemetry-and-native-propagation.md),

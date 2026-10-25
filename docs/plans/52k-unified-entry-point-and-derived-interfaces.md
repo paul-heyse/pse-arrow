@@ -506,3 +506,12 @@ recorded after review baseline `3e99a220f74b31a063d3678534ff445d38ad8b7f` preced
 writer repair; a later Rust artifact requires its own current basis. Full H02/H03 and trace-continuity
 claims remain with their owning plans. This update records MCP06's bounded delivery and consumers,
 without reopening or strengthening the historical MCP01–MCP05 qualification.
+
+### Current-source assembled consumer — 2026-10-25
+
+**Tested, bounded:** [52h's actual Codex recovery](52h-qualification-and-publication.md#actual-codex-telemetry-and-current-native-recovery-boundary)
+records post-writer-repair current native admission, exactly one selected-endpoint preparation,
+two manifest-protected schema pages and the original typed context-bound value refusal. The
+failed enclosing values assessor remains failed; no positive row-value or full scientific claim
+is inferred. Full scope-end and composite repaired qualification remain at52h, preserving the
+earlier MCP01–MCP05 and source-specific MCP06 observations.
