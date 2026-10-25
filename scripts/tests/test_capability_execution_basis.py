@@ -99,14 +99,30 @@ class AdmissionTests(unittest.TestCase):
             WORKERS["native"].operations,
             frozenset(binding.operation for binding in worker_bindings()),
         )
-        self.assertEqual(WORKERS["native"].operations, frozenset({
-            "source_admit", "preparation_discover", "project_select",
-            "project_metadata", "revision_source", "revision_preparation_discover",
-            "project_bundle_inspect", "research_read", "result_read",
-            "result_inspect", "diagnostic_inspect", "diagnostic_processes",
-            "diagnostic_checkpoint", "evidence_inspect", "invocation_read",
-            "evidence_compare", "telemetry_profile_capture",
-        }))
+        self.assertEqual(
+            WORKERS["native"].operations,
+            frozenset(
+                {
+                    "source_admit",
+                    "preparation_discover",
+                    "project_select",
+                    "project_metadata",
+                    "revision_source",
+                    "revision_preparation_discover",
+                    "project_bundle_inspect",
+                    "research_read",
+                    "result_read",
+                    "result_inspect",
+                    "diagnostic_inspect",
+                    "diagnostic_processes",
+                    "diagnostic_checkpoint",
+                    "evidence_inspect",
+                    "invocation_read",
+                    "evidence_compare",
+                    "telemetry_profile_capture",
+                }
+            ),
+        )
         for binding in worker_bindings():
             with (
                 self.subTest(operation=binding.operation),
@@ -197,7 +213,9 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
                 patch.dict(sys.modules, {"pse": fake, "pse.contracts": contracts}),
                 patch.dict(os.environ, {basis.ENVIRONMENT: "/private/admission.json"}),
                 patch.object(
-                    python_extension, "currency_check_installed", return_value=observation
+                    python_extension,
+                    "currency_check_installed",
+                    return_value=observation,
                 ) as checked,
             ):
                 result = native_worker.execute(

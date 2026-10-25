@@ -276,7 +276,8 @@ def execute(
     current = None
     if os.environ.get("PSE_CAPABILITY_ADMISSION"):
         binding = next(
-            (item for item in host.worker_bindings() if item.operation == operation), None
+            (item for item in host.worker_bindings() if item.operation == operation),
+            None,
         )
         requirement = (
             next(

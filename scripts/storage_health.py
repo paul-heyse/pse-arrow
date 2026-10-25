@@ -84,6 +84,7 @@ class ServiceIdentity(msgspec.Struct, forbid_unknown_fields=True):
     invocation: str
     port: int
     binary_sha256: str
+    telemetry_service_instance_id: str | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -95,6 +96,16 @@ class ServiceIdentity(msgspec.Struct, forbid_unknown_fields=True):
             or any(
                 c not in "0123456789abcdef"
                 for c in self.invocation + self.binary_sha256
+            )
+            or (
+                self.telemetry_service_instance_id is not None
+                and (
+                    len(self.telemetry_service_instance_id) != 32
+                    or any(
+                        c not in "0123456789abcdef"
+                        for c in self.telemetry_service_instance_id
+                    )
+                )
             )
         ):
             raise ValueError("invalid selected service identity")

@@ -78,15 +78,29 @@ class ReferenceTests(unittest.TestCase):
         self.assertEqual(
             set(tools),
             {
-                "workspace_task_context", "workspace_concepts_query",
-                "workspace_producer_relationships", "workspace_recipe_describe",
-                "workspace_inventory", "environment_explain", "storage_observe",
-                "knowledge_source_corpus", "library_source_packet",
-                "document_scope_query", "product_run_read", "assessment_read",
-                "workload_watch", "coverage_correspondence_read",
-                "telemetry_configuration", "telemetry_health", "telemetry_trace_lookup",
-                "telemetry_query", "telemetry_schema", "telemetry_investigation_export",
-                "telemetry_selection_read", "telemetry_watch_read", "telemetry_watch_configure",
+                "workspace_task_context",
+                "workspace_concepts_query",
+                "workspace_producer_relationships",
+                "workspace_recipe_describe",
+                "workspace_inventory",
+                "environment_explain",
+                "storage_observe",
+                "knowledge_source_corpus",
+                "library_source_packet",
+                "document_scope_query",
+                "product_run_read",
+                "assessment_read",
+                "workload_watch",
+                "coverage_correspondence_read",
+                "telemetry_configuration",
+                "telemetry_health",
+                "telemetry_trace_lookup",
+                "telemetry_query",
+                "telemetry_schema",
+                "telemetry_investigation_export",
+                "telemetry_selection_read",
+                "telemetry_watch_read",
+                "telemetry_watch_configure",
             },
         )
         for identity, tool in tools.items():
@@ -107,12 +121,33 @@ class ReferenceTests(unittest.TestCase):
                     continue
                 if identity == "telemetry_investigation_export":
                     self.assertEqual(schema["required"], ["directory", "sha256"])
-                    self.assertEqual(set(schema["properties"]), {"version", "directory", "sha256"})
+                    self.assertEqual(
+                        set(schema["properties"]), {"version", "directory", "sha256"}
+                    )
                     self.assertFalse(schema["additionalProperties"])
                     validator = Draft202012Validator(schema)
-                    validator.validate({"version": 1, "directory": "/explicit-copy", "sha256": "a" * 64})
-                    self.assertFalse(validator.is_valid({"result": {"directory": "/explicit-copy", "sha256": "a" * 64}}))
-                    self.assertFalse(validator.is_valid({"directory": "/explicit-copy", "sha256": "not-a-digest"}))
+                    validator.validate(
+                        {
+                            "version": 1,
+                            "directory": "/explicit-copy",
+                            "sha256": "a" * 64,
+                        }
+                    )
+                    self.assertFalse(
+                        validator.is_valid(
+                            {
+                                "result": {
+                                    "directory": "/explicit-copy",
+                                    "sha256": "a" * 64,
+                                }
+                            }
+                        )
+                    )
+                    self.assertFalse(
+                        validator.is_valid(
+                            {"directory": "/explicit-copy", "sha256": "not-a-digest"}
+                        )
+                    )
                     continue
                 self.assertEqual(schema["required"], ["result"])
                 self.assertIn("anyOf", schema["properties"]["result"])

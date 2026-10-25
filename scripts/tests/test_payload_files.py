@@ -81,7 +81,12 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.events.append(body)
         if "fn::pse_maintenance_v1::" in body:
             function = body.split("fn::pse_maintenance_v1::", 1)[1].split("(", 1)[0]
-            arguments = json.loads("[" + body.split("(", 1)[1].split(");", 1)[0] + "]")
+            arguments_source = body.split("(", 1)[1].split(");", 1)[0]
+            # Only claim's final option<object> uses Surreal NONE. Quoted
+            # source strings remain original JSON bytes.
+            if function == "claim" and arguments_source.endswith(",NONE"):
+                arguments_source = arguments_source.removesuffix(",NONE") + ",null"
+            arguments = json.loads("[" + arguments_source + "]")
             self.assertGreater(arguments.pop(0), server.time.time_ns() // 1000)
 
             def acknowledged(value: object) -> object:
@@ -146,6 +151,13 @@ class PayloadLifecycleTests(unittest.TestCase):
 
     def backup(self, destination: Path) -> dict[str, object]:
         with (
+            # This unit fixture has file rows, but no application database.
+            # Application closure capture is exercised by supervisor controls.
+            patch.object(
+                server,
+                "capture_application_inventory",
+                side_effect=self.fixture.application_inventory_fixture,
+            ),
             patch.object(server, "payload_query", side_effect=self.query),
             patch.object(
                 server,

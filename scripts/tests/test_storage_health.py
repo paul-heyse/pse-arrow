@@ -111,6 +111,37 @@ class StorageHealthTests(unittest.TestCase):
             "fixture-selection-secret",
         )
 
+    def test_service_identity_retains_optional_exact_telemetry_incarnation(
+        self,
+    ) -> None:
+        supplied = {
+            "state": str(self.state),
+            "instance_id": "selected-instance",
+            "invocation": "a" * 32,
+            "port": 9000,
+            "binary_sha256": "b" * 64,
+        }
+        legacy = msgspec.convert(supplied, health.ServiceIdentity, strict=True)
+        self.assertIsNone(legacy.telemetry_service_instance_id)
+        for incarnation in (None, "0123456789abcdef0123456789abcdef"):
+            with self.subTest(incarnation=incarnation):
+                current = msgspec.convert(
+                    {**supplied, "telemetry_service_instance_id": incarnation},
+                    health.ServiceIdentity,
+                    strict=True,
+                )
+                self.assertEqual(current.telemetry_service_instance_id, incarnation)
+        for invalid in ("", "f" * 31, "g" * 32, "A" * 32, 1):
+            with (
+                self.subTest(invalid=invalid),
+                self.assertRaises(msgspec.ValidationError),
+            ):
+                msgspec.convert(
+                    {**supplied, "telemetry_service_instance_id": invalid},
+                    health.ServiceIdentity,
+                    strict=True,
+                )
+
     def test_representative_original_gauges_preserve_labels_precision_and_limits(
         self,
     ) -> None:
@@ -245,6 +276,7 @@ class StorageHealthTests(unittest.TestCase):
             "foreign_state",
             "foreign_instance",
             "foreign_invocation",
+            "foreign_telemetry",
             "nonfinite",
             "missing_time",
         ):
@@ -258,6 +290,8 @@ class StorageHealthTests(unittest.TestCase):
                         original["identity"]["instance_id"] = "other"
                     elif variation == "foreign_invocation":
                         original["identity"]["invocation"] = "c" * 32
+                    elif variation == "foreign_telemetry":
+                        original["identity"]["telemetry_service_instance_id"] = "d" * 32
                     elif variation == "nonfinite":
                         original["families"][server.MX_METRIC_PREFIX + "poisoned"][
                             "samples"

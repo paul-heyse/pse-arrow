@@ -66,6 +66,12 @@ class Plan30LifecycleTests(unittest.TestCase):
         self.root = Path(scratch.name)
         self.state = self.root / "state"
         self.state.mkdir()
+        resources = patch.dict(
+            os.environ, {"PSE_TEST_RESOURCE_STATE": str(self.root / "test-resources")}
+        )
+        resources.start()
+        self.addCleanup(resources.stop)
+        test_resources.service_registry_binding(self.state, establish=True)
         self.config = {
             "owner": server.OWNER,
             "profile_version": 3,
@@ -225,6 +231,15 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(server, "start", side_effect=start),
             patch.object(server, "payload_expiry", return_value=expiry),
             patch.object(server, "payload_query", side_effect=query),
+            patch.object(
+                server,
+                "capture_application_inventory",
+                return_value={
+                    "version": 1,
+                    "issuing_store": "00000000-0000-4000-8000-000000000001",
+                    "tables": {table: [] for table in server.APPLICATION_BACKUP_TABLES},
+                },
+            ),
         ):
             yield
 
@@ -368,7 +383,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         record = {"state": str(self.state), "cleanup": "retained", "drained": False}
         with (
             patch.object(
-                test_resources, "resource_status", return_value={"borrower": record}
+                test_resources, "service_resources", return_value={"borrower": record}
             ),
             patch.object(test_resources, "borrower_alive", return_value=True),
             patch.object(server, "stop") as stop,
@@ -387,7 +402,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         record = {"state": str(context), "cleanup": "retained", "drained": False}
         with (
             patch.object(
-                test_resources, "resource_status", return_value={"borrower": record}
+                test_resources, "service_resources", return_value={"borrower": record}
             ),
             patch.object(test_resources, "borrower_alive", return_value=True),
         ):
@@ -414,7 +429,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         }
         with (
             patch.object(
-                test_resources, "resource_status", return_value={"resource": record}
+                test_resources, "service_resources", return_value={"resource": record}
             ),
             patch.object(
                 test_resources,
@@ -431,7 +446,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                 server.all_contexts_drained(self.state)
         with (
             patch.object(
-                test_resources, "resource_status", return_value={"resource": record}
+                test_resources, "service_resources", return_value={"resource": record}
             ),
             patch.object(test_resources, "borrower_alive", return_value=False),
         ):
@@ -614,7 +629,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                     pytest.raises(PlacementObservedError),
                 ):
                     server.serve(self.state)
-                affinity.assert_called_once_with(0, list(owner.profile.cores))
+                affinity.assert_called_once_with(0, (0, 1, 16, 17))
                 physical.assert_not_called()
 
     def test_storage_listener_checks_its_own_kernel_caps_and_identity(self) -> None:
@@ -649,7 +664,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         storage = cgroups / group.lstrip("/")
         storage.mkdir(parents=True)
         (storage / "memory.max").write_text(str(8 * server.GIB))
-        (storage / "cpu.max").write_text("800000 100000")
+        (storage / "cpu.max").write_text("3200000 100000")
 
         def path(*parts: object) -> Path:
             selected = Path(*(str(part) for part in parts))
@@ -673,11 +688,12 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(server, "storage_unit_observation", return_value=observed),
             patch.object(host_admission, "group_identity", return_value=42),
             patch.object(
-                server, "effective_limits", return_value=(8 * server.GIB, 8.0)
+                server, "effective_limits", return_value=(8 * server.GIB, 32.0)
             ),
             patch.object(
                 server, "group_for_slice", return_value=cgroups / "pse.slice"
             ) as ancestry,
+            patch.object(host_admission, "cpu_set", return_value=tuple(range(32))),
             patch.object(
                 server, "observed_role_affinity", return_value=True
             ) as affinity,
@@ -689,13 +705,13 @@ class Plan30LifecycleTests(unittest.TestCase):
         ):
             assert server.owns_listener(self.state, self.config)
             ancestry.assert_called_with("pse.slice")
-            assert affinity.call_args.args[2] == list(profile.cores)
+            assert affinity.call_args.args[2] == list(range(32))
             affinity.return_value = False
             assert not server.owns_listener(self.state, self.config)
             affinity.return_value = True
             (storage / "cpu.max").write_text("max 100000")
             assert not server.owns_listener(self.state, self.config)
-            (storage / "cpu.max").write_text("800000 100000")
+            (storage / "cpu.max").write_text("3200000 100000")
             observed["InvocationID"] = "c" * 32
             assert not server.owns_listener(self.state, self.config)
 
@@ -804,7 +820,10 @@ class Plan30LifecycleTests(unittest.TestCase):
                 )
                 assert f"Slice={expected_slice}\n" in unit
                 assert "MemoryMax=8589934592\n" in unit
-                assert f"CPUQuota={len(profile.cores) * 100}%\n" in unit
+                assert (
+                    f"CPUQuota={len(host_admission.cpu_set(profile.cores)) * 100}%\n"
+                    in unit
+                )
 
     def test_storage_startup_does_not_materialize_science_roles(self) -> None:
         self.config["resources"] = server.execution_resources("timing")

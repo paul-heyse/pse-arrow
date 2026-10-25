@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 from scripts import (
     arrow_validation,
+    cargo_tools,
     native_operation,
     native_tests,
     python_tests,
@@ -45,7 +46,7 @@ class Plan30RoutingTests(unittest.TestCase):
                     command,
                     ["pse-runtime"],
                     native_tests.arrow_validation.Graph(1, [], []),
-                    b'{"workspace_root": "/checkout"}',
+                    b'{"workspace_root": "/checkout", "packages": []}',
                     b'{"version": 1, "units": [], "roots": []}',
                 )
             ),
@@ -79,6 +80,21 @@ class Plan30RoutingTests(unittest.TestCase):
         self.worker.chmod(0o700)
         self.binary = self.root / "unit-binary"
         self.binary.write_bytes(b"retained tests")
+        selected_tool = patch.object(
+            cargo_tools,
+            "selected_identity",
+            return_value={
+                "name": "cargo-nextest",
+                "version": "0.9.146",
+                "path": str(self.binary),
+                "sha256": hashlib.sha256(self.binary.read_bytes()).hexdigest(),
+            },
+        )
+        selected_tool.start()
+        self.addCleanup(selected_tool.stop)
+        scientific = patch.object(python_tests.scientific_inputs, "prepare_python")
+        scientific.start()
+        self.addCleanup(scientific.stop)
         self.python_artifact: dict[str, object] = {
             "binary": str(self.binary),
             "sha256": hashlib.sha256(self.binary.read_bytes()).hexdigest(),
@@ -94,7 +110,7 @@ class Plan30RoutingTests(unittest.TestCase):
                     "binary-name": "pse_runtime",
                     "binary-path": str(self.binary),
                     "testcases": {
-                        "chosen": {"filter-match": {"status": "matches"}},
+                        "worker::chosen": {"filter-match": {"status": "matches"}},
                     },
                 }
             }
@@ -310,7 +326,7 @@ class Plan30RoutingTests(unittest.TestCase):
             patch.object(native_operation, "scope_owner", return_value=None),
             patch.object(native_operation, "run", return_value=0) as execution,
             patch.object(test_run.validation, "compose_terminal"),
-            patch.object(test_run, "finish", return_value=True) as finish,
+            patch.object(test_run, "finish", wraps=test_run.finish) as finish,
             patch.object(
                 surreal_server,
                 "observer",
@@ -335,7 +351,7 @@ class Plan30RoutingTests(unittest.TestCase):
         self.assertEqual(finish.call_args.args[0], self.invocation)
         self.assertEqual(
             finish.call_args.args[1]["selected"],
-            [{"class": "pse-runtime::lib", "name": "chosen"}],
+            [{"class": "pse-runtime::lib", "name": "worker::chosen"}],
         )
         environment = execution.call_args.args[1]
         self.assertNotIn("PSE_SURREAL_STATE", environment)
@@ -425,7 +441,7 @@ class Plan30RoutingTests(unittest.TestCase):
         call.assert_called_once()
         finish.assert_not_called()
 
-    def test_nonnative_inventory_preserves_selection_without_run_only_options(
+    def test_prepared_inventory_preserves_selection_without_run_only_options(
         self,
     ) -> None:
         self.declaration()
@@ -465,16 +481,43 @@ class Plan30RoutingTests(unittest.TestCase):
                 ),
                 0,
             )
-        inventory = listing.call_args.args[0]
+        inventory = next(
+            call.args[0]
+            for call in listing.call_args_list
+            if call.args[0][:3] == ["cargo", "nextest", "list"]
+            and "--binaries-metadata" in call.args[0]
+        )
+        build = next(
+            call.args[0]
+            for call in listing.call_args_list
+            if call.args[0][:3] == ["cargo", "nextest", "list"]
+            and "--list-type" in call.args[0]
+        )
         self.assertNotIn("--success-output", inventory)
         self.assertNotIn("final", inventory)
         self.assertNotIn("--test-threads=2", inventory)
         self.assertNotIn("--no-fail-fast", inventory)
-        self.assertIn("pse-relations/force-validate", inventory)
+        self.assertIn("pse-relations/force-validate", build)
+        self.assertIn("--binaries-metadata", inventory)
+        self.assertIn("--cargo-metadata", inventory)
         self.assertIn("hash:1/2", inventory)
         self.assertIn("--run-ignored", inventory)
         self.assertIn("test(chosen)", inventory)
-        self.assertEqual(execution.call_args.args[0], command)
+        prepared = execution.call_args.args[0]
+        self.assertEqual(prepared[:3], command[:3])
+        for option in (
+            "--success-output",
+            "final",
+            "--test-threads=2",
+            "--no-fail-fast",
+            "hash:1/2",
+            "--run-ignored",
+            "all",
+            "test(chosen)",
+        ):
+            self.assertIn(option, prepared)
+        self.assertNotIn("--features", prepared)
+        self.assertIn("--binaries-metadata", prepared)
 
     def test_standalone_observer_finalizes_existing_runner_invocation(self) -> None:
         self.declaration("runner")
@@ -482,7 +525,7 @@ class Plan30RoutingTests(unittest.TestCase):
             patch.object(native_operation, "scope_owner", return_value=None),
             patch.object(native_operation, "run", return_value=0),
             patch.object(test_run.validation, "compose_terminal"),
-            patch.object(test_run, "finish", return_value=True) as finish,
+            patch.object(test_run, "finish", wraps=test_run.finish) as finish,
         ):
             self.assertEqual(
                 test_run.run_rust(
@@ -533,7 +576,31 @@ class Plan30RoutingTests(unittest.TestCase):
         )
 
     def test_native_process_groups_preserve_parallel_pure_tests(self) -> None:
-        config = tomllib.loads((native_tests.ROOT / ".config/nextest.toml").read_text())
+        # Scheduling is now derived per selected catalogue, rather than global
+        # name filters in the repository config. Keep independent semantic inputs.
+        inventory = {
+            "rust-suites": {
+                "unit": {
+                    "binary-id": "pse-runtime::lib",
+                    "testcases": {
+                        name: {"filter-match": {"status": "matches"}}
+                        for name in ("worker_case", "managed_primary_case", "pure_case")
+                    },
+                }
+            }
+        }
+        requirements = {
+            "pse-runtime::lib::" + name: {
+                "effects": ["native"] if name != "pure_case" else [],
+                "capacity": "scientific" if name != "pure_case" else "local",
+            }
+            for name in ("worker_case", "managed_primary_case", "pure_case")
+        }
+        destination = self.root / "scientific-scheduling.toml"
+        native_tests.scheduled_rust_arguments(
+            [], inventory, requirements, destination, {}
+        )
+        config = tomllib.loads(destination.read_text())
         self.assertEqual(config["test-groups"]["scientific"]["max-threads"], 2)
         self.assertNotIn("solver", config["test-groups"])
         self.assertNotIn("engineering", config["test-groups"])
@@ -544,14 +611,36 @@ class Plan30RoutingTests(unittest.TestCase):
         ]
         self.assertEqual(len(scientific), 2)
         self.assertTrue(all(item["threads-required"] == 2 for item in scientific))
-        self.assertIn("binary(worker)", scientific[0]["filter"])
-        self.assertIn("managed_primary_", scientific[0]["filter"])
+        self.assertIn("worker_case", scientific[0]["filter"])
+        self.assertIn("managed_primary_case", scientific[1]["filter"])
+        self.assertFalse(any("pure_case" in item["filter"] for item in scientific))
         self.assertGreater(config["profile"]["default"]["test-threads"], 2)
 
     def test_exclusive_store_controls_reserve_actual_scheduler_width(self) -> None:
-        configuration = tomllib.loads(
-            (Path(__file__).resolve().parents[2] / ".config/nextest.toml").read_text()
+        inventory = {
+            "rust-suites": {
+                "unit": {
+                    "binary-id": "pse-operations::lib",
+                    "testcases": {
+                        "initialization_sixteen_independent_databases_complete_in_parallel": {
+                            "filter-match": {"status": "matches"}
+                        },
+                    },
+                }
+            }
+        }
+        requirements = {
+            "pse-operations::lib::initialization_sixteen_independent_databases_complete_in_parallel": {
+                "effects": ["canonical"],
+                "capacity": "canonical",
+                "exclusion": "service-generation-maintenance",
+            }
+        }
+        destination = self.root / "exclusive-scheduling.toml"
+        native_tests.scheduled_rust_arguments(
+            [], inventory, requirements, destination, {}
         )
+        configuration = tomllib.loads(destination.read_text())
         exclusive = [
             item
             for item in configuration["profile"]["default"]["overrides"]
@@ -559,6 +648,7 @@ class Plan30RoutingTests(unittest.TestCase):
             in item["filter"]
         ]
         self.assertEqual(len(exclusive), 1)
+        self.assertEqual(exclusive[0]["test-group"], "store")
         self.assertEqual(exclusive[0]["threads-required"], "num-test-threads")
 
     def test_managed_rust_binds_captured_worker_before_reference_admission(

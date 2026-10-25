@@ -641,9 +641,7 @@ class ExecutionContracts(unittest.TestCase):
         # from the setup runner; it must not publish into its parent's ledger.
         environment.pop(test_resources.MARKER, None)
         environment.pop("PSE_TEST_ENUMERATION", None)
-        environment.update(
-            PYTHONPATH=str(ROOT), PYTEST_DISABLE_PLUGIN_AUTOLOAD="1"
-        )
+        environment.update(PYTHONPATH=str(ROOT), PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
         result = subprocess.run(
             [
                 sys.executable,

@@ -141,8 +141,8 @@ class ProducerDeploymentCollectionTests(unittest.TestCase):
         item.iter_markers.return_value = [
             SimpleNamespace(name=marker) for marker in markers
         ]
-        item.get_closest_marker.side_effect = (
-            lambda marker: SimpleNamespace(kwargs={}) if marker in markers else None
+        item.get_closest_marker.side_effect = lambda marker: (
+            SimpleNamespace(kwargs={}) if marker in markers else None
         )
         return item
 

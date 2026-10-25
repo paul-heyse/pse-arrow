@@ -4785,6 +4785,10 @@ class SurrealSupervisorTests(unittest.TestCase):
             "--native-worker-memory-mib",
             "8192",
         )
+        server.write_json(
+            self.state / "server-process.json",
+            {"telemetry_service_instance_id": "1" * 32},
+        )
         with (
             patch.object(server, "active", return_value=False),
             patch.object(
@@ -5199,6 +5203,10 @@ class SurrealSupervisorTests(unittest.TestCase):
 
     def test_public_websocket_readiness_consumes_one_selected_observation(self) -> None:
         config = self.initialized()
+        server.write_json(
+            self.state / "server-process.json",
+            {"telemetry_service_instance_id": "2" * 32},
+        )
         for phase in (
             server.Readiness.READY,
             server.Readiness.STARTING,
