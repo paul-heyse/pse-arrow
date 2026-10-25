@@ -226,6 +226,14 @@ impl NumericalAnnotations {
             .ok()
             .and_then(|index| self.targets.get(index))
     }
+    /// Compiler-issued original endpoint target, preserving its established derived identity.
+    pub fn closure_endpoint(
+        &self,
+        closure: SemanticId,
+        ordinal: usize,
+    ) -> Option<&NumericalTargetFact> {
+        self.target(closure_endpoint_id(closure, ordinal))
+    }
     /// Selected numerical targets in this mode, retaining nested ownership.
     pub fn selected_targets(&self) -> impl Iterator<Item = &NumericalTargetFact> {
         self.targets
@@ -547,6 +555,9 @@ pub(super) fn projection_annotations(
     }
     Ok(Arc::new(plans))
 }
+fn closure_endpoint_id(closure: SemanticId, ordinal: usize) -> SemanticId {
+    pse_ids::named_id(closure, &format!("physical-endpoint:{ordinal}"))
+}
 struct ProjectionTargetIndex<'a> {
     members: BTreeMap<
         SemanticId,
@@ -840,48 +851,69 @@ fn projection_targets(
             );
         }
     }
-    for (id, ty, declaration) in p
+    for (id, ty, declaration, inventory, endpoints) in p
         .model
         .closures
         .values()
-        .map(|c| (c.id, &c.ty, c.lineage.declaration))
-        .chain(
-            p.model
-                .inventory_balances
-                .values()
-                .map(|b| (b.id, &b.ty, b.lineage.declaration)),
-        )
+        .map(|closure| {
+            (
+                closure.id,
+                &closure.ty,
+                closure.lineage.declaration,
+                false,
+                closure.requirements.len(),
+            )
+        })
+        .chain(p.model.inventory_balances.values().map(|balance| {
+            (
+                balance.id,
+                &balance.ty,
+                balance.lineage.declaration,
+                true,
+                0,
+            )
+        }))
     {
         let scheme = ty.quantity_scheme().ok_or_else(|| {
             CompileError::Missing("closure numerical target physical type".into())
         })?;
-        let quantity = scheme
+        let budget = if inventory {
+            pse_quantity::scheme::Scheme::Delta(Box::new(scheme.clone()))
+        } else {
+            scheme.clone()
+        };
+        let quantity = budget
             .resolve(registry, &BTreeMap::new())
             .map_err(|error| CompileError::Missing(error.to_string()))?;
-        targets.insert(
+        let target = NumericalTargetFact {
             id,
-            NumericalTargetFact {
-                id,
-                kind: NumericalTarget::Closure,
-                role: if p.model.inventory_balances.contains_key(&id) {
-                    NumericalTargetRole::Inventory
-                } else {
-                    NumericalTargetRole::Closure
-                },
-                declaration,
-                quantity,
-                unit: registry
-                    .quantity_type(quantity)
-                    .map_err(MathError::from)?
-                    .canonical_unit,
-                integer: false,
-                location: NumericalLocation::Closure,
-                observation: None,
-                support: None,
-                nested: false,
-                selected: index.annotated.contains(&id),
+            kind: NumericalTarget::Closure,
+            role: if inventory {
+                NumericalTargetRole::Inventory
+            } else {
+                NumericalTargetRole::Closure
             },
-        );
+            declaration,
+            quantity,
+            unit: registry
+                .quantity_type(quantity)
+                .map_err(MathError::from)?
+                .canonical_unit,
+            integer: false,
+            location: NumericalLocation::Closure,
+            observation: None,
+            support: None,
+            nested: false,
+            selected: true,
+        };
+        for ordinal in 0..endpoints {
+            if endpoints > 1 {
+                let mut endpoint = target.clone();
+                endpoint.id = closure_endpoint_id(id, ordinal);
+                targets.insert(endpoint.id, endpoint);
+            }
+        }
+        targets.insert(id, target);
     }
     Ok(targets.into_values().collect())
 }

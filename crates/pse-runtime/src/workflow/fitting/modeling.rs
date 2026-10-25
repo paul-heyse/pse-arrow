@@ -878,6 +878,10 @@ impl ModelingPackage {
                             } else {
                                 native::dynamics::DynamicSensitivity::None
                             };
+                        // Fitting selects semantic free inputs below. A reused resolved
+                        // simulation profile may retain positional axes from its previous
+                        // preparation; those are not a second fitting selection.
+                        integration.forward_axes = None;
                         // Exact transient Hessians need the dynamic functions' second derivatives.
                         let transient_order = if hessian == HessianMode::Exact {
                             DerivativeOrder::Second

@@ -2381,7 +2381,7 @@ impl ModelingPackage {
         declarations.extend(numerical_inputs.declarations);
         let closure_requirements = cases::lower_closure_requirements(
             product,
-            &mut targets,
+            annotations,
             model.solved().lineage(),
             &self.quantities,
             &self.physical.preconditions,
@@ -2414,26 +2414,11 @@ impl ModelingPackage {
         let closure_budgets = cases::closure_budgets(&numerics);
         if let Some(pending) = pending {
             let source_port = |id: SemanticId| -> Result<pse_kernels::Port, WorkflowError> {
-                let ty = &product
-                    .model
-                    .symbols
-                    .get(&id)
-                    .ok_or_else(|| contract("physical integration coordinate absent"))?
-                    .ty;
-                let quantity = ty
-                    .quantity_scheme()
-                    .ok_or_else(|| contract("physical integration coordinate has no quantity"))?
-                    .resolve_with_evidence(
-                        &self.quantities,
-                        &pse_quantity::scheme::Substitution::new(),
-                        self.physical.preconditions(),
-                    )
-                    .map_err(|error| contract(error.to_string()))?;
-                let unit = self
-                    .quantities
-                    .quantity_type(quantity)
-                    .map_err(math)?
-                    .canonical_unit;
+                let target = annotations.target(id).ok_or_else(|| {
+                    contract("physical integration coordinate absent from compiler inventory")
+                })?;
+                let quantity = target.quantity;
+                let unit = target.unit;
                 Ok(pse_kernels::Port { id, quantity, unit })
             };
             let integral_ports = integral_ids
@@ -2923,25 +2908,22 @@ impl ModelingPackage {
             }
             if function == Function::QuadratureFlux {
                 for (i, integral) in product.model.integrals.values().enumerate() {
-                    let quantity = |id| -> Result<_, WorkflowError> {
-                        let pse_modeling::Type::Quantity(q) = &product.model.symbols[&id].ty else {
-                            return Err(contract("integral physical type absent"));
-                        };
-                        let q = q
-                            .resolve(&self.quantities, &BTreeMap::new())
-                            .map_err(|e| contract(e.to_string()))?;
-                        self.quantities
-                            .quantity_type(q)
-                            .map_err(|e| contract(e.to_string()))
+                    let unit = |id| {
+                        annotations
+                            .target(id)
+                            .map(|target| target.unit)
+                            .ok_or_else(|| {
+                                contract("integral physical target absent from compiler inventory")
+                            })
                     };
                     scales[i] = self
                         .quantities
-                        .unit(quantity(integral.integrand)?.canonical_unit)
+                        .unit(unit(integral.integrand)?)
                         .map_err(math)?
                         .scale_to_canonical
                         / self
                             .quantities
-                            .unit(quantity(integral.result)?.canonical_unit)
+                            .unit(unit(integral.result)?)
                             .map_err(math)?
                             .scale_to_canonical;
                 }
@@ -5398,26 +5380,107 @@ mod tests {
             native::Method::Idas,
         ];
         for method in methods {
+            let mut profile = native::Profile {
+                method,
+                end: 2.,
+                samples: vec![0., 0.5, 1.5, 2.],
+                parameter_scales: vec![1.; 2],
+                rtol: 1e-9,
+                atol: vec![1e-10],
+                out_rtol: Some(1e-9),
+                out_atol: vec![1e-11],
+                ..Default::default()
+            };
             let prepared = package
                 .declared_simulation(
                     root,
                     super::super::super::tests::compiler_profile(),
-                    Some(native::Profile {
-                        method,
-                        end: 2.,
-                        samples: vec![0., 0.5, 1.5, 2.],
-                        parameter_scales: vec![1.; 2],
-                        rtol: 1e-9,
-                        atol: vec![1e-10],
-                        out_rtol: Some(1e-9),
-                        out_atol: vec![1e-11],
-                        ..Default::default()
-                    }),
+                    Some(profile.clone()),
                     Limits::default(),
                     &cancel,
                 )
                 .await
                 .unwrap();
+            let original = prepared
+                .model()
+                .compiled()
+                .model
+                .inventory_balances
+                .values()
+                .next()
+                .unwrap();
+            let requested = original.id;
+            let mut declaration = cases::requirement(
+                prepared.solved.lineage(),
+                requested,
+                NumericalTarget::Closure,
+                original.lineage.declaration,
+                NumericalSource::Analysis,
+                Some(1.0),
+                None,
+            )
+            .declaration;
+            declaration.requirement_id =
+                pse_ids::named_id(requested, "selected-inventory-difference-budget");
+            declaration.absolute_tolerance = Some(1e-6);
+            declaration.unit_id = Some(delta.canonical_unit.as_id());
+            profile.numerics.requirements.push(declaration);
+            let prepared = package
+                .declared_simulation(
+                    root,
+                    super::super::super::tests::compiler_profile(),
+                    Some(profile),
+                    Limits::default(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let source = prepared.model().compiled();
+            let balance = source.model.inventory_balances.values().next().unwrap();
+            let dynamic = source
+                .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic)
+                .unwrap();
+            let fact = dynamic.target(balance.id).unwrap();
+            assert!(
+                fact.selected,
+                "original inventory budgets are already selected before the analysis overlay"
+            );
+            assert_eq!(balance.id, requested);
+            assert_eq!(fact.kind, NumericalTarget::Closure);
+            assert_eq!(fact.quantity, delta.id);
+            assert_eq!(fact.unit, delta.canonical_unit);
+            let point = balance
+                .ty
+                .quantity_scheme()
+                .unwrap()
+                .resolve(&prepared.quantities, &BTreeMap::new())
+                .unwrap();
+            assert_ne!(
+                fact.quantity, point,
+                "point inventory values and closure error budgets have distinct complete contracts"
+            );
+            for mode in [
+                pse_compiler::workspace::NumericalAnnotationMode::Steady,
+                pse_compiler::workspace::NumericalAnnotationMode::Implicit,
+            ] {
+                assert_eq!(
+                    source
+                        .numerical_annotations(mode)
+                        .unwrap()
+                        .target(balance.id)
+                        .unwrap()
+                        .quantity,
+                    delta.id
+                );
+            }
+            let resolved = prepared
+                .numerics()
+                .targets
+                .iter()
+                .find(|target| target.id == balance.id && target.kind == NumericalTarget::Closure)
+                .unwrap();
+            assert_eq!(resolved.quantity, delta.id.as_id());
+            assert_eq!(resolved.unit, delta.canonical_unit.as_id());
             let trajectory = prepared.run(&cancel).await.unwrap();
             assert_eq!(
                 trajectory.report().termination,

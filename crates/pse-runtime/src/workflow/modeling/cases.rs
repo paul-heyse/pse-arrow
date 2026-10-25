@@ -1592,7 +1592,7 @@ impl ModelingPackage {
             .retain(|source| !producer_ids.contains(&source.declaration.requirement_id));
         let closure_requirements = lower_closure_requirements(
             product,
-            &mut targets,
+            annotation_plan,
             model.solved().lineage(),
             &physical,
             &preconditions,
@@ -2267,35 +2267,11 @@ fn closure_requirement_id(id: SemanticId, index: usize) -> SemanticId {
     }
     .identity()
 }
-fn physical_target(
-    id: SemanticId,
-    ty: &pse_modeling::Type,
-    registry: &pse_quantity::QuantityRegistry,
-) -> Result<pse_math::numerics::TargetSpec, WorkflowError> {
-    let scheme = ty
-        .quantity_scheme()
-        .ok_or_else(|| contract("closure has no full physical type"))?;
-    let quantity = scheme
-        .resolve(registry, &BTreeMap::new())
-        .map_err(|e| contract(e.to_string()))?;
-    let unit = registry
-        .quantity_type(quantity)
-        .map_err(|e| contract(e.to_string()))?
-        .canonical_unit;
-    Ok(pse_math::numerics::TargetSpec {
-        id,
-        kind: NumericalTarget::Closure,
-        quantity,
-        unit,
-        integer: false,
-        declared_tolerance: None,
-    })
-}
 /// Admit independent physical closures and their original endpoint obligations through
 /// the common resolver. Every resolved endpoint and its source survives in the final policy.
 pub(in crate::workflow) fn lower_closure_requirements(
     product: &pse_compiler::workspace::PreparedModeling,
-    targets: &mut Vec<pse_math::numerics::TargetSpec>,
+    inventory: &pse_compiler::workspace::NumericalAnnotations,
     lineage: pse_model::lineage::Lineage,
     registry: &pse_quantity::QuantityRegistry,
     preconditions: &pse_quantity::PhysicalPreconditions,
@@ -2304,13 +2280,11 @@ pub(in crate::workflow) fn lower_closure_requirements(
 ) -> Result<Vec<pse_math::numerics::SourcedRequirement>, WorkflowError> {
     let mut sources = Vec::new();
     for closure in product.model.closures.values() {
-        let target = physical_target(closure.id, &closure.ty, registry)?;
-        if !targets
-            .iter()
-            .any(|t| t.id == target.id && t.kind == target.kind)
-        {
-            targets.push(target.clone());
-        }
+        let target = inventory
+            .target(closure.id)
+            .filter(|target| target.kind == NumericalTarget::Closure)
+            .ok_or_else(|| contract("closure target absent from compiler inventory"))?
+            .specification();
         let mut scope = lineage;
         scope.instance_id = Some(closure.lineage.instance);
         if closure.requirements.is_empty() {
@@ -2319,17 +2293,14 @@ pub(in crate::workflow) fn lower_closure_requirements(
         let mut endpoints = Vec::new();
         let mut endpoint_sources = Vec::new();
         for (index, obligation) in closure.requirements.iter().enumerate() {
-            let mut endpoint_target = target.clone();
-            if closure.requirements.len() > 1 {
-                endpoint_target.id =
-                    pse_ids::named_id(closure.id, &format!("physical-endpoint:{index}"));
-                if !targets
-                    .iter()
-                    .any(|t| t.id == endpoint_target.id && t.kind == endpoint_target.kind)
-                {
-                    targets.push(endpoint_target.clone());
-                }
-            }
+            let endpoint_target = if closure.requirements.len() > 1 {
+                inventory
+                    .closure_endpoint(closure.id, index)
+                    .ok_or_else(|| contract("closure endpoint absent from compiler inventory"))?
+                    .specification()
+            } else {
+                target.clone()
+            };
             contextual_scales(product, &endpoint_target, obligation, registry, policy)?;
             let owner = obligation
                 .endpoint
@@ -2521,20 +2492,11 @@ pub(in crate::workflow) fn lower_closure_requirements(
         }));
     }
     for balance in product.model.inventory_balances.values() {
-        let ty = pse_modeling::Type::Quantity(pse_quantity::scheme::Scheme::Delta(Box::new(
-            balance
-                .ty
-                .quantity_scheme()
-                .ok_or_else(|| contract("inventory physical type absent"))?
-                .clone(),
-        )));
-        let target = physical_target(balance.id, &ty, registry)?;
-        if !targets
-            .iter()
-            .any(|t| t.id == target.id && t.kind == target.kind)
-        {
-            targets.push(target.clone());
-        }
+        let target = inventory
+            .target(balance.id)
+            .filter(|target| target.kind == NumericalTarget::Closure)
+            .ok_or_else(|| contract("inventory closure target absent from compiler inventory"))?
+            .specification();
         contextual_scales(product, &target, &balance.requirement, registry, policy)?;
         let mut scope = lineage;
         scope.instance_id = Some(balance.lineage.instance);
@@ -2558,28 +2520,38 @@ pub(in crate::workflow) fn lower_closure_requirements(
         .values()
         .filter(|c| !c.observation_only)
     {
-        if let Some(target) = targets.iter().find(|t| {
-            t.kind == NumericalTarget::Row
-                && t.id
-                    == pse_modeling::derived::Relationship::ClosureConservation {
-                        closure: closure.id,
-                    }
-                    .identity()
+        let row = pse_modeling::derived::Relationship::ClosureConservation {
+            closure: closure.id,
+        }
+        .identity();
+        if let Some(target) = inventory.target(row).filter(|target| {
+            target.selected && !target.nested && target.kind == NumericalTarget::Row
         }) {
             let obligation = closure
                 .requirements
                 .first()
                 .ok_or_else(|| contract("conservation requirement absent"))?;
-            contextual_scales(product, target, obligation, registry, policy)?;
+            contextual_scales(
+                product,
+                &target.specification(),
+                obligation,
+                registry,
+                policy,
+            )?;
         }
     }
     for specification in product.model.state_specifications.values() {
         for (row, obligation) in &specification.reconstructions {
-            if let Some(target) = targets
-                .iter()
-                .find(|t| t.kind == NumericalTarget::Row && t.id == row.id)
-            {
-                contextual_scales(product, target, obligation, registry, policy)?;
+            if let Some(target) = inventory.target(row.id).filter(|target| {
+                target.selected && !target.nested && target.kind == NumericalTarget::Row
+            }) {
+                contextual_scales(
+                    product,
+                    &target.specification(),
+                    obligation,
+                    registry,
+                    policy,
+                )?;
             }
         }
     }
@@ -5353,7 +5325,11 @@ mod root_unavailable_tests {
         mut numerical: NumericalInputs,
     ) -> Result<pse_model::numerics::ResolvedNumericalPolicy, WorkflowError> {
         let product = model.compiled();
-        let mut targets = Vec::new();
+        let mut targets = annotations(product)?
+            .selected_targets()
+            .filter(|target| target.kind == NumericalTarget::Closure)
+            .map(pse_compiler::workspace::NumericalTargetFact::specification)
+            .collect::<Vec<_>>();
         let values = outer_annotations(product)?
             .into_iter()
             .filter(|hint| hint.kind == ModelingHint::EngineeringScaleValue)
@@ -5381,7 +5357,7 @@ mod root_unavailable_tests {
         )?;
         let sources = lower_closure_requirements(
             product,
-            &mut targets,
+            annotations(product)?,
             model.solved().lineage(),
             registry,
             &pse_quantity::PhysicalPreconditions::new(
@@ -5566,11 +5542,10 @@ mod root_unavailable_tests {
             .iter_mut()
             .filter(|scale| scale.target_id == source_context)
             .for_each(|scale| scale.quantity_id = power.as_id());
-        let mut targets = Vec::new();
         assert!(
             lower_closure_requirements(
                 model.compiled(),
-                &mut targets,
+                annotations(model.compiled()).unwrap(),
                 model.solved().lineage(),
                 &registry,
                 &pse_quantity::PhysicalPreconditions::new(
@@ -5589,11 +5564,10 @@ mod root_unavailable_tests {
             .iter_mut()
             .filter(|scale| scale.target_id == source_context)
             .for_each(|scale| scale.unit_id = metre.as_id());
-        let mut targets = Vec::new();
         assert!(
             lower_closure_requirements(
                 model.compiled(),
-                &mut targets,
+                annotations(model.compiled()).unwrap(),
                 model.solved().lineage(),
                 &registry,
                 &pse_quantity::PhysicalPreconditions::new(
@@ -5620,11 +5594,10 @@ mod root_unavailable_tests {
             .iter_mut()
             .for_each(|rule| rule.physical_allowance = None);
         strict.engineering_scales.clear();
-        let mut targets = Vec::new();
         assert!(
             lower_closure_requirements(
                 model.compiled(),
-                &mut targets,
+                annotations(model.compiled()).unwrap(),
                 model.solved().lineage(),
                 &registry,
                 &pse_quantity::PhysicalPreconditions::new(
@@ -5685,11 +5658,11 @@ mod root_unavailable_tests {
         }"#;
         let (model, registry) = contextual_closure_model(source).await;
         let product = model.compiled();
-        let mut targets = product
-            .admitted
-            .case()
-            .numerical_targets(&registry)
-            .unwrap();
+        let mut targets = annotations(product)
+            .unwrap()
+            .selected_targets()
+            .map(pse_compiler::workspace::NumericalTargetFact::specification)
+            .collect::<Vec<_>>();
         let mut numerical = NumericalInputs::default();
         let mut policy = pse_model::numerics::NumericalPolicy::default();
         lower_authored_accuracy(
@@ -5704,7 +5677,7 @@ mod root_unavailable_tests {
         .unwrap();
         let closures = lower_closure_requirements(
             product,
-            &mut targets,
+            annotations(product).unwrap(),
             model.solved().lineage(),
             &registry,
             &pse_quantity::PhysicalPreconditions::new(
