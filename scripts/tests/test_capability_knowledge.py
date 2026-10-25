@@ -2,7 +2,6 @@
 # Copyright (c) 2026 Paul Heyse
 """Fixed indexed native routing preserves original documents without source fallback."""
 
-# ruff: noqa: PT009 -- stdlib focused controls
 from __future__ import annotations
 
 import unittest
@@ -66,13 +65,11 @@ class IndexedCapabilityTests(unittest.IsolatedAsyncioTestCase):
                 {"request": request, "state": "/selected"}
             )
         assert result.structured_content is not None
-        self.assertEqual(result.structured_content["payload"]["document"], original)
-        self.assertEqual(read.call_args.args[0], request)
-        self.assertFalse(read.call_args.kwargs["explain"])
-        self.assertEqual(read.call_args.kwargs["state"], Path("/selected"))
-        self.assertTrue(
-            all(spec.invocation_lifetime == "single" for spec in self.specs)
-        )
+        assert result.structured_content["payload"]["document"] == original
+        assert read.call_args.args[0] == request
+        assert not read.call_args.kwargs["explain"]
+        assert read.call_args.kwargs["state"] == Path("/selected")
+        assert all(spec.invocation_lifetime == "single" for spec in self.specs)
 
     async def test_native_cursor_refusal_and_unavailability_are_distinct(self) -> None:
         with patch.object(
@@ -84,9 +81,9 @@ class IndexedCapabilityTests(unittest.IsolatedAsyncioTestCase):
                 {"request": {"version": 1}, "state": "/selected"}
             )
         assert refused.structured_content is not None
-        self.assertEqual(
-            refused.structured_content["payload"]["code"],
-            "pse.knowledge.cursor_context",
+        assert (
+            refused.structured_content["payload"]["code"]
+            == "pse.knowledge.cursor_context"
         )
         with patch.object(
             knowledge_store,
@@ -97,9 +94,9 @@ class IndexedCapabilityTests(unittest.IsolatedAsyncioTestCase):
                 {"request": {"version": 1}, "state": "/selected"}
             )
         assert unavailable.structured_content is not None
-        self.assertEqual(
-            unavailable.structured_content["payload"]["outcome"],
-            "prerequisite_unavailable",
+        assert (
+            unavailable.structured_content["payload"]["outcome"]
+            == "prerequisite_unavailable"
         )
 
     async def test_actual_published_native_contracts_validate_bridge_without_store_activity(
@@ -147,10 +144,10 @@ class IndexedCapabilityTests(unittest.IsolatedAsyncioTestCase):
             },
         ):
             result = await tool.run(request)
-        self.assertIsNotNone(tool.output_schema)
+        assert tool.output_schema is not None
         Draft202012Validator(tool.output_schema).validate(result.structured_content)
         assert result.structured_content is not None
-        self.assertEqual(result.structured_content["payload"]["document"], original)
+        assert result.structured_content["payload"]["document"] == original
         missing_version = {
             **request,
             "request": {
@@ -159,9 +156,7 @@ class IndexedCapabilityTests(unittest.IsolatedAsyncioTestCase):
                 if key != "version"
             },
         }
-        self.assertFalse(
-            Draft202012Validator(tool.parameters).is_valid(missing_version)
-        )
+        assert not Draft202012Validator(tool.parameters).is_valid(missing_version)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Selected change previews preserve the original reach owner without effects."""
-# ruff: noqa: PT009, PT027 -- standard-library source-owner controls
 
 from __future__ import annotations
 
@@ -11,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from scripts import affected, scientific_inputs
 
@@ -58,34 +59,30 @@ class AffectedPreviewTests(unittest.TestCase):
 
     def test_selected_path_reaches_dependents_without_other_dirty_paths(self) -> None:
         result = self.preview([("M", "crates/owner/src/lib.rs")])
-        self.assertEqual(result["changed_packages"], ["owner"])
-        self.assertEqual(result["selected_packages"], ["consumer", "owner"])
-        self.assertEqual(result["base"], "explicit-source-cut")
-        self.assertIn("rdeps(owner)", result["command"])
-        self.assertEqual(
-            result["command"][:5],
-            [
-                "scripts/pse-env",
-                "--",
-                ".venv/bin/python",
-                "-m",
-                "scripts.arrow_validation",
-            ],
-        )
+        assert result["changed_packages"] == ["owner"]
+        assert result["selected_packages"] == ["consumer", "owner"]
+        assert result["base"] == "explicit-source-cut"
+        assert "rdeps(owner)" in result["command"]
+        assert result["command"][:5] == [
+            "scripts/pse-env",
+            "--",
+            ".venv/bin/python",
+            "-m",
+            "scripts.arrow_validation",
+        ]
 
     def test_configuration_widens_and_scientific_sources_are_conservative(self) -> None:
         wide = self.preview([("M", ".cargo/config.toml")])
-        self.assertEqual(wide["selected_packages"], ["consumer", "owner", "unrelated"])
-        self.assertIn("--workspace", wide["command"])
+        assert wide["selected_packages"] == ["consumer", "owner", "unrelated"]
+        assert "--workspace" in wide["command"]
         scientific = self.preview([("D", "packages/reference/domain/removed.pse")])
-        self.assertEqual(scientific["selected_packages"], ["consumer"])
-        self.assertEqual(
-            scientific["scientific_inputs"]["unknown"],
-            ["packages/reference/domain/removed.pse"],
-        )
-        self.assertIn(
-            "explicitly prepared Rust capture",
-            scientific["scientific_inputs"]["reason"],
+        assert scientific["selected_packages"] == ["consumer"]
+        assert scientific["scientific_inputs"]["unknown"] == [
+            "packages/reference/domain/removed.pse"
+        ]
+        assert (
+            "explicitly prepared Rust capture"
+            in scientific["scientific_inputs"]["reason"]
         )
 
     def test_python_generator_and_deleted_paths_keep_their_separate_routes(
@@ -99,11 +96,9 @@ class AffectedPreviewTests(unittest.TestCase):
             ]
         )
         exclusions = {row["kind"]: row for row in result["exclusions"]}
-        self.assertEqual(exclusions["python"]["files"], ["python/pse/new.py"])
-        self.assertEqual(
-            exclusions["generator"]["files"], ["crates/pse-schema/src/model.rs"]
-        )
-        self.assertEqual(result["selected_packages"], ["consumer", "owner"])
+        assert exclusions["python"]["files"] == ["python/pse/new.py"]
+        assert exclusions["generator"]["files"] == ["crates/pse-schema/src/model.rs"]
+        assert result["selected_packages"] == ["consumer", "owner"]
 
     def test_empty_or_escaping_selection_never_becomes_workspace_execution(
         self,
@@ -113,11 +108,11 @@ class AffectedPreviewTests(unittest.TestCase):
             "workspace_packages",
             side_effect=AssertionError("empty selection needs no Cargo"),
         ):
-            self.assertIsNone(
-                affected.preview([], root=self.root, prepare=False)["command"]
+            assert (
+                affected.preview([], root=self.root, prepare=False)["command"] is None
             )
         for name in ("../other/src.rs", "/other/src.rs"):
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError, match="inside the selected checkout"):
                 self.preview([("M", name)])
 
     def test_unavailable_graph_has_no_fabricated_reverse_closure_or_command(
@@ -132,21 +127,21 @@ class AffectedPreviewTests(unittest.TestCase):
             result = affected.preview(
                 [("M", "crates/owner/src/lib.rs")], root=self.root, prepare=False
             )
-        self.assertEqual(result["graph_status"], "unavailable")
-        self.assertEqual(result["selected_packages"], ["owner"])
-        self.assertIsNone(result["command"])
-        self.assertIn("workspace-graph", [row["kind"] for row in result["exclusions"]])
+        assert result["graph_status"] == "unavailable"
+        assert result["selected_packages"] == ["owner"]
+        assert result["command"] is None
+        assert "workspace-graph" in [row["kind"] for row in result["exclusions"]]
         with (
             patch.object(affected, "preview", return_value=result),
             contextlib.redirect_stdout(io.StringIO()) as output,
         ):
-            self.assertEqual(
+            assert (
                 affected.main(
                     ["--passive", "--changes-json", '[["M","crates/owner/src/lib.rs"]]']
-                ),
-                0,
+                )
+                == 0
             )
-        self.assertIn("selected graph is unavailable", output.getvalue())
+        assert "selected graph is unavailable" in output.getvalue()
 
 
 if __name__ == "__main__":

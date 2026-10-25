@@ -612,7 +612,10 @@ semantic search, duplicate query authority or retry service is introduced. See t
 One declared invocation lifetime and operation wire supply both MCP and the generated Cyclopts
 consumer. The CLI describes, checks compatibility, selects and invokes on one connection;
 omission/null/empty/false/zero remain distinct and results retain original owner references.
-Offline help/placement diagnosis does not import serving sources. Explicit bounded probing is a
+Offline help/placement diagnosis does not import serving sources. Child launch retains the original
+selected environment. Explicit supported Codex control verifies the Unix peer and loaded checkout
+before queuing the host's global configuration refresh; queued, denied and observed freshness stay
+distinct. No process kill or module hot reload is introduced. Explicit bounded probing is a
 fresh connection, never repair or evidence that a host attachment refreshed. A foreground JSONL
 session enables explicit endpoint edit sequences; it creates no durable-preview, daemon or retry
 contract. Host process loss requires following original custody, not replaying an uncertain effect.
@@ -781,7 +784,9 @@ catalogue, including original tool/configuration inputs; generation aggregates i
 owners once while their independent comparison routes remain available. Python environment,
 editable extension, stubs and fresh import admission have independent responsibilities and
 supported currency premises. Reusable preparation never removes worker-side loaded-byte
-admission or fresh numerical-state checks.
+admission or fresh numerical-state checks. Declared assessment-output placement and process SDK
+selection are runtime observations rather than compiler inputs; unknown/compiler/provider
+environment controls remain bound to original preparation and actual loaded-image admission.
 
 Collected invocation selection and semantic requirements are immutable, digest-bound owner
 data. Compact coordination retains mutable membership and references to that data and frozen

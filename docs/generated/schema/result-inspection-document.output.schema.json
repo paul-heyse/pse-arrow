@@ -605,12 +605,22 @@
       "description": "Admitted registry Arrow field, including nested datatype/field metadata.\nSchema-only discovery does not independently validate the stored file schema.",
       "properties": {
         "ancestor_metadata": {
-          "description": "Exact ancestor metadata in path order; child interpretation does not discard parent context.",
+          "description": "Inline original ancestor metadata in path order, with explicit omissions below.",
           "items": {
             "additionalProperties": {
               "type": "string"
             },
             "type": "object"
+          },
+          "type": "array"
+        },
+        "ancestor_metadata_omitted": {
+          "description": "Deferred ancestor entries in the same path order as ancestor_metadata.",
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ResultMetadataOmission"
+            },
+            "type": "array"
           },
           "type": "array"
         },
@@ -624,8 +634,15 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Every original outer field metadata entry, including quantity and extension semantics.",
+          "description": "Inline original metadata, including quantity and extension semantics.\nExplicit omissions are available through the Metadata view at this path.",
           "type": "object"
+        },
+        "metadata_omitted": {
+          "description": "Original entries deferred without truncation to exact detail reads.",
+          "items": {
+            "$ref": "#/$defs/ResultMetadataOmission"
+          },
+          "type": "array"
         },
         "name": {
           "description": "Exact original field name.",
@@ -651,7 +668,9 @@
         "storage",
         "nullable",
         "metadata",
-        "ancestor_metadata"
+        "metadata_omitted",
+        "ancestor_metadata",
+        "ancestor_metadata_omitted"
       ],
       "type": "object"
     },
@@ -918,6 +937,27 @@
           "type": "object"
         }
       ]
+    },
+    "ResultMetadataOmission": {
+      "additionalProperties": false,
+      "description": "One original metadata entry deliberately absent from a shallow descriptor.",
+      "properties": {
+        "key": {
+          "description": "Original key; the Metadata view reads this field's original entries.",
+          "type": "string"
+        },
+        "value_bytes": {
+          "description": "Complete original UTF-8 value extent, before JSON escaping.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "key",
+        "value_bytes"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

@@ -432,7 +432,8 @@ kind = "depends-on"
         extents = result["section_ranges"]
         assert len(extents) == 2
         assert {row["subject_id"] for row in extents} == {
-            "contract:20.5", "contract:20.5.1"
+            "contract:20.5",
+            "contract:20.5.1",
         }
         assert len({(row["start_line"], row["end_line"]) for row in extents}) == 2
         assert all(

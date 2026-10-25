@@ -1471,6 +1471,10 @@ Python's `Runtime.inspect_result` consume generated records; MCP composes origin
 Shallow descriptors and metadata have independent native pages; typed struct/list paths preserve
 null parents, null elements, absent indexes, original numeric widths and IEEE bits. Native cursor
 continuation binds issuer, protected selection, manifest, original window/paths and schema contract.
+Composite logical-type metadata can contain recursive storage descriptions. Shallow fields
+explicitly defer that original entry by key/byte extent, including ancestor attribution, while
+retaining other physical/unit/identity metadata inline; omitted context is never marked complete.
+The exact metadata reader or original IPC retains the detail, with finite intact refusal.
 Schema/context discovery reads no data batches. Value transport still admits original full batches,
 retains physical context and refuses intact at its finite document allowance. Readability does not
 establish scientific usability, terminal settlement, complete IPC fidelity or measured speed.

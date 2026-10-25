@@ -70,7 +70,10 @@ use `just capability invoke <exact-id> --input-json '<object>'` or `--input-file
 Omitted flags stay omitted; explicit null, empty arrays/maps, false and zero reach the original
 receiver unchanged. Invalid input remains subject to that receiver's strict contract. Duplicate
 JSON keys and nonfinite JSON numbers refuse. Output preserves content, structured content,
-metadata and error status; successful delivery is distinct from scientific success.
+metadata and error status; successful delivery is distinct from scientific success. Child endpoints
+inherit the original selected environment, including native loader paths, PSE selections and
+telemetry settings, without logging their values. Native operations still require the original
+native environment; ordinary source reads and help do not acquire it.
 
 Each ordinary invocation describes its operation, compares the generated operation wire,
 selects and invokes on one connection. Regenerate using `just codegen` after incompatible
@@ -87,11 +90,24 @@ apply remains necessary. Process death loses endpoint previews; native invocatio
 custody has its own lifetime. Neither command failure nor a missing acknowledgement authorizes
 replay. Follow the original status/result/reconcile reader instead.
 
-Codex may retain an old attachment after edits. Use the frontend's supported MCP reconnect or
-restart, then make a benign bootstrap/source read and inspect returned coherence. The documented
-app-server reload API is not exposed as a callable control in every frontend; configuring it or
-starting an independent client does not prove this session was reattached. The independent CLI
-is the supported immediate route while attachment recovery is pending.
+Codex may retain an old attachment after edits. `just capability reconnect` uses the official
+local app-server control API, independently of serving sources and generated commands. It
+verifies a same-user Codex Unix peer, a loaded thread whose checkout matches this repository,
+and that thread's configured canonical server before requesting reload. Inside Codex it finds
+an actual ancestor's listener and uses `CODEX_THREAD_ID`; explicit `--socket` and `--thread`
+select the same guarded route when automatic discovery is unavailable. It starts no daemon.
+
+The API reloads configuration and queues MCP refresh for **all loaded threads**. The receipt
+reports that scope and distinguishes not sent, refused, uncertain and queued. Queued is not
+proof of a refreshed connection: the active turn may retain its endpoint. A benign same-thread
+bootstrap checks freshness when the host permits it; a legacy header without checkout provenance
+or host policy refusal remains unavailable rather than fresh. A timeout never retries reload or
+replays scientific/edit actions. Native work still follows its original settlement owner.
+
+If this frontend refuses the fixed control request, use its MCP reconnect/restart or start a
+new Codex session, then inspect bootstrap coherence. The independent CLI is the immediate route
+while attachment recovery is pending. No configuration rewrite, process kill or self-reload of
+serving modules substitutes for host control.
 
 ### Conditional composition, tasks and telemetry
 
@@ -495,7 +511,12 @@ The `values` view selects typed paths and bounded rows; it retains shallow manda
 context and original coordinates. Null parents, null list elements and missing list indexes
 remain distinct. Signed/unsigned widths and IEEE bit patterns/nonfinite classes remain exact;
 unsupported storage and excessive values refuse or report explicit unavailable cells. The
-64 KiB native document bound never silently drops scientific context. Continue only with the
+64 KiB native document bound never silently drops scientific context. Composite logical-type
+metadata can recursively encode an entire Arrow tree. Shallow descriptors explicitly defer that
+entry as `metadata_omitted` (and `ancestor_metadata_omitted`) with its original key and byte count;
+other physical/unit/identity metadata stays inline. Omission keeps context completeness false.
+Use exact metadata/child pages or the original IPC for detail; a single oversized metadata entry
+still refuses intact. Continue only with the
 original native cursor and identical selection/window/view; it binds issuer, manifest, paths,
 schema contract and protection context. Changed cursors refuse rather than starting a new read.
 

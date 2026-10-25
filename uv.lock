@@ -2888,6 +2888,7 @@ capability-inquiry = [
     { name = "types-defusedxml" },
     { name = "types-jsonschema" },
     { name = "typos" },
+    { name = "websockets" },
 ]
 dev = [
     { name = "anyio" },
@@ -2930,6 +2931,7 @@ dev = [
     { name = "types-jsonschema" },
     { name = "typos" },
     { name = "unittest-xml-reporting" },
+    { name = "websockets" },
 ]
 diagnostics = [
     { name = "memray", marker = "sys_platform == 'linux'" },
@@ -2997,6 +2999,7 @@ quality = [
     { name = "types-defusedxml" },
     { name = "types-jsonschema" },
     { name = "typos" },
+    { name = "websockets" },
 ]
 test = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -3064,6 +3067,7 @@ capability-inquiry = [
     { name = "types-defusedxml", specifier = "==0.7.0.20260504" },
     { name = "types-jsonschema", specifier = "==4.26.0.20261006" },
     { name = "typos", specifier = "==1.50.2" },
+    { name = "websockets", specifier = "==17.3" },
 ]
 dev = [
     { name = "anyio", specifier = "==4.15.1" },
@@ -3106,6 +3110,7 @@ dev = [
     { name = "types-jsonschema", specifier = "==4.26.0.20261006" },
     { name = "typos", specifier = "==1.50.2" },
     { name = "unittest-xml-reporting", specifier = "==4.0.0" },
+    { name = "websockets", specifier = "==17.3" },
 ]
 diagnostics = [{ name = "memray", marker = "sys_platform == 'linux'", specifier = "==1.20.0" }]
 docs = [
@@ -3169,6 +3174,7 @@ quality = [
     { name = "types-defusedxml", specifier = "==0.7.0.20260504" },
     { name = "types-jsonschema", specifier = "==4.26.0.20261006" },
     { name = "typos", specifier = "==1.50.2" },
+    { name = "websockets", specifier = "==17.3" },
 ]
 test = [
     { name = "numpy", marker = "python_full_version < '3.12'", specifier = "==2.4.6" },

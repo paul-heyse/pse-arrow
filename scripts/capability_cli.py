@@ -30,6 +30,21 @@ def application() -> App:
         ):
             raise SystemExit(1)
 
+    @app.command
+    def reconnect(
+        *, socket: Path | None = None, thread: str | None = None, timeout: float = 15
+    ) -> None:
+        """Queue Codex MCP reload for ALL loaded threads, then check this thread's benign bootstrap. Never replays actions; queued is not refreshed."""
+        # Independent optional host control, also available without generation.
+        from scripts import codex_mcp  # noqa: PLC0415
+
+        report = asyncio.run(
+            codex_mcp.reconnect(socket_path=socket, thread_id=thread, timeout=timeout)
+        )
+        runtime.emit(report)
+        if report["reload"] != "queued":
+            raise SystemExit(1)
+
     # Diagnose and generic help remain available when generation is absent/broken.
     try:
         from scripts.generated.capabilities.cli import (  # noqa: PLC0415 -- optional generated consumer.
@@ -68,7 +83,9 @@ def application() -> App:
         elif isinstance(input_file, Path):
             raw = input_file.read_text(encoding="utf-8")
         else:
-            raise runtime.ClientRefusedError("Select an input object or file before effects.")
+            raise runtime.ClientRefusedError(
+                "Select an input object or file before effects."
+            )
         runtime.call(capability, runtime.parse_request(raw), expected)
 
     @app.command

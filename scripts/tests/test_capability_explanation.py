@@ -53,9 +53,11 @@ class ExplanationTests(unittest.IsolatedAsyncioTestCase):
                 )
                 document = result.structured_content
                 assert isinstance(document, dict)
-                assert (document["input_schema_valid"])
+                assert document["input_schema_valid"]
                 assert (document["admission"]) == ("not_attempted")
-                assert (document["selection"]["gates"][0]["recipe"]) == ("check-library")
+                assert (document["selection"]["gates"][0]["recipe"]) == (
+                    "check-library"
+                )
                 assert (document["selection"]["gates"][0]["args"]) == (["pse-runtime"])
                 assert (calls) == ([])
                 request["target"] = "test"

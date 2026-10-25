@@ -1,6 +1,6 @@
 ---
 title: "Plan 55e: Diagnostics and investigation handoffs"
-status: planned
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]

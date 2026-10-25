@@ -64,7 +64,7 @@ pub use result_inspection::{
     ArrowFieldPath, ArrowFieldStep, ResultCellUnavailable, ResultFloatClass, ResultInspectionBasis,
     ResultInspectionCell, ResultInspectionCursor, ResultInspectionDocument, ResultInspectionField,
     ResultInspectionRefusal, ResultInspectionRequest, ResultInspectionRow, ResultInspectionStorage,
-    ResultInspectionView,
+    ResultInspectionView, ResultMetadataOmission,
 };
 mod result_snapshot;
 pub use result_snapshot::{ResultSnapshot, SelectedResultSnapshot};

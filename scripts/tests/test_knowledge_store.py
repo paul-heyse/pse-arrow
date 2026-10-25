@@ -282,9 +282,7 @@ class KnowledgeStoreTests(unittest.TestCase):
             ranges={extent["source_id"]: (extent["start_line"], selected_end)},
         )
         attributed = [
-            row
-            for row in corpus["excerpts"]
-            if row["subject_id"] == "contract:21.5"
+            row for row in corpus["excerpts"] if row["subject_id"] == "contract:21.5"
         ]
         assert attributed
         assert len({row["id"] for row in corpus["excerpts"]}) == len(corpus["excerpts"])

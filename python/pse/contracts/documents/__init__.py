@@ -24248,12 +24248,17 @@ class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     Schema-only discovery does not independently validate the stored file schema.
     """
 
-    #: Exact ancestor metadata in path order; child interpretation does not discard parent context.
+    #: Inline original ancestor metadata in path order, with explicit omissions below.
     ancestor_metadata: tuple[dict[str, str], ...]
+    #: Deferred ancestor entries in the same path order as ancestor_metadata.
+    ancestor_metadata_omitted: tuple[tuple[ResultMetadataOmission, ...], ...]
     #: Position in the original complete relation schema.
     index: Annotated[int, msgspec.Meta(ge=0)]
-    #: Every original outer field metadata entry, including quantity and extension semantics.
+    #: Inline original metadata, including quantity and extension semantics.
+    #: Explicit omissions are available through the Metadata view at this path.
     metadata: dict[str, str]
+    #: Original entries deferred without truncation to exact detail reads.
+    metadata_omitted: tuple[ResultMetadataOmission, ...]
     #: Exact original field name.
     name: str
     #: Original outer field nullability.
@@ -24264,7 +24269,7 @@ class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     storage: ResultInspectionStorage
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.ancestor_metadata), v.scalar_key(self.index), v.mapping_key(v.scalar_key, v.scalar_key)(self.metadata), v.scalar_key(self.name), v.scalar_key(self.nullable), v.record_key(self.path), v.record_key(self.storage),))
+        return (type(self), (v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.ancestor_metadata), v.sequence_key(v.sequence_key(v.record_key))(self.ancestor_metadata_omitted), v.scalar_key(self.index), v.mapping_key(v.scalar_key, v.scalar_key)(self.metadata), v.sequence_key(v.record_key)(self.metadata_omitted), v.scalar_key(self.name), v.scalar_key(self.nullable), v.record_key(self.path), v.record_key(self.storage),))
 
 
 class ResultInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -24423,6 +24428,18 @@ class ResultInspectionViewValues(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.maximum_rows),))
+
+
+class ResultMetadataOmission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original metadata entry deliberately absent from a shallow descriptor."""
+
+    #: Original key; the Metadata view reads this field's original entries.
+    key: str
+    #: Complete original UTF-8 value extent, before JSON escaping.
+    value_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.value_bytes),))
 
 
 class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -32393,6 +32410,7 @@ __all__ = [
     "ResultInspectionViewMetadata",
     "ResultInspectionViewSchema",
     "ResultInspectionViewValues",
+    "ResultMetadataOmission",
     "ResultReclamationPage",
     "ReviewAttemptSelection",
     "ReviewContextDocument",
@@ -32743,4 +32761,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
+SCHEMA_SET_FINGERPRINT = "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"

@@ -193,7 +193,7 @@ fn request(fence: &AttemptFence, view: ResultInspectionView) -> ResultInspection
     reason = "registered bounded protected-result fixture assertions"
 )]
 async fn canonical_nested_result_paths_retain_context_and_continuation() {
-    let (runtime, fence, _) = wide_fixture(true).await;
+    let (runtime, fence, original) = wide_fixture(true).await;
     let mut selected = request(
         &fence,
         ResultInspectionView::Values {
@@ -226,10 +226,11 @@ async fn canonical_nested_result_paths_retain_context_and_continuation() {
         rows,
         selected_fields,
         next_cursor,
+        readable_complete,
         ..
     } = first
     else {
-        panic!("expected readable nested values")
+        panic!("expected readable nested values: {first:?}")
     };
     assert_eq!(
         rows[0].values[0],
@@ -243,6 +244,15 @@ async fn canonical_nested_result_paths_retain_context_and_continuation() {
     );
     assert_eq!(selected_fields[0].path.field, "start");
     assert_eq!(selected_fields[0].ancestor_metadata.len(), 1);
+    assert_eq!(
+        selected_fields[0].ancestor_metadata_omitted[0][0].key,
+        pse_schema::arrow::KEY_LOGICAL_TYPE
+    );
+    assert!(!rows[0].context_complete);
+    assert!(
+        !readable_complete,
+        "readable selected cells do not assert complete context or scientific usability"
+    );
     selected.cursor = next_cursor;
     let mut wrong = selected.clone();
     wrong.end = 2;
@@ -353,6 +363,41 @@ async fn canonical_nested_result_paths_retain_context_and_continuation() {
         decode_count(&hub),
         0,
         "child descriptor continuation must not read Arrow payloads"
+    );
+    let original_schema = original.schema();
+    let start = original_schema.field_with_name("start").unwrap();
+    let mut keys = start.metadata().keys().collect::<Vec<_>>();
+    keys.sort();
+    let offset = keys
+        .iter()
+        .position(|key| key.as_str() == pse_schema::arrow::KEY_LOGICAL_TYPE)
+        .unwrap();
+    let mut metadata_request = request(
+        &fence,
+        ResultInspectionView::Metadata {
+            path: "start".into(),
+            offset,
+            limit: 1,
+        },
+    );
+    metadata_request.relation = "runtime.study_outcomes".into();
+    let detail = pse_diagnostics::observation::scope(
+        Some(observed.context()),
+        runtime.inspect_result(metadata_request, CancellationToken::new()),
+    )
+    .await
+    .unwrap();
+    let ResultInspectionDocument::Metadata { entries, .. } = detail else {
+        panic!("exact deferred composite metadata")
+    };
+    assert_eq!(
+        entries[pse_schema::arrow::KEY_LOGICAL_TYPE],
+        start.metadata()[pse_schema::arrow::KEY_LOGICAL_TYPE]
+    );
+    assert_eq!(
+        decode_count(&hub),
+        0,
+        "exact metadata detail must not decode Arrow payloads"
     );
     let store = runtime.canonical_store().unwrap();
     pse_operations::testing::drain_result_releases(store)

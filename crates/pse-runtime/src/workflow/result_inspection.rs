@@ -215,10 +215,24 @@ pub struct ResultInspectionField {
     pub storage: ResultInspectionStorage,
     /// Original outer field nullability.
     pub nullable: bool,
-    /// Every original outer field metadata entry, including quantity and extension semantics.
+    /// Inline original metadata, including quantity and extension semantics.
+    /// Explicit omissions are available through the Metadata view at this path.
     pub metadata: BTreeMap<String, String>,
-    /// Exact ancestor metadata in path order; child interpretation does not discard parent context.
+    /// Original entries deferred without truncation to exact detail reads.
+    pub metadata_omitted: Vec<ResultMetadataOmission>,
+    /// Inline original ancestor metadata in path order, with explicit omissions below.
     pub ancestor_metadata: Vec<BTreeMap<String, String>>,
+    /// Deferred ancestor entries in the same path order as ancestor_metadata.
+    pub ancestor_metadata_omitted: Vec<Vec<ResultMetadataOmission>>,
+}
+/// One original metadata entry deliberately absent from a shallow descriptor.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResultMetadataOmission {
+    /// Original key; the Metadata view reads this field's original entries.
+    pub key: String,
+    /// Complete original UTF-8 value extent, before JSON escaping.
+    pub value_bytes: usize,
 }
 /// Compact native storage node; recursive field trees are not repeated in ordinary answers.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -539,11 +553,13 @@ impl Budget {
                 ResultInspectionStorage::Scalar { datatype_json }
             }
         };
-        let metadata = self.metadata(field.metadata())?;
-        let ancestor_metadata = ancestors
+        let (metadata, metadata_omitted) = self.field_metadata(field)?;
+        let (ancestor_metadata, ancestor_metadata_omitted) = ancestors
             .iter()
-            .map(|field| self.metadata(field.metadata()))
-            .collect::<Result<Vec<_>, _>>()?;
+            .map(|field| self.field_metadata(field))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .unzip();
         Ok(ResultInspectionField {
             index,
             name: field.name().clone(),
@@ -551,8 +567,34 @@ impl Budget {
             storage,
             nullable: field.is_nullable(),
             metadata,
+            metadata_omitted,
             ancestor_metadata,
+            ancestor_metadata_omitted,
         })
+    }
+    fn field_metadata(
+        &mut self,
+        field: &Field,
+    ) -> Result<(BTreeMap<String, String>, Vec<ResultMetadataOmission>), ResultInspectionRefusal>
+    {
+        let composite = matches!(field.data_type(), DataType::Struct(_) | DataType::List(_));
+        let mut metadata = BTreeMap::new();
+        let mut omitted = Vec::new();
+        for (key, value) in field.metadata() {
+            if composite && key == pse_schema::arrow::KEY_LOGICAL_TYPE {
+                // Composite logical identities encode the complete recursive
+                // Arrow tree. Child/path pages retain its exact native structure.
+                self.charge(key.len().saturating_add(128))?;
+                omitted.push(ResultMetadataOmission {
+                    key: key.clone(),
+                    value_bytes: value.len(),
+                });
+            } else {
+                self.charge(key.len().saturating_add(value.len()).saturating_add(128))?;
+                metadata.insert(key.clone(), value.clone());
+            }
+        }
+        Ok((metadata, omitted))
     }
 }
 
@@ -1074,6 +1116,11 @@ impl Runtime {
                             Ok(value) => value,
                             Err(_) => return Ok(refused(ResultInspectionRefusal::ContextExtent)),
                         };
+                        let descriptor_context_complete =
+                            selected_fields.iter().chain(&context_fields).all(|field| {
+                                field.metadata_omitted.is_empty()
+                                    && field.ancestor_metadata_omitted.iter().all(Vec::is_empty)
+                            });
                         reader.skip_recorded_prefix(resume)?;
                         let mut rows = Vec::new();
                         let mut next_row = None;
@@ -1113,9 +1160,10 @@ impl Runtime {
                                     })
                                     .collect::<Result<Vec<_>, WorkflowError>>()?;
                                 let context = row_values(&batch, row, &context)?;
-                                let context_complete = !context.iter().any(|value| {
-                                    matches!(value, ResultInspectionCell::Unavailable { .. })
-                                });
+                                let context_complete = descriptor_context_complete
+                                    && !context.iter().any(|value| {
+                                        matches!(value, ResultInspectionCell::Unavailable { .. })
+                                    });
                                 for value in values.iter().chain(context.iter()) {
                                     if let Err(reason) = budget.charge(
                                         serde_json::to_vec(value)
@@ -1169,6 +1217,53 @@ impl Runtime {
 #[cfg(test)]
 mod result_inspection_unit {
     use super::*;
+
+    #[test]
+    fn registered_nested_descriptors_fit_the_finite_readable_context() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let spec = registry.relation("runtime.study_outcomes").unwrap();
+        let schema = pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap();
+        let raw_metadata_bytes: usize = schema
+            .fields()
+            .iter()
+            .map(|field| serde_json::to_vec(field.metadata()).unwrap().len())
+            .sum();
+        assert!(
+            raw_metadata_bytes > DOCUMENT_BYTES,
+            "the registered recursive identities must exercise the original extent fault"
+        );
+        let mut budget = Budget {
+            remaining: DOCUMENT_BYTES,
+        };
+        budget.metadata(schema.metadata()).unwrap();
+        let mut descriptors = Vec::new();
+        for (index, field) in schema.fields().iter().enumerate() {
+            let remaining = budget.remaining;
+            let descriptor = budget.field(index, field).unwrap_or_else(|error| {
+                panic!(
+                    "original context {} refused {error:?}, remaining {remaining}",
+                    field.name()
+                )
+            });
+            for omitted in &descriptor.metadata_omitted {
+                assert_eq!(omitted.key, pse_schema::arrow::KEY_LOGICAL_TYPE);
+                assert_eq!(omitted.value_bytes, field.metadata()[&omitted.key].len());
+                assert!(!descriptor.metadata.contains_key(&omitted.key));
+            }
+            descriptors.push(descriptor);
+        }
+        assert_eq!(
+            descriptors
+                .iter()
+                .map(|field| field.metadata_omitted.len())
+                .sum::<usize>(),
+            3
+        );
+        assert!(
+            serde_json::to_vec(&descriptors).unwrap().len() < 24 << 10,
+            "shallow descriptors must not copy recursive container identities"
+        );
+    }
 
     #[test]
     fn nested_cells_distinguish_parent_validity_empty_missing_and_null_element() {
@@ -1340,6 +1435,16 @@ mod result_inspection_unit {
             budget.field(0, &field),
             Err(ResultInspectionRefusal::ResponseExtent)
         ));
+        assert!(
+            matches!(
+                Budget {
+                    remaining: DOCUMENT_BYTES
+                }
+                .metadata(field.metadata()),
+                Err(ResultInspectionRefusal::ResponseExtent)
+            ),
+            "exact metadata detail refuses a genuinely oversized original entry"
+        );
     }
 }
 

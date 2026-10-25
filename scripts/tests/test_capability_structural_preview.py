@@ -36,16 +36,20 @@ class StructuralPreviewTests(unittest.IsolatedAsyncioTestCase):
                 document = result.structured_content
                 assert isinstance(document, dict)
                 handle = document["payload"]["preview_sha256"]
-                assert ("path.read_bytes()") in (owner.retained_preview(handle)["files"][0]["after"])
+                assert ("path.read_bytes()") in (
+                    owner.retained_preview(handle)["files"][0]["after"]
+                )
                 owner.apply_preview(handle, "receipt.json")
                 assert ("path.read_bytes()") in (source.read_text())
-                assert (owner.reconcile_preview(handle)["complete"])
+                assert owner.reconcile_preview(handle)["complete"]
                 source.write_text("import json\nvalue=json.loads(path.read_text())\n")
                 result = await tools[spec.id].run({"paths": ["sample.py"]})
                 assert isinstance(result.structured_content, dict)
                 handle = result.structured_content["payload"]["preview_sha256"]
                 source.write_text("changed=1\n")
-                with pytest.raises(ValueError, match=r"preimage|changed|stale|basis|source"):
+                with pytest.raises(
+                    ValueError, match=r"preimage|changed|stale|basis|source"
+                ):
                     owner.apply_preview(handle, "stale-receipt.json")
                 (root / "target").mkdir()
                 (root / "target/protected.py").write_text("import json\n")
