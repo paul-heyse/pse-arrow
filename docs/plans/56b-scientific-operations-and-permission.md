@@ -150,7 +150,7 @@ ordinary observation events do not masquerade as registered diagnostic codes.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | reader prerequisite implemented in 56a; remaining scope planned | 56b | Completion/product facts govern every local, persisted and public consumer; diagnostic bytes retained |
+| B01 | planned; 56a reader prerequisite implemented/tested | 56b | Completion/product facts govern every local, persisted and public consumer; diagnostic bytes retained |
 | B02 | planned | 56b | Shared evidence policy and explicit pure composite decisions; qualifiers survive |
 | B03 | planned | 56b | Each kind supplies lifecycle facts once; tagged replay and exhaustive consumers replace old projections |
 | B04 | planned | 56b | Selected owner slices have narrow inputs/visibility and no reverse declaration cycle |
@@ -166,7 +166,7 @@ working projections, not merely an agreed interface. No whole-document barrier i
 `RunResult::usable`; protected canonical result inspection reads the producer's existing Assessment
 from the same admitted selection. Missing permission remains explicit; selected-product usability
 keeps its separate meaning. This does not version Completion or complete the local/persisted
-covariance and downstream permission migration. [56a](56a-model-meaning-and-physical-interpretation.md)
+covariance and downstream permission migration. [56a](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25)
 owns this slice's acceptance; DA-038 remains open in the coordinator.
 
 ## Revealing acceptance

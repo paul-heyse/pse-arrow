@@ -179,7 +179,7 @@ redundant imports only when their current guarantees are supplied by the retaine
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | physical boundary prerequisite implemented in 56a; remaining RC02 scope pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
+| F01 | planned; 56a physical boundary implemented/tested, RC02 pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
 | F02 | planned | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
 | F03 | planned | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | planned | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |

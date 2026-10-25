@@ -122,10 +122,10 @@ references and owning scope are satisfied; other plan series retain their obliga
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| G01 | planned | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
-| G02 | planned | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
-| G03 | planned | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
-| G04 | planned | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
+| G01 | planned; selected 56a slice complete | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
+| G02 | planned; selected 56a slice complete | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
+| G03 | planned; selected 56a slice complete | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
+| G04 | planned; selected 56a slice complete | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
 
 G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
 another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
@@ -137,5 +137,21 @@ at the end when implementation is already entrenched.
 **Proposed:** all qualification above. Authoring uses current source, prior evidence at its
 original scope, library documentation and focused independent design advice. Document reference,
 metadata, scope-binding and formatting checks establish planning-artifact consistency only.
-No product, solver, store, host or benchmark journey has run for Plan56. Scheduling every finding
-is not its resolution, and writing these plans does not authorize their implementation.
+At authoring, no product, solver, store, host or benchmark journey had run for Plan56. Subsequent
+selected 56a execution is recorded below; scheduling other findings is not their resolution.
+
+## Selected 56a qualification — 2026-10-25
+
+**Implemented/Tested:** [56a's Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25)
+owns the accepted A01–A03 delivery, minimal B01/C03/F01 reader prerequisites and exact command/mode/
+result boundaries. Selected G01–G04 contributions cover S02/S03, protected original-context reading,
+public native/Python/MCP/CLI agreement, relevant fitting/dynamics/shooting controls, independent
+source review, repaired scope-end checks, enduring publication and authenticated owned teardown.
+The canonical run's sixteen passes and separate repaired receipt-control pass remain distinct;
+actual stored-reader failure and successful affected rerun are not erased.
+
+No C05 storage cutover was needed or authorized for this slice: existing retained rows/receipts and
+producer Assessment facts suffice. The separate functional deployment and same-state readmission
+preserved the preexisting selected store. Full S01 permission/covariance migration, C/D/E/F scenarios,
+remaining package qualification and RC01–RC06 stay with their owners. No fresh exhaustive matrix,
+full parity/fleet, distribution, other-platform or measured performance claim follows from 56a.

@@ -1,6 +1,6 @@
 ---
 title: "Plan 56a: Model meaning and physical interpretation"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: [ADR-0226]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -14,7 +14,7 @@ doc_topics: [design, preparation, numerical-execution]
 
 ## Purpose and consumed basis
 
-**Proposed:** modeling and compiler products govern expression occurrences, lexical binding,
+**Implemented:** modeling and compiler products govern expression occurrences, lexical binding,
 mode targets and readable physical interpretation. This companion develops DA-003/005/006;
 [Plan 56](56-design-principle-alignment.md) owns finding disposition, shared decisions and scope.
 It uses the source and standard recorded there. Source inspection establishes the present seams,
@@ -22,7 +22,7 @@ not a numerical or performance result.
 
 The integral foundation assessment reuses `SpecializedModel::resolved`, `pse-modeling::derived`,
 compiler `Projection`/`NumericalAnnotations`, and `BindingQuantity`/`CanonicalConversionPlan`.
-These already own the needed semantic distinctions. The gap is incomplete authoritative products
+These already own the needed semantic distinctions. The addressed gap was incomplete authoritative products
 and consumers reconstructing them, not a missing universal model or unit library. Keep physical
 and numerical admission, original guards, immutable preparation and value-only rebinding.
 
@@ -124,9 +124,9 @@ Regenerate through codegen and delete fixture-style host parsing as a required u
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | planned | 56a | Generated occurrences and shared lexical/constant admission consumed by both paths; old inventories deleted |
-| A02 | planned | 56a | All current mode consumers use resolved inventory/support; skips/scans/re-mints removed |
-| A03 | planned | 56a | Exact original physical context readable through Rust/Python/MCP, with typed domains and ambiguity refusal |
+| A01 | complete | 56a | Generated occurrences and shared lexical/constant admission consumed by both paths; old inventories deleted |
+| A02 | complete | 56a | All current mode consumers use resolved inventory/support; skips/scans/re-mints removed |
+| A03 | complete | 56a | Exact original physical context readable through Rust/Python/MCP, with typed domains and ambiguity refusal |
 
 A01 enables A02's source attribution. A03's owner projection can be implemented independently,
 but persisted/public integration requires C03 and F01's boundary emission. Do not wait for all of
@@ -162,5 +162,110 @@ and receipt; the governing aggregate fact remains separate from selected-product
 Current stored Assessment facts suffice for this reader slice without a completion schema change.
 No store reset, inline payload redesign, broad B01 migration or full F01 partition is selected.
 
-Next: integrate the occurrence/binder and per-mode products, then complete original-context public
-readers and their cross-boundary acceptance. Companion package closure remains with its own owner.
+A01–A03 and their authorized minimal prerequisites are implemented and accepted at the local
+Linux scope below. Independent review corrections and functional qualification are complete.
+Plan56 owns the resolved finding dispositions; supporting companions record only the consumed
+prerequisite slices. Their remaining packages and decisions are not claimed complete.
+
+## Verification and Outcome — 2026-10-25
+
+**Implemented:** selected-source discovery and checked admission share generated occurrences and
+one lexical binding owner; constant formulation arguments use the existing checked evaluator.
+Compiler inventories own all current steady/nested/dynamic targets, transitive support, physical
+contracts, view roles, closure endpoints and difference-valued inventory budgets. Runtime binds
+values and consumes these facts. The parallel expression inventory, rendered-name dependency
+searches, lossy target tuples, runtime closure target reconstruction and duplicate bound identity
+recipes are removed. Current starts, physical guards, scientific comparators and thresholds remain.
+
+**Implemented:** six physical identity domains re-export their native owners through generated
+Rust/Arrow/Python boundaries. Bounded physical descriptions and named resolution serve Rust,
+Python, actual MCP and derived CLI callers. Protected result pages reopen the exact original
+physical rows and context receipt, resolve the persisted relation version exactly, bind cursors
+to that closure, and retain protection through response construction. Missing or invalid receipt
+refuses physical interpretation while raw diagnostics remain readable. Original governing permission
+is copied separately from selected-product usability. Host and campaign YAML meaning parsers
+were replaced by admitted physical-owner resolution.
+
+**Tested — baseline zero, local Linux:** the following are distinct scopes, not an additive total.
+Rust unit rows use `scripts/pse-env -- python3 -m scripts.arrow_validation nextest run`,
+`--lib --locked`, and the stated package/filter; the resolver explicitly verifies Arrow
+force-validation for each consuming closure. Native rows additionally use the recorded native
+capabilities or the composed `just native-test` controller.
+
+| Command and selected scope | Result and conditions |
+|---|---|
+| `just check`, plus `just check-package pse-compiler -p pse-runtime` after the late consumer correction | Workspace/all-target compile and changed-package compile passed; no warnings/errors |
+| `-p pse-modeling -E 'test(occurrence_argument_tests) \| test(selected_source::) \| test(expression::occurrences::tests) \| test(occurrence_lexical_tests)'`; separate `test(check::selection_tests)` | 33 passed and 6 passed respectively; exact occurrences, binders, pending/shadowing and constant grammar |
+| `-p pse-compiler -E 'test(workspace::modeling::executable::policy::tests) \| test(kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control)'` | 9 passed, 0 failed; repeated after the complete closure inventory correction |
+| Physical alias/base/schema controls in `pse-codegen`/`pse-quantity`; `-p pse-relations -E 'test(source_owned_physical_alias_roundtrips)'`; `-p pse-codegen -E 'test(evaluated_array_alias_follows_its_record_definition)'` | 3, 1 and 1 passed respectively; actual Arrow metadata/bytes/null/refusal boundary and evaluated alias ordering |
+| Native runtime filter: owned `contextual_closure` controls, `authored_conservation_point_inventory_uses_difference_transfer_convention`, `goal_accuracy_dynamic_shares_one_real_comparator_for_samples_endpoint_and_integral`, `dynamic_refined_goal_consumes_the_compiler_physical_target_and_role`, `dynamic_observable_nominal_is_bound_from_the_compiler_inventory`, and `contextual_closure_fit_factory_controls_preserve_explicit_experiment_profiles` | 11 passed, 0 failed; `--native=solver,klu,isolation`, Diffsol/root-isolation/KINSOL features, scientific inputs `build/scientific-inputs/1792963727547520285.json`; Nextest `f69746f3-4a04-43bc-89d6-575fcde48da4` |
+| `-p pse-runtime -E 'test(physical_relation_locator)'` | 2 passed, 0 failed; actual producer `RelationKey::to_string()` with declared versions and malformed/missing/unknown-version refusals |
+| `PSE_SURREAL_STATE=<owned> just native-test -p pse-runtime --lib -E 'test(canonical_result_physical_) \| test(canonical_result_missing_physical_) \| test(canonical_complete_export_cancelled_at_seal_preserves_original_completion) \| test(authored_shooting_fixture_solves) \| test(source_index_lexical_adapter) \| test(source_index_references_keep) \| test(indexed_imports_keep_pending) \| test(complete_namespace_inventory) \| test(physical_projection) \| test(physical_relation_locator)'` | 16 passed, 1 fixture failure; Nextest `f5e04ca4-c35a-487a-b664-6388f56afb82`. The fixture failed before its adverse oracle at head-CAS, not at physical admission |
+| Same native command, only `test(canonical_result_physical_context_requires_the_original_receipt_payload_not_just_its_hash)` after fixture repair | 1 passed, 0 failed, both empty and wrong-kind branches exercised; Nextest `f65e5642-8b2e-42c1-851a-5e60773236cd`. The selected canonical scope has no remaining failed obligation; this is not a claim of one clean 17-test invocation |
+| `scripts/pse-env -- python3 -m unittest scripts.tests.test_capability_native scripts.tests.test_capability_execution_basis` | 41 passed; host contracts, separate from actual receiver evidence |
+| `just py-unit python/pse/tests/test_capability_adapters.py::test_physical_context_python_mcp_and_cli_use_the_same_native_projection --basetemp <owned>` | 1 passed, 0 failed; actual correctness extension, MCP and derived CLI projection equality |
+| `PSE_SURREAL_STATE=<owned> just native-python <output> <stored-reader node> <residual-LM node> <fixed-fitting node> -m 'component or integration' --basetemp <owned> --tb=short` | 2 fitting journeys passed; stored-reader assertion failed on versioned relation lookup. Nodes are `test_capability_stored_result_preserves_native_arrow_window`, `test_residual_lm_public_result_exposes_actual_stopping_and_original_qualification`, and `test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle` |
+| Same native Python route, only the stored-reader node, `-m integration`, after locator repair and sole observer acquisition | 1 passed, 0 failed; original physical context available, governing permission true, product usability unknown, exact Arrow and actual MCP document equality. Receipt: `build/qualification/56a-reader-WKtsjO/native-python.xml` |
+| `just codegen`; generated candidate checks and actual compiled-API stub preparation | All 10 schema targets published/compared successfully; no hand-edited generated outputs. Evaluated Python aliases import correctly |
+| `just hygiene --live` and `just governance` | Initial bundles respectively failed typecheck/generated capability reference and generated capability reference; all other leaves passed, including 25 governance tests, default/no-default Clippy and Rust docs. `just typecheck` and `just codegen-capabilities-check` passed after repair; no baseline waiver |
+| `just lint-native-contracts`, `just lint-native-data`, `just clippy-no-default` | Passed at scope end with zero warnings/errors; workspace native-data lint repeated after the reader fix |
+| `just doctor` | Passed, zero warnings; current correctness extension admitted. Installed profile is native/dev with force-validation, native-solvers and solver-highs |
+
+**Tested — final closeout:** `just turn-end --live` passed; `just docs` published 677 chapters;
+`scripts/pse-env --docs -- python3 -m scripts.document_lifecycle validate` validated 1,483 native
+scope items. Final `just py-sync-native-correctness` admitted the refreshed compiled API and
+provenance; the actual Python/MCP/CLI physical-projection test was repeated on that installed
+image and passed 1/1. These are distinct from the earlier stored-reader and scientific journeys.
+
+**Tested:** separate canonical deployment `build/qualification/56a-canonical-7wt3jw_a` used the
+existing functional profile, ordinary host configuration and a no-resident lifecycle. The existing
+selected global store was preserved. Same-state reconfiguration/readmission after the receiver
+rebuild retained its database; no storage reset or payload/schema migration occurred. Final
+quiesce, authenticated drain, stop and status all exited zero: inactive service, writes closed,
+no owned listener/process and all registered scopes/pending launches drained. Database and
+receipts remain retained. A broader activity inventory encountered unrelated disappearing units;
+the selected invocations' independent terminal and drain evidence was complete.
+
+**Independent assessment:** the scoped source-owned identity design review accepted the selected
+RC07 direction before dependent code. Fresh implementation review found and verified repairs for
+refined targets, nested nominal ownership, sensitivity roles, repeated scans, pre-copy bounds,
+receipt admission and the later closure/inventory/integral residue. The fitting derivative-selection
+seam, exact versioned locator and adverse fixture were independently reread. These are source
+assessments, separate from the actual functional evidence above. ADR-0226 remains proposed.
+
+### Mistakes made and corrected
+
+The first implementation left closure targets partly reconstructed at runtime and could give an
+affine inventory a point-valued compiler budget. Independent review exposed that missed consumer;
+compiler-issued difference contracts/endpoints and runtime consumption now replace it. A reused
+resolved fitting profile also retained positional sensitivity axes alongside the fitting-owned
+semantic selection; the caller now clears those inherited axes without changing numeric controls.
+
+Actual stored-reader qualification exposed a name-only lookup of the producer's versioned relation
+locator. Exact registered-version selection fixed it; malformed spellings still refuse. The
+adverse-receipt fixture initially failed CAS before reaching its oracle. It now uses the actual
+parent and explicitly removes the inherited context object for the empty case. Assertions and
+production CAS remain unchanged. Native-only fixture type/API errors were also corrected.
+
+Concurrent preparation initially overwrote a mutable feature-specific `xtask` output, so the guarded
+initializer refused it. A serialized helper handoff completed initialization. Observer contention
+correctly refused one simultaneous Python run before tests; the successful rerun acquired the
+existing exclusive allocation. A component-only selector selected no tests for an integration
+node and was corrected. None of those attempts establishes a product pass. The earlier
+reduced-feature dynamic accuracy refusal likewise remains distinct from its passing intended
+root-isolation configuration; no scientific comparator or threshold was relaxed.
+
+### Deliberate deviations and limits
+
+The occurrence visitor already existed and was reused. Native physical wrappers remain the one
+Rust authority through generated aliases under selected RC07. Minimal B01/C03/F01 prerequisites
+use the existing Assessment and retained source closure, with the existing directional emitter;
+Completion versioning, full covariance migration, general operation generation and worker reuse
+are outside this delivery. RC01–RC06 are not adopted. Related Plan56 records are reconciled; other plan series retain
+their independent scope and status.
+
+**Not run / not claimed:** a fresh exhaustive feature matrix (no dependency or feature declarations
+changed), full parity/solver-fleet qualification, distribution or other platforms, and performance
+campaigns. Structural work removal is implemented; no unmeasured speed, capacity or memory benefit
+is asserted. The active series and prerequisite readers still depend on this accepted scope and
+its receipts, so this completed companion is retained rather than prematurely retired.

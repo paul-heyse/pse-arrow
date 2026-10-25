@@ -17,11 +17,13 @@ and attempt workers. `pse-authoring::dsl` supplies the authored expression synta
 
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md)
 
-A definition is lowered once, directly from its parsed syntax to Symbolica atoms, inside a
-bounded per-specialization builder. There is no model-wide expression graph, persisted
-expression relation or project-owned arithmetic interpreter. The project owns only what
-libraries cannot know: physical meaning, original-domain obligations, branch selection,
-fallible provider calls and source attribution.
+Modeling resolves checked definitions into immutable typed products carrying explicit symbols,
+lexical binders, physical admissions, original guards and source occurrences. The compiler selects
+compact demanded regions from those products and lowers them through
+`pse-math::typed::BodyBuilder` into immutable guarded numerical bodies under finite construction
+limits. Symbolica/Numerica own arithmetic, normalization, derivatives and evaluators. The project
+owns physical meaning, original-domain obligations, branch selection, fallible provider calls
+and source attribution.
 
 ### 7.1 Design constraints
 
@@ -37,7 +39,7 @@ form arguments use the existing checked static evaluator before library lowering
 | Constraint | Consequence |
 |---|---|
 | Real algebra on an admitted domain | Physical checks and domain obligations precede algebra. Equivalence is real-algebraic on the admitted domain, not ordered floating-point or bitwise identity. There is no approximate or finite-difference fallback. |
-| Library algebra starts at the typed definition | `pse-compiler::typed_math` lowers the authored AST through `pse-math::typed::BodyBuilder`; no intermediate IR is produced or stored. |
+| Library algebra consumes resolved typed products | `pse-compiler::typed_math::Request` consumes the selected `ResolvedSyntax`, ordered scalar inputs, producer-issued physical support and selected provider contracts through `pse-math::typed::BodyBuilder`; lowering performs no source-name reconstruction. |
 | Specialization-local bodies | A body covers one definition and its consumed finite membership, never the whole model. Identical bodies are shared across instances; a changed shape can require new compilation. |
 | Libraries own mathematics | Symbolica/Numerica own arithmetic, normalization, derivative composition and evaluators; faer owns sparse patterns and products; native solvers own iteration ([§18](numerical-execution.md#section-18)). |
 | Explicit effects | Symbolic initialization, native compilation and evaluation are effects outside tracked Salsa queries ([§14.3](#section-14-3)); service-local retention/accounting effects preserve admitted meaning and cannot memoize transient refusal; the one process-global effect a tracked query may cause is the append-only growth of the formal-symbol pool (below). |

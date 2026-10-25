@@ -1,6 +1,6 @@
 ---
 title: "Plan 56: Design principle alignment"
-status: draft
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -197,8 +197,8 @@ enduring publication and checks no contradictory current description remains.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| P00 | planned; confirmations pending | 56 coordinator | Concrete rule dispositions integrated and required design/ADR/review route supplies dependent authorization basis |
-| P01 | planned | 56 coordinator | Current contract navigation reconciled at actual owners without invalid governance changes |
+| P00 | planned; RC07 route delivered, RC01–RC06 pending | 56 coordinator | Concrete rule dispositions integrated and required design/ADR/review route supplies dependent authorization basis |
+| P01 | planned; 56a owner reconciliation delivered | 56 coordinator | Current contract navigation reconciled at actual owners without invalid governance changes |
 
 ## Scenarios
 
@@ -228,10 +228,10 @@ identities retain lineage to the active home. No fresh qualification is inferred
 |---|---|---|---|---|
 | [DA-001](../design_review/audit/semantic-model-and-authority.md#da-001) | preservation | superseded | coordinator / affected consumer | Resolved core syntax; runtime residue remains DA-006; source audit at f9b96810a |
 | [DA-002](../design_review/audit/semantic-model-and-authority.md#da-002) | preservation | superseded | coordinator / affected consumer | Resolved modeling derivations; runtime/storage residues remain DA-006/007; source audit at f9b96810a |
-| [DA-003](../design_review/audit/semantic-model-and-authority.md#da-003) | S02 | scheduled — proposed | [A01](56a-model-meaning-and-physical-interpretation.md) | All field occurrences/binders/constant grammar consume one authority; independent semantic expectations |
+| [DA-003](../design_review/audit/semantic-model-and-authority.md#da-003) | S02 | resolved | [A01](56a-model-meaning-and-physical-interpretation.md) | **Implemented/Tested:** A01 complete; [56a Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25) records exact source/native/public conditions and affected reruns |
 | [DA-004](../design_review/audit/semantic-model-and-authority.md#da-004) | preservation | resolved | coordinator / affected consumer | Generated artifact/owner enums retained; source audit at f9b96810a |
-| [DA-005](../design_review/audit/semantic-model-and-authority.md#da-005) | S03 | scheduled — proposed | [A03](56a-model-meaning-and-physical-interpretation.md) | Original physical owner projected through typed/public consumers; no categorical bundle-loss claim |
-| [DA-006](../design_review/audit/semantic-model-and-authority.md#da-006) | S02 | scheduled — proposed | [A02](56a-model-meaning-and-physical-interpretation.md) | Every current mode consumes inventory/support/identities; skips/name scans/re-mints removed |
+| [DA-005](../design_review/audit/semantic-model-and-authority.md#da-005) | S03 | resolved | [A03](56a-model-meaning-and-physical-interpretation.md) | **Implemented/Tested:** A03 complete; [56a Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25) records exact source/native/public conditions and affected reruns |
+| [DA-006](../design_review/audit/semantic-model-and-authority.md#da-006) | S02 | resolved | [A02](56a-model-meaning-and-physical-interpretation.md) | **Implemented/Tested:** A02 complete; [56a Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25) records exact source/native/public conditions and affected reruns |
 | [DA-007](../design_review/audit/structure-and-invariants.md#da-007) | S05 | scheduled — proposed | [C01](56c-canonical-contracts-and-effects.md) | Canonical vocabulary/key/association/lifecycle/projection meaning declared and consumed throughout current families |
 | [DA-008](../design_review/audit/structure-and-invariants.md#da-008) | preservation | resolved | coordinator / affected consumer | Typed canonical refusal/effect correction retained; B06 addresses different workflow causes; source audit at f9b96810a |
 | [DA-009](../design_review/audit/structure-and-invariants.md#da-009) | S04 | scheduled — proposed | [B03](56b-scientific-operations-and-permission.md) | Kind-owned facts/tagged replay replace consumer reach-ins and silent omissions |
@@ -288,9 +288,14 @@ An inquiry or accepted ADR alone cannot close an active finding. If a rule rejec
 failure changes that route, revise the dependent design/disposition explicitly before execution;
 no active gap silently becomes an open-ended study or a waived MUST.
 
-**Current checkpoint — document creation, 2026-10-25:** the eight draft documents develop the
-preferred combined target, alternatives, consumer/deletion scope, package dependencies and future
-acceptance for all 24 active findings. Other identities retain their corrected dispositions.
-RC01–RC06 need explicit confirmation before the dependent target is fixed; no implementation is
-authorized or delivered. Next work is resolve those concrete rule choices and integrate their
-consequences, then take the separately authorized execution-planning/implementation route.
+**Current checkpoint — selected 56a closeout, 2026-10-25:** A01–A03 are complete at the
+[56a Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25)'s
+local Linux conditions; DA-003/005/006 are resolved. Minimal B01/C03/F01 reader prerequisites are
+implemented and tested, while those packages' full scope remains planned. G records this selected
+qualification without claiming its wider scenarios. P01's affected model/physical descriptions
+are reconciled at their owners; its other corrections remain open. The owned canonical fixture
+was drained/stopped with its database/receipts retained; the preexisting selected store was preserved.
+
+RC07's scoped review and proposed ADR preceded dependent implementation; ADR-0226 remains proposed.
+RC01–RC06 still require their separate decision route. No remaining companion execution, storage
+interpretation reset or other plan-series completion follows from this selected acceptance.

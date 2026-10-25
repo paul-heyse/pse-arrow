@@ -136,7 +136,7 @@ compatibility reader or second production path is introduced.
 |---|---|---|---|
 | C01 | planned | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
 | C02 | planned | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
-| C03 | original-context reader prerequisite implemented in 56a; RC01 placement pending | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
+| C03 | planned; 56a original-context reader implemented/tested, RC01 pending | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
 | C04 | planned | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
 | C05 | planned | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
 
@@ -149,7 +149,7 @@ not permission to postpone necessary consumer migration until qualification.
 designated context receipt through existing retained source revisions, validates their admitted
 closure and context identity, binds the cursor to that closure, and retains source protections
 through response construction. Missing or invalid closure yields explicit physical unavailability
-while raw diagnostic values remain readable. [56a](56a-model-meaning-and-physical-interpretation.md)
+while raw diagnostic values remain readable. [56a](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25)
 owns acceptance. No storage schema, payload placement, replay contract or existing deployment
 interpretation changes in this slice; the remaining C03/C05 target and RC01 stay pending.
 

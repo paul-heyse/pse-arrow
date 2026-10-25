@@ -155,7 +155,13 @@ async fn wide_fixture_receipt(
                 .position(|revision| revision.problem.starts_with("physical:context:"))
                 .unwrap();
             let edits = if fault == "empty" {
-                vec![]
+                vec![pse_operations::canonical::ObjectEdit {
+                    logical: "physical:context".into(),
+                    scope: "physical".into(),
+                    name: "context".into(),
+                    version: None,
+                    references: Vec::new(),
+                }]
             } else {
                 vec![super::super::durable::source_edit(
                     "physical:context".into(),
@@ -168,7 +174,7 @@ async fn wide_fixture_receipt(
             let bad = store
                 .edit(
                     &rows.revisions[position].problem,
-                    None,
+                    Some(&rows.revisions[position].key),
                     &format!("bad-context-receipt-{fault}"),
                     &edits,
                 )

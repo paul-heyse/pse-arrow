@@ -1333,6 +1333,24 @@ No fresh exhaustive feature matrix, whole solver fleet/parity, distribution, oth
 backend performance/causality or productivity/speed benefit was qualified. This selected evidence
 does not replace the historical full-product basis. Proposed ADR-0224 remains proposed.
 
+Selected Plan56a model/physical acceptance of 2026-10-25 belongs to its
+[Verification and Outcome](../../plans/56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25).
+**Tested:** exact occurrence/binder admission, compiler mode/support/view products, affine inventory
+and integral scaling, typed physical alias/Arrow boundaries, and original retained physical result
+interpretation pass at the recorded local Linux conditions. The composed canonical scope passed
+sixteen controls, then its repaired adverse-receipt control passed both missing and wrong-kind
+branches. Actual correctness Python, MCP and derived CLI expose the same physical projection;
+the stored-result integration preserves original context and governing permission separately from
+unknown selected-product usability. Two public fitting journeys also passed. Failed attempts and
+successful affected reruns retain distinct evidence in the Outcome.
+
+Scope-end checks and repaired leaves passed against zero. The separate owned functional deployment
+was quiesced, authenticated-drained and stopped with no surviving owned process or listener;
+its database/receipts remain retained and the preexisting selected store was preserved. This is
+selected model/physical qualification, not the remainder of Plan56, a fresh feature matrix,
+full parity/solver-fleet, distribution, other-platform or measured performance evidence.
+ADR-0226 remains proposed; RC01–RC06 are not adopted.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
