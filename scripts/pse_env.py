@@ -1184,6 +1184,8 @@ def operation_description(
         )
         if name in CONFIGURED and {**selected_local, **caller}.get(name) != value:
             source = "compiler selection"
+        if name == "CARGO_BUILD_JOBS" and env.get(CARGO_DEFAULT_JOBS) == value:
+            source = "default"
         return {
             "value": value,
             "source": source,
@@ -1191,6 +1193,9 @@ def operation_description(
         }
 
     names = (
+        "CARGO_BUILD_JOBS",
+        "NEXTEST_TEST_THREADS",
+        "PSE_BUILD_MODE",
         "RUSTC_WRAPPER",
         "RUSTC_WORKSPACE_WRAPPER",
         "PSE_NATIVE_COMPILER_CACHE",
