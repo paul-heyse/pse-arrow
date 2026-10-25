@@ -339,34 +339,9 @@ impl ModelingPackage {
                         let belongs = |id: &SemanticId| {
                             inner.unknowns.contains(id) || residual.rows.contains(id)
                         };
-                        let mut targets = inner
-                            .descriptor
-                            .spec()
-                            .outputs
-                            .iter()
-                            .map(|p| pse_math::numerics::TargetSpec {
-                                id: p.id,
-                                kind: NumericalTarget::Variable,
-                                quantity: p.quantity,
-                                unit: p.unit,
-                                integer: false,
-                                declared_tolerance: None,
-                            })
+                        let targets = residual.numerical_annotations.selected_targets()
+                            .map(pse_compiler::workspace::NumericalTargetFact::specification)
                             .collect::<Vec<_>>();
-                        for (id, quantity) in residual.rows.iter().zip(residual.body.quantities()) {
-                            targets.push(pse_math::numerics::TargetSpec {
-                                id: *id,
-                                kind: NumericalTarget::Row,
-                                quantity: *quantity,
-                                unit: self
-                                    .quantities
-                                    .quantity_type(*quantity)
-                                    .map_err(|e| contract(e.to_string()))?
-                                    .canonical_unit,
-                                integer: false,
-                                declared_tolerance: None,
-                            });
-                        }
                         let mut policy = policy.clone();
                         policy.requirements.retain(|r| belongs(&r.target_id));
                         let declarations = numerical
@@ -944,6 +919,7 @@ mod tests {
             rows: vec![row],
             annotations: Arc::new(pse_compiler::workspace::NumericalAnnotations {
                 mode: pse_compiler::workspace::NumericalAnnotationMode::Implicit,
+                targets: Arc::from([]),
                 hints: vec![pse_compiler::workspace::NumericalAnnotation {
                     target: x,
                     declaration,

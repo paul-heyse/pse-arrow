@@ -281,6 +281,55 @@ relationships! {
     CheckedValiditySource => "checked_validity_source" { role: LocalRole, ordinal: Ordinal },
 }
 
+/// Numerical obligation recipes retain the established named-identity byte contract.
+/// They belong to the same derivation catalogue, without changing the framing of existing facts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NumericalRequirement {
+    /// Tolerance on an original state reconstruction equation.
+    StateReconstruction {
+        /// Source declaration.
+        declaration: DeclarationId,
+        /// Original reconstruction equation.
+        row: SemanticId,
+    },
+    /// Tolerance on an original conservation equation.
+    ConservationRow {
+        /// Source declaration.
+        declaration: DeclarationId,
+        /// Original closure.
+        closure: SemanticId,
+    },
+    /// One original physical closure obligation in declaration order.
+    PhysicalClosure {
+        /// Original closure.
+        closure: SemanticId,
+        /// Source order.
+        ordinal: usize,
+    },
+    /// The tighter separately resolved physical endpoint budget.
+    TighterEndpoint {
+        /// Original closure.
+        closure: SemanticId,
+    },
+    /// Original conserved-inventory closure obligation.
+    InventoryClosure {
+        /// Original inventory balance.
+        balance: SemanticId,
+    },
+}
+impl NumericalRequirement {
+    /// Exact established identity; callers never restate these spellings or compositions.
+    pub fn identity(self) -> SemanticId {
+        use pse_ids::named_id;
+        match self {
+            Self::StateReconstruction { declaration, row } => named_id(named_id(declaration.as_id(), &row.to_string()), "state-reconstruction-tolerance"),
+            Self::ConservationRow { declaration, closure } => named_id(named_id(declaration.as_id(), &closure.to_string()), "conservation-row-tolerance"),
+            Self::PhysicalClosure { closure, ordinal } => named_id(closure, &format!("physical-closure-requirement:{ordinal}")),
+            Self::TighterEndpoint { closure } => named_id(closure, "tighter-endpoint-budget"),
+            Self::InventoryClosure { balance } => named_id(balance, "inventory-closure-requirement"),
+        }
+    }
+}
 /// Explicit reached derivations retained with a resolved product, independently of numerical values.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Facts {
@@ -330,6 +379,24 @@ impl Facts {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn numerical_requirement_recipes_preserve_established_named_bytes() {
+        let id = SemanticId::from_bytes([5;16]);
+        let declaration = DeclarationId::from(SemanticId::from_bytes([6;16]));
+        for recipe in [
+            NumericalRequirement::StateReconstruction { declaration, row:id },
+            NumericalRequirement::ConservationRow { declaration, closure:id },
+            NumericalRequirement::PhysicalClosure { closure:id, ordinal:2 },
+            NumericalRequirement::TighterEndpoint { closure:id },
+            NumericalRequirement::InventoryClosure { balance:id },
+        ].into_iter().zip([
+            "0d7c8d79084e59fea16d33bc180037c3",
+            "513551f434ba840103443e10707aca2e",
+            "2fd51aa4e5366a36726742e283576056",
+            "a65e19bc2725019846ada0505a3186d3",
+            "9d3b0f8b1765ed27ab11a68698442ded",
+        ]) { assert_eq!(recipe.0.identity().to_string(), recipe.1); }
+    }
     #[test]
     fn derived_facts_require_actual_publication_and_keep_semantic_roles_distinct() {
         let id = SemanticId::from_bytes([5; 16]);

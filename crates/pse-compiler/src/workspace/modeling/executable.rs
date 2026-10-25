@@ -15,9 +15,9 @@ mod grouped;
 mod implicit;
 mod policy;
 pub use policy::{
-    AnnotationObservation, CompilerView, NumericalAnnotation, NumericalAnnotationMode,
-    NumericalAnnotations, NumericalScale, NumericalStartSource, NumericalStartValues,
-    ScalingObservations, ViewChoice, ViewPolicy, ViewReason,
+    AnnotationObservation, CompilerView, NumericalAdmission, NumericalAnnotation, NumericalAnnotationMode,
+    NumericalAnnotations, NumericalLocation, NumericalTargetFact, NumericalTargetRole, NumericalScale, NumericalStartSource, NumericalStartValues,
+    ScalingObservations, ViewChoice, ViewPolicy, ViewRoles, ViewReason,
 };
 #[cfg(test)]
 #[path = "executable/projection_tests.rs"]
@@ -1170,7 +1170,7 @@ fn finish_projection(
         })
         .map(|(output, _)| output.row_id())
         .collect();
-    p.annotation_plans = Some(policy::projection_annotations(db, p, &constant_bounds));
+    p.annotation_plans = Some(policy::projection_annotations(db, p, &constant_bounds, registry)?);
     Ok(())
 }
 #[salsa::tracked(returns(clone),lru=64,heap_size=admitted_heap)]

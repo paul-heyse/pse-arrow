@@ -23,9 +23,9 @@ impl AdmittedImplicit {
         let bounds = residual.hints.as_ref().map(|hints| {
             let ordinal = |unknown: &SemanticId, kind: ModelingHint| {
                 residual
-                    .hint_targets
+                    .numerical_annotations.hints
                     .iter()
-                    .position(|(target, _, k)| target == unknown && *k == kind)
+                    .position(|hint| hint.target == *unknown && hint.kind == kind)
             };
             ImplicitBounds {
                 body: hints.math.clone(),
