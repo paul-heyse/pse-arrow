@@ -966,11 +966,24 @@ pub fn named_id(package_id: SemanticId, qualified_name: &str) -> SemanticId {
     )
 }
 
+/// Identity of the original coordinate-bound row in a reconstructed native view.
+/// The existing named frame and spelling are shared by every reconstruction consumer.
+pub fn reconstructed_original_bound(coordinate: SemanticId) -> SemanticId {
+    named_id(coordinate, "reconstructed-original-bound")
+}
+
 #[cfg(test)]
 mod consolidation_unit {
     use super::*;
 
     const A: SemanticId = SemanticId::from_bytes([0x01; 16]);
+
+    #[test]
+    fn reconstructed_original_bound_retains_named_frame_and_coordinate() {
+        let expected = derive_id(Frame::NamedV1, &[A.as_bytes(), b"reconstructed-original-bound"]);
+        assert_eq!(reconstructed_original_bound(A), expected);
+        assert_ne!(reconstructed_original_bound(A), reconstructed_original_bound(SemanticId::NIL));
+    }
 
     #[test]
     fn frame_spellings_unique() {

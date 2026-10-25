@@ -1253,7 +1253,7 @@ fn layout(
                 continue;
             }
             let row = rows.len();
-            rows.push(pse_ids::named_id(c.id, "reconstructed-original-bound"));
+            rows.push(pse_ids::derive::reconstructed_original_bound(c.id));
             bounds.push((c.lower, c.upper));
             map.push(ReducedRow::CoordinateBound(col));
             edges.extend(

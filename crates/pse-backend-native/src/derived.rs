@@ -366,7 +366,7 @@ impl<O: ObjectiveOracle<Error = ProblemError>, R: ReconstructionOracle<Error = P
             }
             let row = rows.len();
             rows.push(ReducedRow::CoordinateBound(column));
-            row_ids.push(pse_ids::named_id(c.id, "reconstructed-original-bound"));
+            row_ids.push(pse_ids::derive::reconstructed_original_bound(c.id));
             bounds.push((c.lower, c.upper));
             entries.extend(
                 map.incidence()
