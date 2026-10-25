@@ -313,3 +313,15 @@ Root `PSE_RESOURCE_CLASS=light just turn-end` passed ADR indexing and formatting
 format/import fixes were followed by the ten selected tooling unittest modules (56 passed,
 baseline zero). Turn-end separately deferred three historical unsupported-profile cleanups;
 those resources remain protected. This is not full hygiene or product qualification.
+
+
+### Accepted C04 fallback closure — 2026-10-24
+
+**Tested:** after the maintainer explicitly accepted ordinary structured controls as the supported
+C04 route, the current-source command
+`scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation nextest run -p pse-runtime --lib --locked -E 'test(structured_decoder_controls_keep_actual_operation_meaning_and_refuse_bad_boundaries)'`
+passed one selected test, zero failures, 979 unselected tests (baseline zero). The scope-aware owner
+explicitly selected `pse-runtime/force-validate`. This closes the accepted C04 functional route;
+coverage-guided execution, feedback, minimization and sanitizer qualification remain **not_run**.
+The prior automatic denial is preserved, and no instrumented retry or equivalent claim is made.
+Series-wide qualification stays with 52h.

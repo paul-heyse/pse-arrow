@@ -659,7 +659,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | C01 | done | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
 | C02 | done | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
 | C03 | done | [52c](52c-behavioral-and-scientific-verification.md#C03) | Mutation/fault-injection consumer |
-| C04 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#execution-boundary--instrumentation) | Maintainer accepted structured fallback on2026-10-24; current-source ordinary acceptance to reconcile; optional fuzz/sanitizer routes remain unqualified |
+| C04 | done | [52c](52c-behavioral-and-scientific-verification.md#execution-boundary--instrumentation) | Accepted structured fallback passed on current source; optional fuzz/sanitizer routes remain unqualified |
 | C05 | done | [52c](52c-behavioral-and-scientific-verification.md#C05) | Numerical reference experiment and export |
 | C06 | done | [52c](52c-behavioral-and-scientific-verification.md#C06) | Meaning-preserving source-aware reduction |
 | C07 | done | [52c](52c-behavioral-and-scientific-verification.md#C07) | Focused instrumentation; native I06 outcome |
@@ -675,12 +675,12 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | F01 | in-progress | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired comparisons, selective answer sections/completeness and protected same-cut native/canonical readers |
 | F02 | in-progress | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual SDK task/header and application/server/module continuity, finite capture plus selected continuous pipeline, and I11 |
 | F03 | in-progress | [52f](52f-evidence-analysis-and-trace-correlation.md#F03) | Maintainer selected bounded value/feasibility inquiry; production multi-question delivery still requires explicit selection. |
-| G01 | planned | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
-| G02 | planned | [52g](52g-agent-and-operator-workflows.md#G02) | Actual unified agent workflows consuming CAP/ADP/MCP delivery; I12 selection settled |
-| G03 | planned | [52g](52g-agent-and-operator-workflows.md#G03) | Task-focused instruction/evaluation consumer |
-| G04 | planned | [52g](52g-agent-and-operator-workflows.md#G04) | Safe integration/closeout proposal |
-| G05 | planned | [52g](52g-agent-and-operator-workflows.md#G05) | Operator investigation and I13 |
-| H01 | planned | [52h](52h-qualification-and-publication.md#H01) | Scope and actual consumers reconciled |
+| G01 | in-progress | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
+| G02 | in-progress | [52g](52g-agent-and-operator-workflows.md#G02) | Actual unified agent workflows consuming CAP/ADP/MCP delivery; I12 selection settled |
+| G03 | in-progress | [52g](52g-agent-and-operator-workflows.md#G03) | Task-focused instruction/evaluation consumer |
+| G04 | in-progress | [52g](52g-agent-and-operator-workflows.md#G04) | Safe integration/closeout proposal |
+| G05 | in-progress | [52g](52g-agent-and-operator-workflows.md#G05) | Operator investigation and I13 |
+| H01 | in-progress | [52h](52h-qualification-and-publication.md#H01) | Scope and actual consumers reconciled |
 | H02 | planned | [52h](52h-qualification-and-publication.md#H02) | Assembled functional journeys |
 | H03 | planned | [52h](52h-qualification-and-publication.md#H03) | Scope-end static/manual checks |
 | H04 | planned | [52h](52h-qualification-and-publication.md#H04) | Enduring contracts, actual Outcome and retirement readiness |
@@ -1265,5 +1265,11 @@ bounded inquiry is selected alongside OPT01/OPT02, G05/I13 and I14. Production C
 adoption remain subject to concrete operator selection after inquiry. ADR-0225 precedes native paired
 evidence implementation. LIFE04/MCP06, F01 and F02 now start from the delivered contracts; G/H compose
 and qualify them with existing capabilities. Plans53/54 retain build/preparation/campaign ownership.
-Next: deliver shared freshness/admission, native pairing and authentic SDK propagation, then integrate
-actual workflows/inquiries and joined qualification. Existing Outcomes remain scoped historical evidence.
+Native pairing, source/route admission, current-artifact selection, independent endpoint cleanup and
+headless comparison consumers are implemented. Actual native/offline/indexed pairing and source-only
+checkout/reveal/restart consumers passed their focused boundaries. G01 and the four G03 situations
+have actual Codex evidence, including generated-output owner recovery without replay. Current native
+import admission is being requalified after independent review. F02 has reached the scientific worker
+and exposed a shared-claim/result-writer lifecycle defect; the guard remains intact while its owner is
+repaired. Joined qualification and enduring publication remain open. Existing Outcomes keep their
+original scope; no assembled series completion is claimed.
