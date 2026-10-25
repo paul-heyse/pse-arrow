@@ -214,6 +214,15 @@ populations. New Arrow-consuming closures explicitly force validation. 52h selec
 Rust/Python/native journeys and scope-end checks after functional delivery; it does not turn
 all candidate techniques into broad campaigns or promote tool success into scientific usability.
 
+## Accepted remaining-scope disposition — 2026-10-24
+
+The maintainer explicitly accepted the supported structured fallback for C04 during all-Plan52
+execution planning. Ordinary bounded decoder controls now supply required acceptance; coverage-guided
+fuzzing and sanitizers remain optional, unqualified capabilities. The execution-policy denials below
+remain historical evidence and authorize no retry. C04 closure uses its existing authentic meaning,
+malformed/version/size and truncation controls, preserving their actual scope rather than relabeling
+them instrumented qualification. Existing C07/C08 dispositions remain unchanged.
+
 ## Execution boundary — instrumentation
 
 The maintainer accepted stopping deliberate invalid-memory sensitivity work. A subsequent

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 266
+revision: 267
 date: 2026-10-24
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 267 | 2026-10-24 | Propose native finite paired-evidence comparison with exact correspondence, source custody and independent section completeness (§23.1/§24.1). | Maintainer-authorized remaining Plan52 execution; ADR-0225 proposed before implementation and temporary `.design-edit` authorization. Acceptance remains at F01/H02. |
 | 266 | 2026-10-24 | Publish owner-defined operational metrics, bounded typed telemetry investigations, supplied-member custody and native local watches (§23.1). | Maintainer-authorized Plan52r/52s execution; `.design-edit` authorizes publication within existing diagnostic/scientific contracts. Scoped qualification remains at the coordinator; F02/I11 and assembled G/H stay separate. |
 | 265 | 2026-10-24 | Refine accepted shared telemetry with one generated private settings wire, actual registered-executor/selected-future observations and original native/selected pipeline reads through FastMCP (§23.1). | Maintainer-authorized Plan52p/52q refinement; PSE_DESIGN_EDIT=1 authorizes publication within existing diagnostic/scientific ownership. Acceptance and source-coverage limits remain at the owning coordinator. |
 | 264 | 2026-10-24 | Publish accepted Plan52 OpenTelemetry RC01/RC02: process-owned SDK composition/context, observational pipeline health, independently owned native collection/query services and seven-day ordinary retention (§23.1). | Maintainer-authorized Plan52p/52q execution; `.design-edit` authorizes publication within existing scientific/Python contracts. Implementation and scoped qualification remain at the owning coordinator. |

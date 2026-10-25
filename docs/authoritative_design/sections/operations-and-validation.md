@@ -131,6 +131,13 @@ not exclusive CPU cost. Uno accepted and termination-trial checkpoint ordinals r
 distinct from generic iteration numbers. Optional capture failure changes no numerical outcome.
 
 
+**Paired evidence target.** Proposed ADR-0225 places finite baseline/candidate comparison in the
+existing native evidence-analysis owner. Exact compatible owner identity or supplied mapping governs
+pairing; unmatched, ambiguous, missing execution and changed selection remain explicit. Original
+source cuts, full denominators and per-section completeness survive selected canonical/offline reads.
+Measurement incompatibility is not repaired by statistical aggregation, and comparison never changes
+original scientific or qualification outcomes. Implementation and qualification remain Plan52 F01/H02.
+
 **Shared diagnostic telemetry.** Maintainer-selected Plan52 OpenTelemetry RC01/RC02 add a
 persistent native Collector and local OpenObserve projection alongside finite capture. The process
 host composes providers, resource identity and shutdown once; constructing a Runtime never installs

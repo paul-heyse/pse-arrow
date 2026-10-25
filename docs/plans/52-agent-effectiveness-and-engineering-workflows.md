@@ -647,7 +647,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | C01 | done | [52c](52c-behavioral-and-scientific-verification.md#C01) | Coverage correspondence without behavioral overclaim |
 | C02 | done | [52c](52c-behavioral-and-scientific-verification.md#C02) | Scientific/stateful challenge and I05 |
 | C03 | done | [52c](52c-behavioral-and-scientific-verification.md#C03) | Mutation/fault-injection consumer |
-| C04 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#execution-boundary--instrumentation) | Ordinary structured controls passed and harnesses compile; actual coverage-guided acceptance blocked by automatic task review |
+| C04 | in-progress | [52c](52c-behavioral-and-scientific-verification.md#execution-boundary--instrumentation) | Maintainer accepted structured fallback on2026-10-24; current-source ordinary acceptance to reconcile; optional fuzz/sanitizer routes remain unqualified |
 | C05 | done | [52c](52c-behavioral-and-scientific-verification.md#C05) | Numerical reference experiment and export |
 | C06 | done | [52c](52c-behavioral-and-scientific-verification.md#C06) | Meaning-preserving source-aware reduction |
 | C07 | done | [52c](52c-behavioral-and-scientific-verification.md#C07) | Focused instrumentation; native I06 outcome |
@@ -660,9 +660,9 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | E02 | done | [52e](52e-reproducible-experiments-and-isolation.md#E02) | Actual v2 populations, exact rows/edges/permissions, query equivalence, SIGINT/read-only settlement and sibling-preserving reclamation passed |
 | E03 | done | [52e](52e-reproducible-experiments-and-isolation.md#E03) | Actual semantic bisection visited an untestable revision, found the known bad commit and removed only its temporary Git checkout/build output after drain; main and independent worktrees preserved; retained noisy comparison inconclusive |
 | E04 | done | [52e](52e-reproducible-experiments-and-isolation.md#E04) | Optional Bubblewrap witnesses and actual CLI/library parser consumers; Surrealism grammar uses existing pinned parser |
-| F01 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired comparisons, selective answer sections/completeness and protected same-cut native/canonical readers |
-| F02 | planned | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual SDK task/header and application/server/module continuity, finite capture plus selected continuous pipeline, and I11 |
-| F03 | deferred | [52f](52f-evidence-analysis-and-trace-correlation.md#F03) | PI09 optional finite multi-question inquiry; revisit for a real repeated-question consumer over one cut and explicit selection. Unselected delivery is outside original series completion. |
+| F01 | in-progress | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired comparisons, selective answer sections/completeness and protected same-cut native/canonical readers |
+| F02 | in-progress | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual SDK task/header and application/server/module continuity, finite capture plus selected continuous pipeline, and I11 |
+| F03 | in-progress | [52f](52f-evidence-analysis-and-trace-correlation.md#F03) | Maintainer selected bounded value/feasibility inquiry; production multi-question delivery still requires explicit selection. |
 | G01 | planned | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
 | G02 | planned | [52g](52g-agent-and-operator-workflows.md#G02) | Actual unified agent workflows consuming CAP/ADP/MCP delivery; I12 selection settled |
 | G03 | planned | [52g](52g-agent-and-operator-workflows.md#G03) | Task-focused instruction/evaluation consumer |
@@ -687,7 +687,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | MCP03 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded source/worker/schema fences and scoped guidance restart controls delivered; Q06 resolved |
 | MCP04 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Complete composed reference generated and checked; Q05 resolved with selected CLI deferral |
 | MCP05 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Bounded interface diagnostics/correlation retain original native outcomes and authentic result owners; see 52k Outcome |
-| MCP06 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP06) | Checkout/effective launch selection and complete admitted wire-contract agreement; consumes LIFE04 native basis |
+| MCP06 | in-progress | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP06) | Checkout/effective launch selection and complete admitted wire-contract agreement; consumes LIFE04 native basis |
 | CON01 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON01) | Eleven tagged owner requests, independent examples and migrated callers; bounded fresh-Codex acceptance passed |
 | CON02 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Fourteen typed selected answer families with actual schemas and explicit detail/refusal states |
 | CON03 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner/native decode diagnostics and preserved version/header/trailing/contextual admission |
@@ -699,7 +699,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | LIFE01 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected readiness and explicit owner preparation consumers |
 | LIFE02 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic progress/early handles with attached cancellation/drain and reader fallback |
 | LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
-| LIFE04 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE04) | Current native artifact readiness/admission from existing preparation and source owners |
+| LIFE04 | in-progress | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE04) | Current native artifact readiness/admission from existing preparation and source owners |
 | OPT01 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Paused after bounded real-Monty/typed/small-read comparison and dispatch/lifecycle controls; fresh host/final policy remain |
 | OPT02 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Paused after native-owner/task/STDIO-loss/projection inquiry; integrated native recovery, actual host and final selection remain |
 | TEL01 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |
@@ -1244,3 +1244,14 @@ were not repeated after the Python-only concurrency fix and documentation edits.
 publication was repeated for the final owning pages. All implementation and closeout changes are
 committed in coherent items; the three maintainer-supplied untracked library references remain
 untouched.
+
+### Entire remaining-scope execution checkpoint — 2026-10-24
+
+The maintainer authorized the reconciled all-Plan52 execution approach. C04's supported structured
+fallback is explicitly accepted; instrumented routes remain unqualified and are not retried. F03's
+bounded inquiry is selected alongside OPT01/OPT02, G05/I13 and I14. Production CodeMode, tasks and UI
+adoption remain subject to concrete operator selection after inquiry. ADR-0225 precedes native paired
+evidence implementation. LIFE04/MCP06, F01 and F02 now start from the delivered contracts; G/H compose
+and qualify them with existing capabilities. Plans53/54 retain build/preparation/campaign ownership.
+Next: deliver shared freshness/admission, native pairing and authentic SDK propagation, then integrate
+actual workflows/inquiries and joined qualification. Existing Outcomes remain scoped historical evidence.
