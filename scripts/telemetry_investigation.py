@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from pathlib import Path
@@ -217,7 +216,6 @@ class BackendClient:
 
     def __init__(self) -> None:
         self._client: httpx2.AsyncClient | None = None
-        self._generation: tuple[object, ...] | None = None
 
     async def __aenter__(self) -> Self:
         return self
@@ -226,10 +224,9 @@ class BackendClient:
         await self.close()
 
     async def close(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
-        self._generation = None
+        client, self._client = self._client, None
+        if client is not None:
+            await client.aclose()
 
     async def request(
         self,
@@ -237,7 +234,6 @@ class BackendClient:
         *,
         headers: Mapping[str, str] | None = None,
         body: dict[str, object] | None = None,
-        generation: tuple[object, ...] | None = None,
         method: str | None = None,
     ) -> tuple[int, bytes]:
         import anyio  # noqa: PLC0415 -- selected network read only
@@ -251,12 +247,12 @@ class BackendClient:
             or parts.password
         ):
             raise ValueError("Unsupported telemetry endpoint")
-        if self._client is None or self._generation != generation:
-            await self.close()
+        # URLs and credentials are request-local. Rotating this pool for another
+        # selection would close active sibling reads; source fences belong to query().
+        if self._client is None:
             self._client = httpx2.AsyncClient(
                 timeout=TIMEOUT_SECONDS, trust_env=False, follow_redirects=False
             )
-            self._generation = generation
         try:
             with anyio.fail_after(TIMEOUT_SECONDS):
                 async with self._client.stream(
@@ -386,11 +382,6 @@ class BackendClient:
                 base + path,
                 headers=headers,
                 body=body,
-                generation=(
-                    base,
-                    config.get("configuration_id"),
-                    json.dumps(backend["process"], sort_keys=True),
-                ),
             )
             current = await anyio.to_thread.run_sync(
                 lambda: telemetry_service.inspect(state, environment=environment)

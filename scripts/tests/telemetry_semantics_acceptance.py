@@ -121,12 +121,9 @@ class RecordingBackend(BackendClient):
         *,
         headers: Mapping[str, str] | None = None,
         body: dict[str, object] | None = None,
-        generation: tuple[object, ...] | None = None,
         method: str | None = None,
     ) -> tuple[int, bytes]:
-        response = await super().request(
-            url, headers=headers, body=body, generation=generation, method=method
-        )
+        response = await super().request(url, headers=headers, body=body, method=method)
         self.raw.append(
             {
                 "url": url,
@@ -218,7 +215,9 @@ async def run(state: Path, output: Path) -> int:
         receipt["lookback_seconds"] = window
         receipt["comparison_evaluation_start_seconds"] = times[1] + 0.25
         receipt["comparison_evaluation_end_seconds"] = times[2]
-        receipt["edge_exclusion"] = "Compare evaluations after the second original source point and no later than the final original source point; rounded range edges may extrapolate beyond retained stimuli."
+        receipt["edge_exclusion"] = (
+            "Compare evaluations after the second original source point and no later than the final original source point; rounded range edges may extrapolate beyond retained stimuli."
+        )
         requests: dict[str, QueryRequest] = {}
         for kind, metric in (
             ("rate", "pse_build_records"),

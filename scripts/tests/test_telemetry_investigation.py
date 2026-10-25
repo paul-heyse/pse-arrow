@@ -5,10 +5,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import copy
 import json
 import unittest
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
+import httpx2
 from pydantic import ValidationError
 
 from scripts import telemetry_service
@@ -18,6 +22,9 @@ from scripts.telemetry_investigation import (
     QueryRequest,
     backend_request,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 class QueryTests(unittest.IsolatedAsyncioTestCase):
@@ -75,6 +82,55 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             return await self.client.query(None, selected or self.request())
+
+    async def test_overlapping_selections_share_pool_without_closing_sibling(
+        self,
+    ) -> None:
+        ready = asyncio.Event()
+        arrivals = 0
+        clients: list[httpx2.AsyncClient] = []
+        constructor = httpx2.AsyncClient
+
+        class Payload(httpx2.AsyncByteStream):
+            async def __aiter__(self) -> AsyncIterator[bytes]:
+                yield b'{"hits": []}'
+
+        async def handle(_request: httpx2.Request) -> httpx2.Response:
+            nonlocal arrivals
+            arrivals += 1
+            if arrivals == 2:
+                ready.set()
+            await asyncio.wait_for(ready.wait(), timeout=2)
+            self.assertTrue(all(not client.is_closed for client in clients))
+            return httpx2.Response(200, stream=Payload())
+
+        def factory(**_options: object) -> httpx2.AsyncClient:
+            client = constructor(transport=httpx2.MockTransport(handle))
+            clients.append(client)
+            return client
+
+        def inspect(state: str, **_options: object) -> dict:
+            result = copy.deepcopy(self.inspected)
+            result["configuration"]["configuration_id"] = state
+            return result
+
+        with (
+            patch.object(telemetry_service, "inspect", side_effect=inspect),
+            patch.object(
+                telemetry_service,
+                "backend_access",
+                side_effect=lambda state, **_options: (f"http://{state}.test", {}),
+            ),
+            patch.object(httpx2, "AsyncClient", side_effect=factory),
+        ):
+            first, second = await asyncio.gather(
+                self.client.query("one", self.request()),
+                self.client.query("two", self.request()),
+            )
+        self.assertEqual((first.status, second.status), ("empty", "empty"))
+        self.assertEqual(len(clients), 1)
+        await self.client.close()
+        self.assertTrue(clients[0].is_closed)
 
     async def test_original_points_keep_reset_and_unknown_source_fields(self) -> None:
         points = [
