@@ -3380,3 +3380,289 @@ kind = "depends-on"
 from = "docs/plans/55f-qualification-and-publication.md::package-state::F03"
 to = "docs/plans/55f-qualification-and-publication.md::package-state::F02"
 kind = "depends-on"
+
+# Plan56 native tables own DA dispositions and package progress.
+
+[[scope_tables]]
+path = "docs/plans/56-design-principle-alignment.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding",
+  "Scenarios",
+  "Disposition",
+  "Work owner",
+  "Completion or retained basis",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(DA-[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/56-design-principle-alignment.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(P[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/56a-model-meaning-and-physical-interpretation.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/56b-scientific-operations-and-permission.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/56c-canonical-contracts-and-effects.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/56d-publication-and-workload-fit.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/56e-product-deployment-and-resource-ownership.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/56f-host-agent-and-observability-contracts.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/56g-qualification-and-publication.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/56a-model-meaning-and-physical-interpretation.md::package-state::A02"
+to = "docs/plans/56a-model-meaning-and-physical-interpretation.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B02"
+to = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B04"
+to = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C03"
+to = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C03"
+to = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C03"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C04"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C05"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C05"
+to = "docs/plans/56d-publication-and-workload-fit.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C05"
+to = "docs/plans/56d-publication-and-workload-fit.md::package-state::D02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56d-publication-and-workload-fit.md::package-state::D01"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56d-publication-and-workload-fit.md::package-state::D02"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56d-publication-and-workload-fit.md::package-state::D03"
+to = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56d-publication-and-workload-fit.md::package-state::D04"
+to = "docs/plans/56d-publication-and-workload-fit.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56d-publication-and-workload-fit.md::package-state::D05"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56d-publication-and-workload-fit.md::package-state::D06"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56e-product-deployment-and-resource-ownership.md::package-state::E02"
+to = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56e-product-deployment-and-resource-ownership.md::package-state::E03"
+to = "docs/plans/56-design-principle-alignment.md::package-state::P00"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F01"
+to = "docs/plans/56-design-principle-alignment.md::package-state::P00"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F02"
+to = "docs/plans/56a-model-meaning-and-physical-interpretation.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F02"
+to = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F02"
+to = "docs/plans/56e-product-deployment-and-resource-ownership.md::package-state::E02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F03"
+to = "docs/plans/56b-scientific-operations-and-permission.md::package-state::B06"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F03"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F03"
+to = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F06"
+to = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F06"
+to = "docs/plans/56e-product-deployment-and-resource-ownership.md::package-state::E02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56f-host-agent-and-observability-contracts.md::package-state::F06"
+to = "docs/plans/56e-product-deployment-and-resource-ownership.md::package-state::E03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56g-qualification-and-publication.md::package-state::G01"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56g-qualification-and-publication.md::package-state::G02"
+to = "docs/plans/56c-canonical-contracts-and-effects.md::package-state::C05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56g-qualification-and-publication.md::package-state::G03"
+to = "docs/plans/56g-qualification-and-publication.md::package-state::G01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56g-qualification-and-publication.md::package-state::G03"
+to = "docs/plans/56g-qualification-and-publication.md::package-state::G02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56g-qualification-and-publication.md::package-state::G04"
+to = "docs/plans/56g-qualification-and-publication.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/56g-qualification-and-publication.md::package-state::G04"
+to = "docs/plans/56-design-principle-alignment.md::package-state::P01"
+kind = "depends-on"

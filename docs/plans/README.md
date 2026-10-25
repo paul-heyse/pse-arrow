@@ -1,5 +1,15 @@
 # Current work and plans
 
+[Plan56: Design principle alignment](56-design-principle-alignment.md) is a draft series
+addressing all 24 active findings from the followup production audit, with explicit dispositions
+for all 45 DA identities. Seven companions develop model/scientific meaning, canonical effects,
+publication/workload fit, product/resource ownership, host/observability contracts and joined
+qualification. The coordinator owns finding dispositions and six concrete pending
+[rule choices](56-design-principle-alignment.md#rule-changes); companions own package state.
+Remedy comparison is part of this series, with controlled fresh regeneration selected for needed
+cutovers. These are planning proposals; production implementation and changed rules are not yet
+authorized. Other plans retain their independent scope and status.
+
 [Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for
 its selected capability/client, knowledge/evidence, native model/result, validation/editing and
 diagnostic/handoff scope. Its [qualification Outcome](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25)

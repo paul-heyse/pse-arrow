@@ -1,0 +1,141 @@
+---
+title: "Plan 56g: Qualification and publication"
+status: draft
+date: 2026-10-25
+adrs: []
+review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
+scenario_sources: [docs/design_review/audit/system-architecture.md]
+doc_role: plan
+doc_owner: docs/plans/56-design-principle-alignment.md
+doc_topics: [validation, design, documentation, numerical-execution, storage]
+---
+
+# Plan 56g: Qualification and publication
+
+## Completion boundary
+
+**Proposed:** qualify the delivered alignment target through real producers, consumers and failure
+paths on the supported local Linux host, then reconcile each finding against its complete scope.
+[Plan 56](56-design-principle-alignment.md) owns disposition and authorization; companions own
+functional package state. This plan supplies neither execution authorization nor a claim of
+current qualification. Prior plan/ADR acceptance, source reasoning and focused passes retain
+their exact scope; they do not close this integrated target.
+
+The selected standard is Core 3.4, heuristics 1.0, Process Simulator 1.5 and test-assessment 1.2.
+Preserve scientific oracle independence, original physical checks, explicit Arrow force-validation,
+actual native iteration, canonical durability, protected reading and truthful outcomes. Existing
+local Linux operating/solver support is the boundary; remote CI, other platforms and release/
+distribution qualification are not inferred or added. No broad audit is rerun merely to close each
+slice, and no old stopped campaign is restarted by this series.
+
+## Verification rhythm and prerequisites
+
+During implementation, compile changed packages with `just check-package` or `just check` and run
+revealing validated tests through `just unit-package` or the applicable native-capability recipe.
+Run `just codegen` with declaration/generator changes and include actual generated consumers.
+Keep meaningful unit/policy tests local; effects/cross-owner assertions use genuine infrastructure
+where those contracts are the subject. Do not run hygiene, formatter or integrated suites mid-plan
+except the root's required end-of-turn bundle and separately justified readiness after environment
+changes. Tests that execute Arrow closures explicitly activate force-validation.
+
+Begin assembled qualification when all selected functional consumers and deletions are integrated,
+required rule decisions/reviews are satisfied, and C05 has activated the exact supported target.
+Prerequisites mean working contracts and migrated consumers, not only declarations or plan rows.
+Keep separate scopes for implementation, required qualification and unmeasured benefits. A failed
+check is a failure against zero; no baseline or aggregate pass erases it.
+
+## Assembled scenarios
+
+| Scenario | Required positive behavior | Revealing adverse/control case |
+|---|---|---|
+| Original fit permission through reuse | Qualified fit agrees across invocation, Arrow, local/persisted covariance and propagation | Numerically feasible fit fails authored original check: bytes retained diagnostically, QualifiedFit reuse refused, no lost governing reason |
+| Shared numerical policy | LM/NLP consume equal policy facts and composite rules remain explicit | Limited feasible/nonstationary incumbent; applicability-qualified pin; held/fallback horizon and publication failure |
+| Modeling meaning across modes | Steady/nested/dynamic preparations consume exact roles, support and physical context | Duplicate expression text, lexical shadowing/pending scope, unsupported dynamic nominal and transitive changing coordinate |
+| Public physical interpretation | Rust/Python/MCP resolve exact original unit/basis/reference context with honest completeness | Swapped domains, affine value/difference, repeated symbol in another context, missing original closure |
+| Kind lifecycle and replay | Existing kinds supply their request/completion facts once; local/recovered meanings agree | Invalid tagged constructor, explicit host-only shooting refusal, missing native report/start cannot hide behind wildcard |
+| Canonical effect knowledge | Exact replay yields same acknowledged result and preserved cause/effect classification | Different immutable request, lost ack/readback, stale fence, known absence versus unresolved effect |
+| Physical publication and population | Small selected payloads avoid file lifecycle; large IPC and population progress remain exact | Placement/message boundaries, empty relation, demanded flush, interruption at committed frontier, refused lazy variant |
+| Cohort and exchange | One exact cohort fact set and incremental source encoding preserve complete scope | Live mutation between pages, unavailable members, multi-revision export/cancel/output exhaustion and unchanged protected readers |
+| Backup/restore | Frozen inventory/copy/digests and application closure survive explicit resume | Corrupt/aliased file, stale checkpoint, changed destination, timeout/stall and unknown borrower; no automatic thaw |
+| Deployment and ownership | Product targets and frozen import closure work without fixtures; profiles agree across consumers | Unrelated script edit, missing generated import, PID reuse/uncertainty, launcher death with descendants and custody conversion |
+| Agent read lifecycle | Correct operation/prerequisite, current witnessed image and reused exact page context | Consumed versus unrelated edit, image replacement race, endpoint EOF/cancel/worker replacement with native drain |
+| Telemetry interpretation | Event populations and admissible questions are exact; only selected stages export | Gauge-rate/non-histogram-p95 refused; inner capture span excluded; queue pressure distinguishes first-drop/final count/abrupt unknown |
+| Supplier and current contracts | Exact retained edits and documented current extension routes are recoverable | Dropped/extra supplier hunk, whitespace-only drift, obsolete type/role instructions and unaccepted ADR mistaken for unimplemented behavior |
+
+Expected values and populations are specified independently where generator/producer agreement
+could share a bug. Preserve current successful scientific fixtures, tolerances and independent
+original checks; no new API is qualified solely by collection, a mock or a direct native helper.
+Actual installed Python and actual MCP/derived-CLI requests cover the same contract, with each
+host's attachment/session boundary stated.
+
+## Packages
+
+### G01 — Composed scientific and public-result acceptance
+
+Select actual runtime/backend/compiler/modeling tests for A/B plus local/recovered B/C adoption.
+Run installed correctness Python journeys (`just py-unit`/selected `just py-test`) and real native
+fit, dynamics, solve, initialization and relevant composite policy cases. Exercise result readers
+and MCP/CLI through the actual public contract. Keep native solver outcomes, scientific permission,
+publication completion and assertion reach distinct. Record command, mode, source, scope, baseline
+and result without summing overlapping tests into a fictional total.
+
+### G02 — Durable, workload and operational acceptance
+
+Exercise C/D/E/F on freshly owned disposable state through current lifecycle/observer tools.
+Include independent concurrent callers and the selected scientific pool, original cancellation/
+drain, restart/reopen, backup/restore, exact cohort mutation and selected export. Use the existing
+resource/evidence registry and preserve authenticated cleanup/cross-checkout custody. A fixture can
+be small where it exposes the fault; it is not a new workstation cap. Preserve external sources,
+unrelated databases/caches/worktrees and old reports outside the operation's ownership.
+
+### G03 — Scope-end checks and benefit accounting
+
+After functional scope, run `just hygiene`, fix actual failures and rerun failing leaves. Run
+`just governance`, `just docs`, `just lint-native-contracts`, `just lint-native-data` and the relevant
+`just features-combinations`/`just features-no-default`/`just features-powerset` routes required by
+the changed feature/dependency closures; explain the selected closure before an expensive matrix.
+Do not launch an unrelated historical full campaign merely because a recipe exists. Existing
+manual checks remain manual, with exact pass/fail/not-run boundaries.
+
+Structural assertions must show the work actually removed: no tiny sealed files for selected
+inline members, no per-point shared creation operation, no full descriptors for summaries, no
+aggregate source encoding retention and no repeated unchanged image/tree hash/import per page.
+These establish mechanisms, not speed. Measurements are optional unless a concrete acceptance
+question needs them; state the purpose, complete workload/conditions and reopening trigger before
+running one. I30's historical ratio is not a current-engine baseline. No unmeasured latency,
+capacity or memory improvement is claimed.
+
+### G04 — Independent reconciliation and enduring publication
+
+Have a fresh implementation reviewer assess stable delivered source against each package's
+actual producer/consumer/retirement obligation and the selected target. This is not an automatic
+new diagnostic audit, recommendation audit or mandatory new plan-completion-audit artifact.
+Reconcile missing consumer adoption and evidence in the same coordinator/companion owners.
+
+Publish enduring current contracts through the approved ADR/design routes with blueprint revision
+rows, not in passing. P01 owns DA-023's concrete stale-current-text reconciliation and links these
+updates. Correct supplier records with E05, preserve accepted ADR immutability and distinguish
+formal decision status from implementation evidence. Retire plans/reviews only after their live
+references and owning scope are satisfied; other plan series retain their obligations.
+
+## Package state
+
+| Package | Status | Owner | Completion |
+|---|---|---|---|
+| G01 | planned | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
+| G02 | planned | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
+| G03 | planned | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
+| G04 | planned | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
+
+G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
+another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
+boundary. Required architectural decision review occurs at the owning design changes, not only
+at the end when implementation is already entrenched.
+
+## Verification and outcome limits at authoring
+
+**Proposed:** all qualification above. Authoring uses current source, prior evidence at its
+original scope, library documentation and focused independent design advice. Document reference,
+metadata, scope-binding and formatting checks establish planning-artifact consistency only.
+No product, solver, store, host or benchmark journey has run for Plan56. Scheduling every finding
+is not its resolution, and writing these plans does not authorize their implementation.
