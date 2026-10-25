@@ -6,7 +6,7 @@ These findings concern three kinds of structural cause:
 - an integration boundary that carries decisions it should not.
 
 The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
-at `cbf45ccc9`.
+at `b5bdac9da`. Each *2026-10-25 refresh* note says what changed or was re-read since `cbf45ccc9`.
 
 ## <a id="da-033"></a>DA-033 — The durable lifecycle protocol is shared at the transport layer but re-authored per owner at its semantic envelope
 
@@ -15,6 +15,12 @@ at `cbf45ccc9`.
 
 **Refresh status:** new. It inherits the surviving structural part of DA-025 (machinery scale)
 and overlaps DA-007 and DA-019.
+
+**2026-10-25 refresh: unchanged.**
+- The settlement owners and templates are untouched; the transport diff adds metric slots only.
+- New counterevidence: telemetry investigation publication reuses the existing review-pack
+  sealed custody (§23.1, "supplied non-scientific member publication uses the same index").
+  Plans 52–55 added no durable owner, so no new envelope was authored.
 
 **Diagnosis.** §20.2 states one contract: immutable requests and acknowledgements settle
 uncertain outcomes by exact identity and request comparison.
@@ -105,6 +111,37 @@ cost is reasoned. Tracing one settlement-rule change across all owners would dem
 mutations go through generated guarded functions. The Python diagnostics launch fell from
 about 335 to 23 lines. What persists, and has grown, is the deployment contract.
 
+**2026-10-25 refresh: cause unchanged; a latent manifestation found.**
+- **The frozen closure is a filesystem glob, not a declared import closure.**
+  - `surreal_server.py::publish_generation` freezes `scripts/*.py`, which excludes
+    `scripts/generated/`.
+  - `scripts/__init__.py` makes `scripts` a regular package, so `scripts.generated` cannot be
+    imported from a generation directory.
+  - Plan 52's `scripts/telemetry_config.py` imports `scripts.generated.telemetry_settings`.
+  - `telemetry_launch.configure` maps `ImportError` to `PSE_TELEMETRY_CONFIGURATION_STATUS=unavailable`.
+  - So `worker_environment`, running inside a frozen supervisor, very likely launches native
+    workers with no telemetry settings.
+  - The failure is fail-safe and reports itself truthfully, and science is unaffected. It shows
+    the closure can silently omit a new import. The coordinator re-read the glob, the import and
+    the fallback.
+  - No post-Plan-52 generation existed to observe. Launching a worker through one would settle it.
+- **Telemetry joins the deployment contract by hand.**
+  - The supervisor composes the server and worker telemetry environment and adds
+    `telemetry_service_instance_id` to `server-process.json`, which only Python reads.
+  - The carrier name `PSE_NATIVE_TELEMETRY_SETTINGS` is spelled once in Rust
+    (`telemetry::SETTINGS_ENV`) and three times in Python. The document it carries is generated.
+- **One server, two metric routes.** `surreal_server.py::selected_metric_values` hand-parses
+  Prometheus exposition text, while `scripts/telemetry.py` uses `prometheus_client`. The same
+  server's metrics now also arrive over OTLP.
+- **A narrowing.** Store thread counts now come from `host_admission` rather than a literal
+  (see [DA-036](development-tooling.md#da-036)).
+- `native_deployment.rs` is unchanged.
+- The supervisor's roughly 10.7k lines hold several distinct owners, approximately: backup,
+  restore and maintenance (2.4k); storage lifecycle (2.3k); native placement (2.3k); payload
+  custody (0.9k); observation (0.6k); locks (0.55k); generations (0.3k). They share one state
+  lock, which legitimately orders drain, freeze and stop. This name-based clustering is S5's
+  approximation, not a reviewed map.
+
 **Diagnosis.** "Run a durable study on the managed primary" is product behavior. Its pieces sit
 in four places joined by hand-mirrored formats:
 - **The Python supervisor writes the deployment.**
@@ -194,6 +231,28 @@ cross-version effects are *Interface-checked* hypotheses.
 `declared_execution` chains are gone, and request-driven host routes reach the runtime's
 preparation owner.
 
+**2026-10-25 refresh: widened in the agent host, with narrowings.**
+- *Widened:*
+  - The native MCP bindings grew from 13 (`native.py` at `cbf45ccc9`) to 19 in
+    `scripts/capabilities/native_contracts.py::BINDINGS`, plus `PROFILE_BINDING`. Receivers are
+    still presentation strings, and effects are still prose.
+  - `native_worker.py::execute` dispatches through an `if`/`elif` chain of about 20 operation
+    arms. It restates the operation-to-request-type mapping and an eight-member set of operations
+    that need a physical package, which `binding.documents` could provide.
+  - Defaults are restated:
+    - `Resources`: 16 GiB, 16 threads, 1 GiB spill;
+    - `Bundle`: 16 MiB;
+    - `EngineSettings(batch_size=8192)`;
+    - evidence-comparison bounds: pse-py's 4 / 16 / 1 MiB against MCP's 64 snapshots.
+  - Adding an operation touches the Rust documents, pse-py, the facade, the `Binding` and the
+    worker branch.
+- *Narrowed:*
+  - pse-py `ModelingPackage.inspect` now passes the generated `ModelingInspectionRequest` intact,
+    rather than composing preparation limits itself.
+  - The capability CLI is *derived* from the canonical MCP tool schemas with wire revisions
+    (`cli_codegen.py::render_tools`), so the hosts below FastMCP have one authority.
+  - The `pse-project` xtask CLI is unchanged.
+
 **Diagnosis.**
 - **About 50 Plan 51 operations are projected by hand into four hosts:**
   - pse-py, with about 52 methods in `crates/pse-py/src/workflow.rs` and `workflow/*.rs`;
@@ -238,6 +297,24 @@ and effect descriptions, and the CLI envelope can evolve without schema generati
 **Refresh status:** retained. The residue of DA-016 merges here: solver identity outside the
 adapter seam. Uno's record is fixed.
 
+**2026-10-25 refresh: unchanged; a minor related observation.**
+- `pse-backend-native` is untouched since `cbf45ccc9`, and every item below still holds.
+- The first examination of the adapter internals found a related, minor pattern in two more
+  adapters. Challenge C12 narrowed the draft here.
+  - **Clarabel.** `execution/clarabel.rs::CAPABILITY.parallel` is `cfg!(feature = "clarabel-pardiso")`.
+    The default settings use `Direct::Qdldl`, and `conic.rs::admit_threads` refuses threads other
+    than 1 for QDLDL.
+  - **SCIP.** `parallel: true`, while `execution/scip.rs::Settings::admit` refuses more than one
+    thread together with `exact` or `reoptimize`.
+- `Capability.parallel` is consumed only as a necessary condition (`execution.rs`: refuse when
+  `threads != 1 && !parallel`), and adapter admission then refines it. No consumer derives thread
+  width from the flag.
+- So this is not the KINSOL kind of disagreement. It is that the parallel route's settings
+  dependence is not published.
+- The refusals are typed and happen before any effect.
+- `automatic_causal_supplier` (`workflow/strategies/conditional.rs`) also requires
+  `original.backend() == Some(Backend::Kinsol)`.
+
 **Diagnosis.**
 - **Published capability is the static record.**
   - `pse-backend-native/src/execution.rs::Table::published` maps `a.capability()`.
@@ -281,9 +358,9 @@ dynamics wildcard.
   declared capability.
 - Settings offer only routes the boundary can reach.
 
-## <a id="da-020"></a>DA-020 — Development-tooling families and tools are compiled into product crates and contracts
+## <a id="da-020"></a>DA-020 — Development-tooling families, tools and gates are compiled into product and foundation crates; placement follows generator reach
 
-**Principles:** AP-01, AP-04, DP-02, DP-17; H26, H27.
+**Principles:** AP-01, AP-04, AP-05, DP-02, DP-16, DP-17; H26, H27.
 
 **Refresh status:** retained and widened.
 - Plan 49 decision I21 kept `pse-runtime::tooling` in the runtime and the observation hub in
@@ -293,9 +370,78 @@ dynamics wildcard.
 is corrected: product result-selection contracts now live in `workflow/result_selection.rs` and
 tooling consumes them.
 
+**2026-10-25 refresh: widened and reframed.** Every earlier item persists. Plans 52 and 55 add
+three manifestations, all through the repository's own generation and hosting machinery.
+
+1. **A declared gate that enforces nothing (AP-05).**
+   - `pse-operations/src/lib.rs` gates `pub mod evidence_query` on feature `evidence-query`.
+   - That feature pulls in `pse-engine`, `datafusion` and `pse-columnar`.
+   - Commit `b91205ac3` made both `crates/pse-runtime/Cargo.toml` and `crates/pse-py/Cargo.toml`
+     select it on their normal dependency, to expand the boundary-document catalogue
+     (`pse-runtime/src/boundary_documents.rs::for_each_boundary_document!`).
+   - Under ADR-0122's workspace feature unification, the gate is on for every build, not only
+     product builds. The store client always compiles DataFusion SQL analytics over `rust_test`,
+     `python_test` and `criterion_sample` evidence rows.
+   - `pse-runtime` already depended on DataFusion and `pse-engine`. The marginal effect is the
+     `evidence_query` module and a new `pse-operations` → `pse-engine` edge.
+   - This contradicts §3.2 (`workspace-and-dependencies.md`): "`pse-operations` uses the remote
+     SDK … without an embedded database engine or a columnar payload decoder".
+   - The coordinator re-read the feature, the runtime dependency line and the §3.2 sentence.
+2. **Telemetry dimensions in the root crate.**
+   - Commit `637f71c36` declared `ExecutorRole`, `NativeTaskClass` and `TaskMetricsScope` in
+     `pse-diagnostics/src/vocabulary.rs`, the crate beneath 21 others.
+   - They are registered through `pse-schema/src/catalog/enums_platform.rs`, which gives them
+     semantic-identity framing in the generated foundation model (`pse-model/src/generated/enums.rs`)
+     and product Python enums.
+   - Their consumers are the metrics module, three `instrument` call sites and one pse-py
+     inspection module.
+   - Adding an executor composition root or a future class edits the root crate and rebuilds the
+     workspace.
+3. **Product Python classes with no product consumer.**
+   - 39 of the 238 catalogue entries are tooling, diagnostic, evidence or knowledge documents;
+     six of them are new since `cbf45ccc9`.
+   - `KnowledgeQuery`, `KnowledgePage` and `KnowledgeExplain` generate msgspec classes in
+     `python/pse/contracts/documents/__init__.py`. Nothing in `python/` or `scripts/` uses them,
+     because the MCP side reads the JSON schemas.
+   - `pse.diagnostics.compare_evidence` is public in the product package. Its only non-test
+     consumer is the FastMCP worker.
+
+**Reframing.** Plan 52 also placed product observability inside `pse-runtime::tooling`. That
+covers process telemetry, executor and operational metrics, and metric declarations. Production
+hot paths in `math/{jobs,preparation,staged}.rs`, `workflow/run.rs` and `observation.rs` call
+`crate::tooling::*`. §24 makes this telemetry a product capability, and source honors the
+process-host composition. Placing it in the module is legitimate under I21's whole-module
+decision. Two consequences follow:
+- The line this finding's improvement direction assumed, "the `tooling` module against the
+  product", is no longer the right cut. Product observability and development review now share
+  the module.
+- Placement is decided by which generator or host can reach a type. The cause is not where a
+  file sits.
+
+Populations are also split. Frontier and basis flight counts and native-attempt counts are fixed
+arrays in `tooling/operational_metrics.rs`. Their call-site invariants are documented there but
+realized in `math/preparation.rs`. The A6 product counter in `math.rs` borrows its source epoch
+from that module.
+
+**Rebuild map (S2, read from manifests; unmeasured):**
+
+| Change | What rebuilds |
+|---|---|
+| Executor role or task class | The whole workspace, from `pse-diagnostics` |
+| Evidence or knowledge registry row | `pse-model` upward |
+| Evidence-comparison document | `pse-operations` → `pse-runtime` → `pse-py` and `xtask`, plus product Python contracts |
+| Telemetry implementation or metric declaration | `pse-runtime` upward |
+
+A remedy at this boundary reopens I21. I21 is recorded in the retired
+[Plan 49](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/plans/49-library-native-remediation.md),
+which also recorded DA-020 as "resolved — TOOL05 / I21". Its reasoning, "a separate tooling
+crate would currently require a runtime/catalogue dependency seam", names the seam that now
+carries development contracts into product builds.
+
 **Diagnosis.**
-- `pse-runtime::tooling` (23k lines: capture, review packs, inspection comparison, taskdump) is
-  compiled unconditionally into the product orchestrator.
+- `pse-runtime::tooling` is compiled unconditionally into the product orchestrator. It has
+  about 27k lines at `b5bdac9da` (23k at `cbf45ccc9`), covering capture, review packs,
+  inspection comparison, taskdump and now telemetry.
 - `workflow/reduction.rs` (a source reducer that re-parses equation text) adds a further
   diagnostic tool there.
 - Plans 50 and 52 then placed development stores in the product registry and store client:
@@ -331,13 +477,22 @@ tooling consumes them.
 - These justify one generator and one service. They do not justify tooling types in the
   foundation semantic model, or tooling operators in every product build.
 
-**Evidence:** *Implemented* for placement, the missing gating and the sole consumer. Build cost
-was not measured.
+**Evidence:**
+- *Implemented* for placement, the missing gating and the sole consumer.
+- For the 2026-10-25 widening, *Implemented* for the defeated gate, the vocabulary placement and
+  the unconsumed classes. The coordinator re-read the gate. The catalogue census (39 of 238) and
+  the dependent-crate count are S2's counts.
+- Build cost was not measured. A measured incremental rebuild after a `pse-diagnostics`
+  vocabulary edit would settle the rebuild map.
 
 **Improvement direction.**
-- A scoped tooling partition of registry output: namespace, generated target and crate feature.
+- A scoped tooling partition of registry *and boundary-document catalogue* output: namespace,
+  generated target and crate feature. Declared gates must hold in ordinary product builds.
 - Contracts shared by product and tooling (IPC lineage validation, contained copy, review
   documents) live in an owner beneath both.
+- Product observability (telemetry composition, owner metrics) separated from development review
+  tooling. Owner populations are realized at the performing owner.
+- Telemetry dimension vocabularies live with their producers, not in the root semantic crate.
 - Lifecycle machinery for derived tooling corpora proportionate to their rebuildability.
 
 ## Resolved, merged and moved identities

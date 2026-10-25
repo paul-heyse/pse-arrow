@@ -7,7 +7,9 @@ canonical SurrealDB, 16 coordinated lanes, and durable work that outlives its ca
 daemon.
 
 The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
-at `cbf45ccc9`. Unless a claim says *Measured*, costs are structural observations.
+at `b5bdac9da`. Every owner file of DA-034, DA-035 and DA-025 has an empty diff since `cbf45ccc9`.
+S3 re-read their decisive sites at the new baseline. Unless a claim says *Measured*, costs are
+structural observations.
 
 ## <a id="da-034"></a>DA-034 — The durable publication unit follows semantic and transport boundaries, and each unit carries the full file-intent lifecycle
 
@@ -16,6 +18,25 @@ edit → re-solve loop, PSE-S07).
 
 **Refresh status:** new. It continues DA-025's concern with machinery scale in a specific
 structural form. It is distinct from DA-026, whose per-row locators are verified removed.
+
+**2026-10-25 refresh: unchanged.**
+- These all still hold, and no templates changed:
+  - the relation-boundary seal in `ResultAppendQueue::push`;
+  - the separate `declare_empty_result_set` write;
+  - the file per chunk in `append_execution_batch`;
+  - the per-file protocol;
+  - `aol=sync&sync=every`.
+- No newer measurement than I30 exists.
+- New in this window: with telemetry selected, each round trip also emits up to three SDK client
+  spans:
+  - `grpc_lifecycle.rs::observe`;
+  - `RequestTrace::new("bounded")`;
+  - `RequestTrace::new("grpc")`.
+
+  The sampler defaults to `parentbased_always_on` with queue 2048 and batch 512. Per-request
+  continuity is declared contract (Plan 52 O02/F02). Its volume therefore inherits this
+  finding's per-unit multiplication. Export granularity and loss visibility are
+  [DA-042](#da-042).
 
 **Diagnosis.**
 - `ResultAppendQueue` (`workflow/result_projection.rs`) packs batches into a file only within one
@@ -104,6 +125,16 @@ Changing ADR-0187's packing rule is the rule impact a solution would carry.
 
 **Refresh status:** new.
 
+**2026-10-25 refresh: unchanged.**
+- These all still hold:
+  - `create_study`'s single 90 s clock and its per-point `begin_run`;
+  - `LIMIT 4`;
+  - `MAXIMUM_STUDY_POINTS`;
+  - the cohort cap of 128.
+- Commit `80a889ac1` ("keep independent study claim custody separate") is a custody correctness
+  fix. It adds a per-invocation nonce to the `study-claim:` key in `worker.rs::work_study_candidate`
+  and does not change population handling.
+
 **Diagnosis.**
 1. **Creation.**
    - Point rows are batched at 64 rows or 2 MiB.
@@ -168,6 +199,11 @@ The middle of the workload is sound: lane-parallel and structure-reusing. Its en
   processes, and no daemon. The participants are real.
 - Machinery scale moves to [DA-033](boundaries-and-composition.md#da-033) and [DA-034](#da-034).
 - What survives is the part the prior account left unresolved: physical payload reclamation.
+- **2026-10-25: diagnosis unchanged; consequence widened.**
+  - `collect_file` still has only test callers.
+  - Backup v4 inventories and re-reads every sealed instance, including logically released ones,
+    under a fixed verifier clock ([DA-044](#da-044)). Backup cost and refusal risk therefore grow
+    with payload that is never collected.
 
 **Diagnosis.**
 - §20.4 declares occurrence retirement, history-detail release and physical collection as
@@ -213,7 +249,167 @@ The middle of the workload is sound: lane-parallel and structure-reusing. Its en
   does not do. The decision's revisit trigger ("returned disk space") is arguably met by the
   Plan 51 long-lived stores.
 
+## <a id="da-044"></a>DA-044 — Backup verification runs under a fixed clock and makes repeated full content passes over an ever-growing inventory
+
+**Principles:** AP-07, DP-19, DP-20; H11, H20, H25, H27 (PSE-S07 and a long-lived Plan 51 store).
+
+**Refresh status:** new at 2026-10-25. The backup v4 internals were a prior coverage gap. The
+code dates from Plan 51 and was not changed in this window.
+
+**Diagnosis** (`scripts/surreal_server.py`).
+- **A fixed verifier clock.** `_backup` calls `freeze_payloads`, then `verify_payload_inventory`.
+  The latter runs the native verifier (`pse-canonical-recovery --verify-payload-inventory`) over
+  every sealed or attached instance under a fixed `timeout=120`, whatever the inventory size.
+- **Repeated content passes.** By S3's count, each payload byte is read about six times:
+  1. `freeze_payloads`;
+  2. the native verifier;
+  3. the `copy2` in `copy_payload_inventory`;
+  4. `checked_file` on the target;
+  5. `checked_file` on the source;
+  6. the manifest `file_digest` over the whole destination tree.
+
+  Restore validates the backup at least three times (`restore`, then twice in
+  `complete_backup_copy`).
+- **Asymmetric verification and durability.**
+  - Payload files are copied, fsynced and compared against their source
+    (`copy_payload_inventory`).
+  - The `database` tree, `.generations` and `.contexts` are copied with `shutil.copytree`, never
+    fsynced and never compared against the source. Only the destination copy is digested into
+    the manifest. The database's fidelity is checked logically at restore, through the
+    application inventory (§20).
+  - Restore fsyncs every file and directory before it advances its phase.
+- Backup is offline: it stops the store and requires drained contexts.
+
+**Consequence.**
+- Because nothing is collected ([DA-025](#da-025)), a long-lived store's backup time grows with
+  every payload ever written.
+- Past the verifier's throughput × 120 s, backup refuses. This is suspected, since it depends on
+  throughput.
+- The refusal is a raw `subprocess.TimeoutExpired`, reported by `main` as "TimeoutExpired:
+  supervisor operation failed". By then `freeze_payloads` has closed admission and set
+  `payload_frozen`. The store therefore stays frozen until an explicit reopen
+  (`open_context_admission`). That fails closed, but undiagnosed. This is the challenger's
+  reading of the control flow.
+- The fixed clock has the same form as DA-035's 90 s creation clock.
+- The missing database fsync sits inside a declared limit: §20 "does not … claim power-loss
+  durability", and the substrate guide excludes "physical power-loss survival". What remains is
+  an inconsistency with restore's own fsync discipline, not a broken contract. A restore detects a
+  damaged copy and refuses.
+
+**Counterevidence.**
+- An offline full copy is the simplest sufficient protocol for a single operator (H25).
+- The native verifier is an independent owner that checks more than the digest.
+- Restore is truthful:
+  - it refuses rather than repairs;
+  - it reports `physical_reclaimed_bytes: None`;
+  - it keeps unsettled effects;
+  - it publishes a fresh closed identity before copying and can resume.
+
+**Evidence:** *Implemented* for the fixed clock and the copy and fsync sequence; the coordinator
+re-read `_backup`, the `timeout=120` call and `copy_payload_inventory`. The six-pass count is S3's
+reading. The scale consequence is *Interface-checked*. A backup of a store holding a few hundred
+thousand payload files and tens of GB would settle it.
+
+**Improvement direction.**
+- Verification bounded by declared inventory size, or resumable, with a diagnosed and
+  self-thawing timeout.
+- One content pass that both copies and digests.
+- Backup durability consistent with restore's, within the declared limit.
+
+**Related:** [DA-019](boundaries-and-composition.md#da-019) (backup lives in the tooling
+supervisor), [DA-025](#da-025), [DA-034](#da-034).
+
+## <a id="da-042"></a>DA-042 — Exported span granularity is selected by crate prefix, and the SDK's own drop count is compiled away
+
+**Principles:** AP-05, DP-03, DP-21.
+
+**Refresh status:** new at 2026-10-25 and narrowed before publication by challenge C10. The
+draft also claimed that per-request SDK spans and possible span loss were defects. Both are
+declared contract:
+- per-request continuity is Plan 52 O02/F02, published at blueprint revision 268;
+- §24.1 states that "final batches, or all spans from a short solve, may be absent", and that
+  health reads "retain unavailable, unsupported, lost, sampled, expired and unknown
+  observations".
+
+What survives is narrow and bounded. It is not grouped under the five causes.
+
+**Diagnosis.**
+- **Granularity is a prefix convention.**
+  - §24.1 says ordinary selected telemetry exports "coarse owner stages".
+  - `tooling/telemetry.rs::exported_owner_span` exports every span whose target starts with
+    `pse`, plus the vendored SDK lifecycle target.
+  - Spans created before Plan 52 for finite capture are therefore exported once trace export is
+    selected:
+    - per-body admission and reuse spans in `pse-compiler/.../grouped.rs::semantic_body`;
+    - per-construction spans in `pse-math/src/execution.rs`.
+  - A future `info_span!` in an inner loop would be exported automatically.
+- **The drop count that would make "lost" observable is discarded.**
+  - `BatchSpanProcessor::on_end` drops a span on a full queue with `try_send`. The SDK keeps a
+    private `dropped_spans_count`, reported only through `otel_warn!`.
+  - The workspace and the vendored SDK both build `opentelemetry_sdk` with
+    `default-features = false` and without `internal-logs`, which is in the SDK's default set, so
+    the report compiles out.
+  - `telemetry_process.py::local_status` then reports `dropped_records: "unavailable"`. That is
+    truthful under §24.1, but it is unavailable by build selection, not by library limitation.
+
+**Consequence.**
+- The "coarse stages" property depends on authors never adding an `info_span!` in an inner loop.
+- An operator who sees missing spans cannot tell queue loss from sampling or export failure.
+  Span volume does follow DA-034's per-unit round trips (see [DA-034](#da-034)), which makes queue
+  pressure plausible in long studies.
+- Science is unaffected.
+
+**Counterevidence.**
+- Spans in `pse-runtime` are coarse.
+- No inspected crate uses `trace_span!` or `debug_span!`.
+- Per-body spans fire once per distinct body per preparation, not per iteration.
+- §24.1 makes no completeness claim, and it says a processed count does not prove receipt.
+
+**Evidence:** *Implemented* for the filter, the feature selection and the SDK's private counter.
+S2, S3 and the challenger read these; S3 also read the installed `opentelemetry_sdk-0.33.1`
+source. The coordinator re-read the filter and the workspace feature list. Counting spans emitted
+against spans ingested for one Full solve and one study of about 1k points would show whether
+queue loss occurs.
+
+**Improvement direction.**
+- Exported granularity selected by declared owner stage rather than crate prefix.
+- The SDK's drop count surfaced through the existing pipeline-health read.
+
+**Related:** [DA-034](#da-034), [DA-040](structure-and-invariants.md#da-040).
+
 ## Considered and not raised
+
+**Thread and pool sizing (prior coverage gap, examined 2026-10-25).**
+- *One owner inside each process.* `env.rs` sets `native_cores` to the smaller of available
+  parallelism and the pool thread count. One `ReleaseNotifyingSemaphore` is shared by:
+  - compiler jobs;
+  - native math jobs;
+  - prepared DataFusion query roots (`pse-engine/src/session/preparation.rs::query_admission`).
+- *Native teams receive their admitted width.* MKL `Threads::enter`, the HiGHS `threads` option,
+  and explicitly sized rayon pools inside `pounce::with_threads`. BLAS and OpenMP default to 1,
+  with `MKL_DYNAMIC` authoritative.
+- *Three cross-pool gaps are suspected, not established:*
+  1. The `pse-worker` Tokio runtime uses Tokio's default worker count. Under `taskset` to 16
+     CPUs, this coincides with the budget.
+  2. DataFrame-route reads bypass CPU admission: result snapshot providers and the cohort union.
+  3. The store receives thread counts sized to 32 logical CPUs, which overlap the worker's 16
+     physical CPUs.
+- Reading the existing tokio-metrics long-delay counters during a 16-lane study with concurrent
+  workbench reads would settle them.
+
+**Merge ancestry.**
+- `project_comparison.rs::project_is_ancestor` walks history caller-side. It makes two RPCs per
+  revision, refuses at 8192 visited, and runs twice per decision.
+- That is DA-035's shape, but the cost is proportional to the distance to the base, and merges
+  are rare.
+- Withdrawn as a candidate.
+- The merge semantics are a strength: three-way merge by logical identity with typed conflicts,
+  and a compare-and-set head.
+
+**Result inspection decode.**
+- Block pruning applies before payload acquisition.
+- Each block is then decoded at full width and fully admitted, with no IPC column projection.
+- This is an H7/H19 lead, unmeasured.
 
 **The per-problem creator guard.**
 - Every protection acquisition and every creator writes `canonical_guards` /
@@ -228,6 +424,10 @@ The middle of the workload is sound: lane-parallel and structure-reusing. Its en
 - What would reopen it: creators added since I01 (Plan 51 project roots and research rows), and
   per-member protections in study KPI analysis ([DA-035](#da-035)), contending measurably under
   concurrent 16-lane work.
+- *2026-10-25.* No new kind of creator exists. Plan 55 adds a low-rate external population: each
+  MCP `result_read` or `result_inspect` call acquires one protection and so touches
+  `source-creators:<problem>`. Reading the existing `pacing_observation::conflict` counters
+  during a 16-lane study with concurrent agent paging would show whether this matters.
 
 ## Closed by decision, resolved and merged identities
 
@@ -240,5 +440,17 @@ The middle of the workload is sound: lane-parallel and structure-reusing. Its en
 | <a id="da-029"></a>DA-029 | Resolved in the compiler; residue merged | Compiler projection holds no per-item linear search. The runtime scans in `require_frozen_expression` and the dynamic row lookup are manifestations of [DA-006](semantic-model-and-authority.md#da-006). |
 | <a id="da-030"></a>DA-030 | Closed by decision (I08–I10) | The cross-lane `MathService` cache and flights beside Salsa, and pointer-address keys, are retained. I08 keeps independent publication lanes, I09 keeps reached exact-key flights, and I10 adds no compiler persistence. The `selected()` firewall prevents unrelated edits from invalidating projection. No stale reuse has been demonstrated. Revisit when a stale reuse or a distinct cold-work need appears. |
 
-The removal commit of this refresh preserves their 2026-10-21 text. DA-022's home has moved here
-from the local-reasoning page.
+The removal commit of the 2026-10-24 refresh preserves their 2026-10-21 text. DA-022's home
+moved here from the local-reasoning page.
+
+**Revisit triggers at 2026-10-25: none established as fired; one is a candidate.**
+- *DA-022.* The window adds small `HeapUsage` impls and fixed inspection reservations. The OTel
+  SDK batch queues and the blocking export clients sit outside the accounted pool, like the
+  global-allocator exclusion ADR-0046 already states. No fallible-admission need is demonstrated.
+- *DA-030.* `math.rs` adds only process counters, and no stale reuse is reported.
+  - The trigger also names "a distinct cold-work need". Always-cold MCP workers
+    ([DA-043](development-tooling.md#da-043)) are a **candidate** trigger: a new population that
+    cannot reuse in-memory preparation.
+  - Whether the need is material is unmeasured. DA-043's cold-call breakdown would decide it.
+  - A remedy that keeps a native worker alive would not touch I10. A remedy that persists
+    compiler products would reopen I10.

@@ -7,7 +7,8 @@ These findings concern three things:
 - whether they are re-spelled in strings and conventions.
 
 The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
-at `cbf45ccc9`.
+at `b5bdac9da`. Where a finding's code is unchanged since `cbf45ccc9`, its earlier citations were
+premise-checked at the new baseline; each *2026-10-25 refresh* note says what was re-read.
 
 ## <a id="da-007"></a>DA-007 — The canonical store's meaning lives outside the registry and is re-spelled in strings in every layer
 
@@ -23,6 +24,18 @@ at `cbf45ccc9`.
   - the store-key half of DA-002;
   - the artifact-profile half of DA-032;
   - the canonical-key half of DA-005.
+
+**2026-10-25 refresh: decisive core unchanged, item 4 widened.**
+- The catalog, the SurrealQL generators and the templates are unchanged.
+- The only registry addition is three Rust-owned telemetry vocabularies. Their placement is
+  [DA-020](boundaries-and-composition.md#da-020).
+- The v2 `ResultInspectionRequest` still keys by `run`, `attempt` and `relation` as `String`.
+  The adjacent `tooling/inspection_comparison.rs` already uses typed `RunId` and `AttemptId`.
+- The suspected evidence footprint is now known. `evidence_query/comparison.rs` decides
+  ambiguity with `identity.kind == "rust_test"`, the same literal minted in
+  `evidence_query.rs`, and SQL `e.kind='context'`.
+- Closed vocabularies inside the new *boundary documents*, as opposed to store records, are
+  [DA-040](#da-040).
 
 **Diagnosis.** The registry declares canonical record *shapes*: `catalog/substrate.rs` has
 329 text columns and three enumerations, and `catalog/projects.rs`, `project_imports.rs` and
@@ -110,8 +123,9 @@ records is authored again in each layer that touches it:
   - `pse-operations/src/{canonical_execution,canonical_studies,canonical_projects,canonical_files}.rs`;
   - `pse-runtime/src/workflow/{durable,study,study_execution,worker,artifacts,project_portability,result_selection,result_inspection}.rs`;
   - `python/pse/_workflow.py`.
+- *Known since 2026-10-25:* evidence `kind` literals in `pse-operations/src/evidence_query{,/comparison}.rs`.
 - *Suspected:*
-  - evidence, knowledge and maintenance tables (`kind`, `phase`, `state` text);
+  - knowledge and maintenance tables (`kind`, `phase`, `state` text);
   - diagnostic `source_ref("canonical.run", …)` keys.
 
 **Counterevidence.**
@@ -154,6 +168,17 @@ pair them, and one `RunSupervisor::start_native` serves every kind, including ho
 resolves DA-012's copied supervisor and cancellation divergence. The consequence that a new kind
 threads through every consumer persists. DA-012's surviving strand, declared-procedure dispatch
 re-implemented per consumer, merges here.
+
+**2026-10-25 refresh: unchanged.**
+- A regex probe found the same footprint at both baselines: 323 per-kind arms across 38
+  production files in `pse-runtime` and `pse-py`, and 7 `_ => None` wildcards in
+  `attempt_documents.rs` and `completion.rs`.
+- The new surfaces add no per-kind arms, and they show why:
+  - `Runtime::inspect_result` selects by exact run, attempt and registry relation, and matches
+    only on Arrow `DataType`;
+  - evidence comparison is a closed operation set held by one owner.
+- An owned, kind-agnostic contract kept these surfaces from re-projecting kinds. That supports
+  this finding's improvement direction.
 
 **Diagnosis.**
 - The closed set of analysis kinds (declared case and modeling, simulation, fit, horizon, and
@@ -232,6 +257,30 @@ kind was built.
 
 **Refresh status:** new. This is DA-008's cause in the workflow and math owners; DA-008 itself is
 resolved in the persistence owner.
+
+**2026-10-25 refresh: cause unchanged; manifestations and consequences widened.**
+- Raw `contract(` occurrences in pse-runtime went from about 2,340 to about 2,363.
+  `WorkflowError::Internal` still has about ten uses, and no `internal(` was added.
+- `workflow/result_inspection.rs` went from 12 to 26 production `contract(` sites, mostly
+  integrity and internal checks:
+  - "result inspection frozen block is absent";
+  - "registered result schema fingerprint absent";
+  - "selected child disappeared".
+- That module already has a typed `ResultInspectionRefusal`. Some request admission still goes
+  through `contract()` ("inspection page limit…", "unknown result inspection relation").
+- `workflow/modeling/canonical.rs::declaration_window` adds two integrity checks the same way.
+- **Telemetry inherits the misclassification; it is not a new cause.**
+  `tooling/telemetry.rs::diagnostic` faithfully exports each leaf's `diagnostic_code()`, as
+  §23.2 requires, but it exports at WARN for every leaf and with no class. An internal defect
+  raised through `contract()` therefore appears in traces as `workflow.input`. Unregistered
+  strings such as `native.cancel.requested` share the `code` field with registry codes.
+- **The agent host adds a uniform remedy.** `scripts/capabilities/native_worker.py::scientific_error`
+  gives every native failure the remedy "Correct the selected input using its published schema"
+  and never branches on `failure_class`. A missing frozen block, which is a store-integrity
+  defect, therefore reaches the agent as `workflow.input` / `invalid_model` with an input remedy.
+  The redaction itself follows ADR-0224.
+- S1 re-verified the chain `contract` → `WorkflowInput` → `CompileMath` → `InvalidModel` at
+  `b5bdac9da`.
 
 **Diagnosis.** §23.2 separates three things:
 - request admission;
@@ -316,6 +365,105 @@ the reachable share:
 - Formulation-time specification and well-posedness refusals projected through the same typed
   findings `diagnose` produces.
 - One classification per failure condition across math and runtime.
+
+## <a id="da-040"></a>DA-040 — Boundary declarations stop at field types: closed vocabularies, bounds and instrument semantics are restated around generated shapes
+
+**Principles:** AP-04, AP-05, DP-01, DP-02, DP-03, DP-04, DP-24; G1.
+
+**Refresh status:** new at 2026-10-25. This finding refines integrated cause 1 by moving it one
+layer inward. Plans 52 and 55 extended the declare-once mechanism to every new cross-language
+*document shape*, which is real counterevidence to cause 1. The decision-relevant content *inside*
+those shapes is still restated per language. DA-007 keeps canonical store meaning. This finding
+covers boundary documents and telemetry declarations.
+
+**Diagnosis.**
+1. **Settings bounds and vocabularies.**
+   - The private telemetry settings wire is a Rust serde type (`tooling/telemetry.rs::Settings`)
+     generated into `scripts/generated/telemetry_settings.py`. That part is sound.
+   - The generated fields are `sampler: String`, and integers carry only `ge=0`.
+   - `Settings::validate` refuses:
+     - zero;
+     - values above 60000, 65536 and 3600000;
+     - more than 32 headers or 8192 header bytes;
+     - a batch larger than its queue.
+   - `Settings::sampler` matches six sampler names.
+   - `scripts/telemetry_config.py` restates every bound (`_integer(..., maximum=60000)` and the
+     others) and the six-name set.
+   - `scripts/telemetry_process.py` realizes the Python SDK sampler by substring tests
+     (`endswith("always_off")`, `"traceidratio" in`).
+   - The document emitter already lowers `minimum`, `maximum` and `enum` constraints
+     (`pse-codegen/src/codegen/documents.rs`). These declarations do not use them.
+2. **Evidence-comparison vocabularies.**
+   - `EvidenceSubjectComparison.classification` is a `String` over eight values. `side`,
+     `correspondence`, `status`, `coverage` and `freshness` are strings too
+     (`pse-operations/src/evidence_query/comparison.rs`).
+   - The same file declares `EvidenceComparisonSection` as a serde enum. Its
+     `BTreeMap<EvidenceComparisonSection, _>` is published as a plain JSON `object` in
+     `evidence-comparison-request.input.schema.json` and as `dict[str, …]` in Python. The
+     vocabulary is lost at the published boundary with no declared loss (AP-04).
+3. **Metric identity is positional and named twice.**
+   - `pse-operations/src/canonical_transport.rs::CanonicalStatistics` increments numbered slots.
+   - `tooling/metric_declarations.rs::QUERY_EVENTS` names those slots by array order, and
+     `telemetry.rs` zips the two.
+   - The same pattern holds for `NATIVE_EVENTS`, `PRODUCTS`, `TASK_EVENTS`, `TASK_PHASES` and
+     `PREPARATION_EVENTS`. `operational_metrics.rs::PreparationStage` indexes counters by number.
+   - Checkpoint counters use a second name for the same event (`statement_succeeded` against
+     `canonical.statements.succeeded`).
+   - Attribute keys and instrument kinds are restated in the builders beside the declaration.
+     The only test checks the declaration against itself.
+4. **The query consumer ignores declared instrument semantics.**
+   - `scripts/telemetry_investigation.py::{QueryRequest.selection, backend_request}` allows
+     `rate`, `increase` and `p95` on any stream, whatever its declared `kind` or `temporality`.
+   - Only `fraction_below` consults the declaration, for its buckets.
+   - Python host metric records and the Rust declarations are joined as untyped dictionaries
+     with different kind vocabularies (`METRIC_RECORDS`).
+   - `scripts/telemetry_metrics.py` copies producer stage vocabularies, and `bounded()`
+     collapses new values to `"unknown"`.
+
+**Consequence.**
+- *Change:* adding a sampler or tightening a bound needs four hand edits: Rust validation, the
+  Rust match, the Python resolver and the Python SDK mapping. A mismatch is refused only when
+  the telemetry host is built.
+- *Evidence:* adding a comparison classification, such as "flaky", is invisible to the schema,
+  and any string validates.
+- *Metrics:*
+  - Inserting or reordering an event silently mislabels the exported counters.
+  - A `rate` query over a gauge returns a counter-reset-adjusted number labelled
+    `estimated_rate`. Examples of gauges: `pse_native_supervisors`;
+    `pse_runtime_executor_worker_busy`, whose Rust comment warns it is not monotonic; and the
+    host up/down counter `pse.build.active`.
+- Every manifestation fails closed or is observational. No scientific outcome is affected.
+
+**Counterevidence.**
+- Document shapes are generated once and versioned properly. `Wire::FlatV2` refuses an old
+  header before decoding its body.
+- Metric name, unit, description, buckets and dimension domains come from one declaration.
+- `KnowledgeQuery` uses typed enums (`KnowledgeMode`, `SubjectKind`, `RelationKind`), which
+  shows the mechanism works.
+- §23.1 says "Python owns environment resolution", and early environment-specific errors are
+  legitimate. DP-03 allows several enforcement points, but not independently maintained
+  definitions of one invariant.
+- The prose `verdict` in ADR-0225 is legitimate presentation.
+
+**Evidence:** *Implemented* for the settings bounds, the comparison schema, the metric zips and
+the query selection. S1 read these in source and parsed the schema; S2 and S5 independently
+reported the positional zips and the duplicated bounds. The coordinator re-read the `QUERY_EVENTS`
+zip, the generated settings fields and the `validate` bounds. The mislabel and `rate` consequences
+are *Interface-checked*. Two runs would settle them:
+- an in-memory meter-reader export compared against the declarations;
+- a `rate`-on-gauge request in the existing investigation acceptance.
+
+A static census of boundary-document `String` fields with literal value sets, and of
+`BTreeMap<Enum, _>` fields, would settle the suspected wider footprint.
+
+**Improvement direction.**
+- Boundary declarations carry their closed vocabularies, bounds and map-key domains, and the
+  existing emitter lowers them into JSON Schema and Python.
+- Owner counters are keyed by the declared event, not by position.
+- Consumers derive permitted query operations from the declared instrument kind and temporality.
+
+**Related:** [DA-007](#da-007) (the store-record counterpart), [DA-036](development-tooling.md#da-036)
+(resource meaning, where no declaration exists at all), [DA-015](boundaries-and-composition.md#da-015).
 
 ## Resolved identities
 

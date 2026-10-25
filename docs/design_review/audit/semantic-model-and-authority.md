@@ -4,8 +4,9 @@ These findings concern two things: whether domain meaning has an adequate model,
 behavior consumes that model or each consumer reinterprets it. The
 [collection README](README.md) gives the baseline, the standard and the limits. The
 [integrated account](system-architecture.md) explains how these findings interact with the
-other pages. Citations are `path::symbol` at source commit `cbf45ccc9`; line numbers are
-approximate where given.
+other pages. Citations are `path::symbol` at source commit `b5bdac9da`; line numbers are
+approximate where given. The code of these four findings is unchanged since `cbf45ccc9`. The
+2026-10-25 notes record premise checks against the new consumers and expectations.
 
 ## <a id="da-006"></a>DA-006 — Runtime mode formulation re-derives or fills in what the compiler and modeling owners publish
 
@@ -13,6 +14,12 @@ approximate where given.
 **Refresh status:** reframed and widened. The original diagnosis was annotations lowered with
 different rules per mode; that core is resolved. The residues of DA-001, DA-002, DA-029 and
 DA-031 merge here because they share this cause.
+
+**2026-10-25 refresh: unchanged.** The compiler, modeling, `cases.rs` and `dynamics.rs` are
+untouched. Plan 55's new model consumers page and compare authored declarations:
+`ModelingPackage::{declaration_page, comparison_observation}` and
+`workflow/modeling/canonical.rs::declaration_window`. They consume neither `target_kind` nor a
+per-mode inventory, so they neither add to this finding nor relieve it.
 
 **Diagnosis.** Plan 49 gave the compiler and modeling owners authoritative products:
 - a resolved, typed executable syntax with symbol, binder and node arenas
@@ -106,6 +113,8 @@ The runtime's per-mode formulation (`workflow/modeling/cases.rs` for steady,
 **Principles:** AP-04, DP-01, DP-02; G1.
 **Refresh status:** narrowed. The registry now declares grammar and role per field
 (`pse.expr_dsl`, `pse.domain.expression.role`). The remaining inventories are unchanged.
+At 2026-10-25, `selected_source.rs` and both `LexicalLookup::bound` implementations are still
+untouched. The only change in `workflow/modeling/canonical.rs` is declaration paging.
 
 **Diagnosis.**
 - `pse-modeling/src/selected_source.rs` is byte-identical to the previous baseline. It keeps:
@@ -144,6 +153,17 @@ mismatches).
 - What remains is the readable physical meaning of identities and outputs.
 - The canonical-key half (bare `str` keys, `forget_study_results(study: str)`) moves to
   [DA-007](structure-and-invariants.md#da-007), which shares its cause.
+- **2026-10-25: core unchanged; premise reinforced.**
+  - What improved: inspection v2 gives typed cells (`ResultInspectionCell::{Float64{bits,class}, ParentNull, MissingElement, …}`),
+    keeps the non-value context fields and makes `context_complete` explicit.
+  - What did not: unit and quantity identities still render as `ResultInspectionCell::Binary{hex}`
+    with no resolver, and usability is always `Unknown`.
+  - Plan 55c set itself the target of inlining "unit/dimension, basis/convention, identity,
+    quality/usability". Its outcome records usability unknown and completeness false, and §24.2
+    says it "does not establish complete physical interpretation". A functional expectation now
+    explicitly asks for what this finding says is missing.
+  - The MCP description of `native_contracts.BINDINGS["result_inspect"]` says the view "retains
+    original identity, units, basis and quality context". That is true only as ids (DP-22).
 
 **Diagnosis.**
 - **Physical identities have no kind.**
@@ -156,8 +176,8 @@ mismatches).
   - `PhysicalContext` exposes only an identity.
   - Inspection members carry no quantity or unit.
   - The Arrow formatter renders `unit:id:<hex>`.
-  - The Plan 52l "readable physical-value view" (`workflow/result_inspection.rs`) returns hex
-    context.
+  - The native result-inspection view (`workflow/result_inspection.rs`, ADR-0224, now v2)
+    returns physical context as hex identities.
   - The repository's own Python fixtures get unit ids by parsing package YAML
     (`python/pse/tests/physical_input_fixture.py`).
 - **Outputs carry no unit.** Examples: `committed_values -> dict[SemanticId, float]`, and the
@@ -202,6 +222,12 @@ at the scientific core.
 store-vocabulary projections the draft first placed here (the terminal-class wildcard,
 generator-owned projections and `PackScientificState::Unknown`) belong to
 [DA-007](structure-and-invariants.md#da-007).
+
+**2026-10-25 refresh: code unchanged; premise reinforced.** `numerics.rs`, fitting, the
+horizon driver and the study owners are untouched. Native result inspection is a further
+consumer that cannot obtain the producer's aggregate permission:
+`result_inspection.rs` calls `reader.pack_selection(PackScientificState::Unknown)`. Every new
+reader of stored results either re-derives permission or, as here, reports it unknown.
 
 **Diagnosis.**
 

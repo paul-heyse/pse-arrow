@@ -5,8 +5,9 @@ are misaligned with the selected design standard, and how alignment can improve.
 
 **Where to start.** Read the [integrated system account](system-architecture.md) first. It covers:
 - the system as built;
-- how it serves the simulator's functional target;
+- how it serves the simulator's functional target, including the agent loop;
 - five integrated causes and how they interact;
+- the result of testing the structural-attractor prediction on Plans 52–55;
 - the hypotheses the evidence refuted;
 - representative change and failure scenarios.
 
@@ -23,360 +24,417 @@ or certify that unlisted areas are aligned.
 
 ## Baseline and method
 
-- **Audited source:** `cbf45ccc933b66192bd7ed5b2a77176e39d46c2e` (`main`), 2026-10-24.
+- **Audited source:** `b5bdac9da763bf1a70f20b0599de0edad8a955f9` (`main`, clean), 2026-10-25.
 - **Publication:** a later commit, recorded by Git.
 - **Included uncommitted changes:** none.
 - **Excluded changes:**
-  - commits after the baseline, through `61874d813`;
-  - concurrent uncommitted `scripts/capabilities/` edits.
+  - the concurrent commit `0478f0990` (MCP acceptance tests and
+    `docs/dev/mcp-capability-assessment-2026-10-25.md`);
+  - the later concurrent uncommitted `scripts/tests/mcp_*_acceptance.py` edits.
 
-  Those changes touch capability tooling, `scripts/python_extension.py`,
-  `scripts/semantic_edits.py`, `scripts/validation.py` and documentation; product crates, Python
-  and `xtask` are unchanged. Tooling is in scope, so cited tooling sources were read at the
-  baseline revision.
-- **Selected standard:**
+  They touch test and documentation files only. Product crates, Python, `xtask` and tooling
+  owners are unchanged.
+- **Selected standard:** unchanged since the previous refresh:
   - core 3.4;
   - efficiency heuristics 1.0;
   - process-simulator profile 1.5;
   - the pse-arrow binding, through [`standard.toml`](../design_principles/standard.toml).
 
-  The test-assessment companion was consulted only where production assurance seams touch
+  The test-assessment companion (1.2) was consulted only where production assurance touches
   tests.
 - **Scope:**
-  - The product.
-  - Development tooling as a full audit subject (maintainer selection, 2026-10-24): the FastMCP
-    endpoint, recipes and `pse-env`, the substrate supervisor, `xtask`, runtime tooling, hooks,
-    generated knowledge, and evidence tooling outside the DTA scope.
+  - the product;
+  - development tooling as a full audit subject (maintainer selection, 2026-10-24);
+  - by maintainer selection on 2026-10-25, the areas the previous account named as unexamined:
+    - solver adapter internals;
+    - recycle convergence;
+    - vendored SurrealDB SDK and server patches (and, as found, SUNDIALS);
+    - compiler and Salsa reuse;
+    - backup v4 and merge;
+    - DataFusion/native thread pools;
+    - most of the FastMCP inventory;
+    - the supervisor beyond the cited functions.
 - **Maintainer premises, applied as binding and not audited:**
   - SurrealDB is canonical;
   - 16-lane SurrealDB-coordinated parallelism;
   - durable work that outlives its caller and spans processes, without a daemon;
-  - a single local operator.
+  - a single local operator;
+  - the local uncapped build mode.
 
   Recorded maintainer decisions are named where they govern a finding.
-- **Prior baseline:** the first audit at source `a791c533e` (2026-10-21), published at
-  `0530dcaa1`. The intervening 865 commits include:
-  - the Plan 49 remediation of DA-001–DA-032;
-  - Plan 51 (projects, branches, history, exchange, backup v4);
-  - Plans 50, 52 and 53 (diagnostics, the agent interface, test architecture).
+- **Prior baseline:**
+  - the previous refresh at source `cbf45ccc9` (2026-10-24), published at `2257311c0`. No review
+    consumed it;
+  - 131 intervening commits:
+    - Plan 52 OpenTelemetry (process telemetry, owner metrics, Collector and OpenObserve
+      services, W3C context through the vendored SDK);
+    - Plan 54 build reuse (sccache, Cargo freshness, uncapped admission);
+    - Plan 55 MCP effectiveness (native result inspection v2, ADR-0224; paired evidence
+      comparison, ADR-0225; a 57-module capability plane and generated CLI);
+  - canonical tables, server functions, workflow modules and per-kind arms are unchanged.
 
-**Method.** The earlier accounts in this repository published the union of crate-slice
-candidates. The maintainer judged that approach myopic: narrow items were misread for lack of
-the owner's intent, and system-level opportunities were missed. This refresh worked from the
-system inward.
+**Method.** This is a change-directed refresh plus the prior coverage gaps. It keeps the 10-24
+refresh's system-inward method.
 
-1. **System map first.** Before any finding work, the coordinator built a map of the system as
-   built from:
-   - the architecture sections, read as declared intent;
-   - the crate graph;
-   - representative journeys from the Python and Rust entry points (steady solve, value-only
-     sweep, dynamics and fit, a durable study that outlives its caller, result
-     selection/analysis/read, and the tooling journey).
-2. **Six read-only evidence streams.** Each was a system question that spans owners:
-   - meaning and authority;
-   - change locality and composition;
-   - execution fit and lifecycle;
-   - scientific contract and local reasoning;
-   - development tooling;
-   - reconciliation of DA-001–DA-032, treating Plan 49's closure claims as leads.
+1. **System map first.** The coordinator re-read the prior map and the changed intent:
+   - the §19, §23.1 and §24 diffs;
+   - ADR-0224 and ADR-0225;
+   - the interface guide.
 
-   Each stream returned candidate *structural causes*. For each cause it gave scenario
-   consequences, decisive sources and the strongest legitimacy case, checked against the owning
-   section or ADR. Size, similar code or an unused feature alone could not raise a finding.
-3. **Coordinator reconciliation into integrated causes.** The coordinator re-read the
-   load-bearing citations of every new or reframed finding. Findings say where that happened.
-4. **Independent challenge.** A fresh reviewer tested the draft for omissions, misread intent,
-   over-narrow findings and overclaims. See [Challenge reconciliation](#challenge-reconciliation).
+   It then traced the new journeys through source:
+   - process host → telemetry → services;
+   - MCP/CLI → capability plane → native contracts → inspection and comparison;
+   - build → `pse-env` → sccache.
+
+   It also counted the attractor loci at both baselines.
+2. **Five read-only evidence streams,** each a cross-owner question carrying its share of the
+   prior gaps:
+   - S1 meaning, authority and contracts;
+   - S2 placement, composition and local reasoning, plus the compiler and Salsa;
+   - S3 execution fit and lifecycle, plus backup, merge and thread pools;
+   - S4 scientific contract and the PS profile, plus adapters, recycles and vendored patches;
+   - S5 development tooling, plus the FastMCP inventory and the supervisor.
+
+   Each stream returned candidate structural causes, with scenario consequences, decisive
+   sources, the strongest legitimacy case checked against the owning section or ADR, and what
+   would settle it. Each stream also revalidated its assigned identities.
+3. **Coordinator reconciliation into the existing causes.** Two causes were restated more broadly
+   where the evidence crossed their earlier boundary. The coordinator re-read the load-bearing
+   citations of every new or widened finding, and each finding says where.
+4. **Independent challenge.** A fresh reviewer tested the draft against source. See
+   [Challenge reconciliation](#challenge-reconciliation).
 
 **Evidence.**
-- Nothing was built, tested, measured or executed during this refresh.
+- Nothing was built, tested, measured or executed against the product.
+- Read-only probes were used: `git grep` counts at both baselines, `ast` import-graph scans,
+  schema parses, and diffs of vendored trees against checksum-verified upstream archives
+  downloaded or extracted to scratch.
 - Claims are *Interface-checked* or *Implemented* (design principles §D).
-- Two existing *Measured* records are cited under their original conditions: Plan 48f I30, and
-  the Plan 49 decision I01 investigation. Neither is promoted to a current measurement.
-- Counts are `git grep` or regex estimates at the baseline.
+- The one existing *Measured* record, Plan 48f I30, is cited under its original conditions.
 - Each finding names what would settle its open part.
 
 ## Integrated synthesis
 
-The scientific core is well governed:
-- physical typing;
-- guards;
-- library-owned derivatives;
-- conservation by construction;
-- one pure completion owner;
-- one run supervisor;
-- one pure study policy.
+The scientific core is well governed. This refresh's first look at its internals added three
+strengths to the list:
+- the solver adapters (exhaustive status maps, original-space qualification, contained callbacks,
+  analytic derivatives);
+- recycle convergence;
+- Salsa reuse.
 
-Governance weakens toward the rim of the system: the store, exchange, host and tooling layers.
-That is where Plans 50–53 added most of their code. Five causes explain the material findings:
+Governance weakens toward the rim: the store, exchange, host, observability and tooling layers.
+Plans 52–55 built almost entirely there. Five causes explain the material findings:
 
 | # | Integrated cause | Findings |
 |---|---|---|
-| 1 | Contracts beyond record shapes are hand-authored per owner, host and language | [DA-007](structure-and-invariants.md#da-007), [DA-033](boundaries-and-composition.md#da-033), [DA-015](boundaries-and-composition.md#da-015), [DA-019](boundaries-and-composition.md#da-019), [DA-036](development-tooling.md#da-036) |
-| 2 | Durability is realized per semantic unit rather than per workload | [DA-034](execution-fit.md#da-034), [DA-035](execution-fit.md#da-035), [DA-025](execution-fit.md#da-025) |
+| 1 | Contracts are declared as shapes; meaning, vocabularies and protocols are hand-authored per owner, host and language | [DA-007](structure-and-invariants.md#da-007), [DA-040](structure-and-invariants.md#da-040), [DA-033](boundaries-and-composition.md#da-033), [DA-015](boundaries-and-composition.md#da-015), [DA-019](boundaries-and-composition.md#da-019), [DA-036](development-tooling.md#da-036) |
+| 2 | Fixed protocol cost is paid per semantic unit rather than per workload | [DA-034](execution-fit.md#da-034), [DA-035](execution-fit.md#da-035), [DA-025](execution-fit.md#da-025), [DA-044](execution-fit.md#da-044), [DA-043](development-tooling.md#da-043) (its per-call half) |
 | 3 | Product and tooling responsibilities are placed by machinery location | [DA-020](boundaries-and-composition.md#da-020), [DA-037](development-tooling.md#da-037), [DA-024](local-reasoning-and-assurance.md#da-024) |
 | 4 | Analysis operations lack an owned contract, and workflow internals lack boundaries | [DA-009](structure-and-invariants.md#da-009), [DA-021](local-reasoning-and-assurance.md#da-021) |
 | 5 | Consumers re-derive or lose decisions the core already makes | [DA-006](semantic-model-and-authority.md#da-006), [DA-003](semantic-model-and-authority.md#da-003), [DA-038](semantic-model-and-authority.md#da-038), [DA-017](boundaries-and-composition.md#da-017), [DA-039](structure-and-invariants.md#da-039), [DA-005](semantic-model-and-authority.md#da-005) |
 
-A bounded authority finding, [DA-023](local-reasoning-and-assurance.md#da-023), records that
-design intent is not a reliable single authority.
+Three bounded findings sit beside them:
+- [DA-023](local-reasoning-and-assurance.md#da-023): design intent is not a reliable single
+  authority;
+- [DA-041](local-reasoning-and-assurance.md#da-041): edited vendored trees have no truthful patch
+  record, and their prose contradicts the bytes and §13;
+- [DA-042](execution-fit.md#da-042): exported span granularity is a crate-prefix convention, and
+  the SDK's drop count is compiled away.
+
+DA-043's currency half is a bespoke reuse key held by the tooling (DP-09, DP-13). It resembles
+cause 5 and is not forced under cause 2.
 
 **In terms of the functional target:**
-- the edit → re-solve loop's critical path is dominated by fixed per-unit publication cost
-  (DA-034);
-- studies are sound in the middle and unfit at their population ends (DA-035, DA-025);
-- recycles are library-owned and well structured in the bounded sample;
-- results are physically checked, but unreadable outside Rust (DA-005);
-- failures are often classed by constructor rather than by meaning (DA-039).
+- The edit → re-solve loop's critical path is still dominated by fixed per-unit publication cost
+  (DA-034).
+- Studies are sound in the middle and unfit at their population ends. Backup of the resulting
+  never-collected inventory runs under a fixed clock (DA-035, DA-025, DA-044).
+- Recycles and solver outcomes are library-owned and truthful.
+- The new agent loop is built on owned, kind-agnostic contracts. Each call pays a full
+  lifecycle that its own plan target (LIFE04) ruled out, and any crate edit makes reads refuse,
+  including supplied-only comparison (DA-043). What it shows is unitless and
+  permission-unknown (DA-005, DA-038). Its failures carry an input remedy whatever their meaning
+  (DA-039).
 
-**Cross-cutting pattern.** Several Plan 49 remedies introduced the authoritative product without
-forcing consumers through it, so the old interpretation moved rather than disappeared. The
-retained causes also grew with each later plan, because new capability lands in the same
-generative loci. Site repairs therefore do not stop recurrence. The useful targets are the
-generating mechanisms
+**The attractor test.** The prior account predicted that new capability lands in the same
+generative loci. Plans 52–55 bore this out for causes 1–3: vocabularies restated around generated
+shapes, hand-bound agent operations, a defeated feature gate, re-authored service liveness and a
+per-call protocol. It failed where the repository already had and used a declare-once or
+owned-contract mechanism: generated document shapes, Rust-declared metric names, a CLI derived
+from MCP schemas, and inspection and comparison without per-kind arms. Those counterexamples are
+the strongest evidence that the improvement directions are realizable
 ([integrated account](system-architecture.md#cross-cutting-pattern-moved-causes-and-structural-attractors)).
 
 ## Material corrections to the previous account
 
-**Plan 49's closure is not inherited.** Plan 49 marked all 32 findings resolved. At this
-baseline, they fall into five groups:
+**Restated causes.**
+- **Cause 1** now reads "declared as shapes", not "beyond record shapes". Plans 52–55 generated
+  every new document shape, so shapes are no longer the gap. The gap is the vocabularies, bounds
+  and instrument semantics inside them (DA-040).
+- **Cause 2** now reads "fixed protocol cost per semantic unit", not "durability per semantic
+  unit". The same structural form appears in backup verification, agent calls and exported spans,
+  which are not durability.
+- **Cause 3 keeps its title.** A draft restatement as "machinery reach" was evidenced only by
+  DA-020, so it was kept as that finding's reframing (C15). Product observability now lives in
+  the tooling module, and generator or host reach decides placement.
 
-| Group | Count | Findings |
-|---|---|---|
-| Resolved | 8 | DA-004, 008, 010, 011, 013, 026, 027, 028 |
-| Resolved in their owner, with a residue merged into another finding | 5 | DA-001, 002, 012, 029, 031 |
-| Closed by maintainer decision | 4 | DA-014, 018, 022, 030 |
-| Merged into active findings | 2 | DA-016, 032 |
-| Continuing as active findings | 13 | — |
+**DA-037's footprint was understated.** The previous account named six modules in the cyclic
+import web. An `ast` probe that counts function-local imports finds the strongly connected
+component held 26 modules at `cbf45ccc9`, and 27 now.
 
-Several of the 13 active findings are partly governed by decisions:
-- DA-020 by I21;
-- DA-024 by I24;
-- DA-025 by the no-collector decision.
+**Previous counting method.** The prior locus table's "canonical tables 62 → 79" and "server
+functions 116 → 171" used a different method from this refresh's `*.surql` occurrence counts.
+Those figures are kept as historical, and the new table uses one method at both baselines.
 
-Four closure claims are contradicted by unchanged files:
-- DA-003: `selected_source.rs` is byte-identical;
-- DA-017: the KINSOL published row;
-- DA-023: the named drift remains;
-- DA-005: `forget_study_results(str)`.
-
-Closure evidence that tested a delivered remedy cannot show that a cause is gone elsewhere.
-
-**DA-025's original framing is withdrawn.** "Persistence machinery sized beyond actual
-participants" does not hold under the binding premises. Its surviving content is split:
-- the missing physical collection stays as DA-025;
-- per-owner protocol re-authoring becomes DA-033;
-- the publication unit becomes DA-034.
-
-**Reframed findings:**
-- **DA-006.** Its original core is resolved: per-mode lowering, duplicates and last-wins. The
-  remaining runtime re-derivations share one cause and absorb the residues of DA-001, DA-002,
-  DA-029 and DA-031.
-- **DA-009.** Pairing is now structural. The missing per-kind contract absorbs DA-012's dispatch
-  strand.
-- **DA-019.** The second writer is gone. What remains is the deployment contract and the
-  restore-comparison owner set living in tooling.
-
-**Merges:**
-- DA-005 is split. Physical meaning stays; canonical key kinds move to DA-007.
-- DA-007 also absorbs the store-key half of DA-002, DA-032's artifact-profile literals and the
-  lifecycle projections.
-- DA-017 absorbs DA-016's residue.
-
-**Closed by recorded maintainer decision, with revisit triggers on their pages:**
-- DA-012: strategies stay nondurable;
-- DA-014: I22, RC12;
-- DA-018: I23;
-- DA-022: I16;
-- DA-030: I08–I10.
-
-The per-problem creator guard was considered under I01 and not raised.
-
-A withdrawn or narrowed diagnosis reflects corrected judgment or a code change established from
-source. It is not a new test result.
+No prior finding was withdrawn, and none was resolved in this window.
 
 ## Challenge reconciliation
 
-An independent reviewer challenged the draft against source at the baseline and against the
-retired Plan 49 records. Every material challenge was accepted, and every one was reconciled:
-- **C1: a draft finding on the per-problem creator guard contradicted decision I01.** Withdrawn
-  and recorded under *Considered and not raised*, with what would reopen it (Plan 51 creators and
-  KPI per-member protections postdate I01's measurement). The ID was never published, so the new
-  IDs were renumbered contiguously.
-- **C2: the edit → re-solve workload was untraced, and I30's measurement was missed.** DA-034 now
-  leads with the interactive critical path. It cites I30 as *Measured* under its original
-  conditions, notes the deliberate durable default and the ephemeral route, and names
-  ADR-0187's packing rule as the rule impact. A scenario row was added.
-- **C3: the account was not organized around the functional target.** The integrated account
-  now has a functional-target section covering the five workloads and two result qualities. A
-  bounded recycle (PS-08) sample was taken; it found a library-owned design and no new finding.
-- **C4: DA-006 misread the compiler's product.** Reframed. The compiler publishes one
-  mode-invariant classification. Steady mode duplicates it; dynamic mode fills a gap that no
-  owner covers.
-- **C5: settled decisions were kept as live defects.** DA-022 and DA-030 are now
-  closed-by-decision rows with revisit triggers. "Never researched" was deleted.
-- **C6: the backup claim was overstated.** DA-019 now states that backup copies and
-  byte-verifies everything. Only the logical owner comparison is hand-listed and omits Plan 51
-  tables. It was removed from the moved-cause list.
-- **C7: two causes were conflated, and findings sat under two causes.** Accepted:
-  - the contract halves of the old store, tooling and operation causes became one spine
-    (cause 1);
-  - DA-017 and DA-038 moved to cause 5;
-  - DA-005 was split;
-  - each finding now has one cause.
-- **C8: narrow items.** Accepted:
-  - DA-038 (formerly the permission finding) lost its store projections to DA-007;
-  - DA-003 is linked into DA-006;
-  - DA-024 sits under cause 3.
+A fresh reviewer challenged the draft against source at `b5bdac9da` and the owning sections,
+ADRs and plans. It raised 19 challenges, 11 of them material. Every challenge was accepted and
+reconciled. The coordinator re-checked the decisive sources of C1, C3, C6, C10, C11 and C18.
 
-  DA-003 keeps its own scope because its modeling-side inventory is a distinct owner.
-- **C9: headline counts.** Corrected to the breakdown above. Plan 51 accounts for 39 of the 55
-  new functions.
-- **C10: a strength contradicted DA-038.** The strength is narrowed, and the LM route is treated
-  as top-level.
-- **C11: DA-039's counterevidence and clearest case.** Added the roughly 145
-  `ProblemError::internal` sites and the timeout/resource-limit persistence path.
-- **C12: DA-008's residue.** The free-text THROWs in the development stores are noted as a
-  DA-020 manifestation.
-- **C13: name governing decisions.** Each finding names the decision it would reopen:
-  ADR-0187, I28, I21, I20, I01, I16, I08–I10.
-- **C14: "supported size".** Now "the admitted bound", noting that point rows are already
-  batched.
-- **C15: cause 6 overclaimed.** Demoted to a bounded authority finding. ADR-0214 is described as
-  replacing ADR-0164's outcome without a supersession link.
-- **C16: excluded changes and labels.** Corrected. "Hypothesis" is not used as an evidence
-  label.
+- **C1: DA-043 missed owner intent.** Plan 52n LIFE04 explicitly forbids a whole-repository hash
+  or unsound hand whitelist per read call, and requires the limit to be disclosed. The Plan 52
+  freshness amendment and 52k MCP06 say the same. DA-043 now reads as the implementation
+  diverging from its own recorded target, and the pooled-worker direction names the §24.1 and
+  MCP06 wording it would amend.
+- **C2: wrong ADR.** ADR-0219 governs evidence snapshots, not currency. The citation was replaced
+  by §24.1 and LIFE04.
+- **C3: cost undercounted.** `capture()` imports `pse` in a second interpreter and SHA-256s the
+  whole extension binary. That makes five subprocesses, not three, and the tool binaries are
+  hashed in full. Corrected.
+- **C4: the CLI layer.** Each CLI invocation starts a fresh endpoint by design (55a). The
+  selected JSONL session (55d D03) amortizes the endpoint but not the native child. Added.
+- **C5: inconsistent currency semantics.** The knowledge executable is checked only for being
+  executable, while supplied-only `evidence_compare` inherits the product-extension gate. Added
+  to DA-043.
+- **C6: DA-041's headline was wrong.** §13 declares the IDAS quadrature-history correction, §24.2
+  records its qualification, and `idas_initial_tests.rs` pins it. The "undeclared numerical
+  hunk" claim is withdrawn. DA-041 is narrowed to records that contradict the bytes and §13, with
+  no hunk inventory and no R-41 entry.
+- **C7: commit range.** Corrected to `d85408066`…`a791c533e` (2026-10-17 to 10-21).
+- **C8: DA-041's legitimacy.** ADR-0189's withdrawal of provenance-proof targets is named. The
+  direction now uses the existing patch-series form and R-41, with no new check.
+- **C9: OTel and Diffsol.** No OTel family is declared, so `family-check` cannot see a split. The
+  Diffsol trees were examined (build files only) and are now listed.
+- **C10: DA-042 overclaimed.**
+  - Per-request SDK spans are contract (Plan 52 O02/F02).
+  - Possible loss is a declared §24.1 limit.
+  - The RC01/RC02 characterization was wrong.
 
-The challenger confirmed:
-- the publication and file mechanics;
-- the study loops;
-- the missing collection caller;
-- the research-settlement divergence;
-- the duplicated resource values;
-- the tooling import cycle;
-- the failure-class chain;
-- the KINSOL record;
-- the ADR and drift facts;
-- the table and function counts;
-- the DA-010, DA-026 and DA-027 resolutions.
+  Span volume moved into DA-034's consequence. DA-042 is narrowed to prefix-selected granularity
+  plus the SDK drop count that is compiled away (`internal-logs` is off), and it moved out of
+  cause 2.
+- **C11: DA-044 and a false strength.**
+  - §20 disclaims power-loss durability, so the missing database fsync is reframed as an
+    inconsistency within a declared limit.
+  - The strength "backup byte-verifies the complete database" was corrected. Only payload files
+    are compared against source.
+  - Added: a verifier timeout leaves the store frozen until an explicit reopen.
+- **C12: DA-017 over-read.** `Capability.parallel` is a necessary condition refined by admission.
+  The Clarabel and SCIP items were narrowed to an unpublished settings dependence and removed
+  from the widening.
+- **C13: the DA-030 trigger.** Cold MCP workers are recorded as a candidate "cold-work need"
+  trigger pending measurement, not as "none fired".
+- **C14: DA-023.** ADR-0224's v2 amendment preceded its implementation, on the sanctioned route.
+  The finding is now about status and evidence semantics. The ADR census was corrected to 153
+  (91 proposed, 50 accepted, 12 superseded).
+- **C15: cause grouping.**
+  - Cause 3 keeps its title.
+  - DA-042 and DA-043's currency half are not counted under cause 2.
+  - DA-044's durability asymmetry is explicitly outside it.
+  - The count of restated causes is consistent: two.
+- **C16: PS coverage.** PS-03 and PS-G1 are stated as inherited from 2026-10-24 and not
+  reassessed.
+- **C17: stale numbers.** Corrected: 73 class hints, about 24–25 light recipes of about 215, and
+  27k runtime-tooling lines.
+- **C18: DA-020 details.** `pse-py` also selects the feature, so under unification the gate is on
+  for every build. The marginal effect is the module and the `pse-operations` → `pse-engine`
+  edge. I21 is linked by permalink, and Plan 49 recorded DA-020 as "resolved — TOOL05 / I21".
+- **C19: Plan 55c wording.** Aligned with its Outcome.
+
+The challenger independently confirmed:
+- the ID table and anchors;
+- the commit window;
+- the locus counts at both baselines;
+- the 13 → 19 bindings;
+- the defeated gate and §3.2;
+- the 48/32 setup literals;
+- the three systemd service owners and the supervisor import;
+- the uniform agent remedy;
+- the settings bounds;
+- the span filter and SDK features;
+- the per-call currency route and input scope;
+- the `_backup` sequence and timeout;
+- the vendored-record facts;
+- the Clarabel status map.
+
+It did not verify the streams' probe counts:
+- 62 of 74 SDK files;
+- about 530 SUNDIALS lines;
+- 39 of 238 catalogue entries;
+- the 27-module cycle;
+- the six-pass count.
+
+Those keep their stream attribution.
 
 ## How the standard informed this refresh
 
-**AP-01 — separation of concerns.** The question was which owners change for the binding
-scenarios and for the Plan 51 change. The core localizes change well; PSE-S01 is package-only.
-The runtime is a legitimate workflow owner, but its flat namespace gives its owners no boundary
-(DA-021). Product and tooling responsibilities follow where machinery lives (cause 3).
+Each foundation was assessed by the stream named, and reconciled by the coordinator.
 
-**AP-02 — stable contracts.** Solver adapters are a strong seam; published capability is the weak
-point (DA-017). Hosts depend on hand-projected operation lists (DA-015). The deployment contract
-is undeclared (DA-019).
+**AP-01 — separation of concerns** (S2, S5). The question was which owners change for the
+binding scenarios and for Plans 52–55.
+- The core and the new inspection and comparison owners localize change well.
+- Placement follows generator and host reach (DA-020).
+- The supervisor's roughly 10.7k lines hold seven distinct owners behind one legitimate state
+  lock (DA-019).
 
-**AP-03 — composition.** One run supervisor and one study policy show composition working. Per
-analysis kind, per durable owner and per host, the same questions are answered again instead of
-composed (DA-009, DA-033, DA-015).
+**AP-02 — stable contracts** (S1, S4).
+- The solver adapter seam is strong, with exhaustive status maps.
+- Published capability is still the weak point (DA-017). Clarabel and SCIP do not publish
+  their parallel route's settings dependence, which is minor.
+- Agent operations are hand-projected (DA-015).
+- Vendored-code contracts are untracked (DA-041).
 
-**AP-04 — domain model and semantic authority.** Model adequacy and authority were assessed
+**AP-03 — composition** (S2, S3).
+- The run supervisor, the study policy, inspection and comparison show composition working.
+- Per analysis kind, per durable owner and per host, the same questions are answered again
+  instead of composed (DA-009, DA-033, DA-015).
+
+**AP-04 — domain model and semantic authority** (S1). Model adequacy and authority were assessed
 separately:
 - the core model is adequate and governs behavior;
-- the canonical layer's model describes record shapes while meaning lives in strings (DA-007);
-- physical meaning is lost at the public boundary (DA-005);
-- permission and classification are re-derived by consumers (DA-038, DA-006);
-- design intent has several writable statements per fact (DA-023).
+- canonical and boundary declarations describe shapes while closed meaning lives in strings
+  (DA-007, DA-040);
+- physical meaning and permission are lost at the boundary, now including inspection (DA-005,
+  DA-038);
+- design intent and vendored provenance have several writable statements per fact (DA-023,
+  DA-041).
 
-**AP-05 — explicit structure.** Store-enforced attempt transitions are a strength. Failure
-meaning follows the constructor rather than a declaration (DA-039). Workload classes and budgets
-are remembered conventions (DA-036).
+**AP-05 — explicit structure** (S1, S2).
+- Store-enforced attempt transitions are a strength, and so are typed inspection refusals.
+- Failure meaning follows the constructor (DA-039).
+- A declared feature gate enforces nothing (DA-020).
+- Telemetry granularity and loss visibility are conventions (DA-042).
+- Workload classes are remembered conventions (DA-036).
 
-**AP-06 — local reasoning.** Pure policy cores exist and are consumed. Formulation, horizon and
-profile policy remain in effectful drivers (DA-021, DA-038). Tooling owners sit in one import
-cycle with the production supervisor (DA-037). Test-architecture consequences belong to the DTA
-account.
+**AP-06 — local reasoning** (S2, S5).
+- Pure policy cores exist and are consumed.
+- The workflow namespace is unchanged (DA-021).
+- Tooling owners sit in a 27-module cycle with the production supervisor (DA-037).
+- Test-architecture consequences belong to the DTA account.
 
-**AP-07 — execution fit.** Assessed qualitatively for edit/re-solve, studies, dynamics and
-concurrency, with H2, H7, H8, H11 and H22–H28 most relevant. The interactive critical path, the
-population ends of studies, the publication unit and the missing collection are the structural
-gaps (DA-034, DA-035, DA-025). The per-problem exclusion was weighed and left to decision I01.
+**AP-07 — execution fit** (S3, S5). Assessed qualitatively for edit/re-solve, studies, dynamics,
+concurrency, backup and the agent loop, with H2, H7, H8, H11–H14, H18–H28 most relevant. The
+structural gaps are:
+- the per-unit publication path and the study population ends (DA-034, DA-035);
+- collection and backup verification (DA-025, DA-044);
+- per-call agent cost (DA-043);
+- declared per-request spans multiplied by the per-unit round trips (DA-034).
+
+Thread pools have one owner per process, with three cross-pool gaps suspected. The per-problem
+exclusion was weighed again and left to I01.
 
 **Operational refinements:**
-- **Meaning and identity (DP-01–07)** drove causes 1 and 5 and DA-023.
-- **Transformation and reuse (DP-08–12):** DA-006 and DA-038. DP-09 reuse keys were not
-  re-examined beyond DA-030.
-- **Libraries and ownership (DP-13–17):**
-  - libraries are contained;
-  - FastMCP and DataFusion are used natively;
-  - the bespoke duplications are the per-owner protocols, the liveness rules and the producer
-    chain (DA-033, DA-037, DA-024).
-- **Effects, lifecycle and diagnostics (DP-18–21):** DA-034, DA-035, DA-025 and DA-039.
-- **Evidence and evolution (DP-22–24):** DA-023, and the versioned exchange documents under
-  DA-007.
+- **Meaning and identity (DP-01–07)** drove causes 1 and 5, DA-023 and DA-041. DP-05–07 were
+  only premise-checked; the prefix relationships are unchanged.
+- **Transformation and reuse (DP-08–12).** DA-006 and DA-038. DP-09 reuse keys were examined in
+  the compiler, where Salsa is sound, and in artifact currency (DA-043). Telemetry is kept out of
+  reuse keys, which is a strength.
+- **Libraries and ownership (DP-13–17).**
+  - Libraries are contained and used natively: FastMCP, Cyclopts, DataFusion, OpenTelemetry,
+    Salsa, Cargo freshness and sccache, all checked through Context7 or installed sources.
+  - The bespoke duplications are the per-owner protocols, liveness rules, the producer chain and
+    the currency key (DA-033, DA-037, DA-024, DA-043).
+  - Vendoring discipline is DA-041.
+- **Effects, lifecycle and diagnostics (DP-18–21).** DA-034, DA-035, DA-025, DA-044, DA-039 and
+  DA-042.
+- **Evidence and evolution (DP-22–24).**
+  - DA-023 and DA-041.
+  - The versioned exchange documents under DA-007.
+  - `Wire::FlatV2`, a strength.
+  - The MCP wording "retains … units" (DA-005).
 
-**Process-simulator profile:**
+**Process-simulator profile** (S4 primary):
 - *Assessed in detail, mostly as strengths:*
-  - PS-01 (with the boundary loss in DA-005);
-  - PS-03;
-  - PS-04 (with an attribution gap in DA-039);
-  - PS-06;
-  - PS-07 (scaling classification in DA-006);
-  - PS-09 (DA-017);
-  - PS-10 and PS-12 (DA-038);
-  - PS-11 (DA-006).
-- *Assessed in part:*
-  - PS-02, at the evaluation-time gate;
-  - PS-05 and PS-08, through tear selection, causal maps and §17.4, in a bounded sample;
-  - PS-13, through shared conformance fixtures.
+  - PS-09 and PS-10 across every adapter;
+  - PS-07, derivative source per adapter;
+  - PS-08, recycle policy, scaling, history and restarts;
+  - PS-11, warm starts, IDAS budgets and KLU reuse;
+  - PS-12, partial and cancelled outcomes, plus inspection and comparison scope;
+  - PS-04 and PS-05, the index-1 check and tear mapping, with the attribution gap in DA-039;
+  - PS-06, tear domains.
+- *Inherited from 2026-10-24 and not reassessed:*
+  - PS-01, except the DA-005 boundary premise check;
+  - PS-03, conservation by construction, whose code is unchanged.
+- *Gates:* PS-G2 and PS-G3 pass at the adapter seam within the sampled scope. PS-G1 (PS-01–03)
+  was not reassessed and keeps its 2026-10-24 judgment.
+- *Not assessed:* PS-02 beyond the evaluation-time gate, and PS-13.
+- *Leads not raised:*
+  - Diffsol event-time sensitivities are finite-difference. That is declared in §13 and recorded
+    only as an untyped statistic, and no typed consumer was found. Whether any shooting or fit
+    publication claims exactness across non-terminal events would settle it.
+  - Tear coordinates get infinite bounds, so restart bound screening is inert. This fails safe
+    and is diagnosed.
 
 ## Revalidation outcomes
 
-| ID | Outcome | Current scope |
+| ID | Outcome at 2026-10-25 | Current scope |
 |---|---|---|
 | DA-001 | Resolved; residue merged | The typed resolved IR owns syntax; runtime name lookup → [DA-006](semantic-model-and-authority.md#da-006) |
 | DA-002 | Resolved; residue merged | Modeling derivations catalogued; runtime re-mints → DA-006; store keys → DA-007 |
-| [DA-003](semantic-model-and-authority.md#da-003) | Narrowed | Selected-source inventory and two lexical rules restate roles |
+| [DA-003](semantic-model-and-authority.md#da-003) | Unchanged | Selected-source inventory and two lexical rules restate roles |
 | DA-004 | Resolved | Generated artifact and owner enums |
-| [DA-005](semantic-model-and-authority.md#da-005) | Narrowed, reframed, split | Physical meaning unreadable at the public boundary; key kinds → DA-007 |
-| [DA-006](semantic-model-and-authority.md#da-006) | Reframed and widened | Runtime formulation re-derives or fills in published classification, identity and roles |
-| [DA-007](structure-and-invariants.md#da-007) | Retained and widened | Canonical store meaning, keys and projections outside the registry, extended by Plan 51 |
+| [DA-005](semantic-model-and-authority.md#da-005) | Unchanged; premise reinforced | Physical meaning unreadable at the public boundary, including inspection v2; Plan 55c's target names it |
+| [DA-006](semantic-model-and-authority.md#da-006) | Unchanged | Runtime formulation re-derives or fills in published classification, identity and roles |
+| [DA-007](structure-and-invariants.md#da-007) | Widened | Canonical store meaning outside the registry; inspection v2 keys; evidence `kind` literals now known |
 | DA-008 | Resolved | Typed store refusals, effects and worker loss |
-| [DA-009](structure-and-invariants.md#da-009) | Reframed | Pairing is structural; there is no owned per-kind operation contract |
+| [DA-009](structure-and-invariants.md#da-009) | Unchanged | No owned per-kind operation contract; new surfaces added no arms |
 | DA-010 | Resolved | Typed covariance origin, verified fit, PSD external admission |
 | DA-011 | Resolved | Generated document catalogue; fingerprint check |
 | DA-012 | Resolved; residue merged | One run supervisor; dispatch strand → DA-009 |
 | DA-013 | Resolved | One pure prediction policy |
 | DA-014 | Closed by decision | Parameter-valued points; other kinds refused (I22, RC12) |
-| [DA-015](boundaries-and-composition.md#da-015) | Narrowed and widened | Modeling chain fixed; Plan 51 hand-projected into four hosts |
+| [DA-015](boundaries-and-composition.md#da-015) | Widened and narrowed | 19 hand-bound agent operations with restated defaults; pse-py inspection and the CLI now derived |
 | DA-016 | Narrowed and merged | Residue → [DA-017](boundaries-and-composition.md#da-017) |
-| [DA-017](boundaries-and-composition.md#da-017) | Retained | Published capability disagrees with admission; runtime names backends |
+| [DA-017](boundaries-and-composition.md#da-017) | Unchanged | Published capability disagrees with admission (KINSOL, PETSc); runtime names backends; minor Clarabel/SCIP note |
 | DA-018 | Reframed; closed by decision | Integration patch (I23); size-scope gap → DA-023 |
-| [DA-019](boundaries-and-composition.md#da-019) | Reframed | Deployment contract and restore-comparison owner set live in tooling |
-| [DA-020](boundaries-and-composition.md#da-020) | Retained and widened | Tooling families in the registry, model and store client (runtime module kept by I21) |
-| [DA-021](local-reasoning-and-assurance.md#da-021) | Retained | Runtime-carrying values; flat workflow namespace |
-| [DA-022](execution-fit.md#da-022) | Closed by decision (I16) | Hand size models; revisit trigger recorded |
-| [DA-023](local-reasoning-and-assurance.md#da-023) | Retained and grown | Design-intent authority |
-| [DA-024](local-reasoning-and-assurance.md#da-024) | Narrowed and widened | Native child by decision (I24); strict producer chain without a consumer |
-| [DA-025](execution-fit.md#da-025) | Reframed and narrowed | Physical collection has no production route |
+| [DA-019](boundaries-and-composition.md#da-019) | Unchanged cause; latent manifestation | Deployment contract in tooling; the glob closure omits `scripts/generated/`; telemetry joined by hand |
+| [DA-020](boundaries-and-composition.md#da-020) | Widened and reframed | Tooling families, a defeated gate and root-crate telemetry vocabularies in product builds; placement by generator reach (I21) |
+| [DA-021](local-reasoning-and-assurance.md#da-021) | Unchanged | Runtime-carrying values; flat workflow namespace |
+| [DA-022](execution-fit.md#da-022) | Closed by decision (I16) | Revisit trigger not fired |
+| [DA-023](local-reasoning-and-assurance.md#da-023) | Widened | Design-intent authority; in-place ADR-0224 amendment; stacked §24.2 narrative; path sets with three semantics |
+| [DA-024](local-reasoning-and-assurance.md#da-024) | Unchanged | Strict producer chain without a consumer; the I24 lane gained telemetry plumbing |
+| [DA-025](execution-fit.md#da-025) | Unchanged; consequence widened | Physical collection has no production route; backup re-reads the uncollected inventory |
 | DA-026 | Resolved | Per-row locators removed; DataFusion pruning |
 | DA-027 | Resolved | Group/re-expand cycle deleted |
 | DA-028 | Resolved structurally | Multi-output guarded regions |
 | DA-029 | Resolved in the compiler; residue merged | Runtime scans → DA-006 |
-| [DA-030](execution-fit.md#da-030) | Closed by decision (I08–I10) | Hand-keyed cross-lane caches beside Salsa |
+| [DA-030](execution-fit.md#da-030) | Closed by decision (I08–I10) | Cold MCP workers are a candidate "cold-work need" trigger, pending DA-043's measurement |
 | DA-031 | Resolved; residue merged | Compiler view policy; inline role admission → DA-006 |
 | DA-032 | Narrowed and merged | Artifact-profile literals → DA-007 |
-| [DA-033](boundaries-and-composition.md#da-033) | New | Lifecycle envelope re-authored per owner |
-| [DA-034](execution-fit.md#da-034) | New | Publication unit per semantic item, each with the full file protocol |
-| [DA-035](execution-fit.md#da-035) | New | Study population operations as item loops |
-| [DA-036](development-tooling.md#da-036) | New | Resource and workload meaning without an authority |
-| [DA-037](development-tooling.md#da-037) | New | Process-ownership primitives re-authored; a cyclic web that reaches production |
-| [DA-038](semantic-model-and-authority.md#da-038) | New | Result permission re-derived for aggregates, the LM route and composites |
-| [DA-039](structure-and-invariants.md#da-039) | New | Failure class chosen by constructor, not meaning |
+| [DA-033](boundaries-and-composition.md#da-033) | Unchanged | Lifecycle envelope re-authored per owner; telemetry reuses existing custody |
+| [DA-034](execution-fit.md#da-034) | Unchanged | Publication unit per semantic item, each with the full file protocol |
+| [DA-035](execution-fit.md#da-035) | Unchanged | Study population operations as item loops |
+| [DA-036](development-tooling.md#da-036) | Literals narrowed; structure unchanged | No resource authority; new 48 = 16 + 32 setup coupling |
+| [DA-037](development-tooling.md#da-037) | Widened; footprint corrected | 27-module cycle; three systemd-service owners |
+| [DA-038](semantic-model-and-authority.md#da-038) | Unchanged; premise reinforced | Result permission re-derived; inspection reports `Unknown` |
+| [DA-039](structure-and-invariants.md#da-039) | Unchanged cause; widened | Failure class by constructor; inspection sites doubled; telemetry and the agent remedy inherit it |
+| [DA-040](structure-and-invariants.md#da-040) | New | Boundary declarations stop at field types |
+| [DA-041](local-reasoning-and-assurance.md#da-041) | New (narrowed by C6) | Edited vendored trees lack a truthful patch record; prose contradicts the bytes and §13 |
+| [DA-042](execution-fit.md#da-042) | New (narrowed by C10) | Prefix-selected export granularity; SDK drop count compiled away |
+| [DA-043](development-tooling.md#da-043) | New | Per-call agent lifecycle contrary to LIFE04; currency from a tooling-authored input superset |
+| [DA-044](execution-fit.md#da-044) | New | Backup verification under a fixed clock and multi-pass; durability inconsistent with restore, within a declared limit |
 
 Each topic page keeps an anchor and a one-line record for its resolved, merged and closed
-identities. DA-001–DA-039 are allocated, retired IDs are never reused, and the next available ID
-is DA-040.
+identities. DA-001–DA-044 are allocated, retired IDs are never reused, and the next available ID
+is DA-045.
 
 ## Strengths to preserve
 
-These bound the findings; a later remedy must not discard them. Each was re-verified at this
-baseline.
+These bound the findings; a later remedy must not discard them. The 2026-10-24 items were
+re-verified at `b5bdac9da` where their code changed, and premise-checked where it did not.
 
 - **Physical typing.** One owner holds the complete quantity type
   (`pse-quantity/src/quantity_type.rs`). Side inputs are quantity-keyed Arrow rows checked before
@@ -387,19 +445,42 @@ baseline.
   `MathError::Applicability`.
 - **Conservation by construction; PSE-S01 is package-only.**
 - **Structural admission before solve.** Matching, Dulmage–Mendelsohn and block-triangular
-  analysis through pounce-presolve, with refusal by semantic id.
-- **Library-owned recycles.** A causal sweep is a KINSOL map. Tears come from an exact MILP or an
-  explicit greedy route, with an independent acyclicity witness. Evaluation uses immutable
-  overlays.
-- **One pure completion owner.** `workflow/numerics.rs` is consumed by every run-level route
-  except the automatic residual-LM fit. Summaries read the persisted decision. Qualification is
-  backend-neutral (`pse-backend-native/src/quality.rs`).
+  analysis through pounce-presolve, with refusal by semantic id. An index-1 check runs before
+  integration.
+- **Truthful solver adapters** (new at 2026-10-25):
+  - exhaustive status maps checked against the pinned SCIP 10.0.2, Clarabel 0.11.1, HiGHS, IDAS
+    (about 60 flags), PETSc and Uno;
+  - limits never mapped to success;
+  - certificates only after original-coordinate verification;
+  - `quality.rs::qualify` re-grants assurance only from original-space evidence;
+  - contained callbacks;
+  - analytic derivatives;
+  - a private PETSc options database.
+- **Library-owned recycles.**
+  - A causal sweep is a KINSOL map.
+  - Tears come from an exact MILP or an explicit greedy route, with an independent acyclicity
+    witness.
+  - The convergence policy is in the profile identity.
+  - Tear scaling comes from model numerics.
+  - History and restarts are bounded.
+  - Evaluation uses immutable overlays.
+- **Salsa is the in-lane reuse authority** (new at 2026-10-25):
+  - complete interned identities (`grouped.rs::BodyInput`);
+  - refusals never memoized;
+  - setters fire on change;
+  - granular declarations;
+  - durabilities declared.
+- **One pure completion owner.**
+  - `workflow/numerics.rs` is consumed by every run-level route except the automatic residual-LM
+    fit.
+  - Summaries read the persisted decision.
+  - Qualification is backend-neutral (`pse-backend-native/src/quality.rs`).
 - **One run supervisor and structural request/result pairing** (`RunSupervisor`, `RunOutcome`).
 - **One pure study policy**, executed natively and in the store (`pse-model::study_policy`,
   `pse-study-module`).
 - **The durable lifecycle's correctness core.**
   - No native work runs inside transactions.
-  - Claims are fenced before effects.
+  - Claims are fenced before effects, and study claim custody is per invocation (`80a889ac1`).
   - Terminal admission checks against a frozen acknowledgement inventory.
   - Seed eligibility is sealed with completion.
   - Recovery is per attempt and never re-runs science.
@@ -407,41 +488,76 @@ baseline.
   - Attempt transitions are enforced by the store.
   - Refusals carry registry codes.
   - The per-problem creator guard is retained deliberately (I01).
-  - Backup copies and byte-verifies the complete database.
-- **Execution core.** Lane-level structural reuse. Compact output shaped by demand, which refuses
-  rather than truncates. Publication lanes that overlap compute. DataFusion-planned result reads
-  with pruning.
+  - Backup copies the complete database and byte-compares every payload file against its
+    source. Restore checks the database tree logically through the application inventory. This
+    wording was corrected at 2026-10-25.
+  - Restore refuses rather than repairs and can resume.
+  - Merge is three-way by logical identity, with typed conflicts and a compare-and-set head.
+- **Execution core.**
+  - Lane-level structural reuse.
+  - Compact output shaped by demand, which refuses rather than truncates.
+  - Publication lanes that overlap compute.
+  - DataFusion-planned result reads with pruning.
+  - One in-process CPU owner whose semaphore admits compiler, math and query work.
+  - Native teams run at their admitted width.
+- **Owned agent-facing contracts** (new at 2026-10-25):
+  - native result inspection with bound cursors, byte budgets and typed refusals;
+  - evidence comparison with explicit denominators and unmatched or ambiguous subjects, decided
+    natively and passed through intact;
+  - every new document shape generated once, with `Wire::FlatV2` refusing old headers.
+- **Observability is library-native and off the scientific path** (new at 2026-10-25):
+  - the OpenTelemetry SDK batch processors, readers, propagators and bridges;
+  - Collector queues and retry;
+  - OpenObserve PromQL and alerts;
+  - explicit host composition;
+  - metric names, units and domains declared once in Rust and generated for Python;
+  - telemetry kept out of reuse keys.
 - **Library containment.**
   - The SurrealDB SDK, Salsa and Symbolica each have one owner.
-  - FastMCP, systemd and `pyo3-introspection` are used natively.
+  - FastMCP (visibility, transforms, middleware, `Client`), systemd, `pyo3-introspection`, Cargo
+    `checksum-freshness` and sccache are used natively.
+  - The capability CLI is derived from the MCP tool schemas.
   - Tooling reads generated schemas rather than mirroring them.
+  - The SurrealDB server patches are an ordered series at an exact revision.
 - **No science in Python.** Arrow streams cross at batch granularity, and decoding is strict and
   checked against fingerprints.
 
 ## Scope, coverage and limits
 
 **Inspected.** Representative owners and journeys across all product crates and the Python
-facade. On the tooling side:
-- the FastMCP server core and native bindings;
-- `pse-env` and host admission;
-- the supervisor's deployment, backup and liveness paths;
-- the `xtask` roots;
-- the producer chain;
-- runtime tooling placement.
+facade. Every change since `cbf45ccc9` was followed into its dependents. In addition:
+- **Prior gaps, now covered:**
+  - solver adapter internals;
+  - recycle convergence;
+  - vendored SurrealDB SDK, engine-API, server, SUNDIALS and Diffsol trees;
+  - compiler and Salsa reuse;
+  - backup v4 and merge;
+  - DataFusion/native thread pools;
+  - most of the FastMCP inventory;
+  - the supervisor's responsibilities.
+- **Tooling side:**
+  - the FastMCP capability plane and generated CLI;
+  - `pse-env`, host admission and build reuse;
+  - the supervisor's deployment, backup and liveness paths;
+  - the telemetry services;
+  - `xtask` roots;
+  - the producer chain;
+  - runtime tooling placement.
 
 **Not examined, or sampled only:**
 - scientific and numerical correctness of the reference packages;
-- recycle convergence history beyond §17.4;
-- adapter internals for SCIP, HiGHS, Clarabel, IDAS, PETSc and Uno;
-- compiler and Salsa reuse internals beyond the resolved sites;
-- backup v4 and merge internals;
-- most of the FastMCP inventory;
-- `surreal_server.py` beyond the cited functions;
-- the semantics of the vendored SurrealDB SDK and server patches;
-- interplay between DataFusion and native thread pools.
+- PS-02 beyond the evaluation-time gate, and PS-13;
+- POUNCE and Ipopt internals beyond their status maps;
+- the semantics of the Uno and PETSc patches (DA-018, closed by I23);
+- the remaining vendored trees (`suitesparse-sys`, `paste`, `pest_derive`, `py_literal`);
+- CPU work inside the SurrealDB server;
+- history reads and exchange internals beyond chunking;
+- the bodies of the telemetry alert, investigation and selection modules;
+- most of `capabilities/specialists.py`;
+- `xtask/src/evidence_tools.rs`.
 
-**Unmeasured.** No current elapsed time, file count, contention, memory or capacity was
-measured. Earlier *Measured* records keep their original conditions.
+**Unmeasured.** No current elapsed time, file count, span count, call latency, rebuild time,
+contention, memory or capacity was measured. The I30 record keeps its original conditions.
 
 **Not proof of absence.** No finding is a statement that unlisted code is aligned.
 
@@ -449,13 +565,13 @@ measured. Earlier *Measured* records keep their original conditions.
 
 | Page | Contents |
 |---|---|
-| [Integrated system account](system-architecture.md) | System picture, functional target, the five causes, the authority finding, interactions, refuted hypotheses, scenarios, improvement directions |
+| [Integrated system account](system-architecture.md) | System picture, functional target (including the agent loop), the five causes, two authority findings, the attractor test, refuted hypotheses, scenarios, improvement directions |
 | [Semantic model and authority](semantic-model-and-authority.md) | DA-003, DA-005, DA-006, DA-038 |
-| [Structure and invariants](structure-and-invariants.md) | DA-007, DA-009, DA-039 |
+| [Structure and invariants](structure-and-invariants.md) | DA-007, DA-009, DA-039, DA-040 |
 | [Boundaries and composition](boundaries-and-composition.md) | DA-015, DA-017, DA-019, DA-020, DA-033 |
-| [Local reasoning and assurance](local-reasoning-and-assurance.md) | DA-021, DA-023, DA-024 |
-| [Execution fit](execution-fit.md) | DA-025, DA-034, DA-035; closed-by-decision DA-022, DA-030; the per-problem guard (considered and not raised) |
-| [Development tooling](development-tooling.md) | DA-036, DA-037 |
+| [Local reasoning and assurance](local-reasoning-and-assurance.md) | DA-021, DA-023, DA-024, DA-041 |
+| [Execution fit](execution-fit.md) | DA-025, DA-034, DA-035, DA-042, DA-044; closed-by-decision DA-022 and DA-030; considered and not raised (thread pools, merge ancestry, inspection decode, the per-problem guard) |
+| [Development tooling](development-tooling.md) | DA-036, DA-037, DA-043 |
 
 The topic pages are organizational aids. A finding's principle IDs carry its criteria. Each
 finding has one primary home across this account and the test account, and overlapping DTA
@@ -470,8 +586,12 @@ findings are linked rather than copied.
 **Previous consuming review:**
 [in-use-library remediation review](https://github.com/paul-heyse/pse-arrow/blob/197616768b1b7abcbe67af2b5b8d42ab445b291b/docs/design_review/reviews/design_review_in-use-library-remediation_2026-10-21.md),
 2026-10-21. It consumed the first account at `0530dcaa1`, and its dispositions are now history.
+No review consumed the 2026-10-24 refresh at `2257311c0`.
 
 **Refresh rule.** Refresh in place before a new review engagement:
 - preserve identities and lineage;
 - remove resolved material once source establishes the correction;
 - keep the earlier text and its dated evidence in Git and the removal commit.
+
+The 2026-10-24 challenge reconciliation (C1–C16) and the method notes are preserved at
+`2257311c0`.
