@@ -375,10 +375,25 @@ def execute(
     revision: host.Revision | host.RevisionPreparation | None = None
     result: host.Result | None = None
     result_inspection: contracts.ResultInspectionRequest | None = None
+    model_request: object = None
+    other_physical_packages: list[dict[str, bytes]] = []
+    other_packages: list[dict[str, bytes]] = []
     # Decode every generated request before Runtime construction or store access.
     if operation == "telemetry_profile_capture":
         return capture(supplied)
-    if operation in {"source_admit", "preparation_discover"}:
+    if operation in {"model_declarations", "model_inspect", "model_compare"}:
+        source = (host.ModelingComparison if operation == "model_compare" else host.Preparation).model_validate(supplied, strict=True)
+        physical_packages = source_documents(source.physical)
+        packages = source_documents(source.documents)
+        resources = source.resources
+        request_type = {"model_declarations": contracts.ModelingDeclarationRequest, "model_inspect": contracts.ModelingInspectionRequest, "model_compare": contracts.ModelingComparisonRequest}[operation]
+        model_request = decoded(source.request, request_type)
+        if isinstance(source, host.ModelingComparison):
+            other_physical_packages = source_documents(source.other_physical)
+            other_packages = source_documents(source.other_documents)
+            if len(other_physical_packages) != 1:
+                raise ValueError("comparison physical source requires one complete package")
+    elif operation in {"source_admit", "preparation_discover"}:
         source = (
             host.Preparation.model_validate(supplied, strict=True)
             if operation == "preparation_discover"
@@ -490,6 +505,9 @@ def execute(
         operation
         in {
             "source_admit",
+            "model_declarations",
+            "model_inspect",
+            "model_compare",
             "preparation_discover",
             "project_select",
             "revision_source",
@@ -516,6 +534,18 @@ def execute(
         database=deployment.database if deployment is not None else None,
     )
     try:
+        if operation in {"model_declarations", "model_inspect", "model_compare"}:
+            physical = runtime.physical_from_documents(physical_packages[0])
+            package = runtime.modeling_from_documents(packages, physical)
+            if operation == "model_declarations":
+                observed = package.declaration_page(cast("contracts.ModelingDeclarationRequest", model_request))
+            elif operation == "model_inspect":
+                observed = package.inspect(cast("contracts.ModelingInspectionRequest", model_request))
+            else:
+                other_physical = runtime.physical_from_documents(other_physical_packages[0])
+                other = runtime.modeling_from_documents(other_packages, other_physical)
+                observed = package.comparison_observation(other, cast("contracts.ModelingComparisonRequest", model_request))
+            return {"outcome": "observed", "document": codec.document_builtins(observed)}
         if operation in {"source_admit", "preparation_discover"}:
             physical = runtime.physical_from_documents(physical_packages[0])
             package = runtime.modeling_from_documents(packages, physical)

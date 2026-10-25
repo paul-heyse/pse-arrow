@@ -45,6 +45,15 @@ impl<T: schemars::JsonSchema, const N: u32> schemars::JsonSchema for Versioned<T
             generator.definitions(),
             &mut std::collections::BTreeSet::new(),
         );
+        // Examples are declared by the body owner; expose their actual standalone
+        // encoding rather than a structurally invalid example missing its header.
+        if let Some(examples) = schema.ensure_object().get_mut("examples").and_then(serde_json::Value::as_array_mut) {
+            for example in examples {
+                if let Some(example) = example.as_object_mut() {
+                    example.insert("document_version".into(), serde_json::Value::from(N));
+                }
+            }
+        }
         schema
     }
 }
@@ -237,6 +246,8 @@ pub enum Wire {
     Native,
     /// An object body exported through its version-one flattened wire owner.
     FlatV1,
+    /// A record or enum body exported through its version-two flattened wire owner.
+    FlatV2,
     /// A scalar body exported through its version-one value wire owner.
     ValueV1,
 }
@@ -253,6 +264,7 @@ impl Wire {
         match self {
             Self::Native => serde_json::to_vec(value),
             Self::FlatV1 => serde_json::to_vec(&Versioned::<_, 1>::new(value)),
+            Self::FlatV2 => serde_json::to_vec(&Versioned::<_, 2>::new(value)),
             Self::ValueV1 => serde_json::to_vec(&VersionedValue::<_, 1>::new(value)),
         }
     }
@@ -273,6 +285,11 @@ impl Wire {
                 pse_model::document::decode_json::<Versioned<T, 1>>(bytes)
                     .map(|document| document.body)
             }
+            Self::FlatV2 => {
+                check_header::<2>(bytes)?;
+                pse_model::document::decode_json::<Versioned<T, 2>>(bytes)
+                    .map(|document| document.body)
+            }
             Self::ValueV1 => {
                 check_header::<1>(bytes)?;
                 pse_model::document::decode_json::<VersionedValue<T, 1>>(bytes)
@@ -285,6 +302,19 @@ impl Wire {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_two_rejects_old_header_before_current_body() {
+        #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Body { paths: Vec<String> }
+        assert!(Wire::FlatV2.decode_slice::<Body>(br#"{"document_version":1,"paths":false}"#).is_err());
+        assert!(Wire::FlatV2.decode_slice::<Body>(br#"{"document_version":2,"document_version":2,"paths":[]}"#).is_err());
+        let body = Body { paths: vec!["original".into()] };
+        let bytes = Wire::FlatV2.to_vec(&body).unwrap();
+        assert_eq!(Wire::FlatV2.decode_slice::<Body>(&bytes).unwrap(), body);
+        assert!(Wire::FlatV2.decode_slice::<Body>(br#"{"document_version":2,"paths":[]} null"#).is_err());
+    }
 
     #[test]
     fn standalone_required_headers_refuse_original_duplicate_keys_before_body() {

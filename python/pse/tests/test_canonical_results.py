@@ -24,6 +24,7 @@ import pytest
 from scripts import surreal_server as server
 
 import pse
+from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse._build import compiled_features
 from pse.contracts.documents import (
@@ -63,6 +64,7 @@ SOURCE = """package algebraic { def Root {
     annotation report x("root");
     annotation check x(x>1);
 } }"""
+
 
 
 def _physical(runtime: pse.Runtime) -> pse.PhysicalContext:
@@ -359,7 +361,7 @@ def test_canonical_result_selection_and_progress_reopen(
     )
     parameter = next(
         member.id
-        for member in package.inspect(case, _settings()).members
+        for member in package.inspect(inspection_request(case, _settings())).members
         if member.lineage.path == "a" or member.lineage.path.endswith(".a")
     )
     settings = msgspec.structs.replace(
@@ -1318,7 +1320,7 @@ def test_result_analysis_root_scope_and_withheld_neighborhood(
     )
     parameter = next(
         member.id
-        for member in package.inspect(case, settings).members
+        for member in package.inspect(inspection_request(case, settings)).members
         if member.lineage.path == "a" or member.lineage.path.endswith(".a")
     )
     settings = msgspec.structs.replace(

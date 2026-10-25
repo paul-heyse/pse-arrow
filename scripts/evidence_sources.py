@@ -3,16 +3,21 @@
 """Owner-decoded explicit assessment, diagnostic, host and measurement sources.
 
 This module never enumerates storage to discover sources. Paths are explicit inputs;
-references in compact snapshots are descriptive and never opened by query execution.
+raw evidence/payload references remain descriptive and are never opened by query execution.
+Explicit test/contract assertions may read selected repository input bytes only when
+their complete mode/content identity matches the original receipt's source cut.
 """
 
 from __future__ import annotations
 
+import ast
 import csv
 import hashlib
 import json
 import math
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import (
@@ -27,8 +32,6 @@ from scripts import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from scripts.evidence_projection import EvidenceFact, EvidenceSnapshot
 
 # These are declarations, not a free-form container for raw reports or logs.
@@ -48,6 +51,98 @@ CONTEXT_FIELDS = (
     "mode",
     "process",
 )
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@dataclass
+class _ContractSources:
+    """One assessment read's bounded source-cut preparation; never a live cache."""
+
+    raw: dict[tuple[str, str], bytes | None] = field(default_factory=dict)
+    trees: dict[tuple[str, str], ast.Module | None] = field(default_factory=dict)
+    observed_bytes: int = 0
+
+
+def contract_assertions(test_id: str, inputs: object, *, root: Path = ROOT, prepared: _ContractSources | None = None) -> list[tuple[str, str]]:
+    """Read explicit selected-test declarations only at the receipt's exact source cut.
+
+    No test is imported, collected or inferred from its name. Missing, changed,
+    symbolic or out-of-checkout sources cannot create an evidence relationship.
+    """
+    if not isinstance(inputs, dict) or not isinstance(inputs.get("files"), dict):
+        return []
+    files = inputs["files"]
+    prepared = prepared if prepared is not None else _ContractSources()
+    source, separator, member = test_id.partition("::")
+    if not separator or not source.endswith(".py"):
+        return []
+
+    def retained(path: str) -> bytes | None:
+        from scripts.validation import regular_source_stamp  # noqa: PLC0415 -- original source encoding owner
+
+        expected = files.get(path)
+        if not isinstance(expected, str):
+            return None
+        key = (path, expected)
+        if key in prepared.raw:
+            return prepared.raw[key]
+        if len(prepared.raw) >= 256 or prepared.observed_bytes >= 4 << 20:
+            return None
+        selected = root / path
+        if Path(path).is_absolute() or ".." in Path(path).parts or selected.is_symlink():
+            return None
+        try:
+            if not selected.resolve().is_relative_to(root.resolve()) or selected.stat().st_size > 512 << 10:
+                return None
+            raw = selected.read_bytes()
+            stamp = regular_source_stamp(raw, selected.stat().st_mode)
+        except OSError:
+            prepared.raw[key] = None
+            return None
+        prepared.observed_bytes += len(raw)
+        prepared.raw[key] = raw if expected == stamp else None
+        return prepared.raw[key]
+
+    raw = retained(source)
+    if raw is None:
+        return []
+    source_version = files.get(source)
+    if not isinstance(source_version, str):
+        return []
+    key = (source, source_version)
+    if key not in prepared.trees:
+        try:
+            prepared.trees[key] = ast.parse(raw)
+        except (SyntaxError, UnicodeDecodeError):
+            prepared.trees[key] = None
+    tree = prepared.trees[key]
+    if tree is None:
+        return []
+    selected_nodes = tree.body
+    chosen: ast.FunctionDef | ast.AsyncFunctionDef | None = None
+    for name in member.split("::"):
+        name = name.split("[", 1)[0]
+        candidates = [node for node in selected_nodes if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name]
+        if len(candidates) != 1:
+            return []
+        node = candidates[0]
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            chosen = node
+        selected_nodes = node.body
+    if chosen is None:
+        return []
+    assertions = []
+    for decorator in chosen.decorator_list:
+        if not isinstance(decorator, ast.Call) or ast.unparse(decorator.func) != "pytest.mark.contract_section" or len(decorator.args) != 1:
+            continue
+        section = decorator.args[0]
+        keywords = {item.arg: item.value for item in decorator.keywords}
+        artifact = keywords.get("artifact")
+        if not isinstance(section, ast.Constant) or not isinstance(section.value, str) or not isinstance(artifact, ast.Constant) or not isinstance(artifact.value, str):
+            continue
+        if retained(artifact.value) is not None:
+            assertions.append((section.value, artifact.value))
+    return assertions[:16]
 
 
 def context_fact(value: dict[str, object]) -> EvidenceFact:
@@ -147,9 +242,10 @@ def inventory_mapping(
     return result
 
 
-def assessment_snapshot(directory: Path) -> EvidenceSnapshot:
+def assessment_snapshot(directory: Path, *, root: Path = ROOT) -> EvidenceSnapshot:
     receipt = validation_result.read_receipt(directory)
     recorded = {check["gate"]: check for check in receipt["checks"]}
+    contract_sources = _ContractSources()
     ctx = context_fact(
         {
             "source": compact(receipt.get("source_files")),
@@ -234,6 +330,21 @@ def assessment_snapshot(directory: Path) -> EvidenceSnapshot:
             if isinstance(item.get("crate_name"), str):
                 fact["crate_name"] = item["crate_name"]
             facts.append(fact)
+            if "nodeid" in item:
+                for section, artifact in contract_assertions(test_id, check.get("inputs"), root=root, prepared=contract_sources):
+                    assertion = link_fact(
+                        "contract-selection:" + fact["member"] + ":" + section,
+                        "selected_contract", section, status=fact["status"],
+                    )
+                    assertion.update(test_id=test_id, detail_ref=artifact, context_id=gate_ctx["context_id"])
+                    facts.append(assertion)
+                    # A terminal report may still be a skip or reused observation.
+                    # Neither establishes a newly executed test body.
+                    if report is not None and status in {"passed", "pass", "failure", "failed"} and not isinstance(check.get("origin"), str):
+                        executed = dict(assertion)
+                        executed["member"] = "contract-execution:" + fact["member"] + ":" + section
+                        executed["link_relation"] = "executed_contract"
+                        facts.append(executed)
         # Preserve actual reuse rather than interpreting copied passing rows as new execution.
         if isinstance(check.get("origin"), str):
             facts.append(

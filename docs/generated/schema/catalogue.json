@@ -1842,6 +1842,42 @@
       "wire": "FlatV1"
     },
     {
+      "direction": "output",
+      "exported_name": "KnowledgeExplain",
+      "name": "KnowledgeExplain",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: knowledge :: KnowledgeExplain",
+      "schema_path": "docs/generated/schema/knowledge-explain.output.schema.json",
+      "schema_sha256": "0cd7a52238a3e1360dae8c5d7132cfb508a6a61edb28b96b7253161c9b73d6d5",
+      "slug": "knowledge-explain",
+      "version": 1,
+      "wire": "Native"
+    },
+    {
+      "direction": "output",
+      "exported_name": "KnowledgePage",
+      "name": "KnowledgePage",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: knowledge :: KnowledgePage",
+      "schema_path": "docs/generated/schema/knowledge-page.output.schema.json",
+      "schema_sha256": "b94d8f8443e2bf5d79c77e1c0e0c0b56d83ad03adcdd6ecb84e85d050ca6b96a",
+      "slug": "knowledge-page",
+      "version": 1,
+      "wire": "Native"
+    },
+    {
+      "direction": "input",
+      "exported_name": "KnowledgeQuery",
+      "name": "KnowledgeQuery",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: knowledge :: KnowledgeQuery",
+      "schema_path": "docs/generated/schema/knowledge-query.input.schema.json",
+      "schema_sha256": "eca060d2aa45dac8c078c526203186b72dd05ada57501a159648e450855bb22a",
+      "slug": "knowledge-query",
+      "version": 1,
+      "wire": "Native"
+    },
+    {
       "direction": "input",
       "exported_name": "LaunchCaptureRequest",
       "name": "LaunchCaptureRequest",
@@ -2046,6 +2082,78 @@
       "wire": "Native"
     },
     {
+      "direction": "output",
+      "exported_name": "ModelingComparisonObservation",
+      "name": "ModelingComparisonObservation",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingComparisonObservation",
+      "schema_path": "docs/generated/schema/modeling-comparison-observation.output.schema.json",
+      "schema_sha256": "2af7e5da958f28492698dd6ac211914157b2abfbbc8ee404a8f5a3491d1cd6d7",
+      "slug": "modeling-comparison-observation",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "input",
+      "exported_name": "ModelingComparisonRequest",
+      "name": "ModelingComparisonRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingComparisonRequest",
+      "schema_path": "docs/generated/schema/modeling-comparison-request.input.schema.json",
+      "schema_sha256": "a54720697baed211d4ca38795543330e40832f00d11e3e12bd96b70a1b6917a5",
+      "slug": "modeling-comparison-request",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "output",
+      "exported_name": "ModelingComparisonRequest",
+      "name": "ModelingComparisonRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingComparisonRequest",
+      "schema_path": "docs/generated/schema/modeling-comparison-request.output.schema.json",
+      "schema_sha256": "a54720697baed211d4ca38795543330e40832f00d11e3e12bd96b70a1b6917a5",
+      "slug": "modeling-comparison-request",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "output",
+      "exported_name": "ModelingDeclarationPage",
+      "name": "ModelingDeclarationPage",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingDeclarationPage",
+      "schema_path": "docs/generated/schema/modeling-declaration-page.output.schema.json",
+      "schema_sha256": "6363d661b0f133c9b819ac598757a974a6c1da479ce5caa39f4418d0137445a3",
+      "slug": "modeling-declaration-page",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "input",
+      "exported_name": "ModelingDeclarationRequest",
+      "name": "ModelingDeclarationRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingDeclarationRequest",
+      "schema_path": "docs/generated/schema/modeling-declaration-request.input.schema.json",
+      "schema_sha256": "f3e1f33c9906197803aa11ade693df2aab190f7edebddcb0338a941c4b78f511",
+      "slug": "modeling-declaration-request",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "output",
+      "exported_name": "ModelingDeclarationRequest",
+      "name": "ModelingDeclarationRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingDeclarationRequest",
+      "schema_path": "docs/generated/schema/modeling-declaration-request.output.schema.json",
+      "schema_sha256": "f3e1f33c9906197803aa11ade693df2aab190f7edebddcb0338a941c4b78f511",
+      "slug": "modeling-declaration-request",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
       "direction": "input",
       "exported_name": "ModelingDiagnosticPolicy",
       "name": "ModelingDiagnosticPolicy",
@@ -2076,7 +2184,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ModelingInspection",
       "schema_path": "docs/generated/schema/modeling-inspection.input.schema.json",
-      "schema_sha256": "5850142bd9b1cea879d983a4626760aa7ce7d549872ba37b58b2c45a97b4d53b",
+      "schema_sha256": "4bd9442d25c84145f4b0c3a97281bc8e9b03b5e94878aac3f3bb61cdc66f45e8",
       "slug": "modeling-inspection",
       "version": 1,
       "wire": "FlatV1"
@@ -2088,8 +2196,32 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ModelingInspection",
       "schema_path": "docs/generated/schema/modeling-inspection.output.schema.json",
-      "schema_sha256": "72b22d76a79dfe43e595387aa7dc5e4fb5dce8da50bb4f9a90e9a51bde17bb0e",
+      "schema_sha256": "7eb32c5f50ee5c0dbb40c8432a91f72c26119fb179a89760289bddc645e1e5a5",
       "slug": "modeling-inspection",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "input",
+      "exported_name": "ModelingInspectionRequest",
+      "name": "ModelingInspectionRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingInspectionRequest",
+      "schema_path": "docs/generated/schema/modeling-inspection-request.input.schema.json",
+      "schema_sha256": "b594f0b7365edc6c861c31a2f05fe6f24fb0127ebda52cf939dbec2c47f9ed0b",
+      "slug": "modeling-inspection-request",
+      "version": 1,
+      "wire": "FlatV1"
+    },
+    {
+      "direction": "output",
+      "exported_name": "ModelingInspectionRequestOutput",
+      "name": "ModelingInspectionRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: ModelingInspectionRequest",
+      "schema_path": "docs/generated/schema/modeling-inspection-request.output.schema.json",
+      "schema_sha256": "582a35797903055126f60d76edcb0e8744c98d1fb0213e5591caa83241ae97c9",
+      "slug": "modeling-inspection-request",
       "version": 1,
       "wire": "FlatV1"
     },
@@ -4116,10 +4248,10 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
       "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-      "schema_sha256": "7f9e0c189b0d7588008ba5e443b18823f1f93212bf1b50882fe13f5bcc1f3ee4",
+      "schema_sha256": "f8f7f4a37f4a2a1f640a77b6b88ce103326b184e82682547a86891f27d69f6e7",
       "slug": "result-inspection-document",
-      "version": 1,
-      "wire": "FlatV1"
+      "version": 2,
+      "wire": "FlatV2"
     },
     {
       "direction": "input",
@@ -4128,10 +4260,10 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
       "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
-      "schema_sha256": "fb0431325e5ee50f1704f3921c3d636e4503a0c3d902e9b36492b3132105e2fa",
+      "schema_sha256": "76f18de590c183d117b027821c0dcb32e9d87786d191722de8478fe4527a01ae",
       "slug": "result-inspection-request",
-      "version": 1,
-      "wire": "FlatV1"
+      "version": 2,
+      "wire": "FlatV2"
     },
     {
       "direction": "output",
@@ -4140,10 +4272,10 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
       "schema_path": "docs/generated/schema/result-inspection-request.output.schema.json",
-      "schema_sha256": "fc8ad61ccb41a6098e28d29d54baccd1c242f3a6b4a178583b6e3095134ad456",
+      "schema_sha256": "b0e8e72d549b318509f9f1cf412e2adc2fbffe03e19f929741a3b1d036853bff",
       "slug": "result-inspection-request",
-      "version": 1,
-      "wire": "FlatV1"
+      "version": 2,
+      "wire": "FlatV2"
     },
     {
       "direction": "input",
@@ -5382,6 +5514,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+  "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
   "version": 1
 }

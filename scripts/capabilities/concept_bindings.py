@@ -72,6 +72,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             owner=source,
             source=source,
             exposure="tool",
+            invocation_lifetime="single",
             effects="Read selected source/Git/metadata only; no build, installation, service startup or native execution.",
         )
         tool.tags.update(spec.tags)

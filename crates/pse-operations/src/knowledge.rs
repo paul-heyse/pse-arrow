@@ -21,6 +21,7 @@ use pse_model::generated::{
 };
 use pse_schema::catalog::knowledge as declaration;
 use serde::{Deserialize, Serialize};
+use schemars::JsonSchema;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use surrealdb::types::{Object, Value};
@@ -53,7 +54,7 @@ fn basis(value: &str) -> bool {
 }
 
 /// Immutable source-version carrier, never a substitute for a domain concept.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeSource {
     /// Exact selected carrier identity.
@@ -72,7 +73,7 @@ pub struct KnowledgeSource {
     pub status: String,
 }
 /// Original evidence-owner identity, not a replacement evidence codec.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceIdentity {
     /// Original issuing authority.
@@ -87,7 +88,7 @@ pub struct EvidenceIdentity {
     pub member: String,
 }
 /// Role-specific immutable contributor.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SubjectSource {
     /// Exact source in this cut.
@@ -96,7 +97,7 @@ pub struct SubjectSource {
     pub role: SourceRole,
 }
 /// Topic copied from original metadata, with exact attribution.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SubjectTopic {
     /// Native topic, not an invented tag.
@@ -105,7 +106,7 @@ pub struct SubjectTopic {
     pub source_id: String,
 }
 /// Closed owner-native subject; publication and native lifecycle remain separate.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeSubject {
     /// Stable adapter-qualified subject identity.
@@ -138,7 +139,7 @@ pub struct KnowledgeSubject {
     pub topics: Vec<SubjectTopic>,
 }
 /// Selected excerpt; shared files do not imply shared subject attribution.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeExcerpt {
     /// Exact excerpt identity.
@@ -155,7 +156,7 @@ pub struct KnowledgeExcerpt {
     pub basis: String,
 }
 /// Typed native subject relation.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeEdge {
     /// Original relationship identity.
@@ -170,7 +171,7 @@ pub struct KnowledgeEdge {
     pub basis: String,
 }
 /// Actual declaration-generator-specific-output correspondence.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeProduction {
     /// Original producer record identity.
@@ -187,7 +188,7 @@ pub struct KnowledgeProduction {
     pub basis: String,
 }
 /// Complete explicitly selected corpus; no writable domain authority is introduced.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeCorpus {
     /// Codec version, exactly two.
@@ -449,7 +450,7 @@ impl KnowledgeCorpus {
     }
 }
 /// Primary exact native query operation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum KnowledgeMode {
     /// Exact subject conjunction, optionally narrowed by attributed text.
@@ -460,7 +461,7 @@ pub enum KnowledgeMode {
     Productions,
 }
 /// Exact issuing cut, predicate, and page fence.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeCursor {
     /// Issuing tooling identity.
@@ -473,9 +474,12 @@ pub struct KnowledgeCursor {
     pub after: String,
 }
 /// Exact conjunction of native facets; no relevance substitution or arbitrary SQL.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(example = knowledge_query_example())]
 pub struct KnowledgeQuery {
+    /// Required native document encoding version.
+    pub version: pse_model::document::Version<1>,
     /// Null selects the independent current pointer.
     pub generation: Option<String>,
     /// Subject, graph, or production operation.
@@ -512,7 +516,14 @@ pub struct KnowledgeQuery {
     /// Exact-cut continuation.
     pub cursor: Option<KnowledgeCursor>,
 }
+fn knowledge_query_example() -> serde_json::Value {
+    serde_json::json!({"version":1,"mode":"productions","artifact_id":"generated_artifact:python/pse/_native.pyi","limit":8})
+}
 impl KnowledgeQuery {
+    /// Decode the version header before the closed request body.
+    pub fn decode_json(bytes: &[u8]) -> Result<Self, pse_model::document::JsonDecodeError> {
+        pse_model::document::decode_versioned::<Self, 1>(bytes)
+    }
     fn structural(&self) -> bool {
         self.kind.is_some()
             || self.owner.is_some()
@@ -523,7 +534,10 @@ impl KnowledgeQuery {
             || !self.topics.is_empty()
             || self.subject_id.is_some()
     }
-    fn validate(&self) -> Result<(), EvidenceError> {
+    /// Check finite mode-specific predicates without opening a store.
+    /// # Errors
+    /// The query mixes modes, exceeds bounds or supplies invalid identities.
+    pub fn validate(&self) -> Result<(), EvidenceError> {
         if !(1..=64).contains(&self.limit)
             || self.generation.as_ref().is_some_and(|value| !hash(value))
             || self.topics.len() > 16
@@ -585,7 +599,8 @@ impl KnowledgeQuery {
     }
 }
 /// Conservative interpretation limits, independent of the delivered hit population.
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct KnowledgeCoverage {
     /// Producer fingerprints are not a live freshness attestation.
     pub producer_freshness: &'static str,
@@ -603,8 +618,11 @@ const COVERAGE: KnowledgeCoverage = KnowledgeCoverage {
     excerpt_attribution: "explicit-subject-only",
 };
 /// Finite structural result, with the complete provenance source cut even for zero hits.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct KnowledgePage {
+    /// Native result encoding version.
+    pub version: pse_model::document::Version<1>,
     /// Issuing tooling authority.
     pub issuing_store: String,
     /// Exact activated corpus.
@@ -628,8 +646,34 @@ pub struct KnowledgePage {
     /// Same-predicate, same-cut continuation.
     pub next: Option<KnowledgeCursor>,
 }
+/// Nonexecuting versioned plan envelope; optimizer plan contents are opaque version-specific data.
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct KnowledgeExplain {
+    /// Native result encoding version.
+    pub version: pse_model::document::Version<1>,
+    /// Original issuing tooling identity.
+    pub issuing_store: String,
+    /// Exact selected active generation.
+    pub generation: String,
+    /// Original query operation.
+    pub mode: KnowledgeMode,
+    /// Exact predicate and extent identity.
+    pub query_digest: String,
+    /// Raw informational optimizer output, not a stable query grammar.
+    pub raw_plan_json: String,
+    /// Optional population selection's informational plan.
+    pub population_plan_json: Option<String>,
+    /// Original coverage limitations.
+    pub coverage: KnowledgeCoverage,
+    /// This read does not reopen original source files.
+    pub freshness: &'static str,
+    /// False: explaining never runs ANALYZE.
+    pub experimental_execution: bool,
+}
 /// Settled original import; replay never rewinds a newer active pointer.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct KnowledgeReceipt {
     /// Exact corpus identity.
     pub generation: String,
@@ -1338,6 +1382,7 @@ impl EvidenceStore {
             None
         };
         Ok(KnowledgePage {
+            version: pse_model::document::Version,
             issuing_store: self.issuing_store.clone(),
             generation: generation.key,
             freshness: "imported-cut-only",
@@ -1355,7 +1400,7 @@ impl EvidenceStore {
     pub async fn knowledge_explain(
         &self,
         request: &KnowledgeQuery,
-    ) -> Result<serde_json::Value, EvidenceError> {
+    ) -> Result<KnowledgeExplain, EvidenceError> {
         request.validate()?;
         let status = self.knowledge_status().await?;
         let generation = request
@@ -1419,9 +1464,14 @@ impl EvidenceStore {
         {
             return Err(EvidenceError::Cursor);
         }
-        Ok(
-            serde_json::json!({"issuing_store":self.issuing_store,"generation":generation,"mode":request.mode,"query_digest":identity,"raw_plan":plan,"population_plan":population_plan,"coverage":COVERAGE,"freshness":"imported-cut-only","experimental_execution":false}),
-        )
+        Ok(KnowledgeExplain {
+            version: pse_model::document::Version,
+            issuing_store: self.issuing_store.clone(), generation, mode: request.mode,
+            query_digest: identity,
+            raw_plan_json: serde_json::to_string(&plan).map_err(|cause| invalid(cause.to_string()))?,
+            population_plan_json: population_plan.map(|value| serde_json::to_string(&value)).transpose().map_err(|cause| invalid(cause.to_string()))?,
+            coverage: COVERAGE, freshness: "imported-cut-only", experimental_execution: false,
+        })
     }
 }
 fn as_object(value: Value) -> Result<Object, EvidenceError> {

@@ -13,15 +13,18 @@ from typing import Annotated, Literal
 
 from pydantic import Field, JsonValue
 
-from scripts.capabilities.read_contracts import Contract
+from scripts.capabilities.read_contracts import Contract, OwnerReference, ReaderSuggestion
 from scripts.telemetry_investigation import QueryAnswer, schema_description
 
 MAX_DOCUMENT_BYTES = 8 << 20
 
 
 class Investigation(Contract):
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     created_at_ns: int
+    question: Annotated[str, Field(min_length=1, max_length=4096)]
+    original_references: Annotated[list[OwnerReference], Field(max_length=32)] = Field(default_factory=list)
+    next_readers: Annotated[list[ReaderSuggestion], Field(max_length=32)] = Field(default_factory=list)
     schema_description: dict[str, JsonValue]
     selections: Annotated[list[QueryAnswer], Field(min_length=1, max_length=16)]
     missing_context: Annotated[list[str], Field(max_length=64)] = Field(
@@ -49,6 +52,9 @@ class SelectionPage(Contract):
     selection: int
     request: dict[str, JsonValue]
     source: dict[str, JsonValue] | None
+    question: str
+    original_references: list[OwnerReference]
+    next_readers: list[ReaderSuggestion]
     records: list[dict[str, JsonValue]]
     copied_rows: int
     returned_rows: int
@@ -63,6 +69,9 @@ def export(
     destination: Path,
     selections: list[QueryAnswer],
     *,
+    question: str,
+    original_references: list[OwnerReference] | None = None,
+    next_readers: list[ReaderSuggestion] | None = None,
     maximum_output_bytes: int = MAX_DOCUMENT_BYTES,
     missing_context: list[str] | None = None,
 ) -> SelectionReference:
@@ -77,6 +86,9 @@ def export(
         raise ValueError("Select a finite investigation output allowance up to 8 MiB")
     document = Investigation(
         created_at_ns=time.time_ns(),
+        question=question,
+        original_references=original_references or [],
+        next_readers=next_readers or [],
         schema_description=schema_description(),
         selections=selections,
         missing_context=missing_context or [],
@@ -104,7 +116,7 @@ def export(
                             role="query",
                             required=True,
                             format="json",
-                            document_version=1,
+                            document_version=2,
                             source="openobserve-1.1.2-v1; individually recorded source cuts",
                         ),
                     ),
@@ -203,6 +215,9 @@ def page(
         source=answer.source.model_dump(mode="json")
         if answer.source is not None
         else None,
+        question=document.question,
+        original_references=document.original_references,
+        next_readers=document.next_readers,
         records=records,
         copied_rows=len(answer.records),
         returned_rows=len(records),

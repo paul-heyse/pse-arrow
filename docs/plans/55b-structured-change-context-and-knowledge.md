@@ -1,6 +1,6 @@
 ---
 title: "Plan 55b: Structured change context and knowledge"
-status: planned
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -64,9 +64,9 @@ No new graph service, ontology registry, Surrealism module, standalone KV or mem
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | planned | 55b | Existing native indexed selection/explain is callable with exact source/freshness/cursors |
-| B02 | planned | 55b | Authoritative producers emit the selected cross-boundary relationship facts |
-| B03 | planned | 55b | A bounded attributable change-to-contract/evidence question uses those facts |
+| B01 | in-progress | 55b | Existing native indexed selection/explain is callable with exact source/freshness/cursors |
+| B02 | in-progress | 55b | Authoritative producers emit the selected cross-boundary relationship facts |
+| B03 | in-progress | 55b | A bounded attributable change-to-contract/evidence question uses those facts |
 
 <a id="B01"></a>
 ### B01 — Adapt indexed questions without changing their authority

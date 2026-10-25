@@ -265,6 +265,28 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
         println!("{}", serde_json::to_string(&output)?);
         return Ok(());
     }
+    // Admit the standalone request before service/configuration activity. The
+    // decoder's public location omits supplied values; map/variant keys stay private.
+    let knowledge_request = match &args.command {
+        EvidenceCommand::KnowledgeQuery { input } | EvidenceCommand::KnowledgeExplain { input } => {
+            let bytes = supplied_document(input, 32768)?;
+            let request = match pse_operations::knowledge::KnowledgeQuery::decode_json(&bytes) {
+                Ok(request) => request,
+                Err(error) => {
+                    let location = error.location();
+                    let refused = serde_json::json!({"outcome":"refused","code":"pse.knowledge.decode_refused","stage":location.stage,"category":location.category,"line":location.line,"column":location.column,"remedy":"Correct the original versioned native knowledge request; no store was opened."});
+                    println!("{}", serde_json::to_string(&refused)?);
+                    return Ok(());
+                }
+            };
+            if request.validate().is_err() {
+                println!("{}", serde_json::json!({"outcome":"refused","code":"pse.knowledge.input_refused","remedy":"Correct the finite mode-specific predicates; no store was opened."}));
+                return Ok(());
+            }
+            Some(request)
+        }
+        _ => None,
+    };
     let state = args
         .state
         .as_deref()
@@ -274,6 +296,7 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
+    let knowledge_read = matches!(&args.command, EvidenceCommand::KnowledgeQuery { .. } | EvidenceCommand::KnowledgeExplain { .. });
     let output = rt.block_on(evidence::within_allowance(deadline, async {
         match args.command {
             EvidenceCommand::Init => {
@@ -311,15 +334,13 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                             let corpus: pse_operations::knowledge::KnowledgeCorpus = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
                             serde_json::to_value(store.knowledge_import(&corpus).await?).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))
                         }
-                        EvidenceCommand::KnowledgeQuery { input } => {
-                            let bytes = supplied_document(&input, 32768).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
-                            let request: pse_operations::knowledge::KnowledgeQuery = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
-                            serde_json::to_value(store.knowledge_select(&request).await?).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))
+                        EvidenceCommand::KnowledgeQuery { .. } => {
+                            let request = knowledge_request.as_ref().ok_or_else(|| evidence::EvidenceError::Configuration("admitted knowledge request absent".into()))?;
+                            serde_json::to_value(store.knowledge_select(request).await?).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))
                         }
-                        EvidenceCommand::KnowledgeExplain { input } => {
-                            let bytes = supplied_document(&input, 32768).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
-                            let request: pse_operations::knowledge::KnowledgeQuery = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
-                            store.knowledge_explain(&request).await
+                        EvidenceCommand::KnowledgeExplain { .. } => {
+                            let request = knowledge_request.as_ref().ok_or_else(|| evidence::EvidenceError::Configuration("admitted knowledge request absent".into()))?;
+                            serde_json::to_value(store.knowledge_explain(request).await?).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))
                         }
                         EvidenceCommand::Status => store.status().await,
                         EvidenceCommand::Analyze {
@@ -422,7 +443,20 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                 Ok(output)
             }
         }
-    }))?;
+    }));
+    let output = match output {
+        Ok(value) => value,
+        Err(error) if knowledge_read => {
+            let code = match error {
+                evidence::EvidenceError::Cursor => "pse.knowledge.cursor_context",
+                evidence::EvidenceError::Unavailable(_) => "pse.knowledge.index_unavailable",
+                evidence::EvidenceError::Configuration(_) => "pse.knowledge.input_refused",
+                _ => "pse.knowledge.transport_unavailable",
+            };
+            serde_json::json!({"outcome":"refused","code":code,"remedy":"Inspect the original knowledge owner and selected generation; no import, source fallback or replay was performed."})
+        }
+        Err(error) => return Err(error.into()),
+    };
     println!("{}", serde_json::to_string(&output)?);
     Ok(())
 }

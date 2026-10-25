@@ -57,12 +57,12 @@ conceptual relationship.
 |---|---|---|---|
 | D01 | planned | 55d | Existing affected selection is available with exact reasons/population/unknowns |
 | D02 | planned | 55d | Applicable original evidence explains validation choices and preparation versus execution |
-| D03 | planned | 55d | Advanced CLI editing inquiry chooses adoption or explicit limitation |
-| D04 | deferred pending D03 adoption | 55d | Only the positively selected connection/preview workflow is delivered |
-| D05 | planned | 55d | One real structural migration establishes adaptation value or deferral |
-| D06 | deferred pending D05 adoption | 55d | Selected structural operation uses original preview/protection/reconcile owners |
-| D07 | planned | 55d | Existing regression predicate/consumer establishes comparison/bisect adaptation value or deferral |
-| D08 | deferred pending D07 adoption | 55d | Selected experiment adaptation preserves isolation, original outcomes and settlement |
+| D03 | in-progress | 55d | Foreground connection selected; actual agent interaction qualification remains |
+| D04 | in-progress | 55d | JSONL foreground session implemented; no endpoint-death durability promise |
+| D05 | complete | 55d | Four genuine pipeline-review candidates establish finite migration access value; decision below |
+| D06 | in-progress | 55d | Original migration retained through common preview/apply/reconcile owner |
+| D07 | complete | 55d | Fixed-predicate direct owner retained; optional adaptation deferred with trigger below |
+| D08 | deferred | 55d | Revisit on an assigned fixed-predicate regression whose native route cannot provide the needed agent handoff |
 
 <a id="D01"></a>
 ### D01 — Attributed affected-validation preview
@@ -191,6 +191,28 @@ combinations refuse; interrupted execution settles/restores or reports the remai
 No extra execution ledger, scheduler or privileged free-form command runner is introduced.
 
 ## Verification and current checkpoint
+
+### Inquiry decisions — 2026-10-25
+
+D03 selects a foreground JSONL client retaining one endpoint for explicit requests. This uses
+the shell agent's existing interactive process support, without a daemon, detached session or
+saved-handle resurrection. D04 must prove the actual preview/detail/apply/reconcile interaction;
+source-only implementation does not close that consumer acceptance. Endpoint death loses its
+retained previews; crash-resumable adoption is not selected.
+
+**Tested, bounded:** D05 ran the existing `json_source_bytes` transformation in memory against
+current `scripts/pipeline_review.py`: four AST-grep candidates resolved to four qualified
+stdlib JSON edits, with no source publication. That real multi-call consumer plus the shared
+retained-preview workflow justifies one finite canonical preview operation. D06 reuses the
+original transformer and edit owners; it does not apply those production edits automatically.
+
+**Interface-checked:** D07 inspected the fixed `authoring-load-package` predicate, original
+classification/isolation/bisect/receipt owners and their existing native `just experiment`
+route. No presently assigned regression needs a new canonical adapter, and that fixed predicate
+does not serve arbitrary future failures. Retain that direct route and defer D08 until an actual
+assigned fixed-predicate investigation demonstrates missing agent handoff/control value. Paired
+performance comparison likewise has no selected measurement consumer. No new bisect or subjects
+were executed for this decision; existing retained tests are not fresh qualification.
 
 **Proposed verification:** targeted affected-selection/applicability tests and proportionate
 inquiry controls, followed by adopted edit/experiment journeys in 55f. Optional delivery stays

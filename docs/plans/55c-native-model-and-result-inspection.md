@@ -1,6 +1,6 @@
 ---
 title: "Plan 55c: Native model and result inspection"
-status: planned
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -83,9 +83,9 @@ precedes readable materialization while retaining required original full-batch v
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | planned | 55c | Exact native declaration/inspection/comparison adapted with explicit source/physical/policy cuts |
-| C02 | planned | 55c | Native context representation and selected nested values make a representative result readable |
-| C03 | planned | 55c | All affected native/public/generated consumers and scientific examples use the new contracts |
+| C01 | in-progress | 55c | Exact native declaration/inspection/comparison adapted with explicit source/physical/policy cuts |
+| C02 | in-progress | 55c | Native context representation and selected nested values make a representative result readable |
+| C03 | in-progress | 55c | All affected native/public/generated consumers and scientific examples use the new contracts |
 
 <a id="C01"></a>
 ### C01 — Model-development observations through the native boundary

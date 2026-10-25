@@ -252,6 +252,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             owner=binding.receiver,
             source="scripts/capabilities/native.py",
             exposure="tool",
+            invocation_lifetime="single",
             effects=binding.effects,
             worker_calls=(binding.worker,),
             requirements=binding.requirements,

@@ -145,6 +145,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             owner="scripts/python_extension.py",
             source="scripts/capabilities/preparation.py",
             exposure="tool",
+            invocation_lifetime="single",
             effects="Explicit selected owner stage; dependency installation, extension replacement and stub publication occur only in their chosen stages. Admission observes actual import identity; checks do not publish.",
             worker_calls=(STAGE_CALLS[mode],),
             requirements=(

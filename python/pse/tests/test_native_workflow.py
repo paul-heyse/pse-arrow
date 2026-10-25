@@ -18,6 +18,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse import modeling as w
 from pse.contracts import authored as a
@@ -67,6 +68,7 @@ PRIMITIVES = (
     'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
     'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
 )
+
 
 
 def identity(n: int) -> SemanticId:
@@ -292,7 +294,12 @@ def test_explicit_primal_seed_and_transactional_initialization(
         backend=NativeBackend.KINSOL,
         presolve=PresolvePolicyKind.OFF,
     )
-    member = package.inspect(case, settings).members[0]
+    observed = package.inspect(inspection_request(case, settings))
+    assert observed.source.revision == package.operation_source.revision
+    assert observed.source.physical_context == package.operation_source.physical_context
+    assert observed.population.members >= len(observed.members)
+    assert observed.offset == 0
+    member = observed.members[0]
     x = member.id
     prepared = package.prepare_solve(case, settings)
     assert prepared.eligibility

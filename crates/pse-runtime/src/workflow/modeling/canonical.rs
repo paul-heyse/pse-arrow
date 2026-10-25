@@ -1785,6 +1785,33 @@ impl ModelingPackage {
             _leases: parent._leases,
         })
     }
+    /// Select the authenticated ingress order before copying any declaration body.
+    /// Full delta products, document/physical hydration and dependency indexes are
+    /// independently useful for edits, but are not prerequisites for this read.
+    pub(super) fn selected_declarations(
+        &self,
+        offset: usize,
+        limit: usize,
+    ) -> Result<(usize, super::OwnedDeclarations), WorkflowError> {
+        let (frame, frame_lease) =
+            self.source_decode::<IngressFrame>(self.local_object(INGRESS_FRAME)?.as_ref())?;
+        let total = frame.order.len();
+        let mut rows = Vec::with_capacity(limit.min(total.saturating_sub(offset)));
+        let mut leases = vec![frame_lease];
+        for id in frame.order.iter().skip(offset).take(limit) {
+            let object = self.local_object(&logical(*id))?;
+            let source = object.declaration.as_ref().ok_or_else(|| contract("owned typed declaration absent"))?;
+            if source.0.declaration_id != *id {
+                return Err(contract("ordered declaration identity differs from admitted body"));
+            }
+            leases.push(self.runtime.shared.math().reserve(
+                "modeling:selected-declaration-copy",
+                source.0.owned_bytes().saturating_add(8192),
+            )?);
+            rows.push(source.0.clone());
+        }
+        Ok((total, super::OwnedDeclarations { rows, _leases: leases }))
+    }
     /// Explicit fitting inventory from the owned immutable source and its allocations.
     pub async fn fit_declarations(
         &self,
@@ -3246,6 +3273,32 @@ mod tests {
         let mut row = parse(&format!("package {name} {{}}"))[0].clone();
         row.declaration_id = DeclarationId::from(SemanticId::from_bytes([byte; 16]));
         row
+    }
+
+    #[tokio::test]
+    async fn small_declaration_page_does_not_hydrate_full_delta_inventory() {
+        const POOL_BYTES: usize = 64 << 20;
+        let runtime = crate::workflow::tests::runtime_on(POOL_BYTES, crate::math::MathPolicy {
+            workspace_bytes: 16 << 20, worker_bytes: 16 << 20, foreign_bytes: 1 << 20,
+            ..Default::default()
+        });
+        let mut source = String::from("package p {");
+        for index in 0..64 { source.push_str(&format!(" param p{index}:Scalar={index};")); }
+        source.push('}');
+        let original = parse(&source);
+        let package = runtime.modeling_package(original.clone(), crate::workflow::tests::physical()).await.unwrap();
+        assert!(package.revision.delta_products.get().is_none());
+        // Only a small metadata frame and one body fit in the remaining accounting
+        // allowance. This reserves capacity, not a large physical allocation.
+        let held = runtime.shared.math().reserve("test:unrelated-live-allocation", POOL_BYTES - runtime.shared.pool().reserved() - (128 << 10)).unwrap();
+        let page = package.declaration_page(&crate::workflow::ModelingDeclarationRequest { offset: 9, limit: 1 }).await.unwrap();
+        assert_eq!(page.total, original.len());
+        assert_eq!(page.declarations, original[9..10]);
+        assert_eq!(page.next_offset, Some(10));
+        assert_eq!(page.source, crate::workflow::OperationSource::of(&package));
+        assert!(package.revision.delta_products.get().is_none(), "paged reads must not build edit/dependency products");
+        assert!(package.declarations().await.is_err(), "an unrelated full inventory must exceed this deliberately scarce allowance");
+        drop(held);
     }
 
     #[test]

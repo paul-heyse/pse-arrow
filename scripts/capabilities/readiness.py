@@ -7,16 +7,19 @@ from __future__ import annotations
 import os
 import subprocess
 from contextlib import suppress
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
-from pydantic import Field, ValidationError, model_validator
+from pydantic import Field, JsonValue, ValidationError, model_validator
+from jsonschema import Draft202012Validator
 
 from scripts import python_extension
 from scripts.capabilities import preparation
 from scripts.capabilities.diagnostics import refusal
+from scripts.capabilities.diagnostics import safe_path, schema_keys
+from scripts.capabilities.execution_basis import digest, wire
 from scripts.capabilities.model import Capability, Contract, Identifier, Prerequisite
 
 if TYPE_CHECKING:
@@ -30,6 +33,24 @@ class ReadinessFact(Contract):
     value: bool | None = None
     observation: Literal["unobserved", "passive", "live"] = "unobserved"
     evidence: str
+
+
+class ExplanationError(Contract):
+    path: list[str | int]
+    code: str
+
+
+class InvocationExplanation(Contract):
+    capability: str
+    wire_revision: str
+    input_schema_valid: bool
+    errors: list[ExplanationError]
+    effects: str
+    invocation_lifetime: str | None
+    readiness: CapabilityReadiness
+    selection: dict[str, JsonValue] | None
+    admission: Literal["not_attempted"] = "not_attempted"
+    interpretation: str = "Schema validation and passive owner observations only; no native admission, preparation, execution or cache-miss diagnosis."
 
 
 class ReceiptObservation(Contract):
@@ -169,6 +190,7 @@ def bindings(
     *,
     capabilities: Callable[[], Mapping[str, Capability]],
     specialists: Specialists,
+    operation_tools: Callable[[], Mapping[str, Tool]] | None = None,
 ) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     def selected(identifier: str) -> Capability:
         result = capabilities().get(identifier)
@@ -179,6 +201,37 @@ def bindings(
     def capability_readiness(capability: Identifier) -> CapabilityReadiness:
         """Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. Receipt presence records prior preparation; current currency, import compatibility, service availability and operation qualification remain unknown until separately observed."""
         return passive(root, selected(capability))
+
+    def capability_explain(
+        capability: Identifier,
+        arguments: Annotated[dict[str, JsonValue], Field(examples=[{"request": {"output": "build/selected-check", "package": "pse-runtime", "target": "library"}}])],
+    ) -> InvocationExplanation:
+        """Explain this exact typed request and passive requirements without invoking or preparing its receiver. Native contextual admission remains unknown."""
+        spec = selected(capability)
+        tool = operation_tools().get(capability) if operation_tools is not None else None
+        if tool is None:
+            raise refusal("pse.capabilities.unknown_capability")
+        definition = wire(tool)
+        schema = definition["inputSchema"]
+        if not isinstance(schema, dict):
+            raise refusal("pse.capabilities.input_refused")
+        keys = schema_keys(schema)
+        errors = [ExplanationError(path=safe_path(list(error.absolute_path), keys), code=str(error.validator)) for error in list(Draft202012Validator(schema).iter_errors(arguments))[:16]]
+        selection: dict[str, JsonValue] | None = None
+        if not errors and capability == "compilation_check":
+            from scripts.capabilities.qualification_contracts import CompilationRequest  # noqa: PLC0415 -- pure original selection owner.
+            try:
+                request = CompilationRequest.model_validate(arguments.get("request"))
+            except ValidationError as error:
+                errors = [ExplanationError(path=safe_path(["request", *item["loc"]], keys), code=item["type"]) for item in error.errors(include_input=False, include_context=False)[:16]]
+            else:
+                selection = {"gates": [{"recipe": gate.recipe, "args": list(gate.args), "mode": gate.mode} for gate in request.gates()], "execution": "not_started"}
+        elif not errors and capability == "native_model_inspect":
+            request = arguments.get("request")
+            if isinstance(request, dict):
+                selection = {name: request[name] for name in ("case", "offset", "limit") if name in request}
+                selection["physical_context"] = "native_admission_unchecked"
+        return InvocationExplanation(capability=capability, wire_revision=digest(definition), input_schema_valid=not errors, errors=errors, effects=spec.effects, invocation_lifetime=spec.invocation_lifetime, readiness=passive(root, spec), selection=selection)
 
     async def capability_readiness_check(
         request: ReadinessCheckRequest,
@@ -353,6 +406,7 @@ def bindings(
     tools: dict[str, Tool] = {}
     for function, read_only in (
         (capability_readiness, True),
+        (capability_explain, True),
         (capability_readiness_check, False),
     ):
         tool = Tool.from_function(
@@ -373,6 +427,7 @@ def bindings(
             owner="scripts/capabilities/readiness.py",
             source="scripts/capabilities/readiness.py",
             exposure="tool",
+            invocation_lifetime="single",
             worker_calls=()
             if read_only
             else (*preparation.IMPORT_CALLS.values(), preparation.CURRENCY_CALL),

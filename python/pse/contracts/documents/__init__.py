@@ -67,6 +67,8 @@ IdasInitialStep = Literal["configured", "automatic"]
 
 InvocationOutcome = Literal["completed", "failed", "cancelled"]
 
+KnowledgeMode = Literal["subjects", "graph", "productions"]
+
 LifecycleKind = Literal["source_history", "run_results", "study_results", "run_history", "study_history", "draft_version", "evidence_artifact"]
 
 ManagedDetailReferenceState = Literal["pending", "refused", "captured", "missing"]
@@ -131,7 +133,7 @@ ResultCellUnavailable = Literal["unsupported_storage", "value_extent"]
 
 ResultFloatClass = Literal["finite", "nan", "positive_infinity", "negative_infinity"]
 
-ResultInspectionRefusal = Literal["selection", "unknown_field", "manifest_changed", "context_extent", "response_extent"]
+ResultInspectionRefusal = Literal["selection", "unknown_field", "manifest_changed", "context_extent", "response_extent", "cursor_changed"]
 
 ReviewAttemptSelection = Literal["current", "retained"]
 
@@ -995,6 +997,38 @@ class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.initial), v.scalar_key(self.next), v.scalar_key(self.prior),))
+
+
+class ArrowFieldPath(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact typed Arrow navigation; an empty step list selects the original root field."""
+
+    #: Exact original root column name.
+    field: str
+    #: At most sixteen native struct/list operations.
+    steps: tuple[ArrowFieldStep, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.field), v.sequence_key(v.record_key)(self.steps),))
+
+
+class ArrowFieldStepListElement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="list_element"):
+    """Selected element relative to each original row's list offsets."""
+
+    #: Zero-based position within each original valid list.
+    index: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.index),))
+
+
+class ArrowFieldStepStructField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="struct_field"):
+    """Exact declared struct child."""
+
+    #: Original exact child name.
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name),))
 
 
 class ArtifactIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -9111,6 +9145,24 @@ class EvidenceFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
         return (type(self), (v.optional_key(v.scalar_key)(self.binary_id), v.optional_key(v.scalar_key)(self.context_id), v.optional_key(v.scalar_key)(self.context_json), v.optional_key(v.scalar_key)(self.crate_name), v.optional_key(v.scalar_key)(self.detail_ref), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.link_relation), v.optional_key(v.scalar_key)(self.link_target), v.scalar_key(self.member), v.optional_key(v.scalar_key)(self.population_id), v.optional_key(v.scalar_key)(self.sample_id), v.scalar_key(self.status), v.optional_key(v.scalar_key)(self.test_id), v.optional_key(v.scalar_key)(self.value_ns),))
 
 
+class EvidenceIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original evidence-owner identity, not a replacement evidence codec."""
+
+    #: Original version or digest.
+    version: str
+    #: Original issuing authority.
+    authority: str
+    #: Original codec.
+    codec: str
+    #: Original member.
+    member: str
+    #: Original source.
+    source_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.authority), v.scalar_key(self.codec), v.scalar_key(self.member), v.scalar_key(self.source_id),))
+
+
 class EvidenceMeasurementCohort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Descriptive statistics and membership counts of one original measurement cohort."""
 
@@ -11654,6 +11706,22 @@ class InspectionMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.scalar_key(self.id), v.record_key(self.lineage), v.scalar_key(self.role),))
 
 
+class InspectionPopulation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independent total populations, distinct from the number of returned observations."""
+
+    #: Total connections.
+    connections: Annotated[int, msgspec.Meta(ge=0)]
+    #: Total instantiated definitions.
+    instances: Annotated[int, msgspec.Meta(ge=0)]
+    #: Total instantiated members.
+    members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Total selected ports.
+    ports: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.connections), v.scalar_key(self.instances), v.scalar_key(self.members), v.scalar_key(self.ports),))
+
+
 class InspectionPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One selected declared port."""
 
@@ -12773,6 +12841,264 @@ class KnowledgeControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
 
 
+class KnowledgeCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Conservative interpretation limits, independent of the delivered hit population."""
+
+    #: Registry declaration definition locations are not fabricated.
+    declaration_locations: str
+    #: Text matches only subjects explicitly attributed by original owners.
+    excerpt_attribution: str
+    #: Producer fingerprints are not a live freshness attestation.
+    producer_freshness: str
+    #: Missing semantic links are not inferred from prose or topics.
+    undeclared_relationships: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declaration_locations), v.scalar_key(self.excerpt_attribution), v.scalar_key(self.producer_freshness), v.scalar_key(self.undeclared_relationships),))
+
+
+class KnowledgeCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact issuing cut, predicate, and page fence."""
+
+    #: Last native member key.
+    after: str
+    #: Selected activated generation.
+    generation: str
+    #: Issuing tooling identity.
+    issuing_store: str
+    #: Exact predicate and extent identity.
+    query_digest: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.query_digest),))
+
+
+class KnowledgeEdge(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed native subject relation."""
+
+    #: Actual relationship origin.
+    basis: str
+    #: Exact source subject.
+    from_: str = msgspec.field(name="from")
+    #: Original relationship identity.
+    id: str
+    #: Closed relation meaning.
+    relation: enums.KnowledgeRelationKind
+    #: Exact target subject.
+    to: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.basis), v.scalar_key(self.from_), v.scalar_key(self.id), v.scalar_key(self.relation), v.scalar_key(self.to),))
+
+
+class KnowledgeExcerpt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selected excerpt; shared files do not imply shared subject attribution."""
+
+    #: Explicit evidence origin.
+    basis: str
+    #: Exact excerpt identity.
+    id: str
+    #: Original locator.
+    locator: str
+    #: Exact source carrier.
+    source_id: str
+    #: Subject only where correspondence is explicitly known.
+    subject_id: str | None
+    #: Selected text, at most sixteen KiB.
+    text: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.basis), v.scalar_key(self.id), v.scalar_key(self.locator), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.subject_id), v.scalar_key(self.text),))
+
+
+class KnowledgeExplain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Nonexecuting versioned plan envelope; optimizer plan contents are opaque version-specific data."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Native result encoding version.
+    version: Literal[1] = 1
+    #: Original coverage limitations.
+    coverage: KnowledgeCoverage
+    #: False: explaining never runs ANALYZE.
+    experimental_execution: bool
+    #: This read does not reopen original source files.
+    freshness: str
+    #: Exact selected active generation.
+    generation: str
+    #: Original issuing tooling identity.
+    issuing_store: str
+    #: Original query operation.
+    mode: KnowledgeMode
+    #: Optional population selection's informational plan.
+    population_plan_json: str | None
+    #: Exact predicate and extent identity.
+    query_digest: str
+    #: Raw informational optimizer output, not a stable query grammar.
+    raw_plan_json: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.coverage), v.scalar_key(self.experimental_execution), v.scalar_key(self.freshness), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.mode), v.optional_key(v.scalar_key)(self.population_plan_json), v.scalar_key(self.query_digest), v.scalar_key(self.raw_plan_json),))
+
+
+class KnowledgePage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite structural result, with the complete provenance source cut even for zero hits."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Native result encoding version.
+    version: Literal[1] = 1
+    #: Exact producer and semantic coverage limits.
+    coverage: KnowledgeCoverage
+    #: Exact typed graph results.
+    edges: tuple[KnowledgeEdge, ...]
+    #: Optional matching subject-attributed excerpts.
+    excerpts: tuple[KnowledgeExcerpt, ...]
+    #: Matching excerpt delivery is separately bounded; this flag preserves omissions.
+    excerpts_truncated: bool
+    #: Imported cut only; no automatic source reopening.
+    freshness: str
+    #: Exact activated corpus.
+    generation: str
+    #: Issuing tooling authority.
+    issuing_store: str
+    #: Same-predicate, same-cut continuation.
+    next: KnowledgeCursor | None
+    #: Exact production assertions.
+    productions: tuple[KnowledgeProduction, ...]
+    #: Complete source membership for independent freshness observation.
+    sources: tuple[KnowledgeSource, ...]
+    #: Selected subjects or exact edge/production endpoint closure.
+    subjects: tuple[KnowledgeSubject, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.edges), v.sequence_key(v.record_key)(self.excerpts), v.scalar_key(self.excerpts_truncated), v.scalar_key(self.freshness), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.optional_key(v.record_key)(self.next), v.sequence_key(v.record_key)(self.productions), v.sequence_key(v.record_key)(self.sources), v.sequence_key(v.record_key)(self.subjects),))
+
+
+class KnowledgeProduction(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual declaration-generator-specific-output correspondence."""
+
+    #: Exact emitted artifact.
+    artifact_id: str
+    #: Actual producer basis.
+    basis: str
+    #: Actual declaration subject.
+    declaration_id: str
+    #: Direction only where declared.
+    direction: enums.KnowledgeDirection | None
+    #: Actual generator subject.
+    generator_id: str
+    #: Original producer record identity.
+    id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.artifact_id), v.scalar_key(self.basis), v.scalar_key(self.declaration_id), v.optional_key(v.scalar_key)(self.direction), v.scalar_key(self.generator_id), v.scalar_key(self.id),))
+
+
+class KnowledgeQuery(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact conjunction of native facets; no relevance substitution or arbitrary SQL."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Required native document encoding version.
+    version: Literal[1] = 1
+    #: Exact production artifact.
+    artifact_id: str | None = None
+    #: Exact-cut continuation.
+    cursor: KnowledgeCursor | None = None
+    #: Exact production declaration.
+    declaration_id: str | None = None
+    #: Exact document role.
+    document_role: enums.KnowledgeDocumentRole | None = None
+    #: Null selects the independent current pointer.
+    generation: str | None = None
+    #: Exact production generator.
+    generator_id: str | None = None
+    #: Exact concept family.
+    kind: enums.KnowledgeSubjectKind | None = None
+    #: Page extent, one through 64.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Subject, graph, or production operation.
+    mode: KnowledgeMode
+    #: Exact native identity.
+    native_id: str | None = None
+    #: Exact native lifecycle.
+    native_state: str | None = None
+    #: Exact native owner.
+    owner: str | None = None
+    #: Exact publication scope, independent of lifecycle.
+    publication_scope: str | None = None
+    #: Optional typed graph relation.
+    relation: enums.KnowledgeRelationKind | None = None
+    #: Subject selection or exact graph root.
+    subject_id: str | None = None
+    #: Optional text predicate within a structurally selected subject population.
+    text: str | None = None
+    #: All specified native topics must match.
+    topics: tuple[str, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.artifact_id), v.optional_key(v.record_key)(self.cursor), v.optional_key(v.scalar_key)(self.declaration_id), v.optional_key(v.scalar_key)(self.document_role), v.optional_key(v.scalar_key)(self.generation), v.optional_key(v.scalar_key)(self.generator_id), v.optional_key(v.scalar_key)(self.kind), v.scalar_key(self.limit), v.scalar_key(self.mode), v.optional_key(v.scalar_key)(self.native_id), v.optional_key(v.scalar_key)(self.native_state), v.optional_key(v.scalar_key)(self.owner), v.optional_key(v.scalar_key)(self.publication_scope), v.optional_key(v.scalar_key)(self.relation), v.optional_key(v.scalar_key)(self.subject_id), v.optional_key(v.scalar_key)(self.text), v.sequence_key(v.scalar_key)(self.topics),))
+
+
+class KnowledgeSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable source-version carrier, never a substitute for a domain concept."""
+
+    #: Explicit evidence origin.
+    basis: str
+    #: Exact selected carrier identity.
+    id: str
+    #: Original carrier category.
+    kind: str
+    #: Original attributable locator, without lifetime or file-access grant.
+    locator: str
+    #: Source observation state, independent of subject lifecycle.
+    status: str
+    #: Compact original description.
+    title: str
+    #: SHA256 of exact selected source bytes.
+    version_digest: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.basis), v.scalar_key(self.id), v.scalar_key(self.kind), v.scalar_key(self.locator), v.scalar_key(self.status), v.scalar_key(self.title), v.scalar_key(self.version_digest),))
+
+
+class KnowledgeSubject(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Closed owner-native subject; publication and native lifecycle remain separate."""
+
+    #: Explicit evidence origin.
+    basis: str
+    #: Actual native document role.
+    document_role: enums.KnowledgeDocumentRole | None
+    #: Original evidence identity for evidence_reference only.
+    evidence: EvidenceIdentity | None
+    #: Stable adapter-qualified subject identity.
+    id: str
+    #: Closed subject family.
+    kind: enums.KnowledgeSubjectKind
+    #: Original compact label.
+    label: str
+    #: Actual owner-native identity.
+    native_id: str
+    #: Native lifecycle/status only where applicable.
+    native_state: str | None
+    #: Exact owner version when supplied.
+    native_version: str | None
+    #: Native semantic owner.
+    owner: str
+    #: Publication scope, independent of proposal/acceptance.
+    publication_scope: str | None
+    #: Complete explicit contributors, at most eight.
+    sources: tuple[SubjectSource, ...]
+    #: Actual interpretation of native state.
+    state_basis: str | None
+    #: Native metadata topics, at most sixteen.
+    topics: tuple[SubjectTopic, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.basis), v.optional_key(v.scalar_key)(self.document_role), v.optional_key(v.record_key)(self.evidence), v.scalar_key(self.id), v.scalar_key(self.kind), v.scalar_key(self.label), v.scalar_key(self.native_id), v.optional_key(v.scalar_key)(self.native_state), v.optional_key(v.scalar_key)(self.native_version), v.scalar_key(self.owner), v.optional_key(v.scalar_key)(self.publication_scope), v.sequence_key(v.record_key)(self.sources), v.optional_key(v.scalar_key)(self.state_basis), v.sequence_key(v.record_key)(self.topics),))
+
+
 class LaunchCaptureRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Structured launch request. A new command is independently owned from its CPU capture."""
 
@@ -13806,6 +14132,50 @@ class ModelingColumnStorageOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
         return (type(self), (v.scalar_key(self.name), v.optional_key(v.sequence_key(v.scalar_key))(self.scheme), v.optional_key(v.sequence_key(v.record_key))(self.storage_unit),))
 
 
+class ModelingComparisonObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selected native comparison, including unchanged exact request/source basis."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact proposed requested detail.
+    after: tuple[ProjectSourceDetailBody, ...]
+    #: Exact original requested detail; missing objects remain explicit absences.
+    before: tuple[ProjectSourceDetailBody, ...]
+    #: Original source identities and selected changed objects.
+    comparison: ProjectComparisonBody
+    #: Next changed-object page offset.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Changed-object page offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Total changes before page selection.
+    total: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.after), v.sequence_key(v.record_key)(self.before), v.record_key(self.comparison), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.scalar_key(self.total),))
+
+
+class ModelingComparisonRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite comparison and selected original details, under explicit physical-context semantics."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: One to128 changes.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: At most32 exact logical identities for before/after detail in the same snapshots.
+    logical: tuple[str, ...]
+    #: Changed-object offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit source-only comparison never claims scientific equivalence.
+    source_only: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.limit), v.sequence_key(v.scalar_key)(self.logical), v.scalar_key(self.offset), v.scalar_key(self.source_only),))
+
+
 class ModelingCompleteness(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -13832,6 +14202,44 @@ class ModelingCompletenessOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.optional_key(v.record_key)(self.range), v.optional_key(v.sequence_key(v.scalar_key))(self.set),))
+
+
+class ModelingDeclarationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact selected declaration page and source basis."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original declarations in source order, not host-truncated rows.
+    declarations: tuple[AuthoredModelingDeclarationsRowOutput, ...]
+    #: Next original inventory offset.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original page offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Immutable source/physical basis.
+    source: OperationSourceBodyOutput
+    #: Complete original inventory population.
+    total: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.declarations), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.record_key(self.source), v.scalar_key(self.total),))
+
+
+class ModelingDeclarationRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite original declaration inventory selection."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: One to128 declarations.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original source inventory offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.limit), v.scalar_key(self.offset),))
 
 
 class ModelingDiagnosticPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13969,11 +14377,21 @@ class ModelingInspection(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     instances: tuple[InspectionInstance, ...]
     #: Instantiated model members and their provenance.
     members: tuple[InspectionMember, ...]
+    #: Next common offset, if any original population has more records.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original population offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original population sizes before finite projection.
+    population: InspectionPopulation
     #: Selected authored ports.
     ports: tuple[InspectionPort, ...]
+    #: Complete native preparation policy that admitted the observed case.
+    preparation: PreparationSettingsBody
+    #: Exact source and physical context of this observation.
+    source: OperationSourceBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.ports),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.record_key(self.population), v.sequence_key(v.record_key)(self.ports), v.record_key(self.preparation), v.record_key(self.source),))
 
 
 class ModelingInspectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13991,11 +14409,69 @@ class ModelingInspectionOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     instances: tuple[InspectionInstanceOutput, ...]
     #: Instantiated model members and their provenance.
     members: tuple[InspectionMemberOutput, ...]
+    #: Next common offset, if any original population has more records.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original population offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original population sizes before finite projection.
+    population: InspectionPopulation
     #: Selected authored ports.
     ports: tuple[InspectionPortOutput, ...]
+    #: Complete native preparation policy that admitted the observed case.
+    preparation: PreparationSettingsBodyOutput
+    #: Exact source and physical context of this observation.
+    source: OperationSourceBodyOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.record_key)(self.ports),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.connections), v.record_key(self.execution), v.sequence_key(v.record_key)(self.instances), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.record_key(self.population), v.sequence_key(v.record_key)(self.ports), v.record_key(self.preparation), v.record_key(self.source),))
+
+
+class ModelingInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite selection of an admitted model observation, with explicit preparation policy.
+    The schema example's declaration identity is illustrative, not a runtime admission claim.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact authored case declaration.
+    case: identities.DeclarationId
+    #: At most 128 members of each population.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Same finite offset applied independently to each original observation population.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete policy used by contextual admission, never inferred from host limits.
+    preparation: PreparationSettingsBody
+    #: Original solve/route policy; inspection does not dispatch its procedure.
+    settings: SolveSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.case), v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.preparation), v.record_key(self.settings),))
+
+
+class ModelingInspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite selection of an admitted model observation, with explicit preparation policy.
+    The schema example's declaration identity is illustrative, not a runtime admission claim.
+    """
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact authored case declaration.
+    case: identities.DeclarationId
+    #: At most 128 members of each population.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Same finite offset applied independently to each original observation population.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete policy used by contextual admission, never inferred from host limits.
+    preparation: PreparationSettingsBodyOutput
+    #: Original solve/route policy; inspection does not dispatch its procedure.
+    settings: SolveSettingsOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.case), v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.preparation), v.record_key(self.settings),))
 
 
 class ModelingIntegerRange(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18364,6 +18840,22 @@ class ProjectComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.changes), v.record_key(self.from_), v.scalar_key(self.semantic_context_matches), v.record_key(self.to),))
 
 
+class ProjectComparisonBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact exact-source authored change summary; no numerical equivalence is asserted."""
+
+    #: Only changed logical objects, ordered by stable logical identity.
+    changes: tuple[ProjectObjectChange, ...]
+    #: Original exact admitted source selection.
+    from_: ProjectComparisonSelectionOutput = msgspec.field(name="from")
+    #: Whether this operation requested and established matching physical context.
+    semantic_context_matches: bool
+    #: Compared exact admitted source selection.
+    to: ProjectComparisonSelectionOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.changes), v.record_key(self.from_), v.scalar_key(self.semantic_context_matches), v.record_key(self.to),))
+
+
 class ProjectComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Compact exact-source authored change summary; no numerical equivalence is asserted."""
 
@@ -20016,6 +20508,18 @@ class ProjectSourceDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.logical), v.optional_key(v.record_key)(self.object),))
+
+
+class ProjectSourceDetailBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected authored object without implicit full source export."""
+
+    #: Requested stable logical identity.
+    logical: str
+    #: Selected admitted object, or explicit absence at this revision.
+    object: ProjectSourceObjectOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.logical), v.optional_key(v.record_key)(self.object),))
 
 
 class ProjectSourceDetailOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -23458,6 +23962,26 @@ class RestartBarrierValue(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.scalar_key(self.value),))
 
 
+class ResultInspectionBasis(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable request coordinates retained across pages."""
+
+    #: Original terminal attempt.
+    attempt: str
+    #: Exclusive original window end.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original relation.
+    relation: str
+    #: Original run.
+    run: str
+    #: Complete requested row window.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original view/path/page allowance, unchanged by continuation.
+    view: ResultInspectionView
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.end), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
+
+
 class ResultInspectionCellBinary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="binary"):
     """Complete bounded bytes; fixed-width semantic identities retain their original field metadata."""
 
@@ -23516,11 +24040,33 @@ class ResultInspectionCellInteger(msgspec.Struct, frozen=True, forbid_unknown_fi
         return (type(self), (v.scalar_key(self.value),))
 
 
+class ResultInspectionCellMissingElement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="missing_element"):
+    """A valid list lacks the selected element; empty and nonempty lists retain their lengths."""
+
+    #: Zero-based list path step.
+    depth: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original valid list length, including zero.
+    length: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.depth), v.scalar_key(self.length),))
+
+
 class ResultInspectionCellNull(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="null"):
     """Original validity bit is false; distinct from nonfinite and unsupported storage."""
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), ())
+
+
+class ResultInspectionCellParentNull(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="parent_null"):
+    """An ancestor container is null; its underlying child buffer was not exposed."""
+
+    #: Zero-based path step whose parent is null.
+    depth: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.depth),))
 
 
 class ResultInspectionCellText(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="text"):
@@ -23553,13 +24099,79 @@ class ResultInspectionCellUnsigned(msgspec.Struct, frozen=True, forbid_unknown_f
         return (type(self), (v.scalar_key(self.value),))
 
 
+class ResultInspectionCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Store/selection-bound continuation; each call reacquires original protection."""
+
+    #: Original request identity.
+    basis: ResultInspectionBasis
+    #: Original canonical store authority; coordinates alone never cross stores.
+    issuing_store: str
+    #: Exact closure digest.
+    manifest: str
+    #: Next original row or descriptor/metadata position.
+    position: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact admitted registry relation contract, independent of its numeric version.
+    schema_fingerprint: str
+    #: Exact original protected selection, including issuing authority.
+    selection: PackResultSelection
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.basis), v.scalar_key(self.issuing_store), v.scalar_key(self.manifest), v.scalar_key(self.position), v.scalar_key(self.schema_fingerprint), v.record_key(self.selection),))
+
+
+class ResultInspectionCursorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Store/selection-bound continuation; each call reacquires original protection."""
+
+    #: Original request identity.
+    basis: ResultInspectionBasis
+    #: Original canonical store authority; coordinates alone never cross stores.
+    issuing_store: str
+    #: Exact closure digest.
+    manifest: str
+    #: Next original row or descriptor/metadata position.
+    position: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact admitted registry relation contract, independent of its numeric version.
+    schema_fingerprint: str
+    #: Exact original protected selection, including issuing authority.
+    selection: PackResultSelectionOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.basis), v.scalar_key(self.issuing_store), v.scalar_key(self.manifest), v.scalar_key(self.position), v.scalar_key(self.schema_fingerprint), v.record_key(self.selection),))
+
+
+class ResultInspectionDocumentMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="metadata"):
+    """Exact metadata page from one admitted original field."""
+
+    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[2] = 2
+    #: Complete selected metadata entries, never truncated strings.
+    entries: dict[str, str]
+    #: Complete entry population.
+    entry_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original closure digest.
+    manifest: str
+    #: Exact next page, if any.
+    next_cursor: ResultInspectionCursorOutput | None
+    #: Original entry offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original selected field.
+    path: ArrowFieldPath
+    #: Original protected result selection.
+    selection: PackResultSelectionOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.mapping_key(v.scalar_key, v.scalar_key)(self.entries), v.scalar_key(self.entry_count), v.scalar_key(self.manifest), v.optional_key(v.record_key)(self.next_cursor), v.scalar_key(self.offset), v.record_key(self.path), v.record_key(self.selection),))
+
+
 class ResultInspectionDocumentRefused(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="refused"):
     """The finite readable request cannot produce a truthful complete answer of this shape."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
     #: Existing exact IPC route, not a newly issued read handle.
     guidance: str
     #: Typed refusal; no required fields were silently discarded.
@@ -23572,10 +24184,10 @@ class ResultInspectionDocumentRefused(msgspec.Struct, frozen=True, forbid_unknow
 class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="schema"):
     """A page of the admitted registry field inventory, without validating stored Arrow rows."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
     #: Complete original field population, independent of this page.
     field_count: Annotated[int, msgspec.Meta(ge=0)]
     #: Selected original descriptors.
@@ -23584,6 +24196,8 @@ class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown
     manifest: str
     #: Next original field offset; absent only on the final page.
     next: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Exact next page while retaining the complete original request.
+    next_cursor: ResultInspectionCursorOutput | None
     #: Zero-based original field offset.
     offset: Annotated[int, msgspec.Meta(ge=0)]
     #: Recorded rows intersecting the selected range; holes are not invented.
@@ -23594,21 +24208,23 @@ class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.field_count), v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.manifest), v.optional_key(v.scalar_key)(self.next), v.scalar_key(self.offset), v.scalar_key(self.recorded_rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.record_key(self.selection),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.field_count), v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.manifest), v.optional_key(v.scalar_key)(self.next), v.optional_key(v.record_key)(self.next_cursor), v.scalar_key(self.offset), v.scalar_key(self.recorded_rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.record_key(self.selection),))
 
 
 class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="values"):
     """Readable bounded original scalar observations; exact IPC remains the bulk interface."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
     #: Every non-value-role original field not already selected; no name heuristics.
     context_fields: tuple[ResultInspectionField, ...]
     #: Actual immutable closure digest.
     manifest: str
-    #: Exact next original coordinate, preserving holes; repeat with start=next_row.
+    #: Exact row continuation; retain the original request window and view.
+    next_cursor: ResultInspectionCursorOutput | None
+    #: Informational next original coordinate; use next_cursor with the unchanged original window.
     next_row: Annotated[int, msgspec.Meta(ge=0)] | None
     #: Every returned selected and context cell was representable, independent of population/scientific usability.
     readable_complete: bool
@@ -23624,7 +24240,7 @@ class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.context_fields), v.scalar_key(self.manifest), v.optional_key(v.scalar_key)(self.next_row), v.scalar_key(self.readable_complete), v.scalar_key(self.recorded_rows), v.sequence_key(v.record_key)(self.rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.sequence_key(v.record_key)(self.selected_fields), v.record_key(self.selection),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.context_fields), v.scalar_key(self.manifest), v.optional_key(v.record_key)(self.next_cursor), v.optional_key(v.scalar_key)(self.next_row), v.scalar_key(self.readable_complete), v.scalar_key(self.recorded_rows), v.sequence_key(v.record_key)(self.rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.sequence_key(v.record_key)(self.selected_fields), v.record_key(self.selection),))
 
 
 class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -23632,8 +24248,8 @@ class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     Schema-only discovery does not independently validate the stored file schema.
     """
 
-    #: Original Arrow datatype using arrow_schema's own JSON encoding, including nested fields.
-    datatype_json: str
+    #: Exact ancestor metadata in path order; child interpretation does not discard parent context.
+    ancestor_metadata: tuple[dict[str, str], ...]
     #: Position in the original complete relation schema.
     index: Annotated[int, msgspec.Meta(ge=0)]
     #: Every original outer field metadata entry, including quantity and extension semantics.
@@ -23642,20 +24258,28 @@ class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     name: str
     #: Original outer field nullability.
     nullable: bool
+    #: Exact original field location.
+    path: ArrowFieldPath
+    #: Shallow storage descriptor; exact nested detail uses the same native reader.
+    storage: ResultInspectionStorage
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.datatype_json), v.scalar_key(self.index), v.mapping_key(v.scalar_key, v.scalar_key)(self.metadata), v.scalar_key(self.name), v.scalar_key(self.nullable),))
+        return (type(self), (v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.ancestor_metadata), v.scalar_key(self.index), v.mapping_key(v.scalar_key, v.scalar_key)(self.metadata), v.scalar_key(self.name), v.scalar_key(self.nullable), v.record_key(self.path), v.record_key(self.storage),))
 
 
 class ResultInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Select one exact immutable result; schema discovery does not read its Arrow rows."""
+    """Select one exact immutable result; schema discovery does not read its Arrow rows.
+    Schema example identities are illustrative, not live eligible result references.
+    """
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
     #: Exact original terminal attempt.
     attempt: str
+    #: Original-window/path-bound continuation; never a payload permission.
+    cursor: ResultInspectionCursor | None = None
     #: Exclusive original row coordinate.
     end: Annotated[int, msgspec.Meta(ge=0)]
     #: Optional closure digest returned by an earlier discovery; mismatch refuses.
@@ -23670,18 +24294,22 @@ class ResultInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields
     view: ResultInspectionView
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.scalar_key(self.end), v.optional_key(v.scalar_key)(self.expected_manifest), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.optional_key(v.record_key)(self.cursor), v.scalar_key(self.end), v.optional_key(v.scalar_key)(self.expected_manifest), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
 
 
 class ResultInspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Select one exact immutable result; schema discovery does not read its Arrow rows."""
+    """Select one exact immutable result; schema discovery does not read its Arrow rows.
+    Schema example identities are illustrative, not live eligible result references.
+    """
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
     #: Exact original terminal attempt.
     attempt: str
+    #: Original-window/path-bound continuation; never a payload permission.
+    cursor: ResultInspectionCursorOutput | None = None
     #: Exclusive original row coordinate.
     end: Annotated[int, msgspec.Meta(ge=0)]
     #: Optional closure digest returned by an earlier discovery; mismatch refuses.
@@ -23696,7 +24324,7 @@ class ResultInspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_
     view: ResultInspectionView
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.scalar_key(self.end), v.optional_key(v.scalar_key)(self.expected_manifest), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.optional_key(v.record_key)(self.cursor), v.scalar_key(self.end), v.optional_key(v.scalar_key)(self.expected_manifest), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
 
 
 class ResultInspectionRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -23715,6 +24343,64 @@ class ResultInspectionRow(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.sequence_key(v.record_key)(self.context), v.scalar_key(self.context_complete), v.scalar_key(self.source_row), v.sequence_key(v.record_key)(self.values),))
 
 
+class ResultInspectionStorageList(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="list"):
+    """Ordinary Arrow List; child detail uses ListElement."""
+
+    #: Original list element field name.
+    element_name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.element_name),))
+
+
+class ResultInspectionStorageScalar(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="scalar"):
+    """Exact original scalar datatype using Arrow's JSON encoding."""
+
+    #: Arrow's exact original datatype encoding.
+    datatype_json: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.datatype_json),))
+
+
+class ResultInspectionStorageStruct(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="struct"):
+    """Immediate children can be selected through the Children view."""
+
+    #: Complete immediate child population.
+    child_count: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.child_count),))
+
+
+class ResultInspectionViewChildren(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="children"):
+    """Immediate native children of one exact field, without result data batches."""
+
+    #: One to sixteen children.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original immediate-child offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original parent field.
+    path: ArrowFieldPath
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.path),))
+
+
+class ResultInspectionViewMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="metadata"):
+    """Exact metadata entries of one original field, without result data batches."""
+
+    #: One to sixteen entries.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original sorted metadata-entry offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original field owning the metadata.
+    path: ArrowFieldPath
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.path),))
+
+
 class ResultInspectionViewSchema(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="schema"):
     """Page the original field inventory without decoding any result batch."""
 
@@ -23730,13 +24416,13 @@ class ResultInspectionViewSchema(msgspec.Struct, frozen=True, forbid_unknown_fie
 class ResultInspectionViewValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="values"):
     """Read selected original scalar fields together with all declared non-value context."""
 
-    #: One to eight unique exact original field names.
-    fields: tuple[str, ...]
+    #: One to eight unique exact original root/child paths.
+    fields: tuple[ArrowFieldPath, ...]
     #: At most sixteen original rows; continuation retains source coordinates.
     maximum_rows: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.fields), v.scalar_key(self.maximum_rows),))
+        return (type(self), (v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.maximum_rows),))
 
 
 class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -28875,6 +29561,30 @@ class StudyWorkbenchRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
 
 
+class SubjectSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Role-specific immutable contributor."""
+
+    #: Actual native contribution.
+    role: enums.KnowledgeSourceRole
+    #: Exact source in this cut.
+    source_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.role), v.scalar_key(self.source_id),))
+
+
+class SubjectTopic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Topic copied from original metadata, with exact attribution."""
+
+    #: Subject metadata contributor.
+    source_id: str
+    #: Native topic, not an invented tag.
+    topic: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.topic),))
+
+
 class SubmittedStartRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual submitted source-coordinate seed, distinct from an output or native checkpoint."""
 
@@ -30072,6 +30782,8 @@ AdviceSupport = AdviceSupportCompleteMatched | AdviceSupportBaselineTie
 
 ArithmeticMappingScope = ArithmeticMappingScopeSelectedCompiledProduct | ArithmeticMappingScopeOriginalValueChecksForWeightedProduct | ArithmeticMappingScopeUnavailable
 
+ArrowFieldStep = ArrowFieldStepStructField | ArrowFieldStepListElement
+
 BackendSettings = IpoptSettingsDocument | PounceSettingsDocument | KinsolSettingsDocument | HighsSettingsDocument | ClarabelSettingsDocument | ScipSettingsDocument | PounceConvexSettingsDocument | UnoSettingsDocument | PetscSettingsDocument
 
 BackendSettingsBody = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings | UnoSettings | PetscSettings
@@ -30208,11 +30920,13 @@ ResearchReadResultOutput = ResearchReadResultOutputDatasets | ResearchReadResult
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
-ResultInspectionCell = ResultInspectionCellNull | ResultInspectionCellBoolean | ResultInspectionCellInteger | ResultInspectionCellUnsigned | ResultInspectionCellFloat32 | ResultInspectionCellFloat64 | ResultInspectionCellText | ResultInspectionCellBinary | ResultInspectionCellUnavailable
+ResultInspectionCell = ResultInspectionCellNull | ResultInspectionCellParentNull | ResultInspectionCellMissingElement | ResultInspectionCellBoolean | ResultInspectionCellInteger | ResultInspectionCellUnsigned | ResultInspectionCellFloat32 | ResultInspectionCellFloat64 | ResultInspectionCellText | ResultInspectionCellBinary | ResultInspectionCellUnavailable
 
-ResultInspectionDocument = ResultInspectionDocumentSchema | ResultInspectionDocumentValues | ResultInspectionDocumentRefused
+ResultInspectionDocument = ResultInspectionDocumentSchema | ResultInspectionDocumentValues | ResultInspectionDocumentMetadata | ResultInspectionDocumentRefused
 
-ResultInspectionView = ResultInspectionViewSchema | ResultInspectionViewValues
+ResultInspectionStorage = ResultInspectionStorageScalar | ResultInspectionStorageStruct | ResultInspectionStorageList
+
+ResultInspectionView = ResultInspectionViewSchema | ResultInspectionViewChildren | ResultInspectionViewMetadata | ResultInspectionViewValues
 
 SeedAvailability = SeedAvailabilityUnresolved | SeedAvailabilityCompatible | SeedAvailabilityAbsent | SeedAvailabilityIncompatible | SeedAvailabilityInternalFailure
 
@@ -30311,6 +31025,10 @@ __all__ = [
     "ArithmeticSourceDocument",
     "ArithmeticSourceDocumentOutput",
     "ArrivalDocument",
+    "ArrowFieldPath",
+    "ArrowFieldStep",
+    "ArrowFieldStepListElement",
+    "ArrowFieldStepStructField",
     "ArtifactIntent",
     "ArtifactIntentBody",
     "AssemblyLimits",
@@ -30749,6 +31467,7 @@ __all__ = [
     "EvidenceComparisonSource",
     "EvidenceComparisonSummary",
     "EvidenceFact",
+    "EvidenceIdentity",
     "EvidenceMeasurementCohort",
     "EvidenceMeasurementCohortOutput",
     "EvidenceMeasurementComparison",
@@ -30914,6 +31633,7 @@ __all__ = [
     "InspectionLineageOutput",
     "InspectionMember",
     "InspectionMemberOutput",
+    "InspectionPopulation",
     "InspectionPort",
     "InspectionPortOutput",
     "InspectionRequest",
@@ -30969,6 +31689,17 @@ __all__ = [
     "KktTolerances",
     "KnowledgeControls",
     "KnowledgeControlsOutput",
+    "KnowledgeCoverage",
+    "KnowledgeCursor",
+    "KnowledgeEdge",
+    "KnowledgeExcerpt",
+    "KnowledgeExplain",
+    "KnowledgeMode",
+    "KnowledgePage",
+    "KnowledgeProduction",
+    "KnowledgeQuery",
+    "KnowledgeSource",
+    "KnowledgeSubject",
     "LaunchCaptureRequest",
     "LaunchCaptureRequestOutput",
     "LazyStudyDefinition",
@@ -31030,8 +31761,12 @@ __all__ = [
     "ModelingCellValueText",
     "ModelingColumnStorage",
     "ModelingColumnStorageOutput",
+    "ModelingComparisonObservation",
+    "ModelingComparisonRequest",
     "ModelingCompleteness",
     "ModelingCompletenessOutput",
+    "ModelingDeclarationPage",
+    "ModelingDeclarationRequest",
     "ModelingDiagnosticPolicy",
     "ModelingDiagnosticPolicyBody",
     "ModelingEnvelope",
@@ -31039,6 +31774,8 @@ __all__ = [
     "ModelingEnvelopeOutput",
     "ModelingInspection",
     "ModelingInspectionOutput",
+    "ModelingInspectionRequest",
+    "ModelingInspectionRequestOutput",
     "ModelingIntegerRange",
     "ModelingKeyCell",
     "ModelingKeyCellOutput",
@@ -31313,6 +32050,7 @@ __all__ = [
     "ProjectClosureExplanation",
     "ProjectClosureExplanationOutput",
     "ProjectComparison",
+    "ProjectComparisonBody",
     "ProjectComparisonOutput",
     "ProjectComparisonSelection",
     "ProjectComparisonSelectionOutput",
@@ -31398,6 +32136,7 @@ __all__ = [
     "ProjectSourceClosure",
     "ProjectSourceClosureOutput",
     "ProjectSourceDetail",
+    "ProjectSourceDetailBody",
     "ProjectSourceDetailOutput",
     "ProjectSourceObject",
     "ProjectSourceObjectDeclaration",
@@ -31620,17 +32359,23 @@ __all__ = [
     "RestartBarrierValue",
     "ResultCellUnavailable",
     "ResultFloatClass",
+    "ResultInspectionBasis",
     "ResultInspectionCell",
     "ResultInspectionCellBinary",
     "ResultInspectionCellBoolean",
     "ResultInspectionCellFloat32",
     "ResultInspectionCellFloat64",
     "ResultInspectionCellInteger",
+    "ResultInspectionCellMissingElement",
     "ResultInspectionCellNull",
+    "ResultInspectionCellParentNull",
     "ResultInspectionCellText",
     "ResultInspectionCellUnavailable",
     "ResultInspectionCellUnsigned",
+    "ResultInspectionCursor",
+    "ResultInspectionCursorOutput",
     "ResultInspectionDocument",
+    "ResultInspectionDocumentMetadata",
     "ResultInspectionDocumentRefused",
     "ResultInspectionDocumentSchema",
     "ResultInspectionDocumentValues",
@@ -31639,7 +32384,13 @@ __all__ = [
     "ResultInspectionRequest",
     "ResultInspectionRequestOutput",
     "ResultInspectionRow",
+    "ResultInspectionStorage",
+    "ResultInspectionStorageList",
+    "ResultInspectionStorageScalar",
+    "ResultInspectionStorageStruct",
     "ResultInspectionView",
+    "ResultInspectionViewChildren",
+    "ResultInspectionViewMetadata",
     "ResultInspectionViewSchema",
     "ResultInspectionViewValues",
     "ResultReclamationPage",
@@ -31907,6 +32658,8 @@ __all__ = [
     "StudyWorkbenchPageOutput",
     "StudyWorkbenchRequest",
     "StudyWorkbenchRequestOutput",
+    "SubjectSource",
+    "SubjectTopic",
     "SubmittedStartRecord",
     "SubmittedStartRecordBody",
     "SubmittedStartRecordBodyOutput",
@@ -31990,4 +32743,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+SCHEMA_SET_FINGERPRINT = "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"

@@ -5,16 +5,18 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
-import tomllib
 from itertools import pairwise
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import Annotated, Literal
+from pathlib import Path
 
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
 from pydantic import Field, TypeAdapter, model_validator
 
 from scripts import (
+    affected,
     document_lifecycle,
     document_metadata,
     workspace_sources,
@@ -23,10 +25,6 @@ from scripts import (
 from scripts.capabilities import read_contracts
 from scripts.capabilities.model import Capability, Contract
 from scripts.capabilities.responses import owner_read
-
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 SourcePath = Annotated[str, Field(min_length=1, max_length=1024)]
@@ -63,6 +61,10 @@ class IntegrationRequest(Contract):
     retiring_paths: list[SourcePath] = Field(default_factory=list, max_length=16)
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=40, ge=1, le=100)
+    features: str = Field(default="", max_length=2048, pattern=r"^[A-Za-z0-9_./, -]*$")
+    validation_evidence: list[read_contracts.OwnerReference] = Field(default_factory=list, max_length=16)
+    validation_profile: str | None = Field(default=None, min_length=1, max_length=160)
+    validation_mode: str | None = Field(default=None, min_length=1, max_length=160)
 
     @model_validator(mode="after")
     def bounded_references(self) -> IntegrationRequest:
@@ -105,7 +107,14 @@ class TestScope(Contract):
     package_seeds: list[str]
     routes: list[list[str]]
     unknowns: list[str]
-    qualification: str = "Proposed checks only; dependency reach and test success are not established by this view."
+    selected_packages: list[str] = Field(default_factory=list)
+    workspace_widening: list[str] = Field(default_factory=list)
+    scientific_inputs: read_contracts.OwnerRecord | None = None
+    exclusions: list[read_contracts.OwnerRecord] = Field(default_factory=list)
+    selection_basis: str = "unknown"
+    source_cut: dict[str, str | None] = Field(default_factory=dict)
+    validation_evidence: list[read_contracts.OwnerRecord] = Field(default_factory=list)
+    qualification: str = "Proposed dependency-reach checks only; no test execution, runtime admission or completeness certification."
 
 
 class IntegrationPayload(Contract):
@@ -293,63 +302,116 @@ def _change(
     )
 
 
-def _tests(root: Path, paths: list[str]) -> TestScope:
-    seeds = set()
+def _tests(root: Path, changes: list[ChangedPath], *, request: IntegrationRequest, revision: str) -> TestScope:
+    paths = [change.path for change in changes]
+    selected = affected.preview(
+        [(change.git_status, change.path) for change in changes],
+        root=root, base=revision, features=request.features, prepare=False,
+    )
     routes = []
-    unknowns = [
-        "Feature-dependent, dynamic, cross-language and reverse-dependency coverage remains with the explicit affected/test owners; no compiler or test discovery was started."
-    ]
     for path in paths:
         if path.startswith("scripts/tests/test_") and path.endswith(".py"):
-            routes.append(
-                [
-                    "scripts/pse-env",
-                    "--",
-                    ".venv/bin/python",
-                    "-m",
-                    "unittest",
-                    path[:-3].replace("/", "."),
-                ]
-            )
-        elif path.startswith(("scripts/", "python/")) or path in {
-            "pyproject.toml",
-            "uv.lock",
-            "conftest.py",
-        }:
-            routes.append(
-                ["just", "setup-test"]
-                if path.startswith("scripts/")
-                else ["just", "py-unit"]
-            )
-        if path.endswith((".rs", "Cargo.toml")):
-            parent = (root / path).parent
-            while parent != root and parent.is_relative_to(root):
-                manifest = parent / "Cargo.toml"
-                if manifest.is_file():
-                    try:
-                        fact = workspace_sources.source(
-                            manifest.relative_to(root).as_posix(), root=root
-                        )
-                        package = (
-                            tomllib.loads(fact["text"]).get("package", {}).get("name")
-                        )
-                        if isinstance(package, str):
-                            seeds.add(package)
-                            routes.append(["just", "unit-package", package])
-                    except (OSError, ValueError, UnicodeError):
-                        unknowns.append(
-                            "Selected package manifest unavailable; use the affected owner explicitly."
-                        )
-                    break
-                parent = parent.parent
+            routes.append(["scripts/pse-env", "--", ".venv/bin/python", "-m", "unittest", path[:-3].replace("/", ".")])
+        elif path.startswith(("scripts/", "python/")) or path in {"pyproject.toml", "uv.lock", "conftest.py"}:
+            routes.append(["just", "setup-test"] if path.startswith("scripts/") else ["just", "py-unit"])
+    routes.extend(["just", "unit-package", package] for package in selected["changed_packages"])
+    if selected["command"]:
+        routes.append(selected["command"])
     if paths:
-        routes.append(["just", "affected", "--json", "--base", "HEAD"])
+        routes.append(["just", "affected", "--json", "--passive", "--base", revision, *(["--features", request.features] if request.features else []), "--changes-json", json.dumps([(change.git_status, change.path) for change in changes], separators=(",", ":"))])
+    unknowns = [
+        "The change population is exactly the currently claimed paths, including the full file for a claimed hunk; other dirty paths are excluded.",
+        "No compiler, scientific capture or test discovery was started. The execution receiver still owns actual feature/force-validation admission.",
+        "Dynamic/cross-language consumers not declared by original owners remain unknown.",
+        *(["Cargo graph unavailable; nearest package names are source leads only."] if selected["graph_status"] == "unavailable" else []),
+        *([str(selected["scientific_inputs"]["reason"])] if selected["scientific_inputs"].get("reason") else []),
+    ]
     return TestScope(
         changed_owned_paths=paths,
-        package_seeds=sorted(seeds),
+        package_seeds=selected["changed_packages"],
+        selected_packages=selected["selected_packages"],
+        workspace_widening=selected["workspace_widening"],
+        scientific_inputs=read_contracts.OwnerRecord.model_validate(selected["scientific_inputs"]),
+        exclusions=[read_contracts.OwnerRecord.model_validate(item) for item in selected["exclusions"]],
+        selection_basis=selected["graph_status"] + "; " + selected["validation"],
+        source_cut={change.path: change.source_sha256 for change in changes},
+        validation_evidence=_validation_evidence(root, changes, request),
         routes=[list(item) for item in dict.fromkeys(tuple(route) for route in routes)],
         unknowns=unknowns,
     )
+
+
+def _validation_evidence(root: Path, changes: list[ChangedPath], request: IntegrationRequest) -> list[read_contracts.OwnerRecord]:
+    if not request.validation_evidence:
+        return []
+    from scripts import validation, validation_result, run_inspection  # noqa: PLC0415 -- explicit original evidence only
+
+    results = []
+    current_stamps = {change.path: validation.source_stamp(root / change.path) for change in changes}
+    for reference in request.validation_evidence:
+        value = {"reference": reference.model_dump(mode="json"), "applicability": "unknown", "qualification": "Historical evidence only; no automatic reuse or narrowed test selection."}
+        try:
+            if isinstance(reference, read_contracts.AssessmentReference):
+                directory = Path(reference.directory)
+                if not directory.is_absolute():
+                    directory = root / directory
+                observed = validation_result.read_assessment(directory, gate=reference.gate, source_detail=reference.gate is not None, full_export=False)
+                original = [item["record"] for item in observed["checks"]]
+                if reference.gate is None:
+                    value.update(availability="available", execution_explanation=observed.get("execution_explanation"), reason="Select an exact original assessment gate before hydrating source/population context.")
+                    results.append(read_contracts.OwnerRecord.model_validate(value))
+                    continue
+                mismatches = []
+                missing = []
+                contexts = []
+                for record in original:
+                    inputs = record.get("inputs", {})
+                    files = inputs.get("files", {}) if isinstance(inputs, dict) else {}
+                    for change in changes:
+                        actual = current_stamps[change.path]
+                        expected = files.get(change.path) if isinstance(files, dict) else None
+                        if expected is None:
+                            missing.append(change.path)
+                        elif expected != actual:
+                            mismatches.append(change.path)
+                    if request.validation_profile is not None and record.get("profile") != request.validation_profile:
+                        mismatches.append("profile:" + str(record["gate"]))
+                    if request.validation_mode is not None and record.get("mode") != request.validation_mode:
+                        mismatches.append("mode:" + str(record["gate"]))
+                    if request.features:
+                        from scripts import test_invocation  # noqa: PLC0415 -- original pure feature interpretation
+
+                        invocation = record.get("invocation", {})
+                        arguments = invocation.get("args") if isinstance(invocation, dict) else None
+                        if isinstance(arguments, list) and all(isinstance(arg, str) for arg in arguments):
+                            try:
+                                groups = test_invocation.rust(arguments).values("--features")
+                                selected_features = {feature for group in groups for feature in re.split(r"[ ,]+", group) if feature}
+                                requested_features = set(filter(None, re.split(r"[ ,]+", request.features)))
+                                if not groups:
+                                    missing.append("feature-context:" + str(record["gate"]))
+                                elif selected_features != requested_features:
+                                    mismatches.append("features:" + str(record["gate"]))
+                            except (ValueError, TypeError):
+                                missing.append("feature-context:" + str(record["gate"]))
+                        else:
+                            missing.append("feature-context:" + str(record["gate"]))
+                    contexts.append({"gate": record["gate"], "mode": record.get("mode"), "profile": record.get("profile"), "invocation": record.get("invocation"), "evidence_kind": record.get("evidence_kind"), "status": record.get("status"), "native_recorded": record.get("native") is not None, "selected_count": len(record["selected"]) if isinstance(record.get("selected"), list) else None, "environment_keys": sorted(inputs.get("environment", {})) if isinstance(inputs, dict) else []})
+                value.update(
+                    availability="available", applicability="inapplicable" if mismatches else "unknown",
+                    source_mismatches=sorted(set(mismatches)), missing_source_context=sorted(set(missing)), original_contexts=contexts,
+                    execution_explanation=observed.get("execution_explanation"),
+                    reason="Current selected sources/profile/mode differ." if mismatches else "Selected source equality alone cannot establish feature, native environment, population and execution eligibility; inspect original context before choosing validation.",
+                )
+            elif isinstance(reference, read_contracts.InvocationReference):
+                observed = run_inspection.product_result(reference.invocation, registry=Path(reference.registry) if reference.registry else None, limit=1)
+                value.update(availability="available", execution_explanation=observed.get("execution_explanation"), reason="Original invocation has no complete selected-source/feature comparison; its outcomes are not current acceptance.")
+            else:
+                value.update(availability="unsupported", reason="Native diagnostic/result references remain with their exact original reader; no inferred validation correspondence.")
+        except (OSError, RuntimeError, TypeError, ValueError) as error:
+            value.update(availability="unavailable", reason=type(error).__name__ + ": original selected evidence unavailable")
+        results.append(read_contracts.OwnerRecord.model_validate(value))
+    return results
 
 
 def inspect(
@@ -468,8 +530,8 @@ def inspect(
             omissions.append(
                 "Selected lifecycle preflight has unavailable inputs or candidates; retirement remains unestablished."
             )
-    owned_paths = [
-        change.path
+    owned_changes = [
+        change
         for change in changes
         if any(item.classification == "owned" for item in change.ranges)
         and not change.conflicts
@@ -488,7 +550,7 @@ def inspect(
         regeneration_routes=[["just", "codegen"], ["just", "codegen-check"]]
         if relationships and relationships.items
         else [],
-        test_scope=_tests(root, owned_paths),
+        test_scope=_tests(root, owned_changes, request=request, revision=revision),
         native_task=native,
         retirement_preflight=retirement,
         outcome_references=request.outcomes,
@@ -567,6 +629,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         owner="scripts/capabilities/integration_view.py",
         source="scripts/capabilities/integration_view.py",
         exposure="tool",
+            invocation_lifetime="single",
         effects="Read-only source/Git/producer and explicitly selected native status/lifecycle observations; no compiler, preparation, staging or mutation.",
     )
     tool.tags.update(capability.tags)

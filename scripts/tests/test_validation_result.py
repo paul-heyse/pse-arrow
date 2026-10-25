@@ -23,6 +23,24 @@ from scripts.tests import assessment_fixture
 
 
 class ValidationResultTests(unittest.TestCase):
+    def test_explanation_separates_explicit_preparation_and_execution(self) -> None:
+        self.record["scope"] = [{"name": "prepare"}, {"name": "execute"}]
+        self.record["checks"] = [
+            {**self.check("prepare", "passed"), "phase": "preparation", "elapsed_seconds": 2.0},
+            {**self.check("execute", "running"), "phase": "execution", "elapsed_seconds": 5.0},
+        ]
+        for name in ("prepare", "execute"):
+            (self.run_directory / f"{name}.log").write_text("original owner log")
+        self.write()
+        result = validation_result.read_assessment(self.run_directory, full_export=True)
+        explanation = result["execution_explanation"]
+        self.assertEqual(explanation["selected_count"], 2)
+        self.assertEqual(explanation["observed_stage"], "execution")
+        self.assertEqual(explanation["preparation_seconds"], 2.0)
+        self.assertEqual(explanation["execution_seconds"], 5.0)
+        self.assertEqual(explanation["owned_drain"], "unobserved")
+        self.assertEqual(explanation["next_readers"][0]["disposition"], "unexecuted")
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)

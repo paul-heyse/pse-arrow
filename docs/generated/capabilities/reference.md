@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `7db3aaad83f6c1e6f8e9ed1ea3dece34e30dd7c64252a1e9dce3fd7e76e66e8a`.
+Catalogue content revision: `7736ede14551cf4658590b3cb7fec7f9c29db9702572c718ffdf1586369b3a1b`.
 
 ## Domains
 
@@ -224,6 +224,7 @@ Catalogue content revision: `7db3aaad83f6c1e6f8e9ed1ea3dece34e30dd7c64252a1e9dce
       "capabilities": [
         "navigation_rename_preview",
         "navigation_action_preview",
+        "structural_json_source_bytes_preview",
         "edit_preview_read",
         "edit_preview_apply",
         "edit_preview_reconcile"
@@ -355,7 +356,9 @@ Catalogue content revision: `7db3aaad83f6c1e6f8e9ed1ea3dece34e30dd7c64252a1e9dce
       "capabilities": [
         "navigation_definition",
         "navigation_references",
-        "knowledge_source_corpus"
+        "knowledge_source_corpus",
+        "knowledge_query",
+        "knowledge_explain"
       ],
       "default": false,
       "guides": [],
@@ -448,6 +451,17 @@ Catalogue content revision: `7db3aaad83f6c1e6f8e9ed1ea3dece34e30dd7c64252a1e9dce
   ],
   "id": "manage-project",
   "steps": [
+    {
+      "capabilities": [
+        "native_model_declarations",
+        "native_model_inspect",
+        "native_model_compare"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "model-development",
+      "purpose": "Inspect exact native declarations, contextual model lineage and source/physical comparison before solve."
+    },
     {
       "capabilities": [
         "native_project_metadata",
@@ -587,6 +601,7 @@ Catalogue content revision: `7db3aaad83f6c1e6f8e9ed1ea3dece34e30dd7c64252a1e9dce
     {
       "capabilities": [
         "capability_readiness",
+        "capability_explain",
         "capability_readiness_check",
         "python_extension_dev_stage",
         "python_extension_native_stage"
@@ -1497,6 +1512,7 @@ Exposure: **native**. Owner: `scripts/active_diagnostics.py`. Declaration source
     "diagnostics"
   ],
   "id": "active-diagnostics",
+  "invocation_lifetime": null,
   "owner": "scripts/active_diagnostics.py",
   "prerequisites": [
     "The selected profiler/debugger and its native process permissions must be available."
@@ -1532,6 +1548,7 @@ Exposure: **tool**. Owner: `scripts/validation_result.py`. Declaration source: [
     "qualification"
   ],
   "id": "assessment_read",
+  "invocation_lifetime": "single",
   "owner": "scripts/validation_result.py",
   "prerequisites": [],
   "reason": "",
@@ -1559,7 +1576,8 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
         "family:qualification-assessment",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -1690,6 +1708,17 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
             },
             "type": "array"
           },
+          "execution_explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExecutionExplanation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "record_path": {
             "type": "string"
           },
@@ -1780,6 +1809,38 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
           "gate",
           "status",
           "log"
+        ],
+        "type": "object"
+      },
+      "AssessmentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "kind": {
+            "const": "assessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "directory"
         ],
         "type": "object"
       },
@@ -1876,6 +1937,98 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
         ],
         "type": "object"
       },
+      "ExecutionExplanation": {
+        "additionalProperties": false,
+        "description": "Original owner counts and limits, not inferred scientific success.",
+        "properties": {
+          "executed_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "execution_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "limits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "next_readers": {
+            "items": {
+              "$ref": "#/$defs/ReaderSuggestion"
+            },
+            "type": "array"
+          },
+          "observed_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "owned_drain": {
+            "default": "unobserved",
+            "type": "string"
+          },
+          "preparation_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "reported_count": {
+            "type": "integer"
+          },
+          "selected_count": {
+            "type": "integer"
+          },
+          "stage_basis": {
+            "type": "string"
+          },
+          "unreported_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "selected_count",
+          "reported_count",
+          "unreported_count",
+          "outcome_counts",
+          "observed_stage",
+          "stage_basis"
+        ],
+        "type": "object"
+      },
       "FileObservation": {
         "additionalProperties": false,
         "properties": {
@@ -1921,10 +2074,122 @@ Exact callable component key: `tool:assessment_read@`. The following is the regi
         ],
         "type": "object"
       },
+      "InvocationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "invocation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "const": "invocation",
+            "type": "string"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "invocation"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "NativeReaderReference": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "description": "Original reader envelope; copying it neither validates native eligibility nor executes the reader.",
+            "maxProperties": 32,
+            "type": "object"
+          },
+          "kind": {
+            "const": "native",
+            "type": "string"
+          },
+          "reader": {
+            "enum": [
+              "native_result_inspect",
+              "native_diagnostic_inspect",
+              "native_diagnostic_checkpoint"
+            ],
+            "type": "string"
+          },
+          "source_basis": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "maxProperties": 32,
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "reader",
+          "arguments"
+        ],
+        "type": "object"
+      },
       "OwnerRecord": {
         "additionalProperties": true,
         "description": "Original owner vocabulary; extensions must remain real JSON values.",
         "properties": {},
+        "type": "object"
+      },
+      "ReaderSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "const": "unexecuted",
+            "default": "unexecuted",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reference": {
+            "discriminator": {
+              "mapping": {
+                "assessment": "#/$defs/AssessmentReference",
+                "invocation": "#/$defs/InvocationReference",
+                "native": "#/$defs/NativeReaderReference"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/InvocationReference"
+              },
+              {
+                "$ref": "#/$defs/AssessmentReference"
+              },
+              {
+                "$ref": "#/$defs/NativeReaderReference"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reference",
+          "reason"
+        ],
         "type": "object"
       }
     },
@@ -1966,6 +2231,7 @@ Exposure: **tool**. Owner: `scripts/validation.py`. Declaration source: [scripts
     "qualification"
   ],
   "id": "assessment_run",
+  "invocation_lifetime": "single",
   "owner": "scripts/validation.py",
   "prerequisites": [],
   "reason": "",
@@ -2018,7 +2284,8 @@ Exact callable component key: `tool:assessment_run@`. The following is the regis
         "family:qualification-assessment",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -2204,6 +2471,7 @@ Exposure: **tool**. Owner: `scripts/validation_scope.py`. Declaration source: [s
     "qualification"
   ],
   "id": "assessment_select",
+  "invocation_lifetime": "single",
   "owner": "scripts/validation_scope.py",
   "prerequisites": [],
   "reason": "",
@@ -2231,7 +2499,8 @@ Exact callable component key: `tool:assessment_select@`. The following is the re
         "family:qualification-assessment",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -2375,6 +2644,7 @@ Exposure: **native**. Owner: `scripts/build_environment.py`. Declaration source:
     "rust"
   ],
   "id": "build-cache",
+  "invocation_lifetime": null,
   "owner": "scripts/build_environment.py",
   "prerequisites": [],
   "reason": "Canonical scoped compilation uses the check owner; cache experiments, uncached builds and compiler observers retain distinct populations and native artifacts.",
@@ -2407,6 +2677,7 @@ Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [sc
     "storage"
   ],
   "id": "build-storage",
+  "invocation_lifetime": null,
   "owner": "scripts/build_storage.py",
   "prerequisites": [],
   "reason": "Canonical metadata inspection grants no disposal; recursive measurement and authenticated reclamation retain distinct native lifetime/effect ownership.",
@@ -2421,6 +2692,647 @@ Exposure: **native**. Owner: `scripts/build_storage.py`. Declaration source: [sc
   "work_owner": null,
   "worker_calls": [],
   "workflows": []
+}
+```
+
+### `capability_explain` — Capability Explain
+
+Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration source: [scripts/capabilities/readiness.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/readiness.py).
+
+```json
+{
+  "description": "Explain this exact typed request and passive requirements without invoking or preparing its receiver. Native contextual admission remains unknown.",
+  "domain": "environment",
+  "effects": "Read declared requirements and existing owner receipt metadata only.",
+  "exposure": "tool",
+  "family": null,
+  "guides": [
+    "environment",
+    "python"
+  ],
+  "id": "capability_explain",
+  "invocation_lifetime": "single",
+  "owner": "scripts/capabilities/readiness.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/readiness.py",
+  "title": "Capability Explain",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "qualify-change"
+  ]
+}
+```
+
+Exact callable component key: `tool:capability_explain@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:capability_explain",
+        "domain:environment",
+        "workflow:qualify-change"
+      ]
+    },
+    "pse.invocation_lifetime": "single"
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Explain this exact typed request and passive requirements without invoking or preparing its receiver. Native contextual admission remains unknown.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {}
+    },
+    "additionalProperties": false,
+    "properties": {
+      "arguments": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "examples": [
+          {
+            "request": {
+              "output": "build/selected-check",
+              "package": "pse-runtime",
+              "target": "library"
+            }
+          }
+        ],
+        "type": "object"
+      },
+      "capability": {
+        "pattern": "^[a-z][a-z0-9_-]{0,95}$",
+        "type": "string"
+      }
+    },
+    "required": [
+      "capability",
+      "arguments"
+    ],
+    "type": "object"
+  },
+  "name": "capability_explain",
+  "outputSchema": {
+    "$defs": {
+      "CapabilityReadiness": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_prepared": {
+            "$ref": "#/$defs/ReadinessFact"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "declared_requirements": {
+            "$ref": "#/$defs/ReadinessFact"
+          },
+          "import_compatible": {
+            "$ref": "#/$defs/ReadinessFact"
+          },
+          "imported_artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "language_provider_available": {
+            "$ref": "#/$defs/ReadinessFact"
+          },
+          "native_currency": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionCurrency"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "operation_exercised": {
+            "$ref": "#/$defs/ReadinessFact"
+          },
+          "receipts": {
+            "items": {
+              "$ref": "#/$defs/ReceiptObservation"
+            },
+            "type": "array"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/$defs/Prerequisite"
+            },
+            "type": "array"
+          },
+          "selected_service_available": {
+            "$ref": "#/$defs/ReadinessFact"
+          }
+        },
+        "required": [
+          "capability",
+          "requirements",
+          "declared_requirements",
+          "artifact_prepared",
+          "import_compatible",
+          "selected_service_available",
+          "language_provider_available",
+          "operation_exercised"
+        ],
+        "type": "object"
+      },
+      "ExplanationError": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "code"
+        ],
+        "type": "object"
+      },
+      "ExtensionArtifact": {
+        "additionalProperties": false,
+        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "properties": {
+          "binary": {
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binary",
+          "sha256",
+          "features"
+        ],
+        "type": "object"
+      },
+      "ExtensionCurrency": {
+        "additionalProperties": false,
+        "description": "Redacted admission-time correspondence, separate from import compatibility.",
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "artifact_stamp": {
+            "anyOf": [
+              {
+                "maxItems": 5,
+                "minItems": 5,
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cause": {
+            "enum": [
+              "matching-inputs-and-artifact",
+              "missing-preparation-evidence",
+              "unsupported-preparation-evidence",
+              "unsupported-inputs-or-providers",
+              "inputs-unavailable",
+              "inputs-changed",
+              "import-unavailable",
+              "artifact-changed",
+              "not-selected",
+              "check-unavailable"
+            ],
+            "type": "string"
+          },
+          "checkout": {
+            "type": "string"
+          },
+          "input_changes": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionInputChanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "interpreter": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "dev",
+              "native"
+            ],
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt_recorded": {
+            "default": false,
+            "type": "boolean"
+          },
+          "remedy": {
+            "type": "string"
+          },
+          "source_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "state": {
+            "enum": [
+              "current",
+              "stale",
+              "unknown",
+              "unsupported"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "checkout",
+          "interpreter",
+          "mode",
+          "profile",
+          "validated",
+          "cause",
+          "remedy"
+        ],
+        "type": "object"
+      },
+      "ExtensionInputChanges": {
+        "additionalProperties": false,
+        "description": "Bounded input KEY names only; no recorded values or value digests.",
+        "properties": {
+          "complete": {
+            "type": "boolean"
+          },
+          "configuration_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "environment_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "source_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections",
+          "complete"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "Prerequisite": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "python-extension",
+              "selected-service",
+              "language-provider",
+              "executable",
+              "checkout-environment"
+            ],
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dev",
+                  "native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "owner": {
+            "type": "string"
+          },
+          "preparation": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "owner"
+        ],
+        "type": "object"
+      },
+      "ReadinessFact": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "type": "string"
+          },
+          "observation": {
+            "default": "unobserved",
+            "enum": [
+              "unobserved",
+              "passive",
+              "live"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "ReceiptObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "currency": {
+            "const": "unknown",
+            "default": "unknown",
+            "type": "string"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dev",
+                  "native"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "recorded": {
+            "type": "boolean"
+          },
+          "stage": {
+            "enum": [
+              "extension",
+              "stubs"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "stage",
+          "path",
+          "recorded"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "admission": {
+        "const": "not_attempted",
+        "default": "not_attempted",
+        "type": "string"
+      },
+      "capability": {
+        "type": "string"
+      },
+      "effects": {
+        "type": "string"
+      },
+      "errors": {
+        "items": {
+          "$ref": "#/$defs/ExplanationError"
+        },
+        "type": "array"
+      },
+      "input_schema_valid": {
+        "type": "boolean"
+      },
+      "interpretation": {
+        "default": "Schema validation and passive owner observations only; no native admission, preparation, execution or cache-miss diagnosis.",
+        "type": "string"
+      },
+      "invocation_lifetime": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "readiness": {
+        "$ref": "#/$defs/CapabilityReadiness"
+      },
+      "selection": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "wire_revision": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "capability",
+      "wire_revision",
+      "input_schema_valid",
+      "errors",
+      "effects",
+      "invocation_lifetime",
+      "readiness",
+      "selection"
+    ],
+    "type": "object"
+  },
+  "title": "Capability Explain"
 }
 ```
 
@@ -2440,6 +3352,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration sour
     "python"
   ],
   "id": "capability_readiness",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/readiness.py",
   "prerequisites": [],
   "reason": "",
@@ -2466,7 +3379,8 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
         "domain:environment",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -2964,6 +3878,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration sour
     "python"
   ],
   "id": "capability_readiness_check",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/readiness.py",
   "prerequisites": [],
   "reason": "",
@@ -3006,7 +3921,8 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
         "domain:environment",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -3591,6 +4507,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
     "qualification"
   ],
   "id": "compilation_check",
+  "invocation_lifetime": "single",
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
@@ -3643,7 +4560,8 @@ Exact callable component key: `tool:compilation_check@`. The following is the re
         "family:build-cache",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -3778,6 +4696,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
     "qualification"
   ],
   "id": "contracts_check",
+  "invocation_lifetime": "single",
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
@@ -3830,7 +4749,8 @@ Exact callable component key: `tool:contracts_check@`. The following is the regi
         "family:generated-contracts",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -3921,6 +4841,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
     "qualification"
   ],
   "id": "contracts_generate",
+  "invocation_lifetime": "single",
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
@@ -3973,7 +4894,8 @@ Exact callable component key: `tool:contracts_generate@`. The following is the r
         "family:generated-contracts",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -4065,6 +4987,7 @@ Exposure: **native**. Owner: `scripts/semantic_edits.py`. Declaration source: [s
     "generated"
   ],
   "id": "controlled-edits",
+  "invocation_lifetime": null,
   "owner": "scripts/semantic_edits.py",
   "prerequisites": [],
   "reason": "Canonical preview/apply/reconcile preserves source cuts and protection; native structural migrations and explicit edit probes remain independently useful.",
@@ -4098,6 +5021,7 @@ Exposure: **tool**. Owner: `scripts/coverage_correspondence.py`. Declaration sou
     "qualification"
   ],
   "id": "coverage_correspondence_read",
+  "invocation_lifetime": "single",
   "owner": "scripts/coverage_correspondence.py",
   "prerequisites": [],
   "reason": "",
@@ -4125,7 +5049,8 @@ Exact callable component key: `tool:coverage_correspondence_read@`. The followin
         "family:verification-techniques",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -4405,6 +5330,7 @@ Exposure: **native**. Owner: `scripts/surreal_server.py`. Declaration source: [s
     "diagnostics"
   ],
   "id": "database-tooling",
+  "invocation_lifetime": null,
   "owner": "scripts/surreal_server.py",
   "prerequisites": [],
   "reason": "Canonical toolkit adapters preserve VIEWER credentials/generation fences; lifecycle, schema/module publication and administrative maintenance retain native admission.",
@@ -4438,6 +5364,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "database_info",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -4473,7 +5400,8 @@ Exact callable component key: `tool:database_info@`. The following is the regist
         "domain:integration",
         "family:database-tooling"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -4582,6 +5510,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "database_list",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -4617,7 +5546,8 @@ Exact callable component key: `tool:database_list@`. The following is the regist
         "domain:integration",
         "family:database-tooling"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -4766,6 +5696,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "database_query",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -4801,7 +5732,8 @@ Exact callable component key: `tool:database_query@`. The following is the regis
         "domain:integration",
         "family:database-tooling"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": true,
@@ -4920,6 +5852,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "database_select",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -4955,7 +5888,8 @@ Exact callable component key: `tool:database_select@`. The following is the regi
         "domain:integration",
         "family:database-tooling"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -5022,6 +5956,7 @@ Exposure: **native**. Owner: `scripts/adr.py`. Declaration source: [scripts/adr.
     "decisions"
   ],
   "id": "decisions-register",
+  "invocation_lifetime": null,
   "owner": "scripts/adr.py",
   "prerequisites": [],
   "reason": "Canonical concept/scope reads inspect decision status; allocation/supersession and due register-authored checks retain native authoring/execution meaning.",
@@ -5055,6 +5990,7 @@ Exposure: **native**. Owner: `Cargo.toml`. Declaration source: [Cargo.toml](http
     "python"
   ],
   "id": "dependency-maintenance",
+  "invocation_lifetime": null,
   "owner": "Cargo.toml",
   "prerequisites": [],
   "reason": "Canonical assessments consume advisory reports; named upgrades, lock resolution and family maintenance remain explicit native manifest/Git operations.",
@@ -5087,6 +6023,7 @@ Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: 
     "tooling"
   ],
   "id": "diagnostic_action",
+  "invocation_lifetime": "single",
   "owner": "scripts/active_diagnostics.py",
   "prerequisites": [
     "Checkout environment and operation-specific native tools/identity admission"
@@ -5133,7 +6070,8 @@ Exact callable component key: `tool:diagnostic_action@`. The following is the re
         "family:active-diagnostics",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -5457,6 +6395,7 @@ Exposure: **tool**. Owner: `scripts/active_diagnostics.py`. Declaration source: 
     "tooling"
   ],
   "id": "diagnostic_action_read",
+  "invocation_lifetime": "single",
   "owner": "scripts/active_diagnostics.py",
   "prerequisites": [],
   "reason": "",
@@ -5486,7 +6425,8 @@ Exact callable component key: `tool:diagnostic_action_read@`. The following is t
         "workflow:diagnose-run",
         "workflow:investigate-evidence"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -5599,6 +6539,7 @@ Exposure: **tool**. Owner: `scripts/document_lifecycle.py`. Declaration source: 
     "decisions"
   ],
   "id": "document_scope_query",
+  "invocation_lifetime": "single",
   "owner": "scripts/document_lifecycle.py",
   "prerequisites": [],
   "reason": "",
@@ -5628,7 +6569,8 @@ Exact callable component key: `tool:document_scope_query@`. The following is the
         "workflow:inspect-plan",
         "workflow:plan-functional-review"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -5974,6 +6916,7 @@ Exposure: **native**. Owner: `scripts/document_lifecycle.py`. Declaration source
     "decisions"
   ],
   "id": "documentation-lifecycle",
+  "invocation_lifetime": null,
   "owner": "scripts/document_lifecycle.py",
   "prerequisites": [],
   "reason": "Canonical scope/build shares metadata/publication owners; retirement remains native preflight, and authoring remains protected repository editing.",
@@ -6006,6 +6949,7 @@ Exposure: **tool**. Owner: `scripts/docs.py`. Declaration source: [scripts/docs.
     "qualification"
   ],
   "id": "documentation_build",
+  "invocation_lifetime": "single",
   "owner": "scripts/docs.py",
   "prerequisites": [],
   "reason": "",
@@ -6055,7 +6999,8 @@ Exact callable component key: `tool:documentation_build@`. The following is the 
         "domain:governance",
         "family:documentation-lifecycle"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -6146,6 +7091,7 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
     "tooling"
   ],
   "id": "edit_preview_apply",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/semantic_edits.py",
   "prerequisites": [],
   "reason": "",
@@ -6173,7 +7119,8 @@ Exact callable component key: `tool:edit_preview_apply@`. The following is the r
         "family:controlled-edits",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": true,
@@ -6253,6 +7200,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "edit_preview_read",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -6280,7 +7228,8 @@ Exact callable component key: `tool:edit_preview_read@`. The following is the re
         "family:controlled-edits",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -6387,6 +7336,7 @@ Exposure: **tool**. Owner: `scripts/semantic_edits.py`. Declaration source: [scr
     "tooling"
   ],
   "id": "edit_preview_reconcile",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/semantic_edits.py",
   "prerequisites": [],
   "reason": "",
@@ -6414,7 +7364,8 @@ Exact callable component key: `tool:edit_preview_reconcile@`. The following is t
         "family:controlled-edits",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -6490,6 +7441,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "edit_preview_release",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -6514,7 +7466,8 @@ Exact callable component key: `tool:edit_preview_release@`. The following is the
         "domain:editing",
         "family:controlled-edits"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": true,
@@ -6598,6 +7551,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "edit_preview_status",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -6622,7 +7576,8 @@ Exact callable component key: `tool:edit_preview_status@`. The following is the 
         "domain:editing",
         "family:controlled-edits"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -6740,6 +7695,7 @@ Exposure: **native**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/
     "environment"
   ],
   "id": "environment-preparation",
+  "invocation_lifetime": null,
   "owner": "scripts/pse_env.py",
   "prerequisites": [],
   "reason": "Canonical environment explanation is effect-free and selected assessments run readiness; installers, image builds and provider preparation retain native ownership.",
@@ -6772,6 +7728,7 @@ Exposure: **tool**. Owner: `scripts/pse_env.py`. Declaration source: [scripts/ps
     "environment"
   ],
   "id": "environment_explain",
+  "invocation_lifetime": "single",
   "owner": "scripts/pse_env.py",
   "prerequisites": [],
   "reason": "",
@@ -6796,7 +7753,8 @@ Exact callable component key: `tool:environment_explain@`. The following is the 
         "domain:environment",
         "family:environment-preparation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -7145,6 +8103,7 @@ Exposure: **native**. Owner: `xtask/src/evidence_tools.rs`. Declaration source: 
     "storage"
   ],
   "id": "evidence-inspection",
+  "invocation_lifetime": null,
   "owner": "xtask/src/evidence_tools.rs",
   "prerequisites": [],
   "reason": "Canonical protected/frozen reads preserve codecs; import/query/export and rebuildable knowledge projections retain native custody/effect admission.",
@@ -7178,6 +8137,7 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
     "tooling"
   ],
   "id": "experiment_archive",
+  "invocation_lifetime": "single",
   "owner": "scripts/test_archives.py",
   "prerequisites": [
     "Checkout environment and operation-specific native tools/identity admission"
@@ -7224,7 +8184,8 @@ Exact callable component key: `tool:experiment_archive@`. The following is the r
         "family:experiments-recovery",
         "workflow:run-experiment"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -7353,6 +8314,7 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
     "tooling"
   ],
   "id": "experiment_inspect",
+  "invocation_lifetime": "single",
   "owner": "scripts/test_archives.py",
   "prerequisites": [],
   "reason": "",
@@ -7382,7 +8344,8 @@ Exact callable component key: `tool:experiment_inspect@`. The following is the r
         "workflow:investigate-evidence",
         "workflow:run-experiment"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -7496,6 +8459,7 @@ Exposure: **tool**. Owner: `scripts/test_archives.py`. Declaration source: [scri
     "tooling"
   ],
   "id": "experiment_replay",
+  "invocation_lifetime": "single",
   "owner": "scripts/test_archives.py",
   "prerequisites": [
     "Checkout environment and operation-specific native tools/identity admission"
@@ -7542,7 +8506,8 @@ Exact callable component key: `tool:experiment_replay@`. The following is the re
         "family:experiments-recovery",
         "workflow:run-experiment"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -7638,6 +8603,7 @@ Exposure: **native**. Owner: `scripts/experiments.py`. Declaration source: [scri
     "qualification"
   ],
   "id": "experiments-recovery",
+  "invocation_lifetime": null,
   "owner": "scripts/experiments.py",
   "prerequisites": [],
   "reason": "Canonical archive/inspect/replay shares kernels/historical identity; bisect, comparison, database populations and recovery retain distinct native owners.",
@@ -7672,6 +8638,7 @@ Exposure: **native**. Owner: `xtask/src/codegen.rs`. Declaration source: [xtask/
     "python"
   ],
   "id": "generated-contracts",
+  "invocation_lifetime": null,
   "owner": "xtask/src/codegen.rs",
   "prerequisites": [],
   "reason": "Canonical contract generation/check shares recipes; full/physical/bindgen generation and compiled-stub publication remain native producer operations.",
@@ -7704,6 +8671,7 @@ Exposure: **native**. Owner: `scripts/worktree.py`. Declaration source: [scripts
     "environment"
   ],
   "id": "git-integration",
+  "invocation_lifetime": null,
   "owner": "scripts/worktree.py",
   "prerequisites": [],
   "reason": "Native Git and isolated worktrees remain useful access; generic closeout automation is separately owned by Plan52g G04.",
@@ -7736,6 +8704,7 @@ Exposure: **internal**. Owner: `scripts/host_admission.py`. Declaration source: 
     "tooling"
   ],
   "id": "host-implementation",
+  "invocation_lifetime": null,
   "owner": "scripts/host_admission.py",
   "prerequisites": [],
   "reason": "These helpers support public owners; exposing arbitrary internal dispatch would create a second command surface.",
@@ -7764,6 +8733,7 @@ Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [
     "root"
   ],
   "id": "knowledge-recall",
+  "invocation_lifetime": null,
   "owner": "scripts/knowledge_store.py",
   "prerequisites": [],
   "reason": "Canonical exact source corpus preserves attribution; explicit session scans and derived-store import/rebuild retain bounded native owners.",
@@ -7781,6 +8751,1634 @@ Exposure: **native**. Owner: `scripts/knowledge_store.py`. Declaration source: [
 }
 ```
 
+### `knowledge_explain` — knowledge explain
+
+Exposure: **tool**. Owner: `crates/pse-operations/src/knowledge.rs`. Declaration source: [scripts/capabilities/knowledge_queries.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/knowledge_queries.py).
+
+```json
+{
+  "description": "Explain the same original native query without ANALYZE or source reopening; the raw version-specific plan is informational.",
+  "domain": "knowledge",
+  "effects": "Bounded original indexed query; no ANALYZE, import, refresh, startup or disposal",
+  "exposure": "tool",
+  "family": "knowledge-recall",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "knowledge_explain",
+  "invocation_lifetime": "single",
+  "owner": "crates/pse-operations/src/knowledge.rs",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "xtask/src/evidence_tools.rs",
+      "preparation": [],
+      "provider": "pse-evidence",
+      "validated": null
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/knowledge_queries.py",
+  "title": "knowledge explain",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "inspect-plan"
+  ]
+}
+```
+
+Exact callable component key: `tool:knowledge_explain@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:knowledge_explain",
+        "domain:knowledge",
+        "family:knowledge-recall",
+        "workflow:inspect-plan"
+      ]
+    },
+    "pse.invocation_lifetime": "single",
+    "pse.native": {
+      "contracts": {
+        "output_document": {
+          "direction": "output",
+          "exported_name": "KnowledgeExplain",
+          "name": "KnowledgeExplain",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_operations :: knowledge :: KnowledgeExplain",
+          "schema_path": "docs/generated/schema/knowledge-explain.output.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "0cd7a52238a3e1360dae8c5d7132cfb508a6a61edb28b96b7253161c9b73d6d5",
+          "slug": "knowledge-explain",
+          "version": 1,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "KnowledgeQuery",
+          "name": "KnowledgeQuery",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_operations :: knowledge :: KnowledgeQuery",
+          "schema_path": "docs/generated/schema/knowledge-query.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "eca060d2aa45dac8c078c526203186b72dd05ada57501a159648e450855bb22a",
+          "slug": "knowledge-query",
+          "version": 1,
+          "wire": "Native"
+        }
+      }
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Explain the same original native query without ANALYZE or source reopening; the raw version-specific plan is informational.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "knowledge-query": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "KnowledgeCursor": {
+            "additionalProperties": false,
+            "description": "Exact issuing cut, predicate, and page fence.",
+            "properties": {
+              "after": {
+                "description": "Last native member key.",
+                "type": "string"
+              },
+              "generation": {
+                "description": "Selected activated generation.",
+                "type": "string"
+              },
+              "issuing_store": {
+                "description": "Issuing tooling identity.",
+                "type": "string"
+              },
+              "query_digest": {
+                "description": "Exact predicate and extent identity.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "issuing_store",
+              "generation",
+              "query_digest",
+              "after"
+            ],
+            "type": "object"
+          },
+          "KnowledgeDocumentRole": {
+            "enum": [
+              "contract",
+              "instruction",
+              "decision",
+              "plan",
+              "review",
+              "reference",
+              "evidence",
+              "index"
+            ],
+            "type": "string"
+          },
+          "KnowledgeMode": {
+            "description": "Primary exact native query operation.",
+            "oneOf": [
+              {
+                "const": "subjects",
+                "description": "Exact subject conjunction, optionally narrowed by attributed text.",
+                "type": "string"
+              },
+              {
+                "const": "graph",
+                "description": "Exact outgoing typed graph relation.",
+                "type": "string"
+              },
+              {
+                "const": "productions",
+                "description": "Exact declaration-generator-artifact assertion.",
+                "type": "string"
+              }
+            ]
+          },
+          "KnowledgeRelationKind": {
+            "enum": [
+              "owns",
+              "governs",
+              "contains",
+              "depends_on",
+              "status_owned_by",
+              "superseded_by",
+              "supports",
+              "answers",
+              "diagnoses",
+              "references"
+            ],
+            "type": "string"
+          },
+          "KnowledgeSubjectKind": {
+            "enum": [
+              "document",
+              "contract",
+              "decision",
+              "plan_package",
+              "declaration",
+              "generator",
+              "generated_artifact",
+              "experiment",
+              "diagnostic",
+              "evidence_reference",
+              "research_question"
+            ],
+            "type": "string"
+          }
+        },
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:knowledge-query:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
+        "examples": [
+          {
+            "artifact_id": "generated_artifact:python/pse/_native.pyi",
+            "limit": 8,
+            "mode": "productions",
+            "version": 1
+          }
+        ],
+        "properties": {
+          "artifact_id": {
+            "description": "Exact production artifact.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeCursor"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact-cut continuation."
+          },
+          "declaration_id": {
+            "description": "Exact production declaration.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeDocumentRole"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact document role."
+          },
+          "generation": {
+            "description": "Null selects the independent current pointer.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generator_id": {
+            "description": "Exact production generator.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeSubjectKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact concept family."
+          },
+          "limit": {
+            "description": "Page extent, one through 64.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mode": {
+            "$ref": "#/$defs/KnowledgeMode",
+            "description": "Subject, graph, or production operation."
+          },
+          "native_id": {
+            "description": "Exact native identity.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "native_state": {
+            "description": "Exact native lifecycle.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "description": "Exact native owner.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publication_scope": {
+            "description": "Exact publication scope, independent of lifecycle.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeRelationKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional typed graph relation."
+          },
+          "subject_id": {
+            "description": "Subject selection or exact graph root.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "description": "Optional text predicate within a structurally selected subject population.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "topics": {
+            "default": [],
+            "description": "All specified native topics must match.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "description": "Required native document encoding version.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "mode",
+          "limit"
+        ],
+        "title": "KnowledgeQuery",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "description": "Host routing only; the request body is declared and decoded by Rust.",
+    "properties": {
+      "request": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:knowledge-query:input"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "State"
+      },
+      "timeout": {
+        "default": 30.0,
+        "exclusiveMinimum": 0,
+        "maximum": 30,
+        "title": "Timeout",
+        "type": "number"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "title": "IndexedRequest",
+    "type": "object"
+  },
+  "name": "knowledge_explain",
+  "outputSchema": {
+    "$defs": {
+      "KnowledgeCoverage": {
+        "additionalProperties": false,
+        "description": "Conservative interpretation limits, independent of the delivered hit population.",
+        "properties": {
+          "declaration_locations": {
+            "description": "Registry declaration definition locations are not fabricated.",
+            "type": "string"
+          },
+          "excerpt_attribution": {
+            "description": "Text matches only subjects explicitly attributed by original owners.",
+            "type": "string"
+          },
+          "producer_freshness": {
+            "description": "Producer fingerprints are not a live freshness attestation.",
+            "type": "string"
+          },
+          "undeclared_relationships": {
+            "description": "Missing semantic links are not inferred from prose or topics.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "producer_freshness",
+          "declaration_locations",
+          "undeclared_relationships",
+          "excerpt_attribution"
+        ],
+        "type": "object"
+      },
+      "KnowledgeMode": {
+        "description": "Primary exact native query operation.",
+        "oneOf": [
+          {
+            "const": "subjects",
+            "description": "Exact subject conjunction, optionally narrowed by attributed text.",
+            "type": "string"
+          },
+          {
+            "const": "graph",
+            "description": "Exact outgoing typed graph relation.",
+            "type": "string"
+          },
+          {
+            "const": "productions",
+            "description": "Exact declaration-generator-artifact assertion.",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "Nonexecuting versioned plan envelope; optimizer plan contents are opaque version-specific data.",
+                "properties": {
+                  "coverage": {
+                    "$ref": "#/$defs/KnowledgeCoverage",
+                    "description": "Original coverage limitations."
+                  },
+                  "experimental_execution": {
+                    "description": "False: explaining never runs ANALYZE.",
+                    "type": "boolean"
+                  },
+                  "freshness": {
+                    "description": "This read does not reopen original source files.",
+                    "type": "string"
+                  },
+                  "generation": {
+                    "description": "Exact selected active generation.",
+                    "type": "string"
+                  },
+                  "issuing_store": {
+                    "description": "Original issuing tooling identity.",
+                    "type": "string"
+                  },
+                  "mode": {
+                    "$ref": "#/$defs/KnowledgeMode",
+                    "description": "Original query operation."
+                  },
+                  "population_plan_json": {
+                    "description": "Optional population selection's informational plan.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "query_digest": {
+                    "description": "Exact predicate and extent identity.",
+                    "type": "string"
+                  },
+                  "raw_plan_json": {
+                    "description": "Raw informational optimizer output, not a stable query grammar.",
+                    "type": "string"
+                  },
+                  "version": {
+                    "const": 1,
+                    "default": 1,
+                    "description": "Native result encoding version.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version",
+                  "issuing_store",
+                  "generation",
+                  "mode",
+                  "query_digest",
+                  "raw_plan_json",
+                  "population_plan_json",
+                  "coverage",
+                  "freshness",
+                  "experimental_execution"
+                ],
+                "title": "KnowledgeExplain",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              },
+              "source_observations": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Knowledge Explain"
+}
+```
+
+- Native `output_document`: [docs/generated/schema/knowledge-explain.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/knowledge-explain.output.schema.json).
+
+- Native `request`: [docs/generated/schema/knowledge-query.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/knowledge-query.input.schema.json).
+
+### `knowledge_query` — knowledge query
+
+Exposure: **tool**. Owner: `crates/pse-operations/src/knowledge.rs`. Declaration source: [scripts/capabilities/knowledge_queries.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/knowledge_queries.py).
+
+```json
+{
+  "description": "Select an exact native indexed knowledge page; current source freshness is separate. No implicit import, refresh, service start or fallback.",
+  "domain": "knowledge",
+  "effects": "Bounded original indexed query; no ANALYZE, import, refresh, startup or disposal",
+  "exposure": "tool",
+  "family": "knowledge-recall",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "knowledge_query",
+  "invocation_lifetime": "single",
+  "owner": "crates/pse-operations/src/knowledge.rs",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "executable",
+      "mode": null,
+      "owner": "xtask/src/evidence_tools.rs",
+      "preparation": [],
+      "provider": "pse-evidence",
+      "validated": null
+    },
+    {
+      "kind": "selected-service",
+      "mode": null,
+      "owner": "scripts/surreal_server.py",
+      "preparation": [],
+      "provider": "canonical-request",
+      "validated": null
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/knowledge_queries.py",
+  "title": "knowledge query",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "inspect-plan"
+  ]
+}
+```
+
+Exact callable component key: `tool:knowledge_query@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:knowledge_query",
+        "domain:knowledge",
+        "family:knowledge-recall",
+        "workflow:inspect-plan"
+      ]
+    },
+    "pse.invocation_lifetime": "single",
+    "pse.native": {
+      "contracts": {
+        "output_document": {
+          "direction": "output",
+          "exported_name": "KnowledgePage",
+          "name": "KnowledgePage",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_operations :: knowledge :: KnowledgePage",
+          "schema_path": "docs/generated/schema/knowledge-page.output.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "b94d8f8443e2bf5d79c77e1c0e0c0b56d83ad03adcdd6ecb84e85d050ca6b96a",
+          "slug": "knowledge-page",
+          "version": 1,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "KnowledgeQuery",
+          "name": "KnowledgeQuery",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_operations :: knowledge :: KnowledgeQuery",
+          "schema_path": "docs/generated/schema/knowledge-query.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "eca060d2aa45dac8c078c526203186b72dd05ada57501a159648e450855bb22a",
+          "slug": "knowledge-query",
+          "version": 1,
+          "wire": "Native"
+        }
+      }
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Select an exact native indexed knowledge page; current source freshness is separate. No implicit import, refresh, service start or fallback.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "knowledge-query": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "KnowledgeCursor": {
+            "additionalProperties": false,
+            "description": "Exact issuing cut, predicate, and page fence.",
+            "properties": {
+              "after": {
+                "description": "Last native member key.",
+                "type": "string"
+              },
+              "generation": {
+                "description": "Selected activated generation.",
+                "type": "string"
+              },
+              "issuing_store": {
+                "description": "Issuing tooling identity.",
+                "type": "string"
+              },
+              "query_digest": {
+                "description": "Exact predicate and extent identity.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "issuing_store",
+              "generation",
+              "query_digest",
+              "after"
+            ],
+            "type": "object"
+          },
+          "KnowledgeDocumentRole": {
+            "enum": [
+              "contract",
+              "instruction",
+              "decision",
+              "plan",
+              "review",
+              "reference",
+              "evidence",
+              "index"
+            ],
+            "type": "string"
+          },
+          "KnowledgeMode": {
+            "description": "Primary exact native query operation.",
+            "oneOf": [
+              {
+                "const": "subjects",
+                "description": "Exact subject conjunction, optionally narrowed by attributed text.",
+                "type": "string"
+              },
+              {
+                "const": "graph",
+                "description": "Exact outgoing typed graph relation.",
+                "type": "string"
+              },
+              {
+                "const": "productions",
+                "description": "Exact declaration-generator-artifact assertion.",
+                "type": "string"
+              }
+            ]
+          },
+          "KnowledgeRelationKind": {
+            "enum": [
+              "owns",
+              "governs",
+              "contains",
+              "depends_on",
+              "status_owned_by",
+              "superseded_by",
+              "supports",
+              "answers",
+              "diagnoses",
+              "references"
+            ],
+            "type": "string"
+          },
+          "KnowledgeSubjectKind": {
+            "enum": [
+              "document",
+              "contract",
+              "decision",
+              "plan_package",
+              "declaration",
+              "generator",
+              "generated_artifact",
+              "experiment",
+              "diagnostic",
+              "evidence_reference",
+              "research_question"
+            ],
+            "type": "string"
+          }
+        },
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:knowledge-query:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
+        "examples": [
+          {
+            "artifact_id": "generated_artifact:python/pse/_native.pyi",
+            "limit": 8,
+            "mode": "productions",
+            "version": 1
+          }
+        ],
+        "properties": {
+          "artifact_id": {
+            "description": "Exact production artifact.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeCursor"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact-cut continuation."
+          },
+          "declaration_id": {
+            "description": "Exact production declaration.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeDocumentRole"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact document role."
+          },
+          "generation": {
+            "description": "Null selects the independent current pointer.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generator_id": {
+            "description": "Exact production generator.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeSubjectKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact concept family."
+          },
+          "limit": {
+            "description": "Page extent, one through 64.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mode": {
+            "$ref": "#/$defs/KnowledgeMode",
+            "description": "Subject, graph, or production operation."
+          },
+          "native_id": {
+            "description": "Exact native identity.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "native_state": {
+            "description": "Exact native lifecycle.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "description": "Exact native owner.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "publication_scope": {
+            "description": "Exact publication scope, independent of lifecycle.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeRelationKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional typed graph relation."
+          },
+          "subject_id": {
+            "description": "Subject selection or exact graph root.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "description": "Optional text predicate within a structurally selected subject population.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "topics": {
+            "default": [],
+            "description": "All specified native topics must match.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "description": "Required native document encoding version.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "mode",
+          "limit"
+        ],
+        "title": "KnowledgeQuery",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "description": "Host routing only; the request body is declared and decoded by Rust.",
+    "properties": {
+      "request": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:knowledge-query:input"
+      },
+      "state": {
+        "anyOf": [
+          {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "State"
+      },
+      "timeout": {
+        "default": 30.0,
+        "exclusiveMinimum": 0,
+        "maximum": 30,
+        "title": "Timeout",
+        "type": "number"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "title": "IndexedRequest",
+    "type": "object"
+  },
+  "name": "knowledge_query",
+  "outputSchema": {
+    "$defs": {
+      "EvidenceIdentity": {
+        "additionalProperties": false,
+        "description": "Original evidence-owner identity, not a replacement evidence codec.",
+        "properties": {
+          "authority": {
+            "description": "Original issuing authority.",
+            "type": "string"
+          },
+          "codec": {
+            "description": "Original codec.",
+            "type": "string"
+          },
+          "member": {
+            "description": "Original member.",
+            "type": "string"
+          },
+          "source_id": {
+            "description": "Original source.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Original version or digest.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authority",
+          "codec",
+          "source_id",
+          "version",
+          "member"
+        ],
+        "type": "object"
+      },
+      "KnowledgeCoverage": {
+        "additionalProperties": false,
+        "description": "Conservative interpretation limits, independent of the delivered hit population.",
+        "properties": {
+          "declaration_locations": {
+            "description": "Registry declaration definition locations are not fabricated.",
+            "type": "string"
+          },
+          "excerpt_attribution": {
+            "description": "Text matches only subjects explicitly attributed by original owners.",
+            "type": "string"
+          },
+          "producer_freshness": {
+            "description": "Producer fingerprints are not a live freshness attestation.",
+            "type": "string"
+          },
+          "undeclared_relationships": {
+            "description": "Missing semantic links are not inferred from prose or topics.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "producer_freshness",
+          "declaration_locations",
+          "undeclared_relationships",
+          "excerpt_attribution"
+        ],
+        "type": "object"
+      },
+      "KnowledgeCursor": {
+        "additionalProperties": false,
+        "description": "Exact issuing cut, predicate, and page fence.",
+        "properties": {
+          "after": {
+            "description": "Last native member key.",
+            "type": "string"
+          },
+          "generation": {
+            "description": "Selected activated generation.",
+            "type": "string"
+          },
+          "issuing_store": {
+            "description": "Issuing tooling identity.",
+            "type": "string"
+          },
+          "query_digest": {
+            "description": "Exact predicate and extent identity.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuing_store",
+          "generation",
+          "query_digest",
+          "after"
+        ],
+        "type": "object"
+      },
+      "KnowledgeDirection": {
+        "enum": [
+          "input",
+          "output"
+        ],
+        "type": "string"
+      },
+      "KnowledgeDocumentRole": {
+        "enum": [
+          "contract",
+          "instruction",
+          "decision",
+          "plan",
+          "review",
+          "reference",
+          "evidence",
+          "index"
+        ],
+        "type": "string"
+      },
+      "KnowledgeEdge": {
+        "additionalProperties": false,
+        "description": "Typed native subject relation.",
+        "properties": {
+          "basis": {
+            "description": "Actual relationship origin.",
+            "type": "string"
+          },
+          "from": {
+            "description": "Exact source subject.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Original relationship identity.",
+            "type": "string"
+          },
+          "relation": {
+            "$ref": "#/$defs/KnowledgeRelationKind",
+            "description": "Closed relation meaning."
+          },
+          "to": {
+            "description": "Exact target subject.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "relation",
+          "basis"
+        ],
+        "type": "object"
+      },
+      "KnowledgeExcerpt": {
+        "additionalProperties": false,
+        "description": "Selected excerpt; shared files do not imply shared subject attribution.",
+        "properties": {
+          "basis": {
+            "description": "Explicit evidence origin.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Exact excerpt identity.",
+            "type": "string"
+          },
+          "locator": {
+            "description": "Original locator.",
+            "type": "string"
+          },
+          "source_id": {
+            "description": "Exact source carrier.",
+            "type": "string"
+          },
+          "subject_id": {
+            "description": "Subject only where correspondence is explicitly known.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "text": {
+            "description": "Selected text, at most sixteen KiB.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "subject_id",
+          "text",
+          "locator",
+          "basis"
+        ],
+        "type": "object"
+      },
+      "KnowledgeProduction": {
+        "additionalProperties": false,
+        "description": "Actual declaration-generator-specific-output correspondence.",
+        "properties": {
+          "artifact_id": {
+            "description": "Exact emitted artifact.",
+            "type": "string"
+          },
+          "basis": {
+            "description": "Actual producer basis.",
+            "type": "string"
+          },
+          "declaration_id": {
+            "description": "Actual declaration subject.",
+            "type": "string"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeDirection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Direction only where declared."
+          },
+          "generator_id": {
+            "description": "Actual generator subject.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Original producer record identity.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "declaration_id",
+          "generator_id",
+          "artifact_id",
+          "direction",
+          "basis"
+        ],
+        "type": "object"
+      },
+      "KnowledgeRelationKind": {
+        "enum": [
+          "owns",
+          "governs",
+          "contains",
+          "depends_on",
+          "status_owned_by",
+          "superseded_by",
+          "supports",
+          "answers",
+          "diagnoses",
+          "references"
+        ],
+        "type": "string"
+      },
+      "KnowledgeSource": {
+        "additionalProperties": false,
+        "description": "Immutable source-version carrier, never a substitute for a domain concept.",
+        "properties": {
+          "basis": {
+            "description": "Explicit evidence origin.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Exact selected carrier identity.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Original carrier category.",
+            "type": "string"
+          },
+          "locator": {
+            "description": "Original attributable locator, without lifetime or file-access grant.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Source observation state, independent of subject lifecycle.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Compact original description.",
+            "type": "string"
+          },
+          "version_digest": {
+            "description": "SHA256 of exact selected source bytes.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "locator",
+          "version_digest",
+          "basis",
+          "title",
+          "status"
+        ],
+        "type": "object"
+      },
+      "KnowledgeSourceRole": {
+        "enum": [
+          "definition",
+          "catalogue_registration",
+          "producer_declaration",
+          "native_scope",
+          "metadata",
+          "owner_evidence",
+          "question_input",
+          "interpretation_input",
+          "interpretation_policy"
+        ],
+        "type": "string"
+      },
+      "KnowledgeSubject": {
+        "additionalProperties": false,
+        "description": "Closed owner-native subject; publication and native lifecycle remain separate.",
+        "properties": {
+          "basis": {
+            "description": "Explicit evidence origin.",
+            "type": "string"
+          },
+          "document_role": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KnowledgeDocumentRole"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual native document role."
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EvidenceIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Original evidence identity for evidence_reference only."
+          },
+          "id": {
+            "description": "Stable adapter-qualified subject identity.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/$defs/KnowledgeSubjectKind",
+            "description": "Closed subject family."
+          },
+          "label": {
+            "description": "Original compact label.",
+            "type": "string"
+          },
+          "native_id": {
+            "description": "Actual owner-native identity.",
+            "type": "string"
+          },
+          "native_state": {
+            "description": "Native lifecycle/status only where applicable.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "native_version": {
+            "description": "Exact owner version when supplied.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "description": "Native semantic owner.",
+            "type": "string"
+          },
+          "publication_scope": {
+            "description": "Publication scope, independent of proposal/acceptance.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sources": {
+            "description": "Complete explicit contributors, at most eight.",
+            "items": {
+              "$ref": "#/$defs/SubjectSource"
+            },
+            "type": "array"
+          },
+          "state_basis": {
+            "description": "Actual interpretation of native state.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "topics": {
+            "description": "Native metadata topics, at most sixteen.",
+            "items": {
+              "$ref": "#/$defs/SubjectTopic"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "owner",
+          "native_id",
+          "label",
+          "basis",
+          "native_state",
+          "state_basis",
+          "publication_scope",
+          "document_role",
+          "native_version",
+          "evidence",
+          "sources",
+          "topics"
+        ],
+        "type": "object"
+      },
+      "KnowledgeSubjectKind": {
+        "enum": [
+          "document",
+          "contract",
+          "decision",
+          "plan_package",
+          "declaration",
+          "generator",
+          "generated_artifact",
+          "experiment",
+          "diagnostic",
+          "evidence_reference",
+          "research_question"
+        ],
+        "type": "string"
+      },
+      "SubjectSource": {
+        "additionalProperties": false,
+        "description": "Role-specific immutable contributor.",
+        "properties": {
+          "role": {
+            "$ref": "#/$defs/KnowledgeSourceRole",
+            "description": "Actual native contribution."
+          },
+          "source_id": {
+            "description": "Exact source in this cut.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "role"
+        ],
+        "type": "object"
+      },
+      "SubjectTopic": {
+        "additionalProperties": false,
+        "description": "Topic copied from original metadata, with exact attribution.",
+        "properties": {
+          "source_id": {
+            "description": "Subject metadata contributor.",
+            "type": "string"
+          },
+          "topic": {
+            "description": "Native topic, not an invented tag.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "source_id"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "Finite structural result, with the complete provenance source cut even for zero hits.",
+                "properties": {
+                  "coverage": {
+                    "$ref": "#/$defs/KnowledgeCoverage",
+                    "description": "Exact producer and semantic coverage limits."
+                  },
+                  "edges": {
+                    "description": "Exact typed graph results.",
+                    "items": {
+                      "$ref": "#/$defs/KnowledgeEdge"
+                    },
+                    "type": "array"
+                  },
+                  "excerpts": {
+                    "description": "Optional matching subject-attributed excerpts.",
+                    "items": {
+                      "$ref": "#/$defs/KnowledgeExcerpt"
+                    },
+                    "type": "array"
+                  },
+                  "excerpts_truncated": {
+                    "description": "Matching excerpt delivery is separately bounded; this flag preserves omissions.",
+                    "type": "boolean"
+                  },
+                  "freshness": {
+                    "description": "Imported cut only; no automatic source reopening.",
+                    "type": "string"
+                  },
+                  "generation": {
+                    "description": "Exact activated corpus.",
+                    "type": "string"
+                  },
+                  "issuing_store": {
+                    "description": "Issuing tooling authority.",
+                    "type": "string"
+                  },
+                  "next": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/KnowledgeCursor"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Same-predicate, same-cut continuation."
+                  },
+                  "productions": {
+                    "description": "Exact production assertions.",
+                    "items": {
+                      "$ref": "#/$defs/KnowledgeProduction"
+                    },
+                    "type": "array"
+                  },
+                  "sources": {
+                    "description": "Complete source membership for independent freshness observation.",
+                    "items": {
+                      "$ref": "#/$defs/KnowledgeSource"
+                    },
+                    "type": "array"
+                  },
+                  "subjects": {
+                    "description": "Selected subjects or exact edge/production endpoint closure.",
+                    "items": {
+                      "$ref": "#/$defs/KnowledgeSubject"
+                    },
+                    "type": "array"
+                  },
+                  "version": {
+                    "const": 1,
+                    "default": 1,
+                    "description": "Native result encoding version.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version",
+                  "issuing_store",
+                  "generation",
+                  "freshness",
+                  "coverage",
+                  "sources",
+                  "subjects",
+                  "excerpts",
+                  "edges",
+                  "productions",
+                  "excerpts_truncated",
+                  "next"
+                ],
+                "title": "KnowledgePage",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              },
+              "source_observations": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Knowledge Query"
+}
+```
+
+- Native `output_document`: [docs/generated/schema/knowledge-page.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/knowledge-page.output.schema.json).
+
+- Native `request`: [docs/generated/schema/knowledge-query.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/knowledge-query.input.schema.json).
+
 ### `knowledge_source_corpus` — knowledge source corpus
 
 Exposure: **tool**. Owner: `scripts/knowledge_store.py`. Declaration source: [scripts/knowledge_store.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/knowledge_store.py).
@@ -7796,6 +10394,7 @@ Exposure: **tool**. Owner: `scripts/knowledge_store.py`. Declaration source: [sc
     "root"
   ],
   "id": "knowledge_source_corpus",
+  "invocation_lifetime": "single",
   "owner": "scripts/knowledge_store.py",
   "prerequisites": [],
   "reason": "",
@@ -7825,7 +10424,8 @@ Exact callable component key: `tool:knowledge_source_corpus@`. The following is 
         "workflow:inspect-plan",
         "workflow:investigate-evidence"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -8250,6 +10850,7 @@ Exposure: **native**. Owner: `scripts/semantic_navigation.py`. Declaration sourc
     "python"
   ],
   "id": "language-navigation",
+  "invocation_lifetime": null,
   "owner": "scripts/semantic_navigation.py",
   "prerequisites": [],
   "reason": "Canonical closed navigation uses the owned bridge; finite native request/serve commands remain useful for independent diagnosis.",
@@ -8283,6 +10884,7 @@ Exposure: **native**. Owner: `scripts/library_skills.py`. Declaration source: [s
     "root"
   ],
   "id": "library-research",
+  "invocation_lifetime": null,
   "owner": "scripts/library_skills.py",
   "prerequisites": [],
   "reason": "Canonical library packets expose pins and supplied evidence; outline, source fetching and skill-link synchronization retain their explicit native effects.",
@@ -8315,6 +10917,7 @@ Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [
     "root"
   ],
   "id": "library_source_packet",
+  "invocation_lifetime": "single",
   "owner": "scripts/workspace_sources.py",
   "prerequisites": [],
   "reason": "",
@@ -8342,7 +10945,8 @@ Exact callable component key: `tool:library_source_packet@`. The following is th
         "family:library-research",
         "workflow:plan-functional-review"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -8738,6 +11342,7 @@ Exposure: **tool**. Owner: `crates/pse-codegen/src/codegen/documents.rs`. Declar
     "tooling"
   ],
   "id": "native_contract_schema",
+  "invocation_lifetime": "single",
   "owner": "crates/pse-codegen/src/codegen/documents.rs",
   "prerequisites": [],
   "reason": "",
@@ -8766,13 +11371,14 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
         "workflow:change-generated-contract"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native_schema": {
       "authoring_selector": {
         "applicability": "Logical source sections only; not a native raw-bundle wire document.",
         "direction": null,
         "slug": "authoring"
       },
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -8869,6 +11475,7 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_checkpoint`. Declaration source
     "tooling"
   ],
   "id": "native_diagnostic_checkpoint",
+  "invocation_lifetime": "single",
   "owner": "pse.diagnostics.read_checkpoint",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -8916,6 +11523,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
         "workflow:diagnose-run"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -8926,7 +11534,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: CheckpointIdentity",
           "schema_path": "docs/generated/schema/checkpoint-identity.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "6af9026242d01a555d7fa4f3e196d18d8506831851b2c953c55e886419f58e0d",
           "slug": "checkpoint-identity",
           "version": 1,
@@ -8939,7 +11547,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
           "schema_path": "docs/generated/schema/process-checkpoint.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "a2f6d6708b571a01d5f44c6ca7fd7582c7940bcc7a835284c5d0b7faf30c287a",
           "slug": "process-checkpoint",
           "version": 6,
@@ -8947,7 +11555,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
         }
       },
       "receiver": "pse.diagnostics.read_checkpoint",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -8996,7 +11604,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:checkpoint-identity:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact diagnostic association supplied by the registered receiver, never stop authority.",
@@ -9035,7 +11643,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
       "expected": {
         "anyOf": [
           {
-            "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input"
+            "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:checkpoint-identity:input"
           },
           {
             "type": "null"
@@ -11274,6 +13882,7 @@ Exposure: **tool**. Owner: `pse.diagnostics.inspect_checkpoint`. Declaration sou
     "tooling"
   ],
   "id": "native_diagnostic_inspect",
+  "invocation_lifetime": "single",
   "owner": "pse.diagnostics.inspect_checkpoint",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -11321,6 +13930,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "workflow:diagnose-run"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -11331,7 +13941,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
           "schema_path": "docs/generated/schema/inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "0d3dd2835f79a88584e80b3215991c5a3a69606f8adbbcb9ba30e8314453674e",
           "slug": "inspection-document",
           "version": 4,
@@ -11344,7 +13954,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionRequest",
           "schema_path": "docs/generated/schema/inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "d9b91fb3481af8a0396509f645a33d50752ac2577c6a6b3dc701356dab55d16a",
           "slug": "inspection-request",
           "version": 2,
@@ -11352,7 +13962,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         }
       },
       "receiver": "pse.diagnostics.inspect_checkpoint",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -11486,7 +14096,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:inspection-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
@@ -11551,7 +14161,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:inspection-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:inspection-request:input"
       }
     },
     "required": [
@@ -13926,6 +16536,7 @@ Exposure: **tool**. Owner: `pse.diagnostics.list_processes`. Declaration source:
     "tooling"
   ],
   "id": "native_diagnostic_processes",
+  "invocation_lifetime": "single",
   "owner": "pse.diagnostics.list_processes",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -13973,6 +16584,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
         "workflow:diagnose-run"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -13983,7 +16595,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticProcessPage",
           "schema_path": "docs/generated/schema/diagnostic-process-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "a57461a610f58d030ee3411ff0d4d273e74bd385866dec8ff722062369e23c5a",
           "slug": "diagnostic-process-page",
           "version": 2,
@@ -13996,7 +16608,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticListRequest",
           "schema_path": "docs/generated/schema/diagnostic-list-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "e53fe554306a8e3a6e49e8aece0ee18c0d1964913e7bd75735f78cab78cdcda5",
           "slug": "diagnostic-list-request",
           "version": 1,
@@ -14004,7 +16616,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
         }
       },
       "receiver": "pse.diagnostics.list_processes",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -14019,7 +16631,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
       "JsonValue": {},
       "diagnostic-list-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:diagnostic-list-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:diagnostic-list-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Discovery request; only matching page images are decoded, never scientific store members.",
@@ -14068,7 +16680,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
         "title": "Directory"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:diagnostic-list-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:diagnostic-list-request:input"
       }
     },
     "required": [
@@ -15021,6 +17633,7 @@ Exposure: **tool**. Owner: `pse.diagnostics.compare_evidence`. Declaration sourc
     "tooling"
   ],
   "id": "native_evidence_compare",
+  "invocation_lifetime": "single",
   "owner": "pse.diagnostics.compare_evidence",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -15068,6 +17681,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         "workflow:investigate-evidence"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -15078,7 +17692,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: evidence_query :: EvidenceComparison",
           "schema_path": "docs/generated/schema/evidence-comparison.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "b899f1ecbabf5957eca7ea2105c23bc3699e60384815f768d4dc807257ca9184",
           "slug": "evidence-comparison",
           "version": 1,
@@ -15091,7 +17705,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: evidence_query :: EvidenceComparisonRequest",
           "schema_path": "docs/generated/schema/evidence-comparison-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "c04e4f836adee3441520f8c73566941e182b5d252aa98de996b4b884754edcfc",
           "slug": "evidence-comparison-request",
           "version": 1,
@@ -15104,7 +17718,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: evidence :: EvidenceSnapshot",
           "schema_path": "docs/generated/schema/evidence-snapshot.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "173b19090caa73b22ce73089931a7d1aae0ec4bc1955cd77e1ee50305271b7ac",
           "slug": "evidence-snapshot",
           "version": null,
@@ -15112,7 +17726,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.compare_evidence",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -15266,7 +17880,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-comparison-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:evidence-comparison-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Finite native request. Both sides and every mapping remain explicit.",
@@ -15432,7 +18046,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-snapshot:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:evidence-snapshot:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Frozen owner adapter output. Partial source coverage is not a complete test population.",
@@ -15504,11 +18118,11 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         "type": "array"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-comparison-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:evidence-comparison-request:input"
       },
       "snapshots": {
         "items": {
-          "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-snapshot:input"
+          "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:evidence-snapshot:input"
         },
         "maxItems": 64,
         "minItems": 1,
@@ -16756,6 +19370,7 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_evidence + inspect_frozen`. Dec
     "tooling"
   ],
   "id": "native_evidence_inspect",
+  "invocation_lifetime": "single",
   "owner": "pse.diagnostics.read_evidence + inspect_frozen",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -16805,6 +19420,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "workflow:investigate-evidence"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -16815,7 +19431,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
           "schema_path": "docs/generated/schema/frozen-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "4070de8de1055badf6b24453186c03c208d2b2006921c83e3d36cb90ea1c2f49",
           "slug": "frozen-inspection-document",
           "version": 1,
@@ -16828,7 +19444,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionRequest",
           "schema_path": "docs/generated/schema/frozen-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "a9bdc3183ed66ba9252fe3d4586d8b8b21dfeb0607c99fd7df04ef9a51a3ef68",
           "slug": "frozen-inspection-request",
           "version": 1,
@@ -16836,7 +19452,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.read_evidence + inspect_frozen",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -17085,7 +19701,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
             ]
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:frozen-inspection-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:frozen-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
@@ -17125,7 +19741,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:frozen-inspection-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:frozen-inspection-request:input"
       }
     },
     "required": [
@@ -17198,6 +19814,7 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_invocation`. Declaration source
     "tooling"
   ],
   "id": "native_invocation_read",
+  "invocation_lifetime": "single",
   "owner": "pse.diagnostics.read_invocation",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -17247,6 +19864,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         "workflow:investigate-evidence"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -17257,7 +19875,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: invocation :: InvocationEvidenceDocument",
           "schema_path": "docs/generated/schema/invocation-evidence.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "513b0d130552259de59f3ab1575423c5b4b56cd3123ee249df6e93aabf2285b8",
           "slug": "invocation-evidence",
           "version": 2,
@@ -17265,7 +19883,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         }
       },
       "receiver": "pse.diagnostics.read_invocation",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -17337,6 +19955,18230 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
 
 - Native `output_document`: [docs/generated/schema/invocation-evidence.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/invocation-evidence.output.schema.json).
 
+### `native_model_compare` — Compare native authored model sources
+
+Exposure: **tool**. Owner: `pse.ModelingPackage.comparison_observation`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Admit two finite sources in one Runtime and compare selected native changes/details; source-only mode preserves unknown scientific impact across physical contexts.",
+  "domain": "projects",
+  "effects": "Native source admission and finite comparison; no solve or numerical equivalence claim.",
+  "exposure": "tool",
+  "family": "projects-revisions",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_model_compare",
+  "invocation_lifetime": "single",
+  "owner": "pse.ModelingPackage.comparison_observation",
+  "prerequisites": [
+    "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Compare native authored model sources",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "attached",
+      "operation": "model_compare",
+      "worker": "native"
+    }
+  ],
+  "workflows": [
+    "manage-project"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_model_compare@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_model_compare",
+        "domain:projects",
+        "family:projects-revisions",
+        "workflow:manage-project"
+      ]
+    },
+    "pse.invocation_lifetime": "single",
+    "pse.native": {
+      "authoring_guidance": {
+        "path": "docs/generated/schema/authoring.schema.json",
+        "scope": "Applicable authored source sections only; native original-byte loaders own admission."
+      },
+      "contracts": {
+        "documents": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "other_documents": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "other_physical": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "output_document": {
+          "direction": "output",
+          "exported_name": "ModelingComparisonObservation",
+          "name": "ModelingComparisonObservation",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ModelingComparisonObservation",
+          "schema_path": "docs/generated/schema/modeling-comparison-observation.output.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "2af7e5da958f28492698dd6ac211914157b2abfbbc8ee404a8f5a3491d1cd6d7",
+          "slug": "modeling-comparison-observation",
+          "version": 1,
+          "wire": "FlatV1"
+        },
+        "physical": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "ModelingComparisonRequest",
+          "name": "ModelingComparisonRequest",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ModelingComparisonRequest",
+          "schema_path": "docs/generated/schema/modeling-comparison-request.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "a54720697baed211d4ca38795543330e40832f00d11e3e12bd96b70a1b6917a5",
+          "slug": "modeling-comparison-request",
+          "version": 1,
+          "wire": "FlatV1"
+        }
+      },
+      "receiver": "pse.ModelingPackage.comparison_observation",
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+  },
+  "description": "Admit two finite sources in one Runtime and compare selected native changes/details; source-only mode preserves unknown scientific impact across physical contexts.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "Resources": {
+        "additionalProperties": false,
+        "properties": {
+          "max_spill_bytes": {
+            "default": 1073741824,
+            "minimum": 1,
+            "title": "Max Spill Bytes",
+            "type": "integer"
+          },
+          "memory_limit_bytes": {
+            "default": 17179869184,
+            "minimum": 1,
+            "title": "Memory Limit Bytes",
+            "type": "integer"
+          },
+          "threads": {
+            "default": 16,
+            "maximum": 16,
+            "minimum": 1,
+            "title": "Threads",
+            "type": "integer"
+          }
+        },
+        "title": "Resources",
+        "type": "object"
+      },
+      "modeling-comparison-request": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:modeling-comparison-request:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Finite comparison and selected original details, under explicit physical-context semantics.",
+        "examples": [
+          {
+            "document_version": 1,
+            "limit": 16,
+            "logical": [],
+            "offset": 0,
+            "source_only": true
+          }
+        ],
+        "properties": {
+          "document_version": {
+            "const": 1,
+            "default": 1,
+            "type": "integer"
+          },
+          "limit": {
+            "description": "One to128 changes.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "logical": {
+            "description": "At most32 exact logical identities for before/after detail in the same snapshots.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "offset": {
+            "description": "Changed-object offset.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "source_only": {
+            "description": "Explicit source-only comparison never claims scientific equivalence.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_only",
+          "offset",
+          "limit",
+          "logical",
+          "document_version"
+        ],
+        "title": "ModelingComparisonRequest",
+        "type": "object"
+      },
+      "project-draft-documents": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
+        "properties": {
+          "packages": {
+            "description": "Complete packages in original package order, with original relative paths/bytes.",
+            "items": {
+              "additionalProperties": {
+                "items": {
+                  "format": "uint8",
+                  "maximum": 255,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "description": "This explicit original-byte container's version.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "packages"
+        ],
+        "title": "ProjectDraftDocuments",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "documents": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "other_documents": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "other_physical": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "physical": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "request": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:modeling-comparison-request:input"
+      },
+      "resources": {
+        "$ref": "#/$defs/Resources"
+      }
+    },
+    "required": [
+      "physical",
+      "documents",
+      "request",
+      "other_physical",
+      "other_documents"
+    ],
+    "title": "ModelingComparison",
+    "type": "object"
+  },
+  "name": "native_model_compare",
+  "outputSchema": {
+    "$defs": {
+      "AccuracyGoalSubject": {
+        "enum": [
+          "selected_output",
+          "optimal_objective"
+        ],
+        "type": "string"
+      },
+      "AccuracyGoalUse": {
+        "enum": [
+          "assess",
+          "require_satisfied"
+        ],
+        "type": "string"
+      },
+      "AccuracyObservation": {
+        "enum": [
+          "steady",
+          "sample",
+          "endpoint",
+          "integrated"
+        ],
+        "type": "string"
+      },
+      "AuthoredDocumentsRowOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Bytes"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact original bytes of a package data document (ADR-0125); absent for a text document."
+          },
+          "document_id": {
+            "description": "`named_id(package_id, path)` (blueprint §11).",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "package_id": {
+            "description": "The owning package.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "PackageId"
+          },
+          "path": {
+            "description": "The document path, relative to the package root.",
+            "type": "string"
+          },
+          "source_text": {
+            "description": "Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "document_id",
+          "package_id",
+          "path",
+          "source_text",
+          "content"
+        ],
+        "type": "object"
+      },
+      "AuthoredFitCasesFieldExperimentsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "bindings": {
+            "description": "bindings",
+            "items": {
+              "$ref": "#/$defs/AuthoredFitCasesFieldExperimentsItemBindingsItem"
+            },
+            "type": "array"
+          },
+          "case_id": {
+            "description": "case_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "DeclarationId"
+          },
+          "experiment_id": {
+            "description": "experiment_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "InstanceId"
+          },
+          "route": {
+            "$ref": "#/$defs/ModelingAnalysisRoute",
+            "description": "route"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "case_id",
+          "route",
+          "bindings"
+        ],
+        "type": "object"
+      },
+      "AuthoredFitCasesFieldExperimentsItemBindingsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "parameter_id": {
+            "description": "parameter_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "path": {
+            "description": "path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "parameter_id",
+          "path"
+        ],
+        "type": "object"
+      },
+      "AuthoredFitCasesFieldObservationsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "experiment_id": {
+            "description": "experiment_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "InstanceId"
+          },
+          "importance": {
+            "description": "importance",
+            "format": "double",
+            "type": "number"
+          },
+          "included": {
+            "description": "included",
+            "type": "boolean"
+          },
+          "observation_id": {
+            "description": "observation_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "DeclarationId"
+          },
+          "output_path": {
+            "description": "output_path",
+            "type": "string"
+          },
+          "standard_deviation_attribute": {
+            "description": "standard_deviation_attribute",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "time": {
+            "description": "time",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "time_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ObservationTimeBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "time_basis"
+          },
+          "time_unit_id": {
+            "description": "time_unit_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "SemanticId"
+          },
+          "value_attribute": {
+            "description": "value_attribute",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "value_attribute",
+          "standard_deviation_attribute",
+          "experiment_id",
+          "output_path",
+          "time",
+          "time_basis",
+          "time_unit_id",
+          "included",
+          "importance"
+        ],
+        "type": "object"
+      },
+      "AuthoredFitCasesFieldParametersItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "fixed": {
+            "description": "fixed",
+            "type": "boolean"
+          },
+          "lower": {
+            "description": "lower",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "scale": {
+            "description": "scale",
+            "format": "double",
+            "type": "number"
+          },
+          "symbol_id": {
+            "description": "symbol_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "upper": {
+            "description": "upper",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "value": {
+            "description": "value",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "symbol_id",
+          "fixed",
+          "value",
+          "lower",
+          "upper",
+          "scale"
+        ],
+        "type": "object"
+      },
+      "AuthoredFitCasesRowOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "experiments": {
+            "description": "experiments",
+            "items": {
+              "$ref": "#/$defs/AuthoredFitCasesFieldExperimentsItem"
+            },
+            "type": "array"
+          },
+          "fit_id": {
+            "description": "fit_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "FitId"
+          },
+          "observations": {
+            "description": "observations",
+            "items": {
+              "$ref": "#/$defs/AuthoredFitCasesFieldObservationsItemOutput"
+            },
+            "type": "array"
+          },
+          "parameters": {
+            "description": "parameters",
+            "items": {
+              "$ref": "#/$defs/AuthoredFitCasesFieldParametersItemOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "fit_id",
+          "parameters",
+          "experiments",
+          "observations"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAccumulatorOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "boundary": {
+            "description": "boundary",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "$ref": "#/$defs/ModelingAccumulatorMode",
+            "description": "mode"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "type",
+          "boundary",
+          "mode",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoalOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "criterion_lower": {
+            "description": "criterion_lower",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "criterion_upper": {
+            "description": "criterion_upper",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observation": {
+            "$ref": "#/$defs/AccuracyObservation",
+            "description": "observation"
+          },
+          "refine": {
+            "description": "refine",
+            "type": "boolean"
+          },
+          "required_class": {
+            "$ref": "#/$defs/NumericalAccuracyClass",
+            "description": "required_class"
+          },
+          "resolution": {
+            "description": "resolution",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "$ref": "#/$defs/AccuracyGoalSubject",
+            "description": "subject"
+          },
+          "time": {
+            "description": "time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "use_policy": {
+            "$ref": "#/$defs/AccuracyGoalUse",
+            "description": "use_policy"
+          }
+        },
+        "required": [
+          "subject",
+          "observation",
+          "time",
+          "resolution",
+          "criterion_lower",
+          "criterion_upper",
+          "required_class",
+          "use_policy",
+          "refine"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationConnectivityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "incoming": {
+            "description": "incoming",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outgoing": {
+            "description": "outgoing",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "incoming",
+          "outgoing"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "rule": {
+            "description": "rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/EngineeringScaleKind",
+            "description": "kind"
+          },
+          "value": {
+            "description": "value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationObjectiveOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "absolute_tolerance": {
+            "description": "absolute_tolerance",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "normalization": {
+            "description": "normalization",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "description": "priority",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "relative_tolerance": {
+            "description": "relative_tolerance",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sense": {
+            "$ref": "#/$defs/NativeObjectiveSense",
+            "description": "sense"
+          },
+          "weight": {
+            "description": "weight",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sense",
+          "priority",
+          "weight",
+          "normalization",
+          "absolute_tolerance",
+          "relative_tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "accuracy_goal": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoalOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "accuracy_goal"
+          },
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "connectivity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationConnectivityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "connectivity"
+          },
+          "engineering_default": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "engineering_default"
+          },
+          "engineering_scale": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "engineering_scale"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingAnnotationKind",
+            "description": "kind"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationObjectiveOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "objective"
+          },
+          "scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ConstraintScalingScheme"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "scheme"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "target",
+          "arguments",
+          "scheme",
+          "connectivity",
+          "objective",
+          "accuracy_goal",
+          "engineering_scale",
+          "engineering_default"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueApplicabilityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "alternatives": {
+            "description": "alternatives",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "axis": {
+            "description": "axis",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingApplicabilityBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "basis"
+          },
+          "claim_kind": {
+            "$ref": "#/$defs/ModelingApplicabilityKind",
+            "description": "claim_kind"
+          },
+          "dependencies": {
+            "description": "dependencies",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "evidence": {
+            "description": "evidence",
+            "type": "string"
+          },
+          "lower": {
+            "description": "lower",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "description": "owner",
+            "type": "string"
+          },
+          "predicate": {
+            "description": "predicate",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "reason",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "$ref": "#/$defs/ModelingValidityLayer",
+            "description": "scope"
+          },
+          "upper": {
+            "description": "upper",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "arguments",
+          "owner",
+          "scope",
+          "evidence",
+          "claim_kind",
+          "basis",
+          "predicate",
+          "reason",
+          "axis",
+          "lower",
+          "upper",
+          "alternatives",
+          "dependencies"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAttributeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "derived": {
+            "description": "derived",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key": {
+            "description": "key",
+            "type": "boolean"
+          },
+          "storage": {
+            "description": "storage",
+            "items": {
+              "$ref": "#/$defs/ModelingColumnStorageOutput"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "unique": {
+            "description": "unique",
+            "type": "boolean"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "value"
+          }
+        },
+        "required": [
+          "type",
+          "key",
+          "value",
+          "unique",
+          "derived",
+          "storage"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBindingIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBindingOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "defined_by": {
+            "description": "defined_by",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingVariableDomain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "domain"
+          },
+          "expression": {
+            "description": "expression",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBindingIndicesItem"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "indices",
+          "expression",
+          "defined_by",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBoundary": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCardinality": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "count": {
+            "description": "count",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem"
+            },
+            "type": "array"
+          },
+          "member": {
+            "description": "member",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "count",
+          "member"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCollocationScheme": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "alpha": {
+            "description": "alpha",
+            "format": "double",
+            "type": "number"
+          },
+          "beta": {
+            "description": "beta",
+            "format": "double",
+            "type": "number"
+          },
+          "right_endpoint": {
+            "description": "right_endpoint",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "alpha",
+          "beta",
+          "right_endpoint"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueComplementarity": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "first": {
+            "description": "first",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem"
+            },
+            "type": "array"
+          },
+          "second": {
+            "description": "second",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "first",
+          "second"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueConnection": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "from": {
+            "description": "from",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConnectionIndicesItem"
+            },
+            "type": "array"
+          },
+          "to": {
+            "description": "to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueConnectionIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueConstantOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "provenance": {
+            "$ref": "#/$defs/ModelingProvenance",
+            "description": "provenance"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContinuation": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "end": {
+            "description": "end",
+            "type": "string"
+          },
+          "start": {
+            "description": "start",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "start",
+          "end"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContinuousOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContribution": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContributionIndicesItem"
+            },
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/$defs/ModelingContributionRole",
+            "description": "role"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "target",
+          "expression",
+          "role"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContributionIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateMapOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "validity": {
+            "description": "validity",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "arguments",
+          "validity"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateSlot": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDatasetBindingsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDatasetOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "bindings": {
+            "description": "bindings",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetBindingsItemOutput"
+            },
+            "type": "array"
+          },
+          "complete_over": {
+            "description": "complete_over",
+            "items": {
+              "$ref": "#/$defs/ModelingCompletenessOutput"
+            },
+            "type": "array"
+          },
+          "document": {
+            "description": "document",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provenance": {
+            "$ref": "#/$defs/ModelingProvenance",
+            "description": "provenance"
+          },
+          "rows": {
+            "description": "rows",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetRowsItemOutput"
+            },
+            "type": "array"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "provenance",
+          "bindings",
+          "complete_over",
+          "rows",
+          "document"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDatasetRowsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/ModelingCellOutput"
+            },
+            "type": "array"
+          },
+          "values": {
+            "description": "values",
+            "items": {
+              "$ref": "#/$defs/ModelingCellOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys",
+          "values"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDifferenceScheme": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "offsets": {
+            "description": "offsets",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "order": {
+            "description": "order",
+            "format": "int64",
+            "type": "integer"
+          },
+          "quadrature": {
+            "description": "quadrature",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "weights": {
+            "description": "weights",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "order",
+          "offsets",
+          "weights",
+          "quadrature"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDiscretization": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "elements": {
+            "description": "elements",
+            "type": "string"
+          },
+          "order": {
+            "description": "order",
+            "type": "string"
+          },
+          "scheme": {
+            "description": "scheme",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "scheme",
+          "elements",
+          "order"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEntityAttributesItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "provenance"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEntityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "attributes": {
+            "description": "attributes",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntityAttributesItemOutput"
+            },
+            "type": "array"
+          },
+          "kind_name": {
+            "description": "kind_name",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "provenance"
+          }
+        },
+        "required": [
+          "kind_name",
+          "provenance",
+          "attributes"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEnumeration": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "members": {
+            "description": "members",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnumerationMembersItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "members"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEnumerationMembersItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "facets": {
+            "description": "facets",
+            "items": {
+              "$ref": "#/$defs/ModelingDataFacet"
+            },
+            "type": "array"
+          },
+          "member_id": {
+            "description": "member_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "member_id",
+          "name",
+          "facets"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEnvelopeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEquationCondition": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "active": {
+            "description": "active",
+            "type": "boolean"
+          },
+          "variable": {
+            "description": "variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variable",
+          "active"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEquationIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEquationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "condition": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationCondition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "condition"
+          },
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationIndicesItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "expression",
+          "condition"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueExchange": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "from": {
+            "description": "from",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExchangeIndicesItem"
+            },
+            "type": "array"
+          },
+          "to": {
+            "description": "to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueExchangeIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueExpectationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "actual": {
+            "description": "actual",
+            "type": "string"
+          },
+          "expected": {
+            "description": "expected",
+            "type": "string"
+          },
+          "relative_tolerance": {
+            "description": "relative_tolerance",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actual",
+          "expected",
+          "tolerance",
+          "relative_tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueFunctionArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueFunctionExternal": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "data": {
+            "description": "data",
+            "type": "string"
+          },
+          "derivative_source": {
+            "$ref": "#/$defs/ExternalDerivativeSource",
+            "description": "derivative_source"
+          },
+          "derivatives": {
+            "description": "derivatives",
+            "format": "int64",
+            "type": "integer"
+          },
+          "implementation": {
+            "description": "implementation",
+            "type": "string"
+          },
+          "output": {
+            "description": "output",
+            "type": "string"
+          },
+          "revision": {
+            "description": "revision",
+            "type": "string"
+          },
+          "smoothness": {
+            "description": "smoothness",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "implementation",
+          "revision",
+          "data",
+          "output",
+          "derivative_source",
+          "derivatives",
+          "smoothness"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueFunctionOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "applicability": {
+            "description": "applicability",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "body": {
+            "description": "body",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "continuity": {
+            "description": "continuity",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "external": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionExternal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "external"
+          },
+          "guards": {
+            "description": "guards",
+            "items": {
+              "$ref": "#/$defs/ModelingEnvelopeGuard"
+            },
+            "type": "array"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "type_parameters": {
+            "description": "type_parameters",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "validity": {
+            "description": "validity",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type_parameters",
+          "arguments",
+          "return_type",
+          "body",
+          "validity",
+          "guards",
+          "applicability",
+          "continuity",
+          "external"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueGuard": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "predicate": {
+            "description": "predicate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicate"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueImportOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "alias": {
+            "description": "alias",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "$ref": "#/$defs/VersionRequirement",
+            "description": "version"
+          }
+        },
+        "required": [
+          "version",
+          "alias"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueInventoryBalanceOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "axis": {
+            "description": "axis",
+            "type": "string"
+          },
+          "flux": {
+            "description": "flux",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem"
+            },
+            "type": "array"
+          },
+          "inventory": {
+            "description": "inventory",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          },
+          "transfers": {
+            "description": "transfers",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "type",
+          "axis",
+          "inventory",
+          "flux",
+          "tolerance",
+          "transfers"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "event": {
+            "description": "event",
+            "type": "string"
+          },
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueLogic": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueLogicIndicesItem"
+            },
+            "type": "array"
+          },
+          "proposition": {
+            "description": "proposition",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "proposition"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueLogicIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueOrderedSet": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem"
+            },
+            "type": "array"
+          },
+          "member": {
+            "description": "member",
+            "type": "string"
+          },
+          "weight": {
+            "description": "weight",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "member",
+          "weight"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "accumulator": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAccumulatorOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "accumulator"
+          },
+          "annotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "annotation"
+          },
+          "applicability": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicabilityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "applicability"
+          },
+          "attribute": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAttributeOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "attribute"
+          },
+          "binding": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBindingOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "binding"
+          },
+          "boundary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBoundary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "boundary"
+          },
+          "cardinality": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCardinality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "cardinality"
+          },
+          "collocation_scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCollocationScheme"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "collocation_scheme"
+          },
+          "complementarity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueComplementarity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "complementarity"
+          },
+          "connection": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConnection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "connection"
+          },
+          "constant": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConstantOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "constant"
+          },
+          "continuation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "continuation"
+          },
+          "continuous": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuousOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "continuous"
+          },
+          "contribution": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContribution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "contribution"
+          },
+          "coordinate_map": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMapOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "coordinate_map"
+          },
+          "coordinate_slot": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateSlot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "coordinate_slot"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "dataset"
+          },
+          "difference_scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDifferenceScheme"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "difference_scheme"
+          },
+          "discretization": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDiscretization"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "discretization"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "entity"
+          },
+          "enumeration": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnumeration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "enumeration"
+          },
+          "envelope": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnvelopeOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "envelope"
+          },
+          "equation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "equation"
+          },
+          "exchange": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExchange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "exchange"
+          },
+          "expectation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExpectationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "expectation"
+          },
+          "function": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "function"
+          },
+          "guard": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueGuard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "guard"
+          },
+          "import": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueImportOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "import"
+          },
+          "inventory_balance": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "inventory_balance"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingDeclarationKind",
+            "description": "kind"
+          },
+          "logic": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueLogic"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "logic"
+          },
+          "ordered_set": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOrderedSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ordered_set"
+          },
+          "permission": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePermission"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "permission"
+          },
+          "piecewise": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePiecewise"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "piecewise"
+          },
+          "realization": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRealizationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "realization"
+          },
+          "reconstruction": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstructionOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reconstruction"
+          },
+          "reference_translation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reference_translation"
+          },
+          "relaxation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRelaxation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "relaxation"
+          },
+          "requirement": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRequirement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "requirement"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponseOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "response"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "scope"
+          },
+          "state_port": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStatePort"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "state_port"
+          },
+          "state_specification": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "state_specification"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "table"
+          },
+          "temporal": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTemporal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "temporal"
+          }
+        },
+        "required": [
+          "kind",
+          "temporal",
+          "relaxation",
+          "continuation",
+          "scope",
+          "binding",
+          "function",
+          "coordinate_map",
+          "coordinate_slot",
+          "reconstruction",
+          "response",
+          "reference_translation",
+          "boundary",
+          "exchange",
+          "equation",
+          "ordered_set",
+          "cardinality",
+          "piecewise",
+          "logic",
+          "complementarity",
+          "table",
+          "applicability",
+          "permission",
+          "envelope",
+          "attribute",
+          "dataset",
+          "entity",
+          "enumeration",
+          "constant",
+          "import",
+          "guard",
+          "accumulator",
+          "contribution",
+          "state_specification",
+          "state_port",
+          "inventory_balance",
+          "connection",
+          "annotation",
+          "requirement",
+          "expectation",
+          "continuous",
+          "difference_scheme",
+          "collocation_scheme",
+          "discretization",
+          "realization"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValuePermission": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "allow_extrapolation": {
+            "description": "allow_extrapolation",
+            "type": "boolean"
+          },
+          "allow_unknown": {
+            "description": "allow_unknown",
+            "type": "boolean"
+          },
+          "target_kind": {
+            "$ref": "#/$defs/ModelingPermissionTarget",
+            "description": "target_kind"
+          },
+          "targets": {
+            "description": "targets",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "target_kind",
+          "targets",
+          "allow_unknown",
+          "allow_extrapolation"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValuePiecewise": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "abscissa": {
+            "description": "abscissa",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem"
+            },
+            "type": "array"
+          },
+          "input": {
+            "description": "input",
+            "type": "string"
+          },
+          "ordinate": {
+            "description": "ordinate",
+            "type": "string"
+          },
+          "output": {
+            "description": "output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "output",
+          "input",
+          "abscissa",
+          "ordinate"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueRealizationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "accelerator": {
+            "description": "accelerator",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "argument": {
+            "description": "argument",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "function": {
+            "description": "function",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "policy": {
+            "$ref": "#/$defs/ModelingRealizationPolicy",
+            "description": "policy"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "policy",
+          "accelerator",
+          "argument",
+          "function"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReconstructionOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "map": {
+            "description": "map",
+            "type": "string"
+          },
+          "normalization": {
+            "description": "normalization",
+            "type": "string"
+          },
+          "reference": {
+            "description": "reference",
+            "type": "string"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "map",
+          "arguments",
+          "return_type",
+          "reference",
+          "normalization"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReferenceTranslationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "pressure": {
+            "description": "pressure",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/$defs/ModelingProvenance",
+            "description": "provenance"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "source_anchor": {
+            "description": "source_anchor",
+            "type": "string"
+          },
+          "target_anchor": {
+            "description": "target_anchor",
+            "type": "string"
+          },
+          "temperature": {
+            "description": "temperature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "arguments",
+          "return_type",
+          "source_anchor",
+          "target_anchor",
+          "temperature",
+          "pressure",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueRelaxation": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "nominal": {
+            "description": "nominal",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "nominal"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueRequirement": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "message": {
+            "description": "message",
+            "type": "string"
+          },
+          "predicate": {
+            "description": "predicate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicate",
+          "message"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueResponseArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueResponseOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponseArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "body": {
+            "description": "body",
+            "type": "string"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "witness": {
+            "description": "witness",
+            "type": "string"
+          }
+        },
+        "required": [
+          "witness",
+          "arguments",
+          "return_type",
+          "body"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "members": {
+            "description": "members",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rule": {
+            "$ref": "#/$defs/DiagnosticRule",
+            "description": "rule"
+          }
+        },
+        "required": [
+          "rule",
+          "members"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureEndpointOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "event": {
+            "description": "event",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/$defs/EndpointPolicy",
+            "description": "kind"
+          }
+        },
+        "required": [
+          "kind",
+          "event"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "claim": {
+            "description": "claim",
+            "type": "string"
+          },
+          "form": {
+            "description": "form",
+            "type": "string"
+          },
+          "layer": {
+            "$ref": "#/$defs/ModelingValidityLayer",
+            "description": "layer"
+          },
+          "outcome": {
+            "$ref": "#/$defs/ModelingApplicabilityOutcome",
+            "description": "outcome"
+          },
+          "sets": {
+            "description": "sets",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "description": "variables",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layer",
+          "outcome",
+          "claim",
+          "form",
+          "sets",
+          "variables"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "applicability": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "applicability"
+          },
+          "class": {
+            "$ref": "#/$defs/NativeBoundaryClass",
+            "description": "class"
+          },
+          "members": {
+            "description": "members",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "validity"
+          }
+        },
+        "required": [
+          "class",
+          "validity",
+          "applicability",
+          "members"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "form": {
+            "description": "form",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "layer": {
+            "$ref": "#/$defs/ModelingValidityLayer",
+            "description": "layer"
+          },
+          "sets": {
+            "description": "sets",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "description": "variables",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layer",
+          "form",
+          "sets",
+          "variables"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "growth": {
+            "description": "growth",
+            "format": "double",
+            "type": "number"
+          },
+          "homotopy": {
+            "description": "homotopy",
+            "type": "boolean"
+          },
+          "initial_step": {
+            "description": "initial_step",
+            "format": "double",
+            "type": "number"
+          },
+          "maximum_attempts": {
+            "description": "maximum_attempts",
+            "format": "int64",
+            "type": "integer"
+          },
+          "minimum_step": {
+            "description": "minimum_step",
+            "format": "double",
+            "type": "number"
+          },
+          "time_limit_seconds": {
+            "description": "time_limit_seconds",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "homotopy",
+          "initial_step",
+          "minimum_step",
+          "growth",
+          "maximum_attempts",
+          "time_limit_seconds"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "initial_step": {
+            "description": "initial_step",
+            "type": "string"
+          },
+          "normalized_absolute_tolerance": {
+            "description": "normalized_absolute_tolerance",
+            "format": "double",
+            "type": "number"
+          },
+          "quadrature_relative_tolerance": {
+            "description": "quadrature_relative_tolerance",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "quadratures": {
+            "description": "quadratures",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem"
+            },
+            "type": "array"
+          },
+          "relative_tolerance": {
+            "description": "relative_tolerance",
+            "format": "double",
+            "type": "number"
+          },
+          "samples": {
+            "description": "samples",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "schedules": {
+            "description": "schedules",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItemOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "samples",
+          "relative_tolerance",
+          "normalized_absolute_tolerance",
+          "initial_step",
+          "quadrature_relative_tolerance",
+          "quadratures",
+          "schedules"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "absolute_tolerance": {
+            "description": "absolute_tolerance",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "absolute_tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "free": {
+            "description": "free",
+            "type": "boolean"
+          },
+          "lower": {
+            "description": "lower",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          },
+          "times": {
+            "description": "times",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "values": {
+            "description": "values",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "target",
+          "times",
+          "values",
+          "free",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "direction": {
+            "$ref": "#/$defs/EventDirection",
+            "description": "direction"
+          },
+          "guard": {
+            "description": "guard",
+            "type": "string"
+          },
+          "next": {
+            "description": "next",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "reset",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem"
+            },
+            "type": "array"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "guard",
+          "direction",
+          "tolerance",
+          "reset",
+          "next"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "namespace": {
+            "$ref": "#/$defs/ModelingFactNamespace",
+            "description": "namespace"
+          },
+          "value": {
+            "description": "value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "namespace",
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "events": {
+            "description": "events",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemOutput"
+            },
+            "type": "array"
+          },
+          "facts": {
+            "description": "facts",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "facts",
+          "events"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "degrees_of_freedom": {
+            "description": "degrees_of_freedom",
+            "format": "int64",
+            "type": "integer"
+          },
+          "diagnostics": {
+            "description": "diagnostics",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem"
+            },
+            "type": "array"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureEndpointOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "endpoint"
+          },
+          "expected_failure": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "expected_failure"
+          },
+          "initialization": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "initialization"
+          },
+          "integration": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "integration"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NativeSolveIntent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "intent"
+          },
+          "modes": {
+            "description": "modes",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemOutput"
+            },
+            "type": "array"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "policy"
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingProcedure"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "procedure"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingAnalysisRoute"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "route"
+          },
+          "shooting": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureShooting"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "shooting"
+          },
+          "specifications": {
+            "description": "specifications",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItemOutput"
+            },
+            "type": "array"
+          },
+          "stages": {
+            "description": "stages",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "degrees_of_freedom",
+          "route",
+          "procedure",
+          "endpoint",
+          "intent",
+          "policy",
+          "stages",
+          "initialization",
+          "integration",
+          "modes",
+          "shooting",
+          "expected_failure",
+          "diagnostics",
+          "specifications"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "backend": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NativeBackend"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "backend"
+          },
+          "body_occurrences": {
+            "description": "body_occurrences",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "body_slots": {
+            "description": "body_slots",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "derivative_cells": {
+            "description": "derivative_cells",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "derivative_step": {
+            "description": "derivative_step",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "derivative_tolerance": {
+            "description": "derivative_tolerance",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "foreign_bytes": {
+            "description": "foreign_bytes",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "items": {
+            "description": "items",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "native_options": {
+            "description": "native_options",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItemOutput"
+            },
+            "type": "array"
+          },
+          "presolve": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PresolvePolicyKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "presolve"
+          }
+        },
+        "required": [
+          "backend",
+          "presolve",
+          "native_options",
+          "derivative_step",
+          "derivative_tolerance",
+          "derivative_cells",
+          "items",
+          "body_occurrences",
+          "body_slots",
+          "foreign_bytes"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureShooting": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "method": {
+            "$ref": "#/$defs/ShootingMethod",
+            "description": "method"
+          },
+          "nodes": {
+            "description": "nodes",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingFixtureBinding",
+            "description": "kind"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "kind",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeOperationalOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "anchors": {
+            "description": "anchors",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem"
+            },
+            "type": "array"
+          },
+          "neighborhood": {
+            "description": "neighborhood",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "settings": {
+            "description": "settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "anchors",
+          "settings",
+          "neighborhood"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "bases": {
+            "description": "bases",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "branch": {
+            "description": "branch",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eligibility": {
+            "description": "eligibility",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "facets": {
+            "description": "facets",
+            "items": {
+              "$ref": "#/$defs/ModelingKindFacet"
+            },
+            "type": "array"
+          },
+          "fixture": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "fixture"
+          },
+          "operational": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOperationalOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "operational"
+          },
+          "oracle": {
+            "description": "oracle",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "parameters": {
+            "description": "parameters",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeParametersItemOutput"
+            },
+            "type": "array"
+          },
+          "selection": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeSelection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "selection"
+          },
+          "type_parameters": {
+            "description": "type_parameters",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "parameters",
+          "bases",
+          "type_parameters",
+          "selection",
+          "branch",
+          "operational",
+          "eligibility",
+          "oracle",
+          "facets",
+          "fixture"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeParametersItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeSelection": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "criterion": {
+            "description": "criterion",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStatePort": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStatePortIndicesItem"
+            },
+            "type": "array"
+          },
+          "specification": {
+            "description": "specification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "specification"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStatePortIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "indices",
+          "target"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "coordinates": {
+            "description": "coordinates",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem"
+            },
+            "type": "array"
+          },
+          "extends": {
+            "description": "extends",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem"
+            },
+            "type": "array"
+          },
+          "reconstructions": {
+            "description": "reconstructions",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem"
+            },
+            "type": "array"
+          },
+          "supplied": {
+            "description": "supplied",
+            "type": "string"
+          },
+          "transports": {
+            "description": "transports",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "extends",
+          "supplied",
+          "coordinates",
+          "reconstructions",
+          "transports"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "equation": {
+            "description": "equation",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "indices",
+          "equation",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "indices",
+          "expression",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableColumnsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "derived": {
+            "description": "derived",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "derived"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableKeysItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingIntegerRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "range"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "range"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "columns": {
+            "description": "columns",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableColumnsItemOutput"
+            },
+            "type": "array"
+          },
+          "complete_over": {
+            "description": "complete_over",
+            "items": {
+              "$ref": "#/$defs/ModelingCompletenessOutput"
+            },
+            "type": "array"
+          },
+          "default_value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "default_value"
+          },
+          "envelopes": {
+            "description": "envelopes",
+            "items": {
+              "$ref": "#/$defs/ModelingEnvelopeOutput"
+            },
+            "type": "array"
+          },
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableKeysItemOutput"
+            },
+            "type": "array"
+          },
+          "missing_policy": {
+            "$ref": "#/$defs/ModelingMissingPolicy",
+            "description": "missing_policy"
+          },
+          "requirements": {
+            "description": "requirements",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "storage": {
+            "description": "storage",
+            "items": {
+              "$ref": "#/$defs/ModelingColumnStorageOutput"
+            },
+            "type": "array"
+          },
+          "symmetry": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableSymmetry"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "symmetry"
+          },
+          "unique": {
+            "description": "unique",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableUniqueItem"
+            },
+            "type": "array"
+          },
+          "value_type": {
+            "description": "value_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "keys",
+          "columns",
+          "value_type",
+          "missing_policy",
+          "default_value",
+          "complete_over",
+          "symmetry",
+          "unique",
+          "requirements",
+          "envelopes",
+          "storage"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableSymmetry": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "diagonal": {
+            "$ref": "#/$defs/ModelingDiagonalPolicy",
+            "description": "diagonal"
+          },
+          "first": {
+            "description": "first",
+            "type": "string"
+          },
+          "ordered": {
+            "description": "ordered",
+            "type": "boolean"
+          },
+          "second": {
+            "description": "second",
+            "type": "string"
+          }
+        },
+        "required": [
+          "first",
+          "second",
+          "ordered",
+          "diagonal"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableUniqueItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "names": {
+            "description": "names",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "names"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTemporal": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "argument": {
+            "description": "argument",
+            "type": "string"
+          },
+          "axis": {
+            "description": "axis",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "axis",
+          "argument"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsRowOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "declaration_id": {
+            "description": "declaration_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "DeclarationId"
+          },
+          "document_id": {
+            "description": "document_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "is_override": {
+            "description": "is_override",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "ordinal": {
+            "description": "ordinal",
+            "format": "int64",
+            "type": "integer"
+          },
+          "parent_id": {
+            "description": "parent_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "DeclarationId"
+          },
+          "source_end": {
+            "description": "source_end",
+            "format": "int64",
+            "type": "integer"
+          },
+          "source_start": {
+            "description": "source_start",
+            "format": "int64",
+            "type": "integer"
+          },
+          "value": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "declaration_id",
+          "document_id",
+          "parent_id",
+          "ordinal",
+          "name",
+          "is_override",
+          "source_start",
+          "source_end",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredPackagesFieldDependenciesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "package_id": {
+            "description": "package_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "PackageId"
+          },
+          "version_req": {
+            "$ref": "#/$defs/VersionRequirement",
+            "description": "version_req"
+          }
+        },
+        "required": [
+          "package_id",
+          "version_req"
+        ],
+        "type": "object"
+      },
+      "AuthoredPackagesRow": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "content_hash": {
+            "description": "The digest of the package's documents.",
+            "pattern": "^blake3:[0-9a-fA-F]{64}$",
+            "type": "string",
+            "x-pse-identity": "ContentHash"
+          },
+          "dependencies": {
+            "description": "The declared dependencies, each a package identity and a typed version requirement (ADR-0123 Outcome 7). Phase 0 admits exact version requirements only. Version two types the requirement.",
+            "items": {
+              "$ref": "#/$defs/AuthoredPackagesFieldDependenciesItem"
+            },
+            "type": "array"
+          },
+          "doc": {
+            "description": "What the package is for.",
+            "type": "string"
+          },
+          "id_policy": {
+            "$ref": "#/$defs/IdPolicy",
+            "description": "`explicit` or `named` (blueprint §5.1). Recorded on the package, never in the ID."
+          },
+          "kind": {
+            "$ref": "#/$defs/PackageKind",
+            "description": "What kind of package it is."
+          },
+          "name": {
+            "description": "The package name.",
+            "type": "string"
+          },
+          "package_id": {
+            "description": "The package identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "PackageId"
+          },
+          "version": {
+            "description": "The package version (semver).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "package_id",
+          "name",
+          "version",
+          "kind",
+          "id_policy",
+          "dependencies",
+          "content_hash",
+          "doc"
+        ],
+        "type": "object"
+      },
+      "Bytes": {
+        "description": "Exact bytes, compared, framed and stored byte for byte. A package data document's\ncontent is one; text is never implied.",
+        "items": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "ConstraintScalingScheme": {
+        "enum": [
+          "harmonicMean",
+          "inverseSum",
+          "inverseRSS",
+          "inverseMaximum",
+          "inverseMinimum"
+        ],
+        "type": "string"
+      },
+      "DiagnosticRule": {
+        "enum": [
+          "authoring.budget",
+          "authoring.contract",
+          "authoring.derived_write",
+          "authoring.document_io",
+          "authoring.missing_id",
+          "authoring.package_unresolved",
+          "authoring.package_version_conflict",
+          "authoring.rename_named",
+          "authoring.schema_version",
+          "authoring.syntax",
+          "authoring.unknown_key",
+          "authoring.unknown_row_key",
+          "authoring.unresolved_target",
+          "candidate.evaluation_failed",
+          "compiler.cancelled",
+          "compiler.limit",
+          "compiler.math",
+          "compiler.missing",
+          "compiler.modeling",
+          "compiler.structure",
+          "compiler.syntax",
+          "domain.potential_evaluation_error",
+          "equation.canceling_terms",
+          "equation.large_residual",
+          "equation.mismatched_term",
+          "equation.term_evaluation_failed",
+          "fit.candidate_validation",
+          "fit.final_evaluation",
+          "fit.objective_overflow",
+          "fit.response_rank",
+          "jacobian.analysis_inconclusive",
+          "jacobian.condition_estimate",
+          "jacobian.extreme_column",
+          "jacobian.extreme_entry",
+          "jacobian.extreme_row",
+          "jacobian.numerical_rank_deficiency",
+          "jacobian.parallel_columns",
+          "jacobian.parallel_rows",
+          "math.applicability",
+          "math.cancelled",
+          "math.coefficient_range",
+          "math.contract",
+          "math.domain",
+          "math.evaluation",
+          "math.library",
+          "math.limit",
+          "math.native",
+          "math.provider",
+          "math.quantity",
+          "math.range",
+          "math.validity",
+          "modeling.budget",
+          "modeling.cancelled",
+          "modeling.capability",
+          "modeling.conditional_unit.admission.invalid_model",
+          "modeling.conditional_unit.admission.numerical",
+          "modeling.conditional_unit.admission.trial_rejected",
+          "modeling.contract",
+          "modeling.diagnostic_samples",
+          "modeling.diagnostics",
+          "modeling.domain",
+          "modeling.domain.tightened",
+          "modeling.dynamic.algebraic_reset.unsupported",
+          "modeling.dynamic.inventory_transfer.event.unsupported",
+          "modeling.initialization.attempt_limit",
+          "modeling.initialization.incomplete",
+          "modeling.initialization.minimum_step",
+          "modeling.initialization.outcome",
+          "modeling.initialization.step_precision",
+          "modeling.nonlinear.attempt_limit",
+          "modeling.nonlinear.cancelled",
+          "modeling.nonlinear.initial_inconclusive",
+          "modeling.nonlinear.time_limit",
+          "modeling.objective",
+          "modeling.provenance",
+          "modeling.qualification.infeasibility_contradicted",
+          "modeling.qualification.rejected",
+          "modeling.realization",
+          "modeling.staged.start",
+          "modeling.study.initialization",
+          "modeling.study.predecessor",
+          "modeling.study.procedure",
+          "modeling.trajectory.incomplete",
+          "modeling.trajectory.rejected",
+          "native.cancelled",
+          "native.contract",
+          "native.internal",
+          "native.limit",
+          "native.numerical",
+          "native.reuse",
+          "native.route_refused",
+          "native.structural",
+          "native.unavailable",
+          "native.unsupported",
+          "objective.priority_optimization_incomplete",
+          "shooting.candidate_validation",
+          "shooting.evaluation",
+          "structural.overdetermined",
+          "structural.underdetermined",
+          "variable.fixed_zero",
+          "variable.large_value",
+          "variable.missing_value",
+          "variable.near_lower_bound",
+          "variable.near_upper_bound",
+          "variable.nonfinite",
+          "variable.only_in_inequalities",
+          "variable.outside_lower_bound",
+          "variable.outside_upper_bound",
+          "variable.small_value",
+          "variable.unused",
+          "workflow.contract",
+          "workflow.ephemeral_publication",
+          "workflow.export_expired",
+          "workflow.job_payload_version",
+          "workflow.legacy_workspace",
+          "workflow.operations",
+          "workflow.publication_unresolved",
+          "workflow.unclassified",
+          "quantity.unknown_id",
+          "quantity.contract_mismatch",
+          "quantity.unit_conversion",
+          "quantity.incompatible",
+          "quantity.nonfinite",
+          "workflow.input",
+          "workflow.internal",
+          "workflow.panic",
+          "diagnostic.aggregate",
+          "study.binding.target",
+          "study.binding.duplicate",
+          "study.binding.physical",
+          "study.binding.revision",
+          "study.dependency.unusable",
+          "study.seed.unavailable",
+          "study.seed.incompatible",
+          "study.seed.internal",
+          "study.operation.unsupported",
+          "modeling.conditional_unit.admission.unsupported",
+          "modeling.conditional_unit.admission.cancelled",
+          "modeling.conditional_unit.admission.resource_limit",
+          "modeling.conditional_unit.admission.nonfinite",
+          "modeling.conditional_unit.admission.infrastructure",
+          "modeling.conditional_unit.admission.conflict",
+          "modeling.conditional_unit.admission.incompatible",
+          "modeling.conditional_unit.admission.internal",
+          "modeling.conditional_unit.admission.inconclusive",
+          "study.policy.admission"
+        ],
+        "type": "string"
+      },
+      "EndpointPolicy": {
+        "enum": [
+          "fixed_horizon",
+          "declared_terminal_event"
+        ],
+        "type": "string"
+      },
+      "EngineeringScaleKind": {
+        "enum": [
+          "magnitude",
+          "range_width",
+          "reference_difference"
+        ],
+        "type": "string"
+      },
+      "EventDirection": {
+        "enum": [
+          "either",
+          "rising",
+          "falling"
+        ],
+        "type": "string"
+      },
+      "ExternalDerivativeSource": {
+        "enum": [
+          "analytic",
+          "symbolic",
+          "automatic",
+          "supplied",
+          "implicit"
+        ],
+        "type": "string"
+      },
+      "IdPolicy": {
+        "enum": [
+          "explicit",
+          "named"
+        ],
+        "type": "string"
+      },
+      "ModelingAccumulatorMode": {
+        "enum": [
+          "conservation",
+          "accounting",
+          "observation"
+        ],
+        "type": "string"
+      },
+      "ModelingAnalysisRoute": {
+        "enum": [
+          "steady",
+          "integrated",
+          "simultaneous"
+        ],
+        "type": "string"
+      },
+      "ModelingAnnotationKind": {
+        "enum": [
+          "start",
+          "nominal",
+          "bounds",
+          "scale",
+          "report",
+          "valid",
+          "check",
+          "objective",
+          "connectivity",
+          "accuracy_goal",
+          "engineering_scale",
+          "engineering_default",
+          "engineering_rule"
+        ],
+        "type": "string"
+      },
+      "ModelingApplicabilityBasis": {
+        "enum": [
+          "fitted",
+          "recommended",
+          "validated",
+          "reported"
+        ],
+        "type": "string"
+      },
+      "ModelingApplicabilityKind": {
+        "enum": [
+          "region",
+          "interval",
+          "unrestricted",
+          "unknown",
+          "union"
+        ],
+        "type": "string"
+      },
+      "ModelingApplicabilityOutcome": {
+        "enum": [
+          "applicable",
+          "outside_region",
+          "unknown_evidence"
+        ],
+        "type": "string"
+      },
+      "ModelingCellKind": {
+        "enum": [
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference",
+          "references",
+          "row",
+          "missing"
+        ],
+        "type": "string"
+      },
+      "ModelingCellOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "uncertainty": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellUncertainty"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "uncertainty"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellValueOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "value",
+          "uncertainty"
+        ],
+        "type": "object"
+      },
+      "ModelingCellUncertainty": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/ModelingUncertaintyKind",
+            "description": "kind"
+          },
+          "magnitude": {
+            "description": "magnitude",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "magnitude"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueBoolean": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "value": {
+            "description": "value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueIdentifier": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "scheme": {
+            "description": "scheme",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "value": {
+            "description": "value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheme",
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueInteger": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "value": {
+            "description": "value",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "boolean": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueBoolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "boolean"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "identifier"
+          },
+          "integer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueInteger"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "integer"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingCellKind",
+            "description": "kind"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueQuantityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "quantity"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reference"
+          },
+          "references": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueReferencesOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "references"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueRowOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "row"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "text"
+          }
+        },
+        "required": [
+          "kind",
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference",
+          "references",
+          "row"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueQuantityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "magnitude": {
+            "description": "magnitude",
+            "format": "double",
+            "type": "number"
+          },
+          "unit": {
+            "description": "unit",
+            "items": {
+              "$ref": "#/$defs/ModelingUnitFactor"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "magnitude",
+          "unit"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueReference": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueReferencesOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "paths": {
+            "description": "paths",
+            "items": {
+              "$ref": "#/$defs/ModelingCellValueReferencesPathsItemOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "paths"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueReferencesPathsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/ModelingKeyCellOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "keys"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueRowOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/ModelingKeyCellOutput"
+            },
+            "type": "array"
+          },
+          "target": {
+            "description": "target",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "target",
+          "keys"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueText": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "value": {
+            "description": "value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingColumnStorageOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "scheme": {
+            "description": "scheme",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "storage_unit": {
+            "description": "storage_unit",
+            "items": {
+              "$ref": "#/$defs/ModelingUnitFactor"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "storage_unit",
+          "scheme"
+        ],
+        "type": "object"
+      },
+      "ModelingCompletenessOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "key": {
+            "description": "key",
+            "type": "string"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingIntegerRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "range"
+          },
+          "set": {
+            "description": "set",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "set",
+          "range"
+        ],
+        "type": "object"
+      },
+      "ModelingContributionRole": {
+        "enum": [
+          "inflow",
+          "outflow",
+          "generation",
+          "consumption",
+          "accumulation",
+          "positive",
+          "negative",
+          "directed"
+        ],
+        "type": "string"
+      },
+      "ModelingDataFacet": {
+        "enum": [
+          "test_only",
+          "requires_lineage",
+          "measured",
+          "requires_fit"
+        ],
+        "type": "string"
+      },
+      "ModelingDeclarationKind": {
+        "enum": [
+          "temporal",
+          "relaxation",
+          "continuation",
+          "package",
+          "entity_kind",
+          "interface",
+          "definition",
+          "case",
+          "test",
+          "stage",
+          "implicit",
+          "regime",
+          "disjunction",
+          "alternative",
+          "parameter",
+          "variable",
+          "let",
+          "alias",
+          "set",
+          "child",
+          "port",
+          "preset",
+          "scope_value",
+          "function",
+          "coordinate_map",
+          "coordinate_slot",
+          "reconstruction",
+          "response",
+          "reference_translation",
+          "boundary",
+          "exchange",
+          "equation",
+          "sos1",
+          "sos2",
+          "atmost",
+          "atleast",
+          "exactly",
+          "piecewise",
+          "logic",
+          "complementarity",
+          "table",
+          "applicability",
+          "permission",
+          "envelope",
+          "attribute",
+          "dataset",
+          "entity",
+          "enum",
+          "constant",
+          "import",
+          "when",
+          "accumulator",
+          "contribution",
+          "state_specification",
+          "state_port",
+          "inventory_balance",
+          "connection",
+          "annotation",
+          "requirement",
+          "expectation",
+          "continuous",
+          "difference_scheme",
+          "collocation_scheme",
+          "discretization",
+          "realization",
+          "identifier_scheme"
+        ],
+        "type": "string"
+      },
+      "ModelingDiagonalPolicy": {
+        "enum": [
+          "allowed",
+          "excluded"
+        ],
+        "type": "string"
+      },
+      "ModelingEnvelopeExtent": {
+        "enum": [
+          "point",
+          "interval"
+        ],
+        "type": "string"
+      },
+      "ModelingEnvelopeGuard": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "carrier": {
+            "description": "carrier",
+            "type": "string"
+          },
+          "envelope": {
+            "description": "envelope",
+            "type": "string"
+          },
+          "extent": {
+            "$ref": "#/$defs/ModelingEnvelopeExtent",
+            "description": "extent"
+          }
+        },
+        "required": [
+          "carrier",
+          "envelope",
+          "extent",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      "ModelingEnvelopeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "ModelingFactNamespace": {
+        "enum": [
+          "analysis",
+          "objective",
+          "stage"
+        ],
+        "type": "string"
+      },
+      "ModelingFixtureBinding": {
+        "enum": [
+          "value",
+          "fix",
+          "free",
+          "lower",
+          "upper"
+        ],
+        "type": "string"
+      },
+      "ModelingIntegerRange": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "format": "int64",
+            "type": "integer"
+          },
+          "upper": {
+            "description": "upper",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "ModelingKeyCellKind": {
+        "enum": [
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference"
+        ],
+        "type": "string"
+      },
+      "ModelingKeyCellOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "boolean": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueBoolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "boolean"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "identifier"
+          },
+          "integer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueInteger"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "integer"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingKeyCellKind",
+            "description": "kind"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueQuantityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "quantity"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reference"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "text"
+          }
+        },
+        "required": [
+          "kind",
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference"
+        ],
+        "type": "object"
+      },
+      "ModelingKindFacet": {
+        "enum": [
+          "provenance",
+          "release",
+          "abstract"
+        ],
+        "type": "string"
+      },
+      "ModelingLineageEntry": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/ModelingLineageKind",
+            "description": "kind"
+          },
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "path"
+        ],
+        "type": "object"
+      },
+      "ModelingLineageKind": {
+        "enum": [
+          "dataset",
+          "source",
+          "fit"
+        ],
+        "type": "string"
+      },
+      "ModelingMissingPolicy": {
+        "enum": [
+          "required",
+          "optional",
+          "default"
+        ],
+        "type": "string"
+      },
+      "ModelingPermissionTarget": {
+        "enum": [
+          "records",
+          "families"
+        ],
+        "type": "string"
+      },
+      "ModelingProcedure": {
+        "enum": [
+          "check",
+          "solve",
+          "initialize",
+          "integrate",
+          "shooting"
+        ],
+        "type": "string"
+      },
+      "ModelingProvenance": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lineage": {
+            "description": "lineage",
+            "items": {
+              "$ref": "#/$defs/ModelingLineageEntry"
+            },
+            "type": "array"
+          },
+          "role": {
+            "description": "role",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "description": "source",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "role",
+          "lineage"
+        ],
+        "type": "object"
+      },
+      "ModelingRealizationPolicy": {
+        "enum": [
+          "inline",
+          "nested",
+          "accelerated",
+          "big_m",
+          "derived_big_m",
+          "hull",
+          "indicator",
+          "linear",
+          "native",
+          "sos2",
+          "incremental",
+          "smooth",
+          "penalty_l1",
+          "disjunctive"
+        ],
+        "type": "string"
+      },
+      "ModelingTypeArenaNodeExponent": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "den": {
+            "description": "den",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "num": {
+            "description": "num",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num",
+          "den"
+        ],
+        "type": "object"
+      },
+      "ModelingTypeArenaNodeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "children": {
+            "description": "children",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "exponent": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingTypeArenaNodeExponent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "exponent"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingTypeNode",
+            "description": "kind"
+          },
+          "name": {
+            "description": "name",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "path",
+          "name",
+          "exponent",
+          "children"
+        ],
+        "type": "object"
+      },
+      "ModelingTypeNode": {
+        "enum": [
+          "boolean",
+          "integer",
+          "text",
+          "named",
+          "variable",
+          "optional",
+          "set",
+          "row",
+          "table",
+          "tuple",
+          "indexed",
+          "function",
+          "argument",
+          "delta",
+          "product",
+          "quotient",
+          "power",
+          "identifier",
+          "quantity_type",
+          "applicability",
+          "reference_state",
+          "coordinate",
+          "reduced_law",
+          "transfer"
+        ],
+        "type": "string"
+      },
+      "ModelingUncertaintyKind": {
+        "enum": [
+          "standard",
+          "relative",
+          "bound"
+        ],
+        "type": "string"
+      },
+      "ModelingUnitFactor": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "den": {
+            "description": "den",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "num": {
+            "description": "num",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "symbol": {
+            "description": "symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "num",
+          "den"
+        ],
+        "type": "object"
+      },
+      "ModelingValidityLayer": {
+        "enum": [
+          "form",
+          "data",
+          "closure"
+        ],
+        "type": "string"
+      },
+      "ModelingVariableDomain": {
+        "enum": [
+          "continuous",
+          "integer",
+          "binary",
+          "semicontinuous",
+          "semiinteger"
+        ],
+        "type": "string"
+      },
+      "ModelingVersionOperator": {
+        "enum": [
+          "exact"
+        ],
+        "type": "string"
+      },
+      "NativeBackend": {
+        "enum": [
+          "ipopt",
+          "pounce",
+          "kinsol",
+          "highs",
+          "clarabel",
+          "diffsol",
+          "idas",
+          "scip",
+          "pounce_convex",
+          "uno",
+          "petsc"
+        ],
+        "type": "string"
+      },
+      "NativeBoundaryClass": {
+        "enum": [
+          "invalid_model",
+          "unsupported",
+          "resource_limit",
+          "trial_rejected",
+          "nonfinite",
+          "infrastructure",
+          "cancelled",
+          "conflict",
+          "incompatible",
+          "internal",
+          "numerical",
+          "inconclusive"
+        ],
+        "type": "string"
+      },
+      "NativeObjectiveSense": {
+        "enum": [
+          "minimize",
+          "maximize"
+        ],
+        "type": "string"
+      },
+      "NativeSolveIntent": {
+        "enum": [
+          "optimize",
+          "root",
+          "feasible_point",
+          "initialize",
+          "certify"
+        ],
+        "type": "string"
+      },
+      "NumericalAccuracyClass": {
+        "enum": [
+          "certified",
+          "estimated",
+          "unresolved"
+        ],
+        "type": "string"
+      },
+      "ObservationTimeBasis": {
+        "enum": [
+          "elapsed",
+          "model_clock"
+        ],
+        "type": "string"
+      },
+      "PackageKind": {
+        "enum": [
+          "reference",
+          "library",
+          "model",
+          "case"
+        ],
+        "type": "string"
+      },
+      "PresolvePolicyKind": {
+        "enum": [
+          "off",
+          "auto",
+          "explicit"
+        ],
+        "type": "string"
+      },
+      "ProjectChangeImpact": {
+        "enum": [
+          "source",
+          "value",
+          "structural",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "ProjectComparisonBody": {
+        "additionalProperties": false,
+        "description": "Compact exact-source authored change summary; no numerical equivalence is asserted.",
+        "properties": {
+          "changes": {
+            "description": "Only changed logical objects, ordered by stable logical identity.",
+            "items": {
+              "$ref": "#/$defs/ProjectObjectChange"
+            },
+            "type": "array"
+          },
+          "from": {
+            "$ref": "#/$defs/ProjectComparisonSelectionOutput",
+            "description": "Original exact admitted source selection."
+          },
+          "semantic_context_matches": {
+            "description": "Whether this operation requested and established matching physical context.",
+            "type": "boolean"
+          },
+          "to": {
+            "$ref": "#/$defs/ProjectComparisonSelectionOutput",
+            "description": "Compared exact admitted source selection."
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "semantic_context_matches",
+          "changes"
+        ],
+        "type": "object"
+      },
+      "ProjectComparisonSelectionOutput": {
+        "additionalProperties": false,
+        "description": "Exact source identity used by a comparison; local tokens never stand in for durable keys.\nCompact changes between exact admitted authored inventories.",
+        "properties": {
+          "issuing_store": {
+            "description": "Original canonical issuing authority, absent for a local source.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "local_revision": {
+            "description": "Exact process-local parent token of the admitted package.",
+            "type": "string"
+          },
+          "physical": {
+            "description": "Exact physical closure identity used for semantic interpretation.",
+            "type": "string"
+          },
+          "revision": {
+            "description": "Exact durable source revision, when recorded.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "description": "Scientific source identity carried by the admitted package.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuing_store",
+          "revision",
+          "local_revision",
+          "source",
+          "physical"
+        ],
+        "type": "object"
+      },
+      "ProjectDocumentSourceOutput": {
+        "additionalProperties": false,
+        "description": "Source metadata plus exact data identity. Passive comparison does not copy binary payloads.",
+        "properties": {
+          "content_digest": {
+            "description": "Exact admitted data object version, absent for a text-only document.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document": {
+            "$ref": "#/$defs/AuthoredDocumentsRowOutput",
+            "description": "Original document metadata and optional text, without binary content."
+          }
+        },
+        "required": [
+          "document",
+          "content_digest"
+        ],
+        "type": "object"
+      },
+      "ProjectObjectChange": {
+        "additionalProperties": false,
+        "description": "One changed logical object. Values are available only by selected detail request.",
+        "properties": {
+          "added": {
+            "description": "The object is absent from the original selection.",
+            "type": "boolean"
+          },
+          "fields": {
+            "description": "Changed top-level typed fields; detailed values require explicit selection.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "impacts": {
+            "description": "Conservative source and scientific impacts supported by authored evidence.",
+            "items": {
+              "$ref": "#/$defs/ProjectChangeImpact"
+            },
+            "type": "array"
+          },
+          "logical": {
+            "description": "Stable authored logical identity.",
+            "type": "string"
+          },
+          "removed": {
+            "description": "The object is absent from the proposed selection.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "logical",
+          "added",
+          "removed",
+          "impacts",
+          "fields"
+        ],
+        "type": "object"
+      },
+      "ProjectSourceDetailBody": {
+        "additionalProperties": false,
+        "description": "One selected authored object without implicit full source export.",
+        "properties": {
+          "logical": {
+            "description": "Requested stable logical identity.",
+            "type": "string"
+          },
+          "object": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ProjectSourceObjectOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Selected admitted object, or explicit absence at this revision."
+          }
+        },
+        "required": [
+          "logical",
+          "object"
+        ],
+        "type": "object"
+      },
+      "ProjectSourceObjectOutput": {
+        "description": "One explicitly selected admitted authored object, retaining its native typed shape.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Admitted modeling declaration with its stable identity.",
+            "properties": {
+              "kind": {
+                "const": "declaration",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsRowOutput"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Admitted document metadata and exact data identity.",
+            "properties": {
+              "kind": {
+                "const": "document",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/ProjectDocumentSourceOutput"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Admitted fitting declaration.",
+            "properties": {
+              "kind": {
+                "const": "fit",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/AuthoredFitCasesRowOutput"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Package ownership metadata; automatic package-manifest merging is unsupported.",
+            "properties": {
+              "kind": {
+                "const": "package",
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/$defs/AuthoredPackagesRow"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ShootingMethod": {
+        "enum": [
+          "single",
+          "multiple"
+        ],
+        "type": "string"
+      },
+      "VersionRequirement": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "major": {
+            "description": "major",
+            "format": "int64",
+            "type": "integer"
+          },
+          "minor": {
+            "description": "minor",
+            "format": "int64",
+            "type": "integer"
+          },
+          "operator": {
+            "$ref": "#/$defs/ModelingVersionOperator",
+            "description": "operator"
+          },
+          "patch": {
+            "description": "patch",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operator",
+          "major",
+          "minor",
+          "patch"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "Selected native comparison, including unchanged exact request/source basis.",
+                "properties": {
+                  "after": {
+                    "description": "Exact proposed requested detail.",
+                    "items": {
+                      "$ref": "#/$defs/ProjectSourceDetailBody"
+                    },
+                    "type": "array"
+                  },
+                  "before": {
+                    "description": "Exact original requested detail; missing objects remain explicit absences.",
+                    "items": {
+                      "$ref": "#/$defs/ProjectSourceDetailBody"
+                    },
+                    "type": "array"
+                  },
+                  "comparison": {
+                    "$ref": "#/$defs/ProjectComparisonBody",
+                    "description": "Original source identities and selected changed objects."
+                  },
+                  "document_version": {
+                    "const": 1,
+                    "default": 1,
+                    "type": "integer"
+                  },
+                  "next_offset": {
+                    "description": "Next changed-object page offset.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "offset": {
+                    "description": "Changed-object page offset.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "total": {
+                    "description": "Total changes before page selection.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "comparison",
+                  "total",
+                  "offset",
+                  "next_offset",
+                  "before",
+                  "after",
+                  "document_version"
+                ],
+                "title": "ModelingComparisonObservation",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Model Compare"
+}
+```
+
+- Native `documents`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `other_documents`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `other_physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `output_document`: [docs/generated/schema/modeling-comparison-observation.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/modeling-comparison-observation.output.schema.json).
+
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `request`: [docs/generated/schema/modeling-comparison-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/modeling-comparison-request.input.schema.json).
+
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
+
+### `native_model_declarations` — Read native declaration page
+
+Exposure: **tool**. Owner: `pse.ModelingPackage.declaration_page`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Admit finite supplied scientific source and read an exact selected declaration page; local revision handles expire with the child.",
+  "domain": "projects",
+  "effects": "Native source admission and selected declaration observation; no solve.",
+  "exposure": "tool",
+  "family": "projects-revisions",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_model_declarations",
+  "invocation_lifetime": "single",
+  "owner": "pse.ModelingPackage.declaration_page",
+  "prerequisites": [
+    "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Read native declaration page",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "attached",
+      "operation": "model_declarations",
+      "worker": "native"
+    }
+  ],
+  "workflows": [
+    "manage-project"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_model_declarations@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_model_declarations",
+        "domain:projects",
+        "family:projects-revisions",
+        "workflow:manage-project"
+      ]
+    },
+    "pse.invocation_lifetime": "single",
+    "pse.native": {
+      "authoring_guidance": {
+        "path": "docs/generated/schema/authoring.schema.json",
+        "scope": "Applicable authored source sections only; native original-byte loaders own admission."
+      },
+      "contracts": {
+        "documents": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "output_document": {
+          "direction": "output",
+          "exported_name": "ModelingDeclarationPage",
+          "name": "ModelingDeclarationPage",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ModelingDeclarationPage",
+          "schema_path": "docs/generated/schema/modeling-declaration-page.output.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "6363d661b0f133c9b819ac598757a974a6c1da479ce5caa39f4418d0137445a3",
+          "slug": "modeling-declaration-page",
+          "version": 1,
+          "wire": "FlatV1"
+        },
+        "physical": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "ModelingDeclarationRequest",
+          "name": "ModelingDeclarationRequest",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ModelingDeclarationRequest",
+          "schema_path": "docs/generated/schema/modeling-declaration-request.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "f3e1f33c9906197803aa11ade693df2aab190f7edebddcb0338a941c4b78f511",
+          "slug": "modeling-declaration-request",
+          "version": 1,
+          "wire": "FlatV1"
+        }
+      },
+      "receiver": "pse.ModelingPackage.declaration_page",
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+  },
+  "description": "Admit finite supplied scientific source and read an exact selected declaration page; local revision handles expire with the child.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "Resources": {
+        "additionalProperties": false,
+        "properties": {
+          "max_spill_bytes": {
+            "default": 1073741824,
+            "minimum": 1,
+            "title": "Max Spill Bytes",
+            "type": "integer"
+          },
+          "memory_limit_bytes": {
+            "default": 17179869184,
+            "minimum": 1,
+            "title": "Memory Limit Bytes",
+            "type": "integer"
+          },
+          "threads": {
+            "default": 16,
+            "maximum": 16,
+            "minimum": 1,
+            "title": "Threads",
+            "type": "integer"
+          }
+        },
+        "title": "Resources",
+        "type": "object"
+      },
+      "modeling-declaration-request": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:modeling-declaration-request:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Finite original declaration inventory selection.",
+        "properties": {
+          "document_version": {
+            "const": 1,
+            "default": 1,
+            "type": "integer"
+          },
+          "limit": {
+            "description": "One to128 declarations.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Original source inventory offset.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "offset",
+          "limit",
+          "document_version"
+        ],
+        "title": "ModelingDeclarationRequest",
+        "type": "object"
+      },
+      "project-draft-documents": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
+        "properties": {
+          "packages": {
+            "description": "Complete packages in original package order, with original relative paths/bytes.",
+            "items": {
+              "additionalProperties": {
+                "items": {
+                  "format": "uint8",
+                  "maximum": 255,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "description": "This explicit original-byte container's version.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "packages"
+        ],
+        "title": "ProjectDraftDocuments",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "documents": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "physical": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "request": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:modeling-declaration-request:input"
+      },
+      "resources": {
+        "$ref": "#/$defs/Resources"
+      }
+    },
+    "required": [
+      "physical",
+      "documents",
+      "request"
+    ],
+    "title": "Preparation",
+    "type": "object"
+  },
+  "name": "native_model_declarations",
+  "outputSchema": {
+    "$defs": {
+      "AccuracyGoalSubject": {
+        "enum": [
+          "selected_output",
+          "optimal_objective"
+        ],
+        "type": "string"
+      },
+      "AccuracyGoalUse": {
+        "enum": [
+          "assess",
+          "require_satisfied"
+        ],
+        "type": "string"
+      },
+      "AccuracyObservation": {
+        "enum": [
+          "steady",
+          "sample",
+          "endpoint",
+          "integrated"
+        ],
+        "type": "string"
+      },
+      "AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAccumulatorOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "boundary": {
+            "description": "boundary",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "$ref": "#/$defs/ModelingAccumulatorMode",
+            "description": "mode"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "type",
+          "boundary",
+          "mode",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoalOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "criterion_lower": {
+            "description": "criterion_lower",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "criterion_upper": {
+            "description": "criterion_upper",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "observation": {
+            "$ref": "#/$defs/AccuracyObservation",
+            "description": "observation"
+          },
+          "refine": {
+            "description": "refine",
+            "type": "boolean"
+          },
+          "required_class": {
+            "$ref": "#/$defs/NumericalAccuracyClass",
+            "description": "required_class"
+          },
+          "resolution": {
+            "description": "resolution",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "$ref": "#/$defs/AccuracyGoalSubject",
+            "description": "subject"
+          },
+          "time": {
+            "description": "time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "use_policy": {
+            "$ref": "#/$defs/AccuracyGoalUse",
+            "description": "use_policy"
+          }
+        },
+        "required": [
+          "subject",
+          "observation",
+          "time",
+          "resolution",
+          "criterion_lower",
+          "criterion_upper",
+          "required_class",
+          "use_policy",
+          "refine"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationConnectivityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "incoming": {
+            "description": "incoming",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "outgoing": {
+            "description": "outgoing",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "incoming",
+          "outgoing"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "rule": {
+            "description": "rule",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/EngineeringScaleKind",
+            "description": "kind"
+          },
+          "value": {
+            "description": "value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationObjectiveOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "absolute_tolerance": {
+            "description": "absolute_tolerance",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "normalization": {
+            "description": "normalization",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "description": "priority",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "relative_tolerance": {
+            "description": "relative_tolerance",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sense": {
+            "$ref": "#/$defs/NativeObjectiveSense",
+            "description": "sense"
+          },
+          "weight": {
+            "description": "weight",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sense",
+          "priority",
+          "weight",
+          "normalization",
+          "absolute_tolerance",
+          "relative_tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAnnotationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "accuracy_goal": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationAccuracyGoalOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "accuracy_goal"
+          },
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "connectivity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationConnectivityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "connectivity"
+          },
+          "engineering_default": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringDefault"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "engineering_default"
+          },
+          "engineering_scale": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationEngineeringScale"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "engineering_scale"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingAnnotationKind",
+            "description": "kind"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationObjectiveOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "objective"
+          },
+          "scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ConstraintScalingScheme"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "scheme"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "target",
+          "arguments",
+          "scheme",
+          "connectivity",
+          "objective",
+          "accuracy_goal",
+          "engineering_scale",
+          "engineering_default"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueApplicabilityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "alternatives": {
+            "description": "alternatives",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicabilityArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "axis": {
+            "description": "axis",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingApplicabilityBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "basis"
+          },
+          "claim_kind": {
+            "$ref": "#/$defs/ModelingApplicabilityKind",
+            "description": "claim_kind"
+          },
+          "dependencies": {
+            "description": "dependencies",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "evidence": {
+            "description": "evidence",
+            "type": "string"
+          },
+          "lower": {
+            "description": "lower",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "description": "owner",
+            "type": "string"
+          },
+          "predicate": {
+            "description": "predicate",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "description": "reason",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "$ref": "#/$defs/ModelingValidityLayer",
+            "description": "scope"
+          },
+          "upper": {
+            "description": "upper",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "arguments",
+          "owner",
+          "scope",
+          "evidence",
+          "claim_kind",
+          "basis",
+          "predicate",
+          "reason",
+          "axis",
+          "lower",
+          "upper",
+          "alternatives",
+          "dependencies"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueAttributeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "derived": {
+            "description": "derived",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key": {
+            "description": "key",
+            "type": "boolean"
+          },
+          "storage": {
+            "description": "storage",
+            "items": {
+              "$ref": "#/$defs/ModelingColumnStorageOutput"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "unique": {
+            "description": "unique",
+            "type": "boolean"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "value"
+          }
+        },
+        "required": [
+          "type",
+          "key",
+          "value",
+          "unique",
+          "derived",
+          "storage"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBindingIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBindingOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "defined_by": {
+            "description": "defined_by",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingVariableDomain"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "domain"
+          },
+          "expression": {
+            "description": "expression",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBindingIndicesItem"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "indices",
+          "expression",
+          "defined_by",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBoundary": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCardinality": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "count": {
+            "description": "count",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem"
+            },
+            "type": "array"
+          },
+          "member": {
+            "description": "member",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "count",
+          "member"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCollocationScheme": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "alpha": {
+            "description": "alpha",
+            "format": "double",
+            "type": "number"
+          },
+          "beta": {
+            "description": "beta",
+            "format": "double",
+            "type": "number"
+          },
+          "right_endpoint": {
+            "description": "right_endpoint",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "alpha",
+          "beta",
+          "right_endpoint"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueComplementarity": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "first": {
+            "description": "first",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem"
+            },
+            "type": "array"
+          },
+          "second": {
+            "description": "second",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "first",
+          "second"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueConnection": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "from": {
+            "description": "from",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConnectionIndicesItem"
+            },
+            "type": "array"
+          },
+          "to": {
+            "description": "to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueConnectionIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueConstantOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "provenance": {
+            "$ref": "#/$defs/ModelingProvenance",
+            "description": "provenance"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContinuation": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "end": {
+            "description": "end",
+            "type": "string"
+          },
+          "start": {
+            "description": "start",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "start",
+          "end"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContinuousOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContribution": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContributionIndicesItem"
+            },
+            "type": "array"
+          },
+          "role": {
+            "$ref": "#/$defs/ModelingContributionRole",
+            "description": "role"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "target",
+          "expression",
+          "role"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueContributionIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateMapOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "validity": {
+            "description": "validity",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "arguments",
+          "validity"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateSlot": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDatasetBindingsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDatasetOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "bindings": {
+            "description": "bindings",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetBindingsItemOutput"
+            },
+            "type": "array"
+          },
+          "complete_over": {
+            "description": "complete_over",
+            "items": {
+              "$ref": "#/$defs/ModelingCompletenessOutput"
+            },
+            "type": "array"
+          },
+          "document": {
+            "description": "document",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provenance": {
+            "$ref": "#/$defs/ModelingProvenance",
+            "description": "provenance"
+          },
+          "rows": {
+            "description": "rows",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetRowsItemOutput"
+            },
+            "type": "array"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "provenance",
+          "bindings",
+          "complete_over",
+          "rows",
+          "document"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDatasetRowsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/ModelingCellOutput"
+            },
+            "type": "array"
+          },
+          "values": {
+            "description": "values",
+            "items": {
+              "$ref": "#/$defs/ModelingCellOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys",
+          "values"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDifferenceScheme": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "offsets": {
+            "description": "offsets",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "order": {
+            "description": "order",
+            "format": "int64",
+            "type": "integer"
+          },
+          "quadrature": {
+            "description": "quadrature",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "weights": {
+            "description": "weights",
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "order",
+          "offsets",
+          "weights",
+          "quadrature"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueDiscretization": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "elements": {
+            "description": "elements",
+            "type": "string"
+          },
+          "order": {
+            "description": "order",
+            "type": "string"
+          },
+          "scheme": {
+            "description": "scheme",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "scheme",
+          "elements",
+          "order"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEntityAttributesItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "provenance"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEntityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "attributes": {
+            "description": "attributes",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntityAttributesItemOutput"
+            },
+            "type": "array"
+          },
+          "kind_name": {
+            "description": "kind_name",
+            "type": "string"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingProvenance"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "provenance"
+          }
+        },
+        "required": [
+          "kind_name",
+          "provenance",
+          "attributes"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEnumeration": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "members": {
+            "description": "members",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnumerationMembersItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "members"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEnumerationMembersItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "facets": {
+            "description": "facets",
+            "items": {
+              "$ref": "#/$defs/ModelingDataFacet"
+            },
+            "type": "array"
+          },
+          "member_id": {
+            "description": "member_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "member_id",
+          "name",
+          "facets"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEnvelopeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEquationCondition": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "active": {
+            "description": "active",
+            "type": "boolean"
+          },
+          "variable": {
+            "description": "variable",
+            "type": "string"
+          }
+        },
+        "required": [
+          "variable",
+          "active"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEquationIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueEquationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "condition": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationCondition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "condition"
+          },
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationIndicesItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "expression",
+          "condition"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueExchange": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "from": {
+            "description": "from",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExchangeIndicesItem"
+            },
+            "type": "array"
+          },
+          "to": {
+            "description": "to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueExchangeIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueExpectationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "actual": {
+            "description": "actual",
+            "type": "string"
+          },
+          "expected": {
+            "description": "expected",
+            "type": "string"
+          },
+          "relative_tolerance": {
+            "description": "relative_tolerance",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actual",
+          "expected",
+          "tolerance",
+          "relative_tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueFunctionArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueFunctionExternal": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "data": {
+            "description": "data",
+            "type": "string"
+          },
+          "derivative_source": {
+            "$ref": "#/$defs/ExternalDerivativeSource",
+            "description": "derivative_source"
+          },
+          "derivatives": {
+            "description": "derivatives",
+            "format": "int64",
+            "type": "integer"
+          },
+          "implementation": {
+            "description": "implementation",
+            "type": "string"
+          },
+          "output": {
+            "description": "output",
+            "type": "string"
+          },
+          "revision": {
+            "description": "revision",
+            "type": "string"
+          },
+          "smoothness": {
+            "description": "smoothness",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "implementation",
+          "revision",
+          "data",
+          "output",
+          "derivative_source",
+          "derivatives",
+          "smoothness"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueFunctionOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "applicability": {
+            "description": "applicability",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "body": {
+            "description": "body",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "continuity": {
+            "description": "continuity",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "external": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionExternal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "external"
+          },
+          "guards": {
+            "description": "guards",
+            "items": {
+              "$ref": "#/$defs/ModelingEnvelopeGuard"
+            },
+            "type": "array"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "type_parameters": {
+            "description": "type_parameters",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "validity": {
+            "description": "validity",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type_parameters",
+          "arguments",
+          "return_type",
+          "body",
+          "validity",
+          "guards",
+          "applicability",
+          "continuity",
+          "external"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueGuard": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "predicate": {
+            "description": "predicate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicate"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueImportOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "alias": {
+            "description": "alias",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "$ref": "#/$defs/VersionRequirement",
+            "description": "version"
+          }
+        },
+        "required": [
+          "version",
+          "alias"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueInventoryBalanceOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "axis": {
+            "description": "axis",
+            "type": "string"
+          },
+          "flux": {
+            "description": "flux",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem"
+            },
+            "type": "array"
+          },
+          "inventory": {
+            "description": "inventory",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          },
+          "transfers": {
+            "description": "transfers",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem"
+            },
+            "type": "array"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "type",
+          "axis",
+          "inventory",
+          "flux",
+          "tolerance",
+          "transfers"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "event": {
+            "description": "event",
+            "type": "string"
+          },
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueLogic": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueLogicIndicesItem"
+            },
+            "type": "array"
+          },
+          "proposition": {
+            "description": "proposition",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "proposition"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueLogicIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueOrderedSet": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem"
+            },
+            "type": "array"
+          },
+          "member": {
+            "description": "member",
+            "type": "string"
+          },
+          "weight": {
+            "description": "weight",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "member",
+          "weight"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "accumulator": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAccumulatorOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "accumulator"
+          },
+          "annotation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAnnotationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "annotation"
+          },
+          "applicability": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueApplicabilityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "applicability"
+          },
+          "attribute": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAttributeOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "attribute"
+          },
+          "binding": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBindingOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "binding"
+          },
+          "boundary": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBoundary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "boundary"
+          },
+          "cardinality": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCardinality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "cardinality"
+          },
+          "collocation_scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCollocationScheme"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "collocation_scheme"
+          },
+          "complementarity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueComplementarity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "complementarity"
+          },
+          "connection": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConnection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "connection"
+          },
+          "constant": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConstantOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "constant"
+          },
+          "continuation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "continuation"
+          },
+          "continuous": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContinuousOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "continuous"
+          },
+          "contribution": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContribution"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "contribution"
+          },
+          "coordinate_map": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateMapOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "coordinate_map"
+          },
+          "coordinate_slot": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateSlot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "coordinate_slot"
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDatasetOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "dataset"
+          },
+          "difference_scheme": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDifferenceScheme"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "difference_scheme"
+          },
+          "discretization": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueDiscretization"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "discretization"
+          },
+          "entity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEntityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "entity"
+          },
+          "enumeration": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnumeration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "enumeration"
+          },
+          "envelope": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEnvelopeOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "envelope"
+          },
+          "equation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "equation"
+          },
+          "exchange": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExchange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "exchange"
+          },
+          "expectation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExpectationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "expectation"
+          },
+          "function": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueFunctionOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "function"
+          },
+          "guard": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueGuard"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "guard"
+          },
+          "import": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueImportOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "import"
+          },
+          "inventory_balance": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "inventory_balance"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingDeclarationKind",
+            "description": "kind"
+          },
+          "logic": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueLogic"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "logic"
+          },
+          "ordered_set": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOrderedSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ordered_set"
+          },
+          "permission": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePermission"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "permission"
+          },
+          "piecewise": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePiecewise"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "piecewise"
+          },
+          "realization": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRealizationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "realization"
+          },
+          "reconstruction": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstructionOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reconstruction"
+          },
+          "reference_translation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reference_translation"
+          },
+          "relaxation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRelaxation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "relaxation"
+          },
+          "requirement": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueRequirement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "requirement"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponseOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "response"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "scope"
+          },
+          "state_port": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStatePort"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "state_port"
+          },
+          "state_specification": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "state_specification"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "table"
+          },
+          "temporal": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTemporal"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "temporal"
+          }
+        },
+        "required": [
+          "kind",
+          "temporal",
+          "relaxation",
+          "continuation",
+          "scope",
+          "binding",
+          "function",
+          "coordinate_map",
+          "coordinate_slot",
+          "reconstruction",
+          "response",
+          "reference_translation",
+          "boundary",
+          "exchange",
+          "equation",
+          "ordered_set",
+          "cardinality",
+          "piecewise",
+          "logic",
+          "complementarity",
+          "table",
+          "applicability",
+          "permission",
+          "envelope",
+          "attribute",
+          "dataset",
+          "entity",
+          "enumeration",
+          "constant",
+          "import",
+          "guard",
+          "accumulator",
+          "contribution",
+          "state_specification",
+          "state_port",
+          "inventory_balance",
+          "connection",
+          "annotation",
+          "requirement",
+          "expectation",
+          "continuous",
+          "difference_scheme",
+          "collocation_scheme",
+          "discretization",
+          "realization"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValuePermission": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "allow_extrapolation": {
+            "description": "allow_extrapolation",
+            "type": "boolean"
+          },
+          "allow_unknown": {
+            "description": "allow_unknown",
+            "type": "boolean"
+          },
+          "target_kind": {
+            "$ref": "#/$defs/ModelingPermissionTarget",
+            "description": "target_kind"
+          },
+          "targets": {
+            "description": "targets",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "target_kind",
+          "targets",
+          "allow_unknown",
+          "allow_extrapolation"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValuePiecewise": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "abscissa": {
+            "description": "abscissa",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem"
+            },
+            "type": "array"
+          },
+          "input": {
+            "description": "input",
+            "type": "string"
+          },
+          "ordinate": {
+            "description": "ordinate",
+            "type": "string"
+          },
+          "output": {
+            "description": "output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "output",
+          "input",
+          "abscissa",
+          "ordinate"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueRealizationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "accelerator": {
+            "description": "accelerator",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "argument": {
+            "description": "argument",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "function": {
+            "description": "function",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "policy": {
+            "$ref": "#/$defs/ModelingRealizationPolicy",
+            "description": "policy"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "policy",
+          "accelerator",
+          "argument",
+          "function"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReconstructionOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "map": {
+            "description": "map",
+            "type": "string"
+          },
+          "normalization": {
+            "description": "normalization",
+            "type": "string"
+          },
+          "reference": {
+            "description": "reference",
+            "type": "string"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "map",
+          "arguments",
+          "return_type",
+          "reference",
+          "normalization"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueReferenceTranslationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "pressure": {
+            "description": "pressure",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/$defs/ModelingProvenance",
+            "description": "provenance"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "source_anchor": {
+            "description": "source_anchor",
+            "type": "string"
+          },
+          "target_anchor": {
+            "description": "target_anchor",
+            "type": "string"
+          },
+          "temperature": {
+            "description": "temperature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "arguments",
+          "return_type",
+          "source_anchor",
+          "target_anchor",
+          "temperature",
+          "pressure",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueRelaxation": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "nominal": {
+            "description": "nominal",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "nominal"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueRequirement": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "message": {
+            "description": "message",
+            "type": "string"
+          },
+          "predicate": {
+            "description": "predicate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "predicate",
+          "message"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueResponseArgumentsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueResponseOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueResponseArgumentsItemOutput"
+            },
+            "type": "array"
+          },
+          "body": {
+            "description": "body",
+            "type": "string"
+          },
+          "return_type": {
+            "description": "return_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "witness": {
+            "description": "witness",
+            "type": "string"
+          }
+        },
+        "required": [
+          "witness",
+          "arguments",
+          "return_type",
+          "body"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "members": {
+            "description": "members",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rule": {
+            "$ref": "#/$defs/DiagnosticRule",
+            "description": "rule"
+          }
+        },
+        "required": [
+          "rule",
+          "members"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureEndpointOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "event": {
+            "description": "event",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/$defs/EndpointPolicy",
+            "description": "kind"
+          }
+        },
+        "required": [
+          "kind",
+          "event"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "claim": {
+            "description": "claim",
+            "type": "string"
+          },
+          "form": {
+            "description": "form",
+            "type": "string"
+          },
+          "layer": {
+            "$ref": "#/$defs/ModelingValidityLayer",
+            "description": "layer"
+          },
+          "outcome": {
+            "$ref": "#/$defs/ModelingApplicabilityOutcome",
+            "description": "outcome"
+          },
+          "sets": {
+            "description": "sets",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "description": "variables",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layer",
+          "outcome",
+          "claim",
+          "form",
+          "sets",
+          "variables"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "applicability": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureApplicability"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "applicability"
+          },
+          "class": {
+            "$ref": "#/$defs/NativeBoundaryClass",
+            "description": "class"
+          },
+          "members": {
+            "description": "members",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "validity"
+          }
+        },
+        "required": [
+          "class",
+          "validity",
+          "applicability",
+          "members"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureValidityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "form": {
+            "description": "form",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "layer": {
+            "$ref": "#/$defs/ModelingValidityLayer",
+            "description": "layer"
+          },
+          "sets": {
+            "description": "sets",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "variables": {
+            "description": "variables",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layer",
+          "form",
+          "sets",
+          "variables"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "growth": {
+            "description": "growth",
+            "format": "double",
+            "type": "number"
+          },
+          "homotopy": {
+            "description": "homotopy",
+            "type": "boolean"
+          },
+          "initial_step": {
+            "description": "initial_step",
+            "format": "double",
+            "type": "number"
+          },
+          "maximum_attempts": {
+            "description": "maximum_attempts",
+            "format": "int64",
+            "type": "integer"
+          },
+          "minimum_step": {
+            "description": "minimum_step",
+            "format": "double",
+            "type": "number"
+          },
+          "time_limit_seconds": {
+            "description": "time_limit_seconds",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "homotopy",
+          "initial_step",
+          "minimum_step",
+          "growth",
+          "maximum_attempts",
+          "time_limit_seconds"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "initial_step": {
+            "description": "initial_step",
+            "type": "string"
+          },
+          "normalized_absolute_tolerance": {
+            "description": "normalized_absolute_tolerance",
+            "format": "double",
+            "type": "number"
+          },
+          "quadrature_relative_tolerance": {
+            "description": "quadrature_relative_tolerance",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "quadratures": {
+            "description": "quadratures",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem"
+            },
+            "type": "array"
+          },
+          "relative_tolerance": {
+            "description": "relative_tolerance",
+            "format": "double",
+            "type": "number"
+          },
+          "samples": {
+            "description": "samples",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "schedules": {
+            "description": "schedules",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItemOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "samples",
+          "relative_tolerance",
+          "normalized_absolute_tolerance",
+          "initial_step",
+          "quadrature_relative_tolerance",
+          "quadratures",
+          "schedules"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "absolute_tolerance": {
+            "description": "absolute_tolerance",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "absolute_tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "free": {
+            "description": "free",
+            "type": "boolean"
+          },
+          "lower": {
+            "description": "lower",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          },
+          "times": {
+            "description": "times",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "values": {
+            "description": "values",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "target",
+          "times",
+          "values",
+          "free",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "direction": {
+            "$ref": "#/$defs/EventDirection",
+            "description": "direction"
+          },
+          "guard": {
+            "description": "guard",
+            "type": "string"
+          },
+          "next": {
+            "description": "next",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reset": {
+            "description": "reset",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem"
+            },
+            "type": "array"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "guard",
+          "direction",
+          "tolerance",
+          "reset",
+          "next"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "namespace": {
+            "$ref": "#/$defs/ModelingFactNamespace",
+            "description": "namespace"
+          },
+          "value": {
+            "description": "value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "namespace",
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "events": {
+            "description": "events",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemOutput"
+            },
+            "type": "array"
+          },
+          "facts": {
+            "description": "facts",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "facts",
+          "events"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "degrees_of_freedom": {
+            "description": "degrees_of_freedom",
+            "format": "int64",
+            "type": "integer"
+          },
+          "diagnostics": {
+            "description": "diagnostics",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureDiagnosticsItem"
+            },
+            "type": "array"
+          },
+          "endpoint": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureEndpointOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "endpoint"
+          },
+          "expected_failure": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailureOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "expected_failure"
+          },
+          "initialization": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "initialization"
+          },
+          "integration": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "integration"
+          },
+          "intent": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NativeSolveIntent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "intent"
+          },
+          "modes": {
+            "description": "modes",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemOutput"
+            },
+            "type": "array"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "policy"
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingProcedure"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "procedure"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingAnalysisRoute"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "route"
+          },
+          "shooting": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureShooting"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "shooting"
+          },
+          "specifications": {
+            "description": "specifications",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItemOutput"
+            },
+            "type": "array"
+          },
+          "stages": {
+            "description": "stages",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "degrees_of_freedom",
+          "route",
+          "procedure",
+          "endpoint",
+          "intent",
+          "policy",
+          "stages",
+          "initialization",
+          "integration",
+          "modes",
+          "shooting",
+          "expected_failure",
+          "diagnostics",
+          "specifications"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixturePolicyOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "backend": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/NativeBackend"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "backend"
+          },
+          "body_occurrences": {
+            "description": "body_occurrences",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "body_slots": {
+            "description": "body_slots",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "derivative_cells": {
+            "description": "derivative_cells",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "derivative_step": {
+            "description": "derivative_step",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "derivative_tolerance": {
+            "description": "derivative_tolerance",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "foreign_bytes": {
+            "description": "foreign_bytes",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "items": {
+            "description": "items",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "native_options": {
+            "description": "native_options",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixturePolicyNativeOptionsItemOutput"
+            },
+            "type": "array"
+          },
+          "presolve": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PresolvePolicyKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "presolve"
+          }
+        },
+        "required": [
+          "backend",
+          "presolve",
+          "native_options",
+          "derivative_step",
+          "derivative_tolerance",
+          "derivative_cells",
+          "items",
+          "body_occurrences",
+          "body_slots",
+          "foreign_bytes"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureShooting": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "method": {
+            "$ref": "#/$defs/ShootingMethod",
+            "description": "method"
+          },
+          "nodes": {
+            "description": "nodes",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingFixtureBinding",
+            "description": "kind"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "kind",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "expression"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeOperationalOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "anchors": {
+            "description": "anchors",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOperationalAnchorsItem"
+            },
+            "type": "array"
+          },
+          "neighborhood": {
+            "description": "neighborhood",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "settings": {
+            "description": "settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "anchors",
+          "settings",
+          "neighborhood"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "bases": {
+            "description": "bases",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "branch": {
+            "description": "branch",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eligibility": {
+            "description": "eligibility",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "facets": {
+            "description": "facets",
+            "items": {
+              "$ref": "#/$defs/ModelingKindFacet"
+            },
+            "type": "array"
+          },
+          "fixture": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeFixtureOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "fixture"
+          },
+          "operational": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeOperationalOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "operational"
+          },
+          "oracle": {
+            "description": "oracle",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "parameters": {
+            "description": "parameters",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeParametersItemOutput"
+            },
+            "type": "array"
+          },
+          "selection": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueScopeSelection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "selection"
+          },
+          "type_parameters": {
+            "description": "type_parameters",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "parameters",
+          "bases",
+          "type_parameters",
+          "selection",
+          "branch",
+          "operational",
+          "eligibility",
+          "oracle",
+          "facets",
+          "fixture"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeParametersItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "default_value": {
+            "description": "default_value",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default_value"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueScopeSelection": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "criterion": {
+            "description": "criterion",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStatePort": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStatePortIndicesItem"
+            },
+            "type": "array"
+          },
+          "specification": {
+            "description": "specification",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indices",
+          "specification"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStatePortIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "indices",
+          "target"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "coordinates": {
+            "description": "coordinates",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem"
+            },
+            "type": "array"
+          },
+          "extends": {
+            "description": "extends",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem"
+            },
+            "type": "array"
+          },
+          "reconstructions": {
+            "description": "reconstructions",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem"
+            },
+            "type": "array"
+          },
+          "supplied": {
+            "description": "supplied",
+            "type": "string"
+          },
+          "transports": {
+            "description": "transports",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "indices",
+          "extends",
+          "supplied",
+          "coordinates",
+          "reconstructions",
+          "transports"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "equation": {
+            "description": "equation",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "indices",
+          "equation",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "expression": {
+            "description": "expression",
+            "type": "string"
+          },
+          "indices": {
+            "description": "indices",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem"
+            },
+            "type": "array"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "tolerance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "indices",
+          "expression",
+          "tolerance"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "domain": {
+            "description": "domain",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "domain"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableColumnsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "derived": {
+            "description": "derived",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "derived"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableKeysItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingIntegerRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "range"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "range"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "columns": {
+            "description": "columns",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableColumnsItemOutput"
+            },
+            "type": "array"
+          },
+          "complete_over": {
+            "description": "complete_over",
+            "items": {
+              "$ref": "#/$defs/ModelingCompletenessOutput"
+            },
+            "type": "array"
+          },
+          "default_value": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "default_value"
+          },
+          "envelopes": {
+            "description": "envelopes",
+            "items": {
+              "$ref": "#/$defs/ModelingEnvelopeOutput"
+            },
+            "type": "array"
+          },
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableKeysItemOutput"
+            },
+            "type": "array"
+          },
+          "missing_policy": {
+            "$ref": "#/$defs/ModelingMissingPolicy",
+            "description": "missing_policy"
+          },
+          "requirements": {
+            "description": "requirements",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "storage": {
+            "description": "storage",
+            "items": {
+              "$ref": "#/$defs/ModelingColumnStorageOutput"
+            },
+            "type": "array"
+          },
+          "symmetry": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableSymmetry"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "symmetry"
+          },
+          "unique": {
+            "description": "unique",
+            "items": {
+              "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueTableUniqueItem"
+            },
+            "type": "array"
+          },
+          "value_type": {
+            "description": "value_type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "keys",
+          "columns",
+          "value_type",
+          "missing_policy",
+          "default_value",
+          "complete_over",
+          "symmetry",
+          "unique",
+          "requirements",
+          "envelopes",
+          "storage"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableSymmetry": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "diagonal": {
+            "$ref": "#/$defs/ModelingDiagonalPolicy",
+            "description": "diagonal"
+          },
+          "first": {
+            "description": "first",
+            "type": "string"
+          },
+          "ordered": {
+            "description": "ordered",
+            "type": "boolean"
+          },
+          "second": {
+            "description": "second",
+            "type": "string"
+          }
+        },
+        "required": [
+          "first",
+          "second",
+          "ordered",
+          "diagonal"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTableUniqueItem": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "names": {
+            "description": "names",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "names"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsFieldValueTemporal": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "argument": {
+            "description": "argument",
+            "type": "string"
+          },
+          "axis": {
+            "description": "axis",
+            "type": "string"
+          },
+          "target": {
+            "description": "target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "axis",
+          "argument"
+        ],
+        "type": "object"
+      },
+      "AuthoredModelingDeclarationsRowOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "declaration_id": {
+            "description": "declaration_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "DeclarationId"
+          },
+          "document_id": {
+            "description": "document_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "is_override": {
+            "description": "is_override",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "ordinal": {
+            "description": "ordinal",
+            "format": "int64",
+            "type": "integer"
+          },
+          "parent_id": {
+            "description": "parent_id",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "DeclarationId"
+          },
+          "source_end": {
+            "description": "source_end",
+            "format": "int64",
+            "type": "integer"
+          },
+          "source_start": {
+            "description": "source_start",
+            "format": "int64",
+            "type": "integer"
+          },
+          "value": {
+            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "declaration_id",
+          "document_id",
+          "parent_id",
+          "ordinal",
+          "name",
+          "is_override",
+          "source_start",
+          "source_end",
+          "value"
+        ],
+        "type": "object"
+      },
+      "Bytes": {
+        "description": "Exact bytes, compared, framed and stored byte for byte. A package data document's\ncontent is one; text is never implied.",
+        "items": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "ConstraintScalingScheme": {
+        "enum": [
+          "harmonicMean",
+          "inverseSum",
+          "inverseRSS",
+          "inverseMaximum",
+          "inverseMinimum"
+        ],
+        "type": "string"
+      },
+      "ContextCutBody": {
+        "additionalProperties": false,
+        "description": "Exact project journal position; never a source revision sequence or wall clock.",
+        "properties": {
+          "issuing_store": {
+            "description": "Issuing canonical database identity.",
+            "type": "string"
+          },
+          "project": {
+            "description": "Stable project identity.",
+            "type": "string"
+          },
+          "sequence": {
+            "description": "Last included journal position.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issuing_store",
+          "project",
+          "sequence"
+        ],
+        "type": "object"
+      },
+      "ContextSelectionBodyOutput": {
+        "additionalProperties": false,
+        "description": "Complete frozen selection. Deserializing this document grants no source authority.",
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/ProjectContextBodyOutput",
+            "description": "Original immutable selected source descriptor."
+          },
+          "cut": {
+            "$ref": "#/$defs/ContextCutBody",
+            "description": "Original recorded cut."
+          },
+          "effective_at_us": {
+            "description": "UTC instant in signed microseconds since the Unix epoch.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cut",
+          "effective_at_us",
+          "context"
+        ],
+        "type": "object"
+      },
+      "DiagnosticRule": {
+        "enum": [
+          "authoring.budget",
+          "authoring.contract",
+          "authoring.derived_write",
+          "authoring.document_io",
+          "authoring.missing_id",
+          "authoring.package_unresolved",
+          "authoring.package_version_conflict",
+          "authoring.rename_named",
+          "authoring.schema_version",
+          "authoring.syntax",
+          "authoring.unknown_key",
+          "authoring.unknown_row_key",
+          "authoring.unresolved_target",
+          "candidate.evaluation_failed",
+          "compiler.cancelled",
+          "compiler.limit",
+          "compiler.math",
+          "compiler.missing",
+          "compiler.modeling",
+          "compiler.structure",
+          "compiler.syntax",
+          "domain.potential_evaluation_error",
+          "equation.canceling_terms",
+          "equation.large_residual",
+          "equation.mismatched_term",
+          "equation.term_evaluation_failed",
+          "fit.candidate_validation",
+          "fit.final_evaluation",
+          "fit.objective_overflow",
+          "fit.response_rank",
+          "jacobian.analysis_inconclusive",
+          "jacobian.condition_estimate",
+          "jacobian.extreme_column",
+          "jacobian.extreme_entry",
+          "jacobian.extreme_row",
+          "jacobian.numerical_rank_deficiency",
+          "jacobian.parallel_columns",
+          "jacobian.parallel_rows",
+          "math.applicability",
+          "math.cancelled",
+          "math.coefficient_range",
+          "math.contract",
+          "math.domain",
+          "math.evaluation",
+          "math.library",
+          "math.limit",
+          "math.native",
+          "math.provider",
+          "math.quantity",
+          "math.range",
+          "math.validity",
+          "modeling.budget",
+          "modeling.cancelled",
+          "modeling.capability",
+          "modeling.conditional_unit.admission.invalid_model",
+          "modeling.conditional_unit.admission.numerical",
+          "modeling.conditional_unit.admission.trial_rejected",
+          "modeling.contract",
+          "modeling.diagnostic_samples",
+          "modeling.diagnostics",
+          "modeling.domain",
+          "modeling.domain.tightened",
+          "modeling.dynamic.algebraic_reset.unsupported",
+          "modeling.dynamic.inventory_transfer.event.unsupported",
+          "modeling.initialization.attempt_limit",
+          "modeling.initialization.incomplete",
+          "modeling.initialization.minimum_step",
+          "modeling.initialization.outcome",
+          "modeling.initialization.step_precision",
+          "modeling.nonlinear.attempt_limit",
+          "modeling.nonlinear.cancelled",
+          "modeling.nonlinear.initial_inconclusive",
+          "modeling.nonlinear.time_limit",
+          "modeling.objective",
+          "modeling.provenance",
+          "modeling.qualification.infeasibility_contradicted",
+          "modeling.qualification.rejected",
+          "modeling.realization",
+          "modeling.staged.start",
+          "modeling.study.initialization",
+          "modeling.study.predecessor",
+          "modeling.study.procedure",
+          "modeling.trajectory.incomplete",
+          "modeling.trajectory.rejected",
+          "native.cancelled",
+          "native.contract",
+          "native.internal",
+          "native.limit",
+          "native.numerical",
+          "native.reuse",
+          "native.route_refused",
+          "native.structural",
+          "native.unavailable",
+          "native.unsupported",
+          "objective.priority_optimization_incomplete",
+          "shooting.candidate_validation",
+          "shooting.evaluation",
+          "structural.overdetermined",
+          "structural.underdetermined",
+          "variable.fixed_zero",
+          "variable.large_value",
+          "variable.missing_value",
+          "variable.near_lower_bound",
+          "variable.near_upper_bound",
+          "variable.nonfinite",
+          "variable.only_in_inequalities",
+          "variable.outside_lower_bound",
+          "variable.outside_upper_bound",
+          "variable.small_value",
+          "variable.unused",
+          "workflow.contract",
+          "workflow.ephemeral_publication",
+          "workflow.export_expired",
+          "workflow.job_payload_version",
+          "workflow.legacy_workspace",
+          "workflow.operations",
+          "workflow.publication_unresolved",
+          "workflow.unclassified",
+          "quantity.unknown_id",
+          "quantity.contract_mismatch",
+          "quantity.unit_conversion",
+          "quantity.incompatible",
+          "quantity.nonfinite",
+          "workflow.input",
+          "workflow.internal",
+          "workflow.panic",
+          "diagnostic.aggregate",
+          "study.binding.target",
+          "study.binding.duplicate",
+          "study.binding.physical",
+          "study.binding.revision",
+          "study.dependency.unusable",
+          "study.seed.unavailable",
+          "study.seed.incompatible",
+          "study.seed.internal",
+          "study.operation.unsupported",
+          "modeling.conditional_unit.admission.unsupported",
+          "modeling.conditional_unit.admission.cancelled",
+          "modeling.conditional_unit.admission.resource_limit",
+          "modeling.conditional_unit.admission.nonfinite",
+          "modeling.conditional_unit.admission.infrastructure",
+          "modeling.conditional_unit.admission.conflict",
+          "modeling.conditional_unit.admission.incompatible",
+          "modeling.conditional_unit.admission.internal",
+          "modeling.conditional_unit.admission.inconclusive",
+          "study.policy.admission"
+        ],
+        "type": "string"
+      },
+      "EndpointPolicy": {
+        "enum": [
+          "fixed_horizon",
+          "declared_terminal_event"
+        ],
+        "type": "string"
+      },
+      "EngineeringScaleKind": {
+        "enum": [
+          "magnitude",
+          "range_width",
+          "reference_difference"
+        ],
+        "type": "string"
+      },
+      "EventDirection": {
+        "enum": [
+          "either",
+          "rising",
+          "falling"
+        ],
+        "type": "string"
+      },
+      "ExternalDerivativeSource": {
+        "enum": [
+          "analytic",
+          "symbolic",
+          "automatic",
+          "supplied",
+          "implicit"
+        ],
+        "type": "string"
+      },
+      "ModelingAccumulatorMode": {
+        "enum": [
+          "conservation",
+          "accounting",
+          "observation"
+        ],
+        "type": "string"
+      },
+      "ModelingAnalysisRoute": {
+        "enum": [
+          "steady",
+          "integrated",
+          "simultaneous"
+        ],
+        "type": "string"
+      },
+      "ModelingAnnotationKind": {
+        "enum": [
+          "start",
+          "nominal",
+          "bounds",
+          "scale",
+          "report",
+          "valid",
+          "check",
+          "objective",
+          "connectivity",
+          "accuracy_goal",
+          "engineering_scale",
+          "engineering_default",
+          "engineering_rule"
+        ],
+        "type": "string"
+      },
+      "ModelingApplicabilityBasis": {
+        "enum": [
+          "fitted",
+          "recommended",
+          "validated",
+          "reported"
+        ],
+        "type": "string"
+      },
+      "ModelingApplicabilityKind": {
+        "enum": [
+          "region",
+          "interval",
+          "unrestricted",
+          "unknown",
+          "union"
+        ],
+        "type": "string"
+      },
+      "ModelingApplicabilityOutcome": {
+        "enum": [
+          "applicable",
+          "outside_region",
+          "unknown_evidence"
+        ],
+        "type": "string"
+      },
+      "ModelingCellKind": {
+        "enum": [
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference",
+          "references",
+          "row",
+          "missing"
+        ],
+        "type": "string"
+      },
+      "ModelingCellOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "uncertainty": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellUncertainty"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "uncertainty"
+          },
+          "value": {
+            "$ref": "#/$defs/ModelingCellValueOutput",
+            "description": "value"
+          }
+        },
+        "required": [
+          "value",
+          "uncertainty"
+        ],
+        "type": "object"
+      },
+      "ModelingCellUncertainty": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/ModelingUncertaintyKind",
+            "description": "kind"
+          },
+          "magnitude": {
+            "description": "magnitude",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "magnitude"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueBoolean": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "value": {
+            "description": "value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueIdentifier": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "scheme": {
+            "description": "scheme",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "value": {
+            "description": "value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheme",
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueInteger": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "value": {
+            "description": "value",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "boolean": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueBoolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "boolean"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "identifier"
+          },
+          "integer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueInteger"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "integer"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingCellKind",
+            "description": "kind"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueQuantityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "quantity"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reference"
+          },
+          "references": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueReferencesOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "references"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueRowOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "row"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "text"
+          }
+        },
+        "required": [
+          "kind",
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference",
+          "references",
+          "row"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueQuantityOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "magnitude": {
+            "description": "magnitude",
+            "format": "double",
+            "type": "number"
+          },
+          "unit": {
+            "description": "unit",
+            "items": {
+              "$ref": "#/$defs/ModelingUnitFactor"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "magnitude",
+          "unit"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueReference": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueReferencesOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "paths": {
+            "description": "paths",
+            "items": {
+              "$ref": "#/$defs/ModelingCellValueReferencesPathsItemOutput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "paths"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueReferencesPathsItemOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/ModelingKeyCellOutput"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "keys"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueRowOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "keys": {
+            "description": "keys",
+            "items": {
+              "$ref": "#/$defs/ModelingKeyCellOutput"
+            },
+            "type": "array"
+          },
+          "target": {
+            "description": "target",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "target",
+          "keys"
+        ],
+        "type": "object"
+      },
+      "ModelingCellValueText": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "value": {
+            "description": "value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "type": "object"
+      },
+      "ModelingColumnStorageOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "scheme": {
+            "description": "scheme",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "storage_unit": {
+            "description": "storage_unit",
+            "items": {
+              "$ref": "#/$defs/ModelingUnitFactor"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "storage_unit",
+          "scheme"
+        ],
+        "type": "object"
+      },
+      "ModelingCompletenessOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "key": {
+            "description": "key",
+            "type": "string"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingIntegerRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "range"
+          },
+          "set": {
+            "description": "set",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "set",
+          "range"
+        ],
+        "type": "object"
+      },
+      "ModelingContributionRole": {
+        "enum": [
+          "inflow",
+          "outflow",
+          "generation",
+          "consumption",
+          "accumulation",
+          "positive",
+          "negative",
+          "directed"
+        ],
+        "type": "string"
+      },
+      "ModelingDataFacet": {
+        "enum": [
+          "test_only",
+          "requires_lineage",
+          "measured",
+          "requires_fit"
+        ],
+        "type": "string"
+      },
+      "ModelingDeclarationKind": {
+        "enum": [
+          "temporal",
+          "relaxation",
+          "continuation",
+          "package",
+          "entity_kind",
+          "interface",
+          "definition",
+          "case",
+          "test",
+          "stage",
+          "implicit",
+          "regime",
+          "disjunction",
+          "alternative",
+          "parameter",
+          "variable",
+          "let",
+          "alias",
+          "set",
+          "child",
+          "port",
+          "preset",
+          "scope_value",
+          "function",
+          "coordinate_map",
+          "coordinate_slot",
+          "reconstruction",
+          "response",
+          "reference_translation",
+          "boundary",
+          "exchange",
+          "equation",
+          "sos1",
+          "sos2",
+          "atmost",
+          "atleast",
+          "exactly",
+          "piecewise",
+          "logic",
+          "complementarity",
+          "table",
+          "applicability",
+          "permission",
+          "envelope",
+          "attribute",
+          "dataset",
+          "entity",
+          "enum",
+          "constant",
+          "import",
+          "when",
+          "accumulator",
+          "contribution",
+          "state_specification",
+          "state_port",
+          "inventory_balance",
+          "connection",
+          "annotation",
+          "requirement",
+          "expectation",
+          "continuous",
+          "difference_scheme",
+          "collocation_scheme",
+          "discretization",
+          "realization",
+          "identifier_scheme"
+        ],
+        "type": "string"
+      },
+      "ModelingDiagonalPolicy": {
+        "enum": [
+          "allowed",
+          "excluded"
+        ],
+        "type": "string"
+      },
+      "ModelingEnvelopeExtent": {
+        "enum": [
+          "point",
+          "interval"
+        ],
+        "type": "string"
+      },
+      "ModelingEnvelopeGuard": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "arguments": {
+            "description": "arguments",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "carrier": {
+            "description": "carrier",
+            "type": "string"
+          },
+          "envelope": {
+            "description": "envelope",
+            "type": "string"
+          },
+          "extent": {
+            "$ref": "#/$defs/ModelingEnvelopeExtent",
+            "description": "extent"
+          }
+        },
+        "required": [
+          "carrier",
+          "envelope",
+          "extent",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      "ModelingEnvelopeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "type": "string"
+          },
+          "name": {
+            "description": "name",
+            "type": "string"
+          },
+          "type": {
+            "description": "type",
+            "items": {
+              "$ref": "#/$defs/ModelingTypeArenaNodeOutput"
+            },
+            "type": "array"
+          },
+          "upper": {
+            "description": "upper",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "ModelingFactNamespace": {
+        "enum": [
+          "analysis",
+          "objective",
+          "stage"
+        ],
+        "type": "string"
+      },
+      "ModelingFixtureBinding": {
+        "enum": [
+          "value",
+          "fix",
+          "free",
+          "lower",
+          "upper"
+        ],
+        "type": "string"
+      },
+      "ModelingIntegerRange": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lower": {
+            "description": "lower",
+            "format": "int64",
+            "type": "integer"
+          },
+          "upper": {
+            "description": "upper",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lower",
+          "upper"
+        ],
+        "type": "object"
+      },
+      "ModelingKeyCellKind": {
+        "enum": [
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference"
+        ],
+        "type": "string"
+      },
+      "ModelingKeyCellOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "boolean": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueBoolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "boolean"
+          },
+          "identifier": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueIdentifier"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "identifier"
+          },
+          "integer": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueInteger"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "integer"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingKeyCellKind",
+            "description": "kind"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueQuantityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "quantity"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "reference"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingCellValueText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "text"
+          }
+        },
+        "required": [
+          "kind",
+          "boolean",
+          "integer",
+          "quantity",
+          "text",
+          "identifier",
+          "reference"
+        ],
+        "type": "object"
+      },
+      "ModelingKindFacet": {
+        "enum": [
+          "provenance",
+          "release",
+          "abstract"
+        ],
+        "type": "string"
+      },
+      "ModelingLineageEntry": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "kind": {
+            "$ref": "#/$defs/ModelingLineageKind",
+            "description": "kind"
+          },
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "path"
+        ],
+        "type": "object"
+      },
+      "ModelingLineageKind": {
+        "enum": [
+          "dataset",
+          "source",
+          "fit"
+        ],
+        "type": "string"
+      },
+      "ModelingMissingPolicy": {
+        "enum": [
+          "required",
+          "optional",
+          "default"
+        ],
+        "type": "string"
+      },
+      "ModelingPermissionTarget": {
+        "enum": [
+          "records",
+          "families"
+        ],
+        "type": "string"
+      },
+      "ModelingProcedure": {
+        "enum": [
+          "check",
+          "solve",
+          "initialize",
+          "integrate",
+          "shooting"
+        ],
+        "type": "string"
+      },
+      "ModelingProvenance": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "lineage": {
+            "description": "lineage",
+            "items": {
+              "$ref": "#/$defs/ModelingLineageEntry"
+            },
+            "type": "array"
+          },
+          "role": {
+            "description": "role",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source": {
+            "description": "source",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "role",
+          "lineage"
+        ],
+        "type": "object"
+      },
+      "ModelingRealizationPolicy": {
+        "enum": [
+          "inline",
+          "nested",
+          "accelerated",
+          "big_m",
+          "derived_big_m",
+          "hull",
+          "indicator",
+          "linear",
+          "native",
+          "sos2",
+          "incremental",
+          "smooth",
+          "penalty_l1",
+          "disjunctive"
+        ],
+        "type": "string"
+      },
+      "ModelingTypeArenaNodeExponent": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "den": {
+            "description": "den",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "num": {
+            "description": "num",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num",
+          "den"
+        ],
+        "type": "object"
+      },
+      "ModelingTypeArenaNodeOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "children": {
+            "description": "children",
+            "items": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "exponent": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ModelingTypeArenaNodeExponent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "exponent"
+          },
+          "kind": {
+            "$ref": "#/$defs/ModelingTypeNode",
+            "description": "kind"
+          },
+          "name": {
+            "description": "name",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "path",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "path",
+          "name",
+          "exponent",
+          "children"
+        ],
+        "type": "object"
+      },
+      "ModelingTypeNode": {
+        "enum": [
+          "boolean",
+          "integer",
+          "text",
+          "named",
+          "variable",
+          "optional",
+          "set",
+          "row",
+          "table",
+          "tuple",
+          "indexed",
+          "function",
+          "argument",
+          "delta",
+          "product",
+          "quotient",
+          "power",
+          "identifier",
+          "quantity_type",
+          "applicability",
+          "reference_state",
+          "coordinate",
+          "reduced_law",
+          "transfer"
+        ],
+        "type": "string"
+      },
+      "ModelingUncertaintyKind": {
+        "enum": [
+          "standard",
+          "relative",
+          "bound"
+        ],
+        "type": "string"
+      },
+      "ModelingUnitFactor": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "den": {
+            "description": "den",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "num": {
+            "description": "num",
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "symbol": {
+            "description": "symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "num",
+          "den"
+        ],
+        "type": "object"
+      },
+      "ModelingValidityLayer": {
+        "enum": [
+          "form",
+          "data",
+          "closure"
+        ],
+        "type": "string"
+      },
+      "ModelingVariableDomain": {
+        "enum": [
+          "continuous",
+          "integer",
+          "binary",
+          "semicontinuous",
+          "semiinteger"
+        ],
+        "type": "string"
+      },
+      "ModelingVersionOperator": {
+        "enum": [
+          "exact"
+        ],
+        "type": "string"
+      },
+      "NativeBackend": {
+        "enum": [
+          "ipopt",
+          "pounce",
+          "kinsol",
+          "highs",
+          "clarabel",
+          "diffsol",
+          "idas",
+          "scip",
+          "pounce_convex",
+          "uno",
+          "petsc"
+        ],
+        "type": "string"
+      },
+      "NativeBoundaryClass": {
+        "enum": [
+          "invalid_model",
+          "unsupported",
+          "resource_limit",
+          "trial_rejected",
+          "nonfinite",
+          "infrastructure",
+          "cancelled",
+          "conflict",
+          "incompatible",
+          "internal",
+          "numerical",
+          "inconclusive"
+        ],
+        "type": "string"
+      },
+      "NativeObjectiveSense": {
+        "enum": [
+          "minimize",
+          "maximize"
+        ],
+        "type": "string"
+      },
+      "NativeSolveIntent": {
+        "enum": [
+          "optimize",
+          "root",
+          "feasible_point",
+          "initialize",
+          "certify"
+        ],
+        "type": "string"
+      },
+      "NumericalAccuracyClass": {
+        "enum": [
+          "certified",
+          "estimated",
+          "unresolved"
+        ],
+        "type": "string"
+      },
+      "OperationSourceBodyOutput": {
+        "additionalProperties": false,
+        "description": "Exact source/context required when reconstructing an operation from stored bundles.",
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ContextSelectionBodyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Original effective-time and recorded-cut selection, if explicitly selected."
+          },
+          "physical_context": {
+            "description": "Complete admitted physical context identity.",
+            "pattern": "^blake3:[0-9a-fA-F]{64}$",
+            "type": "string",
+            "x-pse-identity": "ContentHash"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ResearchSourceOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Frozen research attribution consumed by this exact operation."
+          },
+          "revision": {
+            "description": "Immutable modeling revision, including included scientific data.",
+            "pattern": "^blake3:[0-9a-fA-F]{64}$",
+            "type": "string",
+            "x-pse-identity": "ContentHash"
+          }
+        },
+        "required": [
+          "research",
+          "context",
+          "revision",
+          "physical_context"
+        ],
+        "type": "object"
+      },
+      "PresolvePolicyKind": {
+        "enum": [
+          "off",
+          "auto",
+          "explicit"
+        ],
+        "type": "string"
+      },
+      "ProjectContextBodyOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "corrects": {
+            "description": "corrects",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deleted": {
+            "description": "deleted",
+            "type": "boolean"
+          },
+          "effective_from_us": {
+            "description": "effective_from_us",
+            "format": "int64",
+            "type": "integer"
+          },
+          "effective_to_us": {
+            "description": "effective_to_us",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "key": {
+            "description": "key",
+            "type": "string"
+          },
+          "physical_context": {
+            "description": "physical_context",
+            "type": "string"
+          },
+          "physical_revision": {
+            "description": "physical_revision",
+            "type": "string"
+          },
+          "physical_source_identity": {
+            "description": "physical_source_identity",
+            "type": "string"
+          },
+          "project": {
+            "description": "project",
+            "type": "string"
+          },
+          "recorded_sequence": {
+            "description": "recorded_sequence",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "request": {
+            "$ref": "#/$defs/Bytes",
+            "description": "request"
+          },
+          "revision": {
+            "description": "revision",
+            "type": "string"
+          },
+          "scope": {
+            "description": "scope",
+            "type": "string"
+          },
+          "source_identity": {
+            "description": "source_identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "project",
+          "scope",
+          "revision",
+          "source_identity",
+          "physical_context",
+          "physical_revision",
+          "physical_source_identity",
+          "effective_from_us",
+          "effective_to_us",
+          "recorded_sequence",
+          "corrects",
+          "deleted",
+          "request"
+        ],
+        "type": "object"
+      },
+      "ResearchSourceOutput": {
+        "additionalProperties": false,
+        "description": "Authenticated original research ancestry carried by actual operation inputs.",
+        "properties": {
+          "dataset": {
+            "description": "Immutable dataset version.",
+            "type": "string"
+          },
+          "issuing_store": {
+            "description": "Canonical installation incarnation.",
+            "type": "string"
+          },
+          "physical_context": {
+            "description": "Original physical meaning.",
+            "type": "string"
+          },
+          "publication": {
+            "description": "Explicit parameter publication ancestry, when consuming its new source.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "description": "Exact currently consumed canonical source.",
+            "type": "string"
+          },
+          "selection": {
+            "description": "Frozen original observation selection.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuing_store",
+          "selection",
+          "dataset",
+          "revision",
+          "physical_context",
+          "publication"
+        ],
+        "type": "object"
+      },
+      "ShootingMethod": {
+        "enum": [
+          "single",
+          "multiple"
+        ],
+        "type": "string"
+      },
+      "VersionRequirement": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "major": {
+            "description": "major",
+            "format": "int64",
+            "type": "integer"
+          },
+          "minor": {
+            "description": "minor",
+            "format": "int64",
+            "type": "integer"
+          },
+          "operator": {
+            "$ref": "#/$defs/ModelingVersionOperator",
+            "description": "operator"
+          },
+          "patch": {
+            "description": "patch",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operator",
+          "major",
+          "minor",
+          "patch"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "Exact selected declaration page and source basis.",
+                "properties": {
+                  "declarations": {
+                    "description": "Original declarations in source order, not host-truncated rows.",
+                    "items": {
+                      "$ref": "#/$defs/AuthoredModelingDeclarationsRowOutput"
+                    },
+                    "type": "array"
+                  },
+                  "document_version": {
+                    "const": 1,
+                    "default": 1,
+                    "type": "integer"
+                  },
+                  "next_offset": {
+                    "description": "Next original inventory offset.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "offset": {
+                    "description": "Original page offset.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/OperationSourceBodyOutput",
+                    "description": "Immutable source/physical basis."
+                  },
+                  "total": {
+                    "description": "Complete original inventory population.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "source",
+                  "total",
+                  "offset",
+                  "next_offset",
+                  "declarations",
+                  "document_version"
+                ],
+                "title": "ModelingDeclarationPage",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Model Declarations"
+}
+```
+
+- Native `documents`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `output_document`: [docs/generated/schema/modeling-declaration-page.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/modeling-declaration-page.output.schema.json).
+
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `request`: [docs/generated/schema/modeling-declaration-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/modeling-declaration-request.input.schema.json).
+
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
+
+### `native_model_inspect` — Inspect native declared model
+
+Exposure: **tool**. Owner: `pse.ModelingPackage.inspect`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Inspect selected instantiated lineage under an explicit native preparation policy; contextual admission can prepare providers, but no procedure is dispatched.",
+  "domain": "projects",
+  "effects": "Native source/provider admission and selected observation, not universally passive.",
+  "exposure": "tool",
+  "family": "projects-revisions",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_model_inspect",
+  "invocation_lifetime": "single",
+  "owner": "pse.ModelingPackage.inspect",
+  "prerequisites": [
+    "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Inspect native declared model",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "attached",
+      "operation": "model_inspect",
+      "worker": "native"
+    }
+  ],
+  "workflows": [
+    "manage-project"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_model_inspect@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_model_inspect",
+        "domain:projects",
+        "family:projects-revisions",
+        "workflow:manage-project"
+      ]
+    },
+    "pse.invocation_lifetime": "single",
+    "pse.native": {
+      "authoring_guidance": {
+        "path": "docs/generated/schema/authoring.schema.json",
+        "scope": "Applicable authored source sections only; native original-byte loaders own admission."
+      },
+      "contracts": {
+        "documents": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "output_document": {
+          "direction": "output",
+          "exported_name": "ModelingInspectionOutput",
+          "name": "ModelingInspection",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ModelingInspection",
+          "schema_path": "docs/generated/schema/modeling-inspection.output.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "7eb32c5f50ee5c0dbb40c8432a91f72c26119fb179a89760289bddc645e1e5a5",
+          "slug": "modeling-inspection",
+          "version": 1,
+          "wire": "FlatV1"
+        },
+        "physical": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "ModelingInspectionRequest",
+          "name": "ModelingInspectionRequest",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ModelingInspectionRequest",
+          "schema_path": "docs/generated/schema/modeling-inspection-request.input.schema.json",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "b594f0b7365edc6c861c31a2f05fe6f24fb0127ebda52cf939dbec2c47f9ed0b",
+          "slug": "modeling-inspection-request",
+          "version": 1,
+          "wire": "FlatV1"
+        }
+      },
+      "receiver": "pse.ModelingPackage.inspect",
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": false
+  },
+  "description": "Inspect selected instantiated lineage under an explicit native preparation policy; contextual admission can prepare providers, but no procedure is dispatched.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "Resources": {
+        "additionalProperties": false,
+        "properties": {
+          "max_spill_bytes": {
+            "default": 1073741824,
+            "minimum": 1,
+            "title": "Max Spill Bytes",
+            "type": "integer"
+          },
+          "memory_limit_bytes": {
+            "default": 17179869184,
+            "minimum": 1,
+            "title": "Memory Limit Bytes",
+            "type": "integer"
+          },
+          "threads": {
+            "default": 16,
+            "maximum": 16,
+            "minimum": 1,
+            "title": "Threads",
+            "type": "integer"
+          }
+        },
+        "title": "Resources",
+        "type": "object"
+      },
+      "modeling-inspection-request": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "AccuracyGoalSubject": {
+            "enum": [
+              "selected_output",
+              "optimal_objective"
+            ],
+            "type": "string"
+          },
+          "AccuracyGoalUse": {
+            "enum": [
+              "assess",
+              "require_satisfied"
+            ],
+            "type": "string"
+          },
+          "AccuracyObservation": {
+            "enum": [
+              "steady",
+              "sample",
+              "endpoint",
+              "integrated"
+            ],
+            "type": "string"
+          },
+          "AdviceCohort": {
+            "additionalProperties": false,
+            "description": "Exact comparison premises chosen before observing outcomes.",
+            "properties": {
+              "accuracy": {
+                "description": "Original accuracy and assurance requirements.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "branch_start": {
+                "description": "Original branch permission and actual start policy.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "exposure": {
+                "description": "Declared exposure/allocation design, including placement and interval meaning.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "original": {
+                "description": "Original problem and physical/provider interpretation.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "profiles": {
+                "description": "Equivalent permitted profile family; explicit settings remain constraints.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              }
+            },
+            "required": [
+              "original",
+              "profiles",
+              "branch_start",
+              "accuracy",
+              "exposure"
+            ],
+            "type": "object"
+          },
+          "AdviceMetric": {
+            "description": "Lower is better, within the exact cohort and one metric only.",
+            "oneOf": [
+              {
+                "const": "native_execution_nanoseconds",
+                "description": "Native execution only; excludes queue, preparation, assessment and publication.",
+                "type": "string"
+              },
+              {
+                "const": "original_normalized_residual",
+                "description": "Fresh original physical feasibility divided by declared tolerance.",
+                "type": "string"
+              }
+            ]
+          },
+          "AdviceObservation": {
+            "additionalProperties": false,
+            "description": "One actual observation in a declared matched exposure.",
+            "properties": {
+              "attempt": {
+                "description": "Original execution identity.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "candidate": {
+                "description": "Exact immutable candidate identity.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "cohort": {
+                "$ref": "#/$defs/AdviceCohort",
+                "description": "Exact admitted comparison premises."
+              },
+              "matched": {
+                "description": "Declared matched exposure identity.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "outcome": {
+                "$ref": "#/$defs/AdviceOutcome",
+                "description": "Actual observation disposition."
+              },
+              "value": {
+                "description": "Missing is unknown, never zero. Censored values cannot rank candidates.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "cohort",
+              "matched",
+              "candidate",
+              "attempt",
+              "outcome"
+            ],
+            "type": "object"
+          },
+          "AdviceOutcome": {
+            "description": "Distinct outcomes are retained, including competing interruptions.",
+            "oneOf": [
+              {
+                "const": "complete",
+                "description": "Completed original-qualified observation with a measured metric.",
+                "type": "string"
+              },
+              {
+                "const": "budget_exhausted",
+                "description": "Finite enclosing allowance exhausted.",
+                "type": "string"
+              },
+              {
+                "const": "policy_preempted",
+                "description": "Local governing policy ended the attempt.",
+                "type": "string"
+              },
+              {
+                "const": "cancelled",
+                "description": "External cancellation.",
+                "type": "string"
+              },
+              {
+                "const": "infrastructure_interrupted",
+                "description": "Infrastructure interrupted observation.",
+                "type": "string"
+              },
+              {
+                "const": "numerical_failure",
+                "description": "Terminal numerical failure.",
+                "type": "string"
+              },
+              {
+                "const": "partial",
+                "description": "Observation or original assessment is incomplete.",
+                "type": "string"
+              }
+            ]
+          },
+          "AdviceSupport": {
+            "description": "Descriptive support, not a causal estimator or a speed claim.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Every declared candidate has a complete metric for every matched exposure.",
+                "properties": {
+                  "kind": {
+                    "const": "complete_matched",
+                    "type": "string"
+                  },
+                  "pairs": {
+                    "description": "Number of complete matched exposures.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "pairs"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Incomplete support preserves the original order.",
+                "properties": {
+                  "kind": {
+                    "const": "baseline_tie",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "AssemblyLimits": {
+            "additionalProperties": false,
+            "description": "Per-case bounds, distinct from a local derivative artifact's resource budget.",
+            "properties": {
+              "contributions": {
+                "description": "Maximum original derivative contributions before duplicate accumulation.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "native_index": {
+                "description": "Largest dimension/index/entry count representable by the selected native ABI.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "worker_bytes": {
+                "description": "Complete attempt storage budget: shared evaluator scratch, clones and occurrence caches.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "contributions",
+              "native_index",
+              "worker_bytes"
+            ],
+            "type": "object"
+          },
+          "AuthoredAccuracyGoalsRow": {
+            "additionalProperties": false,
+            "description": "A row or nested value projected from the registry declaration.",
+            "properties": {
+              "case_id": {
+                "description": "The selected case declaring this goal.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "DeclarationId"
+              },
+              "criterion_lower": {
+                "description": "criterion_lower",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "criterion_upper": {
+                "description": "criterion_upper",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "fit_id": {
+                "description": "The fit declaring this goal.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "FitId"
+              },
+              "goal_id": {
+                "description": "goal_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "AccuracyGoalId"
+              },
+              "instance_id": {
+                "description": "The selected instance declaring this goal.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "InstanceId"
+              },
+              "model_id": {
+                "description": "The definition selecting this engineering goal.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "DeclarationId"
+              },
+              "observation": {
+                "$ref": "#/$defs/AccuracyObservation",
+                "description": "observation"
+              },
+              "priority": {
+                "description": "priority",
+                "format": "int32",
+                "type": "integer"
+              },
+              "provenance": {
+                "description": "provenance",
+                "type": "string"
+              },
+              "quantity_id": {
+                "description": "quantity_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "refine": {
+                "description": "refine",
+                "type": "boolean"
+              },
+              "required_class": {
+                "$ref": "#/$defs/NumericalAccuracyClass",
+                "description": "required_class"
+              },
+              "resolution": {
+                "description": "resolution",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "source": {
+                "$ref": "#/$defs/NumericalSource",
+                "description": "source"
+              },
+              "subject": {
+                "$ref": "#/$defs/AccuracyGoalSubject",
+                "description": "subject"
+              },
+              "target_id": {
+                "description": "target_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "target_kind": {
+                "$ref": "#/$defs/NumericalTarget",
+                "description": "target_kind"
+              },
+              "time": {
+                "description": "time",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "unit_id": {
+                "description": "unit_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "use_policy": {
+                "$ref": "#/$defs/AccuracyGoalUse",
+                "description": "use_policy"
+              }
+            },
+            "required": [
+              "goal_id",
+              "target_id",
+              "target_kind",
+              "quantity_id",
+              "unit_id",
+              "subject",
+              "observation",
+              "required_class",
+              "use_policy",
+              "refine",
+              "source",
+              "priority",
+              "provenance"
+            ],
+            "type": "object"
+          },
+          "AuthoredEngineeringDefaultRulesRow": {
+            "additionalProperties": false,
+            "description": "A row or nested value projected from the registry declaration.",
+            "properties": {
+              "physical_allowance": {
+                "description": "physical_allowance",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "provenance": {
+                "description": "provenance",
+                "type": "string"
+              },
+              "quantity_id": {
+                "description": "quantity_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "relative_fraction": {
+                "description": "relative_fraction",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "rule_id": {
+                "description": "rule_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "EngineeringRuleId"
+              },
+              "unit_id": {
+                "description": "unit_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              }
+            },
+            "required": [
+              "rule_id",
+              "quantity_id",
+              "unit_id",
+              "provenance"
+            ],
+            "type": "object"
+          },
+          "AuthoredEngineeringScalesRow": {
+            "additionalProperties": false,
+            "description": "A row or nested value projected from the registry declaration.",
+            "properties": {
+              "case_id": {
+                "description": "The selected case declaring this engineering scale.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "DeclarationId"
+              },
+              "fit_id": {
+                "description": "The fit declaring this engineering scale.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "FitId"
+              },
+              "instance_id": {
+                "description": "The selected instance declaring this engineering scale.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "InstanceId"
+              },
+              "kind": {
+                "$ref": "#/$defs/EngineeringScaleKind",
+                "description": "kind"
+              },
+              "model_id": {
+                "description": "The definition selecting this engineering scale.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "DeclarationId"
+              },
+              "priority": {
+                "description": "priority",
+                "format": "int32",
+                "type": "integer"
+              },
+              "provenance": {
+                "description": "provenance",
+                "type": "string"
+              },
+              "quantity_id": {
+                "description": "quantity_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "scale_id": {
+                "description": "scale_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "EngineeringScaleId"
+              },
+              "source": {
+                "$ref": "#/$defs/NumericalSource",
+                "description": "source"
+              },
+              "target_id": {
+                "description": "target_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "target_kind": {
+                "$ref": "#/$defs/NumericalTarget",
+                "description": "target_kind"
+              },
+              "unit_id": {
+                "description": "unit_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "value": {
+                "description": "value",
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "scale_id",
+              "target_id",
+              "target_kind",
+              "quantity_id",
+              "unit_id",
+              "kind",
+              "value",
+              "source",
+              "priority",
+              "provenance"
+            ],
+            "type": "object"
+          },
+          "AuthoredNumericalRequirementsRow": {
+            "additionalProperties": false,
+            "description": "A row or nested value projected from the registry declaration.",
+            "properties": {
+              "absolute_tolerance": {
+                "description": "absolute_tolerance",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "case_id": {
+                "description": "The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "DeclarationId"
+              },
+              "coordinates": {
+                "$ref": "#/$defs/NumericalCoordinates",
+                "description": "coordinates"
+              },
+              "engineering_rule_id": {
+                "description": "engineering_rule_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "EngineeringRuleId"
+              },
+              "fit_id": {
+                "description": "The fit whose parameter requirement this is; absent otherwise.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "FitId"
+              },
+              "instance_id": {
+                "description": "The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "InstanceId"
+              },
+              "model_id": {
+                "description": "The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "DeclarationId"
+              },
+              "nominal": {
+                "description": "nominal",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "priority": {
+                "description": "priority",
+                "format": "int32",
+                "type": "integer"
+              },
+              "provenance": {
+                "description": "provenance",
+                "type": "string"
+              },
+              "relative_tolerance": {
+                "description": "relative_tolerance",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "required": {
+                "description": "required",
+                "type": "boolean"
+              },
+              "requirement_id": {
+                "description": "requirement_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "scaling_factor": {
+                "description": "scaling_factor",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "shared_engineering_allowance": {
+                "description": "shared_engineering_allowance",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "target_id": {
+                "description": "target_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "target_kind": {
+                "$ref": "#/$defs/NumericalTarget",
+                "description": "target_kind"
+              },
+              "unit_id": {
+                "description": "unit_id",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "SemanticId"
+              }
+            },
+            "required": [
+              "requirement_id",
+              "target_id",
+              "target_kind",
+              "coordinates",
+              "priority",
+              "required",
+              "provenance"
+            ],
+            "type": "object"
+          },
+          "BackendSettingsBody": {
+            "description": "Typed backend settings of a request. Each variant is its adapter's pse-owned settings\ntype (`crate::settings`), present in every build, and identity derives from serde, never\nfrom a hand-written field list (F09). The document form is tagged by the registry\n`backend` spelling; the routed backend's native defaults have no document form, so a\ndocument states them by omitting its settings. A backend this build does not link is\nrefused at admission, never at decoding.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Ipopt linear solver with its parameters, barrier strategy and initial-point push.",
+                "properties": {
+                  "backend": {
+                    "const": "ipopt",
+                    "type": "string"
+                  },
+                  "bound_frac": {
+                    "$ref": "#/$defs/Fraction",
+                    "default": 0.01,
+                    "description": "Minimum relative distance of a cold initial point from its bounds (`bound_frac`);\nadmission refuses more than one half, Ipopt's registered range."
+                  },
+                  "bound_push": {
+                    "$ref": "#/$defs/Tolerance",
+                    "default": 0.01,
+                    "description": "Minimum absolute distance of a cold initial point from its bounds (`bound_push`)."
+                  },
+                  "linear": {
+                    "$ref": "#/$defs/IpoptLinear",
+                    "default": {
+                      "kind": "mumps",
+                      "maximum_pivot_tolerance": 0.1,
+                      "memory_percent": 1000,
+                      "ordering": "metis",
+                      "permuting_scaling": 7,
+                      "pivot_tolerance": 1e-06
+                    },
+                    "description": "Symmetric-indefinite factorization of the KKT systems."
+                  },
+                  "mu_strategy": {
+                    "$ref": "#/$defs/MuStrategy",
+                    "default": "monotone",
+                    "description": "Barrier-parameter update strategy (`mu_strategy`)."
+                  },
+                  "restart": {
+                    "$ref": "#/$defs/WarmRestart",
+                    "default": {
+                      "barrier": {
+                        "kind": "seed"
+                      },
+                      "bound_frac": 1e-09,
+                      "bound_push": 1e-09,
+                      "mult_bound_push": 1e-09,
+                      "slack_bound_frac": 1e-09,
+                      "slack_bound_push": 1e-09
+                    },
+                    "description": "Restart of a submitted primal-dual seed: barrier and pushes (L-N3)."
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "IpoptSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "POUNCE method and complete native FERAL configuration.",
+                "properties": {
+                  "backend": {
+                    "const": "pounce",
+                    "type": "string"
+                  },
+                  "finite_difference": {
+                    "$ref": "#/$defs/FiniteDifferenceSettings",
+                    "default": {
+                      "coloring": "cpr",
+                      "pattern": "declared",
+                      "reuse_tolerance": 0.0
+                    },
+                    "description": "Library-owned finite-difference curvature settings."
+                  },
+                  "linear": {
+                    "$ref": "#/$defs/FeralSettings",
+                    "default": {
+                      "bounded_storage_max_dimension": null,
+                      "cascade_break": null,
+                      "fma": false,
+                      "increase_quality": true,
+                      "inertia_pivot_floor": null,
+                      "min_par_flops": null,
+                      "ordering": "auto",
+                      "parallel": null,
+                      "pivtol": 1e-08,
+                      "refine": true,
+                      "refine_max_steps": 10,
+                      "refine_target": 0.0,
+                      "scaling": "auto",
+                      "singular_pivot_floor": 1e-20,
+                      "static_pivoting": null
+                    },
+                    "description": "Native linear settings."
+                  },
+                  "method": {
+                    "$ref": "#/$defs/PounceMethod",
+                    "default": "interior_point",
+                    "description": "NLP method."
+                  },
+                  "partitioned": {
+                    "$ref": "#/$defs/PartitionedSettings",
+                    "default": {
+                      "block_size": 64,
+                      "curvature_cap": null,
+                      "elements": "per_constraint",
+                      "max_element": 64,
+                      "update_type": null
+                    },
+                    "description": "Library-owned partitioned curvature settings."
+                  },
+                  "restart": {
+                    "$ref": "#/$defs/WarmRestart",
+                    "default": {
+                      "barrier": {
+                        "kind": "seed"
+                      },
+                      "bound_frac": 1e-09,
+                      "bound_push": 1e-09,
+                      "mult_bound_push": 1e-09,
+                      "slack_bound_frac": 1e-09,
+                      "slack_bound_push": 1e-09
+                    },
+                    "description": "Interior-point restart of a submitted primal-dual seed (L-N3)."
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "PounceSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "KINSOL method controls; scales and the step tolerance derive from policy.",
+                "properties": {
+                  "anderson": {
+                    "default": 0,
+                    "description": "Native Anderson history for Picard/fixed point; zero disables acceleration.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "anderson_delay": {
+                    "default": 0,
+                    "description": "Iterations before Anderson acceleration starts (`KINSetDelayAA`); Anderson only.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "backend": {
+                    "const": "kinsol",
+                    "type": "string"
+                  },
+                  "damping": {
+                    "$ref": "#/$defs/Fraction",
+                    "default": 1.0,
+                    "description": "Picard/fixed-point damping in (0,1]; Newton and line search require one."
+                  },
+                  "eta": {
+                    "$ref": "#/$defs/KinsolEta",
+                    "default": {
+                      "kind": "choice1"
+                    },
+                    "description": "Inexact-Newton forcing term; Krylov routes only."
+                  },
+                  "linear": {
+                    "$ref": "#/$defs/KinsolLinear",
+                    "default": {
+                      "kind": "klu"
+                    },
+                    "description": "Native linear solver for equation/Picard profiles; fixed point requires the default."
+                  },
+                  "max_newton_step": {
+                    "default": null,
+                    "description": "Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit\nbecause KINSOL raises a smaller cap to one; Newton/line search only. `None` keeps KINSOL's\n`1000 * ||D_u u_0||`.",
+                    "format": "double",
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "orthogonalization": {
+                    "$ref": "#/$defs/KinsolOrthogonalization",
+                    "default": "modified_gram_schmidt",
+                    "description": "Anderson QR orthogonalization; Anderson acceleration only."
+                  },
+                  "preconditioner": {
+                    "$ref": "#/$defs/Preconditioner",
+                    "default": "none",
+                    "description": "Krylov preconditioner from the analytic Jacobian (`KINSetPreconditioner`);\nKINSOL preconditions on the right."
+                  },
+                  "setup_interval": {
+                    "default": 10,
+                    "description": "Maximum nonlinear iterations between linear setups; fixed point requires the default.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "strategy": {
+                    "$ref": "#/$defs/KinsolStrategy",
+                    "default": "line_search",
+                    "description": "Nonlinear strategy."
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "KinsolSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "HiGHS method, opt-in diagnostics and partial MIP start.",
+                "properties": {
+                  "backend": {
+                    "const": "highs",
+                    "type": "string"
+                  },
+                  "diagnostics": {
+                    "$ref": "#/$defs/HighsDiagnostics",
+                    "default": {
+                      "basis_inverse": null,
+                      "cut_pool": false,
+                      "fixed_lp": false,
+                      "iis": false,
+                      "presolve": false,
+                      "ranging": false,
+                      "rays": false,
+                      "relaxation": null
+                    },
+                    "description": "Opt-in native work, separate from the original candidate except the\nfixed-commitment LP, which prices it."
+                  },
+                  "method": {
+                    "$ref": "#/$defs/HighsMethod",
+                    "default": "choose",
+                    "description": "Eligible LP algorithm; mixed models retain native class routing."
+                  },
+                  "nodes": {
+                    "default": null,
+                    "description": "MIP node budget, separate from the iteration budget (F10). `None` leaves the native\ndefault (no node limit), so the time limit alone bounds the search.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "sparse_start": {
+                    "additionalProperties": false,
+                    "default": null,
+                    "description": "Partial source-attributed MIP start, with unspecified coordinates absent.",
+                    "patternProperties": {
+                      "^[0-9a-fA-F]{32}$": {
+                        "format": "double",
+                        "type": "number"
+                      }
+                    },
+                    "propertyNames": {
+                      "pattern": "^[0-9a-fA-F]{32}$",
+                      "type": "string",
+                      "x-pse-identity": "SemanticId"
+                    },
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "HighsSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The pse-owned Clarabel settings: mode and every admitted native control.",
+                "properties": {
+                  "backend": {
+                    "const": "clarabel",
+                    "type": "string"
+                  },
+                  "chordal_decomposition_compact": {
+                    "default": true,
+                    "description": "Compact the decomposed problem.",
+                    "type": "boolean"
+                  },
+                  "chordal_decomposition_complete_dual": {
+                    "default": true,
+                    "description": "Complete the dual of decomposed PSD cones.",
+                    "type": "boolean"
+                  },
+                  "chordal_decomposition_enable": {
+                    "default": true,
+                    "description": "Chordal decomposition of PSD cones; `ReusableData` disables it. Without the SDP\nprofile only the chordal defaults are admitted.",
+                    "type": "boolean"
+                  },
+                  "chordal_decomposition_merge_method": {
+                    "$ref": "#/$defs/ClarabelMergeMethod",
+                    "default": "clique_graph",
+                    "description": "Clique merging."
+                  },
+                  "direct": {
+                    "$ref": "#/$defs/ClarabelDirect",
+                    "default": "qdldl",
+                    "description": "KKT direct solver; only MKL Pardiso admits more than one thread."
+                  },
+                  "dynamic_regularization_delta": {
+                    "default": 2e-07,
+                    "description": "Dynamic regularization shift.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "dynamic_regularization_enable": {
+                    "default": true,
+                    "description": "Dynamic KKT regularization.",
+                    "type": "boolean"
+                  },
+                  "dynamic_regularization_eps": {
+                    "default": 1e-13,
+                    "description": "Dynamic regularization threshold.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "equilibrate_max_iter": {
+                    "default": 10,
+                    "description": "Equilibration iterations.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "equilibrate_max_scaling": {
+                    "default": 10000.0,
+                    "description": "Maximum equilibration scaling.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "equilibrate_min_scaling": {
+                    "default": 0.0001,
+                    "description": "Minimum equilibration scaling.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "input_sparse_dropzeros": {
+                    "default": false,
+                    "description": "Drop explicit input zeros; `ReusableData` disables it.",
+                    "type": "boolean"
+                  },
+                  "iterative_refinement_abstol": {
+                    "default": 1e-12,
+                    "description": "Refinement absolute tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "iterative_refinement_enable": {
+                    "default": true,
+                    "description": "KKT iterative refinement.",
+                    "type": "boolean"
+                  },
+                  "iterative_refinement_max_iter": {
+                    "default": 10,
+                    "description": "Refinement iterations.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "iterative_refinement_reltol": {
+                    "default": 1e-13,
+                    "description": "Refinement relative tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "iterative_refinement_stop_ratio": {
+                    "default": 5.0,
+                    "description": "Refinement stall ratio.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "linesearch_backtrack_step": {
+                    "default": 0.8,
+                    "description": "Line-search backtracking factor.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "max_step_fraction": {
+                    "default": 0.99,
+                    "description": "Maximum interior step fraction.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "min_switch_step_length": {
+                    "default": 0.1,
+                    "description": "Minimum step length before switching to symmetric scaling.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "min_terminate_step_length": {
+                    "default": 0.0001,
+                    "description": "Minimum step length before termination.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "mode": {
+                    "$ref": "#/$defs/ClarabelMode",
+                    "default": "single_solve",
+                    "description": "Preprocessing or data-update mode."
+                  },
+                  "presolve_enable": {
+                    "default": true,
+                    "description": "Native presolve; `ReusableData` disables it.",
+                    "type": "boolean"
+                  },
+                  "reduced_tol_infeas_abs": {
+                    "default": 5e-12,
+                    "description": "Reduced absolute infeasibility tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "reduced_tol_infeas_rel": {
+                    "default": 5e-05,
+                    "description": "Reduced relative infeasibility tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "reduced_tol_ktratio": {
+                    "default": 0.0001,
+                    "description": "Reduced KKT ratio tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "static_regularization_constant": {
+                    "default": 1e-08,
+                    "description": "Constant static regularization.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "static_regularization_enable": {
+                    "default": true,
+                    "description": "Static KKT regularization.",
+                    "type": "boolean"
+                  },
+                  "static_regularization_proportional": {
+                    "default": 4.930380657631324e-32,
+                    "description": "Proportional static regularization.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "tol_infeas_abs": {
+                    "default": 1e-08,
+                    "description": "Absolute infeasibility tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "tol_infeas_rel": {
+                    "default": 1e-08,
+                    "description": "Relative infeasibility tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "tol_ktratio": {
+                    "default": 1e-06,
+                    "description": "KKT ratio tolerance.",
+                    "format": "double",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "ClarabelSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "SCIP's nested Ipopt linear solver, seed and node budget.",
+                "properties": {
+                  "backend": {
+                    "const": "scip",
+                    "type": "string"
+                  },
+                  "exact": {
+                    "default": false,
+                    "description": "Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs\nwithout native forms, and never with reoptimization, IIS generation (SCIP's IIS\nfinders do not support exact solving) or concurrency.",
+                    "type": "boolean"
+                  },
+                  "iis": {
+                    "default": false,
+                    "description": "After a proof of infeasibility, compute an irreducible infeasible subsystem of the\ntrue exported program (`SCIPgenerateIIS`).",
+                    "type": "boolean"
+                  },
+                  "nlp_linear_solver": {
+                    "$ref": "#/$defs/IpoptLinearSolver",
+                    "default": "mumps",
+                    "description": "Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`): the image's one\nIpopt, so the same type the Ipopt adapter's settings select."
+                  },
+                  "nodes": {
+                    "default": null,
+                    "description": "Total branch-and-bound node budget including restarts (`limits/totalnodes`);\nabsent leaves the deadline as the only budget.",
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "pool": {
+                    "default": 0,
+                    "description": "Number of ranked stored solutions reported beside the candidate (0: none).",
+                    "format": "uint16",
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "reoptimize": {
+                    "default": false,
+                    "description": "Retain the native search tree across a finite MIP sequence whose constraint system\nis unchanged and whose linear objective changes (`SCIPenableReoptimization`).",
+                    "type": "boolean"
+                  },
+                  "seed": {
+                    "default": 0,
+                    "description": "Random seed shift (`randomization/randomseedshift`), recorded with the result.",
+                    "format": "uint16",
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "ScipSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "The POUNCE-convex interior-point method's choices and FERAL configuration.",
+                "properties": {
+                  "backend": {
+                    "const": "pounce_convex",
+                    "type": "string"
+                  },
+                  "crossover": {
+                    "default": false,
+                    "description": "Cross over from the interior-point solution to a vertex of a linear program.",
+                    "type": "boolean"
+                  },
+                  "equilibrate": {
+                    "default": true,
+                    "description": "Ruiz-equilibrate the data before the solve.",
+                    "type": "boolean"
+                  },
+                  "linear": {
+                    "$ref": "#/$defs/FeralSettings",
+                    "default": {
+                      "bounded_storage_max_dimension": null,
+                      "cascade_break": null,
+                      "fma": false,
+                      "increase_quality": true,
+                      "inertia_pivot_floor": null,
+                      "min_par_flops": null,
+                      "ordering": "auto",
+                      "parallel": null,
+                      "pivtol": 1e-08,
+                      "refine": true,
+                      "refine_max_steps": 10,
+                      "refine_target": 0.0,
+                      "scaling": "auto",
+                      "singular_pivot_floor": 1e-20,
+                      "static_pivoting": null
+                    },
+                    "description": "Native linear settings. A batch factors each instance serially: its parallelism is\nacross instances."
+                  },
+                  "self_dual": {
+                    "default": true,
+                    "description": "Solve through the homogeneous self-dual embedding, which detects primal and dual\ninfeasibility from the iterates, instead of the direct infeasible-start method.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "PounceConvexSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "First-order Uno filter trust-region SQP or SLP.",
+                "properties": {
+                  "backend": {
+                    "const": "uno",
+                    "type": "string"
+                  },
+                  "limited_memory": {
+                    "default": 6,
+                    "description": "Positive L-BFGS history for SQP; exactly zero for SLP.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "method": {
+                    "$ref": "#/$defs/NativeUnoMethod",
+                    "default": "sqp",
+                    "description": "SQP uses an L-BFGS Hessian; SLP consumes no Hessian history."
+                  },
+                  "trust_radius": {
+                    "default": 10.0,
+                    "description": "Initial native trust radius, in normalized coordinates.",
+                    "format": "double",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "UnoSettings",
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile.",
+                "properties": {
+                  "backend": {
+                    "const": "petsc",
+                    "type": "string"
+                  },
+                  "linear": {
+                    "$ref": "#/$defs/NativePetscLinear",
+                    "default": "gmres",
+                    "description": "Selected native KSP method."
+                  },
+                  "method": {
+                    "$ref": "#/$defs/NativePetscMethod",
+                    "default": "newton_trust_region",
+                    "description": "Selected native nonlinear method."
+                  },
+                  "preconditioner": {
+                    "$ref": "#/$defs/NativePetscPreconditioner",
+                    "default": "ilu",
+                    "description": "Selected native PC method."
+                  },
+                  "pseudo": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/PseudoTime"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Required precisely for the pseudo-transient profile."
+                  },
+                  "schwarz": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Schwarz"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Required precisely for nonlinear additive Schwarz."
+                  },
+                  "trust": {
+                    "$ref": "#/$defs/TrustRegion",
+                    "default": {
+                      "initial": 1.0,
+                      "maximum": 100000000.0,
+                      "minimum": 1e-12
+                    },
+                    "description": "Inner trust-region profile used by SNES and TSPSEUDO correction."
+                  }
+                },
+                "required": [
+                  "backend"
+                ],
+                "title": "PetscSettings",
+                "type": "object"
+              }
+            ]
+          },
+          "BlockSolveOverrideBody": {
+            "additionalProperties": false,
+            "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
+            "properties": {
+              "backend": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/NativeBackend"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Explicit eligible backend; omission uses contextual Auto selection."
+              },
+              "controls": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SolveControls"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Optional finite controls within the original aggregate allowance."
+              },
+              "settings": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BackendSettingsBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Typed settings admitted against this actual block."
+              }
+            },
+            "type": "object"
+          },
+          "BranchPolicy": {
+            "additionalProperties": false,
+            "description": "Root-selection meaning retained by every proposal and correction.",
+            "properties": {
+              "connected": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ConnectedPath"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Required precisely for the connected policy."
+              },
+              "kind": {
+                "$ref": "#/$defs/NumericalBranchPolicy",
+                "description": "Any qualified root, or continuation on a declared connected sheet."
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          "ClarabelDirect": {
+            "enum": [
+              "qdldl",
+              "mkl_pardiso"
+            ],
+            "type": "string"
+          },
+          "ClarabelMergeMethod": {
+            "enum": [
+              "none",
+              "parent_child",
+              "clique_graph"
+            ],
+            "type": "string"
+          },
+          "ClarabelMode": {
+            "enum": [
+              "single_solve",
+              "reusable_data"
+            ],
+            "type": "string"
+          },
+          "ClosurePolicy": {
+            "enum": [
+              "require_closed",
+              "allow_unclosed"
+            ],
+            "type": "string"
+          },
+          "CompositionRequestBody": {
+            "additionalProperties": false,
+            "description": "Hard caller constraints retained by automatic and explicitly declared composition.",
+            "properties": {
+              "advice": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/FrozenAdviceBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Full frozen descriptive body; absent leaves the complete baseline policy."
+              },
+              "branch": {
+                "$ref": "#/$defs/BranchPolicy",
+                "description": "Original root-selection contract."
+              },
+              "limits": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/WorkLimits"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Additional finite counters; absent retains the admitted caller controls."
+              },
+              "policy": {
+                "$ref": "#/$defs/NumericalCompositionPolicy",
+                "description": "Automatic resolution or explicit declaration binding."
+              },
+              "recovery": {
+                "description": "Permitted later start origins. Empty grants no replacement origin.",
+                "items": {
+                  "$ref": "#/$defs/NumericalStartOrigin"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "policy",
+              "branch",
+              "recovery"
+            ],
+            "type": "object"
+          },
+          "ConnectedPath": {
+            "additionalProperties": false,
+            "description": "Explicit originating path/sheet and the consumed transport/orientation witnesses.\nSupplying identities is not proof: the responsible path owner validates the products.",
+            "properties": {
+              "orientation": {
+                "description": "Path tangent/transport orientation evidence.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "path": {
+                "description": "Original connected path identity.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "sheet": {
+                "description": "Selected root sheet; a shared regime label alone is insufficient.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "transport": {
+                "description": "Transport evidence between the source and target bindings.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              }
+            },
+            "required": [
+              "path",
+              "sheet",
+              "transport",
+              "orientation"
+            ],
+            "type": "object"
+          },
+          "CovarianceOrigin": {
+            "description": "Statistical provenance is independent of matrix admissibility.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Resolve or reconcile actual qualified fit content and its local validity.",
+                "properties": {
+                  "kind": {
+                    "const": "qualified_fit",
+                    "type": "string"
+                  },
+                  "record": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/FitCovarianceRecord"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Absent only for a still-owned in-process fit; a decoded reference then refuses."
+                  },
+                  "run_id": {
+                    "description": "Scientific run identity, checked against the selected actual fit.",
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "type": "string",
+                    "x-pse-identity": "RunId"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "run_id"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Caller-declared covariance with uncertified statistical provenance.",
+                "properties": {
+                  "assumptions": {
+                    "description": "Explicit statistical assumptions of this external input.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "kind": {
+                    "const": "external",
+                    "type": "string"
+                  },
+                  "label": {
+                    "description": "Attribution label; it never identifies a certified fit.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label",
+                  "assumptions"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "EngineeringScaleKind": {
+            "enum": [
+              "magnitude",
+              "range_width",
+              "reference_difference"
+            ],
+            "type": "string"
+          },
+          "EvaluationLimits": {
+            "additionalProperties": false,
+            "properties": {
+              "derivative_components": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "operations": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "provider_calls": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "scratch_bytes": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "derivative_components",
+              "operations",
+              "scratch_bytes",
+              "provider_calls"
+            ],
+            "type": "object"
+          },
+          "Evaluator": {
+            "description": "Explicit evaluator implementation. Scalar C++ compilation is opt-in for eligible\ndemanded arithmetic products; provider calls and ordered guards remain host-owned.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Portable library instruction interpretation.",
+                "properties": {
+                  "kind": {
+                    "const": "interpreted",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Fixed conservative Linux x86-64 C++ profile. The finite allowance covers\neach module's export temporaries, named compiler outputs, loaded code,\ntemplate metadata and bounded diagnostic reader; worker numeric scratch\nremains independently charged from the exported stack.",
+                "properties": {
+                  "kind": {
+                    "const": "compiled_scalar",
+                    "type": "string"
+                  },
+                  "module_bytes": {
+                    "description": "Prepaid complete native preparation/module capacity for each arithmetic block.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "module_bytes"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "FeralOrdering": {
+            "enum": [
+              "amd",
+              "amf",
+              "metis_nd",
+              "scotch_nd",
+              "kahip_nd",
+              "auto",
+              "auto_race"
+            ],
+            "type": "string"
+          },
+          "FeralScaling": {
+            "enum": [
+              "inf_norm",
+              "mc64_symmetric",
+              "identity",
+              "auto"
+            ],
+            "type": "string"
+          },
+          "FeralSettings": {
+            "additionalProperties": false,
+            "properties": {
+              "bounded_storage_max_dimension": {
+                "default": null,
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "cascade_break": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "fma": {
+                "default": false,
+                "type": "boolean"
+              },
+              "increase_quality": {
+                "default": true,
+                "type": "boolean"
+              },
+              "inertia_pivot_floor": {
+                "default": null,
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "min_par_flops": {
+                "default": null,
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "ordering": {
+                "$ref": "#/$defs/FeralOrdering",
+                "default": "auto"
+              },
+              "parallel": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "pivtol": {
+                "default": 1e-08,
+                "format": "double",
+                "type": "number"
+              },
+              "refine": {
+                "default": true,
+                "type": "boolean"
+              },
+              "refine_max_steps": {
+                "default": 10,
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "refine_target": {
+                "default": 0.0,
+                "format": "double",
+                "type": "number"
+              },
+              "scaling": {
+                "$ref": "#/$defs/FeralScaling",
+                "default": "auto"
+              },
+              "singular_pivot_floor": {
+                "default": 1e-20,
+                "format": "double",
+                "type": "number"
+              },
+              "static_pivoting": {
+                "default": null,
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "FiniteBound": {
+            "description": "A finite real of either sign: a bound, a weight or a stated value.",
+            "format": "double",
+            "type": "number"
+          },
+          "FiniteDifferenceSettings": {
+            "additionalProperties": false,
+            "description": "Typed finite-difference pattern, coloring and native reuse controls.",
+            "properties": {
+              "coloring": {
+                "$ref": "#/$defs/PounceFdColoring",
+                "default": "cpr",
+                "description": "Library coloring algorithm."
+              },
+              "pattern": {
+                "$ref": "#/$defs/PounceFdPattern",
+                "default": "declared",
+                "description": "Declared Hessian support, falling back to conservative Jacobian/objective support."
+              },
+              "reuse_tolerance": {
+                "default": 0.0,
+                "description": "Relative native iterate distance permitting Hessian reuse.",
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "type": "object"
+          },
+          "FitCovarianceRecord": {
+            "additionalProperties": false,
+            "description": "Exact canonical selection of the fit that owns the covariance.",
+            "properties": {
+              "attempt": {
+                "description": "Exact native attempt key; latest-result substitution is not allowed.",
+                "type": "string"
+              },
+              "run": {
+                "description": "Native canonical run key.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "run",
+              "attempt"
+            ],
+            "type": "object"
+          },
+          "Fraction": {
+            "description": "A finite fraction in (0, 1]: a damping factor, a step fraction or a relative push.",
+            "exclusiveMinimum": 0.0,
+            "format": "double",
+            "maximum": 1.0,
+            "type": "number"
+          },
+          "FrozenAdviceBody": {
+            "additionalProperties": false,
+            "description": "Full immutable body retained with effective settings, including all excluded outcomes.",
+            "properties": {
+              "baseline": {
+                "description": "Complete original candidate order.",
+                "items": {
+                  "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                  "type": "string",
+                  "x-pse-identity": "ContentHash"
+                },
+                "type": "array"
+              },
+              "cohort": {
+                "$ref": "#/$defs/AdviceCohort",
+                "description": "Exact admitted comparison premises."
+              },
+              "limits": {
+                "$ref": "#/$defs/WorkLimits",
+                "description": "Original allowances for applicability checking; advice never widens them."
+              },
+              "metric": {
+                "$ref": "#/$defs/AdviceMetric",
+                "description": "One declared descriptive metric."
+              },
+              "observations": {
+                "description": "Actual retained observations, including exclusions.",
+                "items": {
+                  "$ref": "#/$defs/AdviceObservation"
+                },
+                "type": "array"
+              },
+              "ordered": {
+                "description": "Actual frozen candidate order.",
+                "items": {
+                  "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                  "type": "string",
+                  "x-pse-identity": "ContentHash"
+                },
+                "type": "array"
+              },
+              "support": {
+                "$ref": "#/$defs/AdviceSupport",
+                "description": "Support established by the retained comparison."
+              }
+            },
+            "required": [
+              "cohort",
+              "metric",
+              "baseline",
+              "ordered",
+              "observations",
+              "support",
+              "limits"
+            ],
+            "type": "object"
+          },
+          "HessianMode": {
+            "enum": [
+              "auto",
+              "exact",
+              "partitioned",
+              "finite_difference",
+              "limited_memory",
+              "gauss_newton"
+            ],
+            "type": "string"
+          },
+          "HighsDiagnostics": {
+            "additionalProperties": false,
+            "description": "Requested native diagnostic work, bounded by the original attempt's deadline.",
+            "properties": {
+              "basis_inverse": {
+                "default": null,
+                "description": "Rows of the basis inverse `B⁻¹` at these basis positions, with the basic variables,\nfor an optimal continuous LP with a valid basis.",
+                "items": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "cut_pool": {
+                "default": false,
+                "description": "The MIP solver's cut pool after root cut generation (callback kind 7).",
+                "type": "boolean"
+              },
+              "fixed_lp": {
+                "default": false,
+                "description": "Duals of the MIP's LP with its discrete columns fixed at the solution\n(`Highs_getFixedLp`), conditional on that commitment. When that LP reaches the MIP\ncandidate's objective they become the candidate's multipliers, and the candidate\nstates the commitment (ADR-0118 item 9).",
+                "type": "boolean"
+              },
+              "iis": {
+                "default": false,
+                "description": "Native irreducible infeasible subsystem; MIP scope is its LP relaxation.",
+                "type": "boolean"
+              },
+              "presolve": {
+                "default": false,
+                "description": "Native presolve of a copied model: the presolved LP and, for a continuous LP, the\npostsolved solution of that LP.",
+                "type": "boolean"
+              },
+              "ranging": {
+                "default": false,
+                "description": "Basis sensitivity ranges for an optimal continuous LP with a valid basis.",
+                "type": "boolean"
+              },
+              "rays": {
+                "default": false,
+                "description": "Native primal/dual rays when available for the continuous model.",
+                "type": "boolean"
+              },
+              "relaxation": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/HighsPenalties"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Separate feasibility-relaxation solve on a copied LP/MIP. Negative penalties\nforbid violation, as in the native API; no penalty is inferred from units."
+              }
+            },
+            "type": "object"
+          },
+          "HighsMethod": {
+            "enum": [
+              "choose",
+              "simplex",
+              "ipm",
+              "pdlp"
+            ],
+            "type": "string"
+          },
+          "HighsPenalties": {
+            "additionalProperties": false,
+            "description": "Complete physical penalty declarations for native feasibility relaxation.",
+            "properties": {
+              "global": {
+                "description": "Global lower-bound, upper-bound and constraint penalties.",
+                "items": {
+                  "$ref": "#/$defs/FiniteBound"
+                },
+                "maxItems": 3,
+                "minItems": 3,
+                "type": "array"
+              },
+              "lower": {
+                "description": "Optional per-variable lower-bound penalties.",
+                "items": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "rows": {
+                "description": "Optional per-row penalties.",
+                "items": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "upper": {
+                "description": "Optional per-variable upper-bound penalties.",
+                "items": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "type": [
+                  "array",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "global"
+            ],
+            "type": "object"
+          },
+          "IncumbentPolicy": {
+            "enum": [
+              "refuse",
+              "accept_feasible",
+              "accept_within_gap"
+            ],
+            "type": "string"
+          },
+          "IpoptLinear": {
+            "description": "One linked symmetric-indefinite factorization with its typed parameters. HSL solvers and\nthe runtime-loaded Pardiso are not representable (ADR-0108 item 9). Each kind is spelled\nas its [`IpoptLinearSolver`], Ipopt's native `linear_solver` name.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Sequential MUMPS 5.9 (`linear_solver = mumps`).",
+                "properties": {
+                  "kind": {
+                    "const": "mumps",
+                    "type": "string"
+                  },
+                  "maximum_pivot_tolerance": {
+                    "description": "Maximum refinement-requested pivot tolerance (`mumps_pivtolmax`).",
+                    "format": "double",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  },
+                  "memory_percent": {
+                    "description": "Extra estimated workspace percentage (`mumps_mem_percent`), zero allowed.",
+                    "format": "int32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "ordering": {
+                    "$ref": "#/$defs/MumpsOrdering",
+                    "description": "Fill-reducing ordering (`mumps_pivot_order`, MUMPS ICNTL(7))."
+                  },
+                  "permuting_scaling": {
+                    "description": "Native ICNTL(6) permuting/scaling strategy, inclusive `[0,7]`.",
+                    "format": "uint8",
+                    "maximum": 7,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "pivot_tolerance": {
+                    "description": "Sparsity/stability pivot tolerance (`mumps_pivtol`), inclusive `[0,1]`.",
+                    "format": "double",
+                    "maximum": 1.0,
+                    "minimum": 0.0,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ordering",
+                  "pivot_tolerance",
+                  "maximum_pivot_tolerance",
+                  "memory_percent",
+                  "permuting_scaling"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "SPRAL SSIDS on OpenMP threads (`linear_solver = spral`).",
+                "properties": {
+                  "kind": {
+                    "const": "spral",
+                    "type": "string"
+                  },
+                  "ordering": {
+                    "$ref": "#/$defs/SpralOrdering",
+                    "description": "Elimination ordering (`spral_order`)."
+                  },
+                  "pivot": {
+                    "$ref": "#/$defs/SpralPivot",
+                    "description": "A posteriori pivoting strategy (`spral_pivot_method`)."
+                  },
+                  "scaling": {
+                    "$ref": "#/$defs/SpralScaling",
+                    "description": "Matrix scaling (`spral_scaling`)."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ordering",
+                  "scaling",
+                  "pivot"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "oneMKL Pardiso on MKL threads (`linear_solver = pardisomkl`), under the pinned CBWR\nbranch.",
+                "properties": {
+                  "kind": {
+                    "const": "pardisomkl",
+                    "type": "string"
+                  },
+                  "matching": {
+                    "$ref": "#/$defs/PardisoMatching",
+                    "description": "Symmetric weighted matching (`pardisomkl_matching_strategy`)."
+                  },
+                  "ordering": {
+                    "$ref": "#/$defs/PardisoOrdering",
+                    "description": "Fill-reducing ordering (`pardisomkl_order`)."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ordering",
+                  "matching"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "IpoptLinearSolver": {
+            "enum": [
+              "mumps",
+              "spral",
+              "pardisomkl"
+            ],
+            "type": "string"
+          },
+          "KinsolEta": {
+            "description": "Inexact-Newton forcing term of the Krylov routes (`KINSetEtaForm`).",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Eisenstat-Walker choice 1, KINSOL's default.",
+                "properties": {
+                  "kind": {
+                    "const": "choice1",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Eisenstat-Walker choice 2 (`KINSetEtaParams`).",
+                "properties": {
+                  "alpha": {
+                    "description": "Power in (1, 2].",
+                    "format": "double",
+                    "type": "number"
+                  },
+                  "gamma": {
+                    "$ref": "#/$defs/Fraction",
+                    "description": "Safeguard factor in (0, 1]."
+                  },
+                  "kind": {
+                    "const": "choice2",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "gamma",
+                  "alpha"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A constant forcing term in (0, 1] (`KINSetEtaConstValue`).",
+                "properties": {
+                  "kind": {
+                    "const": "constant",
+                    "type": "string"
+                  },
+                  "value": {
+                    "$ref": "#/$defs/Fraction",
+                    "description": "The forcing term."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "KinsolLinear": {
+            "description": "Selected native linear algebra. Dense allocation has an explicit dimension ceiling;\nthe matrix-free Krylov routes use the analytic Jacobian-vector product.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Vendored SuiteSparse KLU with analytic CSC Jacobian.",
+                "properties": {
+                  "kind": {
+                    "const": "klu",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Serial dense factorization for explicitly small systems.",
+                "properties": {
+                  "kind": {
+                    "const": "dense",
+                    "type": "string"
+                  },
+                  "limit": {
+                    "$ref": "#/$defs/PositiveCount",
+                    "description": "Maximum admitted dimension."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "limit"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Matrix-free native GMRES.",
+                "properties": {
+                  "dimension": {
+                    "$ref": "#/$defs/PositiveCount",
+                    "description": "Maximum Krylov subspace dimension."
+                  },
+                  "kind": {
+                    "const": "spgmr",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "dimension"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Matrix-free native flexible GMRES.",
+                "properties": {
+                  "dimension": {
+                    "$ref": "#/$defs/PositiveCount",
+                    "description": "Maximum Krylov subspace dimension."
+                  },
+                  "kind": {
+                    "const": "spfgmr",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "dimension"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Matrix-free native BiCGStab.",
+                "properties": {
+                  "dimension": {
+                    "$ref": "#/$defs/PositiveCount",
+                    "description": "Maximum Krylov subspace dimension."
+                  },
+                  "kind": {
+                    "const": "spbcgs",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "dimension"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Matrix-free native transpose-free QMR.",
+                "properties": {
+                  "dimension": {
+                    "$ref": "#/$defs/PositiveCount",
+                    "description": "Maximum Krylov subspace dimension."
+                  },
+                  "kind": {
+                    "const": "sptfqmr",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "dimension"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "KinsolOrthogonalization": {
+            "enum": [
+              "modified_gram_schmidt",
+              "inverse_compact_wy",
+              "classical_gram_schmidt2",
+              "delayed_classical_gram_schmidt2"
+            ],
+            "type": "string"
+          },
+          "KinsolStrategy": {
+            "enum": [
+              "picard",
+              "newton",
+              "line_search",
+              "fixed_point"
+            ],
+            "type": "string"
+          },
+          "KktTolerances": {
+            "additionalProperties": false,
+            "description": "Distinct normalized optimality requirements; no scalar means every stopping test.",
+            "properties": {
+              "complementarity": {
+                "description": "Normalized complementarity budget.",
+                "format": "double",
+                "type": "number"
+              },
+              "stationarity": {
+                "description": "Normalized stationarity budget.",
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "stationarity",
+              "complementarity"
+            ],
+            "type": "object"
+          },
+          "Limits": {
+            "additionalProperties": false,
+            "properties": {
+              "body_occurrences": {
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "body_slots": {
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "depth": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "items": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "members": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "depth",
+              "items",
+              "members"
+            ],
+            "type": "object"
+          },
+          "MuStrategy": {
+            "enum": [
+              "monotone",
+              "adaptive"
+            ],
+            "type": "string"
+          },
+          "MumpsOrdering": {
+            "enum": [
+              "amd",
+              "amf",
+              "pord",
+              "metis",
+              "qamd"
+            ],
+            "type": "string"
+          },
+          "NativeBackend": {
+            "enum": [
+              "ipopt",
+              "pounce",
+              "kinsol",
+              "highs",
+              "clarabel",
+              "diffsol",
+              "idas",
+              "scip",
+              "pounce_convex",
+              "uno",
+              "petsc"
+            ],
+            "type": "string"
+          },
+          "NativePetscLinear": {
+            "enum": [
+              "gmres",
+              "fgmres",
+              "bicgstab",
+              "preonly"
+            ],
+            "type": "string"
+          },
+          "NativePetscMethod": {
+            "enum": [
+              "newton_trust_region",
+              "nonlinear_additive_schwarz",
+              "pseudo_transient"
+            ],
+            "type": "string"
+          },
+          "NativePetscPreconditioner": {
+            "enum": [
+              "none",
+              "jacobi",
+              "ilu",
+              "lu"
+            ],
+            "type": "string"
+          },
+          "NativeSolveIntent": {
+            "enum": [
+              "optimize",
+              "root",
+              "feasible_point",
+              "initialize",
+              "certify"
+            ],
+            "type": "string"
+          },
+          "NativeStartPolicy": {
+            "enum": [
+              "no_prior_start",
+              "previous_accepted",
+              "explicit"
+            ],
+            "type": "string"
+          },
+          "NativeUnoMethod": {
+            "enum": [
+              "sqp",
+              "slp"
+            ],
+            "type": "string"
+          },
+          "NumericalAccuracyClass": {
+            "enum": [
+              "certified",
+              "estimated",
+              "unresolved"
+            ],
+            "type": "string"
+          },
+          "NumericalBranchPolicy": {
+            "enum": [
+              "any_qualified",
+              "connected"
+            ],
+            "type": "string"
+          },
+          "NumericalCompositionPolicy": {
+            "enum": [
+              "auto",
+              "declared"
+            ],
+            "type": "string"
+          },
+          "NumericalCoordinates": {
+            "enum": [
+              "physical",
+              "normalized"
+            ],
+            "type": "string"
+          },
+          "NumericalPolicy": {
+            "additionalProperties": false,
+            "description": "Shared semantic controls resolved before invoking any native adapter.",
+            "properties": {
+              "acceptable": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/KktTolerances"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Optional separately qualified acceptable-termination budgets."
+              },
+              "closure": {
+                "$ref": "#/$defs/ClosurePolicy",
+                "default": "require_closed",
+                "description": "Physical acceptance, separate from native termination."
+              },
+              "engineering_relative_fraction": {
+                "default": 0.001,
+                "description": "Shared relative engineering fraction; an explicit selected rule may override it.",
+                "format": "double",
+                "type": "number"
+              },
+              "engineering_rules": {
+                "default": [],
+                "description": "Shared rules matched by full quantity meaning, not dimensions alone.",
+                "items": {
+                  "$ref": "#/$defs/AuthoredEngineeringDefaultRulesRow"
+                },
+                "type": "array"
+              },
+              "engineering_scales": {
+                "default": [],
+                "description": "Admitted explicitly tagged scales, with source and scope retained.",
+                "items": {
+                  "$ref": "#/$defs/AuthoredEngineeringScalesRow"
+                },
+                "type": "array"
+              },
+              "gap_absolute": {
+                "default": 0.001,
+                "description": "Absolute continuous optimality gap in normalized objective coordinates.",
+                "format": "double",
+                "type": "number"
+              },
+              "gap_relative": {
+                "default": 0.001,
+                "description": "Dimensionless relative continuous optimality gap.",
+                "format": "double",
+                "type": "number"
+              },
+              "goals": {
+                "default": [],
+                "description": "Selected output goals; empty does not assert decision invariance.",
+                "items": {
+                  "$ref": "#/$defs/AuthoredAccuracyGoalsRow"
+                },
+                "type": "array"
+              },
+              "incumbent": {
+                "$ref": "#/$defs/IncumbentPolicy",
+                "default": "refuse",
+                "description": "Whether a validated original-feasible limit incumbent may be used as a result."
+              },
+              "integrality": {
+                "default": 1e-08,
+                "description": "Integer-lattice violation budget in original variable coordinates.",
+                "format": "double",
+                "type": "number"
+              },
+              "kkt": {
+                "$ref": "#/$defs/KktTolerances",
+                "default": {
+                  "complementarity": 0.001,
+                  "stationarity": 0.001
+                },
+                "description": "Independent KKT budgets."
+              },
+              "linear_backward_error": {
+                "default": 0.001,
+                "description": "Implicit derivative linear-system backward error, independent of stationarity.",
+                "format": "double",
+                "type": "number"
+              },
+              "mip_absolute_gap": {
+                "default": 0.001,
+                "description": "Absolute gap in normalized objective coordinates.",
+                "format": "double",
+                "type": "number"
+              },
+              "mip_relative_gap": {
+                "default": 0.001,
+                "description": "Dimensionless relative MIP gap.",
+                "format": "double",
+                "type": "number"
+              },
+              "native_scaling": {
+                "default": true,
+                "description": "Permit native algorithmic scaling after model normalization.",
+                "type": "boolean"
+              },
+              "requirements": {
+                "default": [],
+                "description": "ID-keyed analysis overrides, using the same declaration as model/case sources.",
+                "items": {
+                  "$ref": "#/$defs/AuthoredNumericalRequirementsRow"
+                },
+                "type": "array"
+              },
+              "strict_engineering_context": {
+                "default": false,
+                "description": "Reject an engineering allowance relying on the canonical fallback.",
+                "type": "boolean"
+              },
+              "strict_nominals": {
+                "default": false,
+                "description": "Refuse canonical-unit fallback where no authored or quantity nominal is known.",
+                "type": "boolean"
+              },
+              "supplier_action_accuracy": {
+                "default": 0.001,
+                "description": "Operational normalized supplier action error, independent of KKT acceptance.",
+                "format": "double",
+                "type": "number"
+              },
+              "version": {
+                "const": 1,
+                "default": 1,
+                "description": "Required standalone and nested numerical-policy interpretation version.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version"
+            ],
+            "type": "object"
+          },
+          "NumericalSource": {
+            "enum": [
+              "analysis",
+              "case",
+              "model",
+              "model_hint",
+              "property_default",
+              "derived_nominal",
+              "quantity_nominal",
+              "canonical_fallback"
+            ],
+            "type": "string"
+          },
+          "NumericalStartOrigin": {
+            "enum": [
+              "specification",
+              "explicit",
+              "accepted",
+              "predicted",
+              "auxiliary",
+              "partial",
+              "modified_specification",
+              "surrogate"
+            ],
+            "type": "string"
+          },
+          "NumericalTarget": {
+            "enum": [
+              "variable",
+              "row",
+              "objective",
+              "observable",
+              "closure"
+            ],
+            "type": "string"
+          },
+          "Optimization": {
+            "additionalProperties": false,
+            "properties": {
+              "cores": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "cpe_iterations": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "evaluator": {
+                "$ref": "#/$defs/Evaluator"
+              },
+              "horner_iterations": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "cores",
+              "horner_iterations",
+              "cpe_iterations",
+              "evaluator"
+            ],
+            "type": "object"
+          },
+          "OptionValue": {
+            "anyOf": [
+              {
+                "description": "Native Boolean.",
+                "type": "boolean"
+              },
+              {
+                "description": "Native integer.",
+                "format": "int32",
+                "type": "integer"
+              },
+              {
+                "description": "Finite native real.",
+                "format": "double",
+                "type": "number"
+              },
+              {
+                "description": "Native text/enumeration.",
+                "type": "string"
+              }
+            ],
+            "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
+          },
+          "ParameterCovariance": {
+            "additionalProperties": false,
+            "description": "A parameter covariance as `runtime.parameter_covariances` publishes it.",
+            "properties": {
+              "origin": {
+                "$ref": "#/$defs/CovarianceOrigin",
+                "description": "A qualified fit reference or explicit external statistical assumptions."
+              },
+              "parameter_quantities": {
+                "description": "Complete quantity contracts and representation units, in parameter order.",
+                "items": {
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "type": "array"
+              },
+              "parameter_units": {
+                "description": "Representation unit of each matrix row/column and its coordinate scale.",
+                "items": {
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "type": "array"
+              },
+              "parameters": {
+                "description": "The fitted parameters by identity, in the order of `values`.",
+                "items": {
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "type": "array"
+              },
+              "scales": {
+                "description": "Positive coordinate scales in those same units, in parameter order.\nFit inputs use their recorded scales; external inputs declare their scales.",
+                "items": {
+                  "$ref": "#/$defs/FiniteBound"
+                },
+                "type": "array"
+              },
+              "values": {
+                "description": "`Σ_θ` row-major, in the parameters' units.",
+                "items": {
+                  "$ref": "#/$defs/FiniteBound"
+                },
+                "type": "array"
+              },
+              "version": {
+                "const": 1,
+                "default": 1,
+                "description": "Covariance input interpretation; required before decoding its body.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version",
+              "origin",
+              "parameters",
+              "values",
+              "scales",
+              "parameter_quantities",
+              "parameter_units"
+            ],
+            "type": "object"
+          },
+          "PardisoMatching": {
+            "enum": [
+              "complete",
+              "complete_plus2x2",
+              "constraints"
+            ],
+            "type": "string"
+          },
+          "PardisoOrdering": {
+            "enum": [
+              "amd",
+              "metis",
+              "parallel_metis"
+            ],
+            "type": "string"
+          },
+          "PartitionedSettings": {
+            "additionalProperties": false,
+            "description": "Typed partitioned update controls. An absent formula preserves the library's\nmode-dependent default and its option set-ness.",
+            "properties": {
+              "block_size": {
+                "default": 64,
+                "description": "Width of primal blocks.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "curvature_cap": {
+                "default": null,
+                "description": "Finite positive curvature multiplier, absent for uncapped native updates.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "elements": {
+                "$ref": "#/$defs/PouncePartitionedElements",
+                "default": "per_constraint",
+                "description": "Element construction."
+              },
+              "max_element": {
+                "default": 64,
+                "description": "Wider elements degrade to the library diagonal approximation.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "update_type": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PouncePartitionedUpdate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Explicit element update, or the library default."
+              }
+            },
+            "type": "object"
+          },
+          "PositiveCount": {
+            "description": "A strictly positive count: a dimension, a thread count or an iteration budget.",
+            "format": "uint",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "PounceFdColoring": {
+            "enum": [
+              "cpr",
+              "star"
+            ],
+            "type": "string"
+          },
+          "PounceFdPattern": {
+            "enum": [
+              "declared",
+              "jacobian"
+            ],
+            "type": "string"
+          },
+          "PounceMethod": {
+            "enum": [
+              "interior_point",
+              "active_set_sqp",
+              "l1_exact_penalty"
+            ],
+            "type": "string"
+          },
+          "PouncePartitionedElements": {
+            "enum": [
+              "per_constraint",
+              "primal_block"
+            ],
+            "type": "string"
+          },
+          "PouncePartitionedUpdate": {
+            "enum": [
+              "bfgs",
+              "sr1"
+            ],
+            "type": "string"
+          },
+          "Preconditioner": {
+            "enum": [
+              "none",
+              "jacobi",
+              "block_factor"
+            ],
+            "type": "string"
+          },
+          "PreparationSettingsBody": {
+            "additionalProperties": false,
+            "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
+            "properties": {
+              "compiler": {
+                "$ref": "#/$defs/StudyCompilerProfile",
+                "description": "Existing evaluator profile, encoded through its complete remote projection."
+              },
+              "limits": {
+                "$ref": "#/$defs/Limits",
+                "description": "Existing expansion admission limits."
+              }
+            },
+            "required": [
+              "compiler",
+              "limits"
+            ],
+            "type": "object"
+          },
+          "PresolvePass": {
+            "enum": [
+              "linear_bounds",
+              "redundant_rows",
+              "affine_elimination",
+              "fbbt",
+              "rank_diagnostics",
+              "auxiliary"
+            ],
+            "type": "string"
+          },
+          "PresolvePolicyKind": {
+            "enum": [
+              "off",
+              "auto",
+              "explicit"
+            ],
+            "type": "string"
+          },
+          "Propagation": {
+            "additionalProperties": false,
+            "description": "Propagation of a parameter covariance to solved variables, `Σ_y = J·Σ_θ·Jᵀ` with `J` the\nstep's parametric sensitivities (Plan 22 S4; ADR-0118 items 1 and 11). The result holds\nwhile the sensitivities do: its validity is theirs, and the covariance's, which a fit\npublishes only when certified.",
+            "properties": {
+              "covariance": {
+                "$ref": "#/$defs/ParameterCovariance",
+                "description": "The covariance to propagate, as a fit run published it."
+              },
+              "outputs": {
+                "description": "Solved variables of the case by identity, in the order of the result; at least one,\nnone repeated.",
+                "items": {
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "covariance",
+              "outputs"
+            ],
+            "type": "object"
+          },
+          "PseudoTime": {
+            "additionalProperties": false,
+            "description": "Finite step growth and rejection controls for artificial pseudo-time.",
+            "properties": {
+              "failed_scale": {
+                "default": 0.5,
+                "description": "Failed-stage shrink strictly between zero and one.",
+                "format": "double",
+                "type": "number"
+              },
+              "growth": {
+                "default": 1.1,
+                "description": "Successful-step growth greater than one.",
+                "format": "double",
+                "type": "number"
+              },
+              "initial": {
+                "default": 0.01,
+                "description": "Positive artificial initial time step.",
+                "format": "double",
+                "type": "number"
+              },
+              "maximum": {
+                "default": 1000000.0,
+                "description": "Finite maximum time step.",
+                "format": "double",
+                "type": "number"
+              },
+              "minimum": {
+                "default": 1e-12,
+                "description": "Explicit rejection floor; a step below this ends the attempt.",
+                "format": "double",
+                "type": "number"
+              },
+              "nonlinear_failures": {
+                "default": 20,
+                "description": "Finite allowed nonlinear failures.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rejections": {
+                "default": 20,
+                "description": "Finite allowed rejected steps.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "ReconstructionAccuracy": {
+            "additionalProperties": false,
+            "description": "Consumer-issued normalized allowances. Each actual point/action creates its own\nfully scoped demand; no default tolerance or default certificate is supplied.",
+            "properties": {
+              "action": {
+                "description": "Actual consumer allowance for each realized normalized action error.",
+                "format": "double",
+                "type": "number"
+              },
+              "class": {
+                "$ref": "#/$defs/NumericalAccuracyClass",
+                "description": "Required evidence class, independently supplied by the consumer."
+              },
+              "point": {
+                "description": "Actual consumer allowance for normalized reconstructed point error.",
+                "format": "double",
+                "type": "number"
+              },
+              "refinement": {
+                "$ref": "#/$defs/RefinementLimits",
+                "description": "Explicit bounded work for each consumed point/action refinement."
+              }
+            },
+            "required": [
+              "point",
+              "action",
+              "class",
+              "refinement"
+            ],
+            "type": "object"
+          },
+          "RefinementLimits": {
+            "additionalProperties": false,
+            "description": "Explicit consumer allowance for one point or one realized action product.\nProof cells are shared across its rounds; the original task clock is unchanged.",
+            "properties": {
+              "proof_cells": {
+                "description": "Maximum actual interval proof cells across all those rounds.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "rounds": {
+                "description": "Maximum complete enclosure/correction rounds for this consumed product.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "rounds",
+              "proof_cells"
+            ],
+            "type": "object"
+          },
+          "RestartBarrier": {
+            "description": "The initial barrier parameter of an interior-point restart.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "The final barrier value the producing interior-point solve recorded with the seed. A\nseed without one (an authored seed) leaves the native default in force, and the\nreceipt says so.",
+                "properties": {
+                  "kind": {
+                    "const": "seed",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "A stated positive value.",
+                "properties": {
+                  "kind": {
+                    "const": "value",
+                    "type": "string"
+                  },
+                  "value": {
+                    "$ref": "#/$defs/Tolerance",
+                    "description": "The initial barrier parameter."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "value"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "ReusePolicy": {
+            "enum": [
+              "fresh",
+              "allow_rebuild",
+              "require_reuse"
+            ],
+            "type": "string"
+          },
+          "Schwarz": {
+            "additionalProperties": false,
+            "description": "Explicit correction damping and overlap extension for nonlinear Schwarz.",
+            "properties": {
+              "damping": {
+                "default": 1.0,
+                "description": "Native nonlinear correction damping in (0,1].",
+                "format": "double",
+                "type": "number"
+              },
+              "restricted": {
+                "default": true,
+                "description": "Restrict the extension to each block's declared interior.",
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "SensitivityRequest": {
+            "additionalProperties": false,
+            "description": "Physical parameter sensitivities at a regular square Root or an optimization's local\nsolution (ADR-0144; ADR-0118). Roots use qualified equality Jacobian response;\noptimization uses KKT-point analysis. Results use original physical coordinates and\nunits, with certified validity or the condition that withheld them.",
+            "properties": {
+              "parameters": {
+                "description": "Declared parameters of the solved case by identity, in the order results report\nthem; at least one, none repeated.",
+                "items": {
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "type": "array"
+              },
+              "propagation": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/Propagation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Also propagate a fit's parameter covariance through the sensitivities to named\nvariables (Plan 22 S4); absent propagates none and is not encoded."
+              },
+              "reduced_hessian": {
+                "default": false,
+                "description": "Also compute the reduced Hessian over the parameters: the second derivative of the\noptimal value.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "parameters"
+            ],
+            "type": "object"
+          },
+          "SolveControls": {
+            "additionalProperties": false,
+            "description": "Finite shared attempt controls chosen by the caller; solver-specific settings remain\nnative typed values. Accuracy is not among them: it is resolved from the numerical\npolicy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent\nfields take these defaults and unknown fields are refused.",
+            "properties": {
+              "foreign_bytes": {
+                "description": "Positive foreign-library allowance of this solve, in bytes: its reservation charges\nit, and a library that enforces its own memory limit receives it. Absent, the\ndeployment's allowance applies (`MathPolicy.foreign_bytes`); an absent allowance is\nnot encoded, so controls without one keep their identity.",
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "hessian": {
+                "$ref": "#/$defs/HessianMode",
+                "default": "exact",
+                "description": "Hessian representation for compatible NLP methods."
+              },
+              "history": {
+                "default": 256,
+                "description": "Bounded retained progress and failure events.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "iterations": {
+                "default": 3000,
+                "description": "Positive native iteration limit.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "options": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/OptionValue"
+                },
+                "default": {},
+                "description": "Additional native options, admitted by the selected adapter.",
+                "type": "object"
+              },
+              "reuse": {
+                "$ref": "#/$defs/ReusePolicy",
+                "default": "allow_rebuild",
+                "description": "Native allocation/data reuse policy."
+              },
+              "start": {
+                "$ref": "#/$defs/NativeStartPolicy",
+                "default": "no_prior_start",
+                "description": "Numerical start policy, independent of native allocation reuse."
+              },
+              "threads": {
+                "default": 1,
+                "description": "Explicit admitted native thread count.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "time_limit": {
+                "$ref": "#/$defs/Tolerance",
+                "default": 300.0,
+                "description": "Positive wall-clock allowance, including callbacks, in seconds."
+              }
+            },
+            "type": "object"
+          },
+          "SolveSettings": {
+            "additionalProperties": false,
+            "description": "The settings of one solve. The version is required; every other field takes the\ndefault of [`SolverProfile::default`] when absent.",
+            "properties": {
+              "backend": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/NativeBackend"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "An explicitly selected eligible backend; absent is deterministic routing."
+              },
+              "block_overrides": {
+                "additionalProperties": false,
+                "default": {},
+                "description": "Compiler stable block identities and admitted native realization overrides.\nValidated against the actual compiler scope even when direct execution wins;\napplied only if the governing policy selects the block mechanism.",
+                "patternProperties": {
+                  "^blake3:[0-9a-fA-F]{64}$": {
+                    "$ref": "#/$defs/BlockSolveOverrideBody"
+                  }
+                },
+                "propertyNames": {
+                  "description": "Stable identity of semantic block membership within an admitted scope.",
+                  "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                  "type": "string",
+                  "x-pse-identity": "ContentHash"
+                },
+                "type": "object"
+              },
+              "block_workers": {
+                "default": 1,
+                "description": "Maximum independent ready blocks; actual capacity is admitted by the existing owner.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "composition": {
+                "$ref": "#/$defs/CompositionRequestBody",
+                "default": {
+                  "branch": {
+                    "connected": null,
+                    "kind": "any_qualified"
+                  },
+                  "limits": null,
+                  "policy": "auto",
+                  "recovery": []
+                },
+                "description": "Requested composition; omission chooses automatic resolution without replacement starts."
+              },
+              "controls": {
+                "$ref": "#/$defs/SolveControls",
+                "default": {
+                  "hessian": "auto",
+                  "history": 256,
+                  "iterations": 3000,
+                  "options": {},
+                  "reuse": "allow_rebuild",
+                  "start": "no_prior_start",
+                  "threads": 1,
+                  "time_limit": 300.0
+                },
+                "description": "Shared finite attempt controls."
+              },
+              "convexity_absolute": {
+                "default": null,
+                "description": "Absolute eigenvalue budget of a numerical convexity assessment; with the relative\nbudget, it permits numerical assessment, and absent both, only exact certification.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "convexity_relative": {
+                "default": null,
+                "description": "Relative eigenvalue budget of a numerical convexity assessment.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "intent": {
+                "$ref": "#/$defs/NativeSolveIntent",
+                "default": "optimize",
+                "description": "Mathematical purpose."
+              },
+              "numerics": {
+                "$ref": "#/$defs/NumericalPolicy",
+                "default": {
+                  "acceptable": null,
+                  "closure": "require_closed",
+                  "engineering_relative_fraction": 0.001,
+                  "engineering_rules": [],
+                  "engineering_scales": [],
+                  "gap_absolute": 0.001,
+                  "gap_relative": 0.001,
+                  "goals": [],
+                  "incumbent": "refuse",
+                  "integrality": 1e-08,
+                  "kkt": {
+                    "complementarity": 0.001,
+                    "stationarity": 0.001
+                  },
+                  "linear_backward_error": 0.001,
+                  "mip_absolute_gap": 0.001,
+                  "mip_relative_gap": 0.001,
+                  "native_scaling": true,
+                  "requirements": [],
+                  "strict_engineering_context": false,
+                  "strict_nominals": false,
+                  "supplier_action_accuracy": 0.001,
+                  "version": 1
+                },
+                "description": "ID-keyed numerical requirements and acceptance budgets."
+              },
+              "presolve": {
+                "$ref": "#/$defs/PresolvePolicyKind",
+                "default": "auto",
+                "description": "Library presolve policy."
+              },
+              "presolve_options": {
+                "additionalProperties": {
+                  "$ref": "#/$defs/OptionValue"
+                },
+                "default": {},
+                "description": "Native presolve options; an explicit policy only.",
+                "type": "object"
+              },
+              "reconstruction": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ReconstructionAccuracy"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Explicit reconstruction evidence class and finite refinement allowances."
+              },
+              "required_passes": {
+                "default": [],
+                "description": "Passes that may not silently become unavailable; an explicit policy only.",
+                "items": {
+                  "$ref": "#/$defs/PresolvePass"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "sensitivity": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/SensitivityRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Physical parameter sensitivities at a regular square Root or optimizing candidate;\nabsent computes none. An absent request is not encoded, so a document without\none keeps its identity."
+              },
+              "settings": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/BackendSettingsBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Typed settings of one backend; absent is the routed backend's native defaults."
+              },
+              "version": {
+                "const": 5,
+                "default": 5,
+                "description": "Document version.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version"
+            ],
+            "type": "object"
+          },
+          "SpralOrdering": {
+            "enum": [
+              "metis",
+              "matching"
+            ],
+            "type": "string"
+          },
+          "SpralPivot": {
+            "enum": [
+              "aggressive",
+              "block",
+              "threshold"
+            ],
+            "type": "string"
+          },
+          "SpralScaling": {
+            "enum": [
+              "none",
+              "mc64",
+              "auction",
+              "matching",
+              "ruiz"
+            ],
+            "type": "string"
+          },
+          "StudyCompilerProfile": {
+            "additionalProperties": false,
+            "properties": {
+              "assembly": {
+                "$ref": "#/$defs/AssemblyLimits",
+                "description": "Per-case sparse assembly and complete numerical-worker admission limits."
+              },
+              "class_proof_work": {
+                "description": "Conservative shared domain/class construction work, not measured operations.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "evaluation": {
+                "$ref": "#/$defs/EvaluationLimits"
+              },
+              "optimization": {
+                "$ref": "#/$defs/Optimization"
+              }
+            },
+            "required": [
+              "optimization",
+              "evaluation",
+              "assembly",
+              "class_proof_work"
+            ],
+            "type": "object"
+          },
+          "Tolerance": {
+            "description": "A finite, strictly positive tolerance, budget or push.",
+            "exclusiveMinimum": 0.0,
+            "format": "double",
+            "type": "number"
+          },
+          "TrustRegion": {
+            "additionalProperties": false,
+            "description": "Normalized radius bounds consumed by the native trust-region method.",
+            "properties": {
+              "initial": {
+                "default": 1.0,
+                "description": "Initial radius in normalized coordinates.",
+                "format": "double",
+                "type": "number"
+              },
+              "maximum": {
+                "default": 100000000.0,
+                "description": "Positive finite maximum radius.",
+                "format": "double",
+                "type": "number"
+              },
+              "minimum": {
+                "default": 1e-12,
+                "description": "Positive lower radius; reaching it stops the native trajectory.",
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "type": "object"
+          },
+          "WarmRestart": {
+            "additionalProperties": false,
+            "description": "How an interior-point method re-centres a complete primal-dual seed (L-N3). With the\ncold-start defaults a seeded restart is pushed back towards the analytic centre and loses\nmost of its benefit, so a restart states its barrier and its pushes. Absent fields take\nthese defaults across the Python boundary (ADR-0113).",
+            "properties": {
+              "barrier": {
+                "$ref": "#/$defs/RestartBarrier",
+                "default": {
+                  "kind": "seed"
+                },
+                "description": "Initial barrier parameter of the restart (`mu_init`)."
+              },
+              "bound_frac": {
+                "$ref": "#/$defs/Fraction",
+                "default": 1e-09,
+                "description": "Relative push of the primal seed from its bounds (`warm_start_bound_frac`); at most\none half."
+              },
+              "bound_push": {
+                "$ref": "#/$defs/Tolerance",
+                "default": 1e-09,
+                "description": "Absolute push of the primal seed from its bounds (`warm_start_bound_push`)."
+              },
+              "mult_bound_push": {
+                "$ref": "#/$defs/Tolerance",
+                "default": 1e-09,
+                "description": "Push of the bound multipliers from zero (`warm_start_mult_bound_push`)."
+              },
+              "slack_bound_frac": {
+                "$ref": "#/$defs/Fraction",
+                "default": 1e-09,
+                "description": "Relative push of the slack seed from its bounds (`warm_start_slack_bound_frac`); at\nmost one half."
+              },
+              "slack_bound_push": {
+                "$ref": "#/$defs/Tolerance",
+                "default": 1e-09,
+                "description": "Absolute push of the slack seed from its bounds (`warm_start_slack_bound_push`)."
+              }
+            },
+            "type": "object"
+          },
+          "WorkLimits": {
+            "additionalProperties": false,
+            "description": "Additional finite work allowances. None imposes no additional counter cap under the\nenclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.\nEvery supplied counter is finite; Some(0) expressly prohibits that operation.",
+            "properties": {
+              "attempts": {
+                "description": "Maximum executions, including the first attempt. A task requires at least one.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "evaluations": {
+                "description": "Evaluations admitted by the charging owner, including rejected trials.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "factorizations": {
+                "description": "Numerical factor constructions, distinct from structural analysis/setup reuse.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "iterations": {
+                "description": "Native/library iterations, where the operation exposes them.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "proof_steps": {
+                "description": "Verification/proof operations accounted by their owning verifier.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "attempts"
+            ],
+            "type": "object"
+          }
+        },
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:modeling-inspection-request:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Finite selection of an admitted model observation, with explicit preparation policy.\nThe schema example's declaration identity is illustrative, not a runtime admission claim.",
+        "examples": [
+          {
+            "case": "01010101010101010101010101010101",
+            "document_version": 1,
+            "limit": 16,
+            "offset": 0,
+            "preparation": {
+              "compiler": {
+                "assembly": {
+                  "contributions": 1000000,
+                  "native_index": 2147483647,
+                  "worker_bytes": 2147483648
+                },
+                "class_proof_work": 1000000,
+                "evaluation": {
+                  "derivative_components": 4096,
+                  "operations": 1000000,
+                  "provider_calls": 4096,
+                  "scratch_bytes": 536870912
+                },
+                "optimization": {
+                  "cores": 1,
+                  "cpe_iterations": 1,
+                  "evaluator": {
+                    "kind": "interpreted"
+                  },
+                  "horner_iterations": 10
+                }
+              },
+              "limits": {
+                "body_occurrences": null,
+                "body_slots": null,
+                "depth": 64,
+                "items": 100000,
+                "members": 100000
+              }
+            },
+            "settings": {
+              "backend": null,
+              "block_overrides": {},
+              "block_workers": 1,
+              "composition": {
+                "branch": {
+                  "connected": null,
+                  "kind": "any_qualified"
+                },
+                "limits": null,
+                "policy": "auto",
+                "recovery": []
+              },
+              "controls": {
+                "hessian": "auto",
+                "history": 256,
+                "iterations": 3000,
+                "options": {},
+                "reuse": "allow_rebuild",
+                "start": "no_prior_start",
+                "threads": 1,
+                "time_limit": 300.0
+              },
+              "convexity_absolute": null,
+              "convexity_relative": null,
+              "intent": "optimize",
+              "numerics": {
+                "acceptable": null,
+                "closure": "require_closed",
+                "engineering_relative_fraction": 0.001,
+                "engineering_rules": [],
+                "engineering_scales": [],
+                "gap_absolute": 0.001,
+                "gap_relative": 0.001,
+                "goals": [],
+                "incumbent": "refuse",
+                "integrality": 1e-08,
+                "kkt": {
+                  "complementarity": 0.001,
+                  "stationarity": 0.001
+                },
+                "linear_backward_error": 0.001,
+                "mip_absolute_gap": 0.001,
+                "mip_relative_gap": 0.001,
+                "native_scaling": true,
+                "requirements": [],
+                "strict_engineering_context": false,
+                "strict_nominals": false,
+                "supplier_action_accuracy": 0.001,
+                "version": 1
+              },
+              "presolve": "auto",
+              "presolve_options": {},
+              "required_passes": [],
+              "settings": null,
+              "version": 5
+            }
+          }
+        ],
+        "properties": {
+          "case": {
+            "description": "Exact authored case declaration.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "DeclarationId"
+          },
+          "document_version": {
+            "const": 1,
+            "default": 1,
+            "type": "integer"
+          },
+          "limit": {
+            "description": "At most 128 members of each population.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Same finite offset applied independently to each original observation population.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "preparation": {
+            "$ref": "#/$defs/PreparationSettingsBody",
+            "description": "Complete policy used by contextual admission, never inferred from host limits."
+          },
+          "settings": {
+            "$ref": "#/$defs/SolveSettings",
+            "description": "Original solve/route policy; inspection does not dispatch its procedure."
+          }
+        },
+        "required": [
+          "case",
+          "preparation",
+          "settings",
+          "offset",
+          "limit",
+          "document_version"
+        ],
+        "title": "ModelingInspectionRequest",
+        "type": "object"
+      },
+      "project-draft-documents": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
+        "properties": {
+          "packages": {
+            "description": "Complete packages in original package order, with original relative paths/bytes.",
+            "items": {
+              "additionalProperties": {
+                "items": {
+                  "format": "uint8",
+                  "maximum": 255,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "description": "This explicit original-byte container's version.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "packages"
+        ],
+        "title": "ProjectDraftDocuments",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "documents": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "physical": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
+      },
+      "request": {
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:modeling-inspection-request:input"
+      },
+      "resources": {
+        "$ref": "#/$defs/Resources"
+      }
+    },
+    "required": [
+      "physical",
+      "documents",
+      "request"
+    ],
+    "title": "Preparation",
+    "type": "object"
+  },
+  "name": "native_model_inspect",
+  "outputSchema": {
+    "$defs": {
+      "AssemblyLimits": {
+        "additionalProperties": false,
+        "description": "Per-case bounds, distinct from a local derivative artifact's resource budget.",
+        "properties": {
+          "contributions": {
+            "description": "Maximum original derivative contributions before duplicate accumulation.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "native_index": {
+            "description": "Largest dimension/index/entry count representable by the selected native ABI.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "worker_bytes": {
+            "description": "Complete attempt storage budget: shared evaluator scratch, clones and occurrence caches.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contributions",
+          "native_index",
+          "worker_bytes"
+        ],
+        "type": "object"
+      },
+      "Bytes": {
+        "description": "Exact bytes, compared, framed and stored byte for byte. A package data document's\ncontent is one; text is never implied.",
+        "items": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "ContextCutBody": {
+        "additionalProperties": false,
+        "description": "Exact project journal position; never a source revision sequence or wall clock.",
+        "properties": {
+          "issuing_store": {
+            "description": "Issuing canonical database identity.",
+            "type": "string"
+          },
+          "project": {
+            "description": "Stable project identity.",
+            "type": "string"
+          },
+          "sequence": {
+            "description": "Last included journal position.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issuing_store",
+          "project",
+          "sequence"
+        ],
+        "type": "object"
+      },
+      "ContextSelectionBodyOutput": {
+        "additionalProperties": false,
+        "description": "Complete frozen selection. Deserializing this document grants no source authority.",
+        "properties": {
+          "context": {
+            "$ref": "#/$defs/ProjectContextBodyOutput",
+            "description": "Original immutable selected source descriptor."
+          },
+          "cut": {
+            "$ref": "#/$defs/ContextCutBody",
+            "description": "Original recorded cut."
+          },
+          "effective_at_us": {
+            "description": "UTC instant in signed microseconds since the Unix epoch.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cut",
+          "effective_at_us",
+          "context"
+        ],
+        "type": "object"
+      },
+      "EvaluationLimits": {
+        "additionalProperties": false,
+        "properties": {
+          "derivative_components": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "operations": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "provider_calls": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "scratch_bytes": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "derivative_components",
+          "operations",
+          "scratch_bytes",
+          "provider_calls"
+        ],
+        "type": "object"
+      },
+      "Evaluator": {
+        "description": "Explicit evaluator implementation. Scalar C++ compilation is opt-in for eligible\ndemanded arithmetic products; provider calls and ordered guards remain host-owned.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Portable library instruction interpretation.",
+            "properties": {
+              "kind": {
+                "const": "interpreted",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Fixed conservative Linux x86-64 C++ profile. The finite allowance covers\neach module's export temporaries, named compiler outputs, loaded code,\ntemplate metadata and bounded diagnostic reader; worker numeric scratch\nremains independently charged from the exported stack.",
+            "properties": {
+              "kind": {
+                "const": "compiled_scalar",
+                "type": "string"
+              },
+              "module_bytes": {
+                "description": "Prepaid complete native preparation/module capacity for each arithmetic block.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "module_bytes"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "InspectionConnectionOutput": {
+        "additionalProperties": false,
+        "description": "One selected declared connection.",
+        "properties": {
+          "from": {
+            "description": "Source endpoint identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "id": {
+            "description": "Identity retained from the admitted source.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "lineage": {
+            "$ref": "#/$defs/InspectionLineageOutput",
+            "description": "Provenance of this selected member."
+          },
+          "to": {
+            "description": "Destination endpoint identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "lineage"
+        ],
+        "type": "object"
+      },
+      "InspectionExecution": {
+        "additionalProperties": false,
+        "description": "Selected declared execution before native preparation.",
+        "properties": {
+          "procedure": {
+            "$ref": "#/$defs/ModelingProcedure",
+            "description": "Declared execution procedure."
+          },
+          "requested_start": {
+            "$ref": "#/$defs/NativeStartPolicy",
+            "description": "Requested retained-start policy."
+          },
+          "route": {
+            "$ref": "#/$defs/ModelingAnalysisRoute",
+            "description": "Native analysis route."
+          }
+        },
+        "required": [
+          "route",
+          "procedure",
+          "requested_start"
+        ],
+        "type": "object"
+      },
+      "InspectionInstanceOutput": {
+        "additionalProperties": false,
+        "description": "One selected instantiated definition.",
+        "properties": {
+          "definition": {
+            "description": "Originating definition identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "DeclarationId"
+          },
+          "id": {
+            "description": "Identity retained from the admitted source.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "InstanceId"
+          },
+          "members": {
+            "additionalProperties": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            },
+            "description": "Instantiated model members and their provenance.",
+            "type": "object"
+          },
+          "parent": {
+            "description": "Containing instance, when present.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "InstanceId"
+          },
+          "path": {
+            "description": "Authored qualified path.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "definition",
+          "parent",
+          "path",
+          "members"
+        ],
+        "type": "object"
+      },
+      "InspectionLineageOutput": {
+        "additionalProperties": false,
+        "description": "Retained authored provenance of an instantiated member.",
+        "properties": {
+          "declaration": {
+            "description": "Originating authored declaration.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "DeclarationId"
+          },
+          "default_owner": {
+            "description": "Declaration supplying the selected default.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "DeclarationId"
+          },
+          "demand": {
+            "description": "Declarations that demanded this specialization.",
+            "items": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            },
+            "type": "array"
+          },
+          "instance": {
+            "description": "Selected instance identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "InstanceId"
+          },
+          "is_override": {
+            "description": "Whether this member overrides an inherited default.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Authored qualified path.",
+            "type": "string"
+          },
+          "presets": {
+            "description": "Applied authored presets.",
+            "items": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "declaration",
+          "instance",
+          "path",
+          "demand",
+          "default_owner",
+          "is_override",
+          "presets"
+        ],
+        "type": "object"
+      },
+      "InspectionMemberOutput": {
+        "additionalProperties": false,
+        "description": "One selected model member.",
+        "properties": {
+          "id": {
+            "description": "Identity retained from the admitted source.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "lineage": {
+            "$ref": "#/$defs/InspectionLineageOutput",
+            "description": "Provenance of this selected member."
+          },
+          "role": {
+            "$ref": "#/$defs/ModelingDeclarationKind",
+            "description": "Authored declaration role."
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "lineage"
+        ],
+        "type": "object"
+      },
+      "InspectionPopulation": {
+        "additionalProperties": false,
+        "description": "Independent total populations, distinct from the number of returned observations.",
+        "properties": {
+          "connections": {
+            "description": "Total connections.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "instances": {
+            "description": "Total instantiated definitions.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "members": {
+            "description": "Total instantiated members.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ports": {
+            "description": "Total selected ports.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instances",
+          "members",
+          "ports",
+          "connections"
+        ],
+        "type": "object"
+      },
+      "InspectionPortOutput": {
+        "additionalProperties": false,
+        "description": "One selected declared port.",
+        "properties": {
+          "id": {
+            "description": "Identity retained from the admitted source.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "lineage": {
+            "$ref": "#/$defs/InspectionLineageOutput",
+            "description": "Provenance of this selected member."
+          },
+          "symbol": {
+            "description": "Selected symbol carried by this port.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          }
+        },
+        "required": [
+          "id",
+          "symbol",
+          "lineage"
+        ],
+        "type": "object"
+      },
+      "LimitsOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "body_occurrences": {
+            "format": "uint",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "body_slots": {
+            "format": "uint",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "depth": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "items": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "members": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "depth",
+          "items",
+          "members",
+          "body_occurrences",
+          "body_slots"
+        ],
+        "type": "object"
+      },
+      "ModelingAnalysisRoute": {
+        "enum": [
+          "steady",
+          "integrated",
+          "simultaneous"
+        ],
+        "type": "string"
+      },
+      "ModelingDeclarationKind": {
+        "enum": [
+          "temporal",
+          "relaxation",
+          "continuation",
+          "package",
+          "entity_kind",
+          "interface",
+          "definition",
+          "case",
+          "test",
+          "stage",
+          "implicit",
+          "regime",
+          "disjunction",
+          "alternative",
+          "parameter",
+          "variable",
+          "let",
+          "alias",
+          "set",
+          "child",
+          "port",
+          "preset",
+          "scope_value",
+          "function",
+          "coordinate_map",
+          "coordinate_slot",
+          "reconstruction",
+          "response",
+          "reference_translation",
+          "boundary",
+          "exchange",
+          "equation",
+          "sos1",
+          "sos2",
+          "atmost",
+          "atleast",
+          "exactly",
+          "piecewise",
+          "logic",
+          "complementarity",
+          "table",
+          "applicability",
+          "permission",
+          "envelope",
+          "attribute",
+          "dataset",
+          "entity",
+          "enum",
+          "constant",
+          "import",
+          "when",
+          "accumulator",
+          "contribution",
+          "state_specification",
+          "state_port",
+          "inventory_balance",
+          "connection",
+          "annotation",
+          "requirement",
+          "expectation",
+          "continuous",
+          "difference_scheme",
+          "collocation_scheme",
+          "discretization",
+          "realization",
+          "identifier_scheme"
+        ],
+        "type": "string"
+      },
+      "ModelingProcedure": {
+        "enum": [
+          "check",
+          "solve",
+          "initialize",
+          "integrate",
+          "shooting"
+        ],
+        "type": "string"
+      },
+      "NativeStartPolicy": {
+        "enum": [
+          "no_prior_start",
+          "previous_accepted",
+          "explicit"
+        ],
+        "type": "string"
+      },
+      "OperationSourceBodyOutput": {
+        "additionalProperties": false,
+        "description": "Exact source/context required when reconstructing an operation from stored bundles.",
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ContextSelectionBodyOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Original effective-time and recorded-cut selection, if explicitly selected."
+          },
+          "physical_context": {
+            "description": "Complete admitted physical context identity.",
+            "pattern": "^blake3:[0-9a-fA-F]{64}$",
+            "type": "string",
+            "x-pse-identity": "ContentHash"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ResearchSourceOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Frozen research attribution consumed by this exact operation."
+          },
+          "revision": {
+            "description": "Immutable modeling revision, including included scientific data.",
+            "pattern": "^blake3:[0-9a-fA-F]{64}$",
+            "type": "string",
+            "x-pse-identity": "ContentHash"
+          }
+        },
+        "required": [
+          "research",
+          "context",
+          "revision",
+          "physical_context"
+        ],
+        "type": "object"
+      },
+      "Optimization": {
+        "additionalProperties": false,
+        "properties": {
+          "cores": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "cpe_iterations": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "evaluator": {
+            "$ref": "#/$defs/Evaluator"
+          },
+          "horner_iterations": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cores",
+          "horner_iterations",
+          "cpe_iterations",
+          "evaluator"
+        ],
+        "type": "object"
+      },
+      "PreparationSettingsBodyOutput": {
+        "additionalProperties": false,
+        "description": "Serialization of the existing compiler/expansion controls, with no second defaults.",
+        "properties": {
+          "compiler": {
+            "$ref": "#/$defs/StudyCompilerProfile",
+            "description": "Existing evaluator profile, encoded through its complete remote projection."
+          },
+          "limits": {
+            "$ref": "#/$defs/LimitsOutput",
+            "description": "Existing expansion admission limits."
+          }
+        },
+        "required": [
+          "compiler",
+          "limits"
+        ],
+        "type": "object"
+      },
+      "ProjectContextBodyOutput": {
+        "additionalProperties": false,
+        "description": "A row or nested value projected from the registry declaration.",
+        "properties": {
+          "corrects": {
+            "description": "corrects",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deleted": {
+            "description": "deleted",
+            "type": "boolean"
+          },
+          "effective_from_us": {
+            "description": "effective_from_us",
+            "format": "int64",
+            "type": "integer"
+          },
+          "effective_to_us": {
+            "description": "effective_to_us",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "key": {
+            "description": "key",
+            "type": "string"
+          },
+          "physical_context": {
+            "description": "physical_context",
+            "type": "string"
+          },
+          "physical_revision": {
+            "description": "physical_revision",
+            "type": "string"
+          },
+          "physical_source_identity": {
+            "description": "physical_source_identity",
+            "type": "string"
+          },
+          "project": {
+            "description": "project",
+            "type": "string"
+          },
+          "recorded_sequence": {
+            "description": "recorded_sequence",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "request": {
+            "$ref": "#/$defs/Bytes",
+            "description": "request"
+          },
+          "revision": {
+            "description": "revision",
+            "type": "string"
+          },
+          "scope": {
+            "description": "scope",
+            "type": "string"
+          },
+          "source_identity": {
+            "description": "source_identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "project",
+          "scope",
+          "revision",
+          "source_identity",
+          "physical_context",
+          "physical_revision",
+          "physical_source_identity",
+          "effective_from_us",
+          "effective_to_us",
+          "recorded_sequence",
+          "corrects",
+          "deleted",
+          "request"
+        ],
+        "type": "object"
+      },
+      "ResearchSourceOutput": {
+        "additionalProperties": false,
+        "description": "Authenticated original research ancestry carried by actual operation inputs.",
+        "properties": {
+          "dataset": {
+            "description": "Immutable dataset version.",
+            "type": "string"
+          },
+          "issuing_store": {
+            "description": "Canonical installation incarnation.",
+            "type": "string"
+          },
+          "physical_context": {
+            "description": "Original physical meaning.",
+            "type": "string"
+          },
+          "publication": {
+            "description": "Explicit parameter publication ancestry, when consuming its new source.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "description": "Exact currently consumed canonical source.",
+            "type": "string"
+          },
+          "selection": {
+            "description": "Frozen original observation selection.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issuing_store",
+          "selection",
+          "dataset",
+          "revision",
+          "physical_context",
+          "publication"
+        ],
+        "type": "object"
+      },
+      "StudyCompilerProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "assembly": {
+            "$ref": "#/$defs/AssemblyLimits",
+            "description": "Per-case sparse assembly and complete numerical-worker admission limits."
+          },
+          "class_proof_work": {
+            "description": "Conservative shared domain/class construction work, not measured operations.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "evaluation": {
+            "$ref": "#/$defs/EvaluationLimits"
+          },
+          "optimization": {
+            "$ref": "#/$defs/Optimization"
+          }
+        },
+        "required": [
+          "optimization",
+          "evaluation",
+          "assembly",
+          "class_proof_work"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "Nonexecuting observation of the selected model.",
+                "properties": {
+                  "connections": {
+                    "description": "Selected authored connections.",
+                    "items": {
+                      "$ref": "#/$defs/InspectionConnectionOutput"
+                    },
+                    "type": "array"
+                  },
+                  "document_version": {
+                    "const": 1,
+                    "default": 1,
+                    "type": "integer"
+                  },
+                  "execution": {
+                    "$ref": "#/$defs/InspectionExecution",
+                    "description": "Selected route and procedure before execution."
+                  },
+                  "instances": {
+                    "description": "Instantiated authored definitions.",
+                    "items": {
+                      "$ref": "#/$defs/InspectionInstanceOutput"
+                    },
+                    "type": "array"
+                  },
+                  "members": {
+                    "description": "Instantiated model members and their provenance.",
+                    "items": {
+                      "$ref": "#/$defs/InspectionMemberOutput"
+                    },
+                    "type": "array"
+                  },
+                  "next_offset": {
+                    "description": "Next common offset, if any original population has more records.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "offset": {
+                    "description": "Original population offset.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "population": {
+                    "$ref": "#/$defs/InspectionPopulation",
+                    "description": "Original population sizes before finite projection."
+                  },
+                  "ports": {
+                    "description": "Selected authored ports.",
+                    "items": {
+                      "$ref": "#/$defs/InspectionPortOutput"
+                    },
+                    "type": "array"
+                  },
+                  "preparation": {
+                    "$ref": "#/$defs/PreparationSettingsBodyOutput",
+                    "description": "Complete native preparation policy that admitted the observed case."
+                  },
+                  "source": {
+                    "$ref": "#/$defs/OperationSourceBodyOutput",
+                    "description": "Exact source and physical context of this observation."
+                  }
+                },
+                "required": [
+                  "source",
+                  "preparation",
+                  "population",
+                  "offset",
+                  "next_offset",
+                  "execution",
+                  "instances",
+                  "members",
+                  "ports",
+                  "connections",
+                  "document_version"
+                ],
+                "title": "ModelingInspectionOutput",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Model Inspect"
+}
+```
+
+- Native `documents`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `output_document`: [docs/generated/schema/modeling-inspection.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/modeling-inspection.output.schema.json).
+
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `request`: [docs/generated/schema/modeling-inspection-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/modeling-inspection-request.input.schema.json).
+
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
+
 ### `native_preparation_discover` — Inspect preparation availability
 
 Exposure: **tool**. Owner: `pse.ModelingPackage.preparation_discovery`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
@@ -17353,6 +38195,7 @@ Exposure: **tool**. Owner: `pse.ModelingPackage.preparation_discovery`. Declarat
     "tooling"
   ],
   "id": "native_preparation_discover",
+  "invocation_lifetime": "single",
   "owner": "pse.ModelingPackage.preparation_discovery",
   "prerequisites": [
     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner."
@@ -17400,6 +38243,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": {
         "path": "docs/generated/schema/authoring.schema.json",
@@ -17413,7 +38257,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -17426,7 +38270,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -17439,7 +38283,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -17452,7 +38296,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -17460,7 +38304,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
         }
       },
       "receiver": "pse.ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -18062,7 +38906,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -18116,7 +38960,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -18156,13 +39000,13 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -18245,6 +39089,7 @@ Exposure: **tool**. Owner: `pse.ProjectBundle.manifest + digest`. Declaration so
     "tooling"
   ],
   "id": "native_project_bundle_inspect",
+  "invocation_lifetime": "single",
   "owner": "pse.ProjectBundle.manifest + digest",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -18292,6 +39137,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -18302,7 +39148,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectManifest",
           "schema_path": "docs/generated/schema/project-manifest.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "afcf6d813ebe9d5488cda86d5df827416faf129419c05527ce1aba6d53d9aa78",
           "slug": "project-manifest",
           "version": 1,
@@ -18310,7 +39156,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
         }
       },
       "receiver": "pse.ProjectBundle.manifest + digest",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -18405,6 +39251,7 @@ Exposure: **tool**. Owner: `pse.Runtime.project_metadata`. Declaration source: [
     "tooling"
   ],
   "id": "native_project_metadata",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.project_metadata",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -18463,6 +39310,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -18473,7 +39321,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataPage",
           "schema_path": "docs/generated/schema/project-metadata-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "247bcbf54ba1f8787e71f6e84fcd093b719a27f83b18dc7730bf0a9f14119c9c",
           "slug": "project-metadata-page",
           "version": 1,
@@ -18486,7 +39334,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataRequest",
           "schema_path": "docs/generated/schema/project-metadata-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "5f252f295e44801126cafb6f147efdade00a0c618978098dbe75d854481614cd",
           "slug": "project-metadata-request",
           "version": 1,
@@ -18494,7 +39342,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         }
       },
       "receiver": "pse.Runtime.project_metadata",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -18572,7 +39420,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-metadata-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-metadata-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact owner and optional continuation for a bounded live metadata listing.",
@@ -18620,7 +39468,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-metadata-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-metadata-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -18702,6 +39550,7 @@ Exposure: **tool**. Owner: `pse.Runtime.project_select`. Declaration source: [sc
     "tooling"
   ],
   "id": "native_project_select",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.project_select",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -18760,6 +39609,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": {
         "path": "docs/generated/schema/authoring.schema.json",
@@ -18773,7 +39623,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelection",
           "schema_path": "docs/generated/schema/project-selection.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "94c26dbd186b231b086e6e37d8dd6df5a0d4b00655a6e8f4d95a498e8b3f37d9",
           "slug": "project-selection",
           "version": 1,
@@ -18786,7 +39636,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -18799,7 +39649,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelectRequest",
           "schema_path": "docs/generated/schema/project-select-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "393a032a9136db4e6aaa0ae0168ed9aafc244c47bb9207f48d340763164d5284",
           "slug": "project-select-request",
           "version": 1,
@@ -18807,7 +39657,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         }
       },
       "receiver": "pse.Runtime.project_select",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -18848,7 +39698,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -18930,7 +39780,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-select-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-select-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit navigation command transport.",
@@ -18963,10 +39813,10 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-select-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-select-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -19053,6 +39903,7 @@ Exposure: **tool**. Owner: `pse.Runtime.research_read`. Declaration source: [scr
     "tooling"
   ],
   "id": "native_research_read",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.research_read",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -19111,6 +39962,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -19121,7 +39973,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadResult",
           "schema_path": "docs/generated/schema/research-read-result.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "edf625447db75b6278030fd28171b9b009aa21cb85ff16c05108e3c33f99e8b4",
           "slug": "research-read-result",
           "version": 1,
@@ -19134,7 +39986,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
           "schema_path": "docs/generated/schema/research-read-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
           "slug": "research-read-request",
           "version": 1,
@@ -19142,7 +39994,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         }
       },
       "receiver": "pse.Runtime.research_read",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -19183,7 +40035,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
       },
       "research-read-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:research-read-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:research-read-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "Exact discovery and selected detail commands; metadata does not retain payloads.",
         "oneOf": [
@@ -19297,7 +40149,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:research-read-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:research-read-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -19379,6 +40231,7 @@ Exposure: **tool**. Owner: `pse.Runtime.inspect_result`. Declaration source: [sc
     "tooling"
   ],
   "id": "native_result_inspect",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.inspect_result",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -19437,6 +40290,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {
@@ -19447,11 +40301,11 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
           "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
-          "schema_sha256": "7f9e0c189b0d7588008ba5e443b18823f1f93212bf1b50882fe13f5bcc1f3ee4",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "f8f7f4a37f4a2a1f640a77b6b88ce103326b184e82682547a86891f27d69f6e7",
           "slug": "result-inspection-document",
-          "version": 1,
-          "wire": "FlatV1"
+          "version": 2,
+          "wire": "FlatV2"
         },
         "request": {
           "direction": "input",
@@ -19460,15 +40314,15 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
           "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
-          "schema_sha256": "fb0431325e5ee50f1704f3921c3d636e4503a0c3d902e9b36492b3132105e2fa",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
+          "schema_sha256": "76f18de590c183d117b027821c0dcb32e9d87786d191722de8478fe4527a01ae",
           "slug": "result-inspection-request",
-          "version": 1,
-          "wire": "FlatV1"
+          "version": 2,
+          "wire": "FlatV2"
         }
       },
       "receiver": "pse.Runtime.inspect_result",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -19510,6 +40364,305 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
       "result-inspection-request": {
         "$comment": "@generated by pse-schema; do not edit",
         "$defs": {
+          "ArrowFieldPath": {
+            "additionalProperties": false,
+            "description": "Exact typed Arrow navigation; an empty step list selects the original root field.",
+            "properties": {
+              "field": {
+                "description": "Exact original root column name.",
+                "type": "string"
+              },
+              "steps": {
+                "description": "At most sixteen native struct/list operations.",
+                "items": {
+                  "$ref": "#/$defs/ArrowFieldStep"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "field",
+              "steps"
+            ],
+            "type": "object"
+          },
+          "ArrowFieldStep": {
+            "description": "A native array operation, not a JSON pointer or a string expression.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Exact declared struct child.",
+                "properties": {
+                  "kind": {
+                    "const": "struct_field",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Original exact child name.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Selected element relative to each original row's list offsets.",
+                "properties": {
+                  "index": {
+                    "description": "Zero-based position within each original valid list.",
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "kind": {
+                    "const": "list_element",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "index"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PackResultPredicate": {
+            "additionalProperties": false,
+            "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
+            "properties": {
+              "maximum_bits": {
+                "description": "Optional upper predicate endpoint as exact IEEE-754 bits.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "minimum_bits": {
+                "description": "Optional lower predicate endpoint as exact IEEE-754 bits.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "missing": {
+                "description": "Original missing-value predicate, independent of empty output.",
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "output": {
+                "description": "Original scientific output owner identity.",
+                "type": "string"
+              },
+              "partition": {
+                "description": "Exact original selected output partition.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "output",
+              "partition"
+            ],
+            "type": "object"
+          },
+          "PackResultSelection": {
+            "additionalProperties": false,
+            "description": "Exact original result lineage and range, including independent usability.",
+            "properties": {
+              "attempt": {
+                "description": "Exact original attempt identity; retries never substitute another attempt.",
+                "type": "string"
+              },
+              "field": {
+                "description": "Optional original field/output selection; schema remains the original typed relation.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "predicate": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/PackResultPredicate"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact original output predicate; absent for the whole selected relation."
+              },
+              "relation": {
+                "description": "Qualified original registry relation name.",
+                "type": "string"
+              },
+              "row_end": {
+                "description": "Exclusive original row coordinate, before selected filtering.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "row_start": {
+                "description": "Inclusive original row coordinate, before selected filtering.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "run": {
+                "description": "Original canonical run identity; never a current-run alias.",
+                "type": "string"
+              },
+              "schema_version": {
+                "description": "Original registry relation schema version, independent of IPC transport encoding.",
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "terminal_class": {
+                "description": "Original closed attempt classification, independent of publication.",
+                "type": "string"
+              },
+              "usability": {
+                "$ref": "#/$defs/PackScientificState",
+                "description": "Original scientific product usability, never upgraded by copying."
+              }
+            },
+            "required": [
+              "run",
+              "attempt",
+              "relation",
+              "schema_version",
+              "row_start",
+              "row_end",
+              "terminal_class",
+              "usability"
+            ],
+            "type": "object"
+          },
+          "PackScientificState": {
+            "description": "Scientific usability recorded by the producer; publication never upgrades it.",
+            "oneOf": [
+              {
+                "const": "unknown",
+                "description": "Original scientific usability was not established.",
+                "type": "string"
+              },
+              {
+                "const": "usable",
+                "description": "Original authority admitted this selected product as usable.",
+                "type": "string"
+              },
+              {
+                "const": "partial",
+                "description": "Original selected scientific product has partial coverage.",
+                "type": "string"
+              },
+              {
+                "const": "failed",
+                "description": "Original scientific work failed; export may still complete.",
+                "type": "string"
+              },
+              {
+                "const": "unusable",
+                "description": "Original product is retained but lacks scientific use permission.",
+                "type": "string"
+              }
+            ]
+          },
+          "ResultInspectionBasis": {
+            "additionalProperties": false,
+            "description": "Immutable request coordinates retained across pages.",
+            "properties": {
+              "attempt": {
+                "description": "Original terminal attempt.",
+                "type": "string"
+              },
+              "end": {
+                "description": "Exclusive original window end.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "relation": {
+                "description": "Original relation.",
+                "type": "string"
+              },
+              "run": {
+                "description": "Original run.",
+                "type": "string"
+              },
+              "start": {
+                "description": "Complete requested row window.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "view": {
+                "$ref": "#/$defs/ResultInspectionView",
+                "description": "Original view/path/page allowance, unchanged by continuation."
+              }
+            },
+            "required": [
+              "run",
+              "attempt",
+              "relation",
+              "start",
+              "end",
+              "view"
+            ],
+            "type": "object"
+          },
+          "ResultInspectionCursor": {
+            "additionalProperties": false,
+            "description": "Store/selection-bound continuation; each call reacquires original protection.",
+            "properties": {
+              "basis": {
+                "$ref": "#/$defs/ResultInspectionBasis",
+                "description": "Original request identity."
+              },
+              "issuing_store": {
+                "description": "Original canonical store authority; coordinates alone never cross stores.",
+                "type": "string"
+              },
+              "manifest": {
+                "description": "Exact closure digest.",
+                "type": "string"
+              },
+              "position": {
+                "description": "Next original row or descriptor/metadata position.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "schema_fingerprint": {
+                "description": "Exact admitted registry relation contract, independent of its numeric version.",
+                "type": "string"
+              },
+              "selection": {
+                "$ref": "#/$defs/PackResultSelection",
+                "description": "Exact original protected selection, including issuing authority."
+              }
+            },
+            "required": [
+              "issuing_store",
+              "selection",
+              "manifest",
+              "schema_fingerprint",
+              "basis",
+              "position"
+            ],
+            "type": "object"
+          },
           "ResultInspectionView": {
             "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
             "oneOf": [
@@ -19543,12 +40696,78 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
               },
               {
                 "additionalProperties": false,
+                "description": "Immediate native children of one exact field, without result data batches.",
+                "properties": {
+                  "kind": {
+                    "const": "children",
+                    "type": "string"
+                  },
+                  "limit": {
+                    "description": "One to sixteen children.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "offset": {
+                    "description": "Original immediate-child offset.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "$ref": "#/$defs/ArrowFieldPath",
+                    "description": "Original parent field."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "path",
+                  "offset",
+                  "limit"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Exact metadata entries of one original field, without result data batches.",
+                "properties": {
+                  "kind": {
+                    "const": "metadata",
+                    "type": "string"
+                  },
+                  "limit": {
+                    "description": "One to sixteen entries.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "offset": {
+                    "description": "Original sorted metadata-entry offset.",
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "path": {
+                    "$ref": "#/$defs/ArrowFieldPath",
+                    "description": "Original field owning the metadata."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "path",
+                  "offset",
+                  "limit"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
                 "description": "Read selected original scalar fields together with all declared non-value context.",
                 "properties": {
                   "fields": {
-                    "description": "One to eight unique exact original field names.",
+                    "description": "One to eight unique exact original root/child paths.",
                     "items": {
-                      "type": "string"
+                      "$ref": "#/$defs/ArrowFieldPath"
                     },
                     "type": "array"
                   },
@@ -19573,18 +40792,57 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:result-inspection-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:result-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
-        "description": "Select one exact immutable result; schema discovery does not read its Arrow rows.",
+        "description": "Select one exact immutable result; schema discovery does not read its Arrow rows.\nSchema example identities are illustrative, not live eligible result references.",
+        "examples": [
+          {
+            "attempt": "illustrative-terminal-attempt",
+            "cursor": null,
+            "document_version": 2,
+            "end": 1,
+            "expected_manifest": null,
+            "relation": "runtime.study_outcomes",
+            "run": "illustrative-original-run",
+            "start": 0,
+            "view": {
+              "fields": [
+                {
+                  "field": "start",
+                  "steps": [
+                    {
+                      "kind": "struct_field",
+                      "name": "kind"
+                    }
+                  ]
+                }
+              ],
+              "kind": "values",
+              "maximum_rows": 1
+            }
+          }
+        ],
         "properties": {
           "attempt": {
             "description": "Exact original terminal attempt.",
             "type": "string"
           },
+          "cursor": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ResultInspectionCursor"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Original-window/path-bound continuation; never a payload permission."
+          },
           "document_version": {
-            "const": 1,
-            "default": 1,
+            "const": 2,
+            "default": 2,
             "type": "integer"
           },
           "end": {
@@ -19642,7 +40900,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:result-inspection-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:result-inspection-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -19664,6 +40922,73 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
   "name": "native_result_inspect",
   "outputSchema": {
     "$defs": {
+      "ArrowFieldPath": {
+        "additionalProperties": false,
+        "description": "Exact typed Arrow navigation; an empty step list selects the original root field.",
+        "properties": {
+          "field": {
+            "description": "Exact original root column name.",
+            "type": "string"
+          },
+          "steps": {
+            "description": "At most sixteen native struct/list operations.",
+            "items": {
+              "$ref": "#/$defs/ArrowFieldStep"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "field",
+          "steps"
+        ],
+        "type": "object"
+      },
+      "ArrowFieldStep": {
+        "description": "A native array operation, not a JSON pointer or a string expression.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Exact declared struct child.",
+            "properties": {
+              "kind": {
+                "const": "struct_field",
+                "type": "string"
+              },
+              "name": {
+                "description": "Original exact child name.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Selected element relative to each original row's list offsets.",
+            "properties": {
+              "index": {
+                "description": "Zero-based position within each original valid list.",
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "list_element",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "index"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "PackResultPredicateOutput": {
         "additionalProperties": false,
         "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
@@ -19857,6 +41182,49 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           }
         ]
       },
+      "ResultInspectionBasis": {
+        "additionalProperties": false,
+        "description": "Immutable request coordinates retained across pages.",
+        "properties": {
+          "attempt": {
+            "description": "Original terminal attempt.",
+            "type": "string"
+          },
+          "end": {
+            "description": "Exclusive original window end.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "relation": {
+            "description": "Original relation.",
+            "type": "string"
+          },
+          "run": {
+            "description": "Original run.",
+            "type": "string"
+          },
+          "start": {
+            "description": "Complete requested row window.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "view": {
+            "$ref": "#/$defs/ResultInspectionView",
+            "description": "Original view/path/page allowance, unchanged by continuation."
+          }
+        },
+        "required": [
+          "run",
+          "attempt",
+          "relation",
+          "start",
+          "end",
+          "view"
+        ],
+        "type": "object"
+      },
       "ResultInspectionCell": {
         "description": "Exact scalar storage observation. Field metadata and row context retain its interpretation.",
         "oneOf": [
@@ -19871,6 +41239,55 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
             },
             "required": [
               "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "An ancestor container is null; its underlying child buffer was not exposed.",
+            "properties": {
+              "depth": {
+                "description": "Zero-based path step whose parent is null.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "parent_null",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "depth"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "A valid list lacks the selected element; empty and nonempty lists retain their lengths.",
+            "properties": {
+              "depth": {
+                "description": "Zero-based list path step.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "missing_element",
+                "type": "string"
+              },
+              "length": {
+                "description": "Original valid list length, including zero.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "depth",
+              "length"
             ],
             "type": "object"
           },
@@ -20063,13 +41480,60 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           }
         ]
       },
+      "ResultInspectionCursorOutput": {
+        "additionalProperties": false,
+        "description": "Store/selection-bound continuation; each call reacquires original protection.",
+        "properties": {
+          "basis": {
+            "$ref": "#/$defs/ResultInspectionBasis",
+            "description": "Original request identity."
+          },
+          "issuing_store": {
+            "description": "Original canonical store authority; coordinates alone never cross stores.",
+            "type": "string"
+          },
+          "manifest": {
+            "description": "Exact closure digest.",
+            "type": "string"
+          },
+          "position": {
+            "description": "Next original row or descriptor/metadata position.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "schema_fingerprint": {
+            "description": "Exact admitted registry relation contract, independent of its numeric version.",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/$defs/PackResultSelectionOutput",
+            "description": "Exact original protected selection, including issuing authority."
+          }
+        },
+        "required": [
+          "issuing_store",
+          "selection",
+          "manifest",
+          "schema_fingerprint",
+          "basis",
+          "position"
+        ],
+        "type": "object"
+      },
       "ResultInspectionField": {
         "additionalProperties": false,
         "description": "Admitted registry Arrow field, including nested datatype/field metadata.\nSchema-only discovery does not independently validate the stored file schema.",
         "properties": {
-          "datatype_json": {
-            "description": "Original Arrow datatype using arrow_schema's own JSON encoding, including nested fields.",
-            "type": "string"
+          "ancestor_metadata": {
+            "description": "Exact ancestor metadata in path order; child interpretation does not discard parent context.",
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
           },
           "index": {
             "description": "Position in the original complete relation schema.",
@@ -20091,14 +41555,24 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "nullable": {
             "description": "Original outer field nullability.",
             "type": "boolean"
+          },
+          "path": {
+            "$ref": "#/$defs/ArrowFieldPath",
+            "description": "Exact original field location."
+          },
+          "storage": {
+            "$ref": "#/$defs/ResultInspectionStorage",
+            "description": "Shallow storage descriptor; exact nested detail uses the same native reader."
           }
         },
         "required": [
           "index",
           "name",
-          "datatype_json",
+          "path",
+          "storage",
           "nullable",
-          "metadata"
+          "metadata",
+          "ancestor_metadata"
         ],
         "type": "object"
       },
@@ -20128,6 +41602,11 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           {
             "const": "response_extent",
             "description": "Complete required descriptors/values exceed the encoded answer allowance.",
+            "type": "string"
+          },
+          {
+            "const": "cursor_changed",
+            "description": "Continuation belongs to another issuer/selection/window/path or original view.",
             "type": "string"
           }
         ]
@@ -20168,6 +41647,198 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "context_complete"
         ],
         "type": "object"
+      },
+      "ResultInspectionStorage": {
+        "description": "Compact native storage node; recursive field trees are not repeated in ordinary answers.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Exact original scalar datatype using Arrow's JSON encoding.",
+            "properties": {
+              "datatype_json": {
+                "description": "Arrow's exact original datatype encoding.",
+                "type": "string"
+              },
+              "kind": {
+                "const": "scalar",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "datatype_json"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Immediate children can be selected through the Children view.",
+            "properties": {
+              "child_count": {
+                "description": "Complete immediate child population.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "struct",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "child_count"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Ordinary Arrow List; child detail uses ListElement.",
+            "properties": {
+              "element_name": {
+                "description": "Original list element field name.",
+                "type": "string"
+              },
+              "kind": {
+                "const": "list",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "element_name"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ResultInspectionView": {
+        "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Page the original field inventory without decoding any result batch.",
+            "properties": {
+              "kind": {
+                "const": "schema",
+                "type": "string"
+              },
+              "limit": {
+                "description": "At most sixteen original fields.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "offset": {
+                "description": "Zero-based original field position.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "offset",
+              "limit"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Immediate native children of one exact field, without result data batches.",
+            "properties": {
+              "kind": {
+                "const": "children",
+                "type": "string"
+              },
+              "limit": {
+                "description": "One to sixteen children.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "offset": {
+                "description": "Original immediate-child offset.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "path": {
+                "$ref": "#/$defs/ArrowFieldPath",
+                "description": "Original parent field."
+              }
+            },
+            "required": [
+              "kind",
+              "path",
+              "offset",
+              "limit"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Exact metadata entries of one original field, without result data batches.",
+            "properties": {
+              "kind": {
+                "const": "metadata",
+                "type": "string"
+              },
+              "limit": {
+                "description": "One to sixteen entries.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "offset": {
+                "description": "Original sorted metadata-entry offset.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "path": {
+                "$ref": "#/$defs/ArrowFieldPath",
+                "description": "Original field owning the metadata."
+              }
+            },
+            "required": [
+              "kind",
+              "path",
+              "offset",
+              "limit"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Read selected original scalar fields together with all declared non-value context.",
+            "properties": {
+              "fields": {
+                "description": "One to eight unique exact original root/child paths.",
+                "items": {
+                  "$ref": "#/$defs/ArrowFieldPath"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "const": "values",
+                "type": "string"
+              },
+              "maximum_rows": {
+                "description": "At most sixteen original rows; continuation retains source coordinates.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "fields",
+              "maximum_rows"
+            ],
+            "type": "object"
+          }
+        ]
       }
     },
     "additionalProperties": false,
@@ -20202,8 +41873,8 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                     "description": "A page of the admitted registry field inventory, without validating stored Arrow rows.",
                     "properties": {
                       "document_version": {
-                        "const": 1,
-                        "default": 1,
+                        "const": 2,
+                        "default": 2,
                         "type": "integer"
                       },
                       "field_count": {
@@ -20235,6 +41906,17 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                           "integer",
                           "null"
                         ]
+                      },
+                      "next_cursor": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/ResultInspectionCursorOutput"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Exact next page while retaining the complete original request."
                       },
                       "offset": {
                         "description": "Zero-based original field offset.",
@@ -20269,6 +41951,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                       "offset",
                       "fields",
                       "next",
+                      "next_cursor",
                       "recorded_rows",
                       "document_version"
                     ],
@@ -20286,8 +41969,8 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                         "type": "array"
                       },
                       "document_version": {
-                        "const": 1,
-                        "default": 1,
+                        "const": 2,
+                        "default": 2,
                         "type": "integer"
                       },
                       "kind": {
@@ -20298,8 +41981,19 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                         "description": "Actual immutable closure digest.",
                         "type": "string"
                       },
+                      "next_cursor": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/ResultInspectionCursorOutput"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Exact row continuation; retain the original request window and view."
+                      },
                       "next_row": {
-                        "description": "Exact next original coordinate, preserving holes; repeat with start=next_row.",
+                        "description": "Informational next original coordinate; use next_cursor with the unchanged original window.",
                         "format": "uint64",
                         "minimum": 0,
                         "type": [
@@ -20353,7 +42047,77 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                       "recorded_rows",
                       "rows",
                       "next_row",
+                      "next_cursor",
                       "readable_complete",
+                      "document_version"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "description": "Exact metadata page from one admitted original field.",
+                    "properties": {
+                      "document_version": {
+                        "const": 2,
+                        "default": 2,
+                        "type": "integer"
+                      },
+                      "entries": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Complete selected metadata entries, never truncated strings.",
+                        "type": "object"
+                      },
+                      "entry_count": {
+                        "description": "Complete entry population.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "kind": {
+                        "const": "metadata",
+                        "type": "string"
+                      },
+                      "manifest": {
+                        "description": "Original closure digest.",
+                        "type": "string"
+                      },
+                      "next_cursor": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/ResultInspectionCursorOutput"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Exact next page, if any."
+                      },
+                      "offset": {
+                        "description": "Original entry offset.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "path": {
+                        "$ref": "#/$defs/ArrowFieldPath",
+                        "description": "Original selected field."
+                      },
+                      "selection": {
+                        "$ref": "#/$defs/PackResultSelectionOutput",
+                        "description": "Original protected result selection."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "selection",
+                      "manifest",
+                      "path",
+                      "entry_count",
+                      "offset",
+                      "entries",
+                      "next_cursor",
                       "document_version"
                     ],
                     "type": "object"
@@ -20363,8 +42127,8 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                     "description": "The finite readable request cannot produce a truthful complete answer of this shape.",
                     "properties": {
                       "document_version": {
-                        "const": 1,
-                        "default": 1,
+                        "const": 2,
+                        "default": 2,
                         "type": "integer"
                       },
                       "guidance": {
@@ -20391,8 +42155,8 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                 ],
                 "properties": {
                   "document_version": {
-                    "const": 1,
-                    "default": 1,
+                    "const": 2,
+                    "default": 2,
                     "type": "integer"
                   }
                 },
@@ -20461,6 +42225,7 @@ Exposure: **tool**. Owner: `pse.Runtime.results`. Declaration source: [scripts/c
     "tooling"
   ],
   "id": "native_result_read",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.results",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -20519,11 +42284,12 @@ Exact callable component key: `tool:native_result_read@`. The following is the r
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": null,
       "contracts": {},
       "receiver": "pse.Runtime.results",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -20684,6 +42450,7 @@ Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.prep
     "tooling"
   ],
   "id": "native_revision_preparation_discover",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -20742,6 +42509,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": {
         "path": "docs/generated/schema/authoring.schema.json",
@@ -20755,7 +42523,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -20768,7 +42536,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -20781,7 +42549,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -20789,7 +42557,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -21391,7 +43159,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -21445,7 +43213,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -21490,10 +43258,10 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -21586,6 +43354,7 @@ Exposure: **tool**. Owner: `pse.Runtime.modeling_revision + ModelingPackage.proj
     "tooling"
   ],
   "id": "native_revision_source",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
   "prerequisites": [
     "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
@@ -21644,6 +43413,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": {
         "path": "docs/generated/schema/authoring.schema.json",
@@ -21657,7 +43427,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -21665,7 +43435,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -21706,7 +43476,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -21761,7 +43531,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         "type": "array"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -21850,6 +43620,7 @@ Exposure: **tool**. Owner: `pse.Runtime.physical_from_documents + modeling_from_
     "tooling"
   ],
   "id": "native_source_admit",
+  "invocation_lifetime": "single",
   "owner": "pse.Runtime.physical_from_documents + modeling_from_documents",
   "prerequisites": [
     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner."
@@ -21897,6 +43668,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
         "workflow:manage-project"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "authoring_guidance": {
         "path": "docs/generated/schema/authoring.schema.json",
@@ -21910,7 +43682,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -21923,7 +43695,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -21931,7 +43703,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
         }
       },
       "receiver": "pse.Runtime.physical_from_documents + modeling_from_documents",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -21972,7 +43744,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -22012,10 +43784,10 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -22093,6 +43865,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_action_preview",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -22131,7 +43904,8 @@ Exact callable component key: `tool:navigation_action_preview@`. The following i
         "family:controlled-edits",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -22286,6 +44060,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_call_hierarchy",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -22321,7 +44096,8 @@ Exact callable component key: `tool:navigation_call_hierarchy@`. The following i
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -22428,6 +44204,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_code_actions",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -22463,7 +44240,8 @@ Exact callable component key: `tool:navigation_code_actions@`. The following is 
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -22604,6 +44382,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_completions",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -22639,7 +44418,8 @@ Exact callable component key: `tool:navigation_completions@`. The following is t
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -22757,6 +44537,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_declaration",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -22792,7 +44573,8 @@ Exact callable component key: `tool:navigation_declaration@`. The following is t
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -22899,6 +44681,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_definition",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -22937,7 +44720,8 @@ Exact callable component key: `tool:navigation_definition@`. The following is th
         "family:language-navigation",
         "workflow:inspect-plan"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -23044,6 +44828,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_diagnostics",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -23079,7 +44864,8 @@ Exact callable component key: `tool:navigation_diagnostics@`. The following is t
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -23174,6 +44960,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_hover",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -23209,7 +44996,8 @@ Exact callable component key: `tool:navigation_hover@`. The following is the reg
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -23316,6 +45104,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_implementations",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -23351,7 +45140,8 @@ Exact callable component key: `tool:navigation_implementations@`. The following 
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -23458,6 +45248,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_incoming_calls",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -23493,7 +45284,8 @@ Exact callable component key: `tool:navigation_incoming_calls@`. The following i
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -23664,6 +45456,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_outgoing_calls",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -23699,7 +45492,8 @@ Exact callable component key: `tool:navigation_outgoing_calls@`. The following i
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -23870,6 +45664,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_references",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -23908,7 +45703,8 @@ Exact callable component key: `tool:navigation_references@`. The following is th
         "family:language-navigation",
         "workflow:inspect-plan"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24019,6 +45815,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_rename_preview",
+  "invocation_lifetime": "endpoint",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -24057,7 +45854,8 @@ Exact callable component key: `tool:navigation_rename_preview@`. The following i
         "family:controlled-edits",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "endpoint"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24177,6 +45975,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_signature",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -24212,7 +46011,8 @@ Exact callable component key: `tool:navigation_signature@`. The following is the
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24319,6 +46119,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_symbols",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -24354,7 +46155,8 @@ Exact callable component key: `tool:navigation_symbols@`. The following is the r
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24449,6 +46251,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_tool_support",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -24484,7 +46287,8 @@ Exact callable component key: `tool:navigation_tool_support@`. The following is 
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24567,6 +46371,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_type_definition",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -24602,7 +46407,8 @@ Exact callable component key: `tool:navigation_type_definition@`. The following 
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24709,6 +46515,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration so
     "tooling"
   ],
   "id": "navigation_workspace_symbols",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/specialists.py",
   "prerequisites": [],
   "reason": "",
@@ -24744,7 +46551,8 @@ Exact callable component key: `tool:navigation_workspace_symbols@`. The followin
         "domain:editing",
         "family:language-navigation"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24832,6 +46640,7 @@ Exposure: **native**. Owner: `scripts/producer_deployment.py`. Declaration sourc
     "environment"
   ],
   "id": "producer-workers",
+  "invocation_lifetime": null,
   "owner": "scripts/producer_deployment.py",
   "prerequisites": [],
   "reason": "Assessments consume deployment qualification; producer capture and supervised workers remain native infrastructure with original leases/cancellation/admission.",
@@ -24864,6 +46673,7 @@ Exposure: **tool**. Owner: `scripts/run_inspection.py`. Declaration source: [scr
     "qualification"
   ],
   "id": "product_run_read",
+  "invocation_lifetime": "single",
   "owner": "scripts/run_inspection.py",
   "prerequisites": [],
   "reason": "",
@@ -24895,7 +46705,8 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
         "workflow:investigate-evidence",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -24993,6 +46804,38 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
         ],
         "type": "object"
       },
+      "AssessmentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "kind": {
+            "const": "assessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "directory"
+        ],
+        "type": "object"
+      },
       "DetailRefused": {
         "additionalProperties": false,
         "properties": {
@@ -25034,6 +46877,98 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
         ],
         "type": "object"
       },
+      "ExecutionExplanation": {
+        "additionalProperties": false,
+        "description": "Original owner counts and limits, not inferred scientific success.",
+        "properties": {
+          "executed_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "execution_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "limits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "next_readers": {
+            "items": {
+              "$ref": "#/$defs/ReaderSuggestion"
+            },
+            "type": "array"
+          },
+          "observed_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "owned_drain": {
+            "default": "unobserved",
+            "type": "string"
+          },
+          "preparation_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "reported_count": {
+            "type": "integer"
+          },
+          "selected_count": {
+            "type": "integer"
+          },
+          "stage_basis": {
+            "type": "string"
+          },
+          "unreported_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "selected_count",
+          "reported_count",
+          "unreported_count",
+          "outcome_counts",
+          "observed_stage",
+          "stage_basis"
+        ],
+        "type": "object"
+      },
       "InvocationOwner": {
         "additionalProperties": true,
         "properties": {
@@ -25050,7 +46985,77 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
         ],
         "type": "object"
       },
+      "InvocationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "invocation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "const": "invocation",
+            "type": "string"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "invocation"
+        ],
+        "type": "object"
+      },
       "JsonValue": {},
+      "NativeReaderReference": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "description": "Original reader envelope; copying it neither validates native eligibility nor executes the reader.",
+            "maxProperties": 32,
+            "type": "object"
+          },
+          "kind": {
+            "const": "native",
+            "type": "string"
+          },
+          "reader": {
+            "enum": [
+              "native_result_inspect",
+              "native_diagnostic_inspect",
+              "native_diagnostic_checkpoint"
+            ],
+            "type": "string"
+          },
+          "source_basis": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "maxProperties": 32,
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "reader",
+          "arguments"
+        ],
+        "type": "object"
+      },
       "OwnerRecord": {
         "additionalProperties": true,
         "description": "Original owner vocabulary; extensions must remain real JSON values.",
@@ -25134,6 +47139,17 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
               "$ref": "#/$defs/OwnerRecord"
             },
             "type": "array"
+          },
+          "execution_explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExecutionExplanation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "invocation": {
             "type": "string"
@@ -25369,6 +47385,47 @@ Exact callable component key: `tool:product_run_read@`. The following is the reg
           "complete"
         ],
         "type": "object"
+      },
+      "ReaderSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "const": "unexecuted",
+            "default": "unexecuted",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reference": {
+            "discriminator": {
+              "mapping": {
+                "assessment": "#/$defs/AssessmentReference",
+                "invocation": "#/$defs/InvocationReference",
+                "native": "#/$defs/NativeReaderReference"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/InvocationReference"
+              },
+              {
+                "$ref": "#/$defs/AssessmentReference"
+              },
+              {
+                "$ref": "#/$defs/NativeReaderReference"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reference",
+          "reason"
+        ],
+        "type": "object"
       }
     },
     "properties": {
@@ -25409,6 +47466,7 @@ Exposure: **native**. Owner: `xtask/src/project_tools.rs`. Declaration source: [
     "python"
   ],
   "id": "projects-revisions",
+  "invocation_lifetime": null,
   "owner": "xtask/src/project_tools.rs",
   "prerequisites": [],
   "reason": "Canonical coarse project/revision/research/result bindings retain codecs and immutable identities; portable exchange, studies and full project APIs retain native resource ownership.",
@@ -25442,6 +47500,7 @@ Exposure: **native**. Owner: `scripts/python_extension.py`. Declaration source: 
     "environment"
   ],
   "id": "python-extension",
+  "invocation_lifetime": null,
   "owner": "scripts/python_extension.py",
   "prerequisites": [],
   "reason": "Interactive extension preparation owns Maturin, installation and stubs; assessment profiles consume it without making endpoint startup an installer.",
@@ -25474,6 +47533,7 @@ Exposure: **tool**. Owner: `scripts/python_extension.py`. Declaration source: [s
     "environment"
   ],
   "id": "python_extension_dev_stage",
+  "invocation_lifetime": "single",
   "owner": "scripts/python_extension.py",
   "prerequisites": [
     "Selected stage owns its actual environment, compiler, extension and generator prerequisites; describing this binding prepares nothing."
@@ -25518,7 +47578,8 @@ Exact callable component key: `tool:python_extension_dev_stage@`. The following 
         "family:python-extension",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -25723,6 +47784,7 @@ Exposure: **tool**. Owner: `scripts/python_extension.py`. Declaration source: [s
     "environment"
   ],
   "id": "python_extension_native_stage",
+  "invocation_lifetime": "single",
   "owner": "scripts/python_extension.py",
   "prerequisites": [
     "Selected stage owns its actual environment, compiler, extension and generator prerequisites; describing this binding prepares nothing."
@@ -25767,7 +47829,8 @@ Exact callable component key: `tool:python_extension_native_stage@`. The followi
         "family:python-extension",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -25972,6 +48035,7 @@ Exposure: **native**. Owner: `scripts/validation_scope.py`. Declaration source: 
     "root"
   ],
   "id": "qualification-assessment",
+  "invocation_lifetime": null,
   "owner": "scripts/validation_scope.py",
   "prerequisites": [],
   "reason": "Canonical selection/run and protected reads share Gate expansion/result composition; recipes remain independently useful native gate executors.",
@@ -26004,6 +48068,7 @@ Exposure: **tool**. Owner: `scripts/select.py`. Declaration source: [scripts/sel
     "qualification"
   ],
   "id": "rust_test_describe",
+  "invocation_lifetime": "single",
   "owner": "scripts/select.py",
   "prerequisites": [],
   "reason": "",
@@ -26031,7 +48096,8 @@ Exact callable component key: `tool:rust_test_describe@`. The following is the r
         "family:validation-selection",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -26197,6 +48263,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/rust_references.py`. Declaratio
     "qualification"
   ],
   "id": "rust_test_reference_read",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/rust_references.py",
   "prerequisites": [],
   "reason": "",
@@ -26224,7 +48291,8 @@ Exact callable component key: `tool:rust_test_reference_read@`. The following is
         "family:workload-observation",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -26360,6 +48428,7 @@ Exposure: **tool**. Owner: `scripts/test_run.py`. Declaration source: [scripts/t
     "qualification"
   ],
   "id": "rust_test_run",
+  "invocation_lifetime": "single",
   "owner": "scripts/test_run.py",
   "prerequisites": [],
   "reason": "",
@@ -26412,7 +48481,8 @@ Exact callable component key: `tool:rust_test_run@`. The following is the regist
         "family:validation-selection",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": true,
@@ -26582,6 +48652,7 @@ Exposure: **native**. Owner: `python/pse/diagnostics.py`. Declaration source: [p
     "diagnostics"
   ],
   "id": "scientific-diagnostics",
+  "invocation_lifetime": null,
   "owner": "python/pse/diagnostics.py",
   "prerequisites": [],
   "reason": "Canonical checkpoint/frozen/invocation reads retain offline native codecs; richer scientific diagnostic/execution interfaces remain native.",
@@ -26615,6 +48686,7 @@ Exposure: **native**. Owner: `scripts/scientific_inputs.py`. Declaration source:
     "python"
   ],
   "id": "scientific-inputs",
+  "invocation_lifetime": null,
   "owner": "scripts/scientific_inputs.py",
   "prerequisites": [],
   "reason": "Scientific-input capture/admission and source-bound fixture preparation retain native producers; canonical source admission does not replace them.",
@@ -26649,6 +48721,7 @@ Exposure: **native**. Owner: `python/pse/__init__.py`. Declaration source: [pyth
     "qualification"
   ],
   "id": "scientific-python-api",
+  "invocation_lifetime": null,
   "owner": "python/pse/__init__.py",
   "prerequisites": [],
   "reason": "Retain the useful native Python API; any MCP scientific binding must preserve generated schemas and actual native admission in ADP04.",
@@ -26679,6 +48752,7 @@ Exposure: **native**. Owner: `scripts/scientific_reference.py`. Declaration sour
     "qualification"
   ],
   "id": "scientific-references",
+  "invocation_lifetime": null,
   "owner": "scripts/scientific_reference.py",
   "prerequisites": [],
   "reason": "Named reference/measurement producers retain isolated environments and fresh-run meaning; historical replay is not current scientific qualification.",
@@ -26711,6 +48785,7 @@ Exposure: **native**. Owner: `scripts/codex_session.py`. Declaration source: [sc
     "root"
   ],
   "id": "session-specialists",
+  "invocation_lifetime": null,
   "owner": "scripts/codex_session.py",
   "prerequisites": [],
   "reason": "Selected sessions attach only the canonical endpoint; native explanation/configuration keeps prepared, attached and exercised distinct.",
@@ -26743,6 +48818,7 @@ Exposure: **native**. Owner: `.codex/skills/adr/SKILL.md`. Declaration source: [
     "skill-adr"
   ],
   "id": "skill-adr",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/adr/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26773,6 +48849,7 @@ Exposure: **native**. Owner: `.codex/skills/create-plan/SKILL.md`. Declaration s
     "skill-create-plan"
   ],
   "id": "skill-create-plan",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/create-plan/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26803,6 +48880,7 @@ Exposure: **native**. Owner: `.codex/skills/design-principle-audit/SKILL.md`. De
     "skill-design-principle-audit"
   ],
   "id": "skill-design-principle-audit",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/design-principle-audit/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26833,6 +48911,7 @@ Exposure: **native**. Owner: `.codex/skills/design-principle-audit-tests/SKILL.m
     "skill-design-principle-audit-tests"
   ],
   "id": "skill-design-principle-audit-tests",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/design-principle-audit-tests/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26863,6 +48942,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review/SKILL.md`. Declaration
     "skill-design-review"
   ],
   "id": "skill-design-review",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/design-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26893,6 +48973,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review-audit/SKILL.md`. Decla
     "skill-design-review-audit"
   ],
   "id": "skill-design-review-audit",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/design-review-audit/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26923,6 +49004,7 @@ Exposure: **native**. Owner: `.codex/skills/design-review-process-simulator/SKIL
     "skill-design-review-process-simulator"
   ],
   "id": "skill-design-review-process-simulator",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/design-review-process-simulator/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26953,6 +49035,7 @@ Exposure: **native**. Owner: `.codex/skills/execute-plan/SKILL.md`. Declaration 
     "skill-execute-plan"
   ],
   "id": "skill-execute-plan",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/execute-plan/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -26983,6 +49066,7 @@ Exposure: **native**. Owner: `.codex/skills/functional-extension-review/SKILL.md
     "skill-functional-extension-review"
   ],
   "id": "skill-functional-extension-review",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/functional-extension-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -27011,6 +49095,7 @@ Exposure: **native**. Owner: `.codex/skills/native-solver-libraries/SKILL.md`. D
   "family": null,
   "guides": [],
   "id": "skill-native-solver-libraries",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/native-solver-libraries/SKILL.md",
   "prerequisites": [],
   "reason": "Retained native guidance outside checkout; the native agent skill loader owns access. No checkout guidance resource is registered.",
@@ -27041,6 +49126,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-completion-audit/SKILL.md`. Dec
     "skill-plan-completion-audit"
   ],
   "id": "skill-plan-completion-audit",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/plan-completion-audit/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -27071,6 +49157,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-creation/SKILL.md`. Declaration
     "skill-plan-creation"
   ],
   "id": "skill-plan-creation",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/plan-creation/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -27101,6 +49188,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-design-review/SKILL.md`. Declar
     "skill-plan-design-review"
   ],
   "id": "skill-plan-design-review",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/plan-design-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -27131,6 +49219,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-execution/SKILL.md`. Declaratio
     "skill-plan-execution"
   ],
   "id": "skill-plan-execution",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/plan-execution/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -27161,6 +49250,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-functional-extension-review/SKI
     "skill-plan-functional-extension-review"
   ],
   "id": "skill-plan-functional-extension-review",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/plan-functional-extension-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -27193,6 +49283,7 @@ Exposure: **native**. Owner: `.codex/skills/plan-improvement-review/SKILL.md`. D
     "skill-plan-improvement-review"
   ],
   "id": "skill-plan-improvement-review",
+  "invocation_lifetime": null,
   "owner": ".codex/skills/plan-improvement-review/SKILL.md",
   "prerequisites": [],
   "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
@@ -27223,6 +49314,7 @@ Exposure: **native**. Owner: `scripts/workspace_tasks.py`. Declaration source: [
     "root"
   ],
   "id": "source-context",
+  "invocation_lifetime": null,
   "owner": "scripts/workspace_tasks.py",
   "prerequisites": [],
   "reason": "Canonical task/concept/producer reads coexist with native affected previews and literal source inspection; unresolved dynamic reach stays explicit.",
@@ -27254,6 +49346,7 @@ Exposure: **tool**. Owner: `scripts/build_storage.py`. Declaration source: [scri
     "environment"
   ],
   "id": "storage_observe",
+  "invocation_lifetime": "single",
   "owner": "scripts/build_storage.py",
   "prerequisites": [],
   "reason": "",
@@ -27278,7 +49371,8 @@ Exact callable component key: `tool:storage_observe@`. The following is the regi
         "domain:environment",
         "family:build-storage"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -27559,6 +49653,115 @@ Exact callable component key: `tool:storage_observe@`. The following is the regi
 }
 ```
 
+### `structural_json_source_bytes_preview` — Structural Json Source Bytes Preview
+
+Exposure: **tool**. Owner: `scripts/capabilities/specialists.py`. Declaration source: [scripts/capabilities/specialists.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/specialists.py).
+
+```json
+{
+  "description": "Preview the existing finite stdlib json.loads(Path.read_text()) to bytes migration. Retain complete source/basis under this endpoint; no apply, arbitrary rules or language-server acquisition.",
+  "domain": "editing",
+  "effects": "Selected specialist only; lazy owned transport, exact checkout/service, native authority and source protection.",
+  "exposure": "tool",
+  "family": "controlled-edits",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "structural_json_source_bytes_preview",
+  "invocation_lifetime": "endpoint",
+  "owner": "scripts/capabilities/specialists.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/specialists.py",
+  "title": "Structural Json Source Bytes Preview",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "change-generated-contract"
+  ]
+}
+```
+
+Exact callable component key: `tool:structural_json_source_bytes_preview@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:structural_json_source_bytes_preview",
+        "domain:editing",
+        "family:controlled-edits",
+        "workflow:change-generated-contract"
+      ]
+    },
+    "pse.invocation_lifetime": "endpoint"
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Preview the existing finite stdlib json.loads(Path.read_text()) to bytes migration. Retain complete source/basis under this endpoint; no apply, arbitrary rules or language-server acquisition.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "paths": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 64,
+        "minItems": 1,
+        "type": "array"
+      }
+    },
+    "required": [
+      "paths"
+    ],
+    "type": "object"
+  },
+  "name": "structural_json_source_bytes_preview",
+  "outputSchema": {
+    "$defs": {
+      "JsonValue": {}
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "operation": {
+        "type": "string"
+      },
+      "payload": {
+        "additionalProperties": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "type": "object"
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "type": "object"
+  },
+  "title": "Structural Json Source Bytes Preview"
+}
+```
+
 ### `telemetry-observation` — Telemetry pipeline and bounded trace observations
 
 Exposure: **native**. Owner: `scripts/telemetry.py`. Declaration source: [scripts/telemetry.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/telemetry.py).
@@ -27574,6 +49777,7 @@ Exposure: **native**. Owner: `scripts/telemetry.py`. Declaration source: [script
     "diagnostics"
   ],
   "id": "telemetry-observation",
+  "invocation_lifetime": null,
   "owner": "scripts/telemetry.py",
   "prerequisites": [],
   "reason": "Canonical health, redacted effective configuration and known-trace reads retain bounded owner contracts. Service lifecycle stays native; telemetry never replaces native target checkpoints, results or settlement.",
@@ -27607,6 +49811,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_config.py`. Declaration source: [s
     "diagnostics"
   ],
   "id": "telemetry_configuration",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_config.py",
   "prerequisites": [],
   "reason": "",
@@ -27634,7 +49839,8 @@ Exact callable component key: `tool:telemetry_configuration@`. The following is 
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -27946,6 +50152,7 @@ Exposure: **tool**. Owner: `scripts/telemetry.py`. Declaration source: [scripts/
     "diagnostics"
   ],
   "id": "telemetry_health",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry.py",
   "prerequisites": [],
   "reason": "",
@@ -27973,7 +50180,8 @@ Exact callable component key: `tool:telemetry_health@`. The following is the reg
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -28553,6 +50761,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_selection.py`. Declaration source:
     "diagnostics"
   ],
   "id": "telemetry_investigation_export",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_selection.py",
   "prerequisites": [],
   "reason": "",
@@ -28580,7 +50789,8 @@ Exact callable component key: `tool:telemetry_investigation_export@`. The follow
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -28590,7 +50800,109 @@ Exact callable component key: `tool:telemetry_investigation_export@`. The follow
   "description": "Explicitly copy supplied query answers into a fresh finite native member pack; no new query or scientific analysis. Returns a digest-bound reference for stable offline pages. Native extension must already be prepared. Output exhaustion leaves its native incomplete publication visible; never overwrite an existing destination.",
   "inputSchema": {
     "$defs": {
+      "AssessmentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "kind": {
+            "const": "assessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "directory"
+        ],
+        "type": "object"
+      },
+      "InvocationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "invocation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "const": "invocation",
+            "type": "string"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "invocation"
+        ],
+        "type": "object"
+      },
       "JsonValue": {},
+      "NativeReaderReference": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "description": "Original reader envelope; copying it neither validates native eligibility nor executes the reader.",
+            "maxProperties": 32,
+            "type": "object"
+          },
+          "kind": {
+            "const": "native",
+            "type": "string"
+          },
+          "reader": {
+            "enum": [
+              "native_result_inspect",
+              "native_diagnostic_inspect",
+              "native_diagnostic_checkpoint"
+            ],
+            "type": "string"
+          },
+          "source_basis": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "maxProperties": 32,
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "reader",
+          "arguments"
+        ],
+        "type": "object"
+      },
       "OwnerRecord": {
         "additionalProperties": true,
         "description": "Original owner vocabulary; extensions must remain real JSON values.",
@@ -28720,6 +51032,13 @@ Exact callable component key: `tool:telemetry_investigation_export@`. The follow
             "minimum": 0,
             "type": "integer"
           },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
           "kind": {
             "default": "points",
             "enum": [
@@ -28749,6 +51068,13 @@ Exact callable component key: `tool:telemetry_investigation_export@`. The follow
               }
             ],
             "default": null
+          },
+          "metric_filters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "type": "object"
           },
           "operation_id": {
             "anyOf": [
@@ -28948,6 +51274,47 @@ Exact callable component key: `tool:telemetry_investigation_export@`. The follow
           "retrieved_at_ns"
         ],
         "type": "object"
+      },
+      "ReaderSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "const": "unexecuted",
+            "default": "unexecuted",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reference": {
+            "discriminator": {
+              "mapping": {
+                "assessment": "#/$defs/AssessmentReference",
+                "invocation": "#/$defs/InvocationReference",
+                "native": "#/$defs/NativeReaderReference"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/InvocationReference"
+              },
+              {
+                "$ref": "#/$defs/AssessmentReference"
+              },
+              {
+                "$ref": "#/$defs/NativeReaderReference"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reference",
+          "reason"
+        ],
+        "type": "object"
       }
     },
     "additionalProperties": false,
@@ -28979,6 +51346,59 @@ Exact callable component key: `tool:telemetry_investigation_export@`. The follow
         ],
         "default": null
       },
+      "next_readers": {
+        "anyOf": [
+          {
+            "items": {
+              "$ref": "#/$defs/ReaderSuggestion"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "original_references": {
+        "anyOf": [
+          {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "assessment": "#/$defs/AssessmentReference",
+                  "invocation": "#/$defs/InvocationReference",
+                  "native": "#/$defs/NativeReaderReference"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InvocationReference"
+                },
+                {
+                  "$ref": "#/$defs/AssessmentReference"
+                },
+                {
+                  "$ref": "#/$defs/NativeReaderReference"
+                }
+              ]
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "question": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "type": "string"
+      },
       "selections": {
         "items": {
           "$ref": "#/$defs/QueryAnswer"
@@ -28990,7 +51410,8 @@ Exact callable component key: `tool:telemetry_investigation_export@`. The follow
     },
     "required": [
       "destination",
-      "selections"
+      "selections",
+      "question"
     ],
     "type": "object"
   },
@@ -29042,6 +51463,7 @@ Exposure: **tool**. Owner: `pse.diagnostics.read_checkpoint + capture + CaptureS
     "diagnostics"
   ],
   "id": "telemetry_profile_capture",
+  "invocation_lifetime": "single",
   "owner": "pse.diagnostics.read_checkpoint + capture + CaptureSession.wait/stop",
   "prerequisites": [
     "Compatible prepared correctness extension and the exact original checkpoint identity/OperationId. Selected CPU capture additionally needs the existing native perf/Samply permissions and tools; none are installed or permission-tuned by this action."
@@ -29089,6 +51511,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
         "workflow:diagnose-run"
       ]
     },
+    "pse.invocation_lifetime": "single",
     "pse.native": {
       "contracts": {
         "expected": {
@@ -29098,7 +51521,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: CheckpointIdentity",
           "schema_path": "docs/generated/schema/checkpoint-identity.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "6af9026242d01a555d7fa4f3e196d18d8506831851b2c953c55e886419f58e0d",
           "slug": "checkpoint-identity",
           "version": 1,
@@ -29111,7 +51534,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: capture :: CaptureDocument",
           "schema_path": "docs/generated/schema/capture-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "a24d936afaec4c26c1f6844495fc6f2c55dfaf6ac46caeed1d4dcfc5ffd13ed9",
           "slug": "capture-document",
           "version": 2,
@@ -29124,7 +51547,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: capture :: CaptureRequest",
           "schema_path": "docs/generated/schema/capture-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288",
           "schema_sha256": "7286d53165bd8a87506ad6defdefb0e92087340c203cc3d73cd95abb223fd182",
           "slug": "capture-request",
           "version": 1,
@@ -29132,7 +51555,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
         }
       },
       "receiver": "pse.diagnostics.read_checkpoint + capture + CaptureSession.wait/stop",
-      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+      "schema_set_fingerprint": "blake3:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288"
     }
   },
   "annotations": {
@@ -29288,6 +51711,14 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             "title": "End Time Us",
             "type": "integer"
           },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Group By",
+            "type": "array"
+          },
           "kind": {
             "default": "points",
             "enum": [
@@ -29320,6 +51751,14 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             ],
             "default": null,
             "title": "Metric"
+          },
+          "metric_filters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "title": "Metric Filters",
+            "type": "object"
           },
           "operation_id": {
             "anyOf": [
@@ -29624,7 +52063,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:capture-request:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:capture-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit capture request; passive inspection never creates one implicitly.",
@@ -29714,7 +52153,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input",
+        "$id": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:checkpoint-identity:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact diagnostic association supplied by the registered receiver, never stop authority.",
@@ -29747,10 +52186,10 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
     "description": "Host association only; both native documents are decoded by their owner.",
     "properties": {
       "expected": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:checkpoint-identity:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:capture-request:input"
+        "$ref": "urn:pse:boundary:1f8af76d54b682569a23bd6e6aad473ff4fdd08c317e398177725b4253ba4288:capture-request:input"
       },
       "suspect": {
         "$ref": "#/$defs/QueryAnswer"
@@ -30075,6 +52514,14 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
                 "title": "End Time Us",
                 "type": "integer"
               },
+              "group_by": {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 16,
+                "title": "Group By",
+                "type": "array"
+              },
               "kind": {
                 "default": "points",
                 "enum": [
@@ -30107,6 +52554,14 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
                 ],
                 "default": null,
                 "title": "Metric"
+              },
+              "metric_filters": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "maxProperties": 16,
+                "title": "Metric Filters",
+                "type": "object"
               },
               "operation_id": {
                 "anyOf": [
@@ -30582,6 +53037,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_investigation.py`. Declaration sou
     "diagnostics"
   ],
   "id": "telemetry_query",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_investigation.py",
   "prerequisites": [],
   "reason": "",
@@ -30609,7 +53065,8 @@ Exact callable component key: `tool:telemetry_query@`. The following is the regi
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -30626,6 +53083,13 @@ Exact callable component key: `tool:telemetry_query@`. The following is the regi
             "maximum": 9223372036854775807,
             "minimum": 0,
             "type": "integer"
+          },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
           },
           "kind": {
             "default": "points",
@@ -30656,6 +53120,13 @@ Exact callable component key: `tool:telemetry_query@`. The following is the regi
               }
             ],
             "default": null
+          },
+          "metric_filters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "type": "object"
           },
           "operation_id": {
             "anyOf": [
@@ -31001,6 +53472,14 @@ Exact callable component key: `tool:telemetry_query@`. The following is the regi
             "title": "End Time Us",
             "type": "integer"
           },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Group By",
+            "type": "array"
+          },
           "kind": {
             "default": "points",
             "enum": [
@@ -31033,6 +53512,14 @@ Exact callable component key: `tool:telemetry_query@`. The following is the regi
             ],
             "default": null,
             "title": "Metric"
+          },
+          "metric_filters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 16,
+            "title": "Metric Filters",
+            "type": "object"
           },
           "operation_id": {
             "anyOf": [
@@ -31331,6 +53818,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_investigation.py`. Declaration sou
     "diagnostics"
   ],
   "id": "telemetry_schema",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_investigation.py",
   "prerequisites": [],
   "reason": "",
@@ -31358,7 +53846,8 @@ Exact callable component key: `tool:telemetry_schema@`. The following is the reg
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -31395,6 +53884,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_selection.py`. Declaration source:
     "diagnostics"
   ],
   "id": "telemetry_selection_read",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_selection.py",
   "prerequisites": [],
   "reason": "",
@@ -31422,7 +53912,8 @@ Exact callable component key: `tool:telemetry_selection_read@`. The following is
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -31527,6 +54018,38 @@ Exact callable component key: `tool:telemetry_selection_read@`. The following is
         ],
         "type": "object"
       },
+      "AssessmentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "kind": {
+            "const": "assessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "directory"
+        ],
+        "type": "object"
+      },
       "DetailRefused": {
         "additionalProperties": false,
         "properties": {
@@ -31568,7 +54091,118 @@ Exact callable component key: `tool:telemetry_selection_read@`. The following is
         ],
         "type": "object"
       },
+      "InvocationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "invocation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "const": "invocation",
+            "type": "string"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "invocation"
+        ],
+        "type": "object"
+      },
       "JsonValue": {},
+      "NativeReaderReference": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "description": "Original reader envelope; copying it neither validates native eligibility nor executes the reader.",
+            "maxProperties": 32,
+            "type": "object"
+          },
+          "kind": {
+            "const": "native",
+            "type": "string"
+          },
+          "reader": {
+            "enum": [
+              "native_result_inspect",
+              "native_diagnostic_inspect",
+              "native_diagnostic_checkpoint"
+            ],
+            "type": "string"
+          },
+          "source_basis": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "maxProperties": 32,
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "reader",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      "ReaderSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "const": "unexecuted",
+            "default": "unexecuted",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reference": {
+            "discriminator": {
+              "mapping": {
+                "assessment": "#/$defs/AssessmentReference",
+                "invocation": "#/$defs/InvocationReference",
+                "native": "#/$defs/NativeReaderReference"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/InvocationReference"
+              },
+              {
+                "$ref": "#/$defs/AssessmentReference"
+              },
+              {
+                "$ref": "#/$defs/NativeReaderReference"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reference",
+          "reason"
+        ],
+        "type": "object"
+      },
       "SelectionPage": {
         "additionalProperties": false,
         "properties": {
@@ -31601,6 +54235,39 @@ Exact callable component key: `tool:telemetry_selection_read@`. The following is
                 "type": "null"
               }
             ]
+          },
+          "next_readers": {
+            "items": {
+              "$ref": "#/$defs/ReaderSuggestion"
+            },
+            "type": "array"
+          },
+          "original_references": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "assessment": "#/$defs/AssessmentReference",
+                  "invocation": "#/$defs/InvocationReference",
+                  "native": "#/$defs/NativeReaderReference"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InvocationReference"
+                },
+                {
+                  "$ref": "#/$defs/AssessmentReference"
+                },
+                {
+                  "$ref": "#/$defs/NativeReaderReference"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "question": {
+            "type": "string"
           },
           "records": {
             "items": {
@@ -31645,6 +54312,9 @@ Exact callable component key: `tool:telemetry_selection_read@`. The following is
           "selection",
           "request",
           "source",
+          "question",
+          "original_references",
+          "next_readers",
           "records",
           "copied_rows",
           "returned_rows",
@@ -31749,6 +54419,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_query.py`. Declaration source: [sc
     "diagnostics"
   ],
   "id": "telemetry_trace_lookup",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_query.py",
   "prerequisites": [],
   "reason": "",
@@ -31776,7 +54447,8 @@ Exact callable component key: `tool:telemetry_trace_lookup@`. The following is t
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -32260,6 +54932,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_alerts.py`. Declaration source: [s
     "diagnostics"
   ],
   "id": "telemetry_watch_configure",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_alerts.py",
   "prerequisites": [],
   "reason": "",
@@ -32287,7 +54960,8 @@ Exact callable component key: `tool:telemetry_watch_configure@`. The following i
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -32345,6 +55019,7 @@ Exposure: **tool**. Owner: `scripts/telemetry_alerts.py`. Declaration source: [s
     "diagnostics"
   ],
   "id": "telemetry_watch_read",
+  "invocation_lifetime": "single",
   "owner": "scripts/telemetry_alerts.py",
   "prerequisites": [],
   "reason": "",
@@ -32372,7 +55047,8 @@ Exact callable component key: `tool:telemetry_watch_read@`. The following is the
         "family:telemetry-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -32649,6 +55325,7 @@ Exposure: **native**. Owner: `scripts/select.py`. Declaration source: [scripts/s
     "python"
   ],
   "id": "validation-selection",
+  "invocation_lifetime": null,
   "owner": "scripts/select.py",
   "prerequisites": [],
   "reason": "Canonical selected Rust invocations and assessments use actual normalized selection/assurance/result owners; Python/parity campaigns retain native scope.",
@@ -32680,6 +55357,7 @@ Exposure: **native**. Owner: `scripts/assertion_sensitivity.py`. Declaration sou
     "qualification"
   ],
   "id": "verification-techniques",
+  "invocation_lifetime": null,
   "owner": "scripts/assertion_sensitivity.py",
   "prerequisites": [],
   "reason": "Canonical coverage inspection verifies retained source/population digests; capture, mutation and fuzz retain actual populations and original native execution limits.",
@@ -32712,6 +55390,7 @@ Exposure: **native**. Owner: `scripts/activity.py`. Declaration source: [scripts
     "qualification"
   ],
   "id": "workload-observation",
+  "invocation_lifetime": null,
   "owner": "scripts/activity.py",
   "prerequisites": [],
   "reason": "Canonical detached watch/results consume authentic owners; reference-run setup/drain and direct live observers remain distinct native operations.",
@@ -32743,6 +55422,7 @@ Exposure: **tool**. Owner: `scripts/activity_watch.py`. Declaration source: [scr
     "environment"
   ],
   "id": "workload_watch",
+  "invocation_lifetime": "single",
   "owner": "scripts/activity_watch.py",
   "prerequisites": [],
   "reason": "",
@@ -32770,7 +55450,8 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         "family:workload-observation",
         "workflow:diagnose-run"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -32862,6 +55543,38 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         ],
         "type": "object"
       },
+      "AssessmentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "kind": {
+            "const": "assessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "directory"
+        ],
+        "type": "object"
+      },
       "DetailRefused": {
         "additionalProperties": false,
         "properties": {
@@ -32903,6 +55616,98 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         ],
         "type": "object"
       },
+      "ExecutionExplanation": {
+        "additionalProperties": false,
+        "description": "Original owner counts and limits, not inferred scientific success.",
+        "properties": {
+          "executed_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "execution_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "limits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "next_readers": {
+            "items": {
+              "$ref": "#/$defs/ReaderSuggestion"
+            },
+            "type": "array"
+          },
+          "observed_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "owned_drain": {
+            "default": "unobserved",
+            "type": "string"
+          },
+          "preparation_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "reported_count": {
+            "type": "integer"
+          },
+          "selected_count": {
+            "type": "integer"
+          },
+          "stage_basis": {
+            "type": "string"
+          },
+          "unreported_count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "selected_count",
+          "reported_count",
+          "unreported_count",
+          "outcome_counts",
+          "observed_stage",
+          "stage_basis"
+        ],
+        "type": "object"
+      },
       "InvocationOwner": {
         "additionalProperties": true,
         "properties": {
@@ -32919,7 +55724,77 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         ],
         "type": "object"
       },
+      "InvocationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "invocation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "const": "invocation",
+            "type": "string"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "invocation"
+        ],
+        "type": "object"
+      },
       "JsonValue": {},
+      "NativeReaderReference": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "description": "Original reader envelope; copying it neither validates native eligibility nor executes the reader.",
+            "maxProperties": 32,
+            "type": "object"
+          },
+          "kind": {
+            "const": "native",
+            "type": "string"
+          },
+          "reader": {
+            "enum": [
+              "native_result_inspect",
+              "native_diagnostic_inspect",
+              "native_diagnostic_checkpoint"
+            ],
+            "type": "string"
+          },
+          "source_basis": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "maxProperties": 32,
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "reader",
+          "arguments"
+        ],
+        "type": "object"
+      },
       "OwnerRecord": {
         "additionalProperties": true,
         "description": "Original owner vocabulary; extensions must remain real JSON values.",
@@ -33003,6 +55878,17 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
               "$ref": "#/$defs/OwnerRecord"
             },
             "type": "array"
+          },
+          "execution_explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExecutionExplanation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           },
           "invocation": {
             "type": "string"
@@ -33204,6 +56090,47 @@ Exact callable component key: `tool:workload_watch@`. The following is the regis
         },
         "required": [
           "complete"
+        ],
+        "type": "object"
+      },
+      "ReaderSuggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "const": "unexecuted",
+            "default": "unexecuted",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reference": {
+            "discriminator": {
+              "mapping": {
+                "assessment": "#/$defs/AssessmentReference",
+                "invocation": "#/$defs/InvocationReference",
+                "native": "#/$defs/NativeReaderReference"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/InvocationReference"
+              },
+              {
+                "$ref": "#/$defs/AssessmentReference"
+              },
+              {
+                "$ref": "#/$defs/NativeReaderReference"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reference",
+          "reason"
         ],
         "type": "object"
       },
@@ -33435,6 +56362,7 @@ Exposure: **tool**. Owner: `scripts/workspace_domains.py`. Declaration source: [
     "tooling"
   ],
   "id": "workspace_concepts_query",
+  "invocation_lifetime": "single",
   "owner": "scripts/workspace_domains.py",
   "prerequisites": [],
   "reason": "",
@@ -33462,7 +56390,8 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
         "family:source-context",
         "workflow:plan-functional-review"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -35001,6 +57930,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/integration_view.py`. Declarati
     "decisions"
   ],
   "id": "workspace_integration_view",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/integration_view.py",
   "prerequisites": [],
   "reason": "",
@@ -35028,7 +57958,8 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
         "family:source-context",
         "workflow:qualify-change"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -35039,6 +57970,38 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
   "description": "Read a selected dirty-path page using explicit task/worker ownership claims bound to current source_sha256 and optional diff_sha256. Empty hunks explicitly claim the whole path; hunk coordinates refer to current bytes. Deletions require absence plus the current Git diff digest. Git state never establishes authorship. Preserve unknown, unrelated and overlapping claims, producer relationships, proposed checks and native lifecycle preflight. No staging, merge, generation, test execution, deletion or completion certification.",
   "inputSchema": {
     "$defs": {
+      "AssessmentReference": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "kind": {
+            "const": "assessment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "directory"
+        ],
+        "type": "object"
+      },
       "IntegrationRequest": {
         "additionalProperties": false,
         "properties": {
@@ -35048,6 +58011,12 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
             },
             "maxItems": 64,
             "type": "array"
+          },
+          "features": {
+            "default": "",
+            "maxLength": 2048,
+            "pattern": "^[A-Za-z0-9_./, -]*$",
+            "type": "string"
           },
           "limit": {
             "default": 40,
@@ -35093,6 +58062,57 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
             "maxLength": 160,
             "minLength": 1,
             "type": "string"
+          },
+          "validation_evidence": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "assessment": "#/$defs/AssessmentReference",
+                  "invocation": "#/$defs/InvocationReference",
+                  "native": "#/$defs/NativeReaderReference"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/InvocationReference"
+                },
+                {
+                  "$ref": "#/$defs/AssessmentReference"
+                },
+                {
+                  "$ref": "#/$defs/NativeReaderReference"
+                }
+              ]
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "validation_mode": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "validation_profile": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -35100,6 +58120,39 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
         ],
         "type": "object"
       },
+      "InvocationReference": {
+        "additionalProperties": false,
+        "properties": {
+          "invocation": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "const": "invocation",
+            "type": "string"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "kind",
+          "invocation"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
       "Lines": {
         "additionalProperties": false,
         "properties": {
@@ -35115,6 +58168,44 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
         "required": [
           "start_line",
           "end_line"
+        ],
+        "type": "object"
+      },
+      "NativeReaderReference": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "description": "Original reader envelope; copying it neither validates native eligibility nor executes the reader.",
+            "maxProperties": 32,
+            "type": "object"
+          },
+          "kind": {
+            "const": "native",
+            "type": "string"
+          },
+          "reader": {
+            "enum": [
+              "native_result_inspect",
+              "native_diagnostic_inspect",
+              "native_diagnostic_checkpoint"
+            ],
+            "type": "string"
+          },
+          "source_basis": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "maxProperties": 32,
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "reader",
+          "arguments"
         ],
         "type": "object"
       },
@@ -36101,6 +59192,12 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
             },
             "type": "array"
           },
+          "exclusions": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
           "owner": {
             "default": "scripts/affected.py",
             "type": "string"
@@ -36112,7 +59209,7 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
             "type": "array"
           },
           "qualification": {
-            "default": "Proposed checks only; dependency reach and test success are not established by this view.",
+            "default": "Proposed dependency-reach checks only; no test execution, runtime admission or completeness certification.",
             "type": "string"
           },
           "routes": {
@@ -36124,7 +59221,53 @@ Exact callable component key: `tool:workspace_integration_view@`. The following 
             },
             "type": "array"
           },
+          "scientific_inputs": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/OwnerRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "selected_packages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "selection_basis": {
+            "default": "unknown",
+            "type": "string"
+          },
+          "source_cut": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object"
+          },
           "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "validation_evidence": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "workspace_widening": {
             "items": {
               "type": "string"
             },
@@ -36178,6 +59321,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/entrypoints.py`. Declaration so
     "tooling"
   ],
   "id": "workspace_inventory",
+  "invocation_lifetime": "single",
   "owner": "scripts/capabilities/entrypoints.py",
   "prerequisites": [],
   "reason": "",
@@ -36202,7 +59346,8 @@ Exact callable component key: `tool:workspace_inventory@`. The following is the 
         "domain:workspace",
         "family:source-context"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -36519,6 +59664,7 @@ Exposure: **tool**. Owner: `scripts/workspace_sources.py`. Declaration source: [
     "tooling"
   ],
   "id": "workspace_producer_relationships",
+  "invocation_lifetime": "single",
   "owner": "scripts/workspace_sources.py",
   "prerequisites": [],
   "reason": "",
@@ -36546,7 +59692,8 @@ Exact callable component key: `tool:workspace_producer_relationships@`. The foll
         "family:source-context",
         "workflow:change-generated-contract"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -36917,6 +60064,7 @@ Exposure: **tool**. Owner: `justfile`. Declaration source: [justfile](https://gi
     "tooling"
   ],
   "id": "workspace_recipe_describe",
+  "invocation_lifetime": "single",
   "owner": "justfile",
   "prerequisites": [],
   "reason": "",
@@ -36944,7 +60092,8 @@ Exact callable component key: `tool:workspace_recipe_describe@`. The following i
         "family:source-context",
         "workflow:inspect-plan"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,
@@ -37254,6 +60403,7 @@ Exposure: **tool**. Owner: `scripts/workspace_tasks.py`. Declaration source: [sc
     "tooling"
   ],
   "id": "workspace_task_context",
+  "invocation_lifetime": "single",
   "owner": "scripts/workspace_tasks.py",
   "prerequisites": [],
   "reason": "",
@@ -37283,7 +60433,8 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
         "workflow:change-generated-contract",
         "workflow:inspect-plan"
       ]
-    }
+    },
+    "pse.invocation_lifetime": "single"
   },
   "annotations": {
     "destructiveHint": false,

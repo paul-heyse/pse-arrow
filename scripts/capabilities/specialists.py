@@ -1216,6 +1216,14 @@ def bindings(
             ),
         )
 
+    def structural_json_source_bytes_preview(paths: Annotated[list[str], Field(min_length=1, max_length=64)]) -> ReadResult:
+        """Preview the existing finite stdlib json.loads(Path.read_text()) to bytes migration. Retain complete source/basis under this endpoint; no apply, arbitrary rules or language-server acquisition."""
+        from scripts.structural_migrations import migration  # noqa: PLC0415 -- original transformation owner.
+        try:
+            return bounded(owner.retain_preview(migration(root, paths)), "structural_json_source_bytes_preview")
+        except (ValueError, OSError) as error:
+            raise refusal("structural_json_source_bytes_preview", error) from error
+
     def edit_preview_read(
         preview_sha256: Digest,
         file_index: PreviewOffset | None = None,
@@ -1363,6 +1371,7 @@ def bindings(
         (navigation_tool_support, "editing"),
         (navigation_workspace_symbols, "editing"),
         (navigation_code_actions, "editing"),
+        (structural_json_source_bytes_preview, "editing"),
         (navigation_rename_preview, "editing"),
         (navigation_action_preview, "editing"),
         (edit_preview_read, "editing"),
@@ -1411,6 +1420,7 @@ def bindings(
                     edit_preview_release,
                     edit_preview_apply,
                     edit_preview_reconcile,
+                    structural_json_source_bytes_preview,
                     navigation_rename_preview,
                     navigation_action_preview,
                 )
@@ -1422,6 +1432,7 @@ def bindings(
             owner=source,
             source=source,
             exposure="tool",
+            invocation_lifetime="endpoint" if domain == "integration" or function in (structural_json_source_bytes_preview, navigation_rename_preview, navigation_action_preview, edit_preview_read, edit_preview_status, edit_preview_release, edit_preview_apply, edit_preview_reconcile) else "single",
             requirements=(
                 Prerequisite(
                     kind="selected-service",
@@ -1440,6 +1451,7 @@ def bindings(
             )
             if function
             not in (
+                structural_json_source_bytes_preview,
                 edit_preview_read,
                 edit_preview_status,
                 edit_preview_release,

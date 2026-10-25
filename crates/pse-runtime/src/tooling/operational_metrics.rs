@@ -46,13 +46,14 @@ pub(crate) enum PreparationStage {
     Basis,
 }
 impl PreparationStage {
+    pub(super) const ALL: [Self; 2] = [Self::Frontier, Self::Basis];
     fn index(self) -> usize {
         match self {
             Self::Frontier => 0,
             Self::Basis => 1,
         }
     }
-    fn name(self) -> &'static str {
+    pub(super) fn name(self) -> &'static str {
         match self {
             Self::Frontier => "frontier",
             Self::Basis => "basis",
@@ -73,7 +74,7 @@ impl PreparationStage {
     /// Called only inside the single-flight producer future, never once per waiter.
     pub(crate) fn producer(self) -> OwnerInterval {
         increment(&PREPARATION[self.index()][2]);
-        OwnerInterval::new("preparation", self.name())
+        OwnerInterval::new(super::metric_declarations::INTERVAL_FAMILIES[1], self.name())
     }
 }
 /// Copied owner totals. Acquisition callers and shared producers are overlapping populations.
@@ -153,7 +154,7 @@ impl NativeAttempt {
         increment(&NATIVE[0]);
         increment(&NATIVE[6]);
         Self {
-            _interval: OwnerInterval::new("native", "supervisor"),
+            _interval: OwnerInterval::new(super::metric_declarations::INTERVAL_FAMILIES[0], super::metric_declarations::SUPERVISOR_STAGE),
         }
     }
     pub(crate) fn admitted(&self) {

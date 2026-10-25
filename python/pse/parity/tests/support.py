@@ -14,6 +14,7 @@ from types import MappingProxyType
 import pyarrow as pa
 
 import pse
+from pse.tests.physical_input_fixture import inspection_request
 from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import documents as contract_documents
 from pse.contracts.identities import DeclarationId
@@ -26,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[4]
 ENGINEERING_RELATIVE_FRACTION = (
     contract_documents.NumericalPolicy().engineering_relative_fraction
 )
+
 
 
 def scalar_canonical_allowance() -> float:
@@ -180,7 +182,7 @@ def members(
     authored: pse.ModelingPackage, case: DeclarationId, settings: pse.SolveSettings
 ) -> dict[str, SemanticId]:
     """Every member of `case` by its lineage path."""
-    inspected = authored.inspect(case, settings).members
+    inspected = authored.inspect(inspection_request(case, settings)).members
     identities: dict[str, SemanticId] = {}
     for member in inspected:
         identities[member.lineage.path] = member.id

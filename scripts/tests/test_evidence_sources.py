@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import contextlib
+import ast
 import hashlib
 import io
 import json
@@ -29,6 +30,48 @@ from scripts.tests import assessment_fixture
 
 
 class EvidenceSourceTests(unittest.TestCase):
+    def test_contract_source_preparation_is_shared_within_one_receipt_cut(self) -> None:
+        source = self.root / "test_contract.py"
+        artifact = self.root / "native.pyi"
+        source.write_text('\n'.join('@pytest.mark.contract_section("21.5", artifact="native.pyi")\ndef test_' + name + '(): pass' for name in ("one", "two")))
+        artifact.write_text("class Native: ...\n")
+        inputs = {"files": {path.name: hashlib.sha256(str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()).hexdigest() for path in (source, artifact)}}
+        prepared = evidence_sources._ContractSources()
+        original_parse = ast.parse
+        with patch.object(evidence_sources.ast, "parse", wraps=original_parse) as parse:
+            for name in ("one", "two"):
+                self.assertEqual(evidence_sources.contract_assertions("test_contract.py::test_" + name, inputs, root=self.root, prepared=prepared), [("21.5", "native.pyi")])
+        self.assertEqual(parse.call_count, 1)
+
+    def test_contract_evidence_requires_exact_source_and_separates_selection_execution(self) -> None:
+        source = self.root / "test_contract.py"
+        artifact = self.root / "native.pyi"
+        source.write_text('@pytest.mark.contract_section("21.5", artifact="native.pyi")\ndef test_surface(): pass\n')
+        artifact.write_text("class Native: ...\n")
+        files = {path.name: hashlib.sha256(str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()).hexdigest() for path in (source, artifact)}
+        selected = {"nodeid": "test_contract.py::test_surface"}
+        report = {"version": 6, "scope": [{"name": "observed"}], "complete": True,
+                  "checks": [{"gate": "observed", "status": "passed", "selected": [selected], "results": [], "inputs": {"files": files}}]}
+        with patch.object(evidence_sources.validation_result, "read_receipt", return_value=report):
+            only_selected = evidence_sources.assessment_snapshot(self.root, root=self.root)
+            links = [fact for fact in only_selected["facts"] if fact.get("link_relation") in {"selected_contract", "executed_contract"}]
+            self.assertEqual([fact["link_relation"] for fact in links], ["selected_contract"])
+            report["checks"][0]["results"] = [{**selected, "status": "failure"}]
+            executed = evidence_sources.assessment_snapshot(self.root, root=self.root)
+            links = [fact for fact in executed["facts"] if fact.get("link_relation") == "executed_contract"]
+            self.assertEqual(len(links), 1)
+            self.assertEqual(links[0]["status"], "failure")
+            report["checks"][0]["results"] = [{**selected, "status": "error"}]
+            setup_error = evidence_sources.assessment_snapshot(self.root, root=self.root)
+            self.assertFalse(any(fact.get("link_relation") == "executed_contract" for fact in setup_error["facts"]))
+            report["checks"][0]["results"] = [{**selected, "status": "failure"}]
+            report["checks"][0]["origin"] = "original-report"
+            reused = evidence_sources.assessment_snapshot(self.root, root=self.root)
+            self.assertFalse(any(fact.get("link_relation") == "executed_contract" for fact in reused["facts"]))
+            source.write_text(source.read_text() + "# changed\n")
+            stale = evidence_sources.assessment_snapshot(self.root, root=self.root)
+            self.assertFalse(any(fact.get("link_relation") == "selected_contract" for fact in stale["facts"]))
+
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

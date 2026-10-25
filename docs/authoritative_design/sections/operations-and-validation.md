@@ -609,6 +609,15 @@ required fields. Generated MCP reference and actual callers consume the same dec
 semantic search, duplicate query authority or retry service is introduced. See the
 [capability interface guide](../../dev/capability-interface.md) for the actual transport wrappers.
 
+One declared invocation lifetime and operation wire supply both MCP and the generated Cyclopts
+consumer. The CLI describes, checks compatibility, selects and invokes on one connection;
+omission/null/empty/false/zero remain distinct and results retain original owner references.
+Offline help/placement diagnosis does not import serving sources. Explicit bounded probing is a
+fresh connection, never repair or evidence that a host attachment refreshed. A foreground JSONL
+session enables explicit endpoint edit sequences; it creates no durable-preview, daemon or retry
+contract. Host process loss requires following original custody, not replaying an uncertain effect.
+The existing structural migration reuses shared edit preview/apply/reconcile ownership.
+
 The maintainer selected ordinary typed operations, original native readers and headless reports.
 Production CodeMode, protocol tasks/Docket, Apps/UI and multi-question evidence batching are
 deferred under [R-55](../../adr/register.md). Revisit requires a concrete consumer that existing
@@ -855,7 +864,13 @@ cursors prevent stale activation, pointer rewind or mixed pages. Empty query res
 complete provenance source cut. Current repository observations include policy contributors;
 external evidence references retain original authority/codec/source/version/member identity and
 grant no payload lifetime. Producer fingerprints remain unverified against the live registry,
-and undeclared governing/qualification relationships remain unknown. Knowledge-only reset leaves
+and undeclared governing/qualification relationships remain unknown. Native indexed query/explain
+adapters preserve finite original versioned requests and exact answers without import/service
+startup or source fallback. Producer-declared governing sections and explicit source-bound test
+markers add attributed contract/evidence links. Unexecuted selection is never executed support;
+failed execution retains its status and establishes no positive qualification. Passive affected
+preview and prior-evidence compatibility reuse original selection/source-stamp owners, with
+unknown environments/populations visible and no automatic pruning. Knowledge-only reset leaves
 original files and the independent evidence projection intact. Whole-tooling disposal is explicit.
 The [environment](../../dev/agent-environment.md) and
 [substrate](../../dev/surreal-substrate.md#disposable-development-knowledge) guides own commands.

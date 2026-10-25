@@ -35,6 +35,9 @@ pub struct SourceRelationship {
     pub output_path: String,
     /// Direction only when explicitly declared by a catalogue.
     pub direction: Option<String>,
+    /// Stable architectural sections explicitly asserted by this producer.
+    #[serde(default)]
+    pub contract_sections: Vec<String>,
     /// Producer declarations are distinct from language resolution and text matches.
     pub basis: String,
 }
@@ -60,6 +63,7 @@ impl SourceRelationship {
             generator_symbol: generator_symbol.into(),
             output_path: output_path.into(),
             direction: None,
+            contract_sections: Vec::new(),
             basis: "declared".into(),
         }
     }

@@ -12,6 +12,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
@@ -32,6 +33,7 @@ from pse.tests.test_native_workflow import identity, package_documents, physical
 
 
 @pytest.fixture
+
 def local_runtime(inspection_settings: pse.EngineSettings) -> Iterator[pse.Runtime]:
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     try:
@@ -322,7 +324,7 @@ def test_simulation_snapshots_all_coordinate_controls_and_precise_signed_time(
         row.declaration_id for row in package.declarations() if row.name == "run"
     )
     x, p = (member(package, case, name) for name in ("x", "p"))
-    inspection = package.inspect(case, pse.SolveSettings())
+    inspection = package.inspect(inspection_request(case, pse.SolveSettings()))
     area_members = tuple(
         value
         for value in inspection.members

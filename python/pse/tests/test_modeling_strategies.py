@@ -8,6 +8,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
@@ -28,6 +29,7 @@ PRIMITIVES = (
 
 
 @pytest.mark.integration
+
 def test_authored_recycle_uses_declared_ports_and_owned_results(
     inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:
@@ -71,7 +73,7 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
         backend=NativeBackend.KINSOL,
         presolve=PresolvePolicyKind.OFF,
     )
-    inspected = package.inspect(case, settings)
+    inspected = package.inspect(inspection_request(case, settings))
     connections = inspected.connections
     inlet = next(p for p in inspected.ports if p.lineage.path.endswith(".inlet"))
     outlet = next(p for p in inspected.ports if p.lineage.path.endswith(".outlet"))

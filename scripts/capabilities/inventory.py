@@ -125,7 +125,7 @@ def _families() -> tuple[_Family, ...]:
             "scripts/workspace_tasks.py",
             "Task context, exact concepts, declared producers and change reach; unresolved dynamic reach remains explicit.",
             "Reads selected source, metadata and explicitly selected Git history.",
-            recipes="context affected default",
+            recipes="context affected default capability",
             sources="scripts/workspace_context.py scripts/workspace_sources.py scripts/workspace_domains.py scripts/affected.py",
             guides=("root",),
             route=("just", "context"),
@@ -699,6 +699,8 @@ def inventory(
                 "navigation_definition",
                 "navigation_references",
                 "knowledge_source_corpus",
+                "knowledge_query",
+                "knowledge_explain",
                 default=False,
             ),
             step(
@@ -721,6 +723,7 @@ def inventory(
                 "Preview and deliberately apply an authored source change; reconcile any interrupted apply.",
                 "navigation_rename_preview",
                 "navigation_action_preview",
+                "structural_json_source_bytes_preview",
                 "edit_preview_read",
                 "edit_preview_apply",
                 "edit_preview_reconcile",
@@ -834,6 +837,7 @@ def inventory(
                 "prepare",
                 "Inspect selected readiness and explicitly prepare only the required owner stage.",
                 "capability_readiness",
+                "capability_explain",
                 "capability_readiness_check",
                 "python_extension_dev_stage",
                 "python_extension_native_stage",
@@ -874,6 +878,14 @@ def inventory(
             ),
         ),
         "manage-project": (
+            step(
+                "model-development",
+                "Inspect exact native declarations, contextual model lineage and source/physical comparison before solve.",
+                "native_model_declarations",
+                "native_model_inspect",
+                "native_model_compare",
+                default=False,
+            ),
             step(
                 "context",
                 "Inspect exact project metadata and revision source in an already prepared native environment.",

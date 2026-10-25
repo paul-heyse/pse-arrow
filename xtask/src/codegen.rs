@@ -391,6 +391,7 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         generator_symbol: "generate_private".into(),
         output_path: format!("{}/telemetry_settings.py", documents::PRIVATE_PYTHON_ROOT),
         direction: Some("input".into()),
+        contract_sections: Vec::new(),
         basis: "declared".into(),
     });
     tree.relationships.push(provenance::SourceRelationship {
@@ -404,6 +405,7 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         generator_symbol: "document_schemas".into(),
         output_path: metric_path.to_string_lossy().into_owned(),
         direction: Some("output".into()),
+        contract_sections: Vec::new(),
         basis: "declared".into(),
     });
     let fixtures = schemas::boundary_fixtures()?;
@@ -543,6 +545,7 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
             PathBuf::from(provenance::ROOT),
             // The source-only capability reference has its own Python producer.
             PathBuf::from("docs/generated/capabilities"),
+            PathBuf::from("scripts/generated/capabilities"),
         ])
         .filter(|candidate| {
             !tree.roots.contains(candidate)
@@ -1217,6 +1220,27 @@ mod tests {
             b"updated capability producer bytes\n"
         );
         compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
+    }
+
+    #[test]
+    fn private_contracts_preserve_cli_nested_owner_without_hiding_stale_source() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let cli = checkout.path().join("scripts/generated/capabilities/cli.py");
+        fs::create_dir_all(cli.parent().unwrap()).unwrap();
+        fs::write(&cli, b"independent CLI producer\n").unwrap();
+        let mut contracts = GeneratedTree::empty(vec![PathBuf::from(documents::PRIVATE_PYTHON_ROOT)]);
+        contracts.files.insert(PathBuf::from("scripts/generated/fixture.py"), b"contract = 1\n".to_vec());
+        write_tree(checkout.path(), &contracts).unwrap();
+        write_tree(scratch.path(), &contracts).unwrap();
+        assert_eq!(fs::read(&cli).unwrap(), b"independent CLI producer\n");
+        compare_tree(checkout.path(), scratch.path(), &contracts).unwrap();
+        let stale = checkout.path().join("scripts/generated/stale.py");
+        fs::write(&stale, b"stale = 1\n").unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &contracts).is_err());
+        write_tree(checkout.path(), &contracts).unwrap();
+        assert!(!stale.exists());
+        assert!(cli.is_file());
     }
 
     #[test]

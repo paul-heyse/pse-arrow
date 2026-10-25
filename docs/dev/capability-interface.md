@@ -54,6 +54,45 @@ This fixed read/control launch intentionally does not enter workload admission, 
 prepare a compiler, start a store or import the native extension. It does not accept an arbitrary
 executable. Explicit actions enter their existing environment/admission owner when invoked.
 
+### Independent CLI and connection diagnosis
+
+`just capability --help` uses a generated Cyclopts consumer of the same canonical catalogue.
+It works without importing serving sources or starting an endpoint. `just capability diagnose`
+reports selected checkout/interpreter/generated-artifact placement independently. Add `--probe`
+for one bounded fresh handshake, or `--probe --capability native_model_inspect` for its passive
+readiness observations. The probe never builds, imports scientific libraries, provisions a store,
+repairs an old attachment or replays an action. A successful fresh connection says nothing about
+whether the host has refreshed its existing connection. Native readiness may remain unknown.
+
+Use `just capability describe <exact-id>` for live schemas and effects. `just capability call
+<exact-id> --help` provides derived flags; nested/union fields take JSON. For exact machine input,
+use `just capability invoke <exact-id> --input-json '<object>'` or `--input-file <path>`.
+Omitted flags stay omitted; explicit null, empty arrays/maps, false and zero reach the original
+receiver unchanged. Invalid input remains subject to that receiver's strict contract. Duplicate
+JSON keys and nonfinite JSON numbers refuse. Output preserves content, structured content,
+metadata and error status; successful delivery is distinct from scientific success.
+
+Each ordinary invocation describes its operation, compares the generated operation wire,
+selects and invokes on one connection. Regenerate using `just codegen` after incompatible
+contract changes; `just codegen-capability-cli-check` compares without publication. Unrelated
+operation changes do not independently invalidate a command. Native schema/admission and loaded
+source checks still apply. The generator lives at `scripts/capabilities/cli_codegen.py`; only
+its generated command declarations live under `scripts/generated/capabilities/`.
+
+Endpoint-bound edit operations require `just capability session`: one foreground connection
+accepting one JSON object per line, with `id`, exact `capability`, and `arguments`. It supports
+pipes and redirected files and closes on EOF. Read each reply before constructing dependent
+requests; preview identifiers and receipt paths come from their original owner. An explicit
+apply remains necessary. Process death loses endpoint previews; native invocation/receipt
+custody has its own lifetime. Neither command failure nor a missing acknowledgement authorizes
+replay. Follow the original status/result/reconcile reader instead.
+
+Codex may retain an old attachment after edits. Use the frontend's supported MCP reconnect or
+restart, then make a benign bootstrap/source read and inspect returned coherence. The documented
+app-server reload API is not exposed as a callable control in every frontend; configuring it or
+starting an independent client does not prove this session was reattached. The independent CLI
+is the supported immediate route while attachment recovery is pending.
+
 ### Conditional composition, tasks and telemetry
 
 Ordinary serving does not register CodeMode or the task extension. Telemetry is separately
@@ -437,26 +476,34 @@ handle. Durable reads name the exact canonical deployment/revision/run/attempt a
 source protection. `native_result_read` preserves exact bounded Arrow IPC bytes. Larger windows
 must be narrowed using the same protected native identity.
 
-`native_result_inspect` accepts the generated `ResultInspectionRequest`: exact run, attempt,
-relation, half-open `start`/`end`, optional `expected_manifest` and a tagged `view`. A
-`{"kind":"schema","offset":0,"limit":8}` view returns original field descriptors, metadata,
-manifest and recorded-row population without pulling data batches. A
-`{"kind":"values","fields":["value"],"maximum_rows":4}` view returns selected scalar cells plus
-all original non-value context columns, including identities, units, basis and quality where the
-original relation supplies them. Inspect the schema first for exact field names. Both views retain
-the original terminal selection; scientific usability stays unknown rather than being inferred.
+`native_model_declarations`, `native_model_inspect` and `native_model_compare` consume the
+original generated modeling documents. Declaration pages select original ordered identities
+before hydrating their admitted declarations. Inspection requires explicit case, preparation and
+inspection settings; comparison retains both source and physical closures on one native Runtime.
+`source_only` reports unknown scientific impact when those contexts differ, rather than inventing
+comparability. These native reads can prepare/admit imports and require their validated native
+worker; description/help and `capability_explain` do not perform those effects.
 
-Readable cells preserve original widths through their field descriptors and exact floating bits,
-with explicit null, finite/nonfinite and unavailable distinctions. Unsupported nested/storage or
-oversized cells report unavailable with `readable_complete=false`; they are never normalized into
-zero or null. Pages retain original coordinates, including coverage holes. Unknown fields, changed
-manifests and finite response/context limits refuse explicitly. In particular, deeply nested
-mandatory context descriptors can exceed the readable inspector's 64 KiB document bound before
-values are acquired; a smaller row window does not shrink that schema context. Preserve the typed
-`context_extent` refusal and unknown row values. The separate bounded IPC reader remains available
-under its original byte allowance; its success is not implied by schema paging. The native protected reader still
-validates original batches before selected-cell transport; this is not a projected-storage decode
-or a measured speed claim. Exact Arrow IPC remains the complete scientific data path.
+`native_result_inspect` consumes version 2 of `ResultInspectionRequest`. Select exact run,
+attempt, relation, original half-open window and optional expected manifest. `schema` returns
+shallow top-level descriptors; `children` pages the exact selected descriptor's children;
+`metadata` pages original schema/field metadata. These views pull no data batches. A field path
+has `field` and `steps`, with exact `struct_field` names or `list_element` indexes. Empty steps
+select a top-level value. Discover paths from original descriptors instead of guessing storage.
+
+The `values` view selects typed paths and bounded rows; it retains shallow mandatory physical
+context and original coordinates. Null parents, null list elements and missing list indexes
+remain distinct. Signed/unsigned widths and IEEE bit patterns/nonfinite classes remain exact;
+unsupported storage and excessive values refuse or report explicit unavailable cells. The
+64 KiB native document bound never silently drops scientific context. Continue only with the
+original native cursor and identical selection/window/view; it binds issuer, manifest, paths,
+schema contract and protection context. Changed cursors refuse rather than starting a new read.
+
+Native protected reads still admit and validate original full batches before projecting selected
+cells. Schema-only discovery is not independent IPC validation. Terminal/cancelled/partial and
+scientific-usability observations stay separate. `native_result_read` remains the exact bounded
+Arrow IPC route, with its own allowance and protection; readable success is no speed claim or
+whole-result scientific acceptance. Old version-1 inspection documents fail before v2 body decode.
 
 `native_evidence_compare` consumes original supplied snapshots through the native evidence owner.
 Describe its request and generated input/output documents rather than inventing snapshot fields.
@@ -544,3 +591,39 @@ timing remain separate facts. A detached observer reports detachment without can
 Existing recording OpenTelemetry spans receive correlation attributes; no exporter, trace store or
 end-to-end Surrealism continuity is implied. Unavailable tracing and unobserved transport delivery
 are explicit. This is interface diagnosis, not performance qualification or a second evidence store.
+
+## Exact development questions and retained investigations
+
+`knowledge_query` and `knowledge_explain` adapt the native version-1 request over an explicitly
+imported immutable knowledge population. They never import, refresh or start a store. Exact
+facets/production/edge predicates retain native issuer, generation and query-bound cursors;
+separate source observations identify current drift. Missing store, stale source, empty selection
+and contextual refusal are different outcomes. Use source-only workspace concepts/relationships
+explicitly when no indexed population is wanted.
+
+Producer relationships distinguish specific declaration→generator→output correspondence from
+text citations and test execution. The native-stub producer declares its governing §21.5 section;
+assessment projection reads explicit test contract markers against recorded original source bytes.
+Selected/unexecuted tests create no executed support edge. An executed failed test retains its
+failure and is not qualification. Missing dynamic consumers/relationships stay unknown.
+
+`workspace_integration_view` consumes the original passive affected preview for exact selected
+paths and exposes explicit feature/mode/source compatibility and remaining unknowns for supplied
+prior evidence. It does not compile, capture scientific inputs or prune tests automatically.
+`capability_explain` validates an intended typed request and explains original preparation/route
+selection without admitting it. For scientific requests, runtime eligibility remains native.
+`structural_json_source_bytes_preview` uses the existing finite structural migration and shared
+preview/detail/apply/reconcile/release owner; it needs no language-server connection.
+
+Metric declarations publish finite per-instrument attributes and values. Select `metric_filters`
+and `group_by` only for dimensions allowed by the chosen instrument. Estimator, reset, partial
+population and source-cut limits still apply. Original invocation/assessment readers explain
+preparation versus execution, population counts, unresolved drain and unexecuted original-reader
+suggestions without converting telemetry into native completion.
+
+Investigation export uses version 2: supply a question, copied selections and typed original
+invocation/assessment/native-reader references. Reopening on a new connection reads copied
+members without rerunning queries or science. Suggestions are unexecuted, and copied completeness
+never establishes a current live population. The existing separate indexed-plan and authenticated
+engine-metric readers remain the query-diagnosis route. No universal query packet or new bisect
+adapter is selected; existing fixed native experiment commands remain available.

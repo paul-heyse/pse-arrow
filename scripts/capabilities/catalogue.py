@@ -88,6 +88,10 @@ class Catalogue:
             if item.id in tools and tools[item.id].name != item.id:
                 raise ValueError(f"tool identity mismatch: {item.id}")
             if item.id in tools:
+                tools[item.id].meta = {
+                    **(tools[item.id].meta or {}),
+                    "pse.invocation_lifetime": item.invocation_lifetime,
+                }
                 tools[item.id].tags = {
                     tag
                     for tag in tools[item.id].tags

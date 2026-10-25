@@ -9,7 +9,7 @@ owner declarations are explicitly named fields, rather than the primary answer.
 from __future__ import annotations
 
 import json
-from typing import Literal, TypeVar
+from typing import Annotated, Literal, TypeVar
 
 from pydantic import ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
@@ -24,6 +24,40 @@ class Contract(BaseContract):
         validate_default=True,
         serialize_by_alias=True,
     )
+
+
+ReferenceText = Annotated[str, Field(min_length=1, max_length=4096)]
+
+
+class InvocationReference(Contract):
+    kind: Literal["invocation"]
+    invocation: ReferenceText
+    registry: ReferenceText | None = None
+
+
+class AssessmentReference(Contract):
+    kind: Literal["assessment"]
+    directory: ReferenceText
+    gate: Annotated[str, Field(min_length=1, max_length=160)] | None = None
+
+
+class NativeReaderReference(Contract):
+    kind: Literal["native"]
+    reader: Literal["native_result_inspect", "native_diagnostic_inspect", "native_diagnostic_checkpoint"]
+    arguments: Annotated[dict[str, JsonValue], Field(max_length=32, description="Original reader envelope; copying it neither validates native eligibility nor executes the reader.")]
+    source_basis: Annotated[dict[str, JsonValue], Field(max_length=32)] = Field(default_factory=dict)
+
+
+OwnerReference = Annotated[
+    InvocationReference | AssessmentReference | NativeReaderReference,
+    Field(discriminator="kind"),
+]
+
+
+class ReaderSuggestion(Contract):
+    reference: OwnerReference
+    reason: Annotated[str, Field(min_length=1, max_length=2048)]
+    disposition: Literal["unexecuted"] = "unexecuted"
 
 
 MAX_ANSWER_BYTES = 128 * 1024
@@ -319,6 +353,23 @@ class InvocationOwner(OwnerRecord):
     liveness: str
 
 
+class ExecutionExplanation(Contract):
+    """Original owner counts and limits, not inferred scientific success."""
+
+    selected_count: int
+    reported_count: int
+    unreported_count: int
+    outcome_counts: dict[str, int]
+    observed_stage: str | None
+    stage_basis: str
+    executed_count: int | None = None
+    preparation_seconds: float | None = None
+    execution_seconds: float | None = None
+    owned_drain: str = "unobserved"
+    next_readers: list[ReaderSuggestion] = Field(default_factory=list)
+    limits: list[str] = Field(default_factory=list)
+
+
 class ProductPayload(Contract):
     kind: str
     registry: str
@@ -353,6 +404,7 @@ class ProductPayload(Contract):
     payloads: list[OwnerRecord]
     resources: list[OwnerRecord]
     page: ProductPage
+    execution_explanation: ExecutionExplanation | None = None
 
 
 class FileObservation(Contract):
@@ -394,6 +446,7 @@ class AssessmentPayload(Contract):
     scope: list[OwnerRecord]
     checks: list[AssessmentCheck]
     unattempted_scope: list[OwnerRecord]
+    execution_explanation: ExecutionExplanation | None = None
 
 
 class WatchSelection(Contract):

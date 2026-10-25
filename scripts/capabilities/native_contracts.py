@@ -34,6 +34,11 @@ class Preparation(Source):
     request: JsonValue
 
 
+class ModelingComparison(Preparation):
+    other_physical: JsonValue
+    other_documents: JsonValue
+
+
 class Deployment(Contract):
     state: Text
     database: Text
@@ -181,6 +186,9 @@ EXACT_READS = frozenset(
         "telemetry_profile_capture",
         "result_read",
         "result_inspect",
+        "model_declarations",
+        "model_inspect",
+        "model_compare",
         "diagnostic_inspect",
         "diagnostic_processes",
         "diagnostic_checkpoint",
@@ -189,6 +197,30 @@ EXACT_READS = frozenset(
 
 
 BINDINGS = (
+    Binding(
+        "model_declarations", "Read native declaration page", Preparation,
+        {"physical": "project-draft-documents", "documents": "project-draft-documents", "request": "modeling-declaration-request"},
+        "pse.ModelingPackage.declaration_page",
+        "Admit finite supplied scientific source and read an exact selected declaration page; local revision handles expire with the child.",
+        "projects", "Native source admission and selected declaration observation; no solve.",
+        "modeling-declaration-page", prepare_import=True,
+    ),
+    Binding(
+        "model_inspect", "Inspect native declared model", Preparation,
+        {"physical": "project-draft-documents", "documents": "project-draft-documents", "request": "modeling-inspection-request"},
+        "pse.ModelingPackage.inspect",
+        "Inspect selected instantiated lineage under an explicit native preparation policy; contextual admission can prepare providers, but no procedure is dispatched.",
+        "projects", "Native source/provider admission and selected observation, not universally passive.",
+        "modeling-inspection", prepare_import=True,
+    ),
+    Binding(
+        "model_compare", "Compare native authored model sources", ModelingComparison,
+        {"physical": "project-draft-documents", "documents": "project-draft-documents", "other_physical": "project-draft-documents", "other_documents": "project-draft-documents", "request": "modeling-comparison-request"},
+        "pse.ModelingPackage.comparison_observation",
+        "Admit two finite sources in one Runtime and compare selected native changes/details; source-only mode preserves unknown scientific impact across physical contexts.",
+        "projects", "Native source admission and finite comparison; no solve or numerical equivalence claim.",
+        "modeling-comparison-observation", prepare_import=True,
+    ),
     Binding(
         "evidence_compare",
         "Compare explicit baseline and candidate evidence",

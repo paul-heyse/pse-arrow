@@ -15,6 +15,9 @@ pub struct MetricDeclaration {
     pub population: &'static str,
     /// Only these producer-bounded attribute keys are emitted.
     pub attributes: &'static [&'static str],
+    /// Finite values from the same vocabularies used by actual producers.
+    #[schemars(with = "std::collections::BTreeMap<String, Vec<String>>")]
+    pub attribute_values: AttributeValues,
     /// Explicit finite histogram boundaries, in the declared unit.
     pub buckets: &'static [f64],
     /// Cumulative counter/histogram or instantaneous gauge.
@@ -33,6 +36,7 @@ pub(super) const PSE_RUNTIME_EXECUTOR_WORKERS: MetricDeclaration = MetricDeclara
     unit: "{thread}",
     population: "Configured workers of currently registered executors",
     attributes: &["executor.role"],
+    attribute_values: AttributeValues::Executor,
     buckets: &[],
     temporality: "instantaneous",
     reset: "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -46,6 +50,7 @@ pub(super) const PSE_RUNTIME_EXECUTOR_ALIVE_TASKS: MetricDeclaration = MetricDec
     unit: "{task}",
     population: "Approximate alive tasks of currently registered executors; not settlement",
     attributes: &["executor.role"],
+    attribute_values: AttributeValues::Executor,
     buckets: &[],
     temporality: "instantaneous",
     reset: "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -59,6 +64,7 @@ pub(super) const PSE_RUNTIME_EXECUTOR_GLOBAL_QUEUE_DEPTH: MetricDeclaration = Me
     unit: "{task}",
     population: "Global injection queues only; excludes worker-local queues",
     attributes: &["executor.role"],
+    attribute_values: AttributeValues::Executor,
     buckets: &[],
     temporality: "instantaneous",
     reset: "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -72,6 +78,7 @@ pub(super) const PSE_RUNTIME_EXECUTOR_WORKER_BUSY: MetricDeclaration = MetricDec
     unit: "s",
     population: "Sum of cumulative worker busy time for currently registered executors; not CPU time",
     attributes: &["executor.role"],
+    attribute_values: AttributeValues::Executor,
     buckets: &[],
     temporality: "instantaneous",
     reset: "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -85,6 +92,7 @@ pub(super) const PSE_NATIVE_SUPERVISOR_EVENTS: MetricDeclaration = MetricDeclara
     unit: "{event}",
     population: "Process cumulative actual native supervisor route events; join witnesses native/TLS destruction, attempts are not scientific solves",
     attributes: &["event"],
+    attribute_values: AttributeValues::NativeEvents,
     buckets: &[],
     temporality: "cumulative",
     reset: "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -98,6 +106,7 @@ pub(super) const PSE_NATIVE_SUPERVISORS: MetricDeclaration = MetricDeclaration {
     unit: "{owner}",
     population: "Outstanding actual supervisor owners; caller completion does not prove physical release",
     attributes: &[],
+    attribute_values: AttributeValues::None,
     buckets: &[],
     temporality: "instantaneous",
     reset: "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -111,6 +120,7 @@ pub(super) const PSE_PREPARATION_FLIGHT_EVENTS: MetricDeclaration = MetricDeclar
     unit: "{event}",
     population: "Process cumulative frontier/basis acquisition callers, retained reads and single-flight producers; overlapping populations, not additive work",
     attributes: &["stage", "event"],
+    attribute_values: AttributeValues::PreparationEvents,
     buckets: &[],
     temporality: "cumulative",
     reset: "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -124,6 +134,7 @@ pub(super) const PSE_PREPARATION_PRODUCTS: MetricDeclaration = MetricDeclaration
     unit: "{product}",
     population: "Process cumulative performing-owner preparations; nested operation/service summaries overlap and are not re-added",
     attributes: &["product"],
+    attribute_values: AttributeValues::Products,
     buckets: &[],
     temporality: "cumulative",
     reset: "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -137,6 +148,7 @@ pub(super) const PSE_CANONICAL_QUERY_EVENTS: MetricDeclaration = MetricDeclarati
     unit: "{event}",
     population: "Process cumulative selected canonical query adapter builders and SDK response events; builders are not dispatched requests, select/control APIs are partial coverage",
     attributes: &["event"],
+    attribute_values: AttributeValues::QueryEvents,
     buckets: &[],
     temporality: "cumulative",
     reset: "first query-owner activity through process incarnation; source_start carries origin, SDK activation is distinct",
@@ -150,6 +162,7 @@ pub(super) const PSE_CANONICAL_SERVER_DURATION: MetricDeclaration = MetricDeclar
     unit: "s",
     population: "Process cumulative supplied statement server wall times for the selected query adapter; untimed statements omitted, not CPU time or a complete database population",
     attributes: &[],
+    attribute_values: AttributeValues::None,
     buckets: &[],
     temporality: "cumulative",
     reset: "first query-owner activity through process incarnation; source_start carries origin, SDK activation is distinct",
@@ -163,6 +176,7 @@ pub(super) const PSE_OPERATIONAL_SOURCE_START: MetricDeclaration = MetricDeclara
     unit: "s",
     population: "Actual cumulative source generation origin in Unix seconds; streams reset only on process incarnation change, distinct from SDK activation",
     attributes: &["owner"],
+    attribute_values: AttributeValues::Owners,
     buckets: &[],
     temporality: "instantaneous",
     reset: "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -176,6 +190,7 @@ pub(super) const PSE_RUNTIME_TASK_EVENTS: MetricDeclaration = MetricDeclaration 
     unit: "{event}",
     population: "Process-wide selected future wrapper events; dropped wrappers do not establish native settlement",
     attributes: &["task.class", "event"],
+    attribute_values: AttributeValues::TaskEvents,
     buckets: &[],
     temporality: "cumulative",
     reset: "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -189,6 +204,7 @@ pub(super) const PSE_RUNTIME_TASK_DURATION: MetricDeclaration = MetricDeclaratio
     unit: "s",
     population: "Cumulative selected-future poll, wake-to-poll and pending-to-wake intervals; not CPU time",
     attributes: &["task.class", "phase"],
+    attribute_values: AttributeValues::TaskPhases,
     buckets: &[],
     temporality: "cumulative",
     reset: "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -202,6 +218,7 @@ pub(super) const PSE_RUNTIME_TASK_THRESHOLD: MetricDeclaration = MetricDeclarati
     unit: "s",
     population: "Actual selected monitor thresholds; slow polls and long delays are subsets, not additional work",
     attributes: &["task.class", "threshold"],
+    attribute_values: AttributeValues::TaskThresholds,
     buckets: &[],
     temporality: "instantaneous",
     reset: "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -215,6 +232,7 @@ pub(super) const PSE_RUNTIME_TASK_SOURCE_START: MetricDeclaration = MetricDeclar
     unit: "s",
     population: "Monitor source generation start in Unix seconds; SDK stream start is collection activation, not this origin",
     attributes: &["task.class"],
+    attribute_values: AttributeValues::TaskClasses,
     buckets: &[],
     temporality: "instantaneous",
     reset: "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -228,6 +246,7 @@ pub(super) const PSE_RUNTIME_EXECUTOR_REGISTRY_AVAILABLE: MetricDeclaration = Me
     unit: "1",
     population: "Whether the executor source registry was available at collection",
     attributes: &[],
+    attribute_values: AttributeValues::None,
     buckets: &[],
     temporality: "instantaneous",
     reset: "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -241,6 +260,7 @@ pub(super) const PSE_RUNTIME_EXECUTOR_REGISTRATION_REFUSED: MetricDeclaration = 
     unit: "{registration}",
     population: "Process-lifetime executor observation registration refusals; never workload admission",
     attributes: &[],
+    attribute_values: AttributeValues::None,
     buckets: &[],
     temporality: "cumulative",
     reset: "process lifetime; observation-registration refusal total never resets within a process",
@@ -254,6 +274,7 @@ pub(super) const PSE_OWNER_INTERVAL: MetricDeclaration = MetricDeclaration {
     unit: "s",
     population: "Completed inclusive owner wall intervals starting after SDK activation; includes failed or cancelled owners, not CPU time",
     attributes: &["owner.family", "stage"],
+    attribute_values: AttributeValues::OwnerIntervals,
     buckets: &[0.000_1, 0.001, 0.01, 0.1, 1.0, 10.0, 60.0, 600.0],
     temporality: "cumulative",
     reset: "SDK activation; completed owner intervals started before activation are absent, no historical histogram reconstruction",
@@ -283,4 +304,88 @@ pub fn metric_declarations() -> &'static [MetricDeclaration] {
         PSE_RUNTIME_EXECUTOR_REGISTRATION_REFUSED,
         PSE_OWNER_INTERVAL,
     ]
+}
+
+
+pub(super) const NATIVE_EVENTS: [&str; 6] = ["attempt", "admitted", "dispatched", "joined", "cancel_requested", "deadline_requested"];
+pub(super) const PREPARATION_EVENTS: [&str; 4] = ["acquisition", "retained_reuse", "producer", "flight_waiter"];
+pub(super) const PRODUCTS: [&str; 4] = ["structural_view", "observation_program", "value_rebuilt", "value_shared"];
+pub(super) const QUERY_EVENTS: [&str; 7] = ["builder", "request_failed", "statement", "statement_succeeded", "statement_failed", "statement_timed", "statement_untimed"];
+pub(super) const TASK_EVENTS: [&str; 8] = ["instrumented", "dropped", "poll", "scheduled", "idle", "first_poll", "slow_poll", "long_delay"];
+pub(super) const TASK_PHASES: [&str; 6] = ["poll", "scheduled", "idle", "first_poll", "slow_poll", "long_delay"];
+pub(super) const TASK_THRESHOLDS: [&str; 2] = ["slow_poll", "long_delay"];
+pub(super) const SOURCE_OWNERS: [&str; 2] = ["native_preparation", "canonical_query"];
+pub(super) const INTERVAL_FAMILIES: [&str; 2] = ["native", "preparation"];
+pub(super) const SUPERVISOR_STAGE: &str = "supervisor";
+
+/// Closed producer vocabularies, serialized as queryable attribute-to-value maps.
+#[derive(Clone, Copy, Debug)]
+pub enum AttributeValues {
+    /// Instrument has no dimensions.
+    None,
+    /// Existing executor composition-role vocabulary.
+    Executor,
+    /// Native supervisor lifecycle events.
+    NativeEvents,
+    /// Preparation stages and acquisition/reuse events.
+    PreparationEvents,
+    /// Native immutable preparation-product populations.
+    Products,
+    /// Canonical request-builder and statement events.
+    QueryEvents,
+    /// Original cumulative operational source owners.
+    Owners,
+    /// Selected future classes and observed lifecycle events.
+    TaskEvents,
+    /// Selected future classes and duration interval kinds.
+    TaskPhases,
+    /// Selected future classes and actual monitor thresholds.
+    TaskThresholds,
+    /// Existing selected future-class vocabulary.
+    TaskClasses,
+    /// Inclusive native/preparation owner interval populations.
+    OwnerIntervals,
+}
+
+impl AttributeValues {
+    fn domains(self) -> std::collections::BTreeMap<&'static str, Vec<&'static str>> {
+        use pse_diagnostics::{ExecutorRole, NativeTaskClass};
+        use super::operational_metrics::PreparationStage;
+        let tasks = || NativeTaskClass::ALL.iter().map(|class| class.as_str()).collect();
+        let stages = || PreparationStage::ALL.iter().map(|stage| stage.name()).collect();
+        match self {
+            Self::None => std::collections::BTreeMap::new(),
+            Self::Executor => [("executor.role", ExecutorRole::ALL.iter().map(|role| role.as_str()).collect())].into(),
+            Self::NativeEvents => [("event", NATIVE_EVENTS.to_vec())].into(),
+            Self::PreparationEvents => [("stage", stages()), ("event", PREPARATION_EVENTS.to_vec())].into(),
+            Self::Products => [("product", PRODUCTS.to_vec())].into(),
+            Self::QueryEvents => [("event", QUERY_EVENTS.to_vec())].into(),
+            Self::Owners => [("owner", SOURCE_OWNERS.to_vec())].into(),
+            Self::TaskEvents => [("task.class", tasks()), ("event", TASK_EVENTS.to_vec())].into(),
+            Self::TaskPhases => [("task.class", tasks()), ("phase", TASK_PHASES.to_vec())].into(),
+            Self::TaskThresholds => [("task.class", tasks()), ("threshold", TASK_THRESHOLDS.to_vec())].into(),
+            Self::TaskClasses => [("task.class", tasks())].into(),
+            Self::OwnerIntervals => [("owner.family", INTERVAL_FAMILIES.to_vec()), ("stage", std::iter::once(SUPERVISOR_STAGE).chain(stages()).collect())].into(),
+        }
+    }
+}
+impl serde::Serialize for AttributeValues {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&self.domains(), serializer)
+    }
+}
+
+#[cfg(test)]
+mod vocabulary_tests {
+    #[test]
+    fn metric_dimensions_are_exact_finite_producer_domains() {
+        for declaration in super::metric_declarations() {
+            let domains = declaration.attribute_values.domains();
+            assert_eq!(domains.keys().copied().collect::<std::collections::BTreeSet<_>>(), declaration.attributes.iter().copied().collect());
+            for values in domains.values() {
+                assert!(!values.is_empty());
+                assert_eq!(values.len(), values.iter().collect::<std::collections::BTreeSet<_>>().len());
+            }
+        }
+    }
 }

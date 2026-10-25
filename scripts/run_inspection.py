@@ -8,6 +8,7 @@ import contextlib
 import hashlib
 import os
 import stat
+from collections import Counter
 from pathlib import Path
 
 from scripts import resource_store, test_resources
@@ -299,6 +300,27 @@ def product_result(
                         )
                     )
     unreported = [name for name in catalog if name not in outcomes]
+    observed_stage = evidence.get("stage")
+    observed_stage = observed_stage if isinstance(observed_stage, str) else None
+    execution_explanation = {
+        "selected_count": len(selected),
+        "reported_count": len(outcomes),
+        "unreported_count": len(unreported),
+        "outcome_counts": dict(Counter(outcomes.values())),
+        "observed_stage": observed_stage,
+        "stage_basis": "performing-owner terminal evidence" if observed_stage else "stage not supplied by the selected original owner",
+        "owned_drain": evidence.get("owned_drain", "unobserved"),
+        "next_readers": [{
+            "reference": {"kind": "invocation", "invocation": declaration["nonce"], "registry": str(root)},
+            "reason": "Read the same original invocation with a selected subject or protected artifact tail; this suggestion executes no work.",
+            "disposition": "unexecuted",
+        }],
+        "limits": [
+            "Reported outcomes are original lifecycle observations, not proof that every test body executed.",
+            "Missing terminal outcomes do not identify compilation, preparation or subject execution stage.",
+            "Terminal status, telemetry export and physical drain are independent observations.",
+        ],
+    }
     return {
         "kind": "product-test",
         "registry": str(root),
@@ -323,6 +345,7 @@ def product_result(
             offset : offset + limit
         ],
         "selected_count": len(selected),
+        "execution_explanation": execution_explanation,
         "selection_state": evidence.get(
             "selection_state",
             "collected" if state["collected"] else "uncollected",

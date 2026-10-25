@@ -9,6 +9,7 @@
   "relationships": [
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyCriterionStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -22,6 +23,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyEvidenceInterpretation",
       "declaration_kind": "enum",
       "direction": null,
@@ -35,6 +37,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyEvidenceMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -48,6 +51,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyGoalStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -61,6 +65,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyGoalSubject",
       "declaration_kind": "enum",
       "direction": null,
@@ -74,6 +79,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyGoalUse",
       "declaration_kind": "enum",
       "direction": null,
@@ -87,6 +93,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyObservation",
       "declaration_kind": "enum",
       "direction": null,
@@ -100,6 +107,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyResolutionStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -113,6 +121,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AccuracyUnavailableReason",
       "declaration_kind": "enum",
       "direction": null,
@@ -126,6 +135,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ArtifactOwnerKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -139,6 +149,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AssertionStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -152,6 +163,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "AttemptState",
       "declaration_kind": "enum",
       "direction": null,
@@ -165,6 +177,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Authority",
       "declaration_kind": "enum",
       "direction": null,
@@ -178,6 +191,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "BasisKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -191,6 +205,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "BasisRule",
       "declaration_kind": "enum",
       "direction": null,
@@ -204,6 +219,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "BoundActivity",
       "declaration_kind": "enum",
       "direction": null,
@@ -217,6 +233,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "BoundKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -230,6 +247,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "BoundStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -243,6 +261,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CandidateBoundOrigin",
       "declaration_kind": "enum",
       "direction": null,
@@ -256,6 +275,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CandidateQualifier",
       "declaration_kind": "enum",
       "direction": null,
@@ -269,6 +289,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CandidateRefusal",
       "declaration_kind": "enum",
       "direction": null,
@@ -282,6 +303,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CandidateUse",
       "declaration_kind": "enum",
       "direction": null,
@@ -295,6 +317,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CanonicalAttemptPhase",
       "declaration_kind": "enum",
       "direction": null,
@@ -308,6 +331,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CanonicalTerminalOutcome",
       "declaration_kind": "enum",
       "direction": null,
@@ -321,6 +345,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CaptureKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -334,6 +359,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CaptureOutputKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -347,6 +373,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CaptureStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -360,6 +387,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ClarabelDirect",
       "declaration_kind": "enum",
       "direction": null,
@@ -373,6 +401,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ClarabelMergeMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -386,6 +415,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ClarabelMode",
       "declaration_kind": "enum",
       "direction": null,
@@ -399,6 +429,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ClosureAssessment",
       "declaration_kind": "enum",
       "direction": null,
@@ -412,6 +443,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ClosurePolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -425,6 +457,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ColumnRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -438,6 +471,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CompositionBasis",
       "declaration_kind": "enum",
       "direction": null,
@@ -451,6 +485,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ComputationKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -464,6 +499,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ConformanceExecution",
       "declaration_kind": "enum",
       "direction": null,
@@ -477,6 +513,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ConformancePresolve",
       "declaration_kind": "enum",
       "direction": null,
@@ -490,6 +527,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ConstraintScalingScheme",
       "declaration_kind": "enum",
       "direction": null,
@@ -503,6 +541,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ConversionKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -516,6 +555,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CovarianceApproximation",
       "declaration_kind": "enum",
       "direction": null,
@@ -529,6 +569,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "CovarianceInputOrigin",
       "declaration_kind": "enum",
       "direction": null,
@@ -542,6 +583,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DerivationGranularity",
       "declaration_kind": "enum",
       "direction": null,
@@ -555,6 +597,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DerivedQuantity",
       "declaration_kind": "enum",
       "direction": null,
@@ -568,6 +611,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Determinism",
       "declaration_kind": "enum",
       "direction": null,
@@ -581,6 +625,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiagnosticCode",
       "declaration_kind": "enum",
       "direction": null,
@@ -594,6 +639,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiagnosticNonfiniteObservation",
       "declaration_kind": "enum",
       "direction": null,
@@ -607,6 +653,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiagnosticObservationKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -620,6 +667,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiagnosticRule",
       "declaration_kind": "enum",
       "direction": null,
@@ -633,6 +681,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiagnosticSeverity",
       "declaration_kind": "enum",
       "direction": null,
@@ -646,6 +695,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiagnosticStage",
       "declaration_kind": "enum",
       "direction": null,
@@ -659,6 +709,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiffsolLinear",
       "declaration_kind": "enum",
       "direction": null,
@@ -672,6 +723,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DiffsolMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -685,6 +737,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DualQualification",
       "declaration_kind": "enum",
       "direction": null,
@@ -698,6 +751,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DynamicSensitivity",
       "declaration_kind": "enum",
       "direction": null,
@@ -711,6 +765,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "DynamicsMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -724,6 +779,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "EndpointPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -737,6 +793,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "EngineeringScaleKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -750,6 +807,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "EntityKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -763,6 +821,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "EventDirection",
       "declaration_kind": "enum",
       "direction": null,
@@ -776,6 +835,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "EvidenceCoverage",
       "declaration_kind": "enum",
       "direction": null,
@@ -789,6 +849,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "EvidenceGenerationState",
       "declaration_kind": "enum",
       "direction": null,
@@ -802,6 +863,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "EvidenceUnavailableReason",
       "declaration_kind": "enum",
       "direction": null,
@@ -815,6 +877,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ExecutorRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -828,6 +891,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ExternalDerivativeSource",
       "declaration_kind": "enum",
       "direction": null,
@@ -841,6 +905,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "FailureClass",
       "declaration_kind": "enum",
       "direction": null,
@@ -854,6 +919,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "FeralOrdering",
       "declaration_kind": "enum",
       "direction": null,
@@ -867,6 +933,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "FeralScaling",
       "declaration_kind": "enum",
       "direction": null,
@@ -880,6 +947,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "FindingSeverity",
       "declaration_kind": "enum",
       "direction": null,
@@ -893,6 +961,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "FitDerivatives",
       "declaration_kind": "enum",
       "direction": null,
@@ -906,6 +975,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "HessianMode",
       "declaration_kind": "enum",
       "direction": null,
@@ -919,6 +989,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "HighsMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -932,6 +1003,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "IdPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -945,6 +1017,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "IdasInitialization",
       "declaration_kind": "enum",
       "direction": null,
@@ -958,6 +1031,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "IncumbentPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -971,6 +1045,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "InputConsumptionKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -984,6 +1059,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "IntervalEnd",
       "declaration_kind": "enum",
       "direction": null,
@@ -997,6 +1073,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "IntervalMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -1010,6 +1087,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "IntervalOutcome",
       "declaration_kind": "enum",
       "direction": null,
@@ -1023,6 +1101,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "InvariantKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1036,6 +1115,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "IpoptLinearSolver",
       "declaration_kind": "enum",
       "direction": null,
@@ -1049,6 +1129,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KinsolOrthogonalization",
       "declaration_kind": "enum",
       "direction": null,
@@ -1062,6 +1143,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KinsolStrategy",
       "declaration_kind": "enum",
       "direction": null,
@@ -1075,6 +1157,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeBasis",
       "declaration_kind": "enum",
       "direction": null,
@@ -1088,6 +1171,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeDirection",
       "declaration_kind": "enum",
       "direction": null,
@@ -1101,6 +1185,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeDocumentRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -1114,6 +1199,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeGenerationState",
       "declaration_kind": "enum",
       "direction": null,
@@ -1127,6 +1213,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeRelationKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1140,6 +1227,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeSourceRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -1153,6 +1241,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeSourceStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -1166,6 +1255,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "KnowledgeSubjectKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1179,6 +1269,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "LiveSimulationEventKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1192,6 +1283,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "LocalValidity",
       "declaration_kind": "structure",
       "direction": null,
@@ -1205,6 +1297,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "MigrationOp",
       "declaration_kind": "enum",
       "direction": null,
@@ -1218,6 +1311,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingAccumulatorMode",
       "declaration_kind": "enum",
       "direction": null,
@@ -1231,6 +1325,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingAnalysisRoute",
       "declaration_kind": "enum",
       "direction": null,
@@ -1244,6 +1339,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingAnnotationKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1257,6 +1353,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingApplicabilityBasis",
       "declaration_kind": "enum",
       "direction": null,
@@ -1270,6 +1367,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingApplicabilityKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1283,6 +1381,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingApplicabilityOutcome",
       "declaration_kind": "enum",
       "direction": null,
@@ -1296,6 +1395,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCell",
       "declaration_kind": "structure",
       "direction": null,
@@ -1309,6 +1409,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCellKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1322,6 +1423,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCellValueBoolean",
       "declaration_kind": "structure",
       "direction": null,
@@ -1335,6 +1437,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCellValueIdentifier",
       "declaration_kind": "structure",
       "direction": null,
@@ -1348,6 +1451,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCellValueInteger",
       "declaration_kind": "structure",
       "direction": null,
@@ -1361,6 +1465,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCellValueQuantity",
       "declaration_kind": "structure",
       "direction": null,
@@ -1374,6 +1479,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCellValueReference",
       "declaration_kind": "structure",
       "direction": null,
@@ -1387,6 +1493,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCellValueText",
       "declaration_kind": "structure",
       "direction": null,
@@ -1400,6 +1507,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCheckBasis",
       "declaration_kind": "enum",
       "direction": null,
@@ -1413,6 +1521,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCheckKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1426,6 +1535,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingColumnStorage",
       "declaration_kind": "structure",
       "direction": null,
@@ -1439,6 +1549,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingCompleteness",
       "declaration_kind": "structure",
       "direction": null,
@@ -1452,6 +1563,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingConformanceKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1465,6 +1577,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingConformanceStatus",
       "declaration_kind": "enum",
       "direction": null,
@@ -1478,6 +1591,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingContributionRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -1491,6 +1605,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingDataFacet",
       "declaration_kind": "enum",
       "direction": null,
@@ -1504,6 +1619,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingDeclarationKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1517,6 +1633,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingDiagnosticSampleStop",
       "declaration_kind": "enum",
       "direction": null,
@@ -1530,6 +1647,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingDiagonalPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -1543,6 +1661,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingDiscreteInitialization",
       "declaration_kind": "enum",
       "direction": null,
@@ -1556,6 +1675,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingElasticObservation",
       "declaration_kind": "enum",
       "direction": null,
@@ -1569,6 +1689,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingEnvelope",
       "declaration_kind": "structure",
       "direction": null,
@@ -1582,6 +1703,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingEnvelopeExtent",
       "declaration_kind": "enum",
       "direction": null,
@@ -1595,6 +1717,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingEnvelopeGuard",
       "declaration_kind": "structure",
       "direction": null,
@@ -1608,6 +1731,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingFactNamespace",
       "declaration_kind": "enum",
       "direction": null,
@@ -1621,6 +1745,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingFixtureBinding",
       "declaration_kind": "enum",
       "direction": null,
@@ -1634,6 +1759,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingInitializationStep",
       "declaration_kind": "enum",
       "direction": null,
@@ -1647,6 +1773,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingIntegerRange",
       "declaration_kind": "structure",
       "direction": null,
@@ -1660,6 +1787,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingKeyCell",
       "declaration_kind": "structure",
       "direction": null,
@@ -1673,6 +1801,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingKeyCellKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1686,6 +1815,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingKindFacet",
       "declaration_kind": "enum",
       "direction": null,
@@ -1699,6 +1829,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingKnowledgeLineage",
       "declaration_kind": "structure",
       "direction": null,
@@ -1712,6 +1843,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingKnowledgeUncertainty",
       "declaration_kind": "structure",
       "direction": null,
@@ -1725,6 +1857,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingKnowledgeValueKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1738,6 +1871,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingKnowledgeValueNode",
       "declaration_kind": "structure",
       "direction": null,
@@ -1751,6 +1885,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingLineageEntry",
       "declaration_kind": "structure",
       "direction": null,
@@ -1764,6 +1899,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingLineageKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1777,6 +1913,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingMissingPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -1790,6 +1927,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingObjectiveRoute",
       "declaration_kind": "enum",
       "direction": null,
@@ -1803,6 +1941,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingPermissionTarget",
       "declaration_kind": "enum",
       "direction": null,
@@ -1816,6 +1955,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingProcedure",
       "declaration_kind": "enum",
       "direction": null,
@@ -1829,6 +1969,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingProvenance",
       "declaration_kind": "structure",
       "direction": null,
@@ -1842,6 +1983,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingRealValueKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1855,6 +1997,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingRealizationPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -1868,6 +2011,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingStructuralRequirement",
       "declaration_kind": "enum",
       "direction": null,
@@ -1881,6 +2025,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingTransferContext",
       "declaration_kind": "structure",
       "direction": null,
@@ -1894,6 +2039,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingTransferDirection",
       "declaration_kind": "enum",
       "direction": null,
@@ -1907,6 +2053,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingTypeArenaNode",
       "declaration_kind": "structure",
       "direction": null,
@@ -1920,6 +2067,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingTypeNode",
       "declaration_kind": "enum",
       "direction": null,
@@ -1933,6 +2081,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingUncertaintyKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -1946,6 +2095,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingUnitFactor",
       "declaration_kind": "structure",
       "direction": null,
@@ -1959,6 +2109,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingValidityLayer",
       "declaration_kind": "enum",
       "direction": null,
@@ -1972,6 +2123,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingVariableDomain",
       "declaration_kind": "enum",
       "direction": null,
@@ -1985,6 +2137,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ModelingVersionOperator",
       "declaration_kind": "enum",
       "direction": null,
@@ -1998,6 +2151,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "MuStrategy",
       "declaration_kind": "enum",
       "direction": null,
@@ -2011,6 +2165,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "MumpsOrdering",
       "declaration_kind": "enum",
       "direction": null,
@@ -2024,6 +2179,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Namespace",
       "declaration_kind": "enum",
       "direction": null,
@@ -2037,6 +2193,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeArtifactDemand",
       "declaration_kind": "enum",
       "direction": null,
@@ -2050,6 +2207,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeAssessmentState",
       "declaration_kind": "enum",
       "direction": null,
@@ -2063,6 +2221,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeAssurance",
       "declaration_kind": "enum",
       "direction": null,
@@ -2076,6 +2235,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeBackend",
       "declaration_kind": "enum",
       "direction": null,
@@ -2089,6 +2249,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeBoundaryClass",
       "declaration_kind": "enum",
       "direction": null,
@@ -2102,6 +2263,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeCandidateKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2115,6 +2277,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeCertificateAccuracy",
       "declaration_kind": "enum",
       "direction": null,
@@ -2128,6 +2291,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeCertificateKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2141,6 +2305,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeConstraintForm",
       "declaration_kind": "enum",
       "direction": null,
@@ -2154,6 +2319,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeDerivativeCapability",
       "declaration_kind": "enum",
       "direction": null,
@@ -2167,6 +2333,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeEvidenceDemand",
       "declaration_kind": "enum",
       "direction": null,
@@ -2180,6 +2347,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeIneligibility",
       "declaration_kind": "enum",
       "direction": null,
@@ -2193,6 +2361,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeInfeasibilityWitness",
       "declaration_kind": "enum",
       "direction": null,
@@ -2206,6 +2375,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeLexicographicDegradation",
       "declaration_kind": "enum",
       "direction": null,
@@ -2219,6 +2389,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeLexicographicRealization",
       "declaration_kind": "enum",
       "direction": null,
@@ -2232,6 +2403,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeMetricKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2245,6 +2417,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeObjectiveSense",
       "declaration_kind": "enum",
       "direction": null,
@@ -2258,6 +2431,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativePetscLinear",
       "declaration_kind": "enum",
       "direction": null,
@@ -2271,6 +2445,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativePetscMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -2284,6 +2459,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativePetscPreconditioner",
       "declaration_kind": "enum",
       "direction": null,
@@ -2297,6 +2473,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativePrimalCoordinateRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -2310,6 +2487,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeProblemClass",
       "declaration_kind": "enum",
       "direction": null,
@@ -2323,6 +2501,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeQualification",
       "declaration_kind": "enum",
       "direction": null,
@@ -2336,6 +2515,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeRayCoordinate",
       "declaration_kind": "enum",
       "direction": null,
@@ -2349,6 +2529,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeRepresentation",
       "declaration_kind": "enum",
       "direction": null,
@@ -2362,6 +2543,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeRouteKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2375,6 +2557,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeRouteRefusal",
       "declaration_kind": "enum",
       "direction": null,
@@ -2388,6 +2571,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeRouteSelection",
       "declaration_kind": "enum",
       "direction": null,
@@ -2401,6 +2585,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeRunState",
       "declaration_kind": "enum",
       "direction": null,
@@ -2414,6 +2599,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeSolveIntent",
       "declaration_kind": "enum",
       "direction": null,
@@ -2427,6 +2613,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeStartPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -2440,6 +2627,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeStructuralMode",
       "declaration_kind": "enum",
       "direction": null,
@@ -2453,6 +2641,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeStructuralPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -2466,6 +2655,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeTaskClass",
       "declaration_kind": "enum",
       "direction": null,
@@ -2479,6 +2669,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeTermination",
       "declaration_kind": "enum",
       "direction": null,
@@ -2492,6 +2683,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeUnoMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -2505,6 +2697,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NativeWarmCapability",
       "declaration_kind": "enum",
       "direction": null,
@@ -2518,6 +2711,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NextObservation",
       "declaration_kind": "enum",
       "direction": null,
@@ -2531,6 +2725,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NonFinite",
       "declaration_kind": "enum",
       "direction": null,
@@ -2544,6 +2739,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalAccuracyClass",
       "declaration_kind": "enum",
       "direction": null,
@@ -2557,6 +2753,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalAttemptObservation",
       "declaration_kind": "enum",
       "direction": null,
@@ -2570,6 +2767,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalBranchPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -2583,6 +2781,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalCompositionPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -2596,6 +2795,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalCoordinates",
       "declaration_kind": "enum",
       "direction": null,
@@ -2609,6 +2809,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalEventKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2622,6 +2823,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalMechanism",
       "declaration_kind": "enum",
       "direction": null,
@@ -2635,6 +2837,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalOriginalConclusion",
       "declaration_kind": "enum",
       "direction": null,
@@ -2648,6 +2851,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalPathEventKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2661,6 +2865,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalPhase",
       "declaration_kind": "enum",
       "direction": null,
@@ -2674,6 +2879,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalPosition",
       "declaration_kind": "enum",
       "direction": null,
@@ -2687,6 +2893,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalProvenanceField",
       "declaration_kind": "enum",
       "direction": null,
@@ -2700,6 +2907,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalScope",
       "declaration_kind": "enum",
       "direction": null,
@@ -2713,6 +2921,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalSource",
       "declaration_kind": "enum",
       "direction": null,
@@ -2726,6 +2935,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalStartOrigin",
       "declaration_kind": "enum",
       "direction": null,
@@ -2739,6 +2949,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalTarget",
       "declaration_kind": "enum",
       "direction": null,
@@ -2752,6 +2963,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "NumericalTransition",
       "declaration_kind": "enum",
       "direction": null,
@@ -2765,6 +2977,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ObservationTimeBasis",
       "declaration_kind": "enum",
       "direction": null,
@@ -2778,6 +2991,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Opcode",
       "declaration_kind": "enum",
       "direction": null,
@@ -2791,6 +3005,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "OperationEffect",
       "declaration_kind": "enum",
       "direction": null,
@@ -2804,6 +3019,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "OperationOutcome",
       "declaration_kind": "enum",
       "direction": null,
@@ -2817,6 +3033,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PackageKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2830,6 +3047,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PardisoMatching",
       "declaration_kind": "enum",
       "direction": null,
@@ -2843,6 +3061,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PardisoOrdering",
       "declaration_kind": "enum",
       "direction": null,
@@ -2856,6 +3075,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PhysicalInputKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2869,6 +3089,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PounceFdColoring",
       "declaration_kind": "enum",
       "direction": null,
@@ -2882,6 +3103,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PounceFdPattern",
       "declaration_kind": "enum",
       "direction": null,
@@ -2895,6 +3117,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PounceMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -2908,6 +3131,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PouncePartitionedElements",
       "declaration_kind": "enum",
       "direction": null,
@@ -2921,6 +3145,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PouncePartitionedUpdate",
       "declaration_kind": "enum",
       "direction": null,
@@ -2934,6 +3159,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Preconditioner",
       "declaration_kind": "enum",
       "direction": null,
@@ -2947,6 +3173,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PreparationEligibility",
       "declaration_kind": "enum",
       "direction": null,
@@ -2960,6 +3187,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PreparationProductKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2973,6 +3201,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PresolvePass",
       "declaration_kind": "enum",
       "direction": null,
@@ -2986,6 +3215,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "PresolvePolicyKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -2999,6 +3229,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ProjectChangeImpact",
       "declaration_kind": "enum",
       "direction": null,
@@ -3012,6 +3243,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ProjectMergeChoice",
       "declaration_kind": "enum",
       "direction": null,
@@ -3025,6 +3257,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ProjectMergeConflictKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3038,6 +3271,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ProjectMergeMode",
       "declaration_kind": "enum",
       "direction": null,
@@ -3051,6 +3285,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ProjectMetadataKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3064,6 +3299,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "QuantityAdditionKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3077,6 +3313,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "QuantityKindCategory",
       "declaration_kind": "enum",
       "direction": null,
@@ -3090,6 +3327,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "QuantityPreconditionKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3103,6 +3341,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "QuantityScaleRule",
       "declaration_kind": "enum",
       "direction": null,
@@ -3116,6 +3355,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "QuantityShapeRule",
       "declaration_kind": "enum",
       "direction": null,
@@ -3129,6 +3369,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "RateBasis",
       "declaration_kind": "enum",
       "direction": null,
@@ -3142,6 +3383,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ReductionKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3155,6 +3397,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ReferenceRule",
       "declaration_kind": "enum",
       "direction": null,
@@ -3168,6 +3411,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ReferenceStateKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3181,6 +3425,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Relationship",
       "declaration_kind": "enum",
       "direction": null,
@@ -3194,6 +3439,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ReusePolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -3207,6 +3453,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "RowActivity",
       "declaration_kind": "enum",
       "direction": null,
@@ -3220,6 +3467,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ScaleKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3233,6 +3481,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ScientificArtifactCoordinate",
       "declaration_kind": "structure",
       "direction": null,
@@ -3246,6 +3495,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ScientificArtifactFamily",
       "declaration_kind": "enum",
       "direction": null,
@@ -3259,6 +3509,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ScientificArtifactKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3272,6 +3523,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ScientificCoordinateValue",
       "declaration_kind": "structure",
       "direction": null,
@@ -3285,6 +3537,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "SensitivityCorrector",
       "declaration_kind": "enum",
       "direction": null,
@@ -3298,6 +3551,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Severity",
       "declaration_kind": "enum",
       "direction": null,
@@ -3311,6 +3565,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "ShootingMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -3324,6 +3579,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "SnapshotClass",
       "declaration_kind": "enum",
       "direction": null,
@@ -3337,6 +3593,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "SpralOrdering",
       "declaration_kind": "enum",
       "direction": null,
@@ -3350,6 +3607,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "SpralPivot",
       "declaration_kind": "enum",
       "direction": null,
@@ -3363,6 +3621,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "SpralScaling",
       "declaration_kind": "enum",
       "direction": null,
@@ -3376,6 +3635,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "Stability",
       "declaration_kind": "enum",
       "direction": null,
@@ -3389,6 +3649,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StateSign",
       "declaration_kind": "enum",
       "direction": null,
@@ -3402,6 +3663,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StatementKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3415,6 +3677,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StructuralScopeKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3428,6 +3691,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyAvailability",
       "declaration_kind": "enum",
       "direction": null,
@@ -3441,6 +3705,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyContinuationPermission",
       "declaration_kind": "enum",
       "direction": null,
@@ -3454,6 +3719,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyEffectState",
       "declaration_kind": "enum",
       "direction": null,
@@ -3467,6 +3733,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyLegacyKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3480,6 +3747,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyLifecycle",
       "declaration_kind": "enum",
       "direction": null,
@@ -3493,6 +3761,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyPointState",
       "declaration_kind": "enum",
       "direction": null,
@@ -3506,6 +3775,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyResultRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -3519,6 +3789,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyRetryFailure",
       "declaration_kind": "enum",
       "direction": null,
@@ -3532,6 +3803,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudySeedNeed",
       "declaration_kind": "enum",
       "direction": null,
@@ -3545,6 +3817,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudySeedRole",
       "declaration_kind": "enum",
       "direction": null,
@@ -3558,6 +3831,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudySeedUnavailable",
       "declaration_kind": "enum",
       "direction": null,
@@ -3571,6 +3845,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyStartKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3584,6 +3859,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyState",
       "declaration_kind": "enum",
       "direction": null,
@@ -3597,6 +3873,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "StudyUnavailableSeedPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -3610,6 +3887,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "SubjectRule",
       "declaration_kind": "enum",
       "direction": null,
@@ -3623,6 +3901,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "TaskMetricsScope",
       "declaration_kind": "enum",
       "direction": null,
@@ -3636,6 +3915,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "TearMethod",
       "declaration_kind": "enum",
       "direction": null,
@@ -3649,6 +3929,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "TearPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -3662,6 +3943,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "TimeCoordinateKind",
       "declaration_kind": "enum",
       "direction": null,
@@ -3675,6 +3957,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "TrajectoryTermination",
       "declaration_kind": "enum",
       "direction": null,
@@ -3688,6 +3971,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "TrialPolicy",
       "declaration_kind": "enum",
       "direction": null,
@@ -3701,6 +3985,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "TruthValue",
       "declaration_kind": "enum",
       "direction": null,
@@ -3714,6 +3999,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "VersionRequirement",
       "declaration_kind": "structure",
       "direction": null,
@@ -3727,6 +4013,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "WeightNormalization",
       "declaration_kind": "enum",
       "direction": null,
@@ -3740,6 +4027,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "WithheldReason",
       "declaration_kind": "enum",
       "direction": null,
@@ -3753,6 +4041,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "accuracy_goal",
       "declaration_kind": "identity",
       "direction": null,
@@ -3766,6 +4055,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "attempt",
       "declaration_kind": "identity",
       "direction": null,
@@ -3779,6 +4069,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.accuracy_goals@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -3792,6 +4083,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.documents@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -3805,6 +4097,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.engineering_default_rules@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -3818,6 +4111,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.engineering_scales@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -3831,6 +4125,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.entities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -3844,6 +4139,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.fit_cases@4",
       "declaration_kind": "relation",
       "direction": null,
@@ -3857,6 +4153,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.modeling_declarations@26",
       "declaration_kind": "relation",
       "direction": null,
@@ -3870,6 +4167,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.numerical_requirements@3",
       "declaration_kind": "relation",
       "direction": null,
@@ -3883,6 +4181,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.package_unit_sets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -3896,6 +4195,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "authored.packages@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -3909,6 +4209,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "declaration",
       "declaration_kind": "identity",
       "direction": null,
@@ -3922,6 +4223,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "engineering_rule",
       "declaration_kind": "identity",
       "direction": null,
@@ -3935,6 +4237,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "engineering_scale",
       "declaration_kind": "identity",
       "direction": null,
@@ -3948,6 +4251,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "fit",
       "declaration_kind": "identity",
       "direction": null,
@@ -3961,6 +4265,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "instance",
       "declaration_kind": "identity",
       "direction": null,
@@ -3974,6 +4279,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "normalized.package_graph@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -3987,6 +4293,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "normalized.units@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -4000,6 +4307,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "package",
       "declaration_kind": "identity",
       "direction": null,
@@ -4013,6 +4321,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "provenance.assertions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4026,6 +4335,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "provenance.derivations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4039,6 +4349,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.algorithm_arguments@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4052,6 +4363,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.algorithm_results@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4065,6 +4377,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.algorithm_specs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4078,6 +4391,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.aliases@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4091,6 +4405,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.artifact_profiles@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4104,6 +4419,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.bases@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4117,6 +4433,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.conversion_rules@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4130,6 +4447,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.dimensions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4143,6 +4461,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.engine_profiles@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4156,6 +4475,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.function_capabilities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4169,6 +4489,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.math_context@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4182,6 +4503,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.quantity_kinds@3",
       "declaration_kind": "relation",
       "direction": null,
@@ -4195,6 +4517,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.quantity_operation_reductions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4208,6 +4531,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.quantity_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4221,6 +4545,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.quantity_preconditions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4234,6 +4559,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.quantity_types@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -4247,6 +4573,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.reference_states@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -4260,6 +4587,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_columns@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4273,6 +4601,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_document_sections@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -4286,6 +4615,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_documents@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4299,6 +4629,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_enum_types@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4312,6 +4643,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_enums@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4325,6 +4657,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_identities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4338,6 +4671,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_invariants@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4351,6 +4685,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_logical_types@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4364,6 +4699,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_migrations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4377,6 +4713,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.schema_relations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4390,6 +4727,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.unit_sets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4403,6 +4741,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "reference.units@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -4416,6 +4755,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "run",
       "declaration_kind": "identity",
       "direction": null,
@@ -4429,6 +4769,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.accuracy_goal_assessments@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4442,6 +4783,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.cache_entry_statistics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4455,6 +4797,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.cache_statistics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4468,6 +4811,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.candidate_assessments@3",
       "declaration_kind": "relation",
       "direction": null,
@@ -4481,6 +4825,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analyses@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4494,6 +4839,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4507,6 +4853,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4520,6 +4867,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_nodes@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4533,6 +4881,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4546,6 +4895,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_obligations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4559,6 +4909,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_reads@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4572,6 +4923,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_releases@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4585,6 +4937,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_staging_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4598,6 +4951,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifacts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4611,6 +4965,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_attempts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4624,6 +4979,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_body_contents@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4637,6 +4993,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_context_ancestry@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4650,6 +5007,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_context_journals@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4663,6 +5021,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_draft_diagnostics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4676,6 +5035,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4689,6 +5049,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_execution_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4702,6 +5063,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_admission@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4715,6 +5077,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_borrowers@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4728,6 +5091,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_instances@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4741,6 +5105,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_owners@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4754,6 +5119,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_guards@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4767,6 +5133,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_identities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4780,6 +5147,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_locators@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4793,6 +5161,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_obligation_counts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4806,6 +5175,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_obligations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4819,6 +5189,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4832,6 +5203,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_interpretations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4845,6 +5217,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_maintenance_activations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4858,6 +5231,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_maintenance_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4871,6 +5245,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_manifest_tickets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4884,6 +5259,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_memberships@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4897,6 +5273,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_payload_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4910,6 +5287,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_problem_runs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4923,6 +5301,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_problems@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4936,6 +5315,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_product_associations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4949,6 +5329,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_product_descriptors@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4962,6 +5343,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_products@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4975,6 +5357,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_ancestry@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -4988,6 +5371,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_bookmarks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5001,6 +5385,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_branches@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5014,6 +5399,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_contexts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5027,6 +5413,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_draft_versions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5040,6 +5427,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_drafts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5053,6 +5441,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_imports@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5066,6 +5455,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5079,6 +5469,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_savepoints@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5092,6 +5483,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_projects@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5105,6 +5497,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_protections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5118,6 +5511,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_reclaimed_ranges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5131,6 +5525,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_datasets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5144,6 +5539,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_publications@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5157,6 +5553,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_references@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5170,6 +5567,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_selections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5183,6 +5581,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_batches@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5196,6 +5595,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_block_outputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5209,6 +5609,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5222,6 +5623,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_manifests@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5235,6 +5637,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_protections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5248,6 +5651,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5261,6 +5665,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_seeds@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5274,6 +5679,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_sets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5287,6 +5693,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_revisions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5300,6 +5707,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_roots@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5313,6 +5721,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_run_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5326,6 +5735,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_runs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5339,6 +5749,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_selection_receipts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5352,6 +5763,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_staged_edits@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5365,6 +5777,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_stages@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5378,6 +5791,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_studies@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5391,6 +5805,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_dependencies@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5404,6 +5819,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5417,6 +5833,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_points@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5430,6 +5847,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_readiness@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5443,6 +5861,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_readiness_cursors@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5456,6 +5875,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5469,6 +5889,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_version_manifests@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5482,6 +5903,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_version_receipts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5495,6 +5917,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_versions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5508,6 +5931,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.computation_runs@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5521,6 +5945,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.diagnostic_captures@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5534,6 +5959,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.diagnostic_engine_observations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5547,6 +5973,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.diagnostic_evidence_fields@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5560,6 +5987,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.diagnostic_invocations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5573,6 +6001,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.diagnostic_query_results@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5586,6 +6015,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.diagnostic_samples@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5599,6 +6029,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.diagnostics_findings@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5612,6 +6043,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_facts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5625,6 +6057,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_generations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5638,6 +6071,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_interpretations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5651,6 +6085,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.execution_statistics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5664,6 +6099,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.fit_constraints@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5677,6 +6113,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.fit_observations@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5690,6 +6127,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.fit_parameters@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5703,6 +6141,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.fit_variables@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5716,6 +6155,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.fitted_parameter_cells@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5729,6 +6169,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.incumbents@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5742,6 +6183,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.infeasibility_certificates@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5755,6 +6197,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.initialization_stages@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5768,6 +6211,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_excerpts@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5781,6 +6225,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_generations@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5794,6 +6239,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_productions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5807,6 +6253,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5820,6 +6267,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_state@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5833,6 +6281,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5846,6 +6295,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5859,6 +6309,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_topics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5872,6 +6323,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subjects@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5885,6 +6337,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.live_simulation_samples@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5898,6 +6351,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.local_validity@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5911,6 +6365,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_checks@5",
       "declaration_kind": "relation",
       "direction": null,
@@ -5924,6 +6379,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_conformance@3",
       "declaration_kind": "relation",
       "direction": null,
@@ -5937,6 +6393,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_diagnostic_samples@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5950,6 +6407,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_diagnostics@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -5963,6 +6421,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_findings@4",
       "declaration_kind": "relation",
       "direction": null,
@@ -5976,6 +6435,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_fixture_status@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -5989,6 +6449,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_initializations@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6002,6 +6463,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_jacobian_optimization@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6015,6 +6477,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_knowledge@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6028,6 +6491,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_knowledge_names@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6041,6 +6505,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_linear_diagnostics@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6054,6 +6519,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_nonlinear_explanations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6067,6 +6533,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_parity@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6080,6 +6547,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_reports@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6093,6 +6561,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.modeling_trajectory_modes@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6106,6 +6575,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.objective_levels@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6119,6 +6589,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.parameter_covariances@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6132,6 +6603,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.parameter_intervals@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6145,6 +6617,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.parametric_sensitivities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6158,6 +6631,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.primal_values@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6171,6 +6645,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.profile_points@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6184,6 +6659,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.propagated_covariances@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6197,6 +6673,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.reduced_hessians@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6210,6 +6687,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.resolved_numerics@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6223,6 +6701,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.response_directions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6236,6 +6715,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.response_sensitivities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6249,6 +6729,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.route_decisions@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6262,6 +6743,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.run_lineage@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6275,6 +6757,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.scientific_contexts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6288,6 +6771,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.simulation_events@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6301,6 +6785,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.simulation_samples@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6314,6 +6799,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solution_pool@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6327,6 +6813,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solve_constraints@3",
       "declaration_kind": "relation",
       "direction": null,
@@ -6340,6 +6827,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solve_metrics@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6353,6 +6841,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solve_runs@5",
       "declaration_kind": "relation",
       "direction": null,
@@ -6366,6 +6855,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solve_strategy_events@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6379,6 +6869,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solve_strategy_products@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6392,6 +6883,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solve_variables@4",
       "declaration_kind": "relation",
       "direction": null,
@@ -6405,6 +6897,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.solver_capabilities@4",
       "declaration_kind": "relation",
       "direction": null,
@@ -6418,6 +6911,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.state_tolerances@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6431,6 +6925,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.structural_assessments@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6444,6 +6939,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.study_outcomes@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6457,6 +6953,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.trajectory_endpoints@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -6470,6 +6967,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.validation_findings@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -6483,6 +6981,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "solution",
       "declaration_kind": "identity",
       "direction": null,
@@ -6496,6 +6995,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "study",
       "declaration_kind": "identity",
       "direction": null,

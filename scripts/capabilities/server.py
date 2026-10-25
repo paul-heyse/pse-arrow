@@ -126,6 +126,7 @@ def build(root: Path = ROOT) -> Runtime:
         root,
         capabilities=lambda: catalogue.capabilities,
         specialists=owner,
+        operation_tools=lambda: catalogue.tools,
     )
     bound = (*bound, *readiness_specs)
     tools.update(readiness_tools)

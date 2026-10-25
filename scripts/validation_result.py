@@ -7,8 +7,10 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import math
 import os
 import sys
+from collections import Counter
 from pathlib import Path
 
 from scripts import assessment_store, run_inspection, test_resources
@@ -117,6 +119,43 @@ def selected_result(
                 ],
             }
         )
+    selected_records = [item["record"] for item in checks]
+    durations: dict[str, list[float]] = {"preparation": [], "execution": []}
+    for record in selected_records:
+        seconds = record.get("elapsed_seconds")
+        phase = record.get("phase")
+        if type(seconds) not in {int, float} or not math.isfinite(seconds) or seconds < 0:
+            continue
+        if phase in {"setup", "preparation", "discovery"}:
+            durations["preparation"].append(float(seconds))
+        elif phase == "execution":
+            durations["execution"].append(float(seconds))
+    running = [record for record in selected_records if record["status"] == "running"]
+    phases = {record["phase"] for record in running if isinstance(record.get("phase"), str)}
+    observed_stage = next(iter(phases)) if len(phases) == 1 else None
+    explanation = {
+        "selected_count": len(receipt["scope"]),
+        "reported_count": len(recorded),
+        "unreported_count": len(receipt["scope"]) - len(recorded),
+        "outcome_counts": dict(Counter(check["status"] for check in receipt["checks"])),
+        "executed_count": sum(check.get("evidence_kind") == "executed" for check in receipt["checks"])
+        if all("evidence_kind" in check for check in receipt["checks"]) else None,
+        "observed_stage": observed_stage,
+        "stage_basis": "original running check phase" if observed_stage else "no unique running phase supplied by selected original checks",
+        "preparation_seconds": sum(durations["preparation"]) if durations["preparation"] else None,
+        "execution_seconds": sum(durations["execution"]) if durations["execution"] else None,
+        "owned_drain": "unobserved",
+        "next_readers": [{
+            "reference": {"kind": "assessment", "directory": str(run), "gate": gate},
+            "reason": "Read selected original gate/source detail; the copied summary grants no rerun or reuse permission.",
+            "disposition": "unexecuted",
+        }],
+        "limits": [
+            "Timing sums cover only selected hydrated checks with explicit preparation/execution phases; generic functional commands cannot separate compilation from subject execution.",
+            "Reported gate outcomes are not a census of test bodies or scientific solves.",
+            "Independent native drain and telemetry observations require their original readers.",
+        ],
+    }
     return {
         "run_path": str(run),
         "record_path": str(run / "checks.json"),
@@ -126,6 +165,7 @@ def selected_result(
             if key not in {"checks", "scope", "recorded_gates"}
         },
         "scope": receipt["scope"],
+        "execution_explanation": explanation,
         "checks": checks,
         "unattempted_scope": [
             declaration

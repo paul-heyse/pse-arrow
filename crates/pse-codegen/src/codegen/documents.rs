@@ -237,6 +237,7 @@ pub fn generate_catalogue(
                 .push(super::provenance::SourceRelationship {
                     declaration_key: entry.name.clone(),
                     declaration_kind: "runtime_catalogue".into(),
+                    contract_sections: Vec::new(),
                     source_path: Some(entry.registration_source.clone()),
                     source_symbol: Some(entry.rust_type.clone()),
                     source_role: "catalogue_registration".into(),
@@ -1935,7 +1936,7 @@ mod tests {
             "title": "ExportedProbe", "type": "object", "additionalProperties": false,
             "required": ["document_version", "version", "nested"],
             "properties": {
-                "document_version": {"type": "integer", "const": 1, "default": 1},
+                "document_version": {"type": "integer", "const": 2, "default": 2},
                 "version": {"type": "string"},
                 "nested": {"$ref": "#/$defs/ExportedProbeBody"}
             },
@@ -1948,8 +1949,8 @@ mod tests {
             rust_type: "example::Probe".into(),
             registration_source: "crates/pse-codegen/src/codegen/documents.rs".into(),
             output: false,
-            version: Some(1),
-            wire: "FlatV1".into(),
+            version: Some(2),
+            wire: "FlatV2".into(),
             schema,
         };
         let tree = generate_catalogue(
@@ -1978,7 +1979,7 @@ mod tests {
             tree.files[&PathBuf::from("crates/pse-py/src/generated/documents.rs")].clone(),
         )
         .unwrap();
-        assert!(native.contains("Wire::FlatV1"));
+        assert!(native.contains("Wire::FlatV2"));
     }
 
     #[test]

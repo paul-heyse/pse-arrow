@@ -12,8 +12,11 @@ pub use wire::{Versioned, VersionedValue, Wire, check_header, check_required_hea
 macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
             (DecodeLocation, pse_model::document::DecodeLocation, "decode-location", Both, FlatV1),
-            (ResultInspectionRequest, pse_runtime::workflow::ResultInspectionRequest, "result-inspection-request", Both, FlatV1),
-            (ResultInspectionDocument, pse_runtime::workflow::ResultInspectionDocument, "result-inspection-document", Output, FlatV1),
+            (ResultInspectionRequest, pse_runtime::workflow::ResultInspectionRequest, "result-inspection-request", Both, FlatV2),
+            (ResultInspectionDocument, pse_runtime::workflow::ResultInspectionDocument, "result-inspection-document", Output, FlatV2),
+            (KnowledgeQuery, pse_operations::knowledge::KnowledgeQuery, "knowledge-query", Input, Native),
+            (KnowledgePage, pse_operations::knowledge::KnowledgePage, "knowledge-page", Output, Native),
+            (KnowledgeExplain, pse_operations::knowledge::KnowledgeExplain, "knowledge-explain", Output, Native),
             (ProjectExportRequest, pse_runtime::workflow::ProjectExportRequest, "project-export-request", Both, Native),
             (ProjectManifest, pse_runtime::workflow::ProjectManifest, "project-manifest", Both, Native),
             (ProjectClosureExplanation, pse_runtime::workflow::ProjectClosureExplanation, "project-closure-explanation", Both, FlatV1),
@@ -183,6 +186,11 @@ macro_rules! for_each_boundary_document {
             (SourceSettlement, pse_runtime::workflow::SourceSettlement, "source-settlement", Both, FlatV1),
             (DeclarationInventory, pse_runtime::workflow::DeclarationInventory, "declaration-inventory", Both, FlatV1),
             (ModelingInspection, pse_runtime::workflow::ModelingInspection, "modeling-inspection", Both, FlatV1),
+            (ModelingInspectionRequest, pse_runtime::workflow::ModelingInspectionRequest, "modeling-inspection-request", Both, FlatV1),
+            (ModelingDeclarationRequest, pse_runtime::workflow::ModelingDeclarationRequest, "modeling-declaration-request", Both, FlatV1),
+            (ModelingDeclarationPage, pse_runtime::workflow::ModelingDeclarationPage, "modeling-declaration-page", Output, FlatV1),
+            (ModelingComparisonRequest, pse_runtime::workflow::ModelingComparisonRequest, "modeling-comparison-request", Both, FlatV1),
+            (ModelingComparisonObservation, pse_runtime::workflow::ModelingComparisonObservation, "modeling-comparison-observation", Output, FlatV1),
             (ConicRequest, pse_runtime::workflow::ConicRequest, "conic-request", Both, FlatV1),
             (RecycleRequest, pse_runtime::workflow::RecycleRequest, "recycle-request", Both, FlatV1),
             (RecycleRestartRequest, pse_runtime::workflow::RecycleRestartRequest, "recycle-restart-request", Both, FlatV1),
@@ -339,6 +347,7 @@ fn schema<T: schemars::JsonSchema + BoundaryDocument>(
     let mut schema = match T::WIRE {
         Wire::Native => generator.into_root_schema_for::<T>(),
         Wire::FlatV1 => generator.into_root_schema_for::<Versioned<T, 1>>(),
+        Wire::FlatV2 => generator.into_root_schema_for::<Versioned<T, 2>>(),
         Wire::ValueV1 => generator.into_root_schema_for::<VersionedValue<T, 1>>(),
     };
     schemars::transform::Transform::transform(&mut ExportNames(&export_names()), &mut schema);
@@ -346,7 +355,7 @@ fn schema<T: schemars::JsonSchema + BoundaryDocument>(
     schema.sort_all_objects();
     let field = match T::WIRE {
         Wire::Native => "version",
-        Wire::FlatV1 | Wire::ValueV1 => "document_version",
+        Wire::FlatV1 | Wire::FlatV2 | Wire::ValueV1 => "document_version",
     };
     let version = schema["properties"][field]["const"]
         .as_u64()
@@ -373,6 +382,10 @@ fn export_names() -> std::collections::BTreeMap<String, String> {
                     Wire::FlatV1 => {
                         names.insert(body, format!("{export}Body"));
                         names.insert(<Versioned<$owner, 1> as schemars::JsonSchema>::schema_name().into_owned(), export.into());
+                    }
+                    Wire::FlatV2 => {
+                        names.insert(body, format!("{export}Body"));
+                        names.insert(<Versioned<$owner, 2> as schemars::JsonSchema>::schema_name().into_owned(), export.into());
                     }
                     Wire::ValueV1 => {
                         names.insert(body, format!("{export}Body"));
@@ -438,6 +451,19 @@ pub fn fingerprint() -> Result<pse_ids::ContentHash, pse_ids::document::FrameErr
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn inspection_examples_use_the_actual_directional_wire() {
+        let model = schema::<crate::workflow::ModelingInspectionRequest>("ModelingInspectionRequest", "modeling-inspection-request", "pse_runtime::workflow::ModelingInspectionRequest", Direction::Input);
+        let example = serde_json::to_vec(&model.schema["examples"][0]).unwrap();
+        assert!(Wire::FlatV1.decode_slice::<crate::workflow::ModelingInspectionRequest>(&example).is_ok());
+        let comparison = schema::<crate::workflow::ModelingComparisonRequest>("ModelingComparisonRequest", "modeling-comparison-request", "pse_runtime::workflow::ModelingComparisonRequest", Direction::Input);
+        let example = serde_json::to_vec(&comparison.schema["examples"][0]).unwrap();
+        let decoded = Wire::FlatV1.decode_slice::<crate::workflow::ModelingComparisonRequest>(&example).unwrap();
+        assert!(decoded.source_only);
+        let result = schema::<crate::workflow::ResultInspectionRequest>("ResultInspectionRequest", "result-inspection-request", "pse_runtime::workflow::ResultInspectionRequest", Direction::Input);
+        let example = serde_json::to_vec(&result.schema["examples"][0]).unwrap();
+        assert!(Wire::FlatV2.decode_slice::<crate::workflow::ResultInspectionRequest>(&example).is_ok());
+    }
     #[test]
     fn exported_names_reach_nested_generics_without_rewriting_document_values() {
         use schemars::transform::Transform;

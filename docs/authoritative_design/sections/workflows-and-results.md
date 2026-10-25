@@ -1464,9 +1464,22 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 
-`ResultInspectionRequest` and its tagged schema/values/refusal document are Rust-owned members of
-the directional catalogue under ADR-0224. PyO3 and Python's `Runtime.inspect_result` consume the
-generated records; MCP composes their original schemas rather than mirroring scientific fields.
+`ResultInspectionRequest` and its version-2 schema/children/metadata/values/refusal document are
+Rust-owned members of the directional catalogue under proposed ADR-0224. Required version headers
+are checked before body decoding; old inspection documents are not reinterpreted. PyO3 and
+Python's `Runtime.inspect_result` consume generated records; MCP composes original schemas.
+Shallow descriptors and metadata have independent native pages; typed struct/list paths preserve
+null parents, null elements, absent indexes, original numeric widths and IEEE bits. Native cursor
+continuation binds issuer, protected selection, manifest, original window/paths and schema contract.
+Schema/context discovery reads no data batches. Value transport still admits original full batches,
+retains physical context and refuses intact at its finite document allowance. Readability does not
+establish scientific usability, terminal settlement, complete IPC fidelity or measured speed.
+
+Model declaration pages select original source identities before hydration. Native model inspection
+requires explicit preparation/inspection policies and keeps source, physical and preparation
+attribution; two-source comparison shares one Runtime and preserves explicit source-only unknown
+impact for differing physical contexts. These operations can prepare/admit imports. Host request
+explanation remains passive and does not claim native eligibility.
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 

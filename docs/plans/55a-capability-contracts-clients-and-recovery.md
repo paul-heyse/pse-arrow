@@ -1,6 +1,6 @@
 ---
 title: "Plan 55a: Capability contracts, clients and recovery"
-status: planned
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -64,10 +64,10 @@ work without endpoint startup, but does not establish current callable compatibi
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | planned | 55a | Meaningful host outcomes and exact contract/example projections used by consumers |
-| A02 | planned | 55a | Faithful derived CLI with selected-checkout dispatch and explicit supported lifetimes |
-| A03 | planned | 55a | Layer-specific independent diagnosis and qualified host refresh guidance |
-| A04 | planned | 55a | Actual-request explanation for one native validation and one model-development route |
+| A01 | in-progress | 55a | Meaningful host outcomes and exact contract/example projections used by consumers |
+| A02 | in-progress | 55a | Faithful derived CLI with selected-checkout dispatch and explicit supported lifetimes |
+| A03 | in-progress | 55a | Layer-specific independent diagnosis and qualified host refresh guidance |
+| A04 | in-progress | 55a | Actual-request explanation for one native validation and one model-development route |
 
 <a id="A01"></a>
 ### A01 — Constructible directional contracts and examples

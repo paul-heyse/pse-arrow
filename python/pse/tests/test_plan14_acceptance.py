@@ -13,6 +13,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import authored
@@ -34,6 +35,7 @@ from pse.contracts.reference import ReferenceSchemaRelationsRow
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.physical_input_fixture import coordinate_batch, member
+
 
 
 def _source_declarations(
@@ -84,7 +86,7 @@ def test_public_native_process_and_exact_results(
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
-    members = package.inspect(case, settings).members
+    members = package.inspect(inspection_request(case, settings)).members
     coordinates = {m.lineage.path: m.id for m in members}
     prepared = package.prepare_solve(case, settings)
     handle = prepared.start()

@@ -107,6 +107,7 @@ def offline(output: Path, answers: list[QueryAnswer]) -> dict[str, object]:
     reference = telemetry_selection.export(
         output / "copied",
         answers,
+        question="What do the selected native and telemetry observations establish?",
         maximum_output_bytes=MAXIMUM_BYTES,
         missing_context=["related trace unavailable"],
     )
@@ -172,7 +173,7 @@ def offline(output: Path, answers: list[QueryAnswer]) -> dict[str, object]:
     )
     bound = expect_refusal(
         lambda: telemetry_selection.export(
-            output / "too-small", answers, maximum_output_bytes=1
+            output / "too-small", answers, question="Which bounded observations are retained?", maximum_output_bytes=1
         ),
         "investigation.output_bound_ignored",
     )
@@ -320,6 +321,7 @@ async def stdio(
             "telemetry_investigation_export",
             {
                 "destination": str(output / "stdio-copied"),
+                "question": "Which original observations can a later connection read?",
                 "selections": [answer.model_dump(mode="json") for answer in answers],
                 "maximum_output_bytes": MAXIMUM_BYTES,
             },

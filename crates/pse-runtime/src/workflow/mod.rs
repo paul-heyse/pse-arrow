@@ -61,6 +61,7 @@ pub mod result_blocks;
 pub mod result_files;
 mod result_inspection;
 pub use result_inspection::{
+    ArrowFieldPath, ArrowFieldStep, ResultInspectionCursor, ResultInspectionBasis, ResultInspectionStorage,
     ResultCellUnavailable, ResultFloatClass, ResultInspectionCell, ResultInspectionDocument,
     ResultInspectionField, ResultInspectionRefusal, ResultInspectionRequest, ResultInspectionRow,
     ResultInspectionView,
@@ -231,7 +232,8 @@ pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
     InspectionConnection, InspectionExecution, InspectionInstance, InspectionLineage,
     InspectionMember, InspectionPort, JacobianDiagnosticControls, KnowledgeControls,
-    LinearDiagnosticControls, ModelingInspection, PureConformanceControls, SourceDelta,
+    LinearDiagnosticControls, ModelingInspection, ModelingInspectionRequest, InspectionPopulation,
+    ModelingDeclarationRequest, ModelingDeclarationPage, PureConformanceControls, SourceDelta,
     SourceDocumentDelta, SourceFitDelta,
 };
 pub use projects::{
@@ -255,6 +257,7 @@ pub use modeling::{
     ModelingSourceMap, ModelingSourceMapDocument, ModelingTrajectory, OwnedDeclarations,
     PreparationDiscoveryReport, PreparationDiscoveryRequest, PreparationEligibility,
     PreparationProductKind, ProjectChangeImpact, ProjectComparison, ProjectComparisonSelection,
+    ModelingComparisonRequest, ModelingComparisonObservation,
     ProjectDocumentComposition, ProjectDocumentSource, ProjectMergeChoice, ProjectMergeConflict,
     ProjectMergeConflictKind, ProjectMergeIntent, ProjectMergeMode, ProjectMergePreview,
     ProjectMergeProposal, ProjectMergeResolution, ProjectObjectChange, ProjectSourceDetail,

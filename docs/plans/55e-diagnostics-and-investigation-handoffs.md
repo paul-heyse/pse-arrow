@@ -66,8 +66,8 @@ custody/cursors and explicit export effects, not another agent memory store or a
 | E01 | planned | 55e | Instrument-specific metric filters/grouping with exact declared population and estimate limits |
 | E02 | planned | 55e | One-invocation explanation composes original execution/preparation/observation facts |
 | E03 | planned | 55e | Question-bearing retained handoff follows original references without replay |
-| E04 | planned | 55e | Query/storage investigation inquiry adopts a useful packet or explicitly retains separate reads |
-| E05 | deferred pending E04 adoption | 55e | Only the positively selected query-specific composition is delivered |
+| E04 | complete | 55e | Separate exact query/explain/engine readers retained; decision below |
+| E05 | deferred | 55e | Revisit when an assigned investigation cannot express needed query/index/engine correlation through existing typed reads |
 
 <a id="E01"></a>
 ### E01 — Query declared dimensions before expanding series
@@ -172,6 +172,17 @@ query execution or service startup occurs during a passive read. A failed/partia
 does not erase independent observations or claim causality.
 
 ## Verification and current checkpoint
+
+### E04 inquiry decision — 2026-10-25
+
+**Interface-checked:** the original knowledge explain response carries issuer/generation/query
+identity, raw/population plans, coverage and freshness; the independent server metric snapshot
+carries authenticated server identity and observation interval. For the representative generated-
+artifact query-shape versus engine-reader question, these exact readers preserve necessary
+attribution. A combined packet supplies neither an atomic cut nor causal proof, and no missing
+composition value was demonstrated. Retain separate reads and defer E05. Revisit when an actual
+assigned investigation repeatedly needs a correlation those typed routes cannot express.
+This is static owner-contract evidence, not a reproduced slow query; no ANALYZE/backend was run.
 
 **Proposed verification:** targeted declaration/query/expression/retention tests, controlled
 small backend populations where needed, and actual original-work/handoff journeys in 55f.

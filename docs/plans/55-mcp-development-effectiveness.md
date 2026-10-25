@@ -192,9 +192,21 @@ owner/trigger and does not become an unmarked completion requirement.
 
 ## Current checkpoint
 
-The maintainer authorized the entire series on 2026-10-25, including useful positive inquiry
-outcomes within the existing contracts. Shared CLI/contract, native inspection, knowledge and
-diagnostic implementation is active; conditional branches remain inquiry-driven. Qualification
-has not begun. Companion tables own package progress; source review evidence is not current
-implementation acceptance. The next work is integration of the shared contracts and the first
-native/source-owner slices, followed by their targeted checks.
+The maintainer authorized the entire series on 2026-10-25, including worthwhile positive
+inquiry outcomes within existing contracts. The first integrated functional slice implements
+shared lifetime metadata, schema-derived independent CLI/diagnosis, intended-request explanation,
+indexed knowledge and genuine source/evidence assertions, native modeling/result inspection,
+affected-selection/evidence applicability, finite metric vocabulary and question-bearing handoffs.
+Native declarations are being corrected to select their page before hydration.
+
+The O03 inquiry selected a foreground JSONL session and O11 selected the existing finite JSON
+source migration through shared edit custody. A real five-request canonical CLI session completed
+preview/detail/apply/reconcile/release. O12/O16 retain their existing native readers with explicit
+revisit triggers at their package owners. Native compile checks and focused tooling tests have
+run; Rust test bodies, rebuilt public Python, assembled native/knowledge journeys and scope-end
+qualification remain open. The fresh CLI probe succeeds independently; the current Codex
+attachment remains stale and is not counted as refreshed-host acceptance.
+
+The next work is the native review repair and integrated commit, followed by a stable-source
+qualification batch, actual consumer journeys and enduring publication. No productivity or speed
+benefit has been measured, and no broad solver/feature campaign is introduced.

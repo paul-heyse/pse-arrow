@@ -61,6 +61,7 @@ pub(crate) fn decode_document<T: serde::de::DeserializeOwned + DocumentType>(
         let field = match T::WIRE {
             pse_runtime::boundary_documents::Wire::Native => "version",
             pse_runtime::boundary_documents::Wire::FlatV1
+            | pse_runtime::boundary_documents::Wire::FlatV2
             | pse_runtime::boundary_documents::Wire::ValueV1 => "document_version",
         };
         pse_runtime::boundary_documents::check_required_header(bytes, field, version)

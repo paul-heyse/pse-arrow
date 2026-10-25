@@ -746,18 +746,14 @@ impl NativeModelingPackage {
     fn inspect(
         &self,
         py: Python<'_>,
-        case_id: Identity<DeclarationId>,
-        settings: documents::DocumentInput<pse_runtime::math::settings::SolveSettings>,
+        request: documents::DocumentInput<native::ModelingInspectionRequest>,
     ) -> PyResult<documents::DocumentValue<native::ModelingInspection>> {
-        let settings = settings.0;
-        let root = declaration(case_id);
-        let preparation = native::PreparationSettings::with_limits(self.limits);
         let cancel = CancelSource::new();
         let inspection = blocking(
             py,
             &self.owner,
             self.inner
-                .inspect_case_request(root, &preparation, settings, &cancel),
+                .inspect_case_request(&request.0, &cancel),
             || cancel.cancel(),
         )?;
         Ok(documents::DocumentValue(inspection))
@@ -882,6 +878,13 @@ impl NativeModelingPackage {
             Err(invalid(py, "initialization workflow is not linked"))
         }
     }
+    fn declaration_page(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::ModelingDeclarationRequest>,
+    ) -> PyResult<documents::DocumentValue<native::ModelingDeclarationPage>> {
+        Ok(documents::DocumentValue(blocking(py, &self.owner, self.inner.declaration_page(&request.0), || {})?))
+    }
     fn declarations(
         &self,
         py: Python<'_>,
@@ -906,6 +909,15 @@ impl NativeModelingPackage {
             _source: declarations,
             _owner: pse_columnar::AllocationLease::new(scratch),
         }))
+    }
+    /// Compact logical-object source comparison, with explicit source-only context handling.
+    fn comparison_observation(
+        &self, py: Python<'_>, other: &NativeModelingPackage,
+        request: documents::DocumentInput<native::ModelingComparisonRequest>,
+    ) -> PyResult<documents::DocumentValue<native::ModelingComparisonObservation>> {
+        let cancel = CancelSource::new();
+        Ok(documents::DocumentValue(blocking(py, &self.owner,
+            self.inner.comparison_observation(&other.inner, &request.0, &cancel), || cancel.cancel())?))
     }
     /// Compact logical-object source comparison, with explicit source-only context handling.
     #[pyo3(signature=(other,*,source_only=false))]

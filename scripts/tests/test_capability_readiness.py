@@ -534,6 +534,8 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
                     schema = exposed[name].output_schema
                     if schema is None:
                         raise AssertionError("readiness needs typed output schema")
+                    if name == "capability_explain":
+                        schema = schema["properties"]["readiness"]
                     self.assertIn("import_compatible", schema["properties"])
                     self.assertIn("operation_exercised", schema["properties"])
                     self.assertIn("native_currency", schema["properties"])

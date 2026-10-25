@@ -9,6 +9,7 @@
   "relationships": [
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analyses@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -22,6 +23,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analyses@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -35,6 +37,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -48,6 +51,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -61,6 +65,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -74,6 +79,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -87,6 +93,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_nodes@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -100,6 +107,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_analysis_nodes@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -113,6 +121,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -126,6 +135,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -139,6 +149,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_obligations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -152,6 +163,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_obligations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -165,6 +177,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_reads@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -178,6 +191,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_reads@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -191,6 +205,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_releases@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -204,6 +219,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_releases@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -217,6 +233,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_staging_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -230,6 +247,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifact_staging_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -243,6 +261,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifacts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -256,6 +275,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_artifacts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -269,6 +289,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_attempts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -282,6 +303,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_attempts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -295,6 +317,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_body_contents@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -308,6 +331,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_body_contents@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -321,6 +345,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_context_ancestry@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -334,6 +359,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_context_ancestry@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -347,6 +373,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_context_journals@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -360,6 +387,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_context_journals@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -373,6 +401,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_draft_diagnostics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -386,6 +415,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_draft_diagnostics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -399,6 +429,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -412,6 +443,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -425,6 +457,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_execution_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -438,6 +471,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_execution_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -451,6 +485,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_admission@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -464,6 +499,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_admission@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -477,6 +513,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_borrowers@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -490,6 +527,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_borrowers@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -503,6 +541,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_instances@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -516,6 +555,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_instances@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -529,6 +569,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_owners@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -542,6 +583,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_file_owners@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -555,6 +597,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_guards@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -568,6 +611,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_guards@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -581,6 +625,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_identities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -594,6 +639,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_identities@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -607,6 +653,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_locators@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -620,6 +667,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_locators@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -633,6 +681,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_obligation_counts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -646,6 +695,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_obligation_counts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -659,6 +709,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_obligations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -672,6 +723,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_obligations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -685,6 +737,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -698,6 +751,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_history_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -711,6 +765,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_interpretations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -724,6 +779,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_interpretations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -737,6 +793,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_maintenance_activations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -750,6 +807,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_maintenance_activations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -763,6 +821,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_maintenance_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -776,6 +835,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_maintenance_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -789,6 +849,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_manifest_tickets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -802,6 +863,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_manifest_tickets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -815,6 +877,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_memberships@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -828,6 +891,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_memberships@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -841,6 +905,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_payload_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -854,6 +919,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_payload_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -867,6 +933,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_problem_runs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -880,6 +947,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_problem_runs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -893,6 +961,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_problems@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -906,6 +975,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_problems@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -919,6 +989,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_product_associations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -932,6 +1003,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_product_associations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -945,6 +1017,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_product_descriptors@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -958,6 +1031,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_product_descriptors@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -971,6 +1045,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_products@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -984,6 +1059,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_products@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -997,6 +1073,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_ancestry@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1010,6 +1087,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_ancestry@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1023,6 +1101,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_bookmarks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1036,6 +1115,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_bookmarks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1049,6 +1129,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_branches@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1062,6 +1143,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_branches@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1075,6 +1157,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_contexts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1088,6 +1171,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_contexts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1101,6 +1185,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_draft_versions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1114,6 +1199,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_draft_versions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1127,6 +1213,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_drafts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1140,6 +1227,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_drafts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1153,6 +1241,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_imports@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1166,6 +1255,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_imports@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1179,6 +1269,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1192,6 +1283,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_operations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1205,6 +1297,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_savepoints@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1218,6 +1311,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_project_savepoints@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1231,6 +1325,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_projects@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1244,6 +1339,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_projects@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1257,6 +1353,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_protections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1270,6 +1367,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_protections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1283,6 +1381,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_reclaimed_ranges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1296,6 +1395,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_reclaimed_ranges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1309,6 +1409,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_datasets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1322,6 +1423,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_datasets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1335,6 +1437,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_publications@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1348,6 +1451,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_publications@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1361,6 +1465,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_references@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1374,6 +1479,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_references@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1387,6 +1493,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_selections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1400,6 +1507,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_research_selections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1413,6 +1521,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_batches@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1426,6 +1535,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_batches@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1439,6 +1549,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_block_outputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1452,6 +1563,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_block_outputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1465,6 +1577,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1478,6 +1591,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_blocks@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1491,6 +1605,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_manifests@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1504,6 +1619,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_manifests@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1517,6 +1633,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_protections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1530,6 +1647,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_protections@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1543,6 +1661,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1556,6 +1675,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1569,6 +1689,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_seeds@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1582,6 +1703,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_seeds@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1595,6 +1717,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_sets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1608,6 +1731,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_result_sets@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1621,6 +1745,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_revisions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1634,6 +1759,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_revisions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1647,6 +1773,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_roots@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1660,6 +1787,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_roots@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1673,6 +1801,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_run_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1686,6 +1815,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_run_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1699,6 +1829,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_runs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1712,6 +1843,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_runs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1725,6 +1857,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_selection_receipts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1738,6 +1871,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_selection_receipts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1751,6 +1885,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_staged_edits@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1764,6 +1899,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_staged_edits@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1777,6 +1913,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_stages@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1790,6 +1927,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_stages@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1803,6 +1941,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_studies@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1816,6 +1955,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_studies@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1829,6 +1969,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_dependencies@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1842,6 +1983,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_dependencies@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1855,6 +1997,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1868,6 +2011,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_inputs@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1881,6 +2025,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_points@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1894,6 +2039,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_points@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1907,6 +2053,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_readiness@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1920,6 +2067,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_readiness@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1933,6 +2081,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_readiness_cursors@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1946,6 +2095,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_readiness_cursors@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1959,6 +2109,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1972,6 +2123,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_study_retirements@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1985,6 +2137,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_version_manifests@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -1998,6 +2151,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_version_manifests@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2011,6 +2165,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_version_receipts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2024,6 +2179,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_version_receipts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2037,6 +2193,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_versions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2050,6 +2207,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.canonical_versions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2063,6 +2221,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_facts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2076,6 +2235,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_facts@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2089,6 +2249,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_generations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2102,6 +2263,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_generations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2115,6 +2277,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_interpretations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2128,6 +2291,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.evidence_interpretations@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2141,6 +2305,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_excerpts@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -2154,6 +2319,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_excerpts@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -2167,6 +2333,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_generations@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -2180,6 +2347,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_generations@2",
       "declaration_kind": "relation",
       "direction": null,
@@ -2193,6 +2361,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_productions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2206,6 +2375,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_productions@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2219,6 +2389,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2232,6 +2403,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2245,6 +2417,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_state@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2258,6 +2431,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_state@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2271,6 +2445,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2284,6 +2459,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_edges@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2297,6 +2473,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2310,6 +2487,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_sources@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2323,6 +2501,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_topics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2336,6 +2515,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subject_topics@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2349,6 +2529,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subjects@1",
       "declaration_kind": "relation",
       "direction": null,
@@ -2362,6 +2543,7 @@
     },
     {
       "basis": "declared",
+      "contract_sections": [],
       "declaration_key": "runtime.knowledge_subjects@1",
       "declaration_kind": "relation",
       "direction": null,

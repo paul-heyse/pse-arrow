@@ -413,6 +413,11 @@ codegen-capabilities-check:
     "{{ py }}" -m scripts.capabilities.reference --check
 
 [group('local')]
+[doc('Compare schema-derived Cyclopts commands without starting services or publishing')]
+codegen-capability-cli-check:
+    "{{ py }}" -m scripts.capabilities.cli_codegen --check
+
+[group('local')]
 [doc('The canonical native schema and codecs match a fresh regeneration')]
 codegen-surreal-check:
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal --check
@@ -1044,6 +1049,7 @@ codegen:
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
     scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen
     "{{ py }}" -m scripts.capabilities.reference
+    "{{ py }}" -m scripts.capabilities.cli_codegen
 
 
 [group('mutating')]
@@ -1056,6 +1062,7 @@ codegen-contracts:
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs
     "{{ py }}" -m scripts.arrow_validation run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
     "{{ py }}" -m scripts.capabilities.reference
+    "{{ py }}" -m scripts.capabilities.cli_codegen
 
 [group('local')]
 [doc('Exercise pure candidate annotation checking and refusal of native codec execution')]
@@ -1386,6 +1393,13 @@ activity *args:
 [script("bash", "-euo", "pipefail")]
 capabilities:
     exec "{{ justfile_directory() }}/.venv/bin/python" -m scripts.capabilities
+
+[group('discovery')]
+[doc('Derived canonical capability CLI; independent help and launch diagnosis')]
+[positional-arguments]
+[script("bash", "-euo", "pipefail")]
+capability *args:
+    exec "{{ justfile_directory() }}/.venv/bin/python" -m scripts.capability_cli "$@"
 
 [group('discovery')]
 [doc('Launch a selected-store Codex session; optional database/Rust capabilities, literal args after --')]

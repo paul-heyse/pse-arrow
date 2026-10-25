@@ -179,6 +179,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             owner=source,
             source=source,
             exposure="tool",
+            invocation_lifetime="single",
             worker_calls=(QUALIFICATION_CALLS[tool.name],)
             if tool.name in QUALIFICATION_CALLS
             else (),

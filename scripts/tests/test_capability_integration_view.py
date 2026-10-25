@@ -16,6 +16,7 @@ from unittest.mock import patch
 from fastmcp import Client, FastMCP
 
 from scripts.capabilities import integration_view as view
+from scripts import validation_result
 
 
 class IntegrationViewTests(unittest.TestCase):
@@ -113,6 +114,49 @@ class IntegrationViewTests(unittest.TestCase):
         self.assertEqual(result.commit_selection[0].selection, "excluded")
         self.assertEqual(result.test_scope.changed_owned_paths, [])
 
+    def test_original_assessment_context_never_becomes_automatic_acceptance(self) -> None:
+        path = self.edit_lines()
+        source = self.root / path
+        # Independent original-source encoding oracle, including executable mode.
+        stamp = hashlib.sha256(str(source.stat().st_mode & 0o777).encode() + b":" + source.read_bytes()).hexdigest()
+        record = {
+            "gate": "selected", "profile": "unit", "mode": "force-validate",
+            "status": "passed", "evidence_kind": "executed",
+            "inputs": {"files": {path: stamp}, "environment": {"RUSTFLAGS": "source-owner-value"}},
+            "invocation": {"args": ["--features", "force-validate"]},
+            "selected": ["original-case"],
+        }
+        reference = {"kind": "assessment", "directory": "retained", "gate": "selected"}
+        with patch.object(validation_result, "read_assessment", return_value={"checks": [{"record": record}], "execution_explanation": None}) as reader:
+            result = self.result(self.claim(path), validation_evidence=[reference], features="force-validate", validation_profile="unit", validation_mode="force-validate")
+        evidence = result.test_scope.validation_evidence[0].model_dump()
+        self.assertEqual(evidence["applicability"], "unknown")
+        self.assertEqual(evidence["source_mismatches"], [])
+        self.assertEqual(evidence["original_contexts"][0]["status"], "passed")
+        self.assertIn("no automatic reuse", evidence["qualification"])
+        self.assertNotIn("source-owner-value", json.dumps(evidence))
+        reader.assert_called_once_with(self.root / "retained", gate="selected", source_detail=True, full_export=False)
+
+        for key, changed in (("features", "native-solvers"), ("validation_profile", "component"), ("validation_mode", "ordinary")):
+            with self.subTest(key=key), patch.object(validation_result, "read_assessment", return_value={"checks": [{"record": record}]}):
+                request = {"validation_evidence": [reference], "features": "force-validate", "validation_profile": "unit", "validation_mode": "force-validate", key: changed}
+                stale = self.result(self.claim(path), **request).test_scope.validation_evidence[0].model_dump()
+                self.assertEqual(stale["applicability"], "inapplicable")
+        self.write(path, "source changed after original assessment\n")
+        with patch.object(validation_result, "read_assessment", return_value={"checks": [{"record": record}]}):
+            stale = self.result(self.claim(path), validation_evidence=[reference]).test_scope.validation_evidence[0].model_dump()
+        self.assertEqual(stale["source_mismatches"], [path])
+        self.assertEqual(stale["applicability"], "inapplicable")
+
+    def test_assessment_summary_does_not_hydrate_unselected_sources(self) -> None:
+        path = self.edit_lines()
+        with patch.object(validation_result, "read_assessment", return_value={"checks": [], "execution_explanation": None}) as reader:
+            result = self.result(self.claim(path), validation_evidence=[{"kind": "assessment", "directory": "retained"}])
+        reader.assert_called_once_with(self.root / "retained", gate=None, source_detail=False, full_export=False)
+        evidence = result.test_scope.validation_evidence[0].model_dump()
+        self.assertEqual(evidence["applicability"], "unknown")
+        self.assertIn("Select an exact original assessment gate", evidence["reason"])
+
     def test_disjoint_current_line_ownership_proposes_only_owned_hunks(self) -> None:
         path = self.edit_lines()
         result = self.result(
@@ -131,9 +175,10 @@ class IntegrationViewTests(unittest.TestCase):
         self.assertEqual(proposal.hunks, [view.Lines(start_line=2, end_line=2)])
         self.assertEqual(result.test_scope.package_seeds, ["selected"])
         self.assertIn(["just", "unit-package", "selected"], result.test_scope.routes)
-        self.assertIn(
-            ["just", "affected", "--json", "--base", "HEAD"], result.test_scope.routes
-        )
+        proposal = next(route for route in result.test_scope.routes if route[:3] == ["just", "affected", "--json"])
+        self.assertIn("--passive", proposal)
+        self.assertIn("--changes-json", proposal)
+        self.assertEqual([row[1] for row in json.loads(proposal[-1])], [path])
 
     def test_overlapping_explicit_owners_and_stale_witness_remain_excluded(
         self,

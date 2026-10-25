@@ -23,6 +23,19 @@ from scripts import (
 
 
 class RunInspectionTests(unittest.TestCase):
+    def test_invocation_explanation_keeps_reported_counts_and_unknown_stage(self) -> None:
+        active = self.read()["execution_explanation"]
+        self.assertEqual((active["selected_count"], active["reported_count"], active["unreported_count"]), (2, 0, 2))
+        self.assertIsNone(active["observed_stage"])
+        self.assertNotIn("preparation_seconds", active)
+        self.freeze(code=1, rows=[{"nodeid": "suite::one", "status": "failure"}, {"nodeid": "suite::two", "status": "passed"}])
+        terminal = self.read()["execution_explanation"]
+        self.assertEqual((terminal["reported_count"], terminal["unreported_count"]), (2, 0))
+        self.assertEqual(terminal["outcome_counts"], {"failure": 1, "pass": 1})
+        reference = terminal["next_readers"][0]
+        self.assertEqual(reference["reference"]["invocation"], self.read()["invocation"])
+        self.assertEqual(reference["disposition"], "unexecuted")
+
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

@@ -141,6 +141,7 @@ def bindings(_root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         tools[tool.name] = tool
         specs.append(
             Capability(
+                invocation_lifetime="single",
                 id=tool.name,
                 title=tool.name.replace("_", " "),
                 description=tool.description or "",

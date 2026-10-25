@@ -7,6 +7,13 @@
     "attributes": [
       "executor.role"
     ],
+    "attribute_values": {
+      "executor.role": [
+        "python",
+        "worker",
+        "canonical_tools"
+      ]
+    },
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -21,6 +28,13 @@
     "attributes": [
       "executor.role"
     ],
+    "attribute_values": {
+      "executor.role": [
+        "python",
+        "worker",
+        "canonical_tools"
+      ]
+    },
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -35,6 +49,13 @@
     "attributes": [
       "executor.role"
     ],
+    "attribute_values": {
+      "executor.role": [
+        "python",
+        "worker",
+        "canonical_tools"
+      ]
+    },
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -49,6 +70,13 @@
     "attributes": [
       "executor.role"
     ],
+    "attribute_values": {
+      "executor.role": [
+        "python",
+        "worker",
+        "canonical_tools"
+      ]
+    },
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -63,6 +91,16 @@
     "attributes": [
       "event"
     ],
+    "attribute_values": {
+      "event": [
+        "attempt",
+        "admitted",
+        "dispatched",
+        "joined",
+        "cancel_requested",
+        "deadline_requested"
+      ]
+    },
     "buckets": [],
     "temporality": "cumulative",
     "reset": "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -75,6 +113,7 @@
     "unit": "{owner}",
     "population": "Outstanding actual supervisor owners; caller completion does not prove physical release",
     "attributes": [],
+    "attribute_values": {},
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -90,6 +129,18 @@
       "stage",
       "event"
     ],
+    "attribute_values": {
+      "event": [
+        "acquisition",
+        "retained_reuse",
+        "producer",
+        "flight_waiter"
+      ],
+      "stage": [
+        "frontier",
+        "basis"
+      ]
+    },
     "buckets": [],
     "temporality": "cumulative",
     "reset": "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -104,6 +155,14 @@
     "attributes": [
       "product"
     ],
+    "attribute_values": {
+      "product": [
+        "structural_view",
+        "observation_program",
+        "value_rebuilt",
+        "value_shared"
+      ]
+    },
     "buckets": [],
     "temporality": "cumulative",
     "reset": "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -118,6 +177,17 @@
     "attributes": [
       "event"
     ],
+    "attribute_values": {
+      "event": [
+        "builder",
+        "request_failed",
+        "statement",
+        "statement_succeeded",
+        "statement_failed",
+        "statement_timed",
+        "statement_untimed"
+      ]
+    },
     "buckets": [],
     "temporality": "cumulative",
     "reset": "first query-owner activity through process incarnation; source_start carries origin, SDK activation is distinct",
@@ -130,6 +200,7 @@
     "unit": "s",
     "population": "Process cumulative supplied statement server wall times for the selected query adapter; untimed statements omitted, not CPU time or a complete database population",
     "attributes": [],
+    "attribute_values": {},
     "buckets": [],
     "temporality": "cumulative",
     "reset": "first query-owner activity through process incarnation; source_start carries origin, SDK activation is distinct",
@@ -144,6 +215,12 @@
     "attributes": [
       "owner"
     ],
+    "attribute_values": {
+      "owner": [
+        "native_preparation",
+        "canonical_query"
+      ]
+    },
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "process incarnation; source_start supplies first performing-owner activity, SDK activation is distinct",
@@ -159,6 +236,23 @@
       "task.class",
       "event"
     ],
+    "attribute_values": {
+      "event": [
+        "instrumented",
+        "dropped",
+        "poll",
+        "scheduled",
+        "idle",
+        "first_poll",
+        "slow_poll",
+        "long_delay"
+      ],
+      "task.class": [
+        "workflow",
+        "math_submission",
+        "math_job"
+      ]
+    },
     "buckets": [],
     "temporality": "cumulative",
     "reset": "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -174,6 +268,21 @@
       "task.class",
       "phase"
     ],
+    "attribute_values": {
+      "phase": [
+        "poll",
+        "scheduled",
+        "idle",
+        "first_poll",
+        "slow_poll",
+        "long_delay"
+      ],
+      "task.class": [
+        "workflow",
+        "math_submission",
+        "math_job"
+      ]
+    },
     "buckets": [],
     "temporality": "cumulative",
     "reset": "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -189,6 +298,17 @@
       "task.class",
       "threshold"
     ],
+    "attribute_values": {
+      "task.class": [
+        "workflow",
+        "math_submission",
+        "math_job"
+      ],
+      "threshold": [
+        "slow_poll",
+        "long_delay"
+      ]
+    },
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -203,6 +323,13 @@
     "attributes": [
       "task.class"
     ],
+    "attribute_values": {
+      "task.class": [
+        "workflow",
+        "math_submission",
+        "math_job"
+      ]
+    },
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "process-wide selected TaskMonitor source generation; source_start supplies its origin, SDK activation is distinct; library u64 totals may wrap",
@@ -215,6 +342,7 @@
     "unit": "1",
     "population": "Whether the executor source registry was available at collection",
     "attributes": [],
+    "attribute_values": {},
     "buckets": [],
     "temporality": "instantaneous",
     "reset": "current registered executor population; registrations may disappear; busy totals originate at each runtime construction",
@@ -227,6 +355,7 @@
     "unit": "{registration}",
     "population": "Process-lifetime executor observation registration refusals; never workload admission",
     "attributes": [],
+    "attribute_values": {},
     "buckets": [],
     "temporality": "cumulative",
     "reset": "process lifetime; observation-registration refusal total never resets within a process",
@@ -242,6 +371,17 @@
       "owner.family",
       "stage"
     ],
+    "attribute_values": {
+      "owner.family": [
+        "native",
+        "preparation"
+      ],
+      "stage": [
+        "supervisor",
+        "frontier",
+        "basis"
+      ]
+    },
     "buckets": [
       0.0001,
       0.001,

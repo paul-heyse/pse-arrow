@@ -82,6 +82,7 @@ class Capability(Contract):
     source: str
     exposure: Literal["tool", "native", "deferred", "internal", "unsupported"]
     effects: str
+    invocation_lifetime: Literal["single", "endpoint", "native-route"] | None = None
     prerequisites: tuple[str, ...] = ()
     route: tuple[str, ...] = ()
     reason: str = ""

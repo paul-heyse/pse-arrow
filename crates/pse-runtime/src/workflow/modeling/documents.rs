@@ -7,6 +7,19 @@ use pse_model::generated::{
     identities::{DeclarationId, InstanceId},
 };
 use std::collections::BTreeMap;
+
+pub(in crate::workflow) fn bound_observation<T: serde::Serialize>(value: T) -> Result<T, super::super::WorkflowError> {
+    struct Extent(usize);
+    impl std::io::Write for Extent {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self.0.checked_add(bytes.len()).filter(|size| *size <= 64 << 10).ok_or_else(|| std::io::Error::other("native model observation exceeds64KiB; narrow the selected page/detail"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+    serde_json::to_writer(Extent(0), &value).map_err(|error| super::super::contract(error.to_string()))?;
+    Ok(value)
+}
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "Authored declarations submitted for contextual revision admission."]
@@ -72,10 +85,100 @@ pub struct DeclarationInventory {
     #[doc = "Declarations from the selected authored revision."]
     pub declarations: Vec<pse_authoring::language::Declaration>,
 }
+/// Finite original declaration inventory selection.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ModelingDeclarationRequest {
+    /// Original source inventory offset.
+    pub offset: usize,
+    /// One to128 declarations.
+    pub limit: usize,
+}
+/// Exact selected declaration page and source basis.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ModelingDeclarationPage {
+    /// Immutable source/physical basis.
+    pub source: super::super::OperationSource,
+    /// Complete original inventory population.
+    pub total: usize,
+    /// Original page offset.
+    pub offset: usize,
+    /// Next original inventory offset.
+    pub next_offset: Option<usize>,
+    /// Original declarations in source order, not host-truncated rows.
+    pub declarations: Vec<pse_authoring::language::Declaration>,
+}
+impl super::ModelingPackage {
+    /// Read a bounded declaration page without cloning the complete inventory into the answer.
+    /// # Errors
+    /// Native source admission or invalid page bounds propagate.
+    pub async fn declaration_page(&self, request: &ModelingDeclarationRequest) -> Result<ModelingDeclarationPage, super::super::WorkflowError> {
+        if request.limit == 0 || request.limit > 128 { return Err(super::super::contract("declaration page limit must be between one and128")); }
+        let activity = self.runtime.admit_activity()?;
+        activity.scope(async {
+            let (total, declarations) = self.selected_declarations(request.offset, request.limit)?;
+            let next = request.offset.saturating_add(request.limit);
+            bound_observation(ModelingDeclarationPage {
+                source: super::super::OperationSource::of(self), total, offset: request.offset,
+                next_offset: (next < total).then_some(next),
+                declarations: declarations.rows,
+            })
+        }).await
+    }
+}
+/// Finite selection of an admitted model observation, with explicit preparation policy.
+/// The schema example's declaration identity is illustrative, not a runtime admission claim.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(example = inspection_request_example())]
+pub struct ModelingInspectionRequest {
+    /// Exact authored case declaration.
+    pub case: DeclarationId,
+    /// Complete policy used by contextual admission, never inferred from host limits.
+    pub preparation: super::super::PreparationSettings,
+    /// Original solve/route policy; inspection does not dispatch its procedure.
+    pub settings: crate::math::settings::SolveSettings,
+    /// Same finite offset applied independently to each original observation population.
+    pub offset: usize,
+    /// At most 128 members of each population.
+    pub limit: usize,
+}
+fn inspection_request_example() -> ModelingInspectionRequest {
+    // This structurally valid declaration identity is illustrative, never a live admission claim.
+    ModelingInspectionRequest {
+        case: DeclarationId::from(SemanticId::from_bytes([1; 16])),
+        preparation: super::super::PreparationSettings::default(),
+        settings: crate::math::settings::SolveSettings::default(), offset: 0, limit: 16,
+    }
+}
+/// Independent total populations, distinct from the number of returned observations.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InspectionPopulation {
+    /// Total instantiated definitions.
+    pub instances: usize,
+    /// Total instantiated members.
+    pub members: usize,
+    /// Total selected ports.
+    pub ports: usize,
+    /// Total connections.
+    pub connections: usize,
+}
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "Nonexecuting observation of the selected model."]
 pub struct ModelingInspection {
+    /// Exact source and physical context of this observation.
+    pub source: super::super::OperationSource,
+    /// Complete native preparation policy that admitted the observed case.
+    pub preparation: super::super::PreparationSettings,
+    /// Original population sizes before finite projection.
+    pub population: InspectionPopulation,
+    /// Original population offset.
+    pub offset: usize,
+    /// Next common offset, if any original population has more records.
+    pub next_offset: Option<usize>,
     #[doc = "Selected route and procedure before execution."]
     pub execution: InspectionExecution,
     #[doc = "Instantiated authored definitions."]
@@ -182,9 +285,26 @@ pub struct InspectionConnection {
 }
 impl super::DeclaredExecution {
     /// Observe the selected immutable revision and declaration, without solver execution.
-    pub fn inspection(&self) -> ModelingInspection {
+    pub fn inspection(
+        &self,
+        source_identity: super::super::OperationSource,
+        preparation: super::super::PreparationSettings,
+        offset: usize,
+        limit: usize,
+    ) -> ModelingInspection {
         let source = &self.model.compiled().model;
+        let population = InspectionPopulation {
+            instances: source.instances.len(), members: source.symbols.len(),
+            ports: source.ports.len(), connections: source.connections.len(),
+        };
+        let maximum = [population.instances, population.members, population.ports, population.connections]
+            .into_iter().max().unwrap_or(0);
         ModelingInspection {
+            source: source_identity,
+            preparation,
+            population,
+            offset,
+            next_offset: (offset.saturating_add(limit) < maximum).then_some(offset.saturating_add(limit)),
             execution: InspectionExecution {
                 route: self.route,
                 procedure: self.procedure.kind(),
@@ -193,6 +313,7 @@ impl super::DeclaredExecution {
             instances: source
                 .instances
                 .values()
+                .skip(offset).take(limit)
                 .map(|instance| InspectionInstance {
                     id: instance.id,
                     definition: instance.definition,
@@ -204,6 +325,7 @@ impl super::DeclaredExecution {
             members: source
                 .symbols
                 .values()
+                .skip(offset).take(limit)
                 .map(|symbol| InspectionMember {
                     id: symbol.id,
                     role: symbol.role,
@@ -213,6 +335,7 @@ impl super::DeclaredExecution {
             ports: source
                 .ports
                 .values()
+                .skip(offset).take(limit)
                 .map(|port| InspectionPort {
                     id: port.id,
                     symbol: port.symbol,
@@ -222,6 +345,7 @@ impl super::DeclaredExecution {
             connections: source
                 .connections
                 .values()
+                .skip(offset).take(limit)
                 .map(|connection| InspectionConnection {
                     id: connection.id,
                     from: connection.from,
@@ -495,6 +619,13 @@ impl PureConformanceControls {
 #[cfg(test)]
 mod boundary_unit {
     use super::*;
+    #[test]
+    fn oversized_native_observation_refuses_without_truncation() {
+        let large = "x".repeat((64 << 10) + 1);
+        assert!(bound_observation(large).is_err());
+        let exact = vec!["unchanged".to_owned(); 128];
+        assert_eq!(bound_observation(exact.clone()).unwrap(), exact);
+    }
     #[test]
     fn initialization_and_diagnostic_durations_keep_closed_standard_encoding() {
         use super::super::{InitializationOverrides, ModelingNonlinearPolicy};

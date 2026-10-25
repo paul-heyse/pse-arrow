@@ -218,6 +218,17 @@ impl CanonicalResultReader {
     pub fn snapshot(&self) -> super::ResultSnapshot {
         self.snapshot.clone()
     }
+    /// Advance only unopened immutable block coordinates for a bounded readable continuation.
+    /// The protected selection and its complete original window remain unchanged.
+    pub(crate) fn skip_recorded_prefix(&mut self, position: u64) -> Result<(), WorkflowError> {
+        if self.reader.consumed || self.reader.snapshot_position != 0
+            || position < self.reader.start || position > self.reader.end {
+            return Err(contract("result continuation cannot change an active reader"));
+        }
+        self.reader.snapshot_position = self.snapshot.blocks().partition_point(|block| block.end <= position);
+        self.reader.exhausted = self.reader.snapshot_position == self.snapshot.blocks().len();
+        Ok(())
+    }
     /// Exact full registry schema of the scientific relation.
     pub fn schema(&self) -> SchemaRef {
         self.reader.schema()

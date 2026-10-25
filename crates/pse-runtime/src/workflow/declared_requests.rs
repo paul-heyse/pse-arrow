@@ -147,15 +147,16 @@ impl ModelingPackage {
     /// Original contextual admission failures propagate.
     pub async fn inspect_case_request(
         &self,
-        case: DeclarationId,
-        preparation: &PreparationSettings,
-        settings: SolveSettings,
+        request: &ModelingInspectionRequest,
         cancel: &CancelSource,
     ) -> Result<ModelingInspection, WorkflowError> {
-        Ok(self
-            .admit_declared_request(case, preparation, settings, cancel)
+        if request.limit == 0 || request.limit > 128 {
+            return Err(contract("inspection page limit must be between one and128"));
+        }
+        modeling::documents::bound_observation(self
+            .admit_declared_request(request.case, &request.preparation, request.settings.clone(), cancel)
             .await?
-            .inspection())
+            .inspection(OperationSource::of(self), request.preparation.clone(), request.offset, request.limit))
     }
     /// Prepare authored topology using the same declared admission as other hosts.
     /// # Errors

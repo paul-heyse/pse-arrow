@@ -233,6 +233,7 @@ pub(crate) fn corpus() -> KnowledgeCorpus {
 }
 fn query(mode: KnowledgeMode, generation: Option<String>) -> KnowledgeQuery {
     KnowledgeQuery {
+        version: pse_model::document::Version,
         generation,
         mode,
         kind: None,
@@ -251,6 +252,22 @@ fn query(mode: KnowledgeMode, generation: Option<String>) -> KnowledgeQuery {
         limit: 64,
         cursor: None,
     }
+}
+#[test]
+fn knowledge_query_checks_version_before_body_and_preserves_predicate() {
+    let example = KnowledgeQuery::decode_json(&serde_json::to_vec(&knowledge_query_example()).unwrap()).unwrap();
+    example.validate().unwrap();
+    let request = query(KnowledgeMode::Productions, None);
+    let mut value = serde_json::to_value(&request).unwrap();
+    assert_eq!(value["version"], 1);
+    let decoded = KnowledgeQuery::decode_json(&serde_json::to_vec(&value).unwrap()).unwrap();
+    assert_eq!(decoded.mode, KnowledgeMode::Productions);
+    value["version"] = serde_json::json!(2);
+    value["mode"] = serde_json::json!({"malformed":"current body"});
+    let error = KnowledgeQuery::decode_json(&serde_json::to_vec(&value).unwrap()).unwrap_err();
+    assert!(error.to_string().contains("version"));
+    assert!(KnowledgeQuery::decode_json(br#"{"mode":"subjects"}"#).is_err());
+    assert!(KnowledgeQuery::decode_json(br#"{"version":1,"version":1}"#).is_err());
 }
 #[cfg(feature = "canonical-tests")]
 async fn rejects_native_row(
@@ -696,8 +713,8 @@ pub(crate) async fn exercise_native(
     assert_eq!(false_pair.sources.len(), 3);
     for request in [&selected, &graph_request, &production_request] {
         let plan = reader.knowledge_explain(request).await?;
-        assert!(!plan["raw_plan"].is_null());
-        eprintln!("knowledge structured native plan {}", plan["raw_plan"]);
+        assert!(!serde_json::from_str::<serde_json::Value>(&plan.raw_plan_json).unwrap().is_null());
+        eprintln!("knowledge structured native plan {}", plan.raw_plan_json);
     }
     let all = KnowledgeQuery {
         generation: None,

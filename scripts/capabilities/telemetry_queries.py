@@ -22,7 +22,7 @@ from scripts.telemetry_investigation import (
     QueryRequest,
     schema_description,
 )
-from scripts.telemetry_selection import SelectionReference
+from scripts.telemetry_selection import OwnerReference, ReaderSuggestion, SelectionReference
 
 State = Annotated[
     str, Field(min_length=1, max_length=4096, pattern=r"^[^\x00]+$", strict=True)
@@ -71,8 +71,11 @@ def bindings(
     async def telemetry_investigation_export(
         destination: State,
         selections: Annotated[list[QueryAnswer], Field(min_length=1, max_length=16)],
+        question: Annotated[str, Field(min_length=1, max_length=4096)],
         maximum_output_bytes: Annotated[int, Field(ge=1, le=8 << 20)] = 8 << 20,
         missing_context: Annotated[list[str], Field(max_length=64)] | None = None,
+        original_references: Annotated[list[OwnerReference], Field(max_length=32)] | None = None,
+        next_readers: Annotated[list[ReaderSuggestion], Field(max_length=32)] | None = None,
     ) -> ToolResult:
         """Explicitly copy supplied query answers into a fresh finite native member pack; no new query or scientific analysis. Returns a digest-bound reference for stable offline pages. Native extension must already be prepared. Output exhaustion leaves its native incomplete publication visible; never overwrite an existing destination."""
         import anyio  # noqa: PLC0415
@@ -84,6 +87,9 @@ def bindings(
                 lambda: telemetry_selection.export(
                     Path(destination),
                     selections,
+                    question=question,
+                    original_references=original_references,
+                    next_readers=next_readers,
                     maximum_output_bytes=maximum_output_bytes,
                     missing_context=missing_context,
                 )
@@ -285,6 +291,7 @@ def bindings(
         tools[tool.name] = tool
         specs.append(
             Capability(
+                invocation_lifetime="single",
                 id=tool.name,
                 title=tool.name.replace("_", " "),
                 description=tool.description or "",

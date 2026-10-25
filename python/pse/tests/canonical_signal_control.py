@@ -24,6 +24,7 @@ import msgspec
 from scripts import surreal_server as server
 
 import pse
+from pse.tests.physical_input_fixture import inspection_request
 from pse._build import compiled_features
 from pse.contracts.documents import SensitivityRequest
 from pse.contracts.enums import NativeSolveIntent
@@ -50,6 +51,7 @@ class SignalResultFixture(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     terminal_class: str
     first_page_ordinals: tuple[int, int]
     file_instances: tuple[str, str]
+
 
 
 def analysis_signal_control(
@@ -80,7 +82,7 @@ def analysis_signal_control(
     solve = msgspec.structs.replace(_settings(), intent=NativeSolveIntent.ROOT)
     parameter = next(
         member.id
-        for member in package.inspect(case, solve).members
+        for member in package.inspect(inspection_request(case, solve)).members
         if member.lineage.path == "a" or member.lineage.path.endswith(".a")
     )
     solve = msgspec.structs.replace(

@@ -130,6 +130,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         owner="scripts/capabilities/rust_references.py",
         source="scripts/capabilities/rust_references.py",
         exposure="tool",
+            invocation_lifetime="single",
         effects="Read a bounded original reference and its registry identity; no workload or preparation.",
     )
     tool.tags.update(spec.tags)

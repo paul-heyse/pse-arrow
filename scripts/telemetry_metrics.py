@@ -104,6 +104,12 @@ FAILURE_CLASSES = (
     )
     | STAGES
 )
+BUILD_RECORDS = frozenset(
+    {"compiler-artifact", "compiler-message", "build-script-executed", "build-finished"}
+)
+FRESHNESS = frozenset({"fresh", "nonfresh"})
+GATE_POPULATIONS = frozenset({"declared", "unattempted", "executed", "reused", "outcome"})
+CASE_POPULATIONS = frozenset({"selected", "executed", "outcome"})
 
 
 @dataclass(frozen=True)
@@ -117,6 +123,31 @@ class MetricDeclaration:
     temporality: str = "cumulative"
     reset: str = "process SDK lifetime"
     scope: str = "performing host owner"
+
+    def attribute_values(self) -> dict[str, list[str]]:
+        """The same finite vocabularies used by the performing producer."""
+        domains = {
+            "stage": STAGES,
+            "status": STATUSES,
+            "failure_class": FAILURE_CLASSES,
+            "mode": MODES,
+            "suite": SUITES,
+            "record": BUILD_RECORDS,
+            "freshness": FRESHNESS,
+            "population": GATE_POPULATIONS
+            if self.name == "pse.assessment.gates"
+            else CASE_POPULATIONS,
+        }
+        if self.name == "pse.host.pressure":
+            from scripts.pressure_observation import PSI  # noqa: PLC0415 -- original producer vocabulary
+
+            domains.update(
+                scope=frozenset({"host", "selected"}),
+                resource=frozenset(PSI),
+                stall=frozenset({"some", "full"}),
+                window=frozenset({"avg10", "avg60", "avg300"}),
+            )
+        return {key: sorted(domains[key]) for key in self.attributes}
 
 
 METRIC_DECLARATIONS = (
@@ -332,12 +363,7 @@ class HostMetrics:
         )
 
     def build_record(self, reason: str, fresh: object = None) -> None:
-        if reason not in {
-            "compiler-artifact",
-            "compiler-message",
-            "build-script-executed",
-            "build-finished",
-        }:
+        if reason not in BUILD_RECORDS:
             return
         self.build_records.add(1, {"record": reason})
         if reason == "compiler-artifact" and type(fresh) is bool:

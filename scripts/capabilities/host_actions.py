@@ -168,6 +168,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             owner=source,
             source=source,
             exposure="tool",
+            invocation_lifetime="single",
             effects="Read exact retained artifacts; no workload effects."
             if readonly
             else "Runs one explicit admitted host operation. Creates selected output and may launch or sample processes; native owners retain admission, cancellation and drain. Cancellation does not establish rollback.",

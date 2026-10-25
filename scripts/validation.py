@@ -217,6 +217,22 @@ SOURCE_PATHS = (
 )
 
 
+def regular_source_stamp(raw: bytes, mode: int) -> str:
+    """Hash already-observed ordinary file bytes using the assessment encoding."""
+    return hashlib.sha256(str(mode & 0o777).encode() + b":" + raw).hexdigest()
+
+
+def source_stamp(path: Path) -> str:
+    """Original assessment source identity for one selected path, without a tree scan."""
+    if path.is_symlink():
+        data = b"symlink:" + os.fsencode(path.readlink())
+    elif path.is_file():
+        return regular_source_stamp(path.read_bytes(), path.stat().st_mode)
+    else:
+        data = b"absent"
+    return hashlib.sha256(data).hexdigest()
+
+
 def sources(root: Path, *, scope: str | None = None) -> dict[str, str]:
     """Capture sufficient declared inputs without opening unrelated source files.
 
@@ -241,13 +257,7 @@ def sources(root: Path, *, scope: str | None = None) -> dict[str, str]:
         if not includes_input(scope, name):
             continue
         path = root / name
-        if path.is_symlink():
-            data = b"symlink:" + os.fsencode(path.readlink())
-        elif path.is_file():
-            data = str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()
-        else:
-            data = b"absent"
-        result[name] = hashlib.sha256(data).hexdigest()
+        result[name] = source_stamp(path)
         if scope is not None and path.is_symlink() and path.is_file():
             resolved = (
                 str(path.stat().st_mode & 0o777).encode() + b":" + path.read_bytes()

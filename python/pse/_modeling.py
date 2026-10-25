@@ -54,6 +54,11 @@ from pse.contracts.documents import (
     LinearDiagnosticControls,
     ManagedStudyDiagnosticsDocumentOutput,
     ModelingNonlinearPolicy,
+    ModelingInspectionRequest,
+    ModelingDeclarationRequest,
+    ModelingDeclarationPageOutput,
+    ModelingComparisonRequest,
+    ModelingComparisonObservationOutput,
     ModelingSourceMapDocumentOutput,
     OperationSourceOutput,
     PhysicalFitRequest,
@@ -841,6 +846,10 @@ class ModelingPackage:
             self._handle.with_declarations(encode_declarations(declarations))
         )
 
+    def declaration_page(self, request: ModelingDeclarationRequest) -> ModelingDeclarationPageOutput:
+        """Read a finite native declaration page with exact source attribution."""
+        return self._handle.declaration_page(request)
+
     def declarations(self) -> tuple[AuthoredModelingDeclarationsRow, ...]:
         document = self._handle.declarations()
         return codec.document_rows(
@@ -863,6 +872,10 @@ class ModelingPackage:
         return ModelingPackage(
             self._handle.reload_from_parent([dict(bundle) for bundle in documents])
         )
+
+    def comparison_observation(self, other: "ModelingPackage", request: ModelingComparisonRequest) -> ModelingComparisonObservationOutput:
+        """Read a finite exact comparison with native source-only/context semantics."""
+        return self._handle.comparison_observation(other._handle, request)  # noqa: SLF001 -- same native receiver composition.
 
     def project_compare(
         self, other: "ModelingPackage", *, source_only: bool = False
@@ -894,10 +907,10 @@ class ModelingPackage:
         return self._handle.preparation_discovery(request)
 
     def inspect(
-        self, case_id: DeclarationId, settings: SolveSettings
+        self, request: ModelingInspectionRequest
     ) -> ModelingInspection:
-        """Inspect instantiated member lineage and declared topology before running."""
-        return self._handle.inspect(case_id, settings)
+        """Inspect a finite native page under its explicit preparation/source policy."""
+        return self._handle.inspect(request)
 
     def prepare_flow(
         self,

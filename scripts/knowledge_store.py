@@ -26,6 +26,10 @@ from scripts import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+class NativeKnowledgeUnavailableError(ValueError):
+    """The fixed executable/service owner could not supply an observation."""
+
+
 def corpus(
     paths: tuple[str, ...] = (),
     *,
@@ -272,18 +276,61 @@ def freshness(page: dict, *, root: Path = ROOT) -> list[dict]:
 
 def native(state: Path, tool: Path, arguments: list[str], *, deadline: float) -> dict:
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as output:
-        code = evidence_store.run_native(
-            state, tool, arguments, deadline=deadline, stdout=output
-        )
+        try:
+            code = evidence_store.run_native(
+                state, tool, arguments, deadline=deadline, stdout=output
+            )
+        except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+            raise NativeKnowledgeUnavailableError("original knowledge owner unavailable") from error
         if code:
-            raise ValueError(
+            raise NativeKnowledgeUnavailableError(
                 f"native knowledge operation failed with exit {code}; no source fallback was substituted"
             )
         output.seek(0)
         text = output.read((8 << 20) + 1)
         if len(text) > 8 << 20:
             raise ValueError("native knowledge response exceeds 8MiB")
-        return json.loads(text)
+        result = json.loads(text)
+        if not isinstance(result, dict):
+            raise ValueError("native knowledge result must be an original object")
+        return result
+
+
+def indexed(
+    request: dict,
+    *,
+    explain: bool = False,
+    state: Path,
+    tool: Path,
+    root: Path = ROOT,
+    timeout: float = 30,
+) -> dict:
+    """Read one original native query/plan; never import, refresh or start a store.
+
+    The Rust owner decodes its versioned closed request. Source freshness is a
+    separate host observation, outside the unchanged native result document.
+    """
+    if not math.isfinite(timeout) or not 0 < timeout <= 30:
+        raise ValueError("select a finite knowledge timeout in (0,30]")
+    raw = json.dumps(request, allow_nan=False).encode()
+    if len(raw) > 32768:
+        raise ValueError("native knowledge request exceeds 32KiB")
+    with tempfile.TemporaryDirectory(prefix="pse-knowledge-read-") as directory:
+        path = Path(directory) / "request.json"
+        resource_store.publish(path, request)
+        result = native(
+            state.absolute(),
+            tool.absolute(),
+            ["knowledge-explain" if explain else "knowledge-query", "--input", str(path)],
+            deadline=time.monotonic() + timeout,
+        )
+    if result.get("outcome") is not None:
+        return result
+    return {
+        "outcome": "observed",
+        "document": result,
+        "source_observations": [] if explain else freshness(result, root=root),
+    }
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -348,7 +395,7 @@ def _run(args: argparse.Namespace) -> int:
                         "limit",
                     )
                 }
-                selection.update(topics=args.topic, cursor=cursor)
+                selection.update(version=1, topics=args.topic, cursor=cursor)
             input_path = Path(directory) / "input.json"
             if selection is None:
                 raise RuntimeError(
@@ -365,7 +412,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "query":
         result["source_observations"] = freshness(result)
     print(json.dumps(result, sort_keys=True))
-    return 0
+    return 1 if result.get("outcome") == "refused" else 0
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -10,11 +10,29 @@ import pyarrow as pa
 
 import pse
 from pse import codec
+from pse.contracts import documents
 from pse.contracts.enums import NativePrimalCoordinateRole, PhysicalInputKind
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 Coordinate = tuple[SemanticId, float, str]
+
+
+def inspection_request(case: DeclarationId, settings: pse.SolveSettings) -> documents.ModelingInspectionRequest:
+    """Explicit finite policy for the small authored fixture models used by these tests."""
+    return documents.ModelingInspectionRequest(
+        case=case,
+        preparation=documents.PreparationSettingsBody(
+            compiler=documents.StudyCompilerProfile(
+                class_proof_work=1_000_000,
+                assembly=documents.AssemblyLimits(contributions=1_000_000, native_index=2_147_483_647, worker_bytes=1 << 30),
+                optimization=documents.Optimization(cores=1, horner_iterations=2, cpe_iterations=1, evaluator=documents.EvaluatorInterpreted()),
+                evaluation=documents.EvaluationLimits(derivative_components=4096, operations=1_000_000, scratch_bytes=8 << 20, provider_calls=4096),
+            ),
+            limits=documents.Limits(depth=64, items=100_000, members=100_000),
+        ),
+        settings=settings, offset=0, limit=128,
+    )
 
 
 def primitive_quantity(name: str) -> tuple[SemanticId, SemanticId]:
@@ -56,7 +74,7 @@ def member(package: pse.ModelingPackage, case: DeclarationId, name: str) -> Sema
     """Select one explicitly named source member, refusing ambiguous fixture paths."""
     (selected,) = (
         value.id
-        for value in package.inspect(case, pse.SolveSettings()).members
+        for value in package.inspect(inspection_request(case, pse.SolveSettings())).members
         if value.lineage.path.rsplit(".", 1)[-1].split("[", 1)[0] == name
     )
     return selected

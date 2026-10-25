@@ -171,7 +171,7 @@ def prepare_python(
     prepare_controller(None, environment)
 
 
-def affected(changes: Sequence[tuple[str, str]], *, root: Path = ROOT) -> dict:
+def affected(changes: Sequence[tuple[str, str]], *, root: Path = ROOT, prepare: bool = True) -> dict:
     declaration = catalog(root)
     inventory = str(declaration["package_inventory"]).rstrip("/") + "/"
     relevant = [
@@ -183,6 +183,13 @@ def affected(changes: Sequence[tuple[str, str]], *, root: Path = ROOT) -> dict:
     if not relevant:
         return {"consumers": [], "families": [], "unknown": []}
     all_consumers = sorted({c for f in declaration["families"] for c in f["consumers"]})
+    if not prepare:
+        return {
+            "consumers": all_consumers,
+            "families": [],
+            "unknown": relevant,
+            "reason": "Exact scientific closure requires the original explicitly prepared Rust capture; passive preview conservatively selects declared family consumers.",
+        }
     try:
         with tempfile.TemporaryDirectory(prefix="pse-scientific-reach-") as temporary:
             value = read(

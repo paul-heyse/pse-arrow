@@ -112,6 +112,7 @@ fn provenance_tree(output: &[u8]) -> Result<GeneratedTree> {
             generator_symbol: "run".into(),
             output_path: OUTPUT.into(),
             direction: None,
+            contract_sections: vec!["21.5".into()],
             basis: "declared".into(),
         });
     }
@@ -210,6 +211,7 @@ mod provenance_tests {
                 .any(|record| record["declaration_kind"] == "pyo3_metadata"
                     && record["source_path"].is_null())
         );
+        assert!(records.iter().all(|record| record["contract_sections"] == serde_json::json!(["21.5"])));
         assert_ne!(
             tree.files,
             provenance_tree(b"class Changed: ...\n").unwrap().files
