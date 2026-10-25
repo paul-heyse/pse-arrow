@@ -17,6 +17,7 @@ from pathlib import Path
 
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
+from scripts.worktree import command_environment
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -25,7 +26,7 @@ def transport(root: Path, *, explicit: bool) -> StdioTransport:
     return StdioTransport(
         command=str(root / ".venv/bin/python"), args=["-m", "scripts.capabilities"],
         cwd=str(root), keep_alive=False,
-        env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(root / ".venv"),
+        env={**command_environment(root), "UV_PROJECT_ENVIRONMENT": str(root / ".venv"),
              "CARGO_BUILD_JOBS": "16" if explicit else "1",
              "PSE_CARGO_DEFAULT_JOBS": "32" if explicit else "1"},
     )
@@ -35,7 +36,11 @@ async def invoke(client: Client, capability: str, arguments: dict | None = None)
     result = await client.call_tool("capabilities_invoke_read", {"capability": capability, "arguments": arguments or {}})
     if result.is_error or not isinstance(result.structured_content, dict):
         raise AssertionError("selected canonical read did not return its declared object")
-    return result.structured_content
+    # FunctionTool's declared union-result wrapper is distinct from the custom
+    # NativeTool envelope. This driver selects environment_explain only.
+    if set(result.structured_content) != {"result"} or not isinstance(result.structured_content["result"], dict):
+        raise AssertionError("environment read differs from its advertised result wrapper")
+    return result.structured_content["result"]
 
 
 async def run(worktree: Path) -> dict:
