@@ -2390,6 +2390,22 @@ mod canonical_connected_results_server_unit {
         assert!(reader.next_batch().await.unwrap().is_none());
         drop(pressure);
         drop(reader);
+        let mut continued = runtime.results(
+            fence.run(), fence.attempt(), "runtime.solve_metrics", 0, 65,
+            CancellationToken::new(),
+        ).await.unwrap();
+        continued.skip_recorded_prefix(63).unwrap();
+        assert_eq!(continued.reader.snapshot_position, 63, "continuation selects frozen block metadata before payload acquisition");
+        let original_window = continued.pack_selection(PackScientificState::Unknown).unwrap();
+        assert_eq!((original_window.row_start, original_window.row_end), (0, 65));
+        for coordinate in [63, 64] {
+            let batch = continued.next_batch().await.unwrap().unwrap();
+            let values = batch.column_by_name("real").unwrap().as_any().downcast_ref::<Float64Array>().unwrap();
+            assert_eq!(values.value(0), 273.15 + f64::from(coordinate));
+        }
+        assert!(continued.next_batch().await.unwrap().is_none());
+        assert!(continued.skip_recorded_prefix(0).is_err(), "a consumed reader cannot change its active selection");
+        drop(continued);
         drop(snapshot);
         assert!(
             pool.reserved() > baseline,
