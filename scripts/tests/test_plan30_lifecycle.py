@@ -75,6 +75,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         self.config = {
             "owner": server.OWNER,
             "profile_version": 3,
+            "telemetry_state": str(self.root / "telemetry"),
             "instance_id": "owned",
             "payload_incarnation": "da1483f4-e88f-47b5-b2be-67a358f795bb",
             "port": 18240,
@@ -723,6 +724,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             "supervisor_generation": self.config.get("service_supervisor"),
             "server_generation": self.config["server"],
             "service_class": "functional",
+            "telemetry_state": self.config["telemetry_state"],
             "server_memory_bytes": 2 * server.GIB,
         }
         server.write_json(self.state / "service-launch.json", launch)
@@ -731,6 +733,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             ("generation", "other"),
             ("server_memory_bytes", server.GIB),
             ("service_class", "timing"),
+            ("telemetry_state", str(self.root / "other-telemetry")),
             ("server_generation", {"binary_sha256": "other"}),
         ):
             with self.subTest(key=key):
@@ -864,6 +867,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             "supervisor_generation": self.config.get("service_supervisor"),
             "server_generation": self.config["server"],
             "service_class": "functional",
+            "telemetry_state": self.config["telemetry_state"],
             "server_memory_bytes": 2 * server.GIB,
         }
         server.write_json(self.state / "service-launch.json", launch)

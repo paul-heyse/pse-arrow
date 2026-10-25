@@ -1320,6 +1320,7 @@ class StoreReadinessTests(unittest.TestCase):
             config: dict[str, object] = {
                 "admission": "open",
                 "instance_id": "selected",
+                "telemetry_state": str(state / "telemetry"),
                 "resources": {"server_memory_bytes": 1024},
             }
             surreal_server.write_json(state / "config.json", config)
@@ -1329,6 +1330,7 @@ class StoreReadinessTests(unittest.TestCase):
                     "deadline": 90,
                     "generation": "selected",
                     "service_class": "functional",
+                    "telemetry_state": config["telemetry_state"],
                     "server_memory_bytes": 1024,
                     "allocation": str(state / "ledger" / ("a" * 32)),
                 },
@@ -1465,6 +1467,7 @@ class StoreReadinessTests(unittest.TestCase):
                 "accepting_writes": False,
                 "resources": surreal_server.execution_resources("functional"),
                 "instance_id": "selected-functional",
+                "telemetry_state": str(state / "telemetry"),
                 "service_class": "functional",
                 "resident": True,
             }
@@ -1520,6 +1523,7 @@ class StoreReadinessTests(unittest.TestCase):
                 "parked": True,
                 "admission": "quiesced",
                 "accepting_writes": False,
+                "telemetry_state": str(state / "telemetry"),
                 "resources": {
                     **surreal_server.reference_resources(),
                     "server_memory_bytes": 17 * pse_env.host.GIB,

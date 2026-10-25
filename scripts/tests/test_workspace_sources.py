@@ -555,9 +555,7 @@ class RepositoryProducerTests(unittest.TestCase):
         relationship = result["items"][0]
         self.assertEqual(relationship["declaration_kind"], "rust_enum")
         self.assertEqual(relationship["declaration_key"], "pse_ids::Frame")
-        self.assertEqual(
-            relationship["source_path"], "crates/pse-ids/src/derive.rs"
-        )
+        self.assertEqual(relationship["source_path"], "crates/pse-ids/src/derive.rs")
         self.assertEqual(relationship["source_symbol"], "Frame")
         self.assertEqual(relationship["source_role"], "type_definition")
         self.assertIsNone(relationship["source_identity"])

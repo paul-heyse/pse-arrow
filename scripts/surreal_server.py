@@ -736,35 +736,62 @@ def settle_legacy_telemetry_launch(
         return
     launch = storage_launch(state, config, deadline=deadline)
     allocation = Path(str(launch.get("allocation", "")))
-    if not allocation.is_absolute() or not re.fullmatch(r"[a-f0-9]{32}", allocation.name):
+    if not allocation.is_absolute() or not re.fullmatch(
+        r"[a-f0-9]{32}", allocation.name
+    ):
         raise SupervisorError("Legacy launch lacks its original allocation")
     if "binding" not in launch and not host_admission.unadmitted_service_launch_drained(
         state, unit_name(state), launch, deadline=deadline
     ):
-        raise SupervisorError("Legacy unbound launch must drain before telemetry readmission")
-    record = host_admission.readonly_snapshot(allocation.parent, deadline=deadline)["owners"].get(allocation.name)
+        raise SupervisorError(
+            "Legacy unbound launch must drain before telemetry readmission"
+        )
+    record = host_admission.readonly_snapshot(allocation.parent, deadline=deadline)[
+        "owners"
+    ].get(allocation.name)
     owner = None
     if record is not None:
         if (
-            (record.get("service") != str(state) and str(state) not in record.get("borrowed_services", []))
+            (
+                record.get("service") != str(state)
+                and str(state) not in record.get("borrowed_services", [])
+            )
             or record.get("service") not in {None, str(state)}
-            or any(selected != str(state) for selected in record.get("borrowed_services", []))
+            or any(
+                selected != str(state)
+                for selected in record.get("borrowed_services", [])
+            )
             or set(record["units"]) != {unit_name(state)}
             or record["units"].get(unit_name(state)) != launch.get("binding", {})
         ):
-            raise SupervisorError("Legacy allocation must be dedicated to this exact launch; settle its enclosing owner first")
+            raise SupervisorError(
+                "Legacy allocation must be dedicated to this exact launch; settle its enclosing owner first"
+            )
         profile = host_admission.Profile(
-            record["class"], record["memory"], record["lane"], record["slots"],
-            tuple(record["cores"]), record["exclusive"],
+            record["class"],
+            record["memory"],
+            record["lane"],
+            record["slots"],
+            tuple(record["cores"]),
+            record["exclusive"],
         )
-        owner = host_admission.Allocation(allocation.parent, allocation.name, profile, record["deadline"])
+        owner = host_admission.Allocation(
+            allocation.parent, allocation.name, profile, record["deadline"]
+        )
     stop(state, config)
     if owner is not None and not owner.release(deadline=deadline):
-        raise SupervisorError("Legacy allocation must settle before telemetry readmission")
-    if allocation.name in host_admission.readonly_snapshot(
-        allocation.parent, deadline=deadline
-    )["owners"]:
-        raise SupervisorError("Legacy allocation must settle before telemetry readmission")
+        raise SupervisorError(
+            "Legacy allocation must settle before telemetry readmission"
+        )
+    if (
+        allocation.name
+        in host_admission.readonly_snapshot(allocation.parent, deadline=deadline)[
+            "owners"
+        ]
+    ):
+        raise SupervisorError(
+            "Legacy allocation must settle before telemetry readmission"
+        )
     if read_json(path, deadline=deadline) != launch:
         raise SupervisorError("Legacy launch changed during telemetry readmission")
     path.rename(history / (uuid.uuid4().hex + "-service-launch.json"))
@@ -5841,7 +5868,9 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
                     remaining(deadline)
                 borrowed.remove(str(state))
         return
-    with host_admission.allocation_metadata(owner.directory, deadline=deadline) as ledger:
+    with host_admission.allocation_metadata(
+        owner.directory, deadline=deadline
+    ) as ledger:
         record = ledger["owners"].get(owner.nonce)
         if (
             not isinstance(record, dict)

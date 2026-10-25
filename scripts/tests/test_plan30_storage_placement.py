@@ -94,6 +94,7 @@ class StoragePlacementTests(unittest.TestCase):
             config: dict[str, object] = {
                 "instance_id": "owned",
                 "service_class": "timing",
+                "telemetry_state": str(state / "telemetry"),
                 "resources": server.execution_resources("timing"),
                 "resident": True,
             }

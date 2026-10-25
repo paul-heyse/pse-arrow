@@ -221,7 +221,8 @@ Explicit report custody conversion can move a selected drained dependency set in
 current checkout before its former worktree is removed. The resource owner copies and
 verifies every producer byte, preserves original receipt/outcome/provenance meaning,
 rebinds physical identity witnesses and dependent locations, and keeps old and current
-locators readable. Its durable reservation fences readers and disposal until conversion
+protected locators readable. Native operations use the returned current physical paths.
+Its durable reservation fences readers and disposal until conversion
 settles. A converted missing manifest remains missing; relocation grants no qualification
 or disposal authority. Worktree removal follows independent current-location verification.
 

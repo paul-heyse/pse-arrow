@@ -236,7 +236,8 @@ class HostKernelTests(unittest.TestCase):
             root = Path(temporary)
             archive = root / "retained"
             archive.mkdir()
-            output = root / "replayed"
+            output = root / "build" / "replayed"
+            output.parent.mkdir()
             invocation = root / "new-invocation.json"
             selected = [
                 {
@@ -275,6 +276,7 @@ class HostKernelTests(unittest.TestCase):
                 return 143
 
             with (
+                patch.object(test_archives, "ROOT", root),
                 patch.object(test_archives, "new_output", side_effect=allocate),
                 patch.object(
                     test_archives.arrow_validation,

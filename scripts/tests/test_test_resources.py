@@ -1829,7 +1829,9 @@ print(json.dumps({'status':'released'}),flush=True)
                 root=self.root,
             )
 
-    def test_report_custody_conversion_preserves_bytes_and_original_identity(self) -> None:
+    def test_report_custody_conversion_preserves_bytes_and_original_identity(
+        self,
+    ) -> None:
         resource, source = self.report("custody-complete")
         original = resources.resource_status(resource)
         receipt = (source / "checks.json").read_bytes()
@@ -1838,13 +1840,17 @@ print(json.dumps({'status':'released'}),flush=True)
         current = resources.resource_status(resource)
         self.assertEqual(current["state"], original["state"])
         self.assertEqual(current["disposition"], original["disposition"])
-        self.assertEqual(current["provenance_verified"], original["provenance_verified"])
+        self.assertEqual(
+            current["provenance_verified"], original["provenance_verified"]
+        )
         self.assertEqual(resources.report_resource(target), resource)
         self.assertEqual(resources.report_resource(source), resource)
         shutil.rmtree(source)
         for location in (source, target):
             with resources.borrow_report(location):
-                data, custody = resources.read_report_root(location, require_sealed=True)
+                data, custody = resources.read_report_root(
+                    location, require_sealed=True
+                )
             self.assertEqual(data, receipt)
             self.assertEqual(custody["resource"], resource)
         self.assertEqual(self.relocate([resource]), result)
@@ -1877,20 +1883,32 @@ print(json.dumps({'status':'released'}),flush=True)
         self.assertFalse(current["provenance_verified"])
         self.assertEqual(resources.eligible(current), "unverified report provenance")
 
-    def test_report_custody_conversion_moves_selected_dependency_reference(self) -> None:
+    def test_report_custody_conversion_moves_selected_dependency_reference(
+        self,
+    ) -> None:
         origin, _ = self.report("custody-origin")
         consumer, consumer_directory = self.report("custody-consumer")
         digest = "a" * 64
-        resources.retain_reference(origin, str(consumer_directory / "checks.json"), digest)
+        resources.retain_reference(
+            origin, str(consumer_directory / "checks.json"), digest
+        )
         result = self.relocate([origin, consumer])
         record = resources.resource_status(origin)
-        self.assertEqual(record["references"], {str(Path(result["reports"][consumer]) / "checks.json"): digest})
-        self.assertEqual(resources.eligible(record), "protected reference or active borrow")
+        self.assertEqual(
+            record["references"],
+            {str(Path(result["reports"][consumer]) / "checks.json"): digest},
+        )
+        self.assertEqual(
+            resources.eligible(record), "protected reference or active borrow"
+        )
 
     def test_report_custody_conversion_refuses_active_borrow_before_copy(self) -> None:
         resource, _ = self.report("custody-borrowed")
         destination = self.root / "build" / "converted-borrowed"
-        with resources.borrow(resource), self.assertRaisesRegex(resources.ResourceError, "borrowers"):
+        with (
+            resources.borrow(resource),
+            self.assertRaisesRegex(resources.ResourceError, "borrowers"),
+        ):
             self.relocate([resource], destination)
         self.assertFalse(destination.exists())
 
@@ -1913,23 +1931,39 @@ print(json.dumps({'status':'released'}),flush=True)
                 raise OSError("controlled copy interruption")
             copy(first, second)
 
-        with patch.object(resources.shutil, "copyfileobj", side_effect=interrupt), self.assertRaisesRegex(resources.ResourceError, "ownership changed"):
+        with (
+            patch.object(resources.shutil, "copyfileobj", side_effect=interrupt),
+            self.assertRaisesRegex(resources.ResourceError, "ownership changed"),
+        ):
             self.relocate([resource])
-        with self.assertRaisesRegex(resources.ResourceError, "reserved"), resources.borrow(resource):
+        with (
+            self.assertRaisesRegex(resources.ResourceError, "reserved"),
+            resources.borrow(resource),
+        ):
             pass
-        self.assertEqual(resources.eligible(resources.resource_status(resource)), "report custody conversion is reserved")
+        self.assertEqual(
+            resources.eligible(resources.resource_status(resource)),
+            "report custody conversion is reserved",
+        )
         result = self.relocate([resource])
-        self.assertEqual((Path(result["reports"][resource]) / "run.log").read_bytes(), (source / "run.log").read_bytes())
+        self.assertEqual(
+            (Path(result["reports"][resource]) / "run.log").read_bytes(),
+            (source / "run.log").read_bytes(),
+        )
         self.assertNotIn("custody_transition", resources.resource_status(resource))
 
     def test_report_custody_conversion_rejects_changed_completed_copy(self) -> None:
         resource, _ = self.report("custody-copy-tampered")
         result = self.relocate([resource])
-        (Path(result["reports"][resource]) / "run.log").write_text("tampered destination")
+        (Path(result["reports"][resource]) / "run.log").write_text(
+            "tampered destination"
+        )
         with self.assertRaisesRegex(resources.ResourceError, "evidence changed"):
             self.relocate([resource])
 
-    def test_report_custody_conversion_repairs_index_after_publication_interruption(self) -> None:
+    def test_report_custody_conversion_repairs_index_after_publication_interruption(
+        self,
+    ) -> None:
         resource, source = self.report("custody-index-interrupted")
         publish = resources.resource_store.publish
         interrupted = False
@@ -1941,7 +1975,10 @@ print(json.dumps({'status':'released'}),flush=True)
                 raise OSError("controlled index interruption")
             publish(path, value)
 
-        with patch.object(resources.resource_store, "publish", side_effect=stop_index), self.assertRaisesRegex(OSError, "controlled index"):
+        with (
+            patch.object(resources.resource_store, "publish", side_effect=stop_index),
+            self.assertRaisesRegex(OSError, "controlled index"),
+        ):
             self.relocate([resource])
         self.assertIn("report_custody", resources.resource_status(resource))
         result = self.relocate([resource])
@@ -1955,9 +1992,13 @@ print(json.dumps({'status':'released'}),flush=True)
     def test_report_custody_conversion_refuses_live_creator(self) -> None:
         resource, _ = self.report("custody-live-creator")
         with self.assertRaisesRegex(resources.ResourceError, "live creators"):
-            resources.relocate_reports([resource], self.root / "build" / "converted-live", root=self.root)
+            resources.relocate_reports(
+                [resource], self.root / "build" / "converted-live", root=self.root
+            )
 
-    def test_report_custody_conversion_refuses_symlink_source_without_effects(self) -> None:
+    def test_report_custody_conversion_refuses_symlink_source_without_effects(
+        self,
+    ) -> None:
         resource, source = self.report("custody-source-link")
         external = self.root / "external-custody-data"
         external.write_text("must survive")
@@ -1966,6 +2007,374 @@ print(json.dumps({'status':'released'}),flush=True)
             self.relocate([resource])
         self.assertEqual(external.read_text(), "must survive")
         self.assertNotIn("report_custody", resources.resource_status(resource))
+
+    def custody_creation_failure(
+        self, resource: str, destination: Path, stage: str
+    ) -> Path:
+        create_directory = resources._custody_create_directory  # noqa: SLF001 -- Inject a fault between native creation and custody publication.
+        create_file = resources._custody_create_file  # noqa: SLF001 -- Exercise the native file-creation publication boundary.
+        created = None
+
+        def directory(
+            path: Path, journal: dict, key: str, parent: int, name: str
+        ) -> list[int]:
+            nonlocal created
+            identity = create_directory(path, journal, key, parent, name)
+            if created is None and (key == stage or key.startswith(stage + ":")):
+                created = Path(f"/proc/self/fd/{parent}").readlink() / name
+                raise OSError("controlled post-creation interruption")
+            return identity
+
+        def file(
+            path: Path, journal: dict, key: str, parent: int, name: str, digest: str
+        ) -> list[int]:
+            nonlocal created
+            identity = create_file(path, journal, key, parent, name, digest)
+            if created is None and stage == "file":
+                created = Path(f"/proc/self/fd/{parent}").readlink() / name
+                raise OSError("controlled post-creation interruption")
+            return identity
+
+        with (
+            patch.object(resources, "_custody_create_directory", side_effect=directory),
+            patch.object(resources, "_custody_create_file", side_effect=file),
+            self.assertRaisesRegex(resources.ResourceError, "ownership changed"),
+        ):
+            self.relocate([resource], destination)
+        self.assertIsNotNone(created)
+        if created is None:
+            raise AssertionError("creation fault was not exercised")
+        return created
+
+    def test_report_custody_recovers_every_creation_before_identity_publication(
+        self,
+    ) -> None:
+        for stage in ("batch", "report", "directory", "file"):
+            with self.subTest(stage=stage):
+                resource, source = self.report("custody-create-" + stage)
+                (source / "logs").mkdir()
+                (source / "logs/detail.log").write_text("original owned detail")
+                destination = self.root / "build" / ("converted-create-" + stage)
+                self.custody_creation_failure(resource, destination, stage)
+                result = self.relocate([resource], destination)
+                target = Path(result["reports"][resource])
+                self.assertEqual(
+                    (target / "logs/detail.log").read_bytes(),
+                    (source / "logs/detail.log").read_bytes(),
+                )
+                self.assertNotIn(
+                    "custody_transition", resources.resource_status(resource)
+                )
+
+    def test_report_custody_unrecorded_creation_refuses_foreign_content(self) -> None:
+        for stage in ("batch", "report", "directory", "file"):
+            with self.subTest(stage=stage):
+                resource, source = self.report("custody-foreign-" + stage)
+                (source / "logs").mkdir()
+                (source / "logs/detail.log").write_text("must survive")
+                destination = self.root / "build" / ("converted-foreign-" + stage)
+                created = self.custody_creation_failure(resource, destination, stage)
+                foreign = created if stage == "file" else created / "foreign.txt"
+                foreign.write_text("foreign bytes must not be replaced")
+                with self.assertRaisesRegex(
+                    resources.ResourceError, "Unrecorded custody"
+                ):
+                    self.relocate([resource], destination)
+                self.assertEqual(
+                    foreign.read_text(), "foreign bytes must not be replaced"
+                )
+                self.assertEqual(
+                    (source / "logs/detail.log").read_text(), "must survive"
+                )
+                self.assertNotIn("report_custody", resources.resource_status(resource))
+
+    def test_report_custody_unrecorded_file_refuses_link_and_accepts_exact_bytes(
+        self,
+    ) -> None:
+        for kind in ("hardlink", "symlink", "exact"):
+            with self.subTest(kind=kind):
+                resource, source = self.report("custody-placeholder-" + kind)
+                destination = self.root / "build" / ("converted-placeholder-" + kind)
+                created = self.custody_creation_failure(resource, destination, "file")
+                external = self.root / ("external-placeholder-" + kind)
+                external.write_text("external witness")
+                if kind == "exact":
+                    created.write_bytes(
+                        (
+                            source / created.relative_to(destination / resource)
+                        ).read_bytes()
+                    )
+                    result = self.relocate([resource], destination)
+                    self.assertEqual(
+                        Path(result["reports"][resource]), destination / resource
+                    )
+                else:
+                    created.unlink()
+                    if kind == "hardlink":
+                        os.link(external, created)
+                    else:
+                        created.symlink_to(external)
+                    with self.assertRaises((resources.ResourceError, OSError)):
+                        self.relocate([resource], destination)
+                    self.assertNotIn(
+                        "report_custody", resources.resource_status(resource)
+                    )
+                self.assertEqual(external.read_text(), "external witness")
+
+    def test_report_custody_batch_readiness_refusal_leaves_all_unreserved(self) -> None:
+        for live in (False, True):
+            with self.subTest(live_creator=live):
+                records = [
+                    self.report(f"custody-readiness-{live}-{index}")
+                    for index in range(2)
+                ]
+                first, second = sorted(resource for resource, _ in records)
+                destination = self.root / "build" / f"converted-readiness-{live}"
+                if live:
+
+                    def creator(
+                        record: Mapping[str, object], selected: str = second
+                    ) -> bool:
+                        return (
+                            record.get("state")
+                            == resources.resource_status(selected)["state"]
+                        )
+
+                    with (
+                        patch.object(resources, "borrower_alive", side_effect=creator),
+                        self.assertRaisesRegex(
+                            resources.ResourceError, "live creators"
+                        ),
+                    ):
+                        resources.relocate_reports(
+                            [first, second], destination, root=self.root
+                        )
+                else:
+                    with (
+                        resources.borrow(second),
+                        self.assertRaisesRegex(resources.ResourceError, "borrowers"),
+                    ):
+                        self.relocate([first, second], destination)
+                for resource, path in records:
+                    self.assertNotIn(
+                        "custody_transition", resources.resource_status(resource)
+                    )
+                    with resources.borrow_report(path):
+                        resources.read_report_root(path)
+                self.assertFalse(destination.exists())
+
+    def test_report_custody_pre_effect_race_unwinds_only_unchanged_reservations(
+        self,
+    ) -> None:
+        records = [
+            self.report("custody-reservation-race-" + str(index)) for index in range(2)
+        ]
+        first, second = sorted(resource for resource, _ in records)
+        update = resources.resource_update
+        mutated = False
+
+        @contextlib.contextmanager
+        def race(
+            resource: str,
+            *,
+            deadline: float | None = None,
+            store: resources.resource_store.FileStore | None = None,
+            custody_transition: bool = False,
+        ) -> Generator[resources.ResourceRecord, None, None]:
+            nonlocal mutated
+            if resource == second and not mutated:
+                mutated = True
+                with update(second) as record:
+                    record["pin"] = True
+            with update(
+                resource,
+                deadline=deadline,
+                store=store,
+                custody_transition=custody_transition,
+            ) as record:
+                yield record
+
+        destination = self.root / "build" / "converted-reservation-race"
+        with (
+            patch.object(resources, "resource_update", side_effect=race),
+            self.assertRaisesRegex(resources.ResourceError, "authority changed"),
+        ):
+            self.relocate([first, second], destination)
+        for resource, path in records:
+            self.assertNotIn("custody_transition", resources.resource_status(resource))
+            with resources.borrow_report(path):
+                resources.read_report_root(path)
+        self.assertTrue(resources.resource_status(second)["pin"])
+        self.assertFalse(destination.exists())
+        self.relocate([first, second], destination)
+
+    def test_report_custody_expired_snapshot_creates_no_late_payload_or_reservation(
+        self,
+    ) -> None:
+        resource, source = self.report("custody-expired-snapshot")
+        destination = self.root / "build" / "converted-expired-snapshot"
+        now = resources.time.monotonic()
+        deadline = now + 30
+        observed = now
+        snapshot = resources._custody_snapshot  # noqa: SLF001 -- Expire the original clock immediately after its read-only snapshot.
+
+        def expire(record: resources.ResourceRecord) -> dict:
+            nonlocal observed
+            result = snapshot(record)
+            observed = deadline + 1
+            return result
+
+        with (
+            patch.object(resources.time, "monotonic", side_effect=lambda: observed),
+            patch.object(resources, "_custody_snapshot", side_effect=expire),
+            patch.object(resources, "borrower_alive", return_value=False),
+            self.assertRaises(resources.host.AdmissionError),
+        ):
+            resources.relocate_reports(
+                [resource], destination, root=self.root, deadline=deadline
+            )
+        self.assertFalse(destination.exists())
+        self.assertNotIn("custody_transition", resources.resource_status(resource))
+        with resources.borrow_report(source):
+            resources.read_report_root(source)
+
+    def test_report_custody_recovers_read_only_copy_before_completion_publication(
+        self,
+    ) -> None:
+        resource, source = self.report("custody-read-only")
+        (source / "run.log").chmod(0o400)
+        destination = self.root / "build" / "converted-read-only"
+        chmod = os.fchmod
+        open_file = os.open
+        interrupted = False
+
+        def stop_after_mode(descriptor: int, mode: int) -> None:
+            nonlocal interrupted
+            chmod(descriptor, mode)
+            path = Path(f"/proc/self/fd/{descriptor}").readlink()
+            if not interrupted and mode == 0o400 and path.is_relative_to(destination):
+                interrupted = True
+                raise OSError("controlled post-chmod interruption")
+
+        def refuse_read_only_write(
+            path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+            flags: int,
+            mode: int = 0o777,
+            *,
+            dir_fd: int | None = None,
+        ) -> int:
+            if flags & (os.O_WRONLY | os.O_RDWR):
+                try:
+                    information = os.stat(path, dir_fd=dir_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    pass
+                else:
+                    if (
+                        resources.stat.S_ISREG(information.st_mode)
+                        and not information.st_mode & 0o200
+                    ):
+                        raise AssertionError(
+                            "read-only completed copy was reopened for writing"
+                        )
+            return open_file(path, flags, mode, dir_fd=dir_fd)
+
+        with (
+            patch.object(resources.os, "fchmod", side_effect=stop_after_mode),
+            self.assertRaisesRegex(resources.ResourceError, "ownership changed"),
+        ):
+            self.relocate([resource], destination)
+        self.assertTrue(interrupted)
+        target = destination / resource / "run.log"
+        self.assertEqual(resources.stat.S_IMODE(target.stat().st_mode), 0o400)
+        with patch.object(resources.os, "open", side_effect=refuse_read_only_write):
+            result = self.relocate([resource], destination)
+        self.assertEqual(
+            (Path(result["reports"][resource]) / "run.log").read_bytes(),
+            (source / "run.log").read_bytes(),
+        )
+        self.assertEqual(resources.stat.S_IMODE(target.stat().st_mode), 0o400)
+
+    def test_report_custody_timeout_settles_lease_and_retries_in_same_live_process(
+        self,
+    ) -> None:
+        for stage in ("reservation", "copy"):
+            with self.subTest(stage=stage):
+                self.custody_timeout_case(stage)
+
+    def custody_timeout_case(self, stage: str) -> None:
+        resource, source = self.report("custody-timeout-" + stage)
+        creator = subprocess.Popen([sys.executable, "-c", "pass"])
+        start = resources.operation.start_identity(creator.pid)
+        creator.wait(timeout=5)
+        with resources.resource_update(resource) as record:
+            record.update(pid=creator.pid, start=start, boot=resources.host.boot())
+        self.assertFalse(resources.borrower_alive(resources.resource_status(resource)))
+        destination = self.root / "build" / ("converted-timeout-" + stage)
+        observed = resources.time.monotonic()
+        deadline = observed + 30
+        expired = False
+        create = resources._custody_create_directory  # noqa: SLF001 -- Inject expiry after reservation but before native creation.
+        copy = resources._custody_copy  # noqa: SLF001 -- Inject expiry after the complete native byte-copy phase.
+
+        def expire_before_create(
+            path: Path, journal: dict, key: str, parent: int, name: str
+        ) -> list[int]:
+            nonlocal observed, expired
+            if stage == "reservation" and not expired:
+                expired = True
+                observed = deadline + 1
+            return create(path, journal, key, parent, name)
+
+        def expire_after_copy(
+            path: Path, journal: dict, item: dict, *, deadline: float
+        ) -> None:
+            nonlocal observed, expired
+            copy(path, journal, item, deadline=deadline)
+            if stage == "copy" and not expired:
+                expired = True
+                observed = deadline + 1
+
+        with (
+            patch.object(resources.time, "monotonic", side_effect=lambda: observed),
+            patch.object(
+                resources,
+                "_custody_create_directory",
+                side_effect=expire_before_create,
+            ),
+            patch.object(resources, "_custody_copy", side_effect=expire_after_copy),
+        ):
+            with self.assertRaises(resources.host.AdmissionError):
+                resources.relocate_reports(
+                    [resource], destination, root=self.root, deadline=deadline
+                )
+            current = resources.resource_status(resource)
+            self.assertNotIn("report_custody", current)
+            self.assertEqual(destination.exists(), stage == "copy")
+            batch = resources.resource_store.digest(
+                {
+                    "resources": [resource],
+                    "destination": str(destination),
+                    "root": str(self.root.resolve()),
+                }
+            )
+            journal = resources.resource_store.read(
+                resources.storage().path("report-custody", batch)
+            )
+            self.assertNotIn("owner", journal)
+            self.assertEqual(journal["settlement"]["kind"], "metadata-only")
+            self.assertEqual(
+                journal["phase"],
+                "aborted" if stage == "reservation" else "interrupted",
+            )
+            observed += 1
+            result = resources.relocate_reports(
+                [resource], destination, root=self.root, deadline=observed + 30
+            )
+        self.assertEqual(
+            (Path(result["reports"][resource]) / "run.log").read_bytes(),
+            (source / "run.log").read_bytes(),
+        )
+        self.assertNotIn("custody_transition", resources.resource_status(resource))
 
     def test_report_compaction_refuses_symlinked_artifact_ancestor(self) -> None:
         directory = self.root / "build" / "ancestor"

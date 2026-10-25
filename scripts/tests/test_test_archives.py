@@ -235,7 +235,9 @@ class ArchiveClosureTests(unittest.TestCase):
             archives.replay(self.archive, self.root / "build" / "replay")
         allocate.assert_not_called()
 
-    def test_replay_preflight_refusal_allocates_no_output_or_archive_reference(self) -> None:
+    def test_replay_preflight_refusal_allocates_no_output_or_archive_reference(
+        self,
+    ) -> None:
         resource = self.sealed_archive()
         before = resources.resource_status(resource)
         output = self.root / "build" / "refused-replay"

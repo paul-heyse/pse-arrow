@@ -298,20 +298,32 @@ class Fixture:
                     and after.get("ControlGroup", "") in {"", group},
                     "fixture.stop_identity_changed",
                 )
-                if after.get("ActiveState") in {"deactivating", "active"} and after.get("MainPID") == "0":
+                if (
+                    after.get("ActiveState") in {"deactivating", "active"}
+                    and after.get("MainPID") == "0"
+                ):
                     return False
                 current = service._checked_process(config, name, after)  # noqa: SLF001 -- Reject changed unit/process ownership during drain.
                 if current is not None:
                     require(current == previous, "fixture.stop_identity_changed")
                     return False
                 if after.get("MainPID") != "0" or after.get("ActiveState") not in {
-                    "inactive", "failed"
+                    "inactive",
+                    "failed",
                 }:
                     return False
-                if events.exists() and "populated 0" not in events.read_text().splitlines():
+                if (
+                    events.exists()
+                    and "populated 0" not in events.read_text().splitlines()
+                ):
                     return False
                 try:
-                    fields = (Path("/proc") / str(previous["pid"]) / "stat").read_text().rsplit(")", 1)[1].split()
+                    fields = (
+                        (Path("/proc") / str(previous["pid"]) / "stat")
+                        .read_text()
+                        .rsplit(")", 1)[1]
+                        .split()
+                    )
                 except FileNotFoundError:
                     return True
                 return int(fields[19]) != previous["start_ticks"]

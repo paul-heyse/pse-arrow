@@ -977,7 +977,9 @@ class PreparationCurrencyTests(unittest.TestCase):
                     ),
                 )
 
-    def test_installed_currency_keeps_runtime_selectors_separate_from_unknown_build_inputs(self) -> None:
+    def test_installed_currency_keeps_runtime_selectors_separate_from_unknown_build_inputs(
+        self,
+    ) -> None:
         self.record_extension()
         original = self.currency()
         self.assertEqual(original.state, "current")
@@ -1006,7 +1008,10 @@ class PreparationCurrencyTests(unittest.TestCase):
                 {**changed, "OTEL_UNKNOWN_COMPILER_SELECTOR": private}, mode="dev"
             )
         self.assertEqual(stale.state, "stale")
-        self.assertEqual(stale.input_changes.environment_keys, ("OTEL_UNKNOWN_COMPILER_SELECTOR",))
+        assert stale.input_changes is not None
+        self.assertEqual(
+            stale.input_changes.environment_keys, ("OTEL_UNKNOWN_COMPILER_SELECTOR",)
+        )
         self.assertNotIn(private, stale.model_dump_json())
         imported.assert_not_called()
 

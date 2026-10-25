@@ -40,6 +40,7 @@ IDENTIFIER = re.compile(r"[a-f0-9]{32}")
 DATABASE = re.compile(r"canonical_test_(?:[a-z0-9_]{1,48}_)?[a-f0-9]{32}")
 NAMESPACE = re.compile(r"canonical_test_ns_[a-f0-9]{32}")
 CLEANUP_TIMEOUT_SECONDS = 90
+CUSTODY_SETTLEMENT_SECONDS = 5
 
 
 class ProcessIdentity(TypedDict):
@@ -214,7 +215,9 @@ def resource_update(
                 raise ResourceError("Unknown resource identity")
             record = entry_facts(entry)
             if record.get("custody_transition") and not custody_transition:
-                raise ResourceError("Report custody conversion is reserved; resume its owner")
+                raise ResourceError(
+                    "Report custody conversion is reserved; resume its owner"
+                )
             identity = resource_identity(record)
             acquired = {
                 key: record.get(key)
@@ -1241,8 +1244,14 @@ def report_location(record: ResourceRecord) -> ReportLocation:
     """Physical custody may move; the report's original logical identity does not."""
     location = record.get("report_custody")
     state = location["state"] if location is not None else record.get("state")
-    owner_root = location["owner_root"] if location is not None else record.get("owner_root")
-    identity = location["directory_identity"] if location is not None else record.get("directory_identity")
+    owner_root = (
+        location["owner_root"] if location is not None else record.get("owner_root")
+    )
+    identity = (
+        location["directory_identity"]
+        if location is not None
+        else record.get("directory_identity")
+    )
     if (
         not isinstance(state, str)
         or not isinstance(owner_root, str)
@@ -1272,14 +1281,20 @@ def _custody_snapshot(record: ResourceRecord) -> dict:
                 raise ResourceError("Report custody contains a foreign owner")
             relative = str(path.relative_to(directory))
             if stat.S_ISDIR(information.st_mode):
-                directories[relative] = [information.st_dev, information.st_ino, information.st_uid]
+                directories[relative] = [
+                    information.st_dev,
+                    information.st_ino,
+                    information.st_uid,
+                ]
             elif stat.S_ISREG(information.st_mode):
                 observed = observe_artifact(descriptor, relative)
                 if manifest is not None and relative in manifest["entries"]:
                     observed["role"] = manifest["entries"][relative]["role"]
                 files[relative] = observed
             else:
-                raise ResourceError("Report custody cannot traverse symlinks or special files")
+                raise ResourceError(
+                    "Report custody cannot traverse symlinks or special files"
+                )
     return {"location": location, "files": files, "directories": directories}
 
 
@@ -1293,10 +1308,14 @@ def _custody_ready(record: ResourceRecord, *, deadline: float) -> None:
         or record.get("creation_borrower")
         or borrower_alive(record)
     ):
-        raise ResourceError("Report conversion requires an owned drained report without live creators or borrowers")
+        raise ResourceError(
+            "Report conversion requires an owned drained report without live creators or borrowers"
+        )
     for unit in record["units"]:
         if not operation.drained({"scope": unit}, deadline=deadline).complete:
-            raise ResourceError("Report conversion requires authenticated descendant drain")
+            raise ResourceError(
+                "Report conversion requires authenticated descendant drain"
+            )
 
 
 @contextlib.contextmanager
@@ -1310,13 +1329,144 @@ def _custody_parent(
     with contextlib.ExitStack() as opened:
         parent = descriptor
         for index, component in enumerate(parts[:-1]):
-            parent = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+            parent = os.open(
+                component,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                dir_fd=parent,
+            )
             opened.callback(os.close, parent)
             information = os.fstat(parent)
-            expected = directories.get(str(Path(*parts[:index + 1])))
+            expected = directories.get(str(Path(*parts[: index + 1])))
             if expected != [information.st_dev, information.st_ino, information.st_uid]:
                 raise ResourceError("Destination report ancestor identity changed")
         yield parent
+
+
+def _custody_publish(journal_path: Path, journal: dict) -> None:
+    """Keep every custody mutation on this attempt's original control clock."""
+    host.remaining(float(journal["deadline"]), 1)
+    resource_store.publish(journal_path, journal)
+
+
+def _custody_creation_intent(
+    journal_path: Path,
+    journal: dict,
+    key: str,
+    parent: int,
+    name: str,
+    kind: str,
+    digest: str | None = None,
+) -> bool:
+    """Reserve a name in an exact owned parent before its first filesystem effect."""
+    host.remaining(float(journal["deadline"]), 1)
+    information = os.fstat(parent)
+    if not stat.S_ISDIR(information.st_mode) or information.st_uid != os.getuid():
+        raise ResourceError("Custody creation parent lost owned directory authority")
+    intent = {
+        "parent": [information.st_dev, information.st_ino, information.st_uid],
+        "name": name,
+        "kind": kind,
+        "digest": digest,
+    }
+    intents = journal.setdefault("creation_intents", {})
+    if key in intents:
+        if intents[key] != intent:
+            raise ResourceError("Custody creation intent or parent identity changed")
+        return True
+    intents[key] = intent
+    _custody_publish(journal_path, journal)
+    return False
+
+
+def _custody_create_directory(
+    journal_path: Path, journal: dict, key: str, parent: int, name: str
+) -> list[int]:
+    """Recover only an empty private directory in this reserved creation slot."""
+    recovering = _custody_creation_intent(
+        journal_path, journal, key, parent, name, "directory"
+    )
+    host.remaining(float(journal["deadline"]), 1)
+    try:
+        os.mkdir(name, mode=0o700, dir_fd=parent)
+    except FileExistsError:
+        if not recovering:
+            raise ResourceError(
+                "Custody creation name was already occupied before its intent"
+            ) from None
+    descriptor = os.open(
+        name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent
+    )
+    try:
+        information = os.fstat(descriptor)
+        with os.scandir(descriptor) as entries:
+            populated = next(entries, None) is not None
+        if (
+            information.st_uid != os.getuid()
+            or stat.S_IMODE(information.st_mode) != 0o700
+            or populated
+        ):
+            raise ResourceError(
+                "Unrecorded custody directory is not an empty private creation"
+            )
+        os.fsync(descriptor)
+        os.fsync(parent)
+        return [information.st_dev, information.st_ino, information.st_uid]
+    finally:
+        os.close(descriptor)
+
+
+def _custody_create_file(
+    journal_path: Path,
+    journal: dict,
+    key: str,
+    parent: int,
+    name: str,
+    digest: str,
+) -> list[int]:
+    """Recover a reserved empty placeholder or exact original bytes, never foreign data."""
+    recovering = _custody_creation_intent(
+        journal_path, journal, key, parent, name, "file", digest
+    )
+    host.remaining(float(journal["deadline"]), 1)
+    try:
+        descriptor = os.open(
+            name,
+            os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+            dir_fd=parent,
+        )
+    except FileExistsError:
+        if not recovering:
+            raise ResourceError(
+                "Custody file name was already occupied before its intent"
+            ) from None
+        descriptor = os.open(
+            name,
+            os.O_RDWR | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=parent,
+        )
+    try:
+        information = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(information.st_mode)
+            or information.st_uid != os.getuid()
+            or information.st_nlink != 1
+            or stat.S_IMODE(information.st_mode) != 0o600
+        ):
+            raise ResourceError(
+                "Unrecorded custody file is not a private single-link creation"
+            )
+        if information.st_size:
+            with os.fdopen(os.dup(descriptor), "rb") as source:
+                if hashlib.file_digest(source, "sha256").hexdigest() != digest:
+                    raise ResourceError(
+                        "Unrecorded custody file contains foreign or changed bytes"
+                    )
+        os.fsync(descriptor)
+        os.fsync(parent)
+        return [information.st_dev, information.st_ino, information.st_uid]
+    finally:
+        os.close(descriptor)
 
 
 def _custody_copy(
@@ -1338,11 +1488,11 @@ def _custody_copy(
             "directory_identity": journal["destination_identity"][:2],
         }
         with report_directory(base) as descriptor:
-            os.mkdir(target.name, mode=0o700, dir_fd=descriptor)
-            os.fsync(descriptor)
-        information = target.stat()
-        item["destination_identity"] = [information.st_dev, information.st_ino]
-        resource_store.publish(journal_path, journal)
+            identity = _custody_create_directory(
+                journal_path, journal, "report:" + target.name, descriptor, target.name
+            )
+        item["destination_identity"] = identity[:2]
+        _custody_publish(journal_path, journal)
     information = target.lstat()
     if (
         not stat.S_ISDIR(information.st_mode)
@@ -1357,69 +1507,406 @@ def _custody_copy(
     }
     directories = item.setdefault("directories", {})
     copied = item.setdefault("files", {})
-    with report_directory(source) as descriptor, report_directory(target_record) as target_descriptor:
+    with (
+        report_directory(source) as descriptor,
+        report_directory(target_record) as target_descriptor,
+    ):
         for relative in expected["directories"]:
             with _custody_parent(target_descriptor, relative, directories) as parent:
                 if relative not in directories:
-                    os.mkdir(Path(relative).name, mode=0o700, dir_fd=parent)
-                    information = os.stat(Path(relative).name, dir_fd=parent, follow_symlinks=False)
-                    directories[relative] = [information.st_dev, information.st_ino, information.st_uid]
-                    os.fsync(parent)
-                    resource_store.publish(journal_path, journal)
-                information = os.stat(Path(relative).name, dir_fd=parent, follow_symlinks=False)
+                    directories[relative] = _custody_create_directory(
+                        journal_path,
+                        journal,
+                        "directory:" + target.name + ":" + relative,
+                        parent,
+                        Path(relative).name,
+                    )
+                    _custody_publish(journal_path, journal)
+                information = os.stat(
+                    Path(relative).name, dir_fd=parent, follow_symlinks=False
+                )
                 if (
                     not stat.S_ISDIR(information.st_mode)
-                    or [information.st_dev, information.st_ino, information.st_uid] != directories[relative]
+                    or [information.st_dev, information.st_ino, information.st_uid]
+                    != directories[relative]
                 ):
                     raise ResourceError("Destination report subdirectory changed")
         for relative, artifact in expected["files"].items():
             host.remaining(deadline, 1)
             with _custody_parent(target_descriptor, relative, directories) as parent:
                 if relative not in copied:
-                    created = os.open(Path(relative).name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=parent)
-                    information = os.fstat(created)
-                    os.fsync(created)
-                    os.close(created)
-                    os.fsync(parent)
                     copied[relative] = {
-                        "identity": [information.st_dev, information.st_ino, information.st_uid],
+                        "identity": _custody_create_file(
+                            journal_path,
+                            journal,
+                            "file:" + target.name + ":" + relative,
+                            parent,
+                            Path(relative).name,
+                            artifact["digest"],
+                        ),
                         "complete": False,
                     }
-                    resource_store.publish(journal_path, journal)
+                    _custody_publish(journal_path, journal)
                 selected = copied[relative]
-                information = os.stat(Path(relative).name, dir_fd=parent, follow_symlinks=False)
+                information = os.stat(
+                    Path(relative).name, dir_fd=parent, follow_symlinks=False
+                )
                 if (
                     not stat.S_ISREG(information.st_mode)
-                    or [information.st_dev, information.st_ino, information.st_uid] != selected["identity"]
+                    or information.st_nlink != 1
+                    or [information.st_dev, information.st_ino, information.st_uid]
+                    != selected["identity"]
                 ):
                     raise ResourceError("Destination report artifact identity changed")
-                if selected["complete"]:
-                    if observe_artifact(target_descriptor, relative)["digest"] != artifact["digest"]:
-                        raise ResourceError("Copied report artifact changed")
+                current_digest = observe_artifact(target_descriptor, relative)["digest"]
+                if current_digest == artifact["digest"]:
+                    if not selected["complete"]:
+                        with (
+                            artifact_file(descriptor, relative) as (_, _, original),
+                            artifact_file(target_descriptor, relative) as (
+                                _,
+                                _,
+                                copied_file,
+                            ),
+                        ):
+                            witness = os.fstat(copied_file.fileno())
+                            if (
+                                witness.st_nlink != 1
+                                or [witness.st_dev, witness.st_ino, witness.st_uid]
+                                != selected["identity"]
+                            ):
+                                raise ResourceError(
+                                    "Completed custody file identity changed"
+                                )
+                            host.remaining(deadline, 1)
+                            os.fchmod(
+                                copied_file.fileno(),
+                                stat.S_IMODE(os.fstat(original.fileno()).st_mode),
+                            )
+                            os.fsync(copied_file.fileno())
+                        selected["complete"] = True
+                        _custody_publish(journal_path, journal)
                     continue
+                if selected["complete"]:
+                    raise ResourceError("Copied report artifact changed")
                 with artifact_file(descriptor, relative) as (_, _, stream):
-                    if observe_artifact(descriptor, relative)["digest"] != artifact["digest"]:
+                    if (
+                        observe_artifact(descriptor, relative)["digest"]
+                        != artifact["digest"]
+                    ):
                         raise ResourceError("Source report artifact changed")
-                    output = os.open(Path(relative).name, os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+                    host.remaining(deadline, 1)
+                    output = os.open(
+                        Path(relative).name,
+                        os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                        dir_fd=parent,
+                    )
                     with os.fdopen(output, "wb") as destination:
                         information = os.fstat(output)
-                        if [information.st_dev, information.st_ino, information.st_uid] != selected["identity"]:
-                            raise ResourceError("Destination report artifact changed before copy")
+                        if [
+                            information.st_dev,
+                            information.st_ino,
+                            information.st_uid,
+                        ] != selected["identity"]:
+                            raise ResourceError(
+                                "Destination report artifact changed before copy"
+                            )
                         destination.truncate(0)
                         shutil.copyfileobj(stream, destination)
                         destination.flush()
-                        os.fchmod(destination.fileno(), stat.S_IMODE(os.fstat(stream.fileno()).st_mode))
+                        os.fchmod(
+                            destination.fileno(),
+                            stat.S_IMODE(os.fstat(stream.fileno()).st_mode),
+                        )
                         os.fsync(destination.fileno())
-                if observe_artifact(target_descriptor, relative)["digest"] != artifact["digest"]:
+                if (
+                    observe_artifact(target_descriptor, relative)["digest"]
+                    != artifact["digest"]
+                ):
                     raise ResourceError("Report byte copy differs from original")
                 selected["complete"] = True
-                resource_store.publish(journal_path, journal)
+                _custody_publish(journal_path, journal)
     if _custody_snapshot(source) != expected:
         raise ResourceError("Source report changed before custody publication")
     actual = {str(path.relative_to(target)) for path in target.rglob("*")}
     if actual != set(expected["directories"]) | set(expected["files"]):
         raise ResourceError("Unexpected file in destination report custody")
+    host.remaining(deadline, 1)
     resource_store.sync_directory(target)
+
+
+def _custody_abort_unstarted(journal: dict, *, deadline: float) -> bool:
+    """Release exact unchanged reservations only before any possible payload effect."""
+    if journal.get("creation_intents") or journal.get("destination_identity"):
+        return False
+    for resource, item in journal["items"].items():
+        current = resource_status(resource, deadline=deadline)
+        if current.get("custody_transition", {}).get("batch") != journal["batch"]:
+            continue
+        with resource_update(
+            resource, deadline=deadline, custody_transition=True
+        ) as record:
+            expected = {
+                **item["original"],
+                "custody_transition": {
+                    "batch": journal["batch"],
+                    "journal": str(storage().path("report-custody", journal["batch"])),
+                },
+            }
+            if record != expected:
+                return False
+            record.pop("custody_transition")
+    return True
+
+
+def _custody_settle_failure(
+    store: resource_store.FileStore,
+    journal_path: Path,
+    journal: dict,
+    owner: Mapping[str, object],
+    *,
+    payload_deadline: float,
+) -> None:
+    """Settle metadata ownership on a separate bounded clock; never continue payload work."""
+    deadline = time.monotonic() + CUSTODY_SETTLEMENT_SECONDS
+    with store.lock("report-custody", journal_path.stem, deadline):
+        durable = resource_store.read(journal_path)
+        if durable.get("phase") == "complete" or durable.get("owner") != owner:
+            return
+        journal["phase"] = (
+            "aborted"
+            if _custody_abort_unstarted(journal, deadline=deadline)
+            else "interrupted"
+        )
+        journal.pop("owner", None)
+        journal["settlement"] = {
+            "kind": "metadata-only",
+            "payload_deadline": payload_deadline,
+            "allowance_seconds": CUSTODY_SETTLEMENT_SECONDS,
+        }
+        host.remaining(deadline, 1)
+        resource_store.publish(journal_path, journal)
+
+
+def _custody_relocate(
+    store: resource_store.FileStore,
+    journal_path: Path,
+    journal: dict,
+    selected: list[str],
+    destination: Path,
+    root: Path,
+    batch: str,
+    owner: Mapping[str, object],
+    deadline: float,
+) -> dict:
+    """Run the exact custody transaction under the public owner's failure settlement."""
+    with store.lock("report-custody", batch, deadline):
+        if journal_path.exists():
+            journal.update(resource_store.read(journal_path))
+            if (
+                journal.get("version") != 1
+                or journal.get("resources") != selected
+                or journal.get("destination") != str(destination)
+                or journal.get("root") != str(root)
+            ):
+                raise ResourceError("Report custody journal identity changed")
+            if journal.get("phase") != "complete" and borrower_alive(
+                journal.get("owner", {})
+            ):
+                raise ResourceError(
+                    "Report custody conversion still has a live effect owner"
+                )
+        else:
+            if destination.exists():
+                raise ResourceError("Report custody destination must be fresh")
+            journal.update(
+                {
+                    "version": 1,
+                    "batch": batch,
+                    "resources": selected,
+                    "destination": str(destination),
+                    "root": str(root),
+                    "phase": "preparing",
+                    "items": {},
+                }
+            )
+
+        complete = journal.get("phase") == "complete"
+        journal["deadline"] = deadline
+        if not complete:
+            if journal.get("phase") == "aborted":
+                journal.setdefault("aborted_attempts", []).append(journal["items"])
+                journal["items"] = {}
+                journal["phase"] = "preparing"
+            journal["owner"] = owner
+            _custody_publish(journal_path, journal)
+    if not complete:
+        for resource in selected:
+            if resource not in journal["items"]:
+                original = resource_status(resource, deadline=deadline)
+                _custody_ready(original, deadline=deadline)
+                if original.get("custody_transition"):
+                    raise ResourceError(
+                        "Report already belongs to another custody conversion"
+                    )
+                journal["items"][resource] = {
+                    "original": original,
+                    "snapshot": _custody_snapshot(original),
+                    "destination": str(destination / resource),
+                }
+                _custody_publish(journal_path, journal)
+        # Readiness for the whole batch precedes its first reservation.
+        # Each exact authority is checked again under exclusion below.
+        for resource in selected:
+            item = journal["items"][resource]
+            with resource_update(
+                resource, deadline=deadline, custody_transition=True
+            ) as record:
+                transition = record.get("custody_transition")
+                if transition is None:
+                    if record != item["original"]:
+                        raise ResourceError(
+                            "Report authority changed before custody reservation"
+                        )
+                    _custody_ready(record, deadline=deadline)
+                    record["custody_transition"] = {
+                        "batch": batch,
+                        "journal": str(journal_path),
+                    }
+                elif transition.get("batch") != batch:
+                    raise ResourceError("Report belongs to another custody reservation")
+        if "destination_identity" not in journal:
+            parent_information = destination.parent.stat()
+            parent_record: ResourceRecord = {
+                "state": str(destination.parent),
+                "owner_root": str(root),
+                "directory_identity": [
+                    parent_information.st_dev,
+                    parent_information.st_ino,
+                ],
+            }
+            with report_directory(parent_record) as parent:
+                journal["destination_identity"] = _custody_create_directory(
+                    journal_path, journal, "batch", parent, destination.name
+                )
+            _custody_publish(journal_path, journal)
+        information = destination.lstat()
+        if (
+            not stat.S_ISDIR(information.st_mode)
+            or [information.st_dev, information.st_ino, information.st_uid]
+            != journal["destination_identity"]
+        ):
+            raise ResourceError("Conversion destination ownership changed")
+        journal["phase"] = "copying"
+        _custody_publish(journal_path, journal)
+        for resource in selected:
+            _custody_copy(
+                journal_path, journal, journal["items"][resource], deadline=deadline
+            )
+        paths = {
+            item["snapshot"]["location"]["state"]: item["destination"]
+            for item in journal["items"].values()
+        }
+        for resource in selected:
+            item = journal["items"][resource]
+            location: ReportLocation = {
+                "state": item["destination"],
+                "owner_root": str(root),
+                "directory_identity": item["destination_identity"],
+            }
+            with resource_update(
+                resource, deadline=deadline, custody_transition=True
+            ) as record:
+                if record.get("report_custody") == location:
+                    host.remaining(deadline, 1)
+                    resource_store.publish(
+                        store.path(
+                            "report-locations",
+                            resource_store.digest(item["destination"]),
+                        ),
+                        {
+                            "state": item["destination"],
+                            "resource": resource,
+                            "batch": batch,
+                        },
+                    )
+                    continue
+                expected_record = {
+                    **item["original"],
+                    "custody_transition": {
+                        "batch": batch,
+                        "journal": str(journal_path),
+                    },
+                }
+                if record != expected_record:
+                    raise ResourceError("Report authority changed during conversion")
+                record["report_custody"] = location
+                record.setdefault("custody_history", []).append(
+                    {
+                        "batch": batch,
+                        "journal": str(journal_path),
+                        "source": item["snapshot"]["location"],
+                    }
+                )
+                manifest = record.get("artifact_manifest")
+                if manifest is not None:
+                    for relative, artifact in manifest["entries"].items():
+                        if relative in item["files"]:
+                            artifact["identity"] = item["files"][relative]["identity"]
+                references = {}
+                for reference, digest in record["references"].items():
+                    replacement = reference
+                    for original_path, target_path in paths.items():
+                        if Path(reference).is_relative_to(original_path):
+                            replacement = str(
+                                Path(target_path)
+                                / Path(reference).relative_to(original_path)
+                            )
+                            break
+                    if replacement in references and references[replacement] != digest:
+                        raise ResourceError("Converted report references conflict")
+                    references[replacement] = digest
+                record["references"] = references
+            host.remaining(deadline, 1)
+            resource_store.publish(
+                store.path(
+                    "report-locations", resource_store.digest(item["destination"])
+                ),
+                {
+                    "state": item["destination"],
+                    "resource": resource,
+                    "batch": batch,
+                },
+            )
+        journal["phase"] = "complete"
+        journal.pop("owner", None)
+        _custody_publish(journal_path, journal)
+    for resource in selected:
+        item = journal["items"][resource]
+        record = resource_status(resource, deadline=deadline)
+        with report_directory(record) as descriptor:
+            for relative, artifact in item["snapshot"]["files"].items():
+                observed = observe_artifact(descriptor, relative)
+                if (
+                    observed["digest"] != artifact["digest"]
+                    or observed["identity"] != item["files"][relative]["identity"]
+                ):
+                    raise ResourceError("Converted producer evidence changed")
+        with resource_update(
+            resource, deadline=deadline, custody_transition=True
+        ) as current:
+            host.remaining(deadline, 1)
+            if current.get("custody_transition", {}).get("batch") == batch:
+                current.pop("custody_transition", None)
+    return {
+        "version": 1,
+        "status": "complete",
+        "batch": batch,
+        "journal": str(journal_path),
+        "reports": {
+            resource: item["destination"] for resource, item in journal["items"].items()
+        },
+    }
 
 
 def relocate_reports(
@@ -1438,8 +1925,14 @@ def relocate_reports(
     """
     deadline = time.monotonic() + 300 if deadline is None else deadline
     selected = sorted(resources)
-    if not selected or len(set(selected)) != len(selected) or any(not IDENTIFIER.fullmatch(value) for value in selected):
-        raise ResourceError("Report conversion requires distinct exact resource identities")
+    if (
+        not selected
+        or len(set(selected)) != len(selected)
+        or any(not IDENTIFIER.fullmatch(value) for value in selected)
+    ):
+        raise ResourceError(
+            "Report conversion requires distinct exact resource identities"
+        )
     root = root.resolve()
     destination = destination.absolute()
     if (
@@ -1447,109 +1940,48 @@ def relocate_reports(
         or ".." in destination.parts
         or any(path.is_symlink() for path in (destination, *destination.parents))
     ):
-        raise ResourceError("Converted reports require an owned current-checkout build directory")
+        raise ResourceError(
+            "Converted reports require an owned current-checkout build directory"
+        )
+    if not destination.parent.is_dir():
+        raise ResourceError(
+            "Report custody destination requires an existing owned build parent"
+        )
     store = storage()
     store.ensure(deadline)
-    batch = resource_store.digest({"resources": selected, "destination": str(destination), "root": str(root)})
+    batch = resource_store.digest(
+        {"resources": selected, "destination": str(destination), "root": str(root)}
+    )
     journal_path = store.path("report-custody", batch)
-    owner = {"pid": os.getpid(), "start": operation.start_identity(os.getpid()), "boot": host.boot()}
-    with store.lock("report-custody", batch, deadline):
-        if journal_path.exists():
-            journal = resource_store.read(journal_path)
-            if journal.get("version") != 1 or journal.get("resources") != selected or journal.get("destination") != str(destination) or journal.get("root") != str(root):
-                raise ResourceError("Report custody journal identity changed")
-            if journal.get("phase") != "complete" and borrower_alive(journal.get("owner", {})):
-                raise ResourceError("Report custody conversion still has a live effect owner")
-        else:
-            if destination.exists():
-                raise ResourceError("Report custody destination must be fresh")
-            journal = {"version": 1, "batch": batch, "resources": selected, "destination": str(destination), "root": str(root), "phase": "preparing", "items": {}}
-        complete = journal.get("phase") == "complete"
-        if not complete:
-            journal["owner"] = owner
-            resource_store.publish(journal_path, journal)
+    owner = {
+        "pid": os.getpid(),
+        "start": operation.start_identity(os.getpid()),
+        "boot": host.boot(),
+        "nonce": uuid.uuid4().hex,
+    }
+    journal: dict = {}
     try:
-        if not complete:
-            for resource in selected:
-                if resource not in journal["items"]:
-                    original = resource_status(resource, deadline=deadline)
-                    _custody_ready(original, deadline=deadline)
-                    if original.get("custody_transition"):
-                        raise ResourceError("Report already belongs to another custody conversion")
-                    journal["items"][resource] = {"original": original, "snapshot": _custody_snapshot(original), "destination": str(destination / resource)}
-                    resource_store.publish(journal_path, journal)
-                item = journal["items"][resource]
-                with resource_update(resource, deadline=deadline, custody_transition=True) as record:
-                    transition = record.get("custody_transition")
-                    if transition is None:
-                        if record != item["original"]:
-                            raise ResourceError("Report authority changed before custody reservation")
-                        _custody_ready(record, deadline=deadline)
-                        record["custody_transition"] = {"batch": batch, "journal": str(journal_path)}
-                    elif transition.get("batch") != batch:
-                        raise ResourceError("Report belongs to another custody reservation")
-            if "destination_identity" not in journal:
-                resource_store.protected(destination)
-                information = destination.stat()
-                journal["destination_identity"] = [information.st_dev, information.st_ino, information.st_uid]
-                resource_store.publish(journal_path, journal)
-            information = destination.lstat()
-            if not stat.S_ISDIR(information.st_mode) or [information.st_dev, information.st_ino, information.st_uid] != journal["destination_identity"]:
-                raise ResourceError("Conversion destination ownership changed")
-            journal["phase"] = "copying"
-            resource_store.publish(journal_path, journal)
-            for resource in selected:
-                _custody_copy(journal_path, journal, journal["items"][resource], deadline=deadline)
-            paths = {item["snapshot"]["location"]["state"]: item["destination"] for item in journal["items"].values()}
-            for resource in selected:
-                item = journal["items"][resource]
-                location: ReportLocation = {"state": item["destination"], "owner_root": str(root), "directory_identity": item["destination_identity"]}
-                with resource_update(resource, deadline=deadline, custody_transition=True) as record:
-                    if record.get("report_custody") == location:
-                        resource_store.publish(store.path("report-locations", resource_store.digest(item["destination"])), {"state": item["destination"], "resource": resource, "batch": batch})
-                        continue
-                    expected_record = {**item["original"], "custody_transition": {"batch": batch, "journal": str(journal_path)}}
-                    if record != expected_record:
-                        raise ResourceError("Report authority changed during conversion")
-                    record["report_custody"] = location
-                    record.setdefault("custody_history", []).append({"batch": batch, "journal": str(journal_path), "source": item["snapshot"]["location"]})
-                    manifest = record.get("artifact_manifest")
-                    if manifest is not None:
-                        for relative, artifact in manifest["entries"].items():
-                            if relative in item["files"]:
-                                artifact["identity"] = item["files"][relative]["identity"]
-                    references = {}
-                    for reference, digest in record["references"].items():
-                        replacement = reference
-                        for original_path, target_path in paths.items():
-                            if Path(reference).is_relative_to(original_path):
-                                replacement = str(Path(target_path) / Path(reference).relative_to(original_path))
-                                break
-                        if replacement in references and references[replacement] != digest:
-                            raise ResourceError("Converted report references conflict")
-                        references[replacement] = digest
-                    record["references"] = references
-                resource_store.publish(store.path("report-locations", resource_store.digest(item["destination"])), {"state": item["destination"], "resource": resource, "batch": batch})
-            journal["phase"] = "complete"
-            journal.pop("owner", None)
-            resource_store.publish(journal_path, journal)
-        for resource in selected:
-            item = journal["items"][resource]
-            record = resource_status(resource, deadline=deadline)
-            with report_directory(record) as descriptor:
-                for relative, artifact in item["snapshot"]["files"].items():
-                    observed = observe_artifact(descriptor, relative)
-                    if observed["digest"] != artifact["digest"] or observed["identity"] != item["files"][relative]["identity"]:
-                        raise ResourceError("Converted producer evidence changed")
-            with resource_update(resource, deadline=deadline, custody_transition=True) as current:
-                if current.get("custody_transition", {}).get("batch") == batch:
-                    current.pop("custody_transition", None)
-        return {"version": 1, "status": "complete", "batch": batch, "journal": str(journal_path), "reports": {resource: item["destination"] for resource, item in journal["items"].items()}}
-    except BaseException:
-        if journal.get("phase") != "complete":
-            journal["phase"] = "interrupted"
-            journal.pop("owner", None)
-            resource_store.publish(journal_path, journal)
+        return _custody_relocate(
+            store,
+            journal_path,
+            journal,
+            selected,
+            destination,
+            root,
+            batch,
+            owner,
+            deadline,
+        )
+    except BaseException as error:
+        try:
+            _custody_settle_failure(
+                store, journal_path, journal, owner, payload_deadline=deadline
+            )
+        except (OSError, ResourceError, host.AdmissionError) as settlement_error:
+            error.add_note(
+                "Custody metadata settlement is unavailable; original reservation remains protected: "
+                + type(settlement_error).__name__
+            )
         raise
 
 
