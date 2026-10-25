@@ -4984,6 +4984,22 @@ class SurrealSupervisorTests(unittest.TestCase):
         ):
             server.module_runtime_allocation({"server_memory_bytes": 512 * server.MIB})
 
+    def test_native_metrics_keep_selected_route_during_finite_trace_capture(self) -> None:
+        config = self.initialized()
+        config["diagnostic_telemetry"] = {"endpoint": "http://127.0.0.1:19444", "capture_nonce": "b" * 32}
+        with (
+            patch.object(server.telemetry_service, "producer_configuration", return_value={"otlp_grpc_endpoint": "http://127.0.0.1:19443"}),
+            patch.dict(os.environ, {"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": "http://foreign.invalid", "OTEL_RESOURCE_ATTRIBUTES": "service.instance.id=old"}),
+        ):
+            first = server.server_environment(config, {"username": "user", "password": "secret"})
+            second = server.server_environment(config, {"username": "user", "password": "secret"})
+        self.assertEqual(first["OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"], "http://127.0.0.1:19443")
+        self.assertEqual(first["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"], "http://127.0.0.1:19444")
+        self.assertEqual(first["SURREAL_TELEMETRY_DISABLE_METRICS"], "false")
+        self.assertNotEqual(first["OTEL_RESOURCE_ATTRIBUTES"], second["OTEL_RESOURCE_ATTRIBUTES"])
+        self.assertIn("pse.configuration.id=" + str(config["instance_id"]), first["OTEL_RESOURCE_ATTRIBUTES"])
+        self.assertNotIn("service.instance.id=" + str(config["instance_id"]), first["OTEL_RESOURCE_ATTRIBUTES"])
+
     def test_qualification_module_selection_requires_offline_drain_and_restores_private_allowlist(
         self,
     ) -> None:
