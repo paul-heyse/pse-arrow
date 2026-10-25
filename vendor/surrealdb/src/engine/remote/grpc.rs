@@ -30,7 +30,7 @@ use surrealdb_protocol::proto::rpc::v1::surreal_db_service_client::SurrealDbServ
 use surrealdb_protocol::proto::v1 as proto;
 use surrealdb_rpc::{QueryResult, QueryStreamItem, QueryType, Token};
 use tonic::codec::CompressionEncoding;
-use super::grpc_lifecycle::{BoundedEngine, Driver, Transport, REQUEST};
+use super::grpc_lifecycle::{observe, BoundedEngine, Driver, Transport, REQUEST};
 use uuid::Uuid;
 
 use crate::types::prost::Message;
@@ -1182,10 +1182,10 @@ impl SurrealEngine for GrpcEngine {
 		query: std::borrow::Cow<'static, str>,
 		variables: Variables,
 	) -> EngineFuture<'_, Vec<QueryResult>> {
-		Box::pin(async move {
+		Box::pin(observe("query", async move {
 			let context = self.ready(ctx).await?;
 			self.query_inner(context, query.into_owned(), variables).await
-		})
+		}))
 	}
 
 	/// Unlike the default, this forwards results as the server produces them
@@ -1197,7 +1197,7 @@ impl SurrealEngine for GrpcEngine {
 		variables: Variables,
 		items: Sender<QueryStreamItem>,
 	) -> EngineFuture<'_, ()> {
-		Box::pin(async move {
+		Box::pin(observe("query_stream", async move {
 			let context = self.ready(ctx).await?;
 			// Zero, not a small number: `max_batch_records` is a cap on every
 			// batch, not the size of the first one. Asking for a small cap
@@ -1206,7 +1206,7 @@ impl SurrealEngine for GrpcEngine {
 			// which is exactly the first-row-then-throughput shape a streaming
 			// caller wants.
 			stream_query(self, context, query.into_owned(), variables, 0, items).await
-		})
+		}))
 	}
 
 	fn run(
@@ -1216,7 +1216,7 @@ impl SurrealEngine for GrpcEngine {
 		version: Option<String>,
 		args: Array,
 	) -> EngineFuture<'_, Value> {
-		Box::pin(async move {
+		Box::pin(observe("run", async move {
 			let context = self.ready(ctx).await?;
 			let args = args.into_iter().map(to_proto_value).collect::<EngineResult<Vec<_>>>()?;
 			let request = rpc::RunRequest {
@@ -1236,7 +1236,7 @@ impl SurrealEngine for GrpcEngine {
 				Some(value) => Value::try_from(value).map_err(deserialization_error),
 				None => Ok(Value::None),
 			}
-		})
+		}))
 	}
 
 	fn use_ns_db(

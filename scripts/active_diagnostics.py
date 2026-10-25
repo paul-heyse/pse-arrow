@@ -438,7 +438,8 @@ def collect(
     code = None
     status = "returned"
     try:
-        environment = dict(os.environ)
+        from scripts.telemetry_process import helper_environment
+        environment = helper_environment()
         for name in environment_remove:
             environment.pop(name, None)
         code = native_operation.run_child_scope(

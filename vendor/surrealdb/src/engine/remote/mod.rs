@@ -94,6 +94,9 @@
 pub mod grpc;
 #[cfg(all(feature = "protocol-grpc", not(target_family = "wasm")))]
 mod grpc_lifecycle;
+#[cfg(all(feature = "grpc-lifecycle-test-support", not(target_family = "wasm")))]
+#[doc(hidden)]
+pub use grpc_lifecycle::tests as grpc_lifecycle_controls;
 #[cfg(all(feature = "protocol-grpc", not(target_family = "wasm")))]
 mod grpc_wire;
 #[cfg(all(feature = "protocol-grpc", not(target_family = "wasm")))]

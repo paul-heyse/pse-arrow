@@ -39,3 +39,6 @@ pub mod generated;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
 pub use ids::mint_id;
+
+#[cfg(test)]
+mod grpc_lifecycle_tests;

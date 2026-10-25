@@ -11,6 +11,10 @@ use crate::types::{Array, Notification, Object, Value, Variables};
 use uuid::Uuid;
 use tokio::sync::{Notify, Semaphore};
 use tower_service::Service;
+use opentelemetry::{propagation::TextMapPropagator, trace::{FutureExt, TraceContextExt}};
+use opentelemetry_sdk::propagation::TraceContextPropagator;
+use tracing::{Instrument, instrument::WithSubscriber};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use super::grpc::{GrpcEngine, EngineResult};
 use crate::Error;
 
@@ -18,6 +22,103 @@ tokio::task_local! { pub(super) static REQUEST: RequestContext; }
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 type HttpFuture = Pin<Box<dyn Future<Output = Result<http::Response<tonic::body::Body>, BoxError>> + Send>>;
+
+/// Observation follows the actual request owner, independently of REQUEST's
+/// deadline, dispatch, prepaid payload and physical-drain authorities.
+#[derive(Clone)]
+struct RequestTrace {
+    span: tracing::Span,
+    context: opentelemetry::Context,
+    dispatch: tracing::Dispatch,
+}
+impl RequestTrace {
+    fn new(operation: &'static str) -> Self {
+        let parent = tracing::Span::current().context();
+        let parent = if parent.span().span_context().is_valid() { parent } else { opentelemetry::Context::current() };
+        let span = tracing::info_span!(parent: None, "surrealdb.sdk.request", operation,
+            otel.kind = "client", telemetry.parent = tracing::field::Empty,
+            rpc.method = tracing::field::Empty, response = tracing::field::Empty);
+        let valid = parent.span().span_context().is_valid();
+        match span.set_parent(parent.clone()) {
+            Ok(()) => { span.record("telemetry.parent", if valid { "attached" } else { "missing" }); }
+            Err(_) => { span.record("telemetry.parent", "unavailable"); }
+        }
+        let context = span.context();
+        // API-only callers can propagate even when no tracing layer is installed.
+        let context = if context.span().span_context().is_valid() { context } else { parent };
+        Self { span, context, dispatch: tracing::dispatcher::get_default(Clone::clone) }
+    }
+    fn future<F: Future>(self, future: F) -> impl Future<Output = F::Output> {
+        future.with_context(self.context).instrument(self.span).with_subscriber(self.dispatch)
+    }
+    fn inject(&self, headers: &mut http::HeaderMap) {
+        // Only the standard W3C carrier is generated from authentic API context.
+        // Erase stale carrier fields even when this call has no valid parent.
+        headers.remove("traceparent");
+        headers.remove("tracestate");
+        let mut fields = std::collections::HashMap::new();
+        TraceContextPropagator::new().inject_context(&self.context, &mut fields);
+        for (name, value) in fields {
+            if value.is_empty() { continue; }
+            if let (Ok(name), Ok(value)) = (http::header::HeaderName::try_from(name), http::HeaderValue::try_from(value)) {
+                headers.insert(name, value);
+            }
+        }
+    }
+}
+
+/// Keep query observation alive through protobuf and scientific-value decode,
+/// rather than retiring it when the transport returns response headers.
+pub(super) fn observe<F: Future>(operation: &'static str, future: F) -> impl Future<Output = F::Output> {
+    async move { RequestTrace::new(operation).future(future).await }
+}
+
+/// Tonic owns this wrapper until the response stream completes or is dropped.
+/// Each synchronous poll/drop installs only this request's context; no attached
+/// thread-local guard crosses an await or leaks into an HTTP/2 sibling.
+struct ObservedBody<B> {
+    inner: Option<Pin<Box<B>>>,
+    trace: RequestTrace,
+    complete: bool,
+}
+impl<B: Body> ObservedBody<B> {
+    fn new(inner: B, trace: RequestTrace) -> Self {
+        let complete = inner.is_end_stream();
+        if complete { trace.span.record("response", "complete"); }
+        Self { inner: Some(Box::pin(inner)), trace, complete }
+    }
+}
+impl<B: Body<Data = Bytes>> Body for ObservedBody<B> {
+    type Data = Bytes;
+    type Error = B::Error;
+    fn poll_frame(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Result<Frame<Bytes>, Self::Error>>> {
+        let this = self.get_mut();
+        let trace = this.trace.clone();
+        let _dispatch = tracing::dispatcher::set_default(&trace.dispatch);
+        let _span = trace.span.enter();
+        let _context = trace.context.attach();
+        let result = this.inner.as_mut().expect("body exists until drop").as_mut().poll_frame(cx);
+        match &result {
+            _ if this.complete => {}
+            Poll::Ready(None) => { this.complete = true; trace.span.record("response", "complete"); }
+            Poll::Ready(Some(Err(_))) => { this.complete = true; trace.span.record("response", "error"); }
+            Poll::Ready(Some(Ok(frame))) if frame.is_trailers() => { this.complete = true; trace.span.record("response", "complete"); }
+            _ => {}
+        }
+        result
+    }
+    fn is_end_stream(&self) -> bool { self.inner.as_ref().is_none_or(|body| body.is_end_stream()) }
+    fn size_hint(&self) -> http_body::SizeHint { self.inner.as_ref().map_or_else(http_body::SizeHint::default, |body| body.size_hint()) }
+}
+impl<B> Drop for ObservedBody<B> {
+    fn drop(&mut self) {
+        let _dispatch = tracing::dispatcher::set_default(&self.trace.dispatch);
+        let _span = self.trace.span.enter();
+        let _context = self.trace.context.clone().attach();
+        if !self.complete { self.trace.span.record("response", "dropped"); }
+        drop(self.inner.take());
+    }
+}
 
 #[derive(Debug)]
 pub(super) struct Driver {
@@ -136,8 +237,22 @@ impl Service<http::Request<tonic::body::Body>> for Transport {
         }
     }
     fn call(&mut self, mut request: http::Request<tonic::body::Body>) -> Self::Future {
+        let trace = RequestTrace::new("grpc");
+        trace.span.record("rpc.method", request.uri().path());
+        trace.inject(request.headers_mut());
         match self {
-            Self::Upstream(channel) => { let future = channel.call(request); Box::pin(async move { future.await.map_err(|e| Box::new(e) as BoxError) }) }
+            Self::Upstream(channel) => {
+                let future = channel.call(request);
+                let observation = trace.clone();
+                Box::pin(trace.future(async move {
+                    let response = future.await.map_err(|e| {
+                        observation.span.record("response", "error");
+                        Box::new(e) as BoxError
+                    })?;
+                    let (parts, body) = response.into_parts();
+                    Ok(http::Response::from_parts(parts, tonic::body::Body::new(ObservedBody::new(body, observation))))
+                }))
+            }
             Self::Owned { sender, driver, authority, limit } => {
                 let context = REQUEST.try_with(Clone::clone).ok();
                 let response_type = super::grpc_wire_schema::response(request.uri().path());
@@ -149,19 +264,24 @@ impl Service<http::Request<tonic::body::Body>> for Transport {
                 *request.uri_mut() = http::Uri::from_parts(parts).expect("valid gRPC URI parts");
                 if let Some(context) = &context { context.mark_dispatched(); }
                 let future = sender.send_request(request);
-                Box::pin(async move {
+                let observation = trace.clone();
+                Box::pin(trace.future(async move {
                     if driver.closed() { return Err(refused("gRPC connection closed")); }
-                    let response = future.await.map_err(|e| Box::new(e) as BoxError)?;
+                    let response = future.await.map_err(|e| {
+                        observation.span.record("response", "error");
+                        Box::new(e) as BoxError
+                    })?;
                     let (parts, body) = response.into_parts();
                     // Bounded profiles never advertise compressed responses: validation
                     // runs on the exact protobuf bytes before prost can allocate.
                     if parts.headers.get("grpc-encoding").is_some_and(|h| h != "identity") {
+                        observation.span.record("response", "error");
                         driver.shutdown().await;
                         return Err(refused("compressed bounded gRPC response refused"));
                     }
                     let body = WireBody::new(body, context, response_type, limit);
-                    Ok(http::Response::from_parts(parts, tonic::body::Body::new(body)))
-                })
+                    Ok(http::Response::from_parts(parts, tonic::body::Body::new(ObservedBody::new(body, observation))))
+                }))
             }
         }
     }
@@ -225,6 +345,10 @@ impl Body for WireBody {
 fn default_limits(wire_bytes: usize) -> ResponseLimits {
     ResponseLimits { wire_bytes, nodes: 1 << 20, depth: 64, container_items: 1 << 20, string_bytes: wire_bytes, string_length: wire_bytes, blob_bytes: wire_bytes, blob_length: wire_bytes }
 }
+
+#[cfg(any(test, feature = "grpc-lifecycle-test-support"))]
+#[path = "grpc_lifecycle_tests.rs"]
+pub mod tests;
 
 const APPLICATION_SLOTS: usize = 32;
 const CONTROL_SLOTS: usize = 2;
@@ -393,7 +517,11 @@ impl BoundedEngine {
             };
             let task_context = context.clone();
             let (send, receive) = tokio::sync::oneshot::channel();
-            tokio::spawn(async move {
+            // Capture at the polled caller boundary, before the detached owner
+            // crosses admission/reconnect. This span lasts through decode,
+            // cancellation settlement and drain, even if the waiter is dropped.
+            let trace = RequestTrace::new("bounded");
+            tokio::spawn(trace.future(async move {
                 let _active = active;
                 let _drain = Drain(task_context.clone());
                 let _payload = task_context.payload_owner().map(|o| o.retain_driver());
@@ -446,7 +574,7 @@ impl BoundedEngine {
                     }
                 };
                 let _ = send.send(outcome);
-            });
+            }));
             tokio::select! { biased;
                 _ = context.interrupted() => Err(context.interruption_error()),
                 result = receive => result.map_err(|_| Error::connection("gRPC driver task failed".to_string(), None))?,
