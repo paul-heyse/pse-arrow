@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `118937753fa580185a34e3695c8b2fddaade1b4a4bd2401215a73229a6d4bd60`.
+Catalogue content revision: `81ffda83482da5c168b6164658a0252125b1f1b697f277d47fb51b2789bec00a`.
 
 ## Domains
 
@@ -2578,6 +2578,17 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
           "checkout": {
             "type": "string"
           },
+          "input_changes": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionInputChanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "interpreter": {
             "type": "string"
           },
@@ -2638,6 +2649,51 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
           "validated",
           "cause",
           "remedy"
+        ],
+        "type": "object"
+      },
+      "ExtensionInputChanges": {
+        "additionalProperties": false,
+        "description": "Bounded input KEY names only; no recorded values or value digests.",
+        "properties": {
+          "complete": {
+            "type": "boolean"
+          },
+          "configuration_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "environment_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "source_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections",
+          "complete"
         ],
         "type": "object"
       },
@@ -3149,6 +3205,17 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
           "checkout": {
             "type": "string"
           },
+          "input_changes": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionInputChanges"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "interpreter": {
             "type": "string"
           },
@@ -3209,6 +3276,51 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
           "validated",
           "cause",
           "remedy"
+        ],
+        "type": "object"
+      },
+      "ExtensionInputChanges": {
+        "additionalProperties": false,
+        "description": "Bounded input KEY names only; no recorded values or value digests.",
+        "properties": {
+          "complete": {
+            "type": "boolean"
+          },
+          "configuration_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "environment_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "source_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections",
+          "complete"
         ],
         "type": "object"
       },

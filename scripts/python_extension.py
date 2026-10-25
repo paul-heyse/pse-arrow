@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -45,6 +46,95 @@ Profile = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
 PROFILE = TypeAdapter(Profile)
 
 
+class ExtensionInputChanges(ExtensionContract):
+    """Bounded input KEY names only; no recorded values or value digests."""
+
+    sections: Annotated[tuple[str, ...], Field(max_length=16)]
+    source_keys: Annotated[tuple[str, ...], Field(max_length=32)] = ()
+    configuration_keys: Annotated[tuple[str, ...], Field(max_length=32)] = ()
+    environment_keys: Annotated[tuple[str, ...], Field(max_length=32)] = ()
+    complete: bool
+
+
+def changed_inputs(
+    previous: dict[str, object], current: dict[str, object]
+) -> ExtensionInputChanges:
+    """Explain an unequal owner input snapshot without exposing opaque values."""
+    sections = sorted(
+        name
+        for name in previous.keys() | current.keys()
+        if name not in previous
+        or name not in current
+        or previous[name] != current[name]
+    )
+    complete = len(sections) <= 16
+    known_sections = {
+        "schema",
+        "stage",
+        "mode",
+        "profile",
+        "validated",
+        "files",
+        "environment",
+        "configuration",
+        "interpreter",
+        "tools",
+        "generations",
+        "compiler",
+    }
+    section_names = tuple(name for name in sections if name in known_sections)[:16]
+    complete = complete and len(section_names) == len(sections)
+
+    def keys(section: str, *, paths: bool = False) -> tuple[str, ...]:
+        nonlocal complete
+        before, after = previous.get(section, {}), current.get(section, {})
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            complete = False
+            return ()
+        names = []
+        for key in sorted(before.keys() | after.keys()):
+            if key in before and key in after and before[key] == after[key]:
+                continue
+            if not isinstance(key, str):
+                complete = False
+                continue
+            name = key
+            if paths:
+                path = Path(name)
+                if path.is_absolute():
+                    try:
+                        path = path.relative_to(ROOT)
+                    except ValueError:
+                        complete = False
+                        continue
+                name = path.as_posix()
+                if (
+                    ".." in path.parts
+                    or name.startswith("resolved:")
+                    or not re.fullmatch(r"[A-Za-z0-9_./:-]{1,256}", name)
+                ):
+                    complete = False
+                    continue
+            elif not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name):
+                complete = False
+                continue
+            names.append(name)
+        if len(names) > 32:
+            complete = False
+        return tuple(names[:32])
+
+    source_keys = keys("files", paths=True)
+    configuration_keys = keys("configuration", paths=True)
+    environment_keys = keys("environment")
+    return ExtensionInputChanges(
+        sections=section_names,
+        source_keys=source_keys,
+        configuration_keys=configuration_keys,
+        environment_keys=environment_keys,
+        complete=complete,
+    )
+
+
 class ExtensionCurrency(ExtensionContract):
     """Redacted admission-time correspondence, separate from import compatibility."""
 
@@ -55,6 +145,7 @@ class ExtensionCurrency(ExtensionContract):
     profile: str | None
     validated: bool
     source_basis: str | None = None
+    input_changes: ExtensionInputChanges | None = None
     artifact: ExtensionArtifact | None = None
     artifact_stamp: tuple[int, int, int, int, int] | None = None
     receipt_recorded: bool = False
@@ -732,7 +823,12 @@ def currency_check(
     ).hexdigest()
     facts: dict[str, object] = {"source_basis": basis, "receipt_recorded": True}
     if inputs != current:
-        return observed("stale", "inputs-changed", **facts)
+        return observed(
+            "stale",
+            "inputs-changed",
+            input_changes=changed_inputs(inputs, current),
+            **facts,
+        )
     try:
         before = artifact_stamp(recorded)
         artifact = ExtensionArtifact.model_validate(

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -69,7 +70,7 @@ def test_capability_original_source_admission_and_same_lifetime_preparation(
     monkeypatch.setenv("PSE_SURREAL_STATE", str(missing))
     request = source_request()
     admitted = invoke("source_admit", request)
-    assert admitted["outcome"] == "admitted", admitted
+    assert admitted["outcome"] == "admitted", json.dumps(admitted, sort_keys=True)
     assert admitted["durable"] is False
     assert at(admitted, "revision", "reopenable") is False
     assert at(admitted, "revision", "lifetime") == "completed_child"

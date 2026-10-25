@@ -253,6 +253,17 @@ RUST_EXECUTION_ENVIRONMENT = frozenset(
     {
         "PSE_NATIVE_PROVENANCE",
         "PSE_NATIVE_SELECTION",
+        # Pytest/xdist and original observer-selected result metadata never
+        # choose Rust compiler inputs; package/tool identities remain separate.
+        "PYTEST_CURRENT_TEST",
+        "PYTEST_VERSION",
+        "PYTEST_XDIST_WORKER",
+        "PYTEST_XDIST_WORKER_COUNT",
+        "PYTEST_XDIST_TESTRUNUID",
+        "PSE_NATIVE_EXPECTED_BINARY",
+        "PSE_NATIVE_EXPECTED_FEATURES",
+        "PSE_NATIVE_EXPECTED_SHA256",
+        "PSE_TEST_ENUMERATION",
         "PSE_TEST_INVOCATION",
         "PSE_TEST_EXECUTION_PROFILE",
         "PSE_TEST_EXECUTION_EFFECTS",

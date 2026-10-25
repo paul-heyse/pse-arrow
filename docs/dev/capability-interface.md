@@ -90,11 +90,12 @@ unverified. Native result/admission/drain never follows from a successful span o
 The retained in-memory SDK probe starts no Collector and establishes no Rust or database
 propagation. The [52p/52q execution checkpoint](../plans/52-agent-effectiveness-and-engineering-workflows.md#52p52q-execution-checkpoint--2026-10-24)
 owns subsequent process/pipeline evidence. The delivered query and investigation routes are
-described below; actual Rust→database→Surrealism/header continuity remains open under
-[F02/I11](../plans/52f-evidence-analysis-and-trace-correlation.md#F02). Focused actual SDK/backend,
-offline custody and capture acceptance does not close the broader assembled
-[52g workflows](../plans/52g-agent-and-operator-workflows.md) or
-[52h qualification](../plans/52h-qualification-and-publication.md).
+described below. [F02's Outcome](../plans/52f-evidence-analysis-and-trace-correlation.md#outcome--2026-10-25)
+records actual concurrent Python/FastMCP→Rust→SDK→server→Surrealism parentage in continuous
+and finite modes, with independent native outcomes and restoration/drain. Focused SDK/backend,
+offline custody and capture evidence retains its own conditions. The
+[52g workflows](../plans/52g-agent-and-operator-workflows.md) and
+[52h qualification](../plans/52h-qualification-and-publication.md) retain their separate acceptance.
 
 ### Typed telemetry investigations
 
@@ -386,7 +387,10 @@ build inputs and the actual imported artifact against the existing preparation o
 are current, stale, unknown or unsupported; schema compatibility alone cannot establish currency.
 Native modes require already admitted providers and otherwise report unsupported rather than
 preparing them. Unknown inputs remain conservative build inputs; shell bookkeeping, endpoint
-selectors and explicit telemetry carriers retain their runtime meanings.
+selectors and explicit telemetry carriers retain their runtime meanings. Known pytest/xdist
+observation keys, collection paths and expected-import witnesses likewise do not select compiler
+behavior. A stale input comparison reports bounded section/source/configuration/environment key
+names without values or digests; `complete=false` preserves redaction or truncation.
 
 Admitted native workers check currency before loading the extension. The binary's device, inode,
 size and nanosecond modification/change witnesses must remain unchanged through import, and the
@@ -394,6 +398,10 @@ loaded path must match. An already loaded, unbound image refuses admission. Nati
 activates under the helper's existing shutdown owner. This binds the imported image at admission;
 it does not promise an immutable checkout for the entire operation. Explicit preparation may be
 necessary in the actual attachment environment even when another shell prepared the same checkout.
+Build-sensitive selections such as CMake search paths, CUDA/Conda configuration and compiler
+settings remain bound. Declare intended shared selections through the common environment owner,
+or explicitly prepare in the selected endpoint environment. A different context is not repaired
+by suppressing its selectors or repeatedly preparing once per pytest worker.
 
 `python_extension_dev_stage` and `python_extension_native_stage` accept a chosen `stage`, `profile`
 and `validated` selection. `environment` ensures locked dependencies, `prepare` builds/installs or

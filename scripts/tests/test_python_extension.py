@@ -508,6 +508,11 @@ class PreparationCurrencyTests(unittest.TestCase):
             stale = self.currency()
         self.assertEqual(stale.state, "stale")
         self.assertEqual(stale.cause, "inputs-changed")
+        self.assertIsNotNone(stale.input_changes)
+        assert stale.input_changes is not None
+        self.assertEqual(stale.input_changes.sections, ("files",))
+        self.assertEqual(stale.input_changes.source_keys, ("crates/pse-py/src/lib.rs",))
+        self.assertTrue(stale.input_changes.complete)
         self.assertNotEqual(stale.source_basis, current.source_basis)
         imported.assert_not_called()
         path.write_text("module")
@@ -815,6 +820,81 @@ class PreparationCurrencyTests(unittest.TestCase):
         self.assertFalse(
             python_extension.stage_receipt("extension", self.environment).exists()
         )
+
+    def test_currency_change_diagnostics_only_render_bounded_safe_input_keys(
+        self,
+    ) -> None:
+        private_value = "do-not-render-source-or-environment-value"
+        previous: dict[str, object] = {
+            "files": {"crates/a.rs": "old"},
+            "configuration": {str(self.root / ".cargo/config.toml"): "old"},
+            "environment": {"RUSTFLAGS": "old"},
+        }
+        current: dict[str, object] = {
+            "files": {"crates/a.rs": private_value, "new-missing.rs": None},
+            "configuration": {str(self.root / ".cargo/config.toml"): private_value},
+            "environment": {
+                "RUSTFLAGS": private_value,
+                "NEW_BUILD_INPUT": private_value,
+            },
+        }
+        result = python_extension.changed_inputs(previous, current)
+        self.assertEqual(result.sections, ("configuration", "environment", "files"))
+        self.assertEqual(result.source_keys, ("crates/a.rs", "new-missing.rs"))
+        self.assertEqual(result.configuration_keys, (".cargo/config.toml",))
+        self.assertEqual(result.environment_keys, ("NEW_BUILD_INPUT", "RUSTFLAGS"))
+        self.assertTrue(result.complete)
+        self.assertNotIn(private_value, result.model_dump_json())
+        limited = python_extension.changed_inputs(
+            {},
+            {
+                "environment": {
+                    **{f"BUILD_{index}": private_value for index in range(40)},
+                    "UNSAFE\nKEY": private_value,
+                },
+                "configuration": {"/outside/private-secret-path": private_value},
+            },
+        )
+        self.assertEqual(len(limited.environment_keys), 32)
+        self.assertFalse(limited.complete)
+        self.assertNotIn(private_value, limited.model_dump_json())
+        self.assertNotIn("private-secret-path", limited.model_dump_json())
+
+    def test_actual_observer_keys_do_not_invalidate_build_but_unknown_selectors_do(
+        self,
+    ) -> None:
+        observer_keys = {
+            "PYTEST_CURRENT_TEST",
+            "PYTEST_VERSION",
+            "PYTEST_XDIST_WORKER",
+            "PYTEST_XDIST_WORKER_COUNT",
+            "PYTEST_XDIST_TESTRUNUID",
+            "PSE_NATIVE_EXPECTED_BINARY",
+            "PSE_NATIVE_EXPECTED_FEATURES",
+            "PSE_NATIVE_EXPECTED_SHA256",
+            "PSE_TEST_ENUMERATION",
+        }
+        first = python_extension.preparation_environment_identity(self.environment)
+        self.assertEqual(
+            first,
+            python_extension.preparation_environment_identity(
+                {**self.environment, **dict.fromkeys(observer_keys, "observer-only")}
+            ),
+        )
+        for key in (
+            "RUSTFLAGS",
+            "PYO3_CONFIG_FILE",
+            "PYTEST_UNKNOWN_BUILD_INPUT",
+            "PSE_NATIVE_UNKNOWN_BUILD_INPUT",
+            "CUSTOM_COMPILER_SELECTOR",
+        ):
+            with self.subTest(key=key):
+                self.assertNotEqual(
+                    first,
+                    python_extension.preparation_environment_identity(
+                        {**self.environment, key: "actual-selection"}
+                    ),
+                )
 
     def test_session_transport_changes_reuse_preparation_but_unknown_build_inputs_invalidate(
         self,
