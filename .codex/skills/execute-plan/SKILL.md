@@ -30,18 +30,18 @@ Prior receipts retain their original date and scope.
 
 Carry out delegated assignments under the [shared coordination contract](../../../.agents/roles/README.md).
 Keep affected workers informed when shared assumptions or dependencies change. The coordinator
-retains responsibility for design decisions, integration and acceptance; delegation remains
+retains accountability for design coherence, integration and acceptance; delegation remains
 discretionary. Independent review assesses an identified baseline.
 
-Resolve local implementation choices within the agreed behavior and contracts. When evidence
+Exercise delegated judgment within the agreed behavior and contracts. When evidence
 contradicts a shared assumption or affects a contract, scope or acceptance, reconcile the specific
 issue with its owner and affected work. Update the remaining approach and its owning records
 where needed, and continue independent authorized scope whose assumptions still hold. Do not
 silently change the intended behavior or weaken acceptance to finish a local assignment. Seek
 user input only when a material scope or authorization decision requires it.
 
-Implement prerequisites before work that requires them, and integrate contributions with
-their adjacent consumers. Complete the plan's applicable migration, preservation and retirement
+Implement prerequisite capabilities before production consumers rely on them, and integrate
+contributions with their adjacent consumers. Complete the plan's applicable migration, preservation and retirement
 obligations as part of delivering the target. Follow the repository's library overview, Context7 and primary-source
 research routes (including its active native solver skill) when library behavior matters. A completed assignment does not by itself
 establish accepted integrated scope.

@@ -129,12 +129,16 @@ only. Codex roles inherit the session's sandbox and approval settings (Codex ign
 in role files) and Claude roles the session's tools, so no adapter declares either. `library-research` may write new dated folders
 in the evidence locations AGENTS.md names and the active native solver skill when its brief explicitly assigns that source, and
 lists every file written; the other evidence roles stay read-only. These scopes are instructions,
-not runtime enforcement; the edit-protection hook still applies to every role. The root coordinator retains
-design decisions, integration and acceptance; executors choose local details inside their brief.
-Delegate when independent work, context isolation, distinct capabilities or independent judgment
-justify coordination and integration. Small or tightly coupled tasks may stay with the root.
-Briefs name settled decisions, baseline, permitted effects, sibling ownership and expected evidence;
-workers load task-relevant authority and follow discovered dependencies. Evidence conflicts,
+not runtime enforcement; the edit-protection hook still applies to every role. The root coordinator
+remains accountable for design coherence,
+integration and acceptance; workers exercise delegated judgment within accepted outcomes and
+contracts. Contributions follow useful results, shared decisions and readiness for the requested
+result. Delegation can supply progress, earlier learning or independent judgment, including serial
+work or overlapping investigations. Investigations may resolve open contracts; consumer preparation
+and working integration need different prerequisites. Reconcile changes affecting other contributions
+or semantic owners, and follow AGENTS.md for isolation, publication and shared-resource rules.
+Briefs name settled decisions, delegated decision scope, baseline, permitted effects, sibling
+ownership and expected evidence; workers load task-relevant authority and follow discovered dependencies. Evidence conflicts,
 consequential absence claims, unsupported version transfers, ownership uncertainty and repeated
 repair failure are surfaced to the coordinator, who chooses the least sufficient resolution route.
 Reviews remain proportional to the binding; fresh reviewers receive concrete criteria and consumers.

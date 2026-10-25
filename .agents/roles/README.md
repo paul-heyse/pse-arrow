@@ -1,9 +1,29 @@
 # Agent roles and coordination
 
-Use subagents when independent coverage, context isolation, distinct capabilities or independent
-judgment justify their handoff and integration cost. Parallelize ready, independent work; keep small
-or tightly coupled tasks with the coordinator when that is simpler. The coordinator remains
-responsible for design, integration and acceptance. No role sequence or minimum agent count applies.
+Use delegation when another context, capability or perspective can advance the outcome enough
+to justify briefing and integration. It can supply useful progress, earlier learning or independent
+judgment, including when work proceeds serially. No role sequence or minimum agent count applies.
+
+Shape contributions around useful results, shared decisions and dependencies. Components,
+documents and roles offer possible boundaries; choose boundaries that let workers reason and act
+coherently. Deliberately overlapping investigations can supply independent judgment. Concurrent
+editing still needs explicit ownership and coordination.
+
+Readiness depends on the result being requested. An investigation can resolve an open contract;
+consumer preparation may need agreed semantics, while working integration needs implemented
+prerequisites. Establish the shared meaning that dependent work relies on and identify consequential
+provisional assumptions. Avoid turning a convenient package order into unnecessary barriers.
+
+Give workers discretion within accepted outcomes, contracts and delegated decision authority.
+Reconcile changes affecting other contributions or semantic owners with the coordinator and those
+owners. The coordinator remains accountable for design coherence, integration and acceptance.
+
+Coordinate conflicting effects and shared resources through the repository's operating rules.
+Worktree isolation, contract publication, generated-file ownership and validation rules protect
+particular effects; they do not prescribe the task decomposition. Prepare near-term work enough
+to begin, and develop later assignments as their prerequisites become clearer. Reconsider a split
+when repeated negotiation dominates useful progress, its premises change or its result loses its
+consumer. Continue independent authorized work whose assumptions still hold.
 
 ## Roles and runtime routing
 
@@ -45,16 +65,16 @@ role's permitted effects; surface exposed mismatches to the coordinator.
 
 ## Coordinate the work
 
-Give each assignment an outcome, bounded scope, relevant authorities, settled decisions and exact
-baseline (including relevant uncommitted changes), permitted files/effects, sibling ownership,
+Give each assignment an outcome, bounded scope, relevant authorities, settled decisions, delegated
+decision scope and exact baseline (including relevant uncommitted changes), permitted files/effects, sibling ownership,
 dependencies and useful completion evidence. Provide enough context to act independently without
 copying the whole conversation. Reuse a worker for coherent follow-up; use fresh context for an
 independent review, giving requirements and source evidence without steering its verdict.
 
-Parallelize work whose inputs are ready. Resolve shared contracts before dependent edits and name
-one owner for shared model declarations, manifests, generated surfaces and integration. Use separate
-worktrees only for genuinely concurrent production editing, as AGENTS.md requires. Give reviewers concrete acceptance criteria, affected consumers and relevant failure cases. Review or test a
-stable revision or identified tree; re-evaluate affected evidence after integration changes it.
+Name an owner for shared model declarations, manifests, generated surfaces and integration.
+Coordinate write scopes explicitly. Follow AGENTS.md for worktree isolation, contract/dependency
+publication and shared-resource use. Give reviewers concrete acceptance criteria, affected consumers
+and relevant failure cases. Review or test a stable revision or identified tree; re-evaluate affected evidence after integration changes it.
 Keep a single writer for the final plan, shared status and finding disposition unless ownership is
 explicitly partitioned. Existing plans own scheduled work; do not create a second task ledger.
 The coordinator also owns the shared index and follows AGENTS.md's regular discrete-commit
@@ -62,7 +82,7 @@ policy; workers hand off coherent changes without waiting for whole-plan complet
 
 Read decisive evidence and reconcile results rather than accepting a worker's completion message
 as verification. Resolve architectural contradictions through the existing decision and review
-process; retain unresolved findings and their effects on acceptance. Executors choose local details
+process; retain unresolved findings and their effects on acceptance. Workers exercise delegated judgment
 within their brief. Surface consequential absence claims, conflicting evidence,
 unresolved ownership or contract decisions, and a second failed attempt at the same repair. The
 coordinator chooses whether to narrow the question, inspect sources, run a focused functional check,

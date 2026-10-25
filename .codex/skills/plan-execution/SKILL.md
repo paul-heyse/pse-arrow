@@ -18,9 +18,9 @@ a whole-list assessment.
 Develop an execution approach that makes the existing plan actionable in the current tree.
 Concentrate advance reasoning on decisions whose consequences cross work boundaries,
 prerequisites that determine readiness, and uncertainties that could substantially change the
-work. Leave local choices with the implementer who will have the best evidence. When delegation
-helps, shape assignments and context so workers can exercise independent judgment while
-contributing to one coherent result.
+work. Leave decisions within an assignment's accepted outcome and contracts with the implementer
+who has the best evidence. When delegation helps, shape assignments and context so workers can
+exercise independent judgment while contributing to one coherent result.
 
 Resolve the plan and authorized scope from the conversation and repository context, building
 on the approach the user has supplied. Use `docs/plans/README.md` and the active packet
@@ -51,20 +51,25 @@ its remaining obligations when using such a slice to learn.
 ## Shape assignments around responsibility and readiness
 
 Document boundaries provide navigation; assignments group work that someone can usefully
-complete with the inputs available. An assignment may span documents or cover one of several
-consumers in a single document. Consider whether its owner can deliver a coherent result
-without repeatedly negotiating the same unresolved decisions with siblings. If coordination
+complete with the inputs available. An assignment may span documents or components, or cover one
+of several consumers of a shared contract. Roles supply capabilities for these contributions.
+Consider whether its owner can deliver a coherent result without repeatedly negotiating the same unresolved decisions with siblings. If coordination
 dominates, reconsider the split or establish the shared prerequisite first.
 
 Delegation can supply independent judgment, isolate a demanding investigation or parallelize
-ready work. Weigh these benefits against briefing and integration costs; tightly coupled work
-may be simpler for the coordinator to handle directly. An agreed interface can enable consumer
-preparation before the working prerequisite exists, but does not establish integration readiness.
+useful work. Weigh these benefits against briefing and integration costs; tightly coupled work
+may be simpler to keep together. Delegation can help serial work, and overlapping investigations
+can provide independent judgment without authorizing conflicting edits.
+
+Readiness depends on the requested result. An investigation can resolve an open contract; agreed
+semantics can enable consumer preparation before the working prerequisite exists. Production
+consumers and integrated acceptance need the implemented capabilities they rely on. Identify
+consequential provisional assumptions and follow the repository's contract-publication rules.
 
 Use the [shared agent roles and coordination contract](../../../.agents/roles/README.md) for
 assignment mechanics, permissions, baseline and edit ownership. Choose roles that serve the work;
-no agent count or role sequence is prescribed. The coordinator retains design decisions,
-integration and acceptance.
+no agent count or role sequence is prescribed. The coordinator remains accountable for design
+coherence, integration and acceptance.
 
 ## Give workers context for judgment
 
@@ -99,8 +104,8 @@ Include task-specific scope, permissions and baseline through the existing coord
 Disjoint files do not guarantee independent decisions. Workers can differ over identity,
 ordering, absence, failure behavior or lifecycle assumptions while each satisfies a local reading
 of the plan. Identify the shared assumptions that materially constrain parallel work and how
-changes to them will reach affected workers. Keep local details with executors and cross-boundary
-decisions with the coordinator.
+changes to them will reach affected workers. Let workers decide within agreed outcomes and
+contracts; reconcile changes affecting other assignments with the coordinator and semantic owners.
 
 The necessary agreement depends on what dependent work relies on; not every interface needs to
 be frozen upfront. When a premise changes, reassess the affected assignments and evidence.
@@ -129,9 +134,9 @@ specified by repository policy.
 
 Prepare the first ready assignments concretely. Later work may need only an intended outcome,
 a dependency and the condition that makes it actionable. Explain what would change the approach:
-an unavailable prerequisite, a broader migration, a contract contradiction, or a split that
-produces excessive coordination. Reconsider affected work while continuing independent
-authorized scope.
+an unavailable prerequisite, a broader migration, a contract contradiction, a result that no
+longer serves its consumer, or a split that produces excessive coordination. Reconsider affected
+work while continuing independent authorized scope.
 
 Follow the repository binding's
 [review cadence](../../../docs/design_review/design_principles/binding/pse-arrow.md#reviews-in-this-repository).

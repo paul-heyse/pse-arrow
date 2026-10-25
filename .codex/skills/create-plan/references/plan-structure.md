@@ -53,6 +53,8 @@ in the main document. Neither choice fixes the number or order of implementation
 A compact package table can expose what changes, its prerequisites and its completion boundary.
 Use stable identifiers when other documents refer to packages, with links to their explanations.
 Add execution responsibility or status where useful; assign each live status fact one owner.
+Package tables describe dependency and completion boundaries; they do not prescribe worker count
+or permanent lane assignments.
 
 | Package | Required input | Delivered capability and completion boundary |
 |---|---|---|

@@ -131,6 +131,9 @@ an area has a coherent target, substantial internal reasoning and identifiable c
 other areas. Keep tightly coupled explanations together when splitting would force readers to
 reconstruct them across documents. Let responsibility, context burden and boundary stability
 guide decomposition; document length or a fixed number of phases is insufficient by itself.
+A package is not automatically an agent assignment. Several packages may form one coherent
+contribution, while one package may expose independently useful contributions. Choose assignment
+boundaries from shared decisions, available inputs and integration work.
 
 For a series, give the coordinator the combined target, scope, shared decisions, cross-plan
 dependencies and overall completion conditions. Supporting documents develop their respective

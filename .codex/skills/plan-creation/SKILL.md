@@ -65,9 +65,10 @@ Investigate such questions early enough to avoid developing substantial detail a
 unstable premise. Explain what a result would enable or change in the proposed design.
 
 Choose source inspection, scenarios, library evidence or focused design advice according to
-the question. Probes remain discretionary. Parallelize inquiries whose inputs are sufficiently
-settled; reconsider dependent reasoning when a shared premise changes. Keep routine local
-implementation choices available to the eventual implementer.
+the question. Probes remain discretionary. Overlap inquiries when each can produce a useful
+result with its available inputs; an investigation may itself resolve an open shared premise.
+Reconsider dependent reasoning when that premise changes. Keep decisions within the eventual
+implementer's accepted outcome and contracts available to that implementer.
 
 This is the order of reasoning while creating the plan. The eventual implementation sequence
 and its explanation belong to create-plan. Preparation does not need to settle every target
@@ -75,8 +76,9 @@ decision before authoring begins.
 
 ## Delegate questions that produce usable design inputs
 
-Explain which decision an assignment will inform. Supply relevant source obligations, target
-behavior, current contracts and constraints, distinguishing settled decisions from alternatives
+Explain which decision an assignment will inform and whether the worker is supplying evidence,
+recommending a choice or deciding within an accepted boundary. Supply relevant source obligations,
+target behavior, current contracts and constraints, distinguishing settled decisions from alternatives
 still open. Explain why each reference matters and allow workers to follow discovered
 dependencies. Ask for supported conclusions and consequential uncertainty that the author can
 use, without prescribing the preferred answer.

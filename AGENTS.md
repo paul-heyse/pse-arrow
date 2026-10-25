@@ -332,11 +332,12 @@ hunks, preserving unrelated and concurrent work.
 
 ## Agent coordination and workflow skills
 
-Use subagents when independent work, context isolation, distinct capabilities or independent
-judgment justify coordination and integration. Small or tightly coupled tasks may stay with the root.
+Use subagents when another context, capability or perspective supplies useful progress, learning
+or independent judgment worth briefing and integration. Shape assignments around coherent outcomes,
+available inputs and shared decisions; components and role names are possible organizing aids.
 Follow the [shared roles and coordination contract](.agents/roles/README.md), including its
-explicit model and effort routing. The root agent owns design, integration and acceptance;
-executors choose local implementation details within their assigned boundaries.
+explicit model and effort routing. The root remains accountable for design coherence, integration
+and acceptance; workers exercise delegated judgment within accepted outcomes and contracts.
 
 The [local process skills](.codex/skills/README.md) pair conversational preparation with action:
 `plan-design-review` / `design-review`, `plan-functional-extension-review` /

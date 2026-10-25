@@ -41,7 +41,9 @@ That index routes to the active plan or packet checkpoint for baseline and hando
 root STATUS file or handoff skill is required.
 
 All workflow pairs use the [shared agent roles](../../.agents/roles/README.md). Roles supply
-bounded capabilities; the coordinator retains design, integration and acceptance. The layered
+bounded capabilities and coordination principles, including readiness for the requested result and
+delegated decision scope; AGENTS.md owns local operating rules. The coordinator remains accountable
+for design coherence, integration and acceptance. The layered
 standard remains core 3.4 and process-simulator 1.5, as selected by
 `docs/design_review/design_principles/standard.toml`; model adequacy/authority (AP-04/G9),
 qualitative execution-fit assessment (AP-07/G9) and independent scientific judgments are preserved.
