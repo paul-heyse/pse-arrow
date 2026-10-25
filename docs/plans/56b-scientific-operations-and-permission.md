@@ -1,8 +1,8 @@
 ---
 title: "Plan 56b: Scientific operations and permission"
-status: draft
+status: in-progress
 date: 2026-10-25
-adrs: []
+adrs: [ADR-0227]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
 scenario_sources: [docs/design_review/audit/system-architecture.md]
 doc_role: plan
@@ -192,3 +192,13 @@ affected sources, effect/recovery state and redacted remedy, not exception prose
 Targeted tests accompany each integrated change with explicit force-validation for Arrow closures.
 G owns composed scientific/native/Python/operator qualification. No new numerical, runtime or speed
 evidence is claimed by authoring this document.
+
+## Execution checkpoint — 2026-10-25
+
+The maintainer authorized all B01–B06 with only the working C/F prerequisites needed for complete
+durable/public adoption. Qualify the new interpretation in a fresh owned deployment and preserve
+the existing selected store. Scientific values use explicit narrow services at effectful Rust
+entry points; existing Python/MCP facades retain convenience. Completion v2, stored completion v3
+and replay v5 publish together; receipt framing and file placement stay unchanged. RC01–RC06
+remain pending. ADR-0227 records the selected contract before publication. 56a evidence retains
+its original scope; no B package is complete from that prerequisite alone.

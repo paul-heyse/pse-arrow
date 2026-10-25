@@ -517,6 +517,8 @@ mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
+> Decision: [ADR-0227](../../adr/0227-completion-permission-and-operation-facts.md) (proposed; maintainer-authorized Plan56b completion, operation-fact and explicit-service amendment).
+
 > Decision: [ADR-0224](../../adr/0224-native-result-inspection.md) (proposed;
 > maintainer-authorized Plan52l native inspection extension).
 
