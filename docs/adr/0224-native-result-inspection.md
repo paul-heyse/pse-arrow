@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-07, DP-21, PS-10, PS-12]
 blueprint: [§19.2, §21.1, §21.5, §23.2]
 review: "not-required: scoped native inspection/diagnostic binding within existing Rust-authoritative boundaries; Plan52l and usability RC01 selected by maintainer"
-evidence: Tested
+evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A concrete inspection needs another scientific query authority or decoding loses native interpretation or protection.
@@ -31,6 +31,9 @@ Add native-owned bounded result schema/readable inspection documents and structu
 projection through the existing Rust/Python document catalogue. This extends accepted boundaries;
 scientific model, schema, source, outcome, result protection and native admission authority do not move.
 The maintainer explicitly selected compact readable physical values as part of Plan52l execution.
+On 2026-10-25 the maintainer authorized Plan55's complete execution, including a version-two
+extension for nested readable values and bounded exact context. The original selected evidence
+below retains its earlier scope; version-two implementation and qualification are not yet claimed.
 
 ## Drivers
 
@@ -56,6 +59,28 @@ directional schemas/Python records, and canonical MCP consumes those original do
 and row selection carry original run/attempt/relation, manifest and schema identity. Readable values
 are explicit bounded projections; exact IPC remains the lossless programmatic path. Missing, nonfinite,
 unavailable and omitted detail never become zero, null substitution or successful scientific assurance.
+
+### Plan55 nested inspection amendment — 2026-10-25
+
+The result inspection request and response roots use the existing versioned wire mechanism at
+version two (`FlatV2`); other document owners retain their versions. Active Rust, PyO3, generated
+Python and MCP consumers migrate together, and version-one requests are rejected before current
+body decoding rather than coerced through a compatibility API.
+
+One typed Arrow field path selects a root and struct-field/list-element steps. Native traversal
+checks parent validity and per-row list offsets, preserving null containers, empty lists, absent
+elements and null elements distinctly. Exact scalar widths, IEEE class/bits and physical context
+remain native meanings. Shallow descriptors and bounded schema/context detail pages avoid repeating
+entire nested datatype trees. Continuations bind issuer, original result selection, manifest,
+schema, complete row window and selected paths; each request reopens/protects that exact result.
+Schema/context pages consume no data batches. Selected readable materialization retains required
+original full-batch decoding and validation; no decode-speed improvement is claimed.
+
+Keep decision-critical units/basis/identity/quality/usability inline and supplementary exact
+context linked with explicit completeness. Indivisible unsupported extent refuses honestly;
+exact IPC remains available for bulk/programmatic access. Plan55 C02 must make a representative
+real nested value readable with independently checked meaning; a more precise refusal alone is
+insufficient. The existing reader/lifetime authority is unchanged.
 
 ### Compensating controls
 

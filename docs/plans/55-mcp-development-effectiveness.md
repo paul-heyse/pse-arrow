@@ -1,6 +1,6 @@
 ---
 title: "Plan 55: MCP development effectiveness"
-status: planned
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -192,7 +192,9 @@ owner/trigger and does not become an unmarked completion requirement.
 
 ## Current checkpoint
 
-The series is authored as a proposed target; production implementation and qualification have
-not begun. The next step is maintainer-selected execution scope, beginning with available
-foundation packages rather than repeating the source review. Companion package tables own
-progress. Update this checkpoint with state/decisions/next work, not per-command logs.
+The maintainer authorized the entire series on 2026-10-25, including useful positive inquiry
+outcomes within the existing contracts. Shared CLI/contract, native inspection, knowledge and
+diagnostic implementation is active; conditional branches remain inquiry-driven. Qualification
+has not begun. Companion tables own package progress; source review evidence is not current
+implementation acceptance. The next work is integration of the shared contracts and the first
+native/source-owner slices, followed by their targeted checks.
