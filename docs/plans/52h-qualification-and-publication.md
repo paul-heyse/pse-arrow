@@ -1,6 +1,6 @@
 ---
 title: "Plan 52h: Qualification and publication"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -251,6 +251,8 @@ alone establishes no product behavior, scientific result or performance benefit.
 
 ## Execution checkpoint — 2026-10-25
 
+This is the historical checkpoint before the final qualification below.
+
 F01/F02, G01–G04, LIFE04/MCP06 and the selected independent-cleanup repair are implemented
 with their scoped actual-consumer evidence in the companion Outcomes. F02 now has real
 concurrent continuous/finite FastMCP/Python→Rust→SDK→server→Surrealism parent chains,
@@ -346,33 +348,55 @@ when its loaded interface is stale; successful fresh-child consumption does not 
 
 ### Current campaign handoff — 2026-10-25
 
-Functional repairs and selected native/Python/actual-Codex consumers are finished at the boundaries
-above. All owned scientific and disposable service consumers have settled. The only active
-qualification is the fresh full `features-powerset` assessment under
-`build/assessment/20261025T055203.278998Z-features-powerset-918911-d6ca14/` (controller918911).
-It runs all505 literal depth-two combinations followed by the separate no-default population;
-no covered Rust/tooling source is being edited. Earlier173-pass interrupted and330-pass historical
-campaigns remain incomplete, and are not silently reused. The current campaign must finish or
-retain its actual terminal interruption/failure before H03 closes. Documentation publication has
-passed658 chapters; final status/retirement reconciliation follows the campaign. The maintainer has settled optional production
-selection through the ordinary baseline and concrete-consumer deferrals recorded by the coordinator;
-no additional implementation is authorized.
+This former handoff is historical: the campaign completed successfully and controller 918911 exited.
+The original assessment remains under
+`build/assessment/20261025T055203.278998Z-features-powerset-918911-d6ca14/`.
+At the maintainer-authorized unattended handoff, the snapshot at 2026-10-25T06:15:45Z had 200 passed,
+one running and 304 not run, with `complete=false` and `required_checks_covered=false`. No-default
+checks had not begun. Those were truthful interim observations, not its eventual terminal result.
+Earlier 173-pass interrupted and 330-pass historical campaigns remain incomplete and were not reused.
+No controller needs restarting and no duplicate campaign is scheduled. H01–H04 are now complete
+at their stated boundaries; the final result follows.
 
-The maintainer explicitly selected unattended continuation with session handoff. H01/H02/H04
-are complete at the selected boundaries above; H03 and overall Plan52 closure remain open for
-the actual full feature/no-default result. Leave controller918911 running; do not launch a
-duplicate or terminate it merely because this conversation turn ends. Read its retained
-`feature-campaign.json`, enclosing `summary.md`/assessment and original invocation terminal when
-it finishes, preserving required-check coverage, source-unchanged and drain/report results.
-A failure requires its actual target-aligned repair and affected checks; an incomplete, interrupted
-or unsealed receipt is not reusable passing coverage. Reconcile the same owners and retire only
-when their live dependencies release them.
+### Final feature qualification and series closeout — 2026-10-25
 
-**Tested, handoff snapshot at2026-10-25T06:15:45Z, baseline zero:** the live controller had
-200 passed configurations, one running and304 not run; zero failures were recorded. The campaign
-correctly reported `complete=false` and `required_checks_covered=false`. The no-default population
-had not begun. This snapshot is not its eventual terminal result. Final `just docs` published658
-chapters, document lifecycle validation checked1,359 scope items, capability-reference comparison
-and register lint passed, and `just turn-end` passed ADR indexing and formatting. Retirement
-preflight retained all20 series documents for unreleased owners/live readers; no source/evidence
-was deleted. Documentation-only closeout did not repeat passing product Clippy/type checks.
+**Tested, local pinned environment, baseline zero:** the original
+`CARGO_INCREMENTAL=0 just assessment --group features-powerset` completed with exit0.
+
+| Original gate | Result | Scope and conditions |
+|---|---|---|
+| `features-combinations` | 505 passed; zero failed, interrupted or unexecuted | Full literal cargo-hack depth-two enumeration; actual scoped Arrow force-validation execution records; 6521.4 s elapsed. |
+| `features-no-default` | 34 passed; zero failed, interrupted or unexecuted | Separate complete no-default enumeration; actual scoped Arrow force-validation execution records; 50.6 s elapsed. |
+
+Both campaign receipts have `complete=true`, `required_checks_covered=true` and
+`source_unchanged=true`, with executed evidence and no reused parent. The enclosing assessment
+records both required gates passed, zero report/provenance errors and required coverage. Its
+whole-source `source_unchanged=false` remains untouched: the original source-cut detail lists
+thirteen documentation changes only. Both gate details record empty relevant source/environment
+changes. This is a broader provenance observation, not changed compiler input or a failed gate.
+The original assessment/detail readers, feature receipt validator and sealed artifact readers
+validated both populations and all recorded artifact digests. The controller has exited; no manual
+allocation release, recovery action, workload replay or evidence rewrite was needed.
+
+This completes H03 together with the earlier zero-target hygiene repairs, default/no-default/
+linked-native Clippy, Ruff/Pyrefly, governance and generation results recorded above. Prior failed,
+interrupted and repaired functional observations retain their actual conditions. The original
+Codex values assessor still failed on the documented context-bound refusal; its successful schema
+recovery is not a positive row-value result. Feature compilation adds no full solver-fleet,
+scientific model, parity, throughput, overhead, distribution or other-platform qualification.
+C04's accepted fallback and R-55's maintainer-selected deferrals remain unchanged.
+
+**Implemented:** H01–H04 and the selected Plan52 series scope are complete. Completed 52k/52n
+metadata is reconciled; current-work selection points to active plans only. Enduring qualification
+is published at blueprint §24.2 with its revision row. All twenty series documents and consumed
+reviews remain retained for existing native status, qualification, Plan53/54 and proposed-ADR
+readers; retirement preflight does not authorize deleting their evidence. Formal ADR statuses
+and independent plan obligations are unchanged.
+
+**Tested, documentation-only closeout, baseline zero:** `just docs` published 658 chapters;
+`scripts/pse-env --docs -- .venv/bin/python -m scripts.document_lifecycle validate` passed
+with 1,359 scope items and no errors. The matching `retire-plan --path 'docs/plans/52*.md'`
+preflight passed and retained all twenty consumed documents. `just turn-end` passed ADR indexing
+and formatting; `git diff --check` passed. All 86 package rows are complete, and all twenty plan
+front-matter statuses are complete/done. The completed campaign was not rerun; no passing product
+Clippy, Ruff/Pyrefly or functional suite was repeated for these documentation-only edits.

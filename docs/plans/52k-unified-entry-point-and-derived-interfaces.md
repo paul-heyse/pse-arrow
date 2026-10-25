@@ -1,6 +1,6 @@
 ---
 title: "Plan 52k: Unified entry point and derived interfaces"
-status: in-progress
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]

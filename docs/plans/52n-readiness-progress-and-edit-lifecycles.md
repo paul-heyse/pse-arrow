@@ -1,6 +1,6 @@
 ---
 title: "Plan 52n: Readiness, progress and edit lifecycles"
-status: in-progress
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]

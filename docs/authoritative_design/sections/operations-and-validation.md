@@ -1265,8 +1265,13 @@ The linked sixteen-case lifecycle/claim/evidence/child-drain selection passed wi
 validation. Host and Python functional qualification is composed from the original full
 selections and successful affected repairs; it is not an initially clean monolithic rerun.
 Default/no-default and linked-native/all-target Clippy, repaired hygiene leaves, Ruff/Pyrefly,
-generated equivalence and governance passed at the conditions in that Outcome. Full feature
-and publication state belongs to that owner, separately from scientific testing.
+generated equivalence and governance passed at the conditions in that Outcome. The completed
+`CARGO_INCREMENTAL=0 just assessment --group features-powerset` passed all 505 depth-two and 34
+no-default configurations, with zero failures and unchanged relevant Rust/compiler inputs.
+The enclosing thirteen-document source drift is retained as broader provenance; original gate
+receipts record no relevant source/environment changes. This is complete selected build-feature
+qualification, separately from scientific testing. Final publication and historical failures
+remain at the owning Outcome.
 
 Actual Codex recovered current native schema paging and protected manifest continuation after
 exactly one explicit selected-endpoint preparation. The deeply nested study relation's mandatory

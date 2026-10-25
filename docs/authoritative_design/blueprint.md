@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 270
+revision: 271
 date: 2026-10-25
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 271 | 2026-10-25 | Publish completed Plan52 feature qualification: 505 depth-two and 34 no-default configurations, unchanged relevant compiler inputs and retained documentation drift (§24.2). | Maintainer-authorized Plan52 closeout via explicit `PSE_DESIGN_EDIT=1`; original receipts, composed functional boundaries, R-55 deferrals and proposed ADR status remain unchanged. |
 | 270 | 2026-10-25 | Record maintainer-selected ordinary typed/native/headless capability baseline and concrete-consumer deferrals (§24.1/§24.2). | Explicit Plan52 conditional disposition; `PSE_DESIGN_EDIT=1` authorizes publication. R-55 owns revisit; optional frameworks remain undeployed and feature qualification stays separate. |
 | 269 | 2026-10-25 | Publish selected remaining MCP/observability qualification and native readable-context limits (§24.2). | Maintainer-authorized Plan52 H04 publication via explicit `PSE_DESIGN_EDIT=1`; composite repaired functional evidence, current-native schema recovery and unqualified boundaries remain separate. Proposed ADR status unchanged. |
 | 268 | 2026-10-25 | Publish implemented native paired-evidence comparison, selected capability/import admission, independent endpoint cleanup and actual SDK/server/module trace continuity (§23.1/§24.1), plus per-call study claim custody (§19.2). | Maintainer-authorized remaining Plan52 execution and selected I14 repair; `.design-edit` authorizes enduring publication. ADR-0225 remains proposed; functional/component evidence and remaining assembled qualification retain their owning Outcomes. |
