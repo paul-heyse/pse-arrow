@@ -1,6 +1,6 @@
 ---
 title: "Plan 52p: Shared telemetry and native propagation"
-status: in-progress
+status: done
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -444,10 +444,70 @@ the four deliberately invalid reader-input controls have narrowly explained test
 suppressions, not production type escapes. `scripts/pse-env -- just governance` passed all six
 selected checks against zero failures with unchanged inputs. Earlier aggregate failures from
 four nested-condition Clippy findings and a stale capability revision were corrected, then the
-complete hygiene selection passed. Native-linked Clippy and final documentation publication are
-being finalized at the coordinator; full feature-powerset/product/performance campaigns are not
-claimed by these selected checks.
+complete hygiene selection passed. The final refinement checks below supersede this earlier checkpoint; full feature-powerset,
+product and performance campaigns are not claimed by these selected checks.
 
-Permanent service activation,
-main merge and worktree retirement await the maintainer's Plan54 cutover signal. F02/I11,
-TEL09–TEL17, broader 52h qualification and measured benefits retain their existing owners.
+The final cutover below supersedes the earlier deployment hold. F02/I11, TEL09–TEL17,
+broader 52h qualification and measured benefits retain their existing owners.
+
+
+### Refinement acceptance and cutover — 2026-10-24
+
+**Tested, baseline zero:** `scripts/pse-env -- just check-package pse-runtime -p pse-schema`
+passed with zero diagnostics. The force-validated `just unit-package pse-runtime` selection
+`test(runtime_metrics) | test(checkpoint_actual_published_wire) |
+test(sourced_vocabularies_match_their_source) | test(tooling::telemetry)` with `-p pse-schema`
+passed eighteen tests. The `pse-codegen` private-bootstrap selector passed one test; the explicit
+`xtask` binary `test(private_python_caches)` selector passed two. The combined telemetry
+configuration/launch/process/read/service and capability/native unittest selection passed 99;
+after test-only typing/lint repairs its affected capability subset passed 43. No unselected tests
+are counted as passes.
+
+**Tested, baseline zero:** the linked, force-validated extension and actual-API stubs were admitted.
+`python -m scripts.tests.telemetry_native_acceptance` passed enabled, disabled, refused-exporter
+and delayed-exporter modes with original scientific outcomes. After the final safe header-error
+repair, the native `solver-kinsol` selection through `just unit-native-capability-package` passed
+all four selected cancellation/death and frozen-decoder controls (nextest run
+`1bfa3346-b79d-4c64-a51a-26e5d459ecc1`). The three `unit` Python cases for passive checkpoint
+reads, relocatable frozen evidence and offline capability adaptation passed with the same admitted
+extension. These controls establish no additional exported cancellation parent chain.
+
+**Tested, baseline zero:** `scripts/pse-env --native=solver,klu,isolation,uno,petsc --
+.venv/bin/python -m scripts.tests.telemetry_mcp_acceptance --output
+/home/paul/.local/state/pse-arrow/telemetry-qualification/plan52pq-mcp-final2-20261024` passed the
+fresh STDIO journey. It described/selected each original binding, verified the actual producer's
+PID, executor workers and nonzero future polls through its compact process summary, and required
+whole refusal of the approximately 979 KB exact checkpoint instead of fabricated truncation.
+Real backend metric points retained that producer's process incarnation and two-worker fixture
+selection. Both known trace reads went through FastMCP and retained native spans with independently
+chosen parents. A real source-admission action remained admitted. Stopping the owned Collector
+left configuration readable and reported it unavailable. Cleanup drained the disposable services
+and removed their authenticated units and successful service state.
+
+**Tested, baseline zero:** the refinement `just hygiene` passed all 23 checks before the final
+frozen-header repair. Final `just typecheck` and `just lint-py` passed with zero diagnostics;
+Pyrefly retained seven existing/documented suppressions. The final native-linked, workspace/all-
+target `just clippy-default --features pse-runtime/native-solvers,pse-py/native-solvers,
+xtask/package-fixtures,xtask/native-solvers` passed with `-D warnings`. Final `just governance`
+passed all six checks, including all generated outputs. `just ready` passed both checks.
+The final header repair was exercised by the four Rust and three Python cases above, not inferred
+from the earlier hygiene pass. Documentation publication and final checkout admission are recorded
+with the coordinator cutover: main's linked correctness extension and actual-API stubs were
+admitted, the original native producer remained usable, and a fresh main MCP read verified that
+producer's native parent in the retained backend. `just docs` published 657 chapters with scoped
+search. These are selected local checks, not assembled product qualification.
+
+Corrected findings were the private generator's bytecode/formatter ownership, strict test typing,
+a missing reveal selection and incorrect large-checkpoint assumption in the manual journey, and
+the frozen reader losing its safe header classification when the shared decoder stopped rendering
+private error strings. Refused preparations during source changes and pre-collection temporary-
+directory errors executed no scientific tests. Their later frozen selections passed; no fixture
+assertion was weakened or native settlement moved to make export succeed.
+
+**Implemented:** the maintainer released the Plan54 hold, main fast-forwarded through `9be07123b`
+without conflicts, and the fully merged worktree/branch were retired after owned processes drained.
+Reports were preserved under `~/.local/state/pse-arrow/telemetry-qualification/worktree-reports`;
+the joined acceptance and subsequent deployment reports live alongside them. Only the separately
+owned retained telemetry services remain active. TEL01–TEL04 are done at these declared source,
+consumer and delivery boundaries. No universal child-span delivery, database/module continuity,
+performance improvement or assembled Plan52 qualification is claimed.

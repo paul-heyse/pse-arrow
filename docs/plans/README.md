@@ -83,7 +83,8 @@ rendering limits. The
 [52o pause checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52o-pause-checkpoint--2026-10-24)
 records bounded real-Monty composition, task/native-owner and STDIO-loss inquiries, plus an OTel SDK
 baseline probe. OPT01/OPT02 remain in progress: actual host/final integration and adoption decisions
-are uncompleted. No production CodeMode, task queue or telemetry deployment is enabled. The separate
+are uncompleted. CodeMode and protocol-task deployment remain unselected here; the later telemetry
+cutover is recorded below. The separate
 [OpenTelemetry amendment](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-opportunity-dispositions)
 now schedules all twenty review opportunities through new
 [52p](52p-shared-telemetry-and-native-propagation.md),
@@ -95,9 +96,12 @@ population-correct metrics and typed investigations through the existing FastMCP
 52f retains actual database continuity; 52g/52h retain agent workflows and assembled qualification.
 The coordinator owns all package/opportunity/inquiry state. Its
 [52p/52q checkpoint](52-agent-effectiveness-and-engineering-workflows.md#52p52q-execution-checkpoint--2026-10-24)
-links the isolated shared telemetry/service implementation, actual Python/Rust/native-child and
-pipeline acceptance, remaining integration work and explicit delivery limits. Permanent activation
-and telemetry merge await the maintainer's Plan54 cutover signal.
+links shared telemetry/service implementation and actual Python/Rust/native-child and pipeline
+acceptance with explicit delivery limits. The
+[final cutover](52-agent-effectiveness-and-engineering-workflows.md#52p52q-final-cutover--2026-10-24)
+records TEL01–TEL08 done, main integration, worktree retirement and enabled native telemetry
+services with seven-day retention. General metrics/queries and assembled qualification retain
+their remaining owners.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

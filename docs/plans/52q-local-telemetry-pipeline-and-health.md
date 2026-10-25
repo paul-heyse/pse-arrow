@@ -1,6 +1,6 @@
 ---
 title: "Plan 52q: Local telemetry pipeline and health"
-status: in-progress
+status: done
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -360,7 +360,35 @@ distinct finite consumer; do not build another ordinary production export path. 
 a concrete standard finite-capture composition can close those preservation obligations together
 with F02 and TEL16. No finite-capture equivalence or migration is claimed.
 
-Scope-end static checks and the final integrated native/producer boundary remain in progress at
-the coordinator. Full metric populations, general FastMCP query exposure, actual database/module
-continuity, offline custody, arbitrary disk-failure recovery and measured performance benefits
-are not established by these service cases.
+The final selected native/STDIO consumer and static checks are recorded in 52p's refinement
+acceptance. Full metric populations, general query exposure, actual database/module continuity,
+offline custody, arbitrary disk-failure recovery and measured performance benefits are not
+established by these service cases.
+
+
+### Selected deployment cutover — 2026-10-24
+
+**Implemented and tested:** after the maintainer reported main/Plan54 work finished, the telemetry
+branch fast-forwarded into main without conflicts. `just telemetry install`, `setup`, `start`,
+`enable` and `health` all completed successfully against the ordinary independently owned state
+`~/.local/state/pse/telemetry`. Collector 0.163.2 and OpenObserve 1.1.2 retain the existing exact
+artifact verification. Both native user services were read back as active, enabled and ownership-
+verified; their separate health endpoints returned HTTP200. Retention is seven days. Login
+startup is configured; a fresh login/reboot was not part of this acceptance. Configuration generation
+is `3c549615b3e74b32a8884a80597b617b`.
+
+**Tested:** the final joined live FastMCP/native driver in 52p exercised the same configured
+pipeline implementation with real process-attributed metrics and known traces, and observed
+Collector-down fallback. Its disposable units/state were removed. The retained deployment's
+health and ownership alone establish availability, not record delivery. A subsequent actual
+native producer on main preserved its original usable outcomes; a fresh main MCP trace read
+returned 39 records from that exact process incarnation and verified the independently chosen
+native parent. This establishes that selected record's query visibility, while the response
+retains `complete=false`. The coordinator records checkout admission and documentation publication.
+Deployment and acceptance reports are retained at
+`~/.local/state/pse-arrow/telemetry-qualification`.
+
+TEL05–TEL08 are done within the selected restart/retry/overflow/startup-refusal and controlled
+retention envelope above. TQ02/TQ05 retain their resolved dispositions. Universal crash durability,
+runtime ENOSPC/corruption recovery, exactly-once delivery and stronger historical-query/metric
+semantics remain unestablished. F02/I11, TEL09–TEL17 and 52h retain their independent obligations.

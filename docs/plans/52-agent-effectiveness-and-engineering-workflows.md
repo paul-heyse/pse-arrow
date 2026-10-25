@@ -567,24 +567,24 @@ where the mechanism is conditional. Historical isolated probes remain evidence, 
 
 | Opportunity | Disposition | Work owner | Required behavior or disposition |
 |---|---|---|---|
-| O01 | scheduled | [TEL01](52p-shared-telemetry-and-native-propagation.md#TEL01) | One inspectable process bootstrap, effective configuration and supported provider lifecycle; explicit Python setup is baseline. |
+| O01 | resolved | [TEL01](52p-shared-telemetry-and-native-propagation.md#TEL01) | One inspectable process bootstrap, effective configuration and supported provider lifecycle; explicit Python setup is baseline. |
 | O02 | scheduled | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual cross-boundary continuity using TEL02/TEL03 handoffs and the concrete SDK/server seam; I11 retains unsupported-edge truth. |
-| O03 | scheduled | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Meaningful native stage explanations with authentic source relationships and coverage, consumed by TEL13/G01. |
-| O04 | scheduled | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Queued/executing/shared-wait/response/drain distinctions survive timeout, observer loss and native settlement. |
+| O03 | resolved | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Meaningful native stage explanations with authentic source relationships and coverage, consumed by TEL13/G01. |
+| O04 | resolved | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Queued/executing/shared-wait/response/drain distinctions survive timeout, observer loss and native settlement. |
 | O05 | scheduled | [TEL09](52r-operational-metrics-and-diagnostic-integration.md#TEL09) | Population-correct metrics, units/views/dimensions/reset meaning without a second native counter authority. |
 | O06 | scheduled | [TEL10](52r-operational-metrics-and-diagnostic-integration.md#TEL10) | Preparation, reuse, invalidation and shared producers explain repeated work without redefining cache dependencies. |
 | O07 | scheduled | [TEL10](52r-operational-metrics-and-diagnostic-integration.md#TEL10) | Operation-associated database/storage signals and actual service identity; F02 supplies parentage, not assumed enterprise features. |
-| O08 | scheduled | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Structured diagnostic projection and deliberate log/span-event representation with native outcome authority. |
+| O08 | resolved | [TEL04](52p-shared-telemetry-and-native-propagation.md#TEL04) | Structured diagnostic projection and deliberate log/span-event representation with native outcome authority. |
 | O09 | scheduled | [TEL11](52r-operational-metrics-and-diagnostic-integration.md#TEL11) | Current build/test/qualification/host owner projections, original invocation identity and exact evidence readers. |
-| O10 | scheduled | [TEL07](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline-stage observations and local fallback, distinguishing attempted/received/query-visible from durable/complete. |
-| O11 | scheduled | [TEL05](52q-local-telemetry-pipeline-and-health.md#TEL05) | Native supervised Collector/OpenObserve and retained local querying, with TEL06/TEL08 pipeline/lifecycle qualification. |
+| O10 | resolved | [TEL07](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline-stage observations and local fallback, distinguishing attempted/received/query-visible from durable/complete. |
+| O11 | resolved | [TEL05](52q-local-telemetry-pipeline-and-health.md#TEL05) | Native supervised Collector/OpenObserve and retained local querying, with TEL06/TEL08 pipeline/lifecycle qualification. |
 | O12 | scheduled | [TEL13](52s-telemetry-queries-and-agent-investigations.md#TEL13) | Backend-aware typed selected reads with real normalization, population, interval, pagination and partiality semantics. |
 | O13 | scheduled | [TEL14](52s-telemetry-queries-and-agent-investigations.md#TEL14) | Existing exact discovery/reveal/resources/invoke-read route supplies telemetry investigation; G01–G03 exercise real agent use. |
 | O14 | scheduled | [TEL12](52r-operational-metrics-and-diagnostic-integration.md#TEL12) | Distribution-to-related-example navigation; TQ01 qualifies stronger bucket/population attribution instead of assuming it. |
 | O15 | scheduled | [TEL15](52s-telemetry-queries-and-agent-investigations.md#TEL15) | Existing finite native/profile escalation plus TQ03's justified adoption or supported alternative for advanced mechanisms. |
 | O16 | scheduled | [TEL16](52s-telemetry-queries-and-agent-investigations.md#TEL16) | Bounded offline investigation with original query/source intervals, native references, loss and existing custody/publication. |
 | O17 | scheduled | [TEL17](52s-telemetry-queries-and-agent-investigations.md#TEL17) | TQ04 resolves concrete watches/OSS alerts versus headless reads; G05 owns any separately selected interactive view. |
-| O18 | scheduled | [TEL03](52p-shared-telemetry-and-native-propagation.md#TEL03) | Qualified export/runtime/shutdown behavior, no synchronous native hot-path network work, and preserved native outcomes. |
+| O18 | resolved | [TEL03](52p-shared-telemetry-and-native-propagation.md#TEL03) | Qualified export/runtime/shutdown behavior, no synchronous native hot-path network work, and preserved native outcomes. |
 | O19 | scheduled | [TEL12](52r-operational-metrics-and-diagnostic-integration.md#TEL12) | Owner metrics independent of trace sampling; selected detail and evidence-based sampling mechanisms fit scientific lifetimes. |
 | O20 | scheduled | [H02](52h-qualification-and-publication.md#H02) | Independent local contracts plus actual assembled SDK/Collector/backend/FastMCP/native qualification, with H01/H03/H04 reconciliation and publication. |
 
@@ -675,14 +675,14 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
 | OPT01 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Paused after bounded real-Monty/typed/small-read comparison and dispatch/lifecycle controls; fresh host/final policy remain |
 | OPT02 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Paused after native-owner/task/STDIO-loss/projection inquiry; integrated native recovery, actual host and final selection remain |
-| TEL01 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |
-| TEL02 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL02) | Python/FastMCP providers, helper carriers and logging lifecycle |
-| TEL03 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL03) | Rust/embedded/native-child providers, context and qualified export/shutdown |
-| TEL04 | in progress | [52p](52p-shared-telemetry-and-native-propagation.md#TEL04) | Native stage/wait/drain/diagnostic projections and migrated owner consumers |
-| TEL05 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL05) | Selected native Collector/OpenObserve installation and supervised owned state |
-| TEL06 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL06) | Shared processing, routing, bounded export queues and effective configuration |
-| TEL07 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline health and backend-unavailable local diagnostics |
-| TEL08 | in progress | [52q](52q-local-telemetry-pipeline-and-health.md#TEL08) | Retention/restart/recovery and TQ02/TQ05 supported capture outcomes |
+| TEL01 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |
+| TEL02 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL02) | Python/FastMCP providers, helper carriers and logging lifecycle |
+| TEL03 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL03) | Rust/embedded/native-child providers, context and qualified export/shutdown |
+| TEL04 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL04) | Native stage/wait/drain/diagnostic projections and migrated owner consumers |
+| TEL05 | done | [52q](52q-local-telemetry-pipeline-and-health.md#TEL05) | Selected native Collector/OpenObserve installation and supervised owned state |
+| TEL06 | done | [52q](52q-local-telemetry-pipeline-and-health.md#TEL06) | Shared processing, routing, bounded export queues and effective configuration |
+| TEL07 | done | [52q](52q-local-telemetry-pipeline-and-health.md#TEL07) | Independent pipeline health and backend-unavailable local diagnostics |
+| TEL08 | done | [52q](52q-local-telemetry-pipeline-and-health.md#TEL08) | Retention/restart/recovery and TQ02/TQ05 supported capture outcomes |
 | TEL09 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL09) | Owned metric populations, units, views, dimensions and reset semantics |
 | TEL10 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL10) | Native preparation/reuse/database/storage metric projections |
 | TEL11 | planned | [52r](52r-operational-metrics-and-diagnostic-integration.md#TEL11) | Current engineering build/test/qualification and host projections |
@@ -997,9 +997,9 @@ placement; no scientific test failure is inferred. The maintainer freed disk spa
 native qualification resumed with the existing compilation artifacts preserved. The original
 child numerical/reservation/reap assertions passed all four modes; the enabled telemetry fixture's
 unsigned-PID wire decoder was corrected and its actual export assertions passed with the explicit
-missing-edge limits above. Permanent
-service activation, merge to main and worktree removal remain deferred to the maintainer's Plan54
-completion/cutover signal. No telemetry service from isolated acceptance remains active.
+missing-edge limits above. At this checkpoint permanent activation, main merge and worktree
+removal remained deferred; the final cutover below supersedes that hold. No disposable acceptance
+service remains active.
 
 ### 52p/52q native-observation refinement — 2026-10-24
 
@@ -1016,10 +1016,41 @@ TEL09's runtime-source projection and TEL14's configuration/health/known-trace b
 prerequisite slices within this execution, not adoption of their full packages. General metric
 populations, query pagination, profiling, custody, watches and F02/I11 retain their existing owners.
 RMCP receives a bounded adapter comparison, with existing FastMCP/PyO3 boundaries retained unless a
-separately selected replacement demonstrably removes a complete path. The next integration exercises
-actual STDIO/native consumers and failure fallback; prior passing checks retain their original inputs
-and limits. Scope-end checks follow functional implementation. Deployment and final merge still await
-the already recorded Plan54 cutover signal.
+separately selected replacement demonstrably removes a complete path. The completed bounded
+comparison retains FastMCP/PyO3; 52p records the concrete revisit trigger. Its refinement acceptance
+records the actual STDIO/native journey, process-attributed backend metrics and known traces,
+Collector-down fallback, final Rust/Python controls and zero-target checks. Prior passing checks
+retain their original inputs and limits.
+
+### 52p/52q final cutover — 2026-10-24
+
+**Implemented and tested:** the maintainer released the main/Plan54 hold. Main fast-forwarded
+through `9be07123b` without conflicts; the fully merged worktree and its branch were removed after
+owned work drained and reports were preserved. [52p's refinement acceptance](52p-shared-telemetry-and-native-propagation.md#refinement-acceptance-and-cutover--2026-10-24)
+owns the source/consumer evidence: eighteen runtime/schema tests, the focused generator controls,
+99 combined Python controls, final four native and three Python diagnostics controls, and the live
+FastMCP/native/backend journey. Final native-linked Clippy, Ruff and Pyrefly have zero diagnostics;
+the refinement hygiene selection passed 23 checks and final governance passed six within the
+source boundaries recorded there.
+
+**Tested, baseline zero:** main's `just py-sync-native-correctness` prepared and admitted the linked
+force-validated extension and verified its actual-API stubs. Fresh STDIO reads from main returned
+the retained configuration and responding pipeline with initialized process-owned providers.
+`telemetry_native_acceptance --produce` preserved usable native outcomes and unchanged-revision
+reuse; the main MCP known-trace lookup then returned 39 records from that exact native process
+incarnation, including the independently parented native operation. Query completeness remains
+false, as declared. `just docs` published 657 chapters with scoped search. These selected main
+checks do not claim assembled product or performance qualification.
+
+**Implemented and tested:** [52q's deployment cutover](52q-local-telemetry-pipeline-and-health.md#selected-deployment-cutover--2026-10-24)
+records the retained Collector/OpenObserve generation, seven-day retention, enabled user-login
+startup and actual responding health endpoints with verified process ownership. Only those
+retained services remain running. Reports live at
+`~/.local/state/pse-arrow/telemetry-qualification`; `worktree-reports` preserves the earlier
+assessment/native-test/extension records. This records TEL01–TEL08 done at their selected
+boundaries, without promoting the bounded TEL09/TEL14 prerequisites to full package completion.
+F02/I11, TEL09–TEL17, G/H and quantified benefits remain separately owned. A short private child's
+unobserved export edge remains unestablished, never replaced with parent-only evidence.
 
 ### OpenTelemetry authoring checkpoint — 2026-10-24
 
