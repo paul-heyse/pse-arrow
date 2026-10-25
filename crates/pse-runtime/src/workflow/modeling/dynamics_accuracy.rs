@@ -143,6 +143,38 @@ mod tests {
             provenance: "test physical decision".into(),
         }
     }
+    #[cfg(feature = "solver-diffsol")]
+    #[tokio::test]
+    async fn dynamic_refined_goal_consumes_the_compiler_physical_target_and_role() {
+        use crate::workflow::tests as fixture;
+        let rows = pse_authoring::language::parse(
+            "package p {def Root {boundary wall;domain t:Time from 0{s} to 1{s};discretize grid on t using integrated(elements=1,order=1);var x[i in t]:Time;eq advance[i in t]:d(x[i])/di==1;eq initial:x[0{s}]==1{s};let rate:EnergyTransferRate=2{W};let flux:Transfer<EnergyTransferRate,wall,Into>=transfer(rate,wall,Into);annotation report flux(\"refined transfer\");}}",
+            SemanticId::from_bytes([175;16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let package = fixture::runtime().modeling_package(rows, fixture::physical()).await.unwrap();
+        let cancel = crate::CancelSource::new();
+        let prepared = package.prepare_simulation(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), ModelingCaseBindings::default(), fixture::compiler_profile(),
+            native::Profile { method:native::Method::Diffsol, samples:vec![0.,1.], rtol:1e-6, atol:vec![1e-8], ..Default::default() },
+            DerivativeOrder::First, &cancel).await.unwrap();
+        let symbol = prepared.model().compiled().model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".flux")).unwrap();
+        assert!(symbol.ty.physical_refinement().is_some());
+        let inventory = prepared.model().compiled().numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic).unwrap();
+        let target = inventory.target(symbol.id).unwrap();
+        assert_eq!(target.kind, NumericalTarget::Observable);
+        let mut selected = goal(AccuracyObservation::Endpoint);
+        selected.target_id = target.id;
+        selected.target_kind = target.kind;
+        selected.quantity_id = target.quantity.as_id();
+        selected.unit_id = target.unit.as_id();
+        let result = prepared.run(&cancel).await.unwrap();
+        let point = &result.report().endpoint.as_ref().unwrap().point;
+        let (bound, value) = prepared.dynamic_goal(&selected, point).unwrap();
+        assert_eq!(value, 2.0);
+        assert_eq!(bound.declaration.quantity_id, target.quantity.as_id());
+        assert_eq!(bound.declaration.unit_id, target.unit.as_id());
+        selected.target_kind = NumericalTarget::Variable;
+        assert_eq!(prepared.dynamic_goal(&selected, point).unwrap_err(), Unavailable::UnsupportedObservation);
+    }
     fn sample(time: f64, mode: usize) -> native::Sample {
         native::Sample {
             mode,
@@ -1767,32 +1799,16 @@ impl ModelingSimulation {
         if goal.required_class == NumericalAccuracyClass::Certified {
             return Err(Unavailable::InsufficientStrength);
         }
-        let symbol = self
-            .model()
-            .compiled()
-            .model
-            .symbols
-            .get(&goal.target_id)
-            .ok_or(Unavailable::Unsupported)?;
-        let pse_modeling::Type::Quantity(q) = &symbol.ty else {
-            return Err(Unavailable::Unsupported);
-        };
-        let quantity = q
-            .resolve(&self.quantities, &BTreeMap::new())
+        let inventory = self.model().compiled()
+            .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic)
             .map_err(|_| Unavailable::Unsupported)?;
-        let unit = self
-            .quantities
-            .quantity_type(quantity)
-            .map_err(|_| Unavailable::Unsupported)?
-            .canonical_unit;
-        let targets = [pse_math::numerics::TargetSpec {
-            id: goal.target_id,
-            kind: goal.target_kind,
-            quantity,
-            unit,
-            integer: false,
-            declared_tolerance: None,
-        }];
+        let target = inventory.target(goal.target_id).ok_or(Unavailable::Unsupported)?;
+        if target.kind != goal.target_kind {
+            return Err(Unavailable::UnsupportedObservation);
+        }
+        let quantity = target.quantity;
+        let unit = target.unit;
+        let targets = [target.specification()];
         let declaration = pse_math::engineering_accuracy::bind_goals(
             &self.quantities,
             &targets,
