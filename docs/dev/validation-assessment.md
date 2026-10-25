@@ -217,6 +217,14 @@ identities and digests; re-sealing cannot downgrade evidence. Incomplete, failed
 manifest-less historical attempts remain protected, including authored diff/tar snapshots.
 New lifecycle activation waits for affected old producers and reclaimers to drain.
 
+Explicit report custody conversion can move a selected drained dependency set into the
+current checkout before its former worktree is removed. The resource owner copies and
+verifies every producer byte, preserves original receipt/outcome/provenance meaning,
+rebinds physical identity witnesses and dependent locations, and keeps old and current
+locators readable. Its durable reservation fences readers and disposal until conversion
+settles. A converted missing manifest remains missing; relocation grants no qualification
+or disposal authority. Worktree removal follows independent current-location verification.
+
 Collected invocation declarations and requirements are immutable digest-bound objects;
 coordination records contain mutable membership and their references. Uncollected Python
 staging is distinct from a collected empty selection. Current effect admission requires the

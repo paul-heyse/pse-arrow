@@ -10,6 +10,7 @@ import fcntl
 import json
 import os
 import select
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,7 @@ from scripts import surreal_server
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping, Sequence
+    from typing import BinaryIO
 from unittest.mock import patch
 
 from scripts import assessment_store
@@ -1816,6 +1818,154 @@ print(json.dumps({'status':'released'}),flush=True)
             resource, {"complete": True, "required_checks_covered": True}
         )
         return resource, directory
+
+    def relocate(self, selected: list[str], destination: Path | None = None) -> dict:
+        # These file-only fixtures have no creator process to supervise. Actual
+        # conversion independently authenticates the original creator's absence.
+        with patch.object(resources, "borrower_alive", return_value=False):
+            return resources.relocate_reports(
+                selected,
+                destination or self.root / "build" / "converted-reports",
+                root=self.root,
+            )
+
+    def test_report_custody_conversion_preserves_bytes_and_original_identity(self) -> None:
+        resource, source = self.report("custody-complete")
+        original = resources.resource_status(resource)
+        receipt = (source / "checks.json").read_bytes()
+        result = self.relocate([resource])
+        target = Path(result["reports"][resource])
+        current = resources.resource_status(resource)
+        self.assertEqual(current["state"], original["state"])
+        self.assertEqual(current["disposition"], original["disposition"])
+        self.assertEqual(current["provenance_verified"], original["provenance_verified"])
+        self.assertEqual(resources.report_resource(target), resource)
+        self.assertEqual(resources.report_resource(source), resource)
+        shutil.rmtree(source)
+        for location in (source, target):
+            with resources.borrow_report(location):
+                data, custody = resources.read_report_root(location, require_sealed=True)
+            self.assertEqual(data, receipt)
+            self.assertEqual(custody["resource"], resource)
+        self.assertEqual(self.relocate([resource]), result)
+
+    def test_report_custody_conversion_does_not_qualify_unsealed_failure(self) -> None:
+        directory = self.root / "build" / "custody-incomplete"
+        directory.mkdir(parents=True)
+        (directory / "checks.json").write_text('{"failure":"preflight"}\n')
+        (directory / "checks.json").chmod(0o600)
+        resource = resources.register_report(directory, root=self.root)
+        resources.record_drain(resource)
+        before = resources.resource_status(resource)
+        result = self.relocate([resource])
+        current = resources.resource_status(resource)
+        for key in ("disposition", "pin", "drained", "provenance_verified"):
+            self.assertEqual(current[key], before[key])
+        self.assertNotIn("artifact_manifest", current)
+        with resources.borrow_report(Path(result["reports"][resource])):
+            data, custody = resources.read_report_root(directory)
+        self.assertEqual(data, b'{"failure":"preflight"}\n')
+        self.assertEqual(custody["automatic_reuse"], False)
+        self.assertEqual(resources.eligible(current), "retention pin")
+
+    def test_report_custody_conversion_preserves_unverified_provenance(self) -> None:
+        resource, _ = self.report("custody-unverified")
+        with resources.resource_update(resource) as record:
+            record["provenance_verified"] = False
+        self.relocate([resource])
+        current = resources.resource_status(resource)
+        self.assertFalse(current["provenance_verified"])
+        self.assertEqual(resources.eligible(current), "unverified report provenance")
+
+    def test_report_custody_conversion_moves_selected_dependency_reference(self) -> None:
+        origin, _ = self.report("custody-origin")
+        consumer, consumer_directory = self.report("custody-consumer")
+        digest = "a" * 64
+        resources.retain_reference(origin, str(consumer_directory / "checks.json"), digest)
+        result = self.relocate([origin, consumer])
+        record = resources.resource_status(origin)
+        self.assertEqual(record["references"], {str(Path(result["reports"][consumer]) / "checks.json"): digest})
+        self.assertEqual(resources.eligible(record), "protected reference or active borrow")
+
+    def test_report_custody_conversion_refuses_active_borrow_before_copy(self) -> None:
+        resource, _ = self.report("custody-borrowed")
+        destination = self.root / "build" / "converted-borrowed"
+        with resources.borrow(resource), self.assertRaisesRegex(resources.ResourceError, "borrowers"):
+            self.relocate([resource], destination)
+        self.assertFalse(destination.exists())
+
+    def test_report_custody_conversion_refuses_changed_producer_bytes(self) -> None:
+        resource, source = self.report("custody-tampered")
+        (source / "run.log").write_text("changed original")
+        with self.assertRaisesRegex(resources.ResourceError, "ownership changed"):
+            self.relocate([resource])
+        self.assertNotIn("report_custody", resources.resource_status(resource))
+
+    def test_report_custody_conversion_resumes_interrupted_byte_copy(self) -> None:
+        resource, source = self.report("custody-interrupted")
+        copy = shutil.copyfileobj
+        calls = 0
+
+        def interrupt(first: BinaryIO, second: BinaryIO) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise OSError("controlled copy interruption")
+            copy(first, second)
+
+        with patch.object(resources.shutil, "copyfileobj", side_effect=interrupt), self.assertRaisesRegex(resources.ResourceError, "ownership changed"):
+            self.relocate([resource])
+        with self.assertRaisesRegex(resources.ResourceError, "reserved"), resources.borrow(resource):
+            pass
+        self.assertEqual(resources.eligible(resources.resource_status(resource)), "report custody conversion is reserved")
+        result = self.relocate([resource])
+        self.assertEqual((Path(result["reports"][resource]) / "run.log").read_bytes(), (source / "run.log").read_bytes())
+        self.assertNotIn("custody_transition", resources.resource_status(resource))
+
+    def test_report_custody_conversion_rejects_changed_completed_copy(self) -> None:
+        resource, _ = self.report("custody-copy-tampered")
+        result = self.relocate([resource])
+        (Path(result["reports"][resource]) / "run.log").write_text("tampered destination")
+        with self.assertRaisesRegex(resources.ResourceError, "evidence changed"):
+            self.relocate([resource])
+
+    def test_report_custody_conversion_repairs_index_after_publication_interruption(self) -> None:
+        resource, source = self.report("custody-index-interrupted")
+        publish = resources.resource_store.publish
+        interrupted = False
+
+        def stop_index(path: Path, value: Mapping[str, object]) -> None:
+            nonlocal interrupted
+            if path.parent.name == "report-locations" and not interrupted:
+                interrupted = True
+                raise OSError("controlled index interruption")
+            publish(path, value)
+
+        with patch.object(resources.resource_store, "publish", side_effect=stop_index), self.assertRaisesRegex(OSError, "controlled index"):
+            self.relocate([resource])
+        self.assertIn("report_custody", resources.resource_status(resource))
+        result = self.relocate([resource])
+        target = Path(result["reports"][resource])
+        self.assertEqual(resources.report_resource(target), resource)
+        self.assertEqual(len(resources.resource_status(resource)["custody_history"]), 1)
+        shutil.rmtree(source)
+        with resources.borrow_report(target):
+            resources.read_report_root(target, require_sealed=True)
+
+    def test_report_custody_conversion_refuses_live_creator(self) -> None:
+        resource, _ = self.report("custody-live-creator")
+        with self.assertRaisesRegex(resources.ResourceError, "live creators"):
+            resources.relocate_reports([resource], self.root / "build" / "converted-live", root=self.root)
+
+    def test_report_custody_conversion_refuses_symlink_source_without_effects(self) -> None:
+        resource, source = self.report("custody-source-link")
+        external = self.root / "external-custody-data"
+        external.write_text("must survive")
+        (source / "unowned-link").symlink_to(external)
+        with self.assertRaisesRegex(resources.ResourceError, "symlinks"):
+            self.relocate([resource])
+        self.assertEqual(external.read_text(), "must survive")
+        self.assertNotIn("report_custody", resources.resource_status(resource))
 
     def test_report_compaction_refuses_symlinked_artifact_ancestor(self) -> None:
         directory = self.root / "build" / "ancestor"
