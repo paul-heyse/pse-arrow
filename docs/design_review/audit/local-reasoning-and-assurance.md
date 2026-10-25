@@ -9,6 +9,11 @@ These findings cover four questions:
 The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
 at `b5bdac9da`. Each *2026-10-25 refresh* note says what changed or was re-read since `cbf45ccc9`.
 
+**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
+*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
+this engagement's re-readings and corrections. Earlier exact counts and measurements were not
+renewed by republication.
+
 ## <a id="da-021"></a>DA-021 — Domain values carry the composition root, and the workflow is one flat ownership space
 
 **Principles:** AP-01, AP-06, DP-17, DP-18; G4, G9 (PSE-S05).
@@ -71,171 +76,110 @@ at `b5bdac9da`. Each *2026-10-25 refresh* note says what changed or was re-read 
 - Explicit policy inputs supplied by the composition root.
 - Pure decision functions for composite drivers.
 
-## <a id="da-023"></a>DA-023 — Design intent has more than one writable statement per fact, and decision status no longer says what is in force
+## <a id="da-023"></a>DA-023 — Current-contract text retains obsolete mechanisms and conflicting descriptions
 
-**Principles:** AP-04, AP-06, DP-01, DP-22, DP-24; G1 (applied to declared intent).
+**Principles:** AP-06, DP-22, DP-24; G1 only where two current statements give incompatible
+meaning, rather than merely recording different evidence or decision states.
 
-**Refresh status:** retained and grown. Plan 49 claimed resolution (TOOL07, QUAL05). Source
-contradicts that claim for every example the prior account named.
+**2026-10-25 followup at `682fc3830`: narrowed and corrected.** The previous account combined
+real current-text drift with three insufficient grounds for a violation:
+- A `proposed` ADR may describe *Tested* behavior. Formal decision acceptance and implementation
+  evidence are deliberately separate under the local lifecycle. Their coexistence is not a
+  contradiction, and the count of proposed ADRs establishes no alignment gap.
+- ADR-0214 explicitly says "This supplements ADR-0164". Blueprint §20 places its selected
+  MX/gRPC contract immediately after the older substrate decision. The absence of `supersedes`
+  metadata does not establish two active transport authorities. Navigating historical rationale
+  may be awkward; the current transport is identifiable.
+- The three path consumers do different work. `agent-hooks.py::protected` enforces agent edit
+  policy, `semantic_edits.py::owned_path` admits a deliberately narrower saved-edit capability,
+  and `workspace_context.py::symbol_context` reports an `edit_owner` hint. Different path answers
+  are not, by themselves, inconsistent enforcement of one rule.
 
-**2026-10-25 refresh: widened.**
-- **ADR counts.** Of 153 ADRs, 91 are proposed, 50 accepted and 12 superseded (90 proposed and
-  50 accepted before). The Diagnosis below keeps its 2026-10-24 figures.
-- **ADR-0224** is still `proposed`, with front matter `evidence: Tested`.
-  - Its v2 "Plan55 nested inspection amendment" (`e41abcdc8`) came *before* the v2
-    implementation (`0031e9ff2` onward). Editing a proposed record is the sanctioned route, and
-    Plan 55's rule decisions record it.
-  - The issue is the status and evidence semantics: a proposed record carrying a Tested outcome
-    for running behavior.
-- **ADR-0225** carries `evidence: Tested`, while its Confirmation says "Proposed" and a Tested
-  note is appended below. §23.1 depends on the status word ("ADR-0225 remains a proposed
-  decision record").
-- **§24.2** gained about 60 lines of dated per-plan qualification narrative linking into the
-  retained Plan 52h and 55f outcomes. It says it "does not replace the historical full-product
-  basis", so the amendments stack.
-- **Retained plans.** Completed Plans 52 and 55 are retained "for qualification/proposed-ADR
-  readers" (`docs/plans/README.md`), which extends the retirement block.
-- **Named drift persists verbatim:**
-  - the ADR-0164 / ADR-0214 contradiction;
-  - §7.1 "no intermediate IR";
-  - `PreparedSimulation::rebind`;
-  - the retired `crates/pse-operations-queries/`, still listed in AGENTS.md, `.claude/settings.json`,
-    `.claude/rules/generated.md`, `.claude/path-allowlist.txt`, `scripts/agent-hooks.py` and
-    `scripts/semantic_edits.py`.
-- **The protected-path implementations now differ in meaning:**
-  - `semantic_edits` protects all of `docs/adr/` and any path part named `generated`;
-  - `agent-hooks` protects only non-proposed ADRs and `crates/*/…/generated`;
-  - `workspace_context` uses `"/generated/" in relative`.
-- **Further drift, older than this refresh.** `sections/design-change-workflow.md` states model
-  allocations that disagree with `.agents/roles/README.md`: design review on Opus/high and
-  implementation review on Opus/medium, against opus/xhigh and opus/high.
-- **Counterexample.** The §21.1 amendment replaced its old paragraph rather than stacking on it.
-- **A record-provenance analogue in vendored code** is [DA-041](#da-041).
+The proposed-record lifecycle, decision-PR route and deliberate retention of qualification
+owners are not rejected by this finding. Previous counts and broad claims about decision status
+are withdrawn as diagnostic grounds; their exact input is preserved at `c02f68670`.
 
-**Diagnosis.**
-- **The sections claim authority, but their labels mislead.**
-  - The reading guide (§0.1) makes the sections the sole contract owner. It also says a page
-    "describes implemented behavior unless it labels a statement *Proposed*".
-  - The sections carry 268 `> Decision` blocks (239 at the previous baseline), 31 supplements and
-    2 amendments, plus about 405 plan references. 174 lines cite a *proposed* ADR for
-    implemented behavior.
-  - "Proposed" is thereby overloaded between ADR status and the evidence label.
-- **ADR status no longer tracks what is in force.**
-  - 90 of 152 ADRs are `proposed`, against 50 accepted; no ADR has been accepted since the
-    previous baseline.
-  - Proposed records stay editable, and the supersession machinery engages only for accepted
-    ones.
-  - Thirty proposed ADRs carry `evidence: Proposed` ("nothing is built"), although several
-    describe running contracts.
-- **ADR-0164 and ADR-0214 contradict each other.**
-  - ADR-0164 (proposed, not superseded) still states that application RPC moves to a WebSocket
-    transport preserving RocksDB.
-  - ADR-0214 (proposed, `supersedes: []`) selects SurrealMX over gRPC, which is what the code
-    uses.
-  - §20 paraphrases both.
-- **Amendments stack instead of replacing.**
-  - In §7.1, an ADR-0215 block announces an immutable resolved semantic product, while the
-    constraint table beneath it still says "no intermediate IR is produced or stored".
-  - Named drift persists verbatim:
-    - `PreparedSimulation::rebind` (§13.5; no such type);
-    - `crates/pse-runtime/src/generated/` (§4.2; absent);
-    - Delta `CHECK`s (§14);
-    - `crates/pse-operations-queries/`, listed as a generated path in AGENTS.md,
-      `.claude/rules/generated.md`, `.claude/settings.json`, `scripts/agent-hooks.py` and
-      `scripts/semantic_edits.py`, though retired at `06302af77`.
-- **Implemented-but-unused routes are presented as implemented.** The native child route
-  (§18, `numerical-execution.md`) is described as "the implemented child route" without saying
-  that it has no production caller ([DA-024](#da-024)). Uno SQP's supported problem size appears
-  only in proposed ADR-0157 ([DA-018](boundaries-and-composition.md#da-018)).
-- **Retirement is blocked.** Completed plans 28–53 are retained "for qualification and proposed
-  ADR readers" (`docs/plans/README.md`). The ADR lifecycle therefore blocks ADR-0096 retirement.
+**Diagnosis retained.** Some text presented as a current architectural contract has not been
+reconciled with its replacement:
+- Blueprint §7.1 introduces the immutable resolved semantic product, while the constraint table
+  still says `pse-compiler::typed_math` lowers the authored AST and "no intermediate IR is
+  produced or stored". `pse-modeling::resolved` is the implemented product. The surrounding
+  distinction from a competing arithmetic interpreter does not make the AST-only lowering
+  statement current.
+- Blueprint §13.5 directs readers to `PreparedSimulation::rebind`; that type is absent from
+  the current Rust source. Rebinding exists on actual modeling simulation owners.
+- Blueprint §24.4 restates role effort selections that differ from their declared owner,
+  `.agents/roles/README.md`. The architecture says Opus/medium for implementation review and
+  Opus/high for design review; the role owner says high and xhigh respectively.
+- Retired generated paths remain in instructions and protection lists. This is stale navigation,
+  not evidence that protecting a nonexistent path is itself an unsafe implementation.
 
-**Consequence.**
-- *PSE-S06 (upgrade the SurrealDB SDK or transport):* an agent following the binding's "where
-  roles are decided" meets contradictory, editable ADR outcomes and `evidence: Proposed` on
-  running contracts.
-- *Change a contract:* immutability protects only 50 records, so proposed rationale can be
-  edited in place and silently diverge from the sections.
-- Readers cannot tell what is in force from what is aspirational without reading code.
-- The same ambiguity reaches closure. Plan 49 marked all 32 prior findings resolved. Source
-  shows 13 continuing as active findings and 2 more merged into them, and four closure claims
-  contradicted by unchanged files (see the README's revalidation table).
+**Consequence.** A developer following the documented extension or preparation route must
+resolve incompatible or nonexistent entrypoints against source before making an otherwise local
+change. This is consequential where it misidentifies the semantic lowering owner; the stale path
+and effort examples are supporting, bounded documentation defects. They do not justify a general
+claim that the scientific implementation has competing authorities.
 
-**Counterevidence.**
-- §24.4 records a deliberate local record lifecycle: maintainer-authorized implementation
-  without PR-route acceptance, for a single maintainer.
-- AGENTS.md says ADR acceptance is not implementation acceptance, and sections own contracts.
-- As governance, that survives. As an authority design, it does not:
-  - the sections still depend on ADR status words and plan status;
-  - proposed records still carry consequential outcome text that contradicts successors.
+**Counterevidence.** The reading guide names architecture sections as contract owners, ADRs as
+rationale and source inspection as the way to settle implementation. The transport supplement
+and separate acceptance/evidence states work as declared. Specification and implementation are
+legitimate separate descriptions; divergence calls for reconciliation, not removal of either.
 
-**Evidence:** *Interface-checked*. The counts come from section text and front matter. The
-coordinator read the ADR-0164/0214 contradiction and the §7.1 self-contradiction directly.
-Whether other proposed ADRs contradict sections was sampled, not surveyed.
+**Evidence:** *Interface-checked*. The coordinator re-read §7.1, §13.5, §20, §24.4, ADR-0214's
+Context, ADR-0224's front matter, the role owner, all three path consumers, and searched current
+Rust source for the named obsolete type. No architecture or governance files were changed.
 
-**Improvement direction.**
-- One writable statement per design fact.
-- Section text states current contracts without packet, plan or qualification status.
-- ADR status and evidence truthfully indicate what is in force, with replacement links whatever
-  the status.
-- Retained plans are not load-bearing for decision records.
-- Generated-path and protected-path sets are derived from one declaration.
+**Improvement direction.** State each current mechanism at its owning section, replace obsolete
+entrypoint descriptions when contracts change, and reference role/policy owners for mutable
+configuration. Keep historical rationale, formal decision status and implementation evidence
+separate and explicit. Correction is established when the documented semantic lowering and
+rebind routes resolve to the implemented owners without contradictory current instructions.
 
-## <a id="da-024"></a>DA-024 — Bespoke machinery runs without a production consumer
+**Related:** [DA-041](#da-041) concerns false records of dependency source bytes, a distinct
+provenance problem; it is not evidence that proposed decision status is invalid.
 
-**Principles:** DP-16, H14, H20, H26, H27; AP-07.
+## <a id="da-024"></a>DA-024 — Portable producer/replay machinery is optional; ordinary startup and its consumer scope must be distinguished
 
-**Refresh status:** narrowed and widened.
-- `pse.canon.v2` was removed.
-- The native child lane is retained as bounded exploration by maintainer decision I24. Its parent
-  side is still constructed only by tests, and the child ships as `xtask` `pse-native-lane`.
-- The strict producer-provenance chain is newly identified.
-- **2026-10-25: unchanged.**
-  - The producer-chain files have no diff in the window.
-  - `CanonicalDeployment::producer` still has one caller, a test.
-  - `open_observed` still runs startup observation at every deployment open.
-  - The native child lane that I24 retains as bounded exploration gained Plan 52 telemetry
-    plumbing:
-    - the W3C carrier and settings propagation in `math/native_child.rs`;
-    - `initialize_private_child_host` in `pse-native-lane.rs`;
-    - a paragraph of §24 lifetime semantics.
+**Principles considered:** DP-09, DP-16, AP-07; H14, H20, H26, H27.
+**Followup disposition at `682fc3830`: previous broad maintenance/startup diagnosis not established.**
 
-    Its parent is still constructed only by tests. This is maintenance growth on an exploratory
-    route, which I24 governs.
+The previous account conflated three things:
+- consumed outer executable/build attestation;
+- optional strict producer-receipt qualification for public caller-composed portable APIs;
+- the absence of ordinary in-repository persistent replay consumers.
 
-**Diagnosis.** A strict producer-qualification chain exists. It includes:
-- `xtask/src/producer_identity.rs` (7.5k lines), `producer_preparation.rs` and
-  `producer_history.rs` (about 10k lines together);
-- `scripts/producer_deployment.py` and `producer_cargo.py`;
-- about 1.9k lines of hand-reviewed `.config/producer-{build,macro}-reviews.json`;
-- `pse-buildinfo` identity;
-- startup paths in `pse-runtime/src/math/portable.rs`.
+`CanonicalDeployment::open_observed` always observes the deployment. In
+`math/portable.rs::observe_deployment_runtime`, strict `QualifiedProducer` receipt loading/verification happens
+only for `Some(path)`; `None` returns no producer while retaining the outer attestation.
+`xtask/src/bin/support/deployment.rs` selects the receipt from `PSE_PRODUCER_RECEIPT`, and Python
+configuration also makes the strict receipt optional. Without a strict receipt, `open_observed`
+separately attempts `observe_local_runtime` to mint local receiving admission. That is distinct
+from strict receipt qualification, and its marginal role/cost needs its own assessment.
+Strict receipt qualification therefore does not run
+unconditionally at every Python/worker open.
 
-The chain yields a `QualifiedProducer` and `ReplayAdmission`, stored in
-`workflow/canonical.rs::CanonicalDeployment::producer`. That accessor has one caller, a test
-(`study_tests.rs`). Ordinary preparation stopped using canonical portable reuse at `401f0d70a`.
-Qualification tooling still validates the chain's own receipts (`scripts/validation.py`
-producer gates).
+The accessor `CanonicalDeployment::producer` has only a test caller in the searched
+`crates/`, `xtask/` and `python/` trees. Ordinary preparation no longer consumes canonical
+portable replay. That bounds the current default route; it does not establish that the public
+portable capability lacks an architectural role. DP-16 permits an architectural role or bounded
+exploration without requiring an in-repository production caller. The native-child lane also
+retains its explicit maintainer-approved exploration purpose (I24).
 
-**Consequence.**
-- Under routine dependency bumps, which AGENTS.md sanctions, a reviewed build-script or macro
-  crate stops matching its review entry, and the strict route refuses persistent reuse. Nothing
-  uses that reuse, so the cost is pure maintenance (H27).
-- The startup qualification work runs at every Python or worker deployment open.
-- The guides describe a reuse capability the product does not exercise.
+**Unresolved execution question.** Attribute any avoidable ordinary-startup work to the exact
+unused replay admission or observation step, separately from mandatory consumed outer lineage
+and optional receipt validation, before calling it excess machinery. No marginal cost or
+unnecessary full strict-chain execution was demonstrated in this followup. The former line-count
+and dependency-review maintenance inventory does not settle that question.
 
-**Counterevidence.**
-- Public portable APIs remain valid caller-composed capabilities.
-- The outer build attestation is genuinely consumed for result lineage, and these paths share it.
-- DP-16 permits a bounded exploration purpose. None is declared for the strict producer route,
-  although one is declared for the native child.
+**Improvement direction, conditional.** Describe default, public caller-composed and exploratory
+routes truthfully. If a specific unused default-startup step is shown to add material work,
+localize it to the capability that consumes it while preserving outer result lineage. No deletion
+of the portable capability, its tests or consumed provenance is prescribed by this account.
 
-**Evidence:** *Implemented* for the absence of production consumers, by search across `crates/`,
-`xtask/` and `python/`. Whether an unrecorded maintainer intent keeps it is open.
-
-**Improvement direction.** Producer qualification exists only with a consumer or a declared,
-bounded exploration purpose, and its startup and maintenance cost follows that purpose. The
-contract text states which routes are exploratory.
+**Evidence:** *Interface-checked*. The fixed-baseline accessor search, `open_observed`,
+`math/portable.rs::observe_deployment_runtime` and the xtask/Python receipt selection were read; no startup benchmark
+or functional portable-reuse campaign ran. Keep this identity as a corrected scope record, not a
+demonstrated open violation based solely on missing in-repository consumers.
 
 ## <a id="da-041"></a>DA-041 — Edited vendored trees have no truthful patch record; their prose records contradict the bytes and the architecture
 
@@ -288,7 +232,7 @@ Every manifestation below is in the second mechanism.
    - `scripts/surrealdb-source/source-build.md` gives reasons for 8 of the patch inputs. It
      omits the five `surrealism-*` patches that `PATCHES` applies.
    - `.config/producer-build-reviews.json` still keys its SDK grant to `vendor/surrealdb#3.3.0`.
-4. **The vendored SDK cannot be regenerated as a patch.**
+4. **No complete regeneration patch is retained; the current SDK has substantive and whitespace divergence.**
    - 62 of the 74 upstream `src/*.rs` files differ in bytes, and 16 of those differ only in
      whitespace, spaces against upstream tabs.
    - The substantive delta is about +2.8k/−0.5k lines across 50 SDK files, plus about
@@ -362,11 +306,16 @@ the vendoring record, not the declaration of the behaviour.
 
 **Improvement direction.** These use mechanisms the repository already has; no new check or
 proof apparatus is implied (ADR-0189's withdrawal stands):
-- Edited vendored trees move to the existing patch-series form against a verified archive
-  (`[workspace.metadata.pse.{uno,petsc}].patch`, `surreal_source.PATCHES`).
-- Upstream-defect workarounds are entered in R-41.
-- Prose records stop asserting "untouched".
-- The OTel crate set becomes a declared family.
+- Retain truthful, complete source/edit information sufficient to preserve intended behavior
+  when re-vendoring or rebasing. The existing patch-series form is a candidate; a complete
+  inventory or reproducible diff may also satisfy the need. The current tree can be diffed;
+  whitespace drift makes that noisy, not impossible.
+- Reconcile false "untouched" prose and identify upstream-defect workarounds through the existing
+  R-41 route where its contract applies.
+- Assess an explicit OTel family only if its type-sharing upgrade obligations warrant it. The
+  absence of a family row does not itself establish a current resolved-version split.
+- No new proof apparatus or universal patch format is selected by this audit. Correction is
+  demonstrated by a truthful record and a re-vendoring path that preserves the declared edits.
 
 **Related:** [DA-023](#da-023) (design-intent authority), [DA-018](boundaries-and-composition.md#da-018)
 (the declared Uno precedent), [DA-017](boundaries-and-composition.md#da-017).

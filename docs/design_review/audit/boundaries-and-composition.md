@@ -8,6 +8,11 @@ These findings concern three kinds of structural cause:
 The [collection README](README.md) gives the baseline and limits. Citations are `path::symbol`
 at `b5bdac9da`. Each *2026-10-25 refresh* note says what changed or was re-read since `cbf45ccc9`.
 
+**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
+*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
+this engagement's re-readings and corrections. Earlier exact counts and measurements were not
+renewed by republication.
+
 ## <a id="da-033"></a>DA-033 — The durable lifecycle protocol is shared at the transport layer but re-authored per owner at its semantic envelope
 
 **Principles:** AP-03, AP-07, DP-01, DP-16, DP-19; H25, H27; G1, G9 (PSE-S04, PSE-S06, and
@@ -82,19 +87,31 @@ functions, up from 116 at the previous baseline):
 - ADR-0177 and ADR-0182 deliberately give each owner its own admission "while sharing immutable
   payload, protection and conflict-guard mechanisms".
 - Backup must run with the Rust service stopped, which is why a non-Rust reader exists.
-- This justifies owner-specific *predicates*. It does not justify re-authoring the generic
-  envelope. The shared execution receipt table already shows that one envelope can serve several
-  owners.
+- These differences justify distinct lifecycle/atomicity behavior, not only different
+  predicates. Shared execution receipts show useful sharing is possible; they do not establish
+  that one envelope fits every owner. Exact effect knowledge and request-comparison semantics
+  still require consistent interpretation where the owners claim the same contract.
 
 **Evidence:** *Implemented* for the inventory and the divergent settlement sites. The change
 cost is reasoned. Tracing one settlement-rule change across all owners would demonstrate it.
 
+**2026-10-25 followup at `682fc3830`: retained with narrower corrective scope.** Research
+`create_research_dataset` and `create_research_selection` return the original failure for a
+nonmatching saved request, and readback `?` can replace it; `settle_project_effect` distinguishes
+`OperationReused` and source-preserving `ProjectUnsettled`. That is concrete semantic divergence.
+The inventory of owner tables and different lifecycle shapes does not prove that one universal
+operation envelope would fit them all. Long-lived attempts, staged imports, transactional
+references and finite creation windows have different obligations.
+
 **Improvement direction.**
-- One idempotent-operation envelope declared once: operation key, request digest, ack record,
-  settlement classification and creation window. Every owner consumes it, and owners differ only
-  in domain predicates.
-- One declared physical-file contract consumed by both the service and offline tooling.
-- Owner-agnostic `Unsettled{owner, intent}` semantics.
+- State effect knowledge, exact request comparison and uncertain readback semantics once at
+  their shared contract, and make owner implementations preserve that meaning.
+- Localize generic transport/settlement mechanics where obligations coincide. A common envelope
+  is a solution candidate, not an established requirement that every owner differ only in domain
+  predicates.
+- Keep one physical-file contract across the service and offline tooling while preserving
+  their distinct operational roles. Correction should make a changed settlement rule local and
+  distinguish reused operation identity, known absence and unresolved effect without losing cause.
 
 **Related:**
 - [DA-007](structure-and-invariants.md#da-007): the same templates spell the vocabularies.
@@ -167,14 +184,15 @@ in four places joined by hand-mirrored formats:
   freezes a content-addressed copy of *all* `scripts/*.py` plus configs, Cargo and toolchain
   files into `.generations/<sha>` (`publish_generation`, `verify_generation`), and runs from it.
 - **A hand-listed logical restore comparison.**
-  - Backup itself copies the whole database directory and payload inventory, and checks a SHA-256
-    for every file on restore. That part is sound.
+  - Backup copies the whole database directory and payload inventory. Payload copies are compared
+    against their source; destination checksums cover the copied database tree, with subsequent
+    logical verification at restore. These are different fidelity guarantees.
   - Backup format 4, new in Plan 51, adds a logical inventory of "original catalogue owners"
     (`APPLICATION_BACKUP_TABLES`, plus 26 lifecycle field names), compared after restore and
     before authority rotation.
   - That owner set lists 36 of 79 canonical tables. It is checked against itself, not derived
     from registry table classification.
-  - Plan 51 owner tables are absent from the comparison, though backed up and byte-verified:
+  - Plan 51 owner tables are absent from the comparison, though included in the copied database:
     - `canonical_context_journals` and `canonical_context_ancestry`;
     - `canonical_draft_diagnostics`;
     - `canonical_maintenance_operations`.
@@ -193,8 +211,8 @@ in four places joined by hand-mirrored formats:
   identity, so the next setup or reconfiguration publishes another full copy (H13).
 - **Cross-version state.** Frozen generations and the live checkout run different versions of
   the admission and test-resource code against one host ledger. This is a hypothesis.
-- **New tables.** A new owner table passes codegen and compilation. Restore then copies and
-  byte-verifies it but leaves it out of the logical owner comparison until someone edits Python.
+- **New tables.** A new owner table passes codegen and compilation. Restore authenticates the
+  destination copy against its manifest but leaves it out of the logical owner comparison until someone edits Python.
   That is a second, hand-maintained table classification (DP-01).
 
 **Counterevidence.**
@@ -216,6 +234,12 @@ cross-version effects are *Interface-checked* hypotheses.
 - A supervisor closure bounded to the receiver's responsibility.
 - The logical restore comparison derived from registry table classification.
 - Product operator roots in an identifiable product location.
+
+**2026-10-25 followup at `682fc3830`.** Re-read the frozen generation publication/import
+chain, deployment mirrors and backup inventory. The previous primary text overstated database
+source-byte fidelity despite the earlier C11 correction. It now distinguishes payload source
+comparison, destination checksums and logical restore verification. The generation telemetry
+consequence remains unexecuted; no archive or exact size census was repeated.
 
 **Related:**
 - [DA-036](development-tooling.md#da-036): the execution-profile authority.

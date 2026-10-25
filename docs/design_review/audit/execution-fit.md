@@ -11,6 +11,11 @@ at `b5bdac9da`. Every owner file of DA-034, DA-035 and DA-025 has an empty diff 
 S3 re-read their decisive sites at the new baseline. Unless a claim says *Measured*, costs are
 structural observations.
 
+**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
+*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
+this engagement's re-readings and corrections. Earlier exact counts and measurements were not
+renewed by republication.
+
 ## <a id="da-034"></a>DA-034 — The durable publication unit follows semantic and transport boundaries, and each unit carries the full file-intent lifecycle
 
 **Principles:** AP-07, DP-10, DP-19, DP-20, PS-11; H2, H8, H16, H24, H26, H27, H28; G9 (the
@@ -83,7 +88,8 @@ structural form. It is distinct from DA-026, whose per-row locators are verified
     progress files;
   - an MPC horizon publishes relations × steps;
   - live recording publishes one file per sample batch.
-- **Every unit is permanent**, because collection never runs ([DA-025](#da-025)).
+- **Built-in retirement does not collect these units** ([DA-025](#da-025)); an external Rust
+  caller can invoke the public collection primitive.
 
 **Counterevidence.**
 - Durable-by-default is deliberate: scope §0, §21 and ADR-0164 say "ordinary runtime construction
@@ -104,9 +110,10 @@ structural form. It is distinct from DA-026, whose per-row locators are verified
 - *Implemented* for the unit structure and the round-trip and fsync sequence. The coordinator
   re-read the relation-boundary seal and the Full default.
 - *Measured* for the I30 small-case ratio, under its stated conditions.
-- *Interface-checked* for the claim that the ratio persists on the current engine. Re-running
-  the existing probe, and counting files, round trips and fsyncs for one Full solve, one Compact
-  occurrence and a 100-step horizon, would settle it.
+- Current structural amplification is *Implemented*; persistence of the historical timing
+  ratio on the current engine is an unmeasured hypothesis. Re-running the existing probe and
+  counting files, round trips and fsyncs for a Full solve, Compact occurrence and horizon would
+  measure the current consequence. Interface inspection cannot renew a historical ratio.
 
 **Improvement direction.**
 - Physical units chosen by flush economics and recovery need:
@@ -189,65 +196,35 @@ The middle of the workload is sound: lane-parallel and structure-reusing. Its en
 - The study summary published as one or a few objects.
 - A population-level reader, or a study-level columnar view, under one protection.
 
-## <a id="da-025"></a>DA-025 — Physical collection is a declared lifecycle transition with no production route
+## <a id="da-025"></a>DA-025 — Built-in retirement stops at logical cleanup; physical collection remains an explicit scope limit
 
-**Principles:** DP-19, DP-20, AP-07; H11, H25, H27.
+**Principles considered:** DP-19, DP-20, AP-07; H11, H25, H27.
+**Followup disposition at `682fc3830`: no active violation established under the selected scope.**
 
-**Refresh status:** reframed and narrowed.
-- The original framing ("persistence machinery sized beyond actual participants") is withdrawn
-  under the binding premises: 16 coordinated lanes, durability that outlives the caller across
-  processes, and no daemon. The participants are real.
-- Machinery scale moves to [DA-033](boundaries-and-composition.md#da-033) and [DA-034](#da-034).
-- What survives is the part the prior account left unresolved: physical payload reclamation.
-- **2026-10-25: diagnosis unchanged; consequence widened.**
-  - `collect_file` still has only test callers.
-  - Backup v4 inventories and re-reads every sealed instance, including logically released ones,
-    under a fixed verifier clock ([DA-044](#da-044)). Backup cost and refusal risk therefore grow
-    with payload that is never collected.
+The preceding finding overstated an implemented public primitive as a missing production route.
+`CanonicalStore::collect_file` is effectful production Rust code that can unlink eligible sealed
+payloads. Search across `crates/`, `xtask/`, `scripts/` and `python/` finds only in-repository test
+callers. Built-in `Runtime::reclaim_run_results` composes logical forgetting through the guarded
+retention owner, not file discovery/collection. External Rust callers are not excluded.
 
-**Diagnosis.**
-- §20.4 declares occurrence retirement, history-detail release and physical collection as
-  separate transitions, with collection bounded and resumable.
-- The only production code that unlinks sealed payloads is `CanonicalStore::collect_file`
-  (`canonical_files.rs`). All its callers are in its test module. The coordinator re-checked this
-  across `crates/`, `xtask/`, `scripts/` and `python/`.
-- Logical reclamation releases borrowers and deletes block and batch rows, but never collects
-  the file: `workflow/retention.rs::reclaim_run_results`, then
-  `canonical_result_retention.rs::forget_run_results`, then `fn::pse_retention_v1::collect_run`.
-- `canonical_lifecycle.rs` reports reclaimed physical bytes as "always unknown".
-- Lock files are kept for the storage incarnation by design.
+The substrate guide deliberately selects no automatic collector and excludes returned disk
+space. Blueprint §20 likewise says logical collection does not establish returned disk space.
+The current reclaim API promises a bounded cleanup page, not reclaimed physical bytes. No
+supported disk-reclamation promise is disproved by the missing built-in composition.
 
-**Consequence.**
-- Every DA-034 unit stays for the life of the storage incarnation: sealed file, lock file and
-  instance row.
-- The public `reclaim_run_results` ("reclaim one bounded page of scientific data") returns no
-  disk space.
-- A long-lived Plan 51 project store with history and backups grows with every solve,
-  occurrence, progress flush and horizon step.
-- Backup copies logically released files.
+**Operational consequence retained.** Unless an external caller collects eligible files,
+logically released payloads remain in the inventory inspected by backup. Lock retention has its
+own explicit lifetime. DA-034/DA-044 own the consequences of physical publication and retained
+inventory; this scope limit does not make all payloads permanently uncollectable.
 
-**Counterevidence.**
-- The substrate guide deliberately selects no automatic collector and names "returned disk space"
-  as a revisit trigger.
-- ADR-0214 treats design-phase data as regenerable by fresh initialization.
-- The maintainer recorded the unconsumed online collector as a decision.
-- These held for a disposable design-phase store. They weaken once long-lived projects, backups
-  and a public reclaim API exist, while the declared transition stays unimplemented rather than
-  deliberately excluded from the contract.
+**Optional improvement question.** Long-lived project use can motivate assessment of a bounded
+operator composition of discovery and the existing collector, preserving tickets, borrowers and
+backup freeze. That motivation is not proof that the no-automatic-collector decision is wrong or
+authority to reopen it. No changed collection scope, lock policy or API is selected here.
 
-**Evidence:**
-- *Implemented* for the missing caller.
-- Growth magnitude is unmeasured. Counting files before and after reclaiming a completed study
-  would settle it.
-
-**Improvement direction.**
-- The declared collection transition gets an operator- or maintenance-owned route that composes
-  with tickets, borrowers and backup freeze.
-- Lock retention is proportional to live instances.
-- Reclaimed bytes are reported truthfully.
-- If collection stays out of scope, the contract says so and the public reclaim API says what it
-  does not do. The decision's revisit trigger ("returned disk space") is arguably met by the
-  Plan 51 long-lived stores.
+**Evidence:** *Interface-checked* for the static call search, public primitive, runtime composition
+and documented scope. No collection probe or disk-space measurement ran. Preserve this identity
+and scope note; do not count it as a demonstrated open principle violation or prescribed repair.
 
 ## <a id="da-044"></a>DA-044 — Backup verification runs under a fixed clock and makes repeated full content passes over an ever-growing inventory
 
@@ -281,8 +258,8 @@ code dates from Plan 51 and was not changed in this window.
 - Backup is offline: it stops the store and requires drained contexts.
 
 **Consequence.**
-- Because nothing is collected ([DA-025](#da-025)), a long-lived store's backup time grows with
-  every payload ever written.
+- Without an external collector, built-in retirement leaves logically released payloads in
+  the backup inventory ([DA-025](#da-025)); backup work grows with that retained population.
 - Past the verifier's throughput × 120 s, backup refuses. This is suspected, since it depends on
   throughput.
 - The refusal is a raw `subprocess.TimeoutExpired`, reported by `main` as "TimeoutExpired:
@@ -311,13 +288,22 @@ reading. The scale consequence is *Interface-checked*. A backup of a store holdi
 thousand payload files and tens of GB would settle it.
 
 **Improvement direction.**
-- Verification bounded by declared inventory size, or resumable, with a diagnosed and
-  self-thawing timeout.
-- One content pass that both copies and digests.
-- Backup durability consistent with restore's, within the declared limit.
+- Verification with an explicit inventory/work contract and actionable timeout/recovery state.
+  Preserve settled freeze and admission ownership; automatic thaw is not established as safe.
+- Avoid repeated content passes where copy, checksum and independent verification obligations
+  can safely share work. A single pass is a candidate, not permission to remove an independent
+  semantic check.
+- Assess any changed durability mechanism against the actual declared guarantee. Missing
+  power-loss fsync is a documented exclusion, not an established broken backup contract.
 
 **Related:** [DA-019](boundaries-and-composition.md#da-019) (backup lives in the tooling
 supervisor), [DA-025](#da-025), [DA-034](#da-034).
+
+**2026-10-25 followup at `682fc3830`.** Re-read `_backup`, payload freeze/verifier,
+copy/comparison and restore sequences. Retain the fixed clock and repeated-pass diagnosis;
+withdraw mandatory self-thaw and any implication that excluded power-loss survival is required.
+No failure or capacity threshold was reproduced, and the earlier approximate pass count was not
+promoted to a new measurement.
 
 ## <a id="da-042"></a>DA-042 — Exported span granularity is selected by crate prefix, and the SDK's own drop count is compiled away
 
@@ -376,6 +362,73 @@ queue loss occurs.
 - The SDK's drop count surfaced through the existing pipeline-health read.
 
 **Related:** [DA-034](#da-034), [DA-040](structure-and-invariants.md#da-040).
+
+## <a id="da-045"></a>DA-045 — Executable project closure couples selection and admission to aggregate source-byte materialization
+
+**Principles:** AP-07, DP-10, DP-19, DP-20; H6, H16, H17, H27; G9 (selected project export or
+explanation across study/context/source history).
+
+**2026-10-25 followup at `682fc3830`: new diagnosis of unchanged implementation.** The
+independent lifecycle pass found this before reading the preceding catalogue. The preceding
+account explicitly left exchange internals largely unexamined. This is a separate live-state
+mechanism, not another instance of per-file publication cost under DA-034.
+
+**Diagnosis.** `workflow/project_closure.rs::resolve_project_closure` is the shared exact
+traversal for executable export and explanation. It:
+- collects selected modeling packages across source revisions into a `BTreeMap`;
+- for each source, creates replay JSON, obtains physical and authored documents, and clones their
+  bytes into `ResolvedClosure::documents: Vec<(String, Vec<u8>)>`;
+- retains those documents, source allocation owners, original source protections, and result and
+  artifact readers until the whole closure is returned.
+
+`project_portability.rs::project_export_resolved` completes that resolver before creating and
+copying any destination member. It then writes documents sequentially. Their aggregate output
+allowance is checked in `finish_member` after each staging write, rather than constraining the
+preceding aggregate source hydration. Results and artifacts already have more incremental copy
+routes.
+
+`Runtime::project_closure` uses the same materializing resolver to return a manifest and
+`known_source_bytes`; it discards the encoded source bodies after summing their sizes. The
+explicit descriptive-only metadata route avoids opening them, but is a different, non-executable
+contract and does not remove this behavior from executable explanation.
+
+**Consequence.** For an ordinary selected project closure spanning several revisions, live
+preparation includes the combined selected source encodings and repeated physical document bytes,
+even when the destination is sequential or the caller only needs an executable closure
+explanation. The reader/writer boundary requires aggregate residency before the first useful
+copy, and an ultimately over-budget output may incur that preparation before refusing.
+
+This is structural work/live-state amplification, not a demonstrated OOM, throughput bottleneck
+or claim that the largest admitted selection is a qualified supported workload. Its practical
+severity at ordinary exchange sizes remains unresolved. The material opportunity is to remove
+simultaneous encoded payload retention that is not required merely by exact selection or original
+scientific admission.
+
+**Counterevidence.**
+- Exact historical closure, scientific source admission, original protections, provider premises
+  and destination checksums are necessary. Executable explanation is not required to be a cheap
+  metadata read.
+- Source grants and per-document encoding limits already make pressure refuse honestly. This is
+  not an unaccounted-allocation finding. Requests bound individual selection lists to 1024 and
+  encoded documents to at most 64 MiB; neither bound promises aggregate scale qualification.
+- Materializing a small fixed closure is simple and may be proportionate. No current case size,
+  latency or peak resident memory was measured.
+
+**Evidence:** *Implemented* for the container, source loop, pre-copy resolver and late document
+output check; *Interface-checked* for the improvement opportunity and scale consequence. The
+coordinator re-read `ResolvedClosure`, `resolve_project_closure`, both explanation routes and
+`project_export_resolved::finish_member`. No export or memory probe was executed.
+
+**Improvement direction.** Separate exact closure identity/admission from simultaneous encoded
+payload hydration. Bound live encoding/copy work by useful units while retaining immutable source
+premises and protection through final manifest publication. Apply the remaining output allowance
+before unnecessary document copying. Correction should preserve exact closure/checksum and
+interruption behavior while an executable explanation or multi-revision export no longer needs
+all encoded source bodies resident together; measure benefit only if that decision needs it.
+
+**Related:** [DA-035](#da-035) also couples population intent to item representations, but has a
+different operation and physical cause. [DA-033](boundaries-and-composition.md#da-033) governs
+publication semantics, which this correction must preserve.
 
 ## Considered and not raised
 

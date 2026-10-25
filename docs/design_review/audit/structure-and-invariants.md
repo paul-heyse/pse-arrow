@@ -10,6 +10,11 @@ The [collection README](README.md) gives the baseline and limits. Citations are 
 at `b5bdac9da`. Where a finding's code is unchanged since `cbf45ccc9`, its earlier citations were
 premise-checked at the new baseline; each *2026-10-25 refresh* note says what was re-read.
 
+**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
+*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
+this engagement's re-readings and corrections. Earlier exact counts and measurements were not
+renewed by republication.
+
 ## <a id="da-007"></a>DA-007 — The canonical store's meaning lives outside the registry and is re-spelled in strings in every layer
 
 **Principles:** AP-04, AP-05, DP-01, DP-02, DP-03, DP-04, DP-07, DP-24; G1, G2.
@@ -58,7 +63,10 @@ records is authored again in each layer that touches it:
    - Admission and variant runs are `study-admission:{point}` and `study-variant:{point}`.
      The store's attempt state machine branches on
      `string::starts_with($this.run,'study-admission:')` (`codegen/surreal.rs` ≈233).
-     The relationships run→point and problem→point exist only in these prefixes (DP-07).
+     These special admission/variant associations are reconstructed by prefix (DP-07).
+     Ordinary membership is not absent: `canonical_study_points` declares `study` and `run`, and
+     claim/terminal rows also have point fields. The finding does not generalize prefix-only
+     representation to every run–point relationship.
    - The public boundary carries no key kind either.
      - Canonical keys are bare `str` throughout `python/pse/_workflow.py`, and Plan 51 extended
        this to project, branch, scope and operation keys.

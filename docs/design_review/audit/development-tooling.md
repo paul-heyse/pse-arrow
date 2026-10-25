@@ -15,11 +15,17 @@ This page holds causes specific to that layer. Causes that cross the product/too
 keep their homes:
 - [DA-019](boundaries-and-composition.md#da-019): the deployment contract in tooling;
 - [DA-020](boundaries-and-composition.md#da-020): tooling families in product crates;
-- [DA-024](local-reasoning-and-assurance.md#da-024): the producer chain without a consumer.
+- [DA-024](local-reasoning-and-assurance.md#da-024): optional producer/replay scope and corrected
+  startup attribution (a corrected scope record, not an established cause).
 
 The [integrated account](system-architecture.md#the-development-tooling-layer) discusses the layer
 as a whole. Citations are `path::symbol` at `b5bdac9da`. Each *2026-10-25 refresh* note says what
 changed since `cbf45ccc9`.
+
+**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
+*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
+this engagement's re-readings and corrections. Earlier exact counts and measurements were not
+renewed by republication.
 
 ## The layer in brief
 
@@ -44,7 +50,7 @@ The defects concentrate in two places:
 - the boundary with the product (DA-019 and DA-020);
 - general tooling meanings that are restated per owner (below).
 
-## <a id="da-036"></a>DA-036 — Execution-resource and workload meaning has no single authority; a test manifest and agent host policy decide production budgets
+## <a id="da-036"></a>DA-036 — Finite execution-profile values are restated, and conformance settings govern production allocation
 
 **Principles:** AP-04, AP-05, DP-01, DP-20; H21, H25; G1.
 
@@ -82,8 +88,14 @@ it.**
   - The 32-logical-CPU default (`dbd959332`) was stated across 22 files.
   - "16 lanes" is stated in at least seven places.
 
-**Diagnosis.** The meaning of "how much memory, how many lanes and which exclusivity a workload
-gets" is decided in at least seven places, several of them deciding the same numbers:
+**2026-10-25 followup at `682fc3830`: retained and narrowed.** `host_admission` already
+provides a real policy authority, and the worker consumes admitted allocation fields. The gap is
+repeated finite-profile values and the conformance-to-production direction, not the absence of
+any resource model. Fixed sixteen-lane execution and uncapped ordinary builds remain explicit
+maintainer constraints. Recipe classification and a deliberate mode overlay are not independently
+a violation merely because they use different effective settings.
+
+**Diagnosis.** Several owners restate finite execution-profile meaning:
 1. `.config/agent-capacity.toml`, the agent host policy, defines classes, partitions and
    `[reference] store_gib`, `receiver_headroom_gib` and `observer_gib`.
 2. `scripts/surreal_server.py::{reference_execution, reference_resources}` hard-codes the same
@@ -131,7 +143,7 @@ gets" is decided in at least seven places, several of them deciding the same num
   supervisor, runtime validation, the worker and MCP defaults derive.
 - The product's durable profile separated from test-campaign settings.
 
-## <a id="da-037"></a>DA-037 — Process-ownership primitives are re-authored per tooling owner with divergent semantics, inside one cyclic import web that includes the production supervisor
+## <a id="da-037"></a>DA-037 — Repeated process observations sit inside cyclic tooling coupling that includes production supervision
 
 **Principles:** AP-06, DP-01, DP-13, DP-16; H4, H25, H26, H27.
 
@@ -154,7 +166,8 @@ duplicated here.
   - `codex_mcp.process` parses `/proc/<pid>/stat` for ancestry.
 - **A better rule now exists.** `telemetry_service._checked_process` binds systemd
   `InvocationID`, `/proc` start ticks, executable inode and cgroup, which matches the Rust owner
-  identity. It is a candidate for the one rule.
+  identity. It is a candidate shared observation mechanism; owner-specific liveness policy
+  still has to distinguish launchers, managers and actual descendant drain.
 - **Correction to the previous account.** S2 and S5 each ran an `ast` import-graph probe that
   counts function-local imports. The runtime strongly connected component had 26 modules at
   `cbf45ccc9` and has 27 now (`doctor` joined). The six modules named below are its core, not
@@ -197,9 +210,10 @@ duplicated here.
 - **No local reasoning (AP-06).** Changing one owner's lifetime rule means reading the whole
   cycle, which includes the production supervisor and the frozen generations that copy it
   ([DA-019](boundaries-and-composition.md#da-019)).
-- **One owner, different answers.** A zombie launcher keeps host capacity in `caller_alive` but
-  releases a lifecycle reservation in `reservation_live`. Only some owners authenticate the PID
-  namespace. No failure has been demonstrated, but each new owner re-derives the rule.
+- **Repeated observations under different policies.** Launcher liveness, unresolved manager
+  authority and descendant drain answer different questions. Different zombie treatment alone
+  does not demonstrate erroneous reclamation. Boot/start/namespace/cgroup observations recur in
+  multiple owners, and a lifetime change must distinguish those policies across the import web.
 - **Overhead on cheap commands.** Discovery and light recipes pay allocation, a scope and two
   interpreter starts (H26). This is unmeasured.
 
@@ -218,13 +232,19 @@ duplicated here.
 per-command overhead and the practical incidence of divergence are hypotheses.
 
 **Improvement direction.**
-- One owner-identity and liveness primitive with one stated semantics (namespace, zombie,
-  uncertainty, cgroup), shared by the Python owners and matching the Rust owner identity.
+- Share authenticated process observations where they are the same fact (boot, start tick,
+  namespace, invocation, cgroup), with explicit uncertainty. Keep owner-specific launcher,
+  manager and drain policies distinct; one universal alive/dead answer is not required.
 - Acyclic layering: environment → admission → service supervision → borrowers registering
   through a declared interface.
 - A light path that creates no scope for work that needs none.
 
-## <a id="da-043"></a>DA-043 — Every agent native call pays a full environment, currency, import and runtime lifecycle, and currency is re-derived from a tooling-authored input superset
+**2026-10-25 followup at `682fc3830`.** Re-read the reciprocal imports, supervisor borrower
+query, endpoint specialist import and owner observations. The cyclic coupling and repeated
+observation remain; the old implication that every owner must give one liveness answer is
+withdrawn. No runtime failure, command overhead or new exact module census was measured.
+
+## <a id="da-043"></a>DA-043 — Native agent calls repeat environment, currency and import work; currency uses a tooling-authored input superset
 
 **Principles:** AP-07, DP-09, DP-10, DP-13, DP-16, DP-20; H2, H12, H13, H14, H18, H26, H28.
 
@@ -245,8 +265,10 @@ causes:
    - Both routes set `PSE_CAPABILITY_ADMISSION`, and every `native_contracts.Binding` requires
      `python-extension`. So `native_worker.execute` calls
      `python_extension.currency_check_installed` on every call, reads included.
-   - The worker then imports `pse` and constructs a `pse.Runtime`, durable when a deployment is
-     named. The local working-tree extension is about 1.29 GB.
+   - The worker imports `pse`. Runtime construction is operation-specific: supplied-only
+     `evidence_compare` and `telemetry_profile_capture` return before `pse.Runtime` is built.
+     Model/deployment operations continue into that lifecycle. The previous local extension size
+     observation was about 1.29 GB; it was not remeasured in this followup.
    - On the CLI route, `scripts/capability_cli_runtime.py::connection` first starts a fresh
      `StdioTransport(python -m scripts.capabilities)` per invocation. That launches the
      120-module endpoint before the native child. This is deliberate: 55a says "One invocation
@@ -296,7 +318,7 @@ causes:
 
 **Consequence.**
 - A routine agent read pays env and scope admission, the whole-tree hash and subprocesses, an
-  extension import and runtime construction. That fixed cost scales with repository and
+  extension import. Operations that need a runtime then construct one. The common prefix scales with repository and
   extension size, not with the request. Paging repeats it per page.
 - After *any* edit under `crates/` or `vendor/`, every native read refuses
   `pse.native.artifact_not_current` until a rebuild. That includes edits that cannot affect the
@@ -335,7 +357,9 @@ causes:
 
 **Evidence:**
 - *Implemented* for the per-call route and the currency invocation; the coordinator re-read
-  `native_worker.execute` and `currency_check_installed`.
+  `native_worker.execute` and `currency_check_installed`. The followup challenger checked its early
+  returns: supplied-only evidence comparison pays currency/import, but not runtime/store
+  construction. The headline and consequences are narrowed accordingly.
 - *Implemented* for the deny-list growth (the coordinator counted 20 and 39 names) and the
   repair history.
 - *Implemented* for the second import and the full-binary digest. The CLI route, the

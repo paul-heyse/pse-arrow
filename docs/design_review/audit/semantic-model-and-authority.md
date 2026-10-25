@@ -8,6 +8,11 @@ other pages. Citations are `path::symbol` at source commit `b5bdac9da`; line num
 approximate where given. The code of these four findings is unchanged since `cbf45ccc9`. The
 2026-10-25 notes record premise checks against the new consumers and expectations.
 
+**Evidence dates.** Earlier *refresh* paragraphs retain the input account's source and scope;
+*followup* notes and the [current revalidation table](README.md#revalidation-outcomes) identify
+this engagement's re-readings and corrections. Earlier exact counts and measurements were not
+renewed by republication.
+
 ## <a id="da-006"></a>DA-006 — Runtime mode formulation re-derives or fills in what the compiler and modeling owners publish
 
 **Principles:** AP-04, DP-01, DP-04, DP-08, PS-07, PS-11; G1, G2, G6.
@@ -143,10 +148,10 @@ untouched. The only change in `workflow/modeling/canonical.rs` is declaration pa
 - the selector inventory and binding rules are derived from the registry's field roles;
 - there is one lexical binding rule.
 
-## <a id="da-005"></a>DA-005 — Physical meaning that Rust checks cannot be read or supplied at the public boundary
+## <a id="da-005"></a>DA-005 — Physical meaning checked in Rust is not directly projected to public result readers
 
-**Principles:** PS-01, PS-12, DP-02, DP-04; G2, PS-G1 (bounded: admission still refuses
-mismatches).
+**Principles:** PS-01, PS-12, DP-02, DP-04; G2 at the readable-result contract. Physical
+admission still refuses mismatches; this does not establish a PS-G1 admission failure.
 **Refresh status:** narrowed, reframed and split.
 - Physical side inputs are now keyed, quantity-typed Arrow rows, checked before custody
   (`workflow/physical_values.rs`).
@@ -185,14 +190,23 @@ mismatches).
   argument.
 
 **Consequence.**
-- An engineer or agent cannot state a result's unit, basis or energy reference state from
-  Python, MCP inspection or an exported bundle.
+- Python/MCP result views do not directly resolve a result's unit, basis or energy reference
+  state. An executable project bundle is different: its exact authored physical documents retain
+  those definitions and can be parsed to recover meaning. The gap is the direct reader projection,
+  not categorical loss of meaning from every export.
 - An input cannot be supplied in °C or bar by name without obtaining ids out of band.
-- PS-01's question "is the reference state of every energy quantity recoverable?" passes inside
-  Rust and fails at the public boundary.
-- *PSE-S04:* meaning survives only while the reader holds the same physical closure and Rust.
+- PS-01's recoverability question requires following the result's physical closure. The typed
+  internal owners resolve it, but the public readable view leaves source lookup and interpretation
+  to the caller. Opaque ids are not a direct human-readable physical context.
+- *PSE-S04:* executable exchange preserves the authored closure; a result-only view must be
+  distinguished from that self-contained source bundle.
 
 **Counterevidence.**
+- `project_closure.rs::resolve_project_closure` copies physical source documents and records their
+  member/path mapping in `ProjectSourceClosure::physical_documents`.
+  `ProjectBundleReader::package_sources` returns those authored bytes and import reconstructs
+  `PhysicalContext`. The Python fixture already resolves quantity/canonical-unit ids by parsing
+  authored source. These refute the earlier claim of impossibility from any exported bundle.
 - Ids are exact and stable; symbols are presentation.
 - Admission refuses mismatches, so this is not a silent PS-G1 failure.
 - Plan 49 decision I20 found that the generated physical owners `BindingQuantity` and
@@ -201,8 +215,9 @@ mismatches).
   projected to readers.
 
 **Evidence:** *Interface-checked* (absence searched in `python/pse`, `_native.pyi`, `pse-py` and
-`result_inspection.rs`). An actual `inspect_result` on `runtime.solve_variables` would settle the
-read-side claim.
+`result_inspection.rs`). The followup coordinator and challenger also read executable project-closure physical-document
+copying and bundle source access. No live `inspect_result` was run. Such a call can test direct
+readability, but cannot justify a categorical claim about all export formats.
 
 **Improvement direction.**
 - Physical ids become declared identity domains with typed Python counterparts.
@@ -214,7 +229,7 @@ read-side claim.
 **Related:** [DA-007](structure-and-invariants.md#da-007) shares a root: identity domains stop
 at the scientific core.
 
-## <a id="da-038"></a>DA-038 — Result permission is decided once per candidate, but aggregates, one fit route and composite analyses re-derive it
+## <a id="da-038"></a>DA-038 — Scientific permission does not govern every aggregate, derived product and downstream reuse
 
 **Principles:** AP-04, DP-01, PS-10, PS-12, AP-06; G1, G7, PS-G3.
 
@@ -262,7 +277,42 @@ consumer re-derive permission around it.
    - Horizon move authorization (Solved/Held/Fallback/Predicted) is decided inline in the
      2.4k-line async `horizon/driver.rs::control`.
 
+4. **Completed fit mathematics is promoted through a different scientific permission boundary.**
+   - `fitting/oracle.rs::FitProblem::execute_profile_with_lm` computes covariance and intervals
+     before `fitting/modeling.rs::PreparedFit::execute_original` performs original model checks.
+     Retaining those computations as diagnostic evidence is legitimate.
+   - `run.rs::RunResult::invocation_evidence` explicitly requires the governing original
+     qualification as well as successful computation for covariance/Wald product availability.
+     The existing fixture
+     `fitting/oracle.rs::original_fit_failure_withholds_completed_statistical_products_in_invocation`
+     constructs a numerically feasible fit with a failed authored check, retains covariance and
+     Wald values, and expects those products to be `Unavailable`.
+   - The result projection uses a weaker rule. `fitting/results.rs::uncertainty` certifies local
+     validity from `covariance.values.is_ok()` and exports the covariance and intervals without
+     the governing original permission. Its own-prediction projection similarly propagates
+     retained covariance and marks successful propagation certified.
+   - `uncertainty.rs::RunResult::parameter_covariance` wraps those values as
+     `CovarianceOrigin::QualifiedFit`. The persisted `uncertainty/sources.rs::Runtime::fit_covariance`
+     hydrates covariance, scientific context and certified local validity, but does not read the
+     governing original completion. Both preserve content identity and protect the actual input;
+     neither carries the original scientific refusal.
+   - `uncertainty.rs::propagate_checked` checks content authentication, PSD and coordinate
+     compatibility. `Propagated::into_row` publishes `QualifiedFit`, the label "qualified fit"
+     and empty external assumptions. No field restores the lost original refusal.
+
+**2026-10-25 followup at `682fc3830`.** Item 4 is a missed producer-to-consumer consequence,
+not an implementation change since the preceding audit. The initial independent scientific pass
+found it before reading this catalogue; the coordinator re-read the fixture, invocation rule,
+local and persisted covariance constructors, result projection and propagation output. Item 1's
+`study_operations.rs` site was also checked: it consumes `result.usable()` for aggregate usability
+and re-projects candidate/seed facts, rather than independently deciding the whole aggregate.
+
 **Consequence.**
+- A fit can be declared scientifically unusable and its covariance unavailable by invocation
+  evidence, yet supply the same retained covariance as a qualified input to another analysis.
+  The downstream result retains neither the governing refusal nor an explicit weaker,
+  conditional certification scope. Content authenticity and mathematical PSD do not settle
+  this scientific permission question.
 - *PSE-S02.*
   - The same authored fit and numerical policy can receive different result and seed
     permission depending on which route automatic selection picked.
@@ -279,6 +329,13 @@ consumer re-derive permission around it.
     failure (source-derived, unexercised).
 
 **Counterevidence.**
+- Blueprint §19.4 deliberately separates point-estimate eligibility from covariance qualification.
+  A failed authored expectation does not make the covariance calculation mathematically wrong.
+  The finding is the disagreement between declared product availability and reusable scientific
+  provenance, not a demand to conflate these distinct qualifications or erase retained evidence.
+- `ParameterCovariance::verified_fit` correctly refuses forged or changed certified content, and
+  external covariance has explicit provenance and PSD admission. DA-010's bounded correction
+  remains valid; those controls do not establish the missing original permission.
 - Pins rightly demand stationarity, and model checks at every pin cost real work.
 - Refusing a non-converged LM estimate is conservative, and the route reports its library
   termination honestly.
@@ -287,6 +344,9 @@ consumer re-derive permission around it.
   or making permission depend on the route.
 
 **Evidence:**
+- *Interface-checked* for the missed derived-product permission chain and the existing fixture's
+  assertions. That fixture and a downstream propagation journey were not executed in this audit;
+  source establishes inconsistent rules, not a new runtime or numerical qualification.
 - *Implemented* for each site. The coordinator re-read `candidate_use` and both usability
   conjunctions.
 - The divergences are *Interface-checked*. Two runs would settle them:
@@ -297,6 +357,11 @@ consumer re-derive permission around it.
 - The completion owner publishes aggregate permission as a typed fact recorded with the
   completion.
 - Library routes produce the shared native-outcome evidence so that `native_use` applies.
+- Derived products and downstream reuse consume the same governing permission, or carry an
+  explicit weaker conditional qualification and its reasons consistently through invocation,
+  result rows, local and persisted inputs, and propagation. Retained diagnostic computations
+  remain distinguishable from scientifically authorized products. A regression scenario should
+  follow the existing rejected-original-fit fixture through both covariance consumers.
 - A composable inner-candidate acceptance lets a composite analysis declare which obligations it
   requires, waives or strengthens, and how qualifiers propagate.
 - Horizon and profile decisions are pure functions of explicit facts.
