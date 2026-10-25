@@ -77,7 +77,7 @@ def handoff(root: Path, worker: str, operation: str, request: bytes) -> Handoff:
     definition = _CURRENT.get()
     if definition is None:
         # Original non-MCP callers still use the same fixed worker and source basis.
-        from scripts.capabilities.coherence import Sources
+        from scripts.capabilities.source_basis import Sources
         declaration = WORKERS[worker]
         captured = Sources(root, (declaration.module.replace(".", "/") + ".py", *declaration.sources))
         definition = Definition(checkout=str(root.resolve()), operation=operation,
@@ -117,9 +117,9 @@ def verify(root: Path, worker: str, operation: str, request: bytes) -> None:
         or received.request_sha256 != hashlib.sha256(request).hexdigest()
 ):
         raise AdmissionRefused("Admitted operation contract changed; reattach before further effects")
-    from scripts.capabilities.coherence import Sources
+    from scripts.capabilities.source_basis import Sources
     try:
-        observed = Sources(root, expected.sources)
+        observed = Sources(root, expected.sources, follow_imports=False)
     except (OSError, ValueError, SyntaxError):
         raise AdmissionRefused("Admitted source changed or became unreadable; reattach before further effects") from None
     # Sources follows local imports to read safely. Shared serving modules may

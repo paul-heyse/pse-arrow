@@ -260,31 +260,15 @@ def scientific_error(
 def execute(
     operation: str, arguments: Mapping[str, object], *, scratch: Path
 ) -> dict[str, object]:
-    import pse  # noqa: PLC0415 -- load native/public owners only inside an actual call
-    from pse import (  # noqa: PLC0415 -- load native/public owners only inside an actual call
-        codec,
-        diagnostics,
-    )
-    from pse.contracts import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
-        documents as contracts,
-    )
-    from scripts.capabilities import (  # noqa: PLC0415 -- selected native or specialized test owner loads on demand
-        native_contracts as host,
-    )
+    from scripts.capabilities import native_contracts as host
+    from scripts import python_extension
 
     supplied = dict(arguments)
     fingerprint = supplied.pop("schema_set_fingerprint", None)
     if not isinstance(fingerprint, str):
         raise TypeError("fixed native request requires its loaded schema fingerprint")
-    if fingerprint != pse.SCHEMA_SET_FINGERPRINT:
-        return {
-            "outcome": "stale_interface",
-            "code": "pse.native.schema_set_mismatch",
-            "stage": "native_interface_selection",
-            "remedy": "Explicitly prepare the compatible correctness extension with just py-sync-native-correctness, then restart or reattach this endpoint. This refusal does not build, retry or enter a native receiver.",
-        }
+    current = None
     if os.environ.get("PSE_CAPABILITY_ADMISSION"):
-        from scripts import python_extension
         binding = next((item for item in host.BINDINGS if item.operation == operation), None)
         requirement = next((item for item in binding.requirements if item.kind == "python-extension"), None) if binding else None
         if requirement is not None:
@@ -294,6 +278,30 @@ def execute(
             )
             if current.state != "current":
                 return {"outcome": "prerequisite_unavailable", "code": "pse.native.artifact_not_current", "currency": current.model_dump(mode="json")}
+            if "pse._native" in sys.modules or current.artifact is None or current.artifact_stamp is None:
+                return {"outcome": "stale_interface", "code": "pse.native.unbound_loaded_artifact", "remedy": "Use a fresh native worker after explicit preparation; no native receiver was entered."}
+    import pse
+    from pse import codec, diagnostics
+    from pse.contracts import documents as contracts
+    if current is not None:
+        loaded = sys.modules.get("pse._native")
+        try:
+            unchanged = (current.artifact is not None and loaded is not None
+                and Path(str(getattr(loaded, "__file__", ""))).resolve() == Path(current.artifact.binary)
+                and python_extension.artifact_stamp(current.artifact) == current.artifact_stamp)
+        except (OSError, ValueError):
+            unchanged = False
+        if not unchanged:
+            return {"outcome": "stale_interface", "code": "pse.native.artifact_changed_during_import", "remedy": "Let explicit preparation settle, then use a fresh worker; no native receiver was entered."}
+    if fingerprint != pse.SCHEMA_SET_FINGERPRINT:
+        return {
+            "outcome": "stale_interface",
+            "code": "pse.native.schema_set_mismatch",
+            "stage": "native_interface_selection",
+            "remedy": "Explicitly prepare the compatible correctness extension with just py-sync-native-correctness, then restart or reattach this endpoint. This refusal does not build, retry or enter a native receiver.",
+        }
+    from scripts.telemetry_process import activate_native
+    activate_native()
     if operation == "evidence_compare":
         request = host.EvidenceCompare.model_validate(supplied)
         result = diagnostics.compare_evidence(
@@ -694,4 +702,4 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     from scripts.telemetry_process import run_helper
 
-    raise SystemExit(run_helper("pse-native-worker", main, native=True))
+    raise SystemExit(run_helper("pse-native-worker", main))

@@ -56,6 +56,7 @@ class ExtensionCurrency(ExtensionContract):
     validated: bool
     source_basis: str | None = None
     artifact: ExtensionArtifact | None = None
+    artifact_stamp: tuple[int, int, int, int, int] | None = None
     receipt_recorded: bool = False
     cause: Literal[
         "matching-inputs-and-artifact",
@@ -653,6 +654,15 @@ def read_receipt(path: Path) -> dict[str, object]:
         return {}
 
 
+def artifact_stamp(artifact: ExtensionArtifact) -> tuple[int, int, int, int, int]:
+    """Observe the selected ordinary binary's import-window mutation witness."""
+    path = Path(artifact.binary)
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("prepared native artifact is not an ordinary file")
+    value = path.stat()
+    return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns
+
+
 def currency_check(
     environment: Mapping[str, str],
     *,
@@ -713,13 +723,16 @@ def currency_check(
     if inputs != current:
         return observed("stale", "inputs-changed", **facts)
     try:
+        before = artifact_stamp(recorded)
         artifact = ExtensionArtifact.model_validate(
             capture(environment, validated=validated, native=mode == "native")
         )
+        after = artifact_stamp(artifact)
     except (OSError, ValueError, TypeError, subprocess.SubprocessError):
         return observed("unknown", "import-unavailable", **facts)
     facts["artifact"] = artifact
-    if artifact != recorded:
+    facts["artifact_stamp"] = after
+    if artifact != recorded or before != after:
         return observed("stale", "artifact-changed", **facts)
     return observed("current", "matching-inputs-and-artifact", **facts)
 

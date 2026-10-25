@@ -60,9 +60,22 @@ class AdmissionTests(unittest.TestCase):
         })
         with patch.dict(os.environ, self.publish()):
             basis.verify(self.root, "host", "archive", self.document)
+            (shared.parent / "unrelated.py").write_text("invalid unrelated syntax (\n")
+            basis.verify(self.root, "host", "archive", self.document)
             shared.write_text("from scripts import new_interpreter\n")
             with self.assertRaises(basis.AdmissionRefused):
                 basis.verify(self.root, "host", "archive", self.document)
+
+    def test_every_declared_native_binding_uses_the_same_closed_worker_set(self) -> None:
+        from scripts.capabilities.native_contracts import BINDINGS
+        from scripts.capabilities.workers import WORKERS
+        self.assertEqual(WORKERS["native"].operations, frozenset(binding.operation for binding in BINDINGS))
+        for binding in BINDINGS:
+            with self.subTest(operation=binding.operation), tempfile.TemporaryDirectory() as directory:
+                with basis.selected(self.definition):
+                    supplied = basis.publish(Path(directory), self.root, "native", binding.operation, self.document)
+                with patch.dict(os.environ, supplied):
+                    basis.verify(self.root, "native", binding.operation, self.document)
 
     def test_annotations_metadata_and_description_affect_wire(self) -> None:
         def read() -> str:

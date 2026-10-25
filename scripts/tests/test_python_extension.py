@@ -364,6 +364,8 @@ class PreparationCurrencyTests(unittest.TestCase):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(body)
+        self.binary = self.root / "python/pse/_native.abi3.so"
+        self.binary.write_bytes(b"installed artifact fixture")
         self.environment = {
             "UV_PROJECT_ENVIRONMENT": str(Path(sys.executable).parent.parent),
             "VIRTUAL_ENV": str(Path(sys.executable).parent.parent),
@@ -379,7 +381,7 @@ class PreparationCurrencyTests(unittest.TestCase):
                 python_extension,
                 "capture",
                 return_value={
-                    "binary": "/installed/native.so",
+                    "binary": str(self.binary),
                     "sha256": "installed-transformed-bytes",
                     "features": ["force-validate"],
                 },
@@ -496,11 +498,24 @@ class PreparationCurrencyTests(unittest.TestCase):
         with patch.object(
             python_extension,
             "capture",
-            return_value={"binary": "/installed/native.so", "sha256": "replaced", "features": ["force-validate"]},
+            return_value={"binary": str(self.binary), "sha256": "replaced", "features": ["force-validate"]},
         ):
             replaced = self.currency()
         self.assertEqual(replaced.state, "stale")
         self.assertEqual(replaced.cause, "artifact-changed")
+
+    def test_replacement_during_capture_refuses_the_import_window(self) -> None:
+        self.record_extension()
+        record = python_extension.read_receipt(python_extension.stage_receipt("extension", self.environment))
+
+        def changed(*_args: object, **_kwargs: object) -> object:
+            self.binary.write_bytes(b"replacement artifact fixture")
+            return record["artifact"]
+
+        with patch.object(python_extension, "capture", side_effect=changed):
+            result = self.currency()
+        self.assertEqual(result.state, "stale")
+        self.assertEqual(result.cause, "artifact-changed")
 
     def test_missing_and_unsupported_evidence_never_imports_or_claims_current(self) -> None:
         with (

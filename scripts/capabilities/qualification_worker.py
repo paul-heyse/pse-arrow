@@ -221,7 +221,8 @@ def main(argv: list[str] | None = None) -> int:
     response: dict[str, object]
     try:
         from scripts.capabilities.execution_basis import verify
-        verify(Path(__file__).resolve().parents[2], 'qualification', operation, Path(source).read_bytes())
+        worker = "rust-tests" if operation == "rust-test" else "qualification"
+        verify(ROOT, worker, operation, Path(source).read_bytes())
         progress.publish("request", "started")
         response = {
             "result": execute(operation, Path(source).read_text(), progress=progress)

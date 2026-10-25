@@ -26,10 +26,19 @@ class WorkerCall:
 @dataclass(frozen=True)
 class Worker:
     module: str
-    operations: frozenset[str]
+    declared_operations: frozenset[str] | None
     environment: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
     launch: Literal["environment", "inherited"] = "environment"
+
+    @property
+    def operations(self) -> frozenset[str]:
+        if self.declared_operations is not None:
+            return self.declared_operations
+        # Native bindings own their complete closed operation set. Resolve only
+        # after module composition to avoid a second hand-maintained allowlist.
+        from scripts.capabilities.native_contracts import BINDINGS
+        return frozenset(binding.operation for binding in BINDINGS)
 
 
 WORKERS = {
@@ -80,10 +89,7 @@ WORKERS = {
     ),
     "native": Worker(
         "scripts.capabilities.native_worker",
-        frozenset(
-            {
-                "evidence_compare","source_admit", "preparation_discover", "telemetry_profile_capture"}
-        ),
+        None,
         ("--native=solver,klu,isolation,uno,petsc",),
     ),
 }

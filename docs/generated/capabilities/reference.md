@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `28daf19b63397724c19c1c60d3810a19877834ac26459b3dbfa5b5cb91d16b86`.
+Catalogue content revision: `79ec31694d942d98ddd629a5a568a4c25eb9d7051d2efa143a15a4b6976926e7`.
 
 ## Domains
 
@@ -2530,6 +2530,36 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
             ],
             "default": null
           },
+          "artifact_stamp": {
+            "anyOf": [
+              {
+                "maxItems": 5,
+                "minItems": 5,
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "cause": {
             "enum": [
               "matching-inputs-and-artifact",
@@ -3064,6 +3094,36 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
             "anyOf": [
               {
                 "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "artifact_stamp": {
+            "anyOf": [
+              {
+                "maxItems": 5,
+                "minItems": 5,
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
               },
               {
                 "type": "null"

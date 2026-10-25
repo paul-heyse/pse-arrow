@@ -470,6 +470,30 @@ def _compose(owner: ProcessLifetime) -> None:
     owner.status = "initialized"
 
 
+def _activate_native(owner: ProcessLifetime) -> None:
+    if owner.native is None and owner.status == "initialized" and not owner.closed and owner.settings is not None:
+        facade = importlib.import_module("pse._telemetry")
+        owner.native = facade.initialize(owner.settings.native_json(), current_carrier)
+        if owner.native.activation.get("status") not in {"initialized", "already_initialized", "disabled"}:
+            _diagnostic("native_initialization_refused")
+
+
+def activate_native() -> None:
+    """Select native observation after the helper admits its actual extension.
+
+    The existing process lifetime owns shutdown. This neither starts another
+    provider lifetime nor changes a library Runtime's observation policy.
+    """
+    with _LOCK:
+        owner = _STATE.active
+        if owner is None or owner.pid != os.getpid():
+            return
+        try:
+            _activate_native(owner)
+        except Exception:
+            _diagnostic("native_initialization_unavailable")
+
+
 def bootstrap(
     service_name: str,
     *,
@@ -498,17 +522,8 @@ def bootstrap(
             return owner
         try:
             _compose(owner)
-            if native and owner.status == "initialized":
-                facade = importlib.import_module("pse._telemetry")
-                owner.native = facade.initialize(
-                    settings.native_json(), current_carrier
-                )
-                if owner.native.activation.get("status") not in {
-                    "initialized",
-                    "already_initialized",
-                    "disabled",
-                }:
-                    _diagnostic("native_initialization_refused")
+            if native:
+                _activate_native(owner)
         except Exception:
             # Telemetry is observational and cannot change a native operation outcome.
             _diagnostic("initialization_unavailable")
