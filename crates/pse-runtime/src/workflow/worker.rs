@@ -27,6 +27,21 @@ pub(in crate::workflow) use publication::observed as observed_scientific_publica
 #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
 pub(in crate::workflow) use publication::observed_idle;
 
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+tokio::task_local! {
+    static FIRST_CLAIM_BARRIER: std::cell::RefCell<Option<Arc<tokio::sync::Barrier>>>;
+}
+
+#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+pub(in crate::workflow) async fn synchronized_first_study_claim<T>(
+    barrier: Arc<tokio::sync::Barrier>,
+    work: impl Future<Output = T>,
+) -> T {
+    FIRST_CLAIM_BARRIER
+        .scope(std::cell::RefCell::new(Some(barrier)), work)
+        .await
+}
+
 // Keep construction temporaries out of the frame that polls the phase, and
 // prevent nested phase polling from being inlined into one large stack frame.
 // These boundaries affect workflow orchestration, not native numerical kernels.
@@ -1985,8 +2000,13 @@ impl Runtime {
                 _ => return Ok(None),
             }
         }
+        // A worker label and candidate revision identify a premise, not its caller.
+        // Independent calls on the same Runtime must compete for separate claims;
+        // replaying one receipt would give both callers custody of the same fence.
+        // Keep this invocation's identity stable through query retries and ACK settlement.
+        let claim_nonce: SemanticId = pse_operations::mint_id();
         let claim_operation = format!(
-            "study-claim:{}:{}:{}",
+            "study-claim:{}:{}:{}:{claim_nonce}",
             candidate.key,
             scope.point().revision,
             operations.worker()
@@ -2126,6 +2146,18 @@ impl Runtime {
             .ok_or_else(|| contract("worker claimed phase storage extent"))?;
         // Both claimed phase and selected launch branch are prepaid before the claim.
         let _launch_owner = self.shared.math().reserve("study:worker-launch", extent)?;
+        #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+        let claim_barrier = FIRST_CLAIM_BARRIER
+            .try_with(|barrier| barrier.borrow_mut().take())
+            .ok()
+            .flatten();
+        #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+        if let Some(barrier) = &claim_barrier {
+            tokio::select! {
+                _ = barrier.wait() => {},
+                () = cancel.cancelled() => {},
+            }
+        }
         let claim = {
             let _claim = pse_diagnostics::observation::phase("managed.worker.claim_acquire");
             operations
@@ -2139,6 +2171,13 @@ impl Runtime {
                 )
                 .await
         };
+        #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+        if let Some(barrier) = claim_barrier {
+            tokio::select! {
+                _ = barrier.wait() => {},
+                () = cancel.cancelled() => {},
+            }
+        }
         let claim = match claim {
             Ok(claim) => claim,
             Err(error) => {

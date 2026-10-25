@@ -224,6 +224,116 @@ async fn canonical_worker_claim_and_idle_phase_probe() {
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
+async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication() {
+    let runtime = durable_runtime();
+    let cancel = crate::CancelSource::new();
+    let (physical, modeling) = sources(
+        "package algebraic { def Root { var x:Scalar; annotation bounds x(0,2); annotation start x(1); let cost:Scalar=x; annotation objective cost(minimize); eq floor:x>=0.5; annotation report x(\"minimum\"); } }",
+    );
+    let package = runtime
+        .package_from_sources(
+            std::slice::from_ref(&modeling),
+            runtime.physical_from_sources(&physical, &cancel).await.unwrap(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let root = package
+        .declarations()
+        .await
+        .unwrap()
+        .iter()
+        .find(|declaration| declaration.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let mut handles = Vec::new();
+    for key in [7, 11] {
+        let mut requested = point(root, key, vec![], StartPolicy::Fresh);
+        let OperationRequest::DeclaredCase(operation) = &mut requested.operation else {
+            unreachable!("authored algebraic operation")
+        };
+        operation.settings.intent = pse_backend_native::solve::SolveIntent::Optimize;
+        let local = package
+            .admit_study(
+                &StudyInputs::Explicit(vec![requested]),
+                &StudyOutputDemand::Full {},
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let recorded = runtime.record_study(&local, &cancel).await.unwrap();
+        handles.push(runtime.start_recorded_study(recorded, &cancel).await.unwrap());
+    }
+    let settings = WorkerSettings {
+        maximum_actions: Some(1),
+        maximum_in_flight: Some(1),
+        until_idle: true,
+        ..Default::default()
+    };
+    // Both callers consume the same first candidate premise. Hold native dispatch
+    // until both claim responses return, exposing any borrowed idempotent receipt.
+    let barrier = Arc::new(tokio::sync::Barrier::new(2));
+    let left_stop = crate::CancelSource::new();
+    let right_stop = crate::CancelSource::new();
+    let joined = async {
+        tokio::join!(
+            worker::synchronized_first_study_claim(
+                barrier.clone(),
+                runtime.serve(settings, &left_stop),
+            ),
+            worker::synchronized_first_study_claim(
+                barrier,
+                runtime.serve(settings, &right_stop),
+            ),
+        )
+    };
+    tokio::pin!(joined);
+    let (left, right) = match tokio::time::timeout(Duration::from_secs(60), joined.as_mut()).await {
+        Ok(result) => result,
+        Err(error) => {
+            left_stop.cancel();
+            right_stop.cancel();
+            let drained = joined.await;
+            panic!("concurrent claims timed out after owned worker drain: {error}; {drained:?}");
+        }
+    };
+    assert_eq!(left.unwrap(), 1);
+    assert_eq!(right.unwrap(), 1);
+    // A caller may legitimately spend its one action finalizing its peer's
+    // already-settled study. Finish only any remaining ordinary work; native
+    // timing must not determine which study supplied that caller's action.
+    for _ in 0..4 {
+        let mut pending = false;
+        for handle in &handles {
+            pending |= handle.status().await.unwrap().points.iter().any(|point| !point.settled);
+        }
+        if !pending {
+            break;
+        }
+        runtime.work_once().await.unwrap();
+    }
+    let mut attempts = std::collections::BTreeSet::new();
+    for handle in handles {
+        let status = handle.status().await.unwrap();
+        assert_eq!(status.points.len(), 1);
+        let point = &status.points[0];
+        assert!(point.settled && point.outcome.as_ref().unwrap().scientific.usable);
+        assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
+        let attempt = point.attempt.as_deref().unwrap();
+        assert!(attempts.insert(attempt.to_owned()));
+        let record = runtime.operations().unwrap().record(&point.run, attempt).await.unwrap();
+        assert!(record.attempt.is_ok() && record.manifest.is_some());
+        let original = record.completion.as_ref().unwrap().completion.as_ref().unwrap();
+        assert_eq!(original.solves.len(), 1);
+        assert!((original.solves[0].objective.unwrap() - 0.5).abs() < 1e-6);
+        runtime.finalize_canonical_study(&handle.study_id().to_string()).await.unwrap();
+        assert!(handle.result().await.unwrap().is_some());
+    }
+    assert_eq!(attempts.len(), 2);
+}
+
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[tokio::test]
 async fn same_worker_publication_handoff_refills_and_bounds_actual_unacknowledged_attempts() {
     use std::sync::{
         Arc,
