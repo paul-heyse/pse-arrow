@@ -16,6 +16,7 @@ from scripts.capabilities.read_contracts import (
     ReadAnswer,
     finish_read,
 )
+from scripts.telemetry_investigation import QueryAnswer
 
 
 class SignalSettings(Contract):
@@ -153,6 +154,23 @@ class TelemetryTraceResult(ReadAnswer):
     omissions: list[str]
     answer: AnswerState
     payload: TracePayload
+
+
+class TelemetryQueryResult(ReadAnswer):
+    operation: Literal["telemetry_query"] = "telemetry_query"
+    complete: bool
+    omissions: list[str]
+    answer: AnswerState
+    payload: QueryAnswer
+
+
+def query(value: QueryAnswer) -> TelemetryQueryResult | DetailRefused:
+    return finish_read(
+        TelemetryQueryResult,
+        value,
+        population="unavailable" if value.status in {"unavailable", "stale", "unsupported"} else "partial",
+        reasons=[value.reason or "bounded_live_selection", *value.limits],
+    )
 
 
 def health(value: object) -> TelemetryHealthResult | DetailRefused:

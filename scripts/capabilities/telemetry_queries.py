@@ -7,14 +7,15 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Annotated
 
-from fastmcp.tools import Tool
-from mcp.types import ToolAnnotations
-from pydantic import Field
+from fastmcp.tools import Tool, ToolResult
+from mcp.types import ResourceLink, TextContent, ToolAnnotations
+from pydantic import Field, TypeAdapter
 
 from scripts.capabilities import telemetry_contracts as answers
 from scripts.capabilities.diagnostics import refusal
 from scripts.capabilities.model import Capability
 from scripts.capabilities.responses import owner_read
+from scripts.telemetry_investigation import BackendClient, QueryRequest, schema_description
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -28,7 +29,25 @@ Microseconds = Annotated[int, Field(ge=0, le=(1 << 63) - 1, strict=True)]
 Limit = Annotated[int, Field(ge=1, le=1000, strict=True)]
 
 
-def bindings(_root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
+def bindings(_root: Path, *, client: BackendClient | None = None) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
+    backend = client or BackendClient()
+
+    async def telemetry_query(request: QueryRequest, state: State | None = None) -> ToolResult:
+        """Read a selected trace/operation/log population or metric points/distribution through the single bounded backend adapter. Select explicit microsecond times and identities. Metrics use the exact backend instrument stream; rate/increase/p95 are estimates, exemplars only related examples. Source/configuration fences and 3s/1MiB bounds apply. Live reads provide no stable pagination. Follow original native readers for scientific results and explicit profiling. No SQL, arbitrary endpoint, service startup or automatic action."""
+        try:
+            result = answers.query(await backend.query(state, request))
+            encoded = result.model_dump(mode="json")
+            return ToolResult(
+                structured_content={"result": encoded},
+                content=[TextContent(type="text", text=f"{request.signal}/{request.kind}: selected observation; inspect structured coverage and source before drawing conclusions."),
+                         ResourceLink(type="resource_link", uri="pse://telemetry/schema", name="telemetry_query_schema", mimeType="application/json")],
+            )
+        except (OSError, RuntimeError, TypeError, ValueError) as error:
+            raise refusal("pse.telemetry.source_unavailable", operation="telemetry_query") from error
+
+    def telemetry_schema() -> dict[str, object]:
+        """Describe exact supported telemetry filters, signal fields, units, aggregation limits and original native readers without contacting a backend."""
+        return dict(schema_description())
     def telemetry_health(
         state: State | None = None,
     ) -> answers.TelemetryHealthResult | answers.DetailRefused:
@@ -100,6 +119,8 @@ def bindings(_root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         (telemetry_health, "scripts/telemetry.py"),
         (telemetry_configuration, "scripts/telemetry_config.py"),
         (telemetry_trace_lookup, "scripts/telemetry_query.py"),
+        (telemetry_query, "scripts/telemetry_investigation.py"),
+        (telemetry_schema, "scripts/telemetry_investigation.py"),
     )
     specs = []
     tools: dict[str, Tool] = {}
@@ -110,6 +131,10 @@ def bindings(_root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 readOnlyHint=True, destructiveHint=False, openWorldHint=False
             ),
         )
+        if tool.name == "telemetry_query":
+            selected_schema = TypeAdapter(answers.TelemetryQueryResult | answers.DetailRefused).json_schema(mode="serialization")
+            definitions = selected_schema.pop("$defs", {})
+            tool = tool.model_copy(update={"output_schema": {"type": "object", "$defs": definitions, "properties": {"result": selected_schema}, "required": ["result"], "additionalProperties": False}})
         tools[tool.name] = tool
         specs.append(
             Capability(

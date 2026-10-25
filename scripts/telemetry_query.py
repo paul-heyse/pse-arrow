@@ -13,7 +13,6 @@ import json
 import re
 import time
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
 
 from scripts import telemetry_service
 
@@ -21,8 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-MAX_RESPONSE_BYTES = 1 << 20
-TIMEOUT_SECONDS = 3
+from scripts.telemetry_investigation import MAX_RESPONSE_BYTES, TIMEOUT_SECONDS
 
 
 def request(
@@ -30,46 +28,21 @@ def request(
     *,
     headers: Mapping[str, str] | None = None,
     body: dict[str, object] | None = None,
+    method: str | None = None,
 ) -> tuple[int, bytes]:
-    """Read one finite HTTP response, without reporting credentials or server bodies."""
-    parts = urlsplit(url)
-    if (
-        parts.scheme not in {"http", "https"}
-        or parts.hostname is None
-        or parts.username
-        or parts.password
-    ):
-        raise ValueError("Unsupported telemetry service endpoint")
-    import anyio  # noqa: PLC0415 -- only a selected network read needs the async client
-    import httpx2  # noqa: PLC0415
+    """Synchronous entry wrapper over the shared bounded async transport."""
+    import anyio  # noqa: PLC0415 -- selected network operation only.
 
-    selected_headers = {"Accept-Encoding": "identity", **dict(headers or {})}
+    from scripts.telemetry_investigation import BackendClient  # noqa: PLC0415
 
     async def read() -> tuple[int, bytes]:
-        # Socket inactivity timeouts alone do not bound a slow-drip peer's headers/body.
-        with anyio.fail_after(TIMEOUT_SECONDS):
-            async with httpx2.AsyncClient(
-                timeout=TIMEOUT_SECONDS, trust_env=False, follow_redirects=False
-            ) as client:
-                async with client.stream(
-                    "GET" if body is None else "POST",
-                    url,
-                    headers=selected_headers,
-                    json=body,
-                ) as response:
-                    content = bytearray()
-                    async for chunk in response.aiter_raw():
-                        if len(content) + len(chunk) > MAX_RESPONSE_BYTES:
-                            raise ValueError(
-                                "Telemetry response exceeds selected byte bound"
-                            )
-                        content.extend(chunk)
-                    return response.status_code, bytes(content)
+        client = BackendClient()
+        try:
+            return await client.request(url, headers=headers, body=body, method=method)
+        finally:
+            await client.close()
 
-    try:
-        return anyio.run(read)
-    except (httpx2.HTTPError, TimeoutError) as error:
-        raise OSError("Telemetry read failed or exceeded its total deadline") from error
+    return anyio.run(read)
 
 
 def _answer(

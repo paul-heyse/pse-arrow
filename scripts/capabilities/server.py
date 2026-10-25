@@ -44,6 +44,7 @@ from scripts.capabilities.diagnostics import refusal as safe_refusal
 from scripts.capabilities.guidance import Guidance, register_guides
 from scripts.capabilities.input_diagnostics import InputDiagnostics
 from scripts.capabilities.inventory import inventory
+from scripts.telemetry_investigation import BackendClient, schema_description
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -77,14 +78,14 @@ def refusal(code: str, _error: ValueError) -> ToolError:
 
 
 def bindings(
-    root: Path, *, owner: specialists.Specialists
+    root: Path, *, owner: specialists.Specialists, telemetry: BackendClient
 ) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     """Compose actual owner bindings; duplicate identities remain composition errors."""
     specs = []
     tools = {}
     for factory in (
         operations.bindings,
-        host_queries.bindings,
+        lambda path: host_queries.bindings(path, telemetry=telemetry),
         host_actions.bindings,
         qualification.bindings,
         native.bindings,
@@ -111,8 +112,9 @@ class Runtime:
 def build(root: Path = ROOT) -> Runtime:
     root = root.resolve(strict=True)
     owner = specialists.Specialists(root)
+    telemetry = BackendClient()
     domains, workflows, guides, declared = inventory(root)
-    bound, tools = bindings(root, owner=owner)
+    bound, tools = bindings(root, owner=owner, telemetry=telemetry)
     readiness_specs, readiness_tools = readiness.bindings(
         root,
         capabilities=lambda: catalogue.capabilities,
@@ -135,6 +137,7 @@ def build(root: Path = ROOT) -> Runtime:
         try:
             yield {}
         finally:
+            await telemetry.close()
             await owner.close()
 
     server = FastMCP(
@@ -153,6 +156,12 @@ def build(root: Path = ROOT) -> Runtime:
         if identity != "root":
             server.disable(keys={key})
     presentation_view = presentation.register(server, catalogue, guidance)
+
+    @server.resource("pse://telemetry/schema", name="telemetry_query_schema", mime_type="application/json")
+    def telemetry_schema_resource() -> dict[str, object]:
+        interface.require("telemetry_schema")
+        return dict(schema_description())
+
     lock = asyncio.Lock()
 
     @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})

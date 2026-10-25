@@ -316,7 +316,7 @@ def _families() -> tuple[_Family, ...]:
             "Read selected service health, redacted calling-process configuration and known traces. Native target runtime_metrics remain at the original checkpoint reader, with target identity and registration coverage.",
             "Passive reads do not install, start, capture or initialize native execution. Service lifecycle commands retain their native effects and admission.",
             recipes="telemetry",
-            sources="scripts/telemetry_config.py scripts/telemetry_process.py scripts/telemetry_query.py scripts/telemetry_service.py scripts/telemetry_launch.py",
+            sources="scripts/telemetry_config.py scripts/telemetry_process.py scripts/telemetry_query.py scripts/telemetry_investigation.py scripts/telemetry_service.py scripts/telemetry_launch.py",
             guides=("diagnostics",),
             route=(".venv/bin/python", "-m", "scripts.telemetry", "--help"),
         ),

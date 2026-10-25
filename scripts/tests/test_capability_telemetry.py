@@ -21,7 +21,7 @@ from fastmcp.client.transports import StdioTransport
 from fastmcp.exceptions import ToolError
 from jsonschema import Draft202012Validator
 
-from scripts import telemetry_process, telemetry_query, telemetry_service
+from scripts import telemetry_investigation, telemetry_process, telemetry_query, telemetry_service
 from scripts.capabilities.inventory import _families
 from scripts.capabilities.server import build
 from scripts.tests.test_capabilities import BOOTSTRAP
@@ -29,7 +29,7 @@ from scripts.tests.test_capabilities import BOOTSTRAP
 ROOT = Path(__file__).resolve().parents[2]
 TRACE_ID = "1234567890abcdef1234567890abcdef"
 PRIVATE = "private-telemetry-credential-or-response"
-OPERATIONS = {"telemetry_health", "telemetry_configuration", "telemetry_trace_lookup"}
+OPERATIONS = {"telemetry_health", "telemetry_configuration", "telemetry_trace_lookup", "telemetry_query", "telemetry_schema"}
 
 
 class TelemetryClientCase(unittest.IsolatedAsyncioTestCase):
@@ -402,7 +402,7 @@ class BackendTests(TelemetryClientCase):
 
     async def test_backend_total_deadline_is_retained_by_binding(self) -> None:
         self.delay = 0.15
-        with patch.object(telemetry_query, "TIMEOUT_SECONDS", 0.03):
+        with patch.object(telemetry_investigation, "TIMEOUT_SECONDS", 0.03):
             result = await self.lookup()
         self.assertEqual(result["payload"]["reason"], "backend_read_failed")
         self.assertEqual(result["answer"]["population"], "unavailable")

@@ -22,9 +22,10 @@ if TYPE_CHECKING:
     from fastmcp.tools import Tool
 
     from scripts.capabilities.model import Capability
+    from scripts.telemetry_investigation import BackendClient
 
 
-def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
+def bindings(root: Path, *, telemetry: BackendClient | None = None) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     specs = []
     tools: dict[str, Tool] = {}
     for factory in (
@@ -34,7 +35,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         workload_queries.bindings,
         coverage_queries.bindings,
         rust_references.bindings,
-        telemetry_queries.bindings,
+        lambda path: telemetry_queries.bindings(path, client=telemetry),
     ):
         declared, bound = factory(root)
         specs.extend(declared)

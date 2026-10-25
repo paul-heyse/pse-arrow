@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import telemetry, telemetry_process, telemetry_query, telemetry_service
+from scripts import telemetry, telemetry_investigation, telemetry_process, telemetry_query, telemetry_service
 
 TRACE_ID = "1234567890abcdef1234567890abcdef"
 PARENT_TRACE_ID = "abcdef1234567890abcdef1234567890"
@@ -400,7 +400,7 @@ class TelemetryReadTests(unittest.TestCase):
                 "backend_read_failed",
             ),
         )
-        with patch.object(telemetry_query, "MAX_RESPONSE_BYTES", 512):
+        with patch.object(telemetry_investigation, "MAX_RESPONSE_BYTES", 512):
             for code, response, reason in cases:
                 with self.subTest(
                     code=code, reason=reason, response_size=len(response)
@@ -563,7 +563,7 @@ class TelemetryReadTests(unittest.TestCase):
             try:
                 started = time.monotonic()
                 with (
-                    patch.object(telemetry_query, "TIMEOUT_SECONDS", 0.15),
+                    patch.object(telemetry_investigation, "TIMEOUT_SECONDS", 0.15),
                     self.assertRaises(OSError),
                 ):
                     telemetry_query.request(f"http://127.0.0.1:{server.server_port}/")
