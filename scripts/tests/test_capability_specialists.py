@@ -8,9 +8,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import sys
 import tempfile
 import unittest
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager, redirect_stderr
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock, patch
@@ -24,7 +25,7 @@ from scripts.capabilities import specialists
 from scripts.capabilities.responses import ReadResult
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Generator
 
     from fastmcp.client.client import CallToolResult
     from fastmcp.client.transports import StreamableHttpTransport
@@ -42,6 +43,18 @@ def text_content(result: CallToolResult) -> str:
     return "\n".join(
         block.text for block in result.content if isinstance(block, TextContent)
     )
+
+
+@contextmanager
+def descriptor_stderr() -> Generator[None]:
+    """Keep subprocess stderr descriptor-backed and return diagnostics to the reporter."""
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as errors:
+        try:
+            with redirect_stderr(errors):
+                yield
+        finally:
+            errors.seek(0)
+            sys.stderr.write(errors.read())
 
 
 class ConnectionTests(unittest.IsolatedAsyncioTestCase):
@@ -198,7 +211,10 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_python_calls_reuse_bridge_and_protected_edit_preview(
         self,
     ) -> None:
-        with tempfile.TemporaryDirectory(prefix="pse-specialist-test-") as directory:
+        with (
+            tempfile.TemporaryDirectory(prefix="pse-specialist-test-") as directory,
+            descriptor_stderr(),
+        ):
             root = Path(directory)
             source = root / "sample.py"
             original = (

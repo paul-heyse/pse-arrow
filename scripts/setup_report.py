@@ -88,12 +88,8 @@ def main() -> int:
         parser.error("selected setup catalog belongs to its internal child")
     args.output.mkdir(parents=True, exist_ok=True)
     if not args.child:
-        suite = unittest.TestSuite(
-            loader.discover(
-                str(root / "scripts/tests"), pattern=path.name, top_level_dir=str(root)
-            )
-            for path in sorted((root / "scripts/tests").glob("test_*.py"))
-            if "unittest.TestCase" in path.read_text()
+        suite = loader.discover(
+            str(root / "scripts/tests"), pattern="test_*.py", top_level_dir=str(root)
         )
         return execute(suite, args.output)
     selected = json.loads(args.selected.read_text())

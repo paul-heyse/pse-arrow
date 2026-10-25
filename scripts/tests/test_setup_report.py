@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +20,40 @@ if TYPE_CHECKING:
 
 
 class SetupReportTests(unittest.TestCase):
+    def test_main_discovers_sync_and_async_cases_once_with_requirements(self) -> None:
+        loader = unittest.TestLoader()
+        root = Path(setup_report.__file__).resolve().parents[1]
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(sys, "argv", ["setup-report", directory]),
+            patch.object(setup_report.unittest, "TestLoader", return_value=loader),
+            patch.object(loader, "discover", wraps=loader.discover) as discover,
+            patch.object(setup_report, "execute", return_value=0) as execute,
+        ):
+            self.assertEqual(setup_report.main(), 0)
+        discover.assert_called_once_with(
+            str(root / "scripts/tests"), pattern="test_*.py", top_level_dir=str(root)
+        )
+        suite = execute.call_args.args[0]
+        self.assertIsInstance(suite, unittest.TestSuite)
+        identities = [
+            item["class"] + "::" + item["name"]
+            for item in setup_report.selection(suite)
+        ]
+        synchronous = (
+            "scripts.tests.test_setup_report.SetupReportTests::"
+            "test_nonempty_setup_suite_cannot_hide_a_missing_required_role"
+        )
+        asynchronous = (
+            "scripts.tests.test_capability_telemetry.StdioTelemetryTests::"
+            "test_real_source_only_stdio_reveal_read_and_redaction_without_backend_or_native"
+        )
+        self.assertEqual(identities.count(synchronous), 1)
+        self.assertEqual(identities.count(asynchronous), 1)
+        demands = setup_report.requirements(suite)
+        self.assertEqual(set(demands), set(identities))
+        self.assertEqual(demands[asynchronous], test_requirements.LOCAL.document())
+
     def test_nonempty_setup_suite_cannot_hide_a_missing_required_role(self) -> None:
         suite = unittest.defaultTestLoader.loadTestsFromName(
             "scripts.tests.test_test_invocation.InvocationTests.test_opaque_arguments_cannot_change_profiles_or_compilation"

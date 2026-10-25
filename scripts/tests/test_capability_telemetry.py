@@ -554,6 +554,7 @@ class StdioTelemetryTests(unittest.IsolatedAsyncioTestCase):
                 args=["-m", "scripts.capabilities"],
                 cwd=str(ROOT),
                 keep_alive=False,
+                log_file=scratch / "server-stderr.log",
                 env={
                     "PYTHONPATH": str(scratch) + ":" + str(ROOT),
                     "PSE_TELEMETRY_STATE": str(state),
