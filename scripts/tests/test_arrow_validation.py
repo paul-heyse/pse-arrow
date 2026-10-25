@@ -375,6 +375,41 @@ class ScopedValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValidationError, "unsupported scope option"):
             graph_command(["cargo", "test", "--unknown-compilation-mode"])
 
+    def test_coverage_reporting_options_do_not_change_selected_graph_or_execution(self) -> None:
+        packages = [package("owner", "force-validate"), package("arrow")]
+        before = graph([unit("owner", [1]), unit("arrow")])
+        after = graph(
+            [unit("owner", [1], features=["force-validate"]), unit("arrow")]
+        )
+        for reporting in (
+            ["--json", "--output-path", "report.json", "--ignore-filename-regex", "-p", "--branch"],
+            ["--json", "--output-path=report.json", "--ignore-filename-regex=-p", "--branch"],
+        ):
+            with self.subTest(reporting=reporting):
+                command = ["cargo", "llvm-cov", "nextest", *reporting, "-p", "owner", "--lib", "-E", "test(exact)"]
+                cargo = Cargo(packages, before, after)
+                self.assertEqual(
+                    compose(command, run=cargo),
+                    [*command, "--features", "owner/force-validate"],
+                )
+                self.assertEqual(
+                    cargo.commands[1],
+                    ["cargo", "test", "--unit-graph", "-Z", "unstable-options", "--package", "owner", "--lib"],
+                )
+
+    def test_coverage_reporting_parser_preserves_scope_values_and_opaque_arguments(self) -> None:
+        self.assertEqual(
+            graph_command(["cargo", "llvm-cov", "nextest", "--json", "-p", "owner", "--lib", "-E", "--json", "--", "--output-path"]),
+            ["cargo", "test", "--unit-graph", "-Z", "unstable-options", "--package", "owner", "--lib"],
+        )
+
+    def test_coverage_reporting_parser_refuses_missing_or_unknown_options(self) -> None:
+        for option in ("--output-path", "--ignore-filename-regex", "--output-path=", "--ignore-filename-regex="):
+            with self.subTest(option=option), self.assertRaisesRegex(ValidationError, "missing value"):
+                graph_command(["cargo", "llvm-cov", "nextest", "-p", "owner", option])
+        with self.assertRaisesRegex(ValidationError, "unsupported scope option"):
+            graph_command(["cargo", "llvm-cov", "nextest", "--unknown-coverage-mode"])
+
     def test_run_requires_an_exact_target_before_build_graph_substitution(self) -> None:
         with self.assertRaisesRegex(ValidationError, "explicit --bin or --example"):
             graph_command(["cargo", "run", "-p", "owner"])

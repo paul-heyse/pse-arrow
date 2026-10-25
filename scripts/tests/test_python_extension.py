@@ -508,6 +508,7 @@ class PreparationCurrencyTests(unittest.TestCase):
         with patch.object(python_extension, "capture") as imported:
             stale = self.currency()
         self.assertEqual(stale.state, "stale")
+        assert stale.input_changes is not None
         self.assertEqual(stale.cause, "inputs-changed")
         self.assertIsNotNone(stale.input_changes)
         assert stale.input_changes is not None
@@ -947,6 +948,12 @@ class PreparationCurrencyTests(unittest.TestCase):
             "PSE_ACCEPTANCE_OUTPUT": "/different/report",
             "PSE_TELEMETRY_CONFIGURATION_STATUS": "disabled",
             "OTEL_SDK_DISABLED": "true",
+            "OTEL_BSP_EXPORT_TIMEOUT": "1200",
+            "OTEL_BSP_SCHEDULE_DELAY": "100",
+            "OTEL_EXPORTER_OTLP_TIMEOUT": "1",
+            "OTEL_METRIC_EXPORT_INTERVAL": "250",
+            "PSE_DIAGNOSTICS_DIR": "/different/checkpoints",
+            "PSE_TELEMETRY_STATE": "/different/pipeline",
         }
         self.assertEqual(
             native_tests.rust_environment_identity(original),
@@ -956,7 +963,12 @@ class PreparationCurrencyTests(unittest.TestCase):
             python_extension.preparation_environment_identity(original),
             python_extension.preparation_environment_identity(changed),
         )
-        for key in ("RUSTFLAGS", "LD_LIBRARY_PATH", "CUSTOM_COMPILER_SELECTOR"):
+        for key in (
+            "RUSTFLAGS",
+            "LD_LIBRARY_PATH",
+            "CUSTOM_COMPILER_SELECTOR",
+            "OTEL_UNKNOWN_COMPILER_SELECTOR",
+        ):
             with self.subTest(key=key):
                 self.assertNotEqual(
                     native_tests.rust_environment_identity(original),
@@ -964,6 +976,39 @@ class PreparationCurrencyTests(unittest.TestCase):
                         {**original, key: "different"}
                     ),
                 )
+
+    def test_installed_currency_keeps_runtime_selectors_separate_from_unknown_build_inputs(self) -> None:
+        self.record_extension()
+        original = self.currency()
+        self.assertEqual(original.state, "current")
+        changed = {
+            **self.environment,
+            "OTEL_BSP_EXPORT_TIMEOUT": "1200",
+            "OTEL_BSP_SCHEDULE_DELAY": "100",
+            "OTEL_EXPORTER_OTLP_TIMEOUT": "1",
+            "OTEL_METRIC_EXPORT_INTERVAL": "250",
+            "PSE_DIAGNOSTICS_DIR": "/different/checkpoints",
+            "PSE_TELEMETRY_STATE": "/different/pipeline",
+        }
+        with (
+            patch.object(python_extension.subprocess, "call") as install,
+            patch.object(python_extension, "publish_receipt") as publish,
+        ):
+            observed = python_extension.currency_check_installed(changed, mode="dev")
+        self.assertEqual(observed.state, "current")
+        self.assertEqual(observed.artifact, original.artifact)
+        self.assertEqual(observed.artifact_stamp, original.artifact_stamp)
+        install.assert_not_called()
+        publish.assert_not_called()
+        private = "private-unknown-build-value"
+        with patch.object(python_extension, "capture") as imported:
+            stale = python_extension.currency_check_installed(
+                {**changed, "OTEL_UNKNOWN_COMPILER_SELECTOR": private}, mode="dev"
+            )
+        self.assertEqual(stale.state, "stale")
+        self.assertEqual(stale.input_changes.environment_keys, ("OTEL_UNKNOWN_COMPILER_SELECTOR",))
+        self.assertNotIn(private, stale.model_dump_json())
+        imported.assert_not_called()
 
     def test_session_transport_changes_reuse_preparation_but_unknown_build_inputs_invalidate(
         self,

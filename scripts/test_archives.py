@@ -319,7 +319,8 @@ def capture_json(command: list[str], environment: dict[str, str]) -> dict:
         return validation_receipts.native_inventory(stdout.read())
 
 
-def new_output(path: Path) -> str:
+def validate_output(path: Path) -> None:
+    """Validate future output ownership without allocating a failed attempt."""
     path = path.absolute()
     if (
         not path.is_relative_to(ROOT / "build")
@@ -329,6 +330,13 @@ def new_output(path: Path) -> str:
         raise ArchiveError(
             "Experiment output must be a fresh owned checkout build directory"
         )
+    if path.exists():
+        raise ArchiveError("Experiment output must be fresh")
+
+
+def new_output(path: Path) -> str:
+    path = path.absolute()
+    validate_output(path)
     path.mkdir(parents=True, mode=0o700, exist_ok=False)
     return test_resources.register_report(path)
 
@@ -616,12 +624,15 @@ def replay(directory: Path, output: Path) -> dict:
         scientific_inputs.ROLE,
     ):
         environment.pop(name, None)
-    resource = new_output(output)
-    with test_resources.reference_report(
-        directory, output / "checks.json", full_integrity=True
-    ):
+    validate_output(output)
+    with test_resources.reference_report(directory, None, full_integrity=True):
         manifest = json.loads((directory / "archive.json").read_text())
         preflight(manifest, directory, environment)
+        resource = new_output(output)
+        # Keep the verified borrow through allocation and durable reference
+        # transfer, so a successful preflight never opens an unprotected gap.
+        with test_resources.reference_report(directory, output / "checks.json"):
+            pass
         fixture_manifest = stage_inputs(
             directory / "workspace", output / "workspace", list(manifest["fixtures"])
         )

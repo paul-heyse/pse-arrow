@@ -257,6 +257,12 @@ RUST_EXECUTION_ENVIRONMENT = frozenset(
         "PSE_ACCEPTANCE_OUTPUT",
         "PSE_TELEMETRY_CONFIGURATION_STATUS",
         "OTEL_SDK_DISABLED",
+        "OTEL_BSP_EXPORT_TIMEOUT",
+        "OTEL_BSP_SCHEDULE_DELAY",
+        "OTEL_EXPORTER_OTLP_TIMEOUT",
+        "OTEL_METRIC_EXPORT_INTERVAL",
+        "PSE_DIAGNOSTICS_DIR",
+        "PSE_TELEMETRY_STATE",
         "PSE_NATIVE_SELECTION",
         # Pytest/xdist and original observer-selected result metadata never
         # choose Rust compiler inputs; package/tool identities remain separate.

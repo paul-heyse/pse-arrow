@@ -24,6 +24,7 @@ class ArchiveClosureTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
+        self.enterContext(patch.object(archives, "ROOT", self.root))
         self.archive = self.root / "build" / "archive"
         self.archive.mkdir(parents=True)
         self.source = self.root / "source"
@@ -183,7 +184,7 @@ class ArchiveClosureTests(unittest.TestCase):
                 )
             )
 
-    def corrupt_unselected_sealed_detail(self) -> None:
+    def sealed_archive(self) -> str:
         self.enterContext(
             patch.object(resources, "registry", return_value=self.root / "registry")
         )
@@ -202,6 +203,10 @@ class ArchiveClosureTests(unittest.TestCase):
         archives.seal(
             self.archive, resource, receipt, ["archive.json"], ["tests.tar.zst"]
         )
+        return resource
+
+    def corrupt_unselected_sealed_detail(self) -> None:
+        self.sealed_archive()
         image = assessment_store.root(self.archive)
         selected = self.archive / "details" / (image["source_cut"]["sha256"] + ".json")
         selected.write_text("{}")
@@ -219,7 +224,7 @@ class ArchiveClosureTests(unittest.TestCase):
             patch.object(
                 archives.arrow_validation, "rust_test_environment", return_value={}
             ),
-            patch.object(archives, "new_output", return_value="unpublished-control"),
+            patch.object(archives, "new_output") as allocate,
             patch.object(
                 archives,
                 "preflight",
@@ -228,6 +233,30 @@ class ArchiveClosureTests(unittest.TestCase):
             self.assertRaisesRegex(resources.ResourceError, "ownership changed"),
         ):
             archives.replay(self.archive, self.root / "build" / "replay")
+        allocate.assert_not_called()
+
+    def test_replay_preflight_refusal_allocates_no_output_or_archive_reference(self) -> None:
+        resource = self.sealed_archive()
+        before = resources.resource_status(resource)
+        output = self.root / "build" / "refused-replay"
+        with (
+            patch.object(
+                archives.arrow_validation,
+                "rust_test_environment",
+                return_value={"LD_PRELOAD": "/different/runtime"},
+            ),
+            patch.object(archives, "new_output") as allocate,
+            patch.object(archives, "capture_json") as launch,
+            self.assertRaisesRegex(archives.ArchiveError, "runtime environment"),
+        ):
+            archives.replay(self.archive, output)
+        self.assertFalse(output.exists())
+        self.assertIsNone(resources.report_resource(output))
+        after = resources.resource_status(resource)
+        self.assertEqual(after["references"], before["references"])
+        self.assertEqual(after["borrows"], before["borrows"])
+        allocate.assert_not_called()
+        launch.assert_not_called()
 
 
 class ScientificArchiveBridgeTests(unittest.TestCase):

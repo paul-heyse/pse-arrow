@@ -182,7 +182,41 @@ def graph_command(command: Sequence[str]) -> list[str]:
         raise ValidationError("correctness composition requires a cargo command")
     coverage = command[1:3] == ["llvm-cov", "nextest"]
     if coverage:
-        command = ["cargo", "nextest", "run", *command[3:]]
+        from scripts import test_invocation  # noqa: PLC0415 -- selected scope owner
+
+        # Reporting flags belong to cargo-llvm-cov, not the selected Nextest
+        # closure. Interpret a copy; compose retains the original execution argv.
+        selected: list[str] = []
+        arguments = command[3:]
+        index = 0
+        while index < len(arguments):
+            argument = arguments[index]
+            if argument == "--":
+                selected.extend(arguments[index:])
+                break
+            name, separator, value = argument.partition("=")
+            if name in {"--output-path", "--ignore-filename-regex"}:
+                if separator:
+                    if not value:
+                        raise ValidationError(f"missing value for {name}")
+                else:
+                    index += 1
+                    if index == len(arguments) or arguments[index] == "--":
+                        raise ValidationError(f"missing value for {name}")
+            elif argument not in {"--json", "--branch"}:
+                selected.append(argument)
+                scoped_name = test_invocation.ALIASES.get(name, name)
+                if not separator and scoped_name in (
+                    test_invocation.CARGO_VALUE
+                    | test_invocation.RUN_VALUE
+                    | test_invocation.SELECT_VALUE
+                ):
+                    index += 1
+                    if index == len(arguments):
+                        raise ValidationError(f"missing value for {name}")
+                    selected.append(arguments[index])
+            index += 1
+        command = ["cargo", "nextest", "run", *selected]
     nextest = command[1:2] == ["nextest"]
     if nextest:
         if command[2:3] not in (["run"], ["list"]):
@@ -249,20 +283,6 @@ def graph_command(command: Sequence[str]) -> list[str]:
             result.append(arg)
         elif nextest and arg in {"--cargo-quiet", "--cargo-verbose"}:
             result.append("--quiet" if arg == "--cargo-quiet" else "--verbose")
-        elif coverage and key in {"--output-path", "--ignore-filename-regex"}:
-            if "=" not in arg:
-                index += 1
-                if index == len(args):
-                    raise ValidationError(f"missing value for {arg}")
-        elif coverage and arg in {
-            "--lcov",
-            "--html",
-            "--text",
-            "--json",
-            "--summary-only",
-            "--branch",
-        }:
-            pass
         elif nextest and key in NEXTEST_VALUE:
             if "=" not in arg:
                 index += 1
