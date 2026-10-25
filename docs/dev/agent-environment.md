@@ -718,6 +718,14 @@ have separate directories there. Private credentials stay in protected service m
 public configuration is not an authentication file. Setup creates an immutable configured
 generation and refuses incompatible reuse rather than silently replacing it.
 
+Owned storage profiles record the resolved telemetry state path at setup. Their child
+environment and launch identity use that recorded selection even when a later shell selects
+a different pipeline. Recording a path does not configure or start telemetry. A profile
+created before this selection was recorded remains inspectable; explicitly readmit its
+stopped, quiesced supervisor before starting it with current code. Readmission settles the
+original launch before adding the selection and preserves an already recorded path.
+Finite diagnostic capture can override tracing while metrics retain the recorded route.
+
 Explicit operations use the same owner from any attachment:
 
 ```bash

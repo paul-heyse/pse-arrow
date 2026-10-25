@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import telemetry_service as service
+from scripts.tests import telemetry_pipeline_acceptance as acceptance
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -492,6 +493,40 @@ class TelemetryServiceTests(unittest.TestCase):
             )
         self.assertEqual(result["configuration_id"], before["configuration_id"])
         self.assertEqual(service._configuration(self.state), before)  # noqa: SLF001 -- Authenticate sealed fixture generation records and recovery effects.
+
+
+class CollectorStopFixtureTests(unittest.TestCase):
+    def test_stop_waits_for_authenticated_inactive_or_failed_settlement(self) -> None:
+        for terminal in ("inactive", "failed"):
+            with self.subTest(terminal=terminal), tempfile.TemporaryDirectory() as directory:
+                fixture = acceptance.Fixture(Path(directory) / "state", 2)
+                before = {"LoadState": "loaded", "ActiveState": "active", "MainPID": "99999999", "InvocationID": "a" * 32, "ControlGroup": "/pse-fixture-absent"}
+                pending = {**before, "ActiveState": "deactivating"}
+                after = {**before, "ActiveState": terminal, "MainPID": "0", "ControlGroup": ""}
+                process = {"pid": 99999999, "start_ticks": 123, "invocation_id": "a" * 32}
+                with (
+                    patch.object(service, "_configuration", return_value={"units": {"collector": "owned.service"}}),
+                    patch.object(service, "_observe", side_effect=[before, pending, {**pending, "MainPID": "0"}, after]),
+                    patch.object(service, "_checked_process", side_effect=[process, process, None]),
+                    patch.object(service, "_systemctl") as control,
+                ):
+                    self.assertEqual(fixture.unit_action("collector", "stop"), process)
+                control.assert_called_once_with("stop", "owned.service")
+
+    def test_stop_refuses_unknown_or_replacement_incarnation(self) -> None:
+        for changes in ({"LoadState": "unavailable"}, {"InvocationID": "b" * 32}, {"MainPID": "99999998"}, {"ControlGroup": "/replacement"}):
+            with self.subTest(changes=changes), tempfile.TemporaryDirectory() as directory:
+                fixture = acceptance.Fixture(Path(directory) / "state", 2)
+                before = {"LoadState": "loaded", "ActiveState": "active", "MainPID": "99999999", "InvocationID": "a" * 32, "ControlGroup": "/pse-fixture-absent"}
+                after = {**before, "ActiveState": "inactive", "MainPID": "0", **changes}
+                with (
+                    patch.object(service, "_configuration", return_value={"units": {"collector": "owned.service"}}),
+                    patch.object(service, "_observe", side_effect=[before, after]),
+                    patch.object(service, "_checked_process", return_value={"pid": 99999999, "start_ticks": 123}),
+                    patch.object(service, "_systemctl"),
+                    self.assertRaisesRegex(acceptance.AcceptanceError, "fixture.stop_identity_changed"),
+                ):
+                    fixture.unit_action("collector", "stop")
 
 
 if __name__ == "__main__":

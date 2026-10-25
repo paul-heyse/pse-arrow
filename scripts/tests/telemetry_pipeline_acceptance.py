@@ -285,18 +285,38 @@ class Fixture:
             require(process is not None, "fixture.stop_requires_current_process")
         service._systemctl(action, unit)  # noqa: SLF001 -- Authenticated disposable fixture control.
         if action == "stop":
-            after = service._observe(unit, None)  # noqa: SLF001 -- Authenticated disposable fixture control.
-            require(
-                after.get("MainPID", "0") == "0"
-                and after.get("ActiveState") == "inactive",
-                "fixture.unit_not_stopped",
-            )
             group = before.get("ControlGroup", "")
             events = Path("/sys/fs/cgroup") / group.lstrip("/") / "cgroup.events"
-            require(
-                not events.exists() or "populated 0" in events.read_text().splitlines(),
-                "fixture.unit_children_remain",
-            )
+            previous = mapping(process)
+
+            def settled() -> bool:
+                after = service._observe(unit, None)  # noqa: SLF001 -- Same authenticated disposable fixture.
+                require(
+                    after.get("LoadState") == "loaded"
+                    and after.get("InvocationID", "") in {"", before["InvocationID"]}
+                    and after.get("MainPID") in {"0", str(previous["pid"])}
+                    and after.get("ControlGroup", "") in {"", group},
+                    "fixture.stop_identity_changed",
+                )
+                if after.get("ActiveState") in {"deactivating", "active"} and after.get("MainPID") == "0":
+                    return False
+                current = service._checked_process(config, name, after)  # noqa: SLF001 -- Reject changed unit/process ownership during drain.
+                if current is not None:
+                    require(current == previous, "fixture.stop_identity_changed")
+                    return False
+                if after.get("MainPID") != "0" or after.get("ActiveState") not in {
+                    "inactive", "failed"
+                }:
+                    return False
+                if events.exists() and "populated 0" not in events.read_text().splitlines():
+                    return False
+                try:
+                    fields = (Path("/proc") / str(previous["pid"]) / "stat").read_text().rsplit(")", 1)[1].split()
+                except FileNotFoundError:
+                    return True
+                return int(fields[19]) != previous["start_ticks"]
+
+            wait_for(settled, bool, self.timeout, "fixture.unit_not_stopped")
             return process or {}
         return wait_for(
             lambda: self.process_or_none(name),

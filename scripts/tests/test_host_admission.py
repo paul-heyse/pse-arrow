@@ -1216,6 +1216,7 @@ class HostAdmissionTests(unittest.TestCase):
             "owner": surreal_server.OWNER,
             "profile_version": 3,
             "instance_id": "parked-reference",
+            "telemetry_state": str(self.directory / "telemetry"),
             "server": {
                 **fixture_receipt(),
                 "surrealmx_version": surreal_server.surreal_source.ENGINE,

@@ -275,6 +275,7 @@ def recovery_equivalence(
         "log_max_bytes",
         "log_backups",
         "service_class",
+        "telemetry_state",
         "resident",
     }
     installation = {

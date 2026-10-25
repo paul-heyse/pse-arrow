@@ -249,6 +249,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             {"resources": {}},
             {"interpretation": "different"},
             {"tooling_fixture": not config["tooling_fixture"]},
+            {"telemetry_state": str(self.root / "foreign-telemetry")},
             {"unclassified": True},
         ):
             with (
@@ -2058,6 +2059,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             "supervisor_generation": replacement,
             "server_generation": config["server"],
             "service_class": config.get("service_class", "functional"),
+            "telemetry_state": config.get("telemetry_state"),
             "server_memory_bytes": record(config["resources"])["server_memory_bytes"],
         }
         server.write_json(self.state / "config.json", config)
@@ -5056,6 +5058,218 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.SupervisorError, "complete bounded study module pool"
         ):
             server.module_runtime_allocation({"server_memory_bytes": 512 * server.MIB})
+
+    def test_recorded_pipeline_survives_changed_ambient_selection_without_setup(self) -> None:
+        selected = str(self.root / "selected-telemetry")
+        with patch.dict(os.environ, {"PSE_TELEMETRY_STATE": selected}):
+            config = self.initialized()
+        self.assertEqual(config["telemetry_state"], selected)
+        self.assertFalse(Path(selected).exists())
+        with (
+            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": str(self.root / "foreign")}),
+            patch.object(server.telemetry_service, "producer_configuration", return_value=None) as producer,
+        ):
+            first = server.server_environment(config, {"username": "user", "password": "secret"})
+            second = server.server_environment(config, {"username": "user", "password": "secret"})
+        self.assertEqual(first["PSE_TELEMETRY_STATE"], selected)
+        self.assertEqual(second["PSE_TELEMETRY_STATE"], selected)
+        self.assertNotIn("SURREAL_TELEMETRY_PROVIDER", first)
+        self.assertEqual(producer.call_args_list, [call({"PSE_TELEMETRY_STATE": selected})] * 2)
+        self.assertFalse(Path(selected).exists())
+
+    def test_legacy_profile_remains_readable_but_requires_offline_telemetry_readmission(self) -> None:
+        config = self.initialized()
+        del config["telemetry_state"]
+        config.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        self.assertNotIn("telemetry_state", server.config_for(self.state))
+        with self.assertRaisesRegex(server.SupervisorError, "readmit"):
+            server.server_environment(config, {"username": "user", "password": "secret"})
+        selected = str(self.root / "readmitted-telemetry")
+        with (
+            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": selected}),
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "publish_generation", return_value=config["service_supervisor"]),
+            patch.object(server, "public_status", return_value={}),
+        ):
+            server.readmit_supervisor(self.state)
+        self.assertEqual(server.config_for(self.state)["telemetry_state"], selected)
+        with (
+            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": str(self.root / "later")}),
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "publish_generation", return_value=config["service_supervisor"]),
+            patch.object(server, "public_status", return_value={}),
+        ):
+            server.readmit_supervisor(self.state)
+        self.assertEqual(server.config_for(self.state)["telemetry_state"], selected)
+
+    def test_legacy_failed_launch_settles_before_telemetry_migration(self) -> None:
+        config = self.initialized()
+        del config["telemetry_state"]
+        config.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        launch = {
+            "allocation": str(self.root / "admission" / ("b" * 32)),
+            "deadline": time.monotonic() + 30,
+            "generation": config["instance_id"],
+            "supervisor_generation": config["service_supervisor"],
+            "server_generation": config["server"],
+            "service_class": config["service_class"],
+            "server_memory_bytes": record(config["resources"])["server_memory_bytes"],
+        }
+        launch_path = self.state / "service-launch.json"
+        server.write_json(launch_path, launch)
+        with (
+            patch.object(server, "active", return_value=False),
+            patch.object(server.host_admission, "unadmitted_service_launch_drained", return_value=False),
+            patch.object(server, "publish_generation") as publish,
+            self.assertRaisesRegex(server.SupervisorError, "must drain"),
+        ):
+            server.readmit_supervisor(self.state)
+        publish.assert_not_called()
+        self.assertEqual(server.config_for(self.state), config)
+        self.assertEqual(server.read_json(launch_path), launch)
+
+        def publish_after_drain(_state: Path) -> object:
+            self.assertFalse(launch_path.exists())
+            self.assertNotIn("telemetry_state", server.config_for(self.state))
+            return config["service_supervisor"]
+
+        with (
+            patch.object(server, "active", return_value=False),
+            patch.object(server.host_admission, "unadmitted_service_launch_drained", return_value=True),
+            patch.object(server, "stop") as stop,
+            patch.object(server.host_admission, "readonly_snapshot", return_value={"owners": {}}),
+            patch.object(server, "publish_generation", side_effect=publish_after_drain),
+            patch.object(server, "public_status", return_value={}),
+        ):
+            server.readmit_supervisor(self.state)
+        stop.assert_called_once()
+        archived = list((self.state / ".profile-history").glob("*-service-launch.json"))
+        self.assertEqual(len(archived), 1)
+        self.assertEqual(server.read_json(archived[0]), launch)
+        self.assertIn("telemetry_state", server.config_for(self.state))
+
+    def test_storage_launch_binds_recorded_pipeline_selection(self) -> None:
+        config = self.initialized()
+        launch = {
+            "deadline": time.monotonic() + 30,
+            "generation": config["instance_id"],
+            "supervisor_generation": config["service_supervisor"],
+            "server_generation": config["server"],
+            "service_class": config["service_class"],
+            "telemetry_state": config["telemetry_state"],
+            "server_memory_bytes": record(config["resources"])["server_memory_bytes"],
+        }
+        server.write_json(self.state / "service-launch.json", launch)
+        self.assertEqual(server.storage_launch(self.state, config), launch)
+        changed = {**config, "telemetry_state": str(self.root / "foreign-pipeline")}
+        with self.assertRaisesRegex(server.SupervisorError, "differs"):
+            server.storage_launch(self.state, changed)
+        with self.assertRaises(server.SupervisorError):
+            server.storage_launch_drain_config(self.state, changed, launch)
+
+    def test_legacy_selection_refuses_start_before_any_allocation(self) -> None:
+        config = self.initialized()
+        del config["telemetry_state"]
+        config.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with (
+            patch.object(server, "inherit_host_owner") as inherit,
+            patch.object(server.host_admission, "acquire") as acquire,
+            patch.object(server, "materialize_service") as materialize,
+            patch.object(server, "systemctl") as manager,
+        ):
+            for operation in (
+                lambda: server.start(self.state, config),
+                lambda: server.service_allocation(self.state, config, time.monotonic() + 5),
+            ):
+                with self.assertRaisesRegex(server.SupervisorError, "readmit"):
+                    operation()
+        inherit.assert_not_called()
+        acquire.assert_not_called()
+        materialize.assert_not_called()
+        manager.assert_not_called()
+        self.assertFalse((self.state / "service-launch.json").exists())
+
+    def test_legacy_failed_launch_releases_exact_dead_owner_without_handoff(self) -> None:
+        config = self.initialized()
+        del config["telemetry_state"]
+        config.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        nonce = "b" * 32
+        launch = {
+            "allocation": str(self.allocation.directory / nonce),
+            "deadline": time.monotonic() + 30,
+            "generation": config["instance_id"],
+            "supervisor_generation": config["service_supervisor"],
+            "server_generation": config["server"],
+            "service_class": config["service_class"],
+            "server_memory_bytes": record(config["resources"])["server_memory_bytes"],
+        }
+        path = self.state / "service-launch.json"
+        server.write_json(path, launch)
+        history = self.state / ".profile-history"
+        history.mkdir()
+        profile = self.allocation.profile
+        owner = {"pid": -1, "start": "ended", "class": profile.name, "memory": profile.memory, "lane": profile.lane, "slots": profile.slots, "cores": list(profile.cores), "exclusive": profile.exclusive, "deadline": launch["deadline"], "service": str(self.state), "units": {server.unit_name(self.state): {}}}
+        deadline = time.monotonic() + 5
+        with (
+            patch.object(host, "unadmitted_service_launch_drained", return_value=True),
+            patch.object(host, "readonly_snapshot", side_effect=[{"owners": {nonce: owner}}, {"owners": {}}]),
+            patch.object(host, "inherit", side_effect=AssertionError("dead caller is not a live handoff")),
+            patch.object(server, "stop") as stop,
+            patch.object(host.Allocation, "release", autospec=True, return_value=True) as release,
+        ):
+            server.settle_legacy_telemetry_launch(self.state, config, history, deadline=deadline)
+        stop.assert_called_once_with(self.state, config)
+        released = release.call_args.args[0]
+        self.assertEqual((released.directory, released.nonce, released.profile), (self.allocation.directory, nonce, profile))
+        self.assertEqual(release.call_args.kwargs, {"deadline": deadline})
+        self.assertFalse(path.exists())
+        self.assertEqual(server.read_json(next(history.glob("*-service-launch.json"))), launch)
+
+    def test_legacy_telemetry_migration_held_ledger_preserves_original_clock(self) -> None:
+        config = self.initialized()
+        del config["telemetry_state"]
+        config.update(admission="quiesced", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        directory = self.allocation.directory
+        directory.mkdir(mode=0o700)
+        launch = {
+            "allocation": str(directory / self.allocation.nonce),
+            "deadline": time.monotonic() + 5,
+            "generation": config["instance_id"],
+            "supervisor_generation": config["service_supervisor"],
+            "server_generation": config["server"],
+            "service_class": config["service_class"],
+            "server_memory_bytes": record(config["resources"])["server_memory_bytes"],
+        }
+        path = self.state / "service-launch.json"
+        server.write_json(path, launch)
+        program = "import fcntl,os,sys; f=open(sys.argv[1], 'a'); os.chmod(sys.argv[1], 0o600); fcntl.flock(f, fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()"
+        child = subprocess.Popen([sys.executable, "-c", program, str(directory / ".lock")], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        try:
+            assert child.stdout is not None
+            self.assertEqual(child.stdout.readline().strip(), "held")
+            started = time.monotonic()
+            with (
+                patch.object(server, "active", return_value=False),
+                patch.object(server, "stop"),
+                patch.object(host, "unadmitted_service_launch_drained", return_value=True),
+                patch.object(host, "inherit", side_effect=self.host_inherit),
+                patch.object(host, "readonly_snapshot", side_effect=self.host_snapshot),
+                patch.object(server, "publish_generation") as publish,
+                self.assertRaises(host.AdmissionError),
+            ):
+                server.readmit_supervisor(self.state, deadline=started + 0.1)
+            self.assertLess(time.monotonic() - started, 0.6)
+            publish.assert_not_called()
+            self.assertEqual(server.config_for(self.state), config)
+            self.assertEqual(server.read_json(path), launch)
+        finally:
+            child.communicate("release\n", timeout=5)
+        self.assertEqual(child.returncode, 0)
 
     def test_native_metrics_keep_selected_route_during_finite_trace_capture(
         self,

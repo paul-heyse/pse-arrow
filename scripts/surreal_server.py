@@ -687,6 +687,13 @@ def _readmit_supervisor(state: Path) -> dict[str, object]:
     history = state / ".profile-history"
     history.mkdir(mode=0o700, exist_ok=True)
     write_json(history / (uuid.uuid4().hex + ".json"), config)
+    if "telemetry_state" not in config:
+        settle_legacy_telemetry_launch(state, config, history, deadline=deadline)
+    telemetry_state = (
+        recorded_telemetry_state(config)
+        if "telemetry_state" in config
+        else str(telemetry_service.state_directory())
+    )
     credentials = read_json(state / "credentials.json")
     if (
         "selection_username" not in credentials
@@ -706,10 +713,58 @@ def _readmit_supervisor(state: Path) -> dict[str, object]:
     with state_lock(state):
         config = config_for(state)
         config.update(
-            service_supervisor=supervisor, server=server, restart_qualified=False
+            service_supervisor=supervisor,
+            server=server,
+            restart_qualified=False,
+            telemetry_state=telemetry_state,
         )
         write_json(state / "config.json", config)
     return public_status(state, config)
+
+
+def settle_legacy_telemetry_launch(
+    state: Path,
+    config: dict[str, object],
+    history: Path,
+    *,
+    deadline: float | None,
+) -> None:
+    """Retire the original launch before changing its authenticated selection."""
+    deadline = time.monotonic() + 90 if deadline is None else deadline
+    path = state / "service-launch.json"
+    if not path.exists():
+        return
+    launch = storage_launch(state, config, deadline=deadline)
+    allocation = Path(str(launch.get("allocation", "")))
+    if not allocation.is_absolute() or not re.fullmatch(r"[a-f0-9]{32}", allocation.name):
+        raise SupervisorError("Legacy launch lacks its original allocation")
+    if "binding" not in launch and not host_admission.unadmitted_service_launch_drained(
+        state, unit_name(state), launch, deadline=deadline
+    ):
+        raise SupervisorError("Legacy unbound launch must drain before telemetry readmission")
+    record = host_admission.readonly_snapshot(allocation.parent, deadline=deadline)["owners"].get(allocation.name)
+    owner = None
+    if record is not None:
+        if (
+            (record.get("service") != str(state) and str(state) not in record.get("borrowed_services", []))
+            or record["units"].get(unit_name(state)) != launch.get("binding", {})
+        ):
+            raise SupervisorError("Legacy allocation does not own this exact launch")
+        profile = host_admission.Profile(
+            record["class"], record["memory"], record["lane"], record["slots"],
+            tuple(record["cores"]), record["exclusive"],
+        )
+        owner = host_admission.Allocation(allocation.parent, allocation.name, profile, record["deadline"])
+    stop(state, config)
+    if owner is not None and not owner.release(deadline=deadline):
+        raise SupervisorError("Legacy allocation must settle before telemetry readmission")
+    if allocation.name in host_admission.readonly_snapshot(
+        allocation.parent, deadline=deadline
+    )["owners"]:
+        raise SupervisorError("Legacy allocation must settle before telemetry readmission")
+    if read_json(path, deadline=deadline) != launch:
+        raise SupervisorError("Legacy launch changed during telemetry readmission")
+    path.rename(history / (uuid.uuid4().hex + "-service-launch.json"))
 
 
 @dataclass(frozen=True)
@@ -1228,6 +1283,8 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
     ):
         raise SupervisorError("Owned state must not traverse symlinks")
     config = read_json(state / "config.json", deadline=deadline)
+    if "telemetry_state" in config:
+        recorded_telemetry_state(config)
     retiring = config.get("profile_version") == 2 and getattr(
         _LIFECYCLE, "retire_engine", False
     )
@@ -1594,6 +1651,7 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             "service_class": "timing"
             if args.execution_profile == "timing"
             else "functional",
+            "telemetry_state": str(telemetry_service.state_directory()),
         }
         write_json(
             state / "credentials.json",
@@ -4766,6 +4824,7 @@ def storage_launch(
         or launch.get("supervisor_generation") != config.get("service_supervisor")
         or launch.get("server_generation") != config.get("server")
         or launch.get("service_class") != config.get("service_class", "functional")
+        or launch.get("telemetry_state") != config.get("telemetry_state")
         or launch.get("server_memory_bytes")
         != object_mapping(config["resources"])["server_memory_bytes"]
     ):
@@ -4814,6 +4873,7 @@ def storage_launch_drain_config(
         or launch.get("generation") != config.get("instance_id")
         or launch.get("server_generation") != config.get("server")
         or launch.get("service_class") != config.get("service_class", "functional")
+        or launch.get("telemetry_state") != config.get("telemetry_state")
         or launch.get("server_memory_bytes")
         != object_mapping(config.get("resources"))["server_memory_bytes"]
     ):
@@ -5161,6 +5221,7 @@ def materialize_service(
 def service_allocation(
     state: Path, config: dict[str, object], deadline: float
 ) -> host_admission.Allocation:
+    selected_telemetry = recorded_telemetry_state(config)
 
     inherited = inherit_host_owner(deadline)
     if inherited is not None and inherited.profile.exclusive:
@@ -5203,6 +5264,7 @@ def service_allocation(
             "supervisor_generation": config.get("service_supervisor"),
             "server_generation": config.get("server"),
             "service_class": config.get("service_class", "functional"),
+            "telemetry_state": selected_telemetry,
             "server_memory_bytes": object_mapping(config["resources"])[
                 "server_memory_bytes"
             ],
@@ -5319,6 +5381,7 @@ def start(
             return start(
                 owner, config_for(owner), validation=validation, deadline=deadline
             )
+        recorded_telemetry_state(config)
         if (
             config["admission"] == "validation_required"
             or config.get("derived_rebuild_pending")
@@ -5775,7 +5838,7 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
                     remaining(deadline)
                 borrowed.remove(str(state))
         return
-    with host_admission.allocation_metadata(owner.directory) as ledger:
+    with host_admission.allocation_metadata(owner.directory, deadline=deadline) as ledger:
         record = ledger["owners"].get(owner.nonce)
         if (
             not isinstance(record, dict)
@@ -5785,7 +5848,7 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
             raise SupervisorError(
                 "Stopped storage allocation does not own this service"
             )
-    if not owner.release():
+    if not owner.release(deadline=deadline):
         raise SupervisorError(
             "Stopped storage allocation still owns an undrained lifetime"
         )
@@ -5897,6 +5960,19 @@ def module_runtime_allocation(allocation: dict[str, object]) -> dict[str, int]:
     }
 
 
+def recorded_telemetry_state(config: dict[str, object]) -> str:
+    selected = config.get("telemetry_state")
+    if (
+        not isinstance(selected, str)
+        or not Path(selected).is_absolute()
+        or str(telemetry_service.state_directory(selected)) != selected
+    ):
+        raise SupervisorError(
+            "Service lacks a recorded telemetry selection; readmit its stopped, quiesced supervisor"
+        )
+    return selected
+
+
 def server_environment(
     config: dict[str, object],
     credentials: dict[str, object],
@@ -5963,7 +6039,11 @@ def server_environment(
     environment["OTEL_RESOURCE_ATTRIBUTES"] = (
         f"service.instance.id={instance},pse.configuration.id={config['instance_id']}"
     )
-    selection = telemetry_service.producer_configuration()
+    selected_state = recorded_telemetry_state(config)
+    environment["PSE_TELEMETRY_STATE"] = selected_state
+    selection = telemetry_service.producer_configuration(
+        {"PSE_TELEMETRY_STATE": selected_state}
+    )
     if selection is not None:
         endpoint = selection.get("otlp_grpc_endpoint")
         if not isinstance(endpoint, str) or not re.fullmatch(
