@@ -172,7 +172,6 @@ pub(crate) type Occurrences = BTreeMap<OccurrenceKey, CheckedExpression>;
 pub(super) enum StaticPart<'a> {
     Expression(&'a dsl::Expr),
     Predicate(&'a dsl::Predicate),
-    Name(&'a str),
 }
 pub(super) fn static_parts<'a>(value: &'a StaticValue, visit: &mut impl FnMut(StaticPart<'a>)) {
     match value {
@@ -182,8 +181,7 @@ pub(super) fn static_parts<'a>(value: &'a StaticValue, visit: &mut impl FnMut(St
                 static_parts(value, visit);
             }
         }
-        StaticValue::Apply { name, arguments } => {
-            visit(StaticPart::Name(name));
+        StaticValue::Apply { arguments, .. } => {
             for (_, value) in arguments {
                 static_parts(value, visit);
             }
@@ -550,34 +548,10 @@ pub(crate) fn bind_one(
         value.context.push(id);
         owner = p.declarations[&id].parent_id;
     }
-    let formals = value
-        .context
-        .iter()
-        .flat_map(|id| {
-            p.declarations[id]
-                .value
-                .scope
-                .iter()
-                .flat_map(|scope| {
-                    scope
-                        .parameters
-                        .iter()
-                        .map(|parameter| parameter.name.clone())
-                })
-                .chain(
-                    p.declarations[id]
-                        .value
-                        .coordinate_map
-                        .iter()
-                        .flat_map(|map| map.arguments.iter().map(|argument| argument.name.clone())),
-                )
-                .chain(
-                    p.functions.get(id).into_iter().flat_map(|function| {
-                        function.arguments.iter().map(|(name, _)| name.clone())
-                    }),
-                )
-        })
-        .chain(value.index_obligations.iter().map(|(name, _)| name.clone()))
+    // Declaration binders are resolved scope by scope by CheckedLexical. Only
+    // field-local index obligations bypass that walk; flattening ancestor binders
+    // here would wrongly hide a nearer member with the same name.
+    let formals = value.index_obligations.iter().map(|(name, _)| name.clone())
         .collect::<BTreeSet<_>>();
     value.declared_type = p.types.get(&key.declaration).cloned();
     let mut paths = BTreeMap::new();
@@ -604,107 +578,12 @@ pub(crate) fn bind_one(
         }
         paths.insert(text, (resolved, prefixes));
     };
-    fn expression_paths(expression: &dsl::Expr, visit: &mut impl FnMut(&dsl::Path)) {
-        for path in super::source_paths(expression) {
-            visit(path);
+    let mut names = BTreeSet::new();
+    for reference in crate::selected_source::syntax_references(&value.syntax) {
+        match reference {
+            crate::selected_source::SourceReference::Segments(path) => visit(&path),
+            crate::selected_source::SourceReference::Name(name) => { names.insert(name); }
         }
-    }
-    fn predicate_paths(predicate: &dsl::Predicate, visit: &mut impl FnMut(&dsl::Path)) {
-        use dsl::PredicateKind as K;
-        match &predicate.kind {
-            K::Compare { lhs, rhs, .. } => {
-                expression_paths(lhs, visit);
-                expression_paths(rhs, visit);
-            }
-            K::In { expr, domain } => {
-                expression_paths(expr, visit);
-                visit(domain);
-            }
-            K::Atom(e) => expression_paths(e, visit),
-            K::And(a, b) | K::Or(a, b) => {
-                predicate_paths(a, visit);
-                predicate_paths(b, visit);
-            }
-            K::Not(p) => predicate_paths(p, visit),
-            _ => {}
-        }
-    }
-    fn equation(e: &dsl::Equation, visit: &mut impl FnMut(&dsl::Path)) {
-        match &e.kind {
-            dsl::EquationKind::Relation { lhs, rhs, .. } => {
-                expression_paths(lhs, visit);
-                expression_paths(rhs, visit);
-            }
-            dsl::EquationKind::Conditional {
-                guard,
-                then,
-                otherwise,
-            } => {
-                predicate_paths(guard, visit);
-                equation(then, visit);
-                equation(otherwise, visit);
-            }
-        }
-    }
-    fn static_paths(
-        value: &StaticValue,
-        bound: &BTreeSet<String>,
-        visit: &mut impl FnMut(&dsl::Path),
-    ) {
-        match value {
-            StaticValue::Expression(expression) => expression_paths(expression, &mut |path| {
-                if path
-                    .segments
-                    .first()
-                    .is_some_and(|first| !bound.contains(&first.name))
-                {
-                    visit(path);
-                }
-            }),
-            StaticValue::Set(values) | StaticValue::Tuple(values) => {
-                for value in values {
-                    static_paths(value, bound, visit);
-                }
-            }
-            StaticValue::Apply { arguments, .. } => {
-                for (_, value) in arguments {
-                    static_paths(value, bound, visit);
-                }
-            }
-            StaticValue::Comprehension {
-                body,
-                bindings,
-                filter,
-            } => {
-                let mut local = bound.clone();
-                for (name, domain) in bindings {
-                    static_paths(domain, &local, visit);
-                    local.insert(name.clone());
-                }
-                if let Some(filter) = filter {
-                    predicate_paths(filter, &mut |path| {
-                        if path
-                            .segments
-                            .first()
-                            .is_some_and(|first| !local.contains(&first.name))
-                        {
-                            visit(path);
-                        }
-                    });
-                }
-                static_paths(body, &local, visit);
-            }
-            StaticValue::Text(_) => {}
-        }
-    }
-    match value.syntax.as_ref() {
-        Syntax::Expression(e) => expression_paths(e, &mut visit),
-        Syntax::Predicate(e) => predicate_paths(e, &mut visit),
-        Syntax::Logic(p) => {
-            p.expressions(&mut |expression| expression_paths(expression, &mut visit))
-        }
-        Syntax::Equation(e) => equation(e, &mut visit),
-        Syntax::Static(syntax) => static_paths(syntax, &BTreeSet::new(), &mut visit),
     }
     for (path, (resolved, prefixes)) in paths {
         if let Some(id) = resolved {
@@ -717,19 +596,11 @@ pub(crate) fn bind_one(
             value.unresolved_references.insert(path);
         }
     }
-    let mut names = BTreeSet::new();
-    if let Syntax::Static(syntax) = value.syntax.as_ref() {
-        static_parts(syntax, &mut |part| {
-            if let StaticPart::Name(name) = part {
-                names.insert(name.to_owned());
-            }
-        });
-    }
     value.dependencies.extend(
         names
             .iter()
             .filter(|name| !formals.contains(*name))
-            .filter_map(|name| p.resolve(key.declaration, name)),
+            .filter_map(|name| p.resolve_source_name(key.declaration, name)),
     );
     value
 }
@@ -871,6 +742,30 @@ mod tests {
     fn checked(text: &str) -> CheckedPackage {
         try_checked(text).unwrap()
     }
+    #[test]
+    fn equal_field_text_keeps_distinct_ordinals_and_exact_checked_dependencies() {
+        let package = checked("package p {def Root {var x:Scalar; annotation bounds x(x,x);}}");
+        let annotation = package.declarations.values().find(|row| row.value.annotation.is_some()).unwrap().declaration_id;
+        let x = package.entry("p.Root.x").unwrap();
+        let fields = [0, 1].map(|position| package.expression_occurrence(annotation, "annotation.arguments", position).unwrap());
+        assert_eq!(fields[0].text, fields[1].text);
+        for field in fields { assert_eq!(field.dependencies, BTreeSet::from([x])); }
+        assert_eq!(package.expression_occurrences().filter(|(key, _)| key.declaration == annotation && key.role == "annotation.arguments").count(), 2);
+        let selected = package.select(annotation).unwrap();
+        assert!(selected.declarations.contains_key(&x));
+        assert!(selected.expression_occurrence(annotation, "annotation.arguments", 1).is_some());
+    }
+
+    #[test]
+    fn nearer_member_is_not_hidden_by_an_ancestor_scope_parameter() {
+        let package = checked("package p {def Outer(x:Scalar) {def Inner {param x:Scalar=2; var y:Scalar; eq probe:y==x;}}}");
+        let equation = package.entry("p.Outer.Inner.probe").unwrap();
+        let occurrence = package.expression_occurrence(equation, "equation.expression", 0).unwrap();
+        let local = package.entry("p.Outer.Inner.x").unwrap();
+        assert!(occurrence.dependencies.contains(&local));
+        assert!(!occurrence.unresolved_references.contains("x"));
+    }
+
     #[test]
     fn intrinsic_callees_do_not_hide_equally_named_value_references() {
         let expression = dsl::parse_expr("size(items)+size").unwrap();

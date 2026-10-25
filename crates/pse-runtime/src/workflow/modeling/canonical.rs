@@ -1325,25 +1325,7 @@ impl SourceIndex {
         selected_source::resolve_segments(self, owner, &path.segments)
     }
     fn resolve_name(&mut self, owner: DeclarationId, name: &str) -> Lookup {
-        let atomic = dsl::Path {
-            segments: vec![dsl::PathSegment {
-                name: name.into(),
-                indices: Vec::new(),
-            }],
-        };
-        match self.resolve(owner, &atomic) {
-            Lookup::Absent => {
-                let path = name
-                    .split('.')
-                    .map(|name| dsl::PathSegment {
-                        name: name.into(),
-                        indices: Vec::new(),
-                    })
-                    .collect();
-                self.resolve(owner, &dsl::Path { segments: path })
-            }
-            other => other,
-        }
+        selected_source::resolve_name(self, owner, name)
     }
     fn references(&mut self, row: &Declaration) -> Result<BTreeSet<DeclarationId>, WorkflowError> {
         let parsed = self
@@ -1351,9 +1333,10 @@ impl SourceIndex {
             .get(&row.declaration_id)
             .ok_or_else(|| contract("source references lack shared parsed fields"))?
             .clone();
-        let occurrences = parsed.expressions();
+        let references = selected_source::declaration_references_parsed(row, &parsed)
+            .map_err(super::super::modeling_error)?;
         let mut found = BTreeSet::new();
-        for path in selected_source::type_paths(row) {
+        for path in references.types {
             if path.segments.len() == 1
                 && self.type_bound(row.declaration_id, &path.segments[0].name)
             {
@@ -1363,86 +1346,18 @@ impl SourceIndex {
                 found.extend(ids);
             }
         }
-        for path in selected_source::structural_paths(row) {
+        for path in references.prefixes {
             for end in (1..=path.segments.len()).rev() {
-                match selected_source::resolve_segments(
-                    self,
-                    row.declaration_id,
-                    &path.segments[..end],
-                ) {
+                match selected_source::resolve_segments(self, row.declaration_id, &path.segments[..end]) {
                     Lookup::Absent => {}
                     Lookup::Pending => break,
-                    Lookup::Found(ids) => {
-                        found.extend(ids);
-                        break;
-                    }
+                    Lookup::Found(ids) => { found.extend(ids); break; }
                 }
             }
         }
-        // Structural spellings not represented by a parsed expression occurrence
-        // include dataset targets, entity kinds, bases and authored provenance.
-        for text in selected_source::requirements(row).names {
-            if occurrences
-                .values()
-                .any(|occurrence| occurrence.text == text)
-            {
-                continue;
-            }
-            if let Ok(expression) = dsl::parse_expr(text) {
-                for reference in selected_source::syntax_references(
-                    &pse_modeling::expression::occurrences::Syntax::Expression(expression),
-                ) {
-                    match reference {
-                        selected_source::SourceReference::Name(name) => {
-                            if let Lookup::Found(ids) = self.resolve_name(row.declaration_id, &name)
-                            {
-                                found.extend(ids);
-                            }
-                        }
-                        selected_source::SourceReference::Segments(path) => {
-                            if let Lookup::Found(ids) = self.resolve(row.declaration_id, &path) {
-                                found.extend(ids);
-                            }
-                        }
-                    }
-                }
-            } else if let Lookup::Found(ids) = self.resolve_name(row.declaration_id, text) {
+        for name in references.names {
+            if let Lookup::Found(ids) = self.resolve_name(row.declaration_id, &name) {
                 found.extend(ids);
-            }
-        }
-        for occurrence in occurrences.values() {
-            for reference in selected_source::syntax_references(&occurrence.syntax) {
-                match reference {
-                    selected_source::SourceReference::Segments(path) => {
-                        if path.segments.first().is_some_and(|segment| {
-                            occurrence
-                                .index_obligations
-                                .iter()
-                                .any(|(name, _)| name == &segment.name)
-                        }) {
-                            continue;
-                        }
-                        for end in (1..=path.segments.len()).rev() {
-                            match selected_source::resolve_segments(
-                                self,
-                                row.declaration_id,
-                                &path.segments[..end],
-                            ) {
-                                Lookup::Absent => {}
-                                Lookup::Pending => break,
-                                Lookup::Found(ids) => {
-                                    found.extend(ids);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    selected_source::SourceReference::Name(name) => {
-                        if let Lookup::Found(ids) = self.resolve_name(row.declaration_id, &name) {
-                            found.extend(ids);
-                        }
-                    }
-                }
             }
         }
         Ok(found)
@@ -1458,9 +1373,6 @@ impl SourceIndex {
             }
             self.resolve(owner, path) == Lookup::Pending
         });
-        references
-            .exact
-            .retain(|path| self.resolve(owner, path) == Lookup::Pending);
         references.prefixes.retain(|path| {
             for end in (1..=path.segments.len()).rev() {
                 match selected_source::resolve_segments(self, owner, &path.segments[..end]) {
@@ -1475,7 +1387,6 @@ impl SourceIndex {
             .names
             .retain(|name| self.resolve_name(owner, name) == Lookup::Pending);
         if !references.types.is_empty()
-            || !references.exact.is_empty()
             || !references.prefixes.is_empty()
             || !references.names.is_empty()
         {
@@ -1615,41 +1526,7 @@ impl LexicalLookup for SourceIndex {
     fn bound(&self, owner: DeclarationId, name: &str) -> bool {
         self.trace.read(owner);
         self.rows.get(&owner).is_some_and(|row| {
-            row.value
-                .scope
-                .iter()
-                .flat_map(|scope| &scope.parameters)
-                .any(|parameter| parameter.name == name)
-                || row
-                    .value
-                    .function
-                    .iter()
-                    .flat_map(|function| &function.arguments)
-                    .any(|argument| argument.name == name)
-                || row
-                    .value
-                    .coordinate_map
-                    .iter()
-                    .flat_map(|map| &map.arguments)
-                    .any(|argument| argument.name == name)
-                || row
-                    .value
-                    .response
-                    .iter()
-                    .flat_map(|function| &function.arguments)
-                    .any(|argument| argument.name == name)
-                || row
-                    .value
-                    .reconstruction
-                    .iter()
-                    .flat_map(|function| &function.arguments)
-                    .any(|argument| argument.name == name)
-                || row
-                    .value
-                    .reference_translation
-                    .iter()
-                    .flat_map(|function| &function.arguments)
-                    .any(|argument| argument.name == name)
+            selected_source::lexical_bindings(row, None).any(|bound| bound == name)
         })
     }
     fn imported(&mut self, owner: DeclarationId, name: &str) -> Lookup {
@@ -3502,6 +3379,35 @@ mod tests {
         index.requests.clear();
         index
     }
+    #[test]
+    fn source_index_lexical_adapter_excludes_every_declared_binder_family() {
+        for declaration in [
+            "fn binder(x:Scalar)->Scalar=x;",
+            "def binder(x:Scalar) {}",
+            "coordinate map binder(x:Scalar) valid(x>0) {}",
+            "response binder from potential(x:Scalar,potential:Fn(x:Scalar)->Scalar)->Scalar=potential(x);",
+            "reconstruction binder for coords(x:Scalar)->Scalar reference ideal=x;",
+            "reference translation binder(x:Scalar)->Scalar anchors(source=a,target=b) at(temperature=x,pressure=x) provenance(s,role.given);",
+        ] {
+            let mut index = complete_index(&format!("package p {{param x:Scalar=9; {declaration}}}"));
+            let binder = index.rows.values().find(|row| row.name == "binder").unwrap().declaration_id;
+            assert!(index.bound(binder, "x"), "{declaration}");
+            assert_eq!(index.resolve_name(binder, "x"), Lookup::Absent, "{declaration}");
+            assert!(index.requests.is_empty());
+        }
+    }
+
+    #[test]
+    fn source_index_references_keep_equal_text_fields_and_nearer_shadowing() {
+        let mut index = complete_index("package p {param x:Scalar=9; def Outer(x:Scalar) {def Inner {var x:Scalar; annotation bounds x(x,x);}}}");
+        let bounds = index.rows.values().find(|row| row.value.annotation.is_some()).unwrap().clone();
+        let inner = index.rows.values().find(|row| row.name == "Inner").unwrap().declaration_id;
+        let x = index.rows.values().find(|row| row.name == "x" && row.parent_id == Some(inner)).unwrap().declaration_id;
+        index.parsed_fields.insert(bounds.declaration_id, Arc::new(pse_modeling::expression::occurrences::ParsedFields::parse(&bounds, None).unwrap()));
+        assert_eq!(index.references(&bounds).unwrap(), BTreeSet::from([x]));
+        assert!(index.requests.is_empty());
+    }
+
     #[test]
     fn root_member_memo_preserves_cycles_diamonds_shadowing_and_frontier_changes() {
         let mut index = complete_index(

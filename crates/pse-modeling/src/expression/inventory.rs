@@ -68,7 +68,6 @@ pub fn field(value: &Syntax) -> Vec<&Expr> {
         Syntax::Static(value) => static_parts(value, &mut |part| match part {
             StaticPart::Expression(expr) => roots.push(expr),
             StaticPart::Predicate(value) => predicate(value, &mut roots),
-            StaticPart::Name(_) => {}
         }),
     }
     roots

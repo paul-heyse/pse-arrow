@@ -136,6 +136,26 @@ pub trait LexicalLookup {
     fn member(&mut self, owner: crate::DeclarationId, name: &str) -> Lookup;
 }
 
+/// Declaration-local lexical parameters shared by checked and pre-admission selection.
+/// A checked function signature replaces authored function arguments after normalization.
+/// Other binder families keep their registry-owned argument/parameter names.
+pub fn lexical_bindings<'a>(
+    row: &'a Declaration,
+    checked_function: Option<&'a crate::Function>,
+) -> impl Iterator<Item = &'a str> {
+    checked_function.into_iter()
+        .flat_map(|function| function.arguments.iter().map(|(name, _)| name.as_str()))
+        .chain(
+            row.value.function.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str())
+                .chain(row.value.scope.iter().flat_map(|v| &v.parameters).map(|p| p.name.as_str()))
+                .chain(row.value.coordinate_map.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
+                .chain(row.value.response.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
+                .chain(row.value.reconstruction.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
+                .chain(row.value.reference_translation.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
+                .filter(move |_| checked_function.is_none())
+        )
+}
+
 /// Resolve parser-decoded segments with exact lexical shadowing. Pending probes
 /// stop the walk before an outer declaration can be mistaken for a nearer name.
 pub fn resolve_segments(
@@ -191,6 +211,25 @@ pub fn resolve_segments(
         selected = next.into_iter().collect();
     }
     Lookup::Found(selected)
+}
+
+/// Resolve a native name without reparsing source expression text. Exact atomic
+/// names take priority; a dotted member path is tried only after proved absence.
+pub fn resolve_name(
+    source: &mut impl LexicalLookup,
+    owner: crate::DeclarationId,
+    name: &str,
+) -> Lookup {
+    let atomic = [dsl::PathSegment { name: name.into(), indices: Vec::new() }];
+    match resolve_segments(source, owner, &atomic) {
+        Lookup::Absent if name.contains('.') => {
+            let segments = name.split('.').map(|name| dsl::PathSegment {
+                name: name.into(), indices: Vec::new(),
+            }).collect::<Vec<_>>();
+            resolve_segments(source, owner, &segments)
+        }
+        result => result,
+    }
 }
 
 /// Parse exact source fields through the existing occurrence collector before
@@ -279,8 +318,6 @@ pub fn owns_namespace(row: &Declaration) -> bool {
 pub struct DeclarationReferences {
     /// Nominal paths, excluding lexical type parameters at resolution time.
     pub types: Vec<dsl::Path>,
-    /// Structural spellings which require the entire path.
-    pub exact: Vec<dsl::Path>,
     /// Scientific field/provenance paths whose longest declared prefix is selected.
     pub prefixes: Vec<dsl::Path>,
     /// Atomic names, with dotted spelling fallback after an exact-name absence.
@@ -304,7 +341,6 @@ impl pse_model::HeapUsage for DeclarationReferences {
                     .sum::<usize>()
         }
         paths(&self.types)
-            + paths(&self.exact)
             + paths(&self.prefixes)
             + self.names.capacity() * size_of::<String>()
             + self.names.iter().map(String::capacity).sum::<usize>()
@@ -332,30 +368,10 @@ pub fn declaration_references_parsed(
     let occurrences = parsed.expressions();
     let mut result = DeclarationReferences {
         types: type_paths(row),
-        exact: Vec::new(),
         prefixes: structural_paths(row),
         names: Vec::new(),
     };
-    for text in requirements(row).names {
-        if occurrences
-            .values()
-            .any(|occurrence| occurrence.text == text)
-        {
-            continue;
-        }
-        if let Ok(expression) = dsl::parse_expr(text) {
-            for reference in syntax_references(&crate::expression::occurrences::Syntax::Expression(
-                expression,
-            )) {
-                match reference {
-                    SourceReference::Name(name) => result.names.push(name),
-                    SourceReference::Segments(path) => result.exact.push(path),
-                }
-            }
-        } else {
-            result.names.push(text.into());
-        }
-    }
+    result.names.extend(requirements(row).names.into_iter().map(str::to_owned));
     for occurrence in occurrences.values() {
         for reference in syntax_references(&occurrence.syntax) {
             match reference {
@@ -378,7 +394,6 @@ pub fn declaration_references_parsed(
     for path in result
         .types
         .iter_mut()
-        .chain(&mut result.exact)
         .chain(&mut result.prefixes)
     {
         for segment in &mut path.segments {
@@ -392,7 +407,7 @@ pub fn declaration_references_parsed(
 /// Every field retains its registry-generated type; this is an algorithm view.
 #[derive(Debug)]
 pub struct SourceRequirements<'a> {
-    /// Direct source spellings and expressions; parsed occurrences supply atomic references.
+    /// Native structural source spellings; expressions come only from parsed occurrences.
     pub names: Vec<&'a str>,
     /// Existing authored type arenas.
     pub types: Vec<&'a Vec<pse_authoring::language::TypeNode>>,
@@ -407,153 +422,57 @@ pub struct SourceRequirements<'a> {
 /// Collect source-owned structural requirements before checking or hydrating a package.
 /// The checked-package selector consumes this same view.
 pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
-    let mut texts: Vec<&str> = Vec::new();
-    let mut types: Vec<&Vec<pse_authoring::language::TypeNode>> = Vec::new();
-    // Cells name declarations only as reference paths (ADR-0123 Outcome 1).
-    let mut cells: Vec<&pse_authoring::language::Cell> = Vec::new();
-    // Completeness names declared sets and enumerations by path (Outcome 3).
-    let mut sets: Vec<&Vec<String>> = Vec::new();
-    // Provenance and oracles name sources, roles and lineage by path (Outcome 5).
-    let mut paths: Vec<&Vec<String>> = Vec::new();
+    // Only native structural spellings belong here. Grammar-bearing fields are
+    // declared by the registry and collected under exact OccurrenceKey values.
+    let mut names = Vec::new();
+    let mut types = Vec::new();
+    let mut cells = Vec::new();
+    let mut sets = Vec::new();
+    let mut paths = Vec::new();
     if let Some(v) = &row.value.scope {
-        texts.extend(v.bases.iter().map(String::as_str));
-        if let Some(selection) = &v.selection {
-            texts.push(&selection.criterion);
-            texts.push(&selection.tolerance);
-        }
-        texts.extend(v.branch.as_deref());
-        if let Some(operation) = &v.operational {
-            texts.extend(operation.anchors.iter().map(|a| a.expression.as_str()));
-            texts.extend(operation.neighborhood.as_deref());
-        }
-        texts.extend(v.eligibility.as_deref());
-        // A test depends on its oracle source (ADR-0123 Outcome 5).
+        names.extend(v.bases.iter().map(String::as_str));
         paths.extend(v.oracle.iter());
-        if let Some(fixture) = &v.fixture {
-            if let Some(expected) = &fixture.expected_failure
-                && let Some(v) = &expected.applicability
-            {
-                texts.extend([v.claim.as_str(), v.form.as_str()]);
-                texts.extend(v.sets.iter().map(String::as_str));
-            }
-            if let Some(integration) = &fixture.integration {
-                texts.extend(integration.samples.iter().map(String::as_str));
-                texts.push(&integration.initial_step);
-                for q in &integration.quadratures {
-                    texts.push(&q.target);
-                    texts.push(&q.absolute_tolerance);
-                }
-                for s in &integration.schedules {
-                    texts.push(&s.target);
-                    texts.extend(
-                        s.times
-                            .iter()
-                            .chain(&s.values)
-                            .chain(s.lower.iter().chain(&s.upper))
-                            .map(String::as_str),
-                    );
-                }
-            }
-            if let Some(shooting) = &fixture.shooting {
-                texts.extend(shooting.nodes.iter().map(String::as_str));
-            }
-            for e in fixture.modes.iter().flat_map(|m| &m.events) {
-                texts.push(&e.guard);
-                texts.push(&e.tolerance);
-                for r in &e.reset {
-                    texts.push(&r.target);
-                    texts.push(&r.expression);
-                }
-            }
-            for s in &fixture.specifications {
-                texts.push(&s.target);
-                texts.extend(s.expression.as_deref());
+        if let Some(v) = v.fixture.as_ref().and_then(|f| f.expected_failure.as_ref()) {
+            if let Some(v) = &v.applicability {
+                names.extend([v.claim.as_str(), v.form.as_str()]);
             }
         }
-        for p in &v.parameters {
-            types.push(&p.r#type);
-            texts.extend(p.default_value.as_deref());
-        }
+        types.extend(v.parameters.iter().map(|p| &p.r#type));
     }
     if let Some(v) = &row.value.binding {
         types.extend(v.r#type.as_ref());
-        texts.extend(v.expression.as_deref());
-        texts.extend(v.defined_by.as_deref());
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
     }
     if let Some(v) = &row.value.function {
-        if let Some(external) = &v.external {
-            texts.push(&external.output);
-        }
-        texts.extend(v.body.as_deref());
-        texts.extend(v.validity.as_deref());
-        texts.extend(v.applicability.iter().map(String::as_str));
         types.push(&v.return_type);
         types.extend(v.arguments.iter().map(|a| &a.r#type));
     }
     if let Some(v) = &row.value.applicability {
-        texts.extend([v.owner.as_str(), v.evidence.as_str()]);
-        texts.extend(v.predicate.as_deref());
-        texts.extend(v.lower.as_deref());
-        texts.extend(v.upper.as_deref());
-        texts.extend(
-            v.alternatives
-                .iter()
-                .chain(&v.dependencies)
-                .map(String::as_str),
-        );
+        names.push(v.owner.as_str());
         types.extend(v.arguments.iter().map(|a| &a.r#type));
-    }
-    if let Some(v) = &row.value.permission {
-        texts.extend(v.targets.iter().map(String::as_str));
     }
     if let Some(v) = &row.value.coordinate_map {
         types.extend(v.arguments.iter().map(|a| &a.r#type));
-        texts.extend(v.validity.as_deref());
-    }
-    if let Some(v) = &row.value.coordinate_slot {
-        texts.push(&v.expression);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
     }
     if let Some(v) = &row.value.reconstruction {
-        texts.extend([
-            v.map.as_str(),
-            v.reference.as_str(),
-            v.normalization.as_str(),
-        ]);
+        names.extend([v.map.as_str(), v.reference.as_str()]);
         types.push(&v.return_type);
         types.extend(v.arguments.iter().map(|a| &a.r#type));
     }
     if let Some(v) = &row.value.response {
-        texts.push(&v.body);
         types.push(&v.return_type);
         types.extend(v.arguments.iter().map(|a| &a.r#type));
     }
     if let Some(v) = &row.value.reference_translation {
-        texts.extend([
-            v.source_anchor.as_str(),
-            v.target_anchor.as_str(),
-            v.temperature.as_str(),
-            v.pressure.as_str(),
-        ]);
+        names.extend([v.source_anchor.as_str(), v.target_anchor.as_str()]);
         types.push(&v.return_type);
         types.extend(v.arguments.iter().map(|a| &a.r#type));
         paths.extend(provenance_paths(&v.provenance));
-    }
-    if let Some(v) = &row.value.boundary {
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-    }
-    if let Some(v) = &row.value.exchange {
-        texts.extend([v.from.as_str(), v.to.as_str()]);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
     }
     if let Some(v) = &row.value.table {
         types.extend(v.value_type.as_ref());
         cells.extend(v.default_value.as_ref());
         types.extend(v.keys.iter().map(|k| &k.r#type));
         types.extend(v.columns.iter().map(|c| &c.r#type));
-        texts.extend(v.columns.iter().filter_map(|c| c.derived.as_deref()));
-        texts.extend(v.requirements.iter().map(String::as_str));
         sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
         types.extend(v.envelopes.iter().map(|e| &e.r#type));
     }
@@ -561,7 +480,7 @@ pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
         types.push(&v.r#type);
     }
     if let Some(v) = &row.value.dataset {
-        texts.push(&v.target);
+        names.push(v.target.as_str());
         paths.extend(provenance_paths(&v.provenance));
         sets.extend(v.complete_over.iter().filter_map(|e| e.set.as_ref()));
         cells.extend(v.bindings.iter().map(|b| &b.value));
@@ -570,143 +489,39 @@ pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
         }
     }
     if let Some(v) = &row.value.entity {
-        texts.push(&v.kind_name);
+        names.push(v.kind_name.as_str());
         cells.extend(v.attributes.iter().map(|a| &a.value));
         paths.extend(v.provenance.iter().flat_map(provenance_paths));
-        paths.extend(
-            v.attributes
-                .iter()
-                .flat_map(|a| a.provenance.iter().flat_map(provenance_paths)),
-        );
+        paths.extend(v.attributes.iter().flat_map(|a| a.provenance.iter().flat_map(provenance_paths)));
     }
     if let Some(v) = &row.value.attribute {
         types.extend(v.r#type.as_ref());
         cells.extend(v.value.as_ref());
-        texts.extend(v.derived.as_deref());
     }
     if let Some(v) = &row.value.constant {
         types.push(&v.r#type);
         cells.push(&v.value);
         paths.extend(provenance_paths(&v.provenance));
     }
-    if let Some(v) = &row.value.equation {
-        texts.push(&v.expression);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-        texts.extend(v.condition.as_ref().map(|c| c.variable.as_str()));
-    }
-    if let Some(v) = &row.value.ordered_set {
-        texts.extend([v.member.as_str(), v.weight.as_str()]);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-    }
-    if let Some(v) = &row.value.cardinality {
-        texts.extend([v.count.as_str(), v.member.as_str()]);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-    }
-    if let Some(v) = &row.value.piecewise {
-        texts.extend([
-            v.output.as_str(),
-            v.input.as_str(),
-            v.abscissa.as_str(),
-            v.ordinate.as_str(),
-        ]);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-    }
-    if let Some(v) = &row.value.logic {
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-    }
-    if let Some(v) = &row.value.complementarity {
-        texts.extend([v.first.as_str(), v.second.as_str()]);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-    }
-    if let Some(v) = &row.value.realization {
-        texts.extend(v.argument.as_deref());
-        texts.extend(v.function.as_deref());
-    }
-    if let Some(v) = &row.value.guard {
-        texts.push(&v.predicate);
-    }
-    if let Some(v) = &row.value.requirement {
-        texts.push(&v.predicate);
-    }
     if let Some(v) = &row.value.accumulator {
         types.push(&v.r#type);
-        texts.push(&v.tolerance);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
     }
     if let Some(v) = &row.value.inventory_balance {
         types.push(&v.r#type);
-        texts.extend([
-            v.axis.as_str(),
-            v.inventory.as_str(),
-            v.flux.as_str(),
-            v.tolerance.as_str(),
-        ]);
-        texts.extend(v.indices.iter().map(|index| index.domain.as_str()));
-        for transfer in &v.transfers {
-            texts.extend([transfer.event.as_str(), transfer.expression.as_str()]);
-        }
-    }
-    if let Some(v) = &row.value.contribution {
-        texts.push(&v.target);
-        texts.push(&v.expression);
-        texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
-    }
-    if let Some(v) = &row.value.connection {
-        texts.push(&v.from);
-        texts.push(&v.to);
-    }
-    if let Some(v) = &row.value.annotation {
-        texts.push(&v.target);
-        texts.extend(v.arguments.iter().map(String::as_str));
-        if let Some(o) = &v.objective {
-            texts.extend(
-                [
-                    &o.weight,
-                    &o.normalization,
-                    &o.absolute_tolerance,
-                    &o.relative_tolerance,
-                ]
-                .into_iter()
-                .flatten()
-                .map(String::as_str),
-            );
-        }
     }
     if let Some(v) = &row.value.continuous {
         types.push(&v.r#type);
-        texts.extend([v.lower.as_str(), v.upper.as_str()]);
     }
     if let Some(v) = &row.value.discretization {
-        texts.extend([
-            v.target.as_str(),
-            v.scheme.as_str(),
-            v.elements.as_str(),
-            v.order.as_str(),
-        ]);
+        names.extend([v.target.as_str(), v.scheme.as_str()]);
     }
     if let Some(v) = &row.value.realization {
-        texts.push(&v.target);
+        names.push(v.target.as_str());
     }
     if let Some(v) = &row.value.temporal {
-        texts.extend([v.target.as_str(), v.axis.as_str()]);
+        names.extend([v.target.as_str(), v.axis.as_str()]);
     }
-    if let Some(v) = &row.value.relaxation {
-        texts.extend([v.target.as_str(), v.nominal.as_str()]);
-    }
-    if let Some(v) = &row.value.continuation {
-        texts.extend([v.target.as_str(), v.start.as_str(), v.end.as_str()]);
-    }
-    if let Some(v) = &row.value.expectation {
-        texts.extend([v.actual.as_str(), v.expected.as_str(), v.tolerance.as_str()]);
-        texts.extend(v.relative_tolerance.as_deref());
-    }
-    SourceRequirements {
-        names: texts,
-        types,
-        cells,
-        sets,
-        paths,
-    }
+    SourceRequirements { names, types, cells, sets, paths }
 }
 
 /// An atomic source reference for the existing lexical resolver.
@@ -722,60 +537,61 @@ pub enum SourceReference {
 /// The checked selector uses this same traversal.
 pub fn syntax_references(value: &crate::expression::occurrences::Syntax) -> Vec<SourceReference> {
     use pse_authoring::{
-        dsl::{Equation, EquationKind, Expr, ExprKind},
+        dsl::{Equation, EquationKind, Expr},
         language::StaticValue,
     };
     fn path(path: &dsl::Path, out: &mut Vec<SourceReference>) {
         out.push(SourceReference::Segments(path.clone()));
     }
     fn expression(e: &Expr, out: &mut Vec<SourceReference>) {
-        for value in e.free_paths() {
+        for value in crate::expression::source_paths(e) {
             path(value, out);
-        }
-        e.walk(|node| call(node, out));
-    }
-    fn call(node: &Expr, out: &mut Vec<SourceReference>) {
-        let name = match &node.kind {
-            ExprKind::NamedCall { name, .. } => Some(name),
-            ExprKind::Partial { function, .. } => Some(function),
-            _ => None,
-        };
-        if let Some(name) = name {
-            path(name, out);
         }
     }
     fn predicate(value: &dsl::Predicate, out: &mut Vec<SourceReference>) {
-        for value in value.paths() {
-            path(value, out);
+        use dsl::PredicateKind as K;
+        match &value.kind {
+            K::Compare { lhs, rhs, .. } => { expression(lhs, out); expression(rhs, out); }
+            K::In { expr, domain } => { expression(expr, out); path(domain, out); }
+            K::Atom(e) => expression(e, out),
+            K::And(a, b) | K::Or(a, b) => { predicate(a, out); predicate(b, out); }
+            K::Not(p) => predicate(p, out),
+            _ => {}
         }
-        value.walk_expressions(|node| call(node, out));
     }
-    fn syntax(value: &StaticValue, out: &mut Vec<SourceReference>) {
+    fn bound(reference: &SourceReference, names: &std::collections::BTreeSet<String>) -> bool {
+        match reference {
+            SourceReference::Segments(path) => path.segments.first().is_some_and(|first| names.contains(&first.name)),
+            SourceReference::Name(name) => names.contains(name) || name.split_once('.').is_some_and(|(first, _)| names.contains(first)),
+        }
+    }
+    fn syntax(value: &StaticValue, names: &std::collections::BTreeSet<String>, out: &mut Vec<SourceReference>) {
         match value {
-            StaticValue::Expression(e) => expression(e, out),
-            StaticValue::Set(values) | StaticValue::Tuple(values) => {
-                for v in values {
-                    syntax(v, out);
-                }
+            StaticValue::Expression(e) => {
+                let mut local = Vec::new();
+                expression(e, &mut local);
+                out.extend(local.into_iter().filter(|reference| !bound(reference, names)));
             }
-            StaticValue::Comprehension {
-                body,
-                bindings,
-                filter,
-            } => {
-                for (_, v) in bindings {
-                    syntax(v, out);
+            StaticValue::Set(values) | StaticValue::Tuple(values) => {
+                for value in values { syntax(value, names, out); }
+            }
+            StaticValue::Comprehension { body, bindings, filter } => {
+                let mut local = names.clone();
+                for (name, domain) in bindings {
+                    syntax(domain, &local, out);
+                    local.insert(name.clone());
                 }
-                syntax(body, out);
                 if let Some(filter) = filter {
-                    predicate(filter, out);
+                    let mut references = Vec::new();
+                    predicate(filter, &mut references);
+                    out.extend(references.into_iter().filter(|reference| !bound(reference, &local)));
                 }
+                syntax(body, &local, out);
             }
             StaticValue::Apply { name, arguments } => {
-                out.push(SourceReference::Name(name.clone()));
-                for (_, v) in arguments {
-                    syntax(v, out);
-                }
+                let reference = SourceReference::Name(name.clone());
+                if !bound(&reference, names) { out.push(reference); }
+                for (_, value) in arguments { syntax(value, names, out); }
             }
             StaticValue::Text(_) => {}
         }
@@ -801,7 +617,7 @@ pub fn syntax_references(value: &crate::expression::occurrences::Syntax) -> Vec<
     let mut out = Vec::new();
     match value {
         Syntax::Expression(value) => expression(value, &mut out),
-        Syntax::Static(value) => syntax(value, &mut out),
+        Syntax::Static(value) => syntax(value, &std::collections::BTreeSet::new(), &mut out),
         Syntax::Equation(value) => equation(value, &mut out),
         Syntax::Predicate(value) => predicate(value, &mut out),
         Syntax::Logic(value) => value.expressions(&mut |value| expression(value, &mut out)),
@@ -898,7 +714,9 @@ mod tests {
         .unwrap();
         let variable = rows.iter().find(|row| row.name == "x").unwrap();
         let requirements = requirements(variable);
-        assert_eq!(requirements.names, ["Item"]);
+        assert!(requirements.names.is_empty());
+        let references = declaration_references(variable, spans.get(&variable.declaration_id)).unwrap();
+        assert_eq!(references.prefixes[0].ident(), Some("Item"));
         assert_eq!(requirements.types.len(), 1);
         let equation = rows.iter().find(|row| row.name == "e").unwrap();
         let occurrences = occurrences(equation, spans.get(&equation.declaration_id)).unwrap();
@@ -1028,5 +846,50 @@ mod tests {
             .map(str::to_owned)
             .collect()
         );
+    }
+}
+
+#[cfg(test)]
+mod occurrence_contract_tests {
+    use super::*;
+
+    #[test]
+    fn index_domain_precedes_its_own_binder() {
+        let rows = crate::kernel_types::source("package p {def Root {var x[i in i]:Scalar;}}");
+        let row = rows.iter().find(|row| row.name == "x").unwrap();
+        let parsed = crate::expression::occurrences::ParsedFields::parse(row, None).unwrap();
+        let reference = declaration_references_parsed(row, &parsed).unwrap();
+        assert!(requirements(row).names.is_empty());
+        assert_eq!(reference.prefixes.len(), 1);
+        assert_eq!(reference.prefixes[0].ident(), Some("i"));
+        let domain = parsed.expressions().values().next().unwrap();
+        assert!(domain.index_obligations.is_empty(), "domain is evaluated before i is bound");
+    }
+
+    #[test]
+    fn static_comprehension_and_intrinsic_callees_share_the_checked_reference_walk() {
+        let rows = crate::kernel_types::source("package p {entity kind item {} entity item a {} entity item j {} set items:Set<item>={a}; set selected:Set<item>={j for j in items where j!=a}; param count:Integer=size(items);}");
+        let selected = rows.iter().find(|row| row.name == "selected").unwrap();
+        let references = declaration_references(selected, None).unwrap();
+        let names = references.prefixes.iter().filter_map(dsl::Path::ident).collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(names, std::collections::BTreeSet::from(["items", "a"]));
+        let count = rows.iter().find(|row| row.name == "count").unwrap();
+        let references = declaration_references(count, None).unwrap();
+        assert_eq!(references.prefixes.iter().filter_map(dsl::Path::ident).collect::<Vec<_>>(), ["items"]);
+    }
+
+    #[test]
+    fn native_dependencies_and_equal_expression_fields_remain_independent() {
+        let rows = crate::kernel_types::source("package p {def Root extends shared {var x:Scalar; annotation bounds x(shared,shared);}}");
+        let root = rows.iter().find(|row| row.name == "Root").unwrap();
+        let bounds = rows.iter().find(|row| row.value.annotation.is_some()).unwrap();
+        assert_eq!(declaration_references(root, None).unwrap().names, ["shared"]);
+        let parsed = crate::expression::occurrences::ParsedFields::parse(bounds, None).unwrap();
+        let expressions = parsed.expressions();
+        assert!(expressions.keys().any(|key| key.role == "annotation.arguments" && key.position == 0));
+        assert!(expressions.keys().any(|key| key.role == "annotation.arguments" && key.position == 1));
+        assert!(requirements(bounds).names.is_empty());
+        let references = declaration_references_parsed(bounds, &parsed).unwrap();
+        assert_eq!(references.prefixes.iter().filter(|path| path.ident() == Some("shared")).count(), 2);
     }
 }
