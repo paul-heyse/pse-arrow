@@ -1,13 +1,15 @@
 # Current work and plans
 
-[Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is a proposed new
-series for Codex-driven development using the canonical capability interface and a faithful
-derived CLI. Its six companions develop contracts/recovery, structured change context/knowledge,
-native model/result inspection, validation/editing/experiments, focused diagnostics/handoffs and
-assembled qualification/publication. The coordinator owns all sixteen source-review opportunity
-dispositions; companions own package state. Conditional editing, migration, regression and
-database-investigation mechanisms begin with bounded adoption/deferral inquiries. Authoring
-these plans establishes neither production implementation nor qualification.
+[Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for
+its selected capability/client, knowledge/evidence, native model/result, validation/editing and
+diagnostic/handoff scope. Its [qualification Outcome](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25)
+records actual canonical MCP/CLI journeys, fresh Codex attachment acceptance, repaired composite
+Rust/Python/static results, original resource teardown and supported limits. The foreground CLI
+and finite structural migration were selected and delivered; optional experiment/query-packet
+adapters remain deferred under completed inquiry decisions. No background campaign is running.
+Enduring routes live in the [interface guide](../dev/capability-interface.md) and architecture.
+The highest-numbered series and consumed review remain retained for qualification/proposed-ADR
+readers; they authorize no new work. Other plans retain their independent owners and status.
 
 [Plan54: Rust build reuse](54-rust-build-reuse.md) is a new, independently owned planning
 series for the current host's developer, agent, worktree, experiment and Python build workflows.

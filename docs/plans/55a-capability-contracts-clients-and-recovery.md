@@ -1,6 +1,6 @@
 ---
 title: "Plan 55a: Capability contracts, clients and recovery"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -64,10 +64,10 @@ work without endpoint startup, but does not establish current callable compatibi
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | in-progress | 55a | Meaningful host outcomes and exact contract/example projections used by consumers |
-| A02 | in-progress | 55a | Faithful derived CLI with selected-checkout dispatch and explicit supported lifetimes |
-| A03 | in-progress | 55a | Layer-specific independent diagnosis and qualified host refresh guidance |
-| A04 | in-progress | 55a | Actual-request explanation for one native validation and one model-development route |
+| A01 | complete | 55a | Meaningful host outcomes and exact contract/example projections used by consumers |
+| A02 | complete | 55a | Faithful derived CLI with selected-checkout dispatch and explicit supported lifetimes |
+| A03 | complete | 55a | Layer-specific independent diagnosis and qualified host refresh guidance |
+| A04 | complete | 55a | Actual-request explanation for one native validation and one model-development route |
 
 <a id="A01"></a>
 ### A01 — Constructible directional contracts and examples
@@ -170,9 +170,37 @@ source invalidates applicability, a missing optional backend does not block an u
 and unresolved runtime admission stays unknown. D01 supplies affected-population meaning and
 C01 supplies scientific inspection policy without moving either decision into this host layer.
 
-## Verification and current checkpoint
+## Verification and Outcome — 2026-10-25
 
-**Proposed verification:** targeted generator/runtime/contract/readiness tests accompany their
-functional changes; regenerate when declarations/generators change. Actual MCP/CLI recovery joins
-55f at scope end. No performance benefit is established by fewer printed bytes or a successful
-transport. All packages are planned, with no new implementation/test evidence from authoring.
+**Implemented:** A01–A04 deliver owner-declared invocation lifetimes, directional examples,
+a complete declaration-derived Cyclopts command set, exact JSON/file input and shared canonical
+Client dispatch. Omitted arguments remain omitted; explicit null, empty containers, false and
+zero survive. Compatibility compares the selected operation wire before effects. Complete MCP
+content, structured content, errors and metadata are retained. Endpoint sessions are foreground
+only; independent help and passive diagnosis do not start services or prepare native providers.
+Child transports inherit the selected environment, including original native loader selections.
+Cyclopts 5.3.0 and websockets 17.3 are exact direct dependencies; unrelated families did not move.
+
+**Tested:** the full `just setup-test-report build/plan55-final-setup` population passed 2,277
+cases, zero failures/errors, including CLI fidelity, stale wire, absence, lifetime, explanation
+and environment controls. Focused reconnect controls passed 13 cases. The actual CLI
+preview/detail/apply/reconcile/release journey passed on one retained endpoint. Actual request
+explanation followed by original compilation passed at `build/plan55-compilation-intent`;
+model explanation/declarations/inspection/comparison passed through a fresh canonical client.
+[55f](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25) owns assembled
+conditions, receipts, corrected failures and exclusions; these overlapping populations are not
+summed.
+
+**Tested, host-specific:** the user requested an implementable reconnect route. `just capability
+reconnect` authenticates the installed Codex Unix app-server and matching loaded checkout/thread,
+then uses its supported `config/mcpServer/reload`. This is a global queued refresh for loaded
+threads, not per-server hot reload or work replay. It reports refusal, uncertain delivery and
+unavailable freshness separately. A fresh actual Codex attachment subsequently described and
+invoked current source-only tools with `restart_required=false`. The root's already-active old
+attachment was not relabeled refreshed; a turn-boundary/new-context refresh is the supported
+boundary. Foreign checkout controls refuse, while a legacy header without checkout provenance
+reports unknown. No host configuration, service or arbitrary RPC is modified.
+
+**Deliberate deviation:** the narrow repo-owned emitter replaces stock generation because its
+observed connection/argument behavior could not preserve the canonical contract. The generated
+CLI remains a client of the single endpoint. No productivity or elapsed-speed benefit is measured.

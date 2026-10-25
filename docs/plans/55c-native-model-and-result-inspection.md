@@ -1,6 +1,6 @@
 ---
 title: "Plan 55c: Native model and result inspection"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -83,9 +83,9 @@ precedes readable materialization while retaining required original full-batch v
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | in-progress | 55c | Exact native declaration/inspection/comparison adapted with explicit source/physical/policy cuts |
-| C02 | in-progress | 55c | Native context representation and selected nested values make a representative result readable |
-| C03 | in-progress | 55c | All affected native/public/generated consumers and scientific examples use the new contracts |
+| C01 | complete | 55c | Exact native declaration/inspection/comparison adapted with explicit source/physical/policy cuts |
+| C02 | complete | 55c | Native context representation and selected nested values make a representative result readable |
+| C03 | complete | 55c | All affected native/public/generated consumers and scientific examples use the new contracts |
 
 <a id="C01"></a>
 ### C01 — Model-development observations through the native boundary
@@ -157,11 +157,37 @@ fixture values survive their exact route without changed strings/lists/nulls/con
 client/native wire or source cuts refuse before effects. The component/public Python/native
 journeys selected in 55f exercise the consumer changes, not just generated-code equality.
 
-## Verification and current checkpoint
+## Verification and Outcome — 2026-10-25
 
-**Proposed verification:** meaningful native unit cases, selected original-boundary tests and
-one protected-result/model-development component journey; only affected targets need compile
-checks during functional work, with explicit force-validation where required. Broad scientific
-qualification and speed measurement are not implied. No implementation/probe/compile was run
-for this authoring. Exact fixture identity and descriptor extent are bounded C02 implementation
-inputs; Rust ownership and the useful nested/context target are already selected here.
+**Implemented:** C01–C03 deliver exact native model declaration/inspection/comparison access and
+version-two protected result inspection throughout Rust, PyO3, generated Python, public Python,
+MCP and CLI. Declaration windows select IDs before cloning bodies. Typed struct/list paths,
+shallow child/context pages, scalar-width/IEEE/null distinctions and original-window continuation
+remain native. Schema/metadata reads acquire no data batches; selected values retain original
+full-batch admission/validation and protection. Version-one inspection requests refuse before
+current-body decoding. No compatibility implementation remains.
+
+**Tested:** the force-validated native `pse-runtime` nextest selection (original `scripts/select.py` route) selected pure population passed
+13 tests and its selected canonical population passed four tests, both against zero failures.
+The latter includes original physical context/exact IPC, nested paths/continuation, nonempty
+multi-page reads under the original 256 MiB observer/two compiler leases and connected exact-range
+cancellation. A real canonical model declarations→explain→inspect→compare journey passed with
+explicit original preparation policy and changed-source observations. Public native boundary
+and generated-stub consumers passed all 50 selected Python unit cases. Exact filters, original
+invocations and local evidence belong to [55f](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25).
+
+**Tested, actual readable value:** a single existing LP fixture point produced a real retained
+`runtime.study_outcomes` row. Public-native JSON and a fresh MCP read were equal; independently
+expected source row zero and nested `state = fresh` were observed, then reopened on another
+connection at the same manifest without scientific replay. This is usable inspection evidence,
+not proof of scientific usability: the original document reports usability unknown, and explicit
+metadata deferral keeps context/readable completeness false.
+
+**Corrected design detail:** composite logical-type metadata repeated recursive trees and filled
+the existing 64 KiB response bound before values. Only that composite entry is now deferred with
+its exact key/byte count, including ancestor omissions. Other scientific/extension metadata stays
+inline; the original metadata reader supplies exact supplementary bytes or refuses indivisible
+oversize. The bound was not raised. Independent final source review found no material issue;
+that static judgment does not replace actual tests. The original tuple/list comparator failure
+and invalid harness source/admission attempts remain recorded. No decoding speed, general solve
+qualification or complete-context claim is made.

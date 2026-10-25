@@ -1,6 +1,6 @@
 ---
 title: "Plan 55: MCP development effectiveness"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -13,7 +13,7 @@ doc_topics: [current-work, design, environment, diagnostics, validation]
 
 ## Target and authorization
 
-**Proposed:** make the canonical capability interface a useful working route for Codex to
+**Implemented:** make the canonical capability interface a useful working route for Codex to
 understand changes, find their authoritative producers, inspect scientific meaning, choose and
 perform appropriate validation, make controlled edits and explain execution. Add faithful
 Cyclopts-derived access when the host's MCP attachment is stale or unavailable. Developer use
@@ -23,9 +23,9 @@ agent consumers benefit from the same contracts.
 The maintainer authorized creation of this new series on 2026-10-25 from the
 [MCP development-effectiveness review](../functional_reviews/mcp-development-effectiveness-2026-10-25.md).
 All O01–O16 and their material recommendations, alternatives and uncertainty have an owner below.
-The maintainer selected **investigate, then decide** for O03/O11/O12/O16: their inquiries are
-planned, but adding their optional mechanisms is not presumed necessary. This authoring does
-not authorize production implementation. The source review remains evidence, not live status.
+The maintainer selected **investigate, then decide** for O03/O11/O12/O16: their inquiries were required, while optional delivery depended on the recorded judgment.
+The maintainer subsequently authorized the entire implementation and positive inquiry selections
+on 2026-10-25. The source review remains evidence, not live status.
 
 The coordinator owns the combined target, opportunity dispositions, shared decisions and series
 completion. Companions own package state and detailed acceptance. Current code and architecture
@@ -113,27 +113,28 @@ because MCP gains access to them.
 
 ## Opportunity dispositions
 
-These are planned dispositions, not implementation claims. Each opportunity has one primary
-work owner; contributing packages do not create another status ledger.
+These are final delivery/inquiry dispositions. Each opportunity has one primary work owner;
+contributing packages do not create another status ledger. Package Outcomes and 55f retain the
+actual acceptance boundaries, rather than transferring a pass to unexercised scope.
 
 | Opportunity | Disposition | Work owner | Completion or trigger |
 |---|---|---|---|
-| [O01](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O01) | scheduled | [55a A02](55a-capability-contracts-clients-and-recovery.md#A02) | Faithful schema-derived CLI, same-connection selection, operation compatibility and original references |
-| [O02](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O02) | scheduled | [55a A03](55a-capability-contracts-clients-and-recovery.md#A03) | Distinct stale attachment/startup/prerequisite/lost-ACK routes, actual host refresh assessment |
-| [O03](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O03) | scheduled inquiry | [55d D03](55d-editing-validation-and-regression-experiments.md#D03) | Decide foreground session, native saved-preview adoption or explicit limitation; D04 is conditional |
-| [O04](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O04) | scheduled | [55a A04](55a-capability-contracts-clients-and-recovery.md#A04) | Explain one actual typed request without silently preparing/admitting it |
-| [O05](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O05) | scheduled | [55d D01/D02](55d-editing-validation-and-regression-experiments.md#D01) | Original affected closure and comparable prior evidence with reasons/unknowns, no automatic pruning |
-| [O06](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O06) | scheduled | [55b B02/B03](55b-structured-change-context-and-knowledge.md#B02) | Genuine attributed producer relationships and one useful change-to-evidence inquiry |
-| [O07](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O07) | scheduled | [55b B01](55b-structured-change-context-and-knowledge.md#B01) | Existing indexed query/explain through typed access with explicit generation/freshness |
-| [O08](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O08) | scheduled | [55c C01](55c-native-model-and-result-inspection.md#C01) | Exact native declaration/inspection/comparison access with honest admission effects |
-| [O09](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O09) | scheduled | [55c C02/C03](55c-native-model-and-result-inspection.md#C02) | A representative nested scientific value becomes readable with sufficient context |
-| [O10](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O10) | scheduled | [55a A01](55a-capability-contracts-clients-and-recovery.md#A01) | Directional examples and meaningful outcome variants; C03 supplies native examples and migration |
-| [O11](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O11) | scheduled inquiry | [55d D05](55d-editing-validation-and-regression-experiments.md#D05) | Evaluate one real migration; D06 only after positive adoption |
-| [O12](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O12) | scheduled inquiry | [55d D07](55d-editing-validation-and-regression-experiments.md#D07) | Evaluate comparison/bisect consumer, predicate and isolation; D08 only after positive adoption |
-| [O13](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O13) | scheduled | [55e E01](55e-diagnostics-and-investigation-handoffs.md#E01) | Instrument-specific filters/grouping preserve the selected population and estimate semantics |
-| [O14](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O14) | scheduled | [55e E02](55e-diagnostics-and-investigation-handoffs.md#E02) | Explain an exact invocation across original owners without equating telemetry with outcome |
-| [O15](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O15) | scheduled | [55e E03](55e-diagnostics-and-investigation-handoffs.md#E03) | Question-bearing retained handoff follows original references without replay |
-| [O16](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O16) | scheduled inquiry | [55e E04](55e-diagnostics-and-investigation-handoffs.md#E04) | Compare existing reads with a query-specific packet; E05 only after positive adoption |
+| [O01](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O01) | complete | [55a A02](55a-capability-contracts-clients-and-recovery.md#A02) | Faithful schema-derived CLI, same-connection selection, operation compatibility and original references |
+| [O02](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O02) | complete | [55a A03](55a-capability-contracts-clients-and-recovery.md#A03) | Distinct stale attachment/startup/prerequisite/lost-ACK routes, actual host refresh assessment |
+| [O03](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O03) | complete inquiry | [55d D03](55d-editing-validation-and-regression-experiments.md#D03) | Foreground session selected and accepted; no crash-durable adoption |
+| [O04](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O04) | complete | [55a A04](55a-capability-contracts-clients-and-recovery.md#A04) | Explain one actual typed request without silently preparing/admitting it |
+| [O05](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O05) | complete | [55d D01/D02](55d-editing-validation-and-regression-experiments.md#D01) | Original affected closure and comparable prior evidence with reasons/unknowns, no automatic pruning |
+| [O06](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O06) | complete | [55b B02/B03](55b-structured-change-context-and-knowledge.md#B02) | Genuine attributed producer relationships and one useful change-to-evidence inquiry |
+| [O07](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O07) | complete | [55b B01](55b-structured-change-context-and-knowledge.md#B01) | Existing indexed query/explain through typed access with explicit generation/freshness |
+| [O08](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O08) | complete | [55c C01](55c-native-model-and-result-inspection.md#C01) | Exact native declaration/inspection/comparison access with honest admission effects |
+| [O09](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O09) | complete | [55c C02/C03](55c-native-model-and-result-inspection.md#C02) | A representative nested scientific value becomes readable with sufficient context |
+| [O10](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O10) | complete | [55a A01](55a-capability-contracts-clients-and-recovery.md#A01) | Directional examples and meaningful outcome variants; C03 supplies native examples and migration |
+| [O11](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O11) | complete inquiry | [55d D05](55d-editing-validation-and-regression-experiments.md#D05) | Finite JSON migration selected and accepted through shared edit custody |
+| [O12](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O12) | complete inquiry | [55d D07](55d-editing-validation-and-regression-experiments.md#D07) | Existing direct experiment route retained; D08 deferred at its concrete-consumer trigger |
+| [O13](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O13) | complete | [55e E01](55e-diagnostics-and-investigation-handoffs.md#E01) | Instrument-specific filters/grouping preserve the selected population and estimate semantics |
+| [O14](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O14) | complete | [55e E02](55e-diagnostics-and-investigation-handoffs.md#E02) | Explain an exact invocation across original owners without equating telemetry with outcome |
+| [O15](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O15) | complete | [55e E03](55e-diagnostics-and-investigation-handoffs.md#E03) | Question-bearing retained handoff follows original references without replay |
+| [O16](../functional_reviews/mcp-development-effectiveness-2026-10-25.md#O16) | complete inquiry | [55e E04](55e-diagnostics-and-investigation-handoffs.md#E04) | Existing exact query/explain/engine readers retained; E05 deferred at its correlation-gap trigger |
 
 ### Inquiry decisions
 
@@ -146,13 +147,15 @@ The coordinator disposition links the package's decision rather than duplicating
 
 ### Rule decisions
 
-No rule change is selected by document creation on 2026-10-25. The additional CLI consumer fits the existing
-single-interface direction; no existing scientific or edit-admission guarantee is relaxed.
+No rule relaxation was selected. The original document-creation boundary remains historical.
+The additional CLI consumer fits the existing single-interface direction; no existing scientific or edit-admission guarantee is relaxed.
 Before implementation, use the current decision route for a fired deferred-decision trigger,
 native boundary/relation changes or a changed preview lifetime/authorization contract. Any actual
 rule change must be explicitly presented to the maintainer and confirmed before dependent work.
 Ordinary exact dependency additions/tooling changes require no ADR solely for that reason.
-Accepted ADRs and architecture pages are not amended by this authoring.
+Implementation extended proposed ADR-0224 before native inspection v2 changes; its formal
+status remains proposed. Maintainer-authorized enduring publication is recorded at blueprint
+revisions 272/273. Existing accepted ADRs were not amended.
 
 ## Dependencies and execution route
 
@@ -176,37 +179,42 @@ limits. There is no required fresh exhaustive feature matrix, solver fleet or pe
 campaign merely because the interface grows. Broaden checks only for changed behavior or a
 diagnosed unresolved risk.
 
-## Verification and completion
+## Verification and Outcome — 2026-10-25
 
-**Proposed verification:** companions name revealing targeted checks; 55f owns composed
-qualification. Hand-specified argument/value/context expectations challenge loss or fabrication
-independently of the generated transformations. Existing source-review probes remain earlier
-evidence, not current implementation acceptance. No speed, context-token or productivity benefit
-is measured by authoring these documents.
+**Implemented:** all selected A01–A04, B01–B03, C01–C03, D01–D06, E01–E03 and F01–F03 delivery
+is complete. O03/O11 inquiries selected foreground session editing and the existing finite
+structural migration; both were delivered and actually exercised. O12/O16 inquiries selected
+existing direct routes, with D08/E05 explicitly deferred at their package-owned observable
+triggers. O01–O16 therefore have no unresolved selection or required delivery in this series.
 
-Series completion requires all selected delivery packages accepted at their stated boundaries,
-every inquiry explicitly decided, every resulting selected conditional delivery completed,
-O01–O16 reconciled, relevant final checks against zero and enduring publication. A truthful
-refusal alone cannot close O09's new readable-value capability. Deferred optional work keeps its
-owner/trigger and does not become an unmarked completion requirement.
+**Tested:** [55f's Outcome](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25)
+owns the composed local Linux qualification: 2,277 setup cases, 50 rebuilt public-native Python
+unit cases, selected force-validated Rust/native/model/result/knowledge controls, actual canonical
+MCP/CLI journeys, corrected static failures and manual checks against zero. It records exact
+commands, original evidence, unavailable historical fixture, repaired failures and exclusions.
+These are selected interface/developer/scientific-read boundaries, not a fresh whole-product
+qualification or a measured productivity/speed improvement.
 
-## Current checkpoint
+The user additionally requested an implementable host restart route. Guarded `just capability
+reconnect` uses the installed Codex app-server API and queues a global refresh; a fresh actual
+Codex attachment subsequently exercised current model-exposed tools. The root's already-active
+old attachment remains a distinct observation, with turn-boundary/new-context refresh documented.
+No automatic effect replay, configuration rewrite or hot reloading was added.
 
-The maintainer authorized the entire series on 2026-10-25, including worthwhile positive
-inquiry outcomes within existing contracts. The first integrated functional slice implements
-shared lifetime metadata, schema-derived independent CLI/diagnosis, intended-request explanation,
-indexed knowledge and genuine source/evidence assertions, native modeling/result inspection,
-affected-selection/evidence applicability, finite metric vocabulary and question-bearing handoffs.
-Native declarations are being corrected to select their page before hydration.
+**Corrected mistakes and deliberate decisions:** actual journeys exposed missing child environment
+inheritance, duplicate governing-section extents, version-two native custody admission, and recursive
+composite metadata that exhausted the unchanged 64 KiB inspection bound. Repairs preserve original
+owners, exact meaning and explicit partial-context limits. A tuple/list test-harness comparator
+was corrected by comparing original JSON, preserving its initial failed receipt. Overlapping
+same-target Clippy variants encountered the already-documented Cargo lock cycle; cancelling only
+the owned blocked variant and running those variants sequentially restored progress with 32
+compiler jobs and no memory cap. The narrow schema-derived CLI emitter, foreground-only custody
+and optional feature deferrals are recorded in their package Outcomes.
 
-The O03 inquiry selected a foreground JSONL session and O11 selected the existing finite JSON
-source migration through shared edit custody. A real five-request canonical CLI session completed
-preview/detail/apply/reconcile/release. O12/O16 retain their existing native readers with explicit
-revisit triggers at their package owners. Native compile checks and focused tooling tests have
-run; Rust test bodies, rebuilt public Python, assembled native/knowledge journeys and scope-end
-qualification remain open. The fresh CLI probe succeeds independently; the current Codex
-attachment remains stale and is not counted as refreshed-host acceptance.
-
-The next work is the native review repair and integrated commit, followed by a stable-source
-qualification batch, actual consumer journeys and enduring publication. No productivity or speed
-benefit has been measured, and no broad solver/feature campaign is introduced.
+**Publication and lifecycle:** enduring contracts/operating routes are at blueprint §21.1/§21.5,
+§23.1/§24.1/§24.2 and the capability interface/environment guides. Plan55 is removed from Current
+publication. This highest-numbered series and consumed review remain retained for qualification
+and proposed-ADR readers; they authorize no new work. Native scope tables retain one status owner.
+All final owned test contexts/scopes drained and their fixture/initializer copies were retired by
+the original owner. Earlier failed-fixture evidence and unrelated data/caches are preserved;
+there is no remaining worktree or owned background campaign for this series.

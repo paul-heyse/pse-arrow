@@ -1307,6 +1307,32 @@ ordinary baseline and deferred those additions under R-55. Inquiries do not depl
 distribution or other-platform qualification is inferred. Other plans and proposed ADR decisions
 retain their independent authority.
 
+Selected Plan55 developer-interface acceptance of 2026-10-25 belongs to the
+[Plan55f Outcome](../../plans/55f-qualification-and-publication.md#verification-and-outcome--2026-10-25).
+Local Linux qualification composes 2,277 setup cases, 50 rebuilt public-native boundary unit
+cases, selected force-validated Rust/model/result/knowledge tests and actual canonical MCP/CLI
+journeys. It includes foreground edit custody, attributed indexed source/evidence inquiry,
+model declaration/inspection/comparison, original retained investigation reopening and one real
+protected nested LP outcome value. The actual value survives the original public-native and MCP
+JSON paths, while deferred composite logical-type metadata keeps context/readable completeness
+false and scientific usability unknown. This does not establish complete physical interpretation
+or unexercised scientific correctness.
+
+Default/no-default/linked-native Clippy, repaired hygiene leaves, generated/public-stub equivalence,
+governance, native contract/data and documentation checks pass at the Outcome's conditions. The
+initial failed static/test/controller runs and successful affected repairs remain distinct. The
+original selected historical fixture was unavailable and preserved; an explicitly owned fixture
+supplied the passing canonical journey and normal final stop/drain/retirement.
+
+Guarded Codex app-server reload queued a global refresh, and a subsequent actual Codex attachment
+used current model-exposed tools with correct checkout/interpreter and no restart requirement.
+The root's already-active older attachment is a separate observation; fresh clients do not prove
+in-place refresh. No automatic replay or hot reloading is established. Completed optional
+experiment/query-packet inquiries retain existing direct readers and concrete-consumer deferrals.
+No fresh exhaustive feature matrix, whole solver fleet/parity, distribution, other platform,
+backend performance/causality or productivity/speed benefit was qualified. This selected evidence
+does not replace the historical full-product basis. Proposed ADR-0224 remains proposed.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

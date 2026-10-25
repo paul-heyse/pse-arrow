@@ -1,6 +1,6 @@
 ---
 title: "Plan 55d: Editing, validation and regression experiments"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -55,12 +55,12 @@ conceptual relationship.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | planned | 55d | Existing affected selection is available with exact reasons/population/unknowns |
-| D02 | planned | 55d | Applicable original evidence explains validation choices and preparation versus execution |
-| D03 | in-progress | 55d | Foreground connection selected; actual agent interaction qualification remains |
-| D04 | in-progress | 55d | JSONL foreground session implemented; no endpoint-death durability promise |
+| D01 | complete | 55d | Existing affected selection is available with exact reasons/population/unknowns |
+| D02 | complete | 55d | Applicable original evidence explains validation choices and preparation versus execution |
+| D03 | complete | 55d | Foreground connection selected and actual five-request session accepted |
+| D04 | complete | 55d | JSONL foreground session implemented; no endpoint-death durability promise |
 | D05 | complete | 55d | Four genuine pipeline-review candidates establish finite migration access value; decision below |
-| D06 | in-progress | 55d | Original migration retained through common preview/apply/reconcile owner |
+| D06 | complete | 55d | Original migration retained through common preview/apply/reconcile owner |
 | D07 | complete | 55d | Fixed-predicate direct owner retained; optional adaptation deferred with trigger below |
 | D08 | deferred | 55d | Revisit on an assigned fixed-predicate regression whose native route cannot provide the needed agent handoff |
 
@@ -190,14 +190,14 @@ independently checks the predicate and follows original evidence. Unsupported na
 combinations refuse; interrupted execution settles/restores or reports the remaining obligation.
 No extra execution ledger, scheduler or privileged free-form command runner is introduced.
 
-## Verification and current checkpoint
+## Inquiry decisions and qualification
 
 ### Inquiry decisions — 2026-10-25
 
 D03 selects a foreground JSONL client retaining one endpoint for explicit requests. This uses
 the shell agent's existing interactive process support, without a daemon, detached session or
-saved-handle resurrection. D04 must prove the actual preview/detail/apply/reconcile interaction;
-source-only implementation does not close that consumer acceptance. Endpoint death loses its
+saved-handle resurrection. D04 has proved the actual preview/detail/apply/reconcile/release interaction;
+its evidence is recorded in the Outcome below. Endpoint death loses its
 retained previews; crash-resumable adoption is not selected.
 
 **Tested, bounded:** D05 ran the existing `json_source_bytes` transformation in memory against
@@ -214,7 +214,25 @@ assigned fixed-predicate investigation demonstrates missing agent handoff/contro
 performance comparison likewise has no selected measurement consumer. No new bisect or subjects
 were executed for this decision; existing retained tests are not fresh qualification.
 
-**Proposed verification:** targeted affected-selection/applicability tests and proportionate
-inquiry controls, followed by adopted edit/experiment journeys in 55f. Optional delivery stays
-deferred until its inquiry's positive disposition; all four outcomes must be explicit before
-series close. This authoring ran no subjects, compiler, mutations or experiment worktrees.
+## Verification and Outcome — 2026-10-25
+
+**Implemented:** D01/D02 consume original affected selection and source/mode/profile/feature-bound
+evidence applicability, with exact reasons, unknowns and preparation/execution distinctions.
+Preview is passive and does not compile or discover/run tests. D03/D04 deliver a foreground JSONL
+client retaining endpoint custody. D05/D06 expose the existing finite JSON source migration
+through shared preview/detail/apply/reconcile/release owners; no alternate rewriter or auto-apply
+was introduced. The D07 inquiry is complete and D08 remains explicitly deferred under its table
+trigger; no regression/bisect campaign or performance consumer was selected.
+
+**Tested:** affected/evidence/structural controls, including independently expected Rust,
+registry and Python/native selections, pass in the full 2,277-case setup population. A real
+five-request CLI session completed preview/detail/apply/reconcile/release, with independently
+checked source bytes and normal EOF cleanup. Source-change, omitted/default and unavailable
+ownership controls remain explicit. Native request explanation followed the same original
+compilation receiver and completed successfully. [55f](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25)
+owns exact conditions and evidence; overlapping focused populations are not summed.
+
+**Deliberate limit:** endpoint death loses preview handles; no daemon, saved-handle adoption or
+crash-resumable edit contract was selected. Direct native experiment commands remain available.
+Original assessment references do not prune required validation or turn historical passes into
+current evidence. No performance/productivity improvement was measured.

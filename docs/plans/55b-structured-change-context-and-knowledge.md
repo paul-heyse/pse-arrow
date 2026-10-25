@@ -1,6 +1,6 @@
 ---
 title: "Plan 55b: Structured change context and knowledge"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -64,9 +64,9 @@ No new graph service, ontology registry, Surrealism module, standalone KV or mem
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | in-progress | 55b | Existing native indexed selection/explain is callable with exact source/freshness/cursors |
-| B02 | in-progress | 55b | Authoritative producers emit the selected cross-boundary relationship facts |
-| B03 | in-progress | 55b | A bounded attributable change-to-contract/evidence question uses those facts |
+| B01 | complete | 55b | Existing native indexed selection/explain is callable with exact source/freshness/cursors |
+| B02 | complete | 55b | Authoritative producers emit the selected cross-boundary relationship facts |
+| B03 | complete | 55b | A bounded attributable change-to-contract/evidence question uses those facts |
 
 <a id="B01"></a>
 ### B01 — Adapt indexed questions without changing their authority
@@ -127,10 +127,28 @@ follows a real consumer/contract/evidence path and chooses the correct source ed
 generated paths stay protected. Missing edges are displayed without guessed substitutes; path
 continuation rejects a mismatched question/source cut. Direct source fallback is explicit.
 
-## Verification and current checkpoint
+## Verification and Outcome — 2026-10-25
 
-**Proposed verification:** targeted native query/source producer/adapter tests establish meaning,
-attribution and selective acquisition; one actual assembled edit-planning journey belongs to
-[55f](55f-qualification-and-publication.md). No database deployment/refresh or graph benchmark
-was performed for authoring. Packages remain planned, and speed/productivity benefit is a
-qualitative hypothesis rather than a measured claim.
+**Implemented:** B01–B03 expose the original versioned native knowledge query/explain documents,
+with generation/question-bound continuation and explicit missing-owner/freshness states. Real
+native-stub producers declare governing §21.5. Original source-bound test assessment records
+emit executed support only for explicit contract markers; selected or failed evidence retains
+its actual status. Distinct producer spans and attributions remain distinct; identical section
+extents are deduplicated before indexing. No inferred semantic edges, fallback store or implicit
+service startup is introduced.
+
+**Tested:** the two selected native knowledge wire/admission tests passed through
+`just unit-package pse-operations` with their exact version-first filters; 158 unselected tests
+were excluded. Focused source/knowledge tests and the full 2,277-case setup selection passed.
+Actual indexed query, continuation and explain matched the original native documents; changed
+question/generation refused and a missing owner remained unavailable without startup. The final
+public-native assessment `20261025T124414.207221Z-plan55-final-public-native-982292-e158b9`
+supplied one executed §21.5 fact/support edge and three exact producer/output triples. The agent
+reopened source at its current digest and chose the original Rust stub emitter/PyO3 declaration,
+preserving generated-output protection. Dynamic consumers remain unknown.
+
+**Corrected mistake:** actual indexed traversal exposed duplicate governing-section extents from
+three legitimate producers. Deduplicating the whole identical extent, rather than producer
+assertions or different spans, restored attributable paging. Original failed evidence is retained.
+See [55f](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25) for exact
+local receipts and positive original fixture teardown. No graph/productivity benchmark is claimed.

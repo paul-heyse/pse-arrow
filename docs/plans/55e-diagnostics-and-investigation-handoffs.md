@@ -1,6 +1,6 @@
 ---
 title: "Plan 55e: Diagnostics and investigation handoffs"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/functional_reviews/mcp-development-effectiveness-2026-10-25.md]
@@ -63,9 +63,9 @@ custody/cursors and explicit export effects, not another agent memory store or a
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| E01 | planned | 55e | Instrument-specific metric filters/grouping with exact declared population and estimate limits |
-| E02 | planned | 55e | One-invocation explanation composes original execution/preparation/observation facts |
-| E03 | planned | 55e | Question-bearing retained handoff follows original references without replay |
+| E01 | complete | 55e | Instrument-specific metric filters/grouping with exact declared population and estimate limits |
+| E02 | complete | 55e | One-invocation explanation composes original execution/preparation/observation facts |
+| E03 | complete | 55e | Question-bearing retained handoff follows original references without replay |
 | E04 | complete | 55e | Separate exact query/explain/engine readers retained; decision below |
 | E05 | deferred | 55e | Revisit when an assigned investigation cannot express needed query/index/engine correlation through existing typed reads |
 
@@ -171,7 +171,7 @@ problem, follows original raw facts and sees missing/unsupported observations. N
 query execution or service startup occurs during a passive read. A failed/partial component
 does not erase independent observations or claim causality.
 
-## Verification and current checkpoint
+## Inquiry decision
 
 ### E04 inquiry decision — 2026-10-25
 
@@ -184,8 +184,28 @@ composition value was demonstrated. Retain separate reads and defer E05. Revisit
 assigned investigation repeatedly needs a correlation those typed routes cannot express.
 This is static owner-contract evidence, not a reproduced slow query; no ANALYZE/backend was run.
 
-**Proposed verification:** targeted declaration/query/expression/retention tests, controlled
-small backend populations where needed, and actual original-work/handoff journeys in 55f.
-Queries have existing finite time/response bounds; no new retention/throughput claim is measured.
-All implementation remains planned; E04 is an inquiry and E05 remains conditional. No backend,
-service, telemetry capture or query workload was started for authoring.
+## Verification and Outcome — 2026-10-25
+
+**Implemented:** E01–E03 provide per-instrument finite filter/grouping domains, original invocation
+and assessment explanations, and version-two question-bearing retained investigation handoffs.
+Host views preserve actual selected/reported/failed populations, stage/drain unknowns, sampled
+or inclusive timing and unexecuted next-reader suggestions. Native custody admits declared JSON
+versions one and two with exact actual-header checks; unknown versions/header-body mismatches
+refuse. No new telemetry pipeline, mutable execution ledger or automatic analysis is introduced.
+E04 is complete; E05 remains deferred under its concrete correlation-gap trigger.
+
+**Tested:** diagnostic/migration/retention controls pass in the full 2,277-case setup population.
+Actual source-only MCP discovery exposed finite metric dimensions; invalid combinations refused
+before querying and a valid request against an absent backend reported unavailable, not empty.
+Actual original assessment/invocation reads retained real counts and unknown preparation/drain
+facts. A native export then endpoint teardown/new connection reopened the same question,
+continued original selections, retained unavailable-owner detail and followed the real assessment.
+The derived CLI under the original native environment reopened the same retained page; a plain
+CLI without that prerequisite correctly reported unavailable. Native admission controls include
+all eight negative version/header cases. [55f](55f-qualification-and-publication.md#verification-and-outcome--2026-10-25)
+owns the exact receipts and exclusions.
+
+**Corrected mistake:** the host produced a version-two investigation, but the original native
+custody whitelist still allowed version one only. Extending that exact declared protocol and
+retaining version-first checks repaired the real consumer, without loosening arbitrary JSON
+admission. No new backend throughput, query causality or live telemetry continuity is claimed.

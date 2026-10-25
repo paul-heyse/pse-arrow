@@ -8,7 +8,6 @@ pagefind = "1.5.2"
 [publication]
 exclude = ["SUMMARY.md", "generated/rustdoc/**"]
 current_work = [
-  "plans/55*.md",
   "plans/28*.md",
   "plans/32-workspace-content-lifecycle.md",
   "plans/40*.md",

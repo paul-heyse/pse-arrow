@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-07, DP-21, PS-10, PS-12]
 blueprint: [§19.2, §21.1, §21.5, §23.2]
 review: "not-required: scoped native inspection/diagnostic binding within existing Rust-authoritative boundaries; Plan52l and usability RC01 selected by maintainer"
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A concrete inspection needs another scientific query authority or decoding loses native interpretation or protection.
@@ -33,7 +33,8 @@ scientific model, schema, source, outcome, result protection and native admissio
 The maintainer explicitly selected compact readable physical values as part of Plan52l execution.
 On 2026-10-25 the maintainer authorized Plan55's complete execution, including a version-two
 extension for nested readable values and bounded exact context. The original selected evidence
-below retains its earlier scope; version-two implementation and qualification are not yet claimed.
+below retains its earlier scope; the subsequent Plan55 confirmation records version-two
+implementation and its selected qualification separately.
 
 ## Drivers
 
@@ -100,6 +101,18 @@ the bounded main-branch fresh-Codex journey passed nineteen stages. The
 records commands, original cuts, negative/refusal/lifetime controls and the distinct final
 preparation checks. These establish the stated selected contracts, not whole-product
 qualification or measured benefit; proposed decision status is unchanged.
+
+**Implemented/Tested, 2026-10-25:** Plan55 delivered version-two typed nested paths, shallow
+context/child/metadata pages and original-window continuation across Rust/PyO3/public Python/MCP.
+The selected force-validated native result/model controls, four canonical protected-result
+controls and 50 public-native boundary unit cases passed. An actual public-native/fresh-MCP
+retained LP outcome read matched original JSON and independently expected nested `state=fresh`,
+then reopened at the same manifest on a new connection. Explicit composite logical-type metadata
+omission keeps context/readable completeness false; scientific usability remains unknown. The
+original metadata reader retains exact supplementary bytes and indivisible oversize refusal.
+The [Plan55f Outcome](../plans/55f-qualification-and-publication.md#verification-and-outcome--2026-10-25)
+records commands, repaired failures, original cleanup and exclusions. No whole-product,
+complete-context or speed claim follows, and formal decision status remains proposed.
 
 ## Pros and cons
 
