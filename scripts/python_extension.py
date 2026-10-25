@@ -590,15 +590,18 @@ def preparation_environment_identity(environment: Mapping[str, str]) -> dict[str
     watch state describe how to restore the invoking shell, while the Codex
     identifiers route the invoking session, and SHLVL records shell nesting.
     Unknown variables remain bound.
-    Scientific execution provenance retains its independent full environment.
+    The invocation-selected scientific capsule is a runtime input, separately
+    bound by scientific execution provenance rather than the extension build.
+    Rust fixture forwarding retains its independent full environment identity.
     """
-    from scripts import native_tests  # noqa: PLC0415
+    from scripts import native_tests, scientific_inputs  # noqa: PLC0415
 
     return native_tests.rust_environment_identity(
         {
             name: value
             for name, value in environment.items()
             if name not in PREPARATION_SESSION_ENVIRONMENT
+            and name != scientific_inputs.ROLE
         }
     )
 

@@ -1294,7 +1294,7 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     retained = definition.variants.variants
     assert retained.source == msgspec.convert(
         package.operation_source,
-        type=documents.OperationSourceBody,
+        type=documents.OperationSourceBodyOutput,
         from_attributes=True,
     )
     assert retained.selected[0].point.policy.key == 17

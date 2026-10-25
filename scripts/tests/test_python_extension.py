@@ -25,6 +25,7 @@ from scripts import (
     native_operation,
     native_tests,
     python_extension,
+    scientific_inputs,
 )
 from scripts.tests.test_arrow_validation import Cargo, graph, package, unit
 
@@ -895,6 +896,47 @@ class PreparationCurrencyTests(unittest.TestCase):
                         {**self.environment, key: "actual-selection"}
                     ),
                 )
+
+    def test_scientific_runtime_capsule_is_separate_from_extension_and_bound_by_rust_fixture(
+        self,
+    ) -> None:
+        capsule = self.root / "scientific-inputs.json"
+        capsule.write_bytes(b"original runtime scientific bytes")
+        other = self.root / "other-scientific-inputs.json"
+        other.write_bytes(capsule.read_bytes())
+        first = {**self.environment, scientific_inputs.ROLE: str(capsule)}
+        second = {**self.environment, scientific_inputs.ROLE: str(other)}
+        self.assertEqual(
+            python_extension.preparation_environment_identity(first),
+            python_extension.preparation_environment_identity(second),
+        )
+        self.assertNotEqual(
+            native_tests.rust_environment_identity(first),
+            native_tests.rust_environment_identity(second),
+        )
+        provenance = self.root / "scientific-provenance.json"
+        provenance.write_text(
+            json.dumps(
+                {
+                    "files": {
+                        str(capsule): hashlib.sha256(capsule.read_bytes()).hexdigest()
+                    },
+                    "rust_invocation": {
+                        "fixtures": {scientific_inputs.ROLE: str(capsule)},
+                        "environment": native_tests.rust_environment_identity(first),
+                    },
+                }
+            )
+        )
+        self.assertEqual(
+            native_tests.rust_fixture_bindings(provenance, first),
+            {scientific_inputs.ROLE: str(capsule)},
+        )
+        with self.assertRaisesRegex(ValueError, "binding differs"):
+            native_tests.rust_fixture_bindings(provenance, second)
+        capsule.write_bytes(b"changed runtime scientific bytes")
+        with self.assertRaisesRegex(ValueError, "artifact changed"):
+            native_tests.rust_fixture_bindings(provenance, first)
 
     def test_session_transport_changes_reuse_preparation_but_unknown_build_inputs_invalidate(
         self,
