@@ -5214,6 +5214,18 @@ class SurrealSupervisorTests(unittest.TestCase):
         profile = self.allocation.profile
         owner = {"pid": -1, "start": "ended", "class": profile.name, "memory": profile.memory, "lane": profile.lane, "slots": profile.slots, "cores": list(profile.cores), "exclusive": profile.exclusive, "deadline": launch["deadline"], "service": str(self.state), "units": {server.unit_name(self.state): {}}}
         deadline = time.monotonic() + 5
+        shared = {**owner, "borrowed_services": [str(self.root / "unrelated")], "units": {server.unit_name(self.state): {}, "unrelated.service": {}}}
+        with (
+            patch.object(host, "unadmitted_service_launch_drained", return_value=True),
+            patch.object(host, "readonly_snapshot", return_value={"owners": {nonce: shared}}),
+            patch.object(server, "stop") as untouched,
+            patch.object(host.Allocation, "release", autospec=True) as retained,
+            self.assertRaisesRegex(server.SupervisorError, "dedicated"),
+        ):
+            server.settle_legacy_telemetry_launch(self.state, config, history, deadline=deadline)
+        untouched.assert_not_called()
+        retained.assert_not_called()
+        self.assertEqual(server.read_json(path), launch)
         with (
             patch.object(host, "unadmitted_service_launch_drained", return_value=True),
             patch.object(host, "readonly_snapshot", side_effect=[{"owners": {nonce: owner}}, {"owners": {}}]),

@@ -747,9 +747,12 @@ def settle_legacy_telemetry_launch(
     if record is not None:
         if (
             (record.get("service") != str(state) and str(state) not in record.get("borrowed_services", []))
+            or record.get("service") not in {None, str(state)}
+            or any(selected != str(state) for selected in record.get("borrowed_services", []))
+            or set(record["units"]) != {unit_name(state)}
             or record["units"].get(unit_name(state)) != launch.get("binding", {})
         ):
-            raise SupervisorError("Legacy allocation does not own this exact launch")
+            raise SupervisorError("Legacy allocation must be dedicated to this exact launch; settle its enclosing owner first")
         profile = host_admission.Profile(
             record["class"], record["memory"], record["lane"], record["slots"],
             tuple(record["cores"]), record["exclusive"],
