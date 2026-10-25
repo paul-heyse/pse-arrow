@@ -119,6 +119,10 @@ class TerminalComposerTests(unittest.TestCase):
             "RUST_MIN_STACK": "16777216",
             "PSE_TEST_REQUIRED_ROLES": "",
         }
+        # This control owns a fresh Rust invocation, independently of the host
+        # suite's outer Python invocation. Its parent authority must be restored.
+        environment.pop(resources.MARKER, None)
+        prior_invocation = os.environ.get(resources.MARKER)
 
         def launch(_state: Path, command: list[str], **_kwargs: object) -> int:
             self.assertNotIn("PSE_WORKER_BINARY", os.environ)
@@ -163,6 +167,7 @@ class TerminalComposerTests(unittest.TestCase):
             self.assertEqual(os.environ["PSE_WORKER_BINARY"], "/stale/worker")
         observer.assert_called_once()
         direct.assert_not_called()
+        self.assertEqual(os.environ.get(resources.MARKER), prior_invocation)
 
     def test_workerless_observer_child_uses_the_same_strict_preparation_owner(
         self,
@@ -202,6 +207,8 @@ class TerminalComposerTests(unittest.TestCase):
             "RUST_MIN_STACK": "16777216",
             "PSE_TEST_REQUIRED_ROLES": "operator-graph,operator-query",
         }
+        environment.pop(resources.MARKER, None)
+        prior_invocation = os.environ.get(resources.MARKER)
         prior = os.environ.get("PSE_TEST_REQUIRED_ROLES")
 
         def launch(_state: Path, _command: list[str], **_kwargs: object) -> int:
@@ -250,6 +257,7 @@ class TerminalComposerTests(unittest.TestCase):
                 test_run.observer_rust(["cargo", "nextest", "run"], environment), 4
             )
         self.assertEqual(os.environ.get("PSE_TEST_REQUIRED_ROLES"), prior)
+        self.assertEqual(os.environ.get(resources.MARKER), prior_invocation)
 
     def test_rust_report_configuration_precedes_libtest_separator(self) -> None:
         command, report = test_run.rust_report_command(

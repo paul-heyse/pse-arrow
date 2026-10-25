@@ -14,6 +14,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.tests import assessment_fixture
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -310,18 +312,12 @@ class RecipeArgumentTests(unittest.TestCase):
             run = root / "run with spaces"
             run.mkdir()
             gate = "literal $(touch injected); $HOME"
-            (run / "checks.json").write_text(
-                json.dumps(
-                    {
-                        "version": 5,
-                        "scope": [{"name": gate, "role": "required"}],
-                        "checks": [],
-                        "complete": False,
-                        "source_unchanged": True,
-                        "baseline_failures": 0,
-                        "provenance_errors": [],
-                    }
-                )
+            assessment_fixture.publish(
+                run,
+                {
+                    "scope": [{"name": gate, "role": "required"}],
+                    "checks": [],
+                },
             )
             result = subprocess.run(
                 ["just", "result", str(run), "--gate", gate, "--json"],
@@ -331,7 +327,7 @@ class RecipeArgumentTests(unittest.TestCase):
                 text=True,
                 check=False,
             )
-            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             report = json.loads(result.stdout)
             self.assertEqual(report["run_path"], str(run))
             self.assertEqual(report["unattempted_scope"][0]["name"], gate)

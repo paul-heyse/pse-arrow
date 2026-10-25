@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import (
+    cargo_tools,
     case_measure,
     native_operation,
     native_tests,
@@ -176,7 +177,7 @@ class ExecutionContracts(unittest.TestCase):
                 command,
                 ["pse-runtime"],
                 native_tests.arrow_validation.Graph(1, [], []),
-                b'{"workspace_root": "/checkout"}',
+                b'{"workspace_root": "/checkout", "packages": []}',
                 b'{"version": 1, "units": [], "roots": []}',
             ),
         )
@@ -187,6 +188,17 @@ class ExecutionContracts(unittest.TestCase):
         )
         source.start()
         self.addCleanup(source.stop)
+        self.nextest_identity = {
+            "name": "cargo-nextest",
+            "version": cargo_tools.versions()["cargo-nextest"],
+            "path": "/owned/cargo-nextest",
+            "sha256": "a" * 64,
+        }
+        self.enterContext(
+            patch.object(
+                cargo_tools, "selected_identity", return_value=self.nextest_identity
+            )
+        )
         composition = patch.object(
             native_tests,
             "correctness_command",
@@ -311,10 +323,16 @@ class ExecutionContracts(unittest.TestCase):
         self.assertEqual(sum("binaries-only" in command for command in commands), 1)
         self.assertIn("--binaries-metadata", commands[-1])
         self.assertEqual(commands[-1][-2:], ["-E", selection])
-        self.assertEqual(run.call_args.args[0][-2:], ["-E", selection])
+        executed = run.call_args.args[0]
+        self.assertEqual(executed.count("-E"), 1)
+        self.assertEqual(executed[executed.index("-E") + 1], selection)
         self.assertIn("--binaries-metadata", run.call_args.args[0])
         self.assertEqual(
             json.loads((self.output / "native-selected.json").read_text()), inventory
+        )
+        self.assertEqual(
+            json.loads(provenance.read_text())["rust_invocation"]["nextest"],
+            self.nextest_identity,
         )
         with (
             patch.dict(
@@ -381,9 +399,9 @@ class ExecutionContracts(unittest.TestCase):
                 native_tests.subprocess,
                 "run",
                 side_effect=[
-                    subprocess.CompletedProcess([], 0, stdout=json.dumps(artifact)),
                     subprocess.CompletedProcess([], 0, stdout="{}"),
                     subprocess.CompletedProcess([], 0, stdout=json.dumps(inventory)),
+                    subprocess.CompletedProcess([], 0, stdout=json.dumps(artifact)),
                 ],
             ) as build,
             patch.object(
@@ -394,7 +412,12 @@ class ExecutionContracts(unittest.TestCase):
             patch.object(test_run, "run_rust", return_value=0) as run,
         ):
             self.assertEqual(native_tests.main(), 0)
-        command = build.call_args_list[0].args[0]
+        commands = [call.args[0] for call in build.call_args_list]
+        self.assertEqual(len(commands), 3)
+        self.assertEqual(commands[0][:3], ["cargo", "nextest", "list"])
+        self.assertEqual(commands[1][:3], ["cargo", "nextest", "list"])
+        command = commands[2]
+        self.assertIn("pse-worker", command)
         self.assertEqual(command[command.index("--profile") + 1], "producer")
         self.assertEqual(run.call_args.kwargs["env"]["PSE_WORKER_BINARY"], str(binary))
         self.assertIn(str(binary), provenance.call_args.args[1])
@@ -445,10 +468,13 @@ class ExecutionContracts(unittest.TestCase):
                 return_value={"files": {str(ROOT / "python/pse/_native.so"): "digest"}},
             ),
             patch.object(native_tests.subprocess, "call", return_value=9),
+            patch.object(native_tests.scientific_inputs, "prepare_python") as prepare,
             patch.object(validation, "compose_terminal") as compose,
         ):
             self.assertEqual(native_tests.main(), 9)
             compose.assert_not_called()
+        prepare.assert_called_once()
+        self.assertEqual(prepare.call_args.args[0], [f"--junitxml={report}"])
 
     def test_standalone_python_composes_once_and_preserves_nonzero_exit(self) -> None:
         report = self.output / "standalone.xml"
@@ -499,12 +525,15 @@ class ExecutionContracts(unittest.TestCase):
             ) as provenance,
             patch.object(native_operation, "run", side_effect=run) as child,
             patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(native_tests.scientific_inputs, "prepare_python") as prepare,
             patch.object(
                 validation, "collect_report", wraps=validation.collect_report
             ) as collect,
         ):
             self.assertEqual(native_tests.main(), 7)
             self.assertEqual(collect.call_count, 1)
+        prepare.assert_called_once()
+        self.assertEqual(prepare.call_args.args[0], [f"--junitxml={report}"])
         receipt = json.loads(report.with_suffix(".terminal.json").read_text())
         self.assertEqual(receipt["status"], "failed")
         self.assertEqual(receipt["results"][0]["status"], "passed")
@@ -561,8 +590,13 @@ class ExecutionContracts(unittest.TestCase):
             ),
             patch.object(native_operation, "run", side_effect=run),
             patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(native_tests.scientific_inputs, "prepare_python") as prepare,
         ):
-            self.assertEqual(native_tests.main(), 0)
+            # The runner refuses the stale report while retaining the actual
+            # successful child status independently in its terminal evidence.
+            self.assertEqual(native_tests.main(), 1)
+        prepare.assert_called_once()
+        self.assertEqual(prepare.call_args.args[0], [f"--junitxml={report}"])
         receipt = json.loads(report.with_suffix(".terminal.json").read_text())
         self.assertEqual(receipt["status"], "failed")
         self.assertEqual(receipt["exit_code"], 0)
@@ -587,10 +621,12 @@ class ExecutionContracts(unittest.TestCase):
                 side_effect=ValueError("no actual native binaries"),
             ),
             patch.object(native_tests.subprocess, "call") as child,
+            patch.object(native_tests.scientific_inputs, "prepare_python") as prepare,
             self.assertRaisesRegex(ValueError, "no actual native binaries"),
         ):
             native_tests.main()
         child.assert_not_called()
+        prepare.assert_called_once()
 
     def test_pure_pytest_run_has_no_git_attribution_or_native_setup(self) -> None:
         (self.output / "conftest.py").write_bytes((ROOT / "conftest.py").read_bytes())
@@ -600,11 +636,20 @@ class ExecutionContracts(unittest.TestCase):
         (self.output / "test_owned.py").write_text(
             'import pathlib, pytest\n@pytest.mark.unit\ndef test_owned(tmp_path):\n    (tmp_path / "output").write_text("owned")\n    pathlib.Path("concurrent.txt").write_text("authorized unrelated edit")\n'
         )
+        environment = dict(os.environ)
+        # This deliberately unmanaged child is a different selected population
+        # from the setup runner; it must not publish into its parent's ledger.
+        environment.pop(test_resources.MARKER, None)
+        environment.pop("PSE_TEST_ENUMERATION", None)
+        environment.update(
+            PYTHONPATH=str(ROOT), PYTEST_DISABLE_PLUGIN_AUTOLOAD="1"
+        )
         result = subprocess.run(
             [
                 sys.executable,
                 "-m",
                 "pytest",
+                "test_owned.py",
                 "-q",
                 "-p",
                 "no:cacheprovider",
@@ -617,11 +662,7 @@ class ExecutionContracts(unittest.TestCase):
             capture_output=True,
             text=True,
             check=False,
-            env={
-                **os.environ,
-                "PYTHONPATH": str(ROOT),
-                "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
-            },
+            env=environment,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(
@@ -636,6 +677,7 @@ class ExecutionContracts(unittest.TestCase):
                     sys.executable,
                     "-m",
                     "pytest",
+                    "test_owned.py",
                     "-q",
                     "-p",
                     "no:cacheprovider",
@@ -646,11 +688,7 @@ class ExecutionContracts(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 check=False,
-                env={
-                    **os.environ,
-                    "PYTHONPATH": str(ROOT),
-                    "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
-                },
+                env=environment,
             )
             self.assertNotEqual(failed.returncode, 0)
             self.assertIn("exactly one", failed.stderr)

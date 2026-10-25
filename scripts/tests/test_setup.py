@@ -24,7 +24,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
-from scripts import build_environment, diagnostic_trace
+from scripts import build_environment, diagnostic_trace, test_requirements
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -99,6 +99,7 @@ class ProducerDeploymentCollectionTests(unittest.TestCase):
         # Exercise the real hooks without importing the native extension or pytest.
         tree = ast.parse((ROOT / "conftest.py").read_text())
         functions = {
+            "_test_requirement",
             "pytest_addoption",
             "_marker_offences",
             "_check_markers",
@@ -125,6 +126,7 @@ class ProducerDeploymentCollectionTests(unittest.TestCase):
         self.plugin.__dict__.update(
             {
                 "pytest": SimpleNamespace(UsageError=ValueError),
+                "test_requirements": test_requirements,
                 "_parity_deselected_key": object(),
                 "_parity_uncollected_key": object(),
                 "_producer_deployment_deselected_key": object(),
@@ -139,7 +141,9 @@ class ProducerDeploymentCollectionTests(unittest.TestCase):
         item.iter_markers.return_value = [
             SimpleNamespace(name=marker) for marker in markers
         ]
-        item.get_closest_marker.side_effect = lambda marker: marker in markers
+        item.get_closest_marker.side_effect = (
+            lambda marker: SimpleNamespace(kwargs={}) if marker in markers else None
+        )
         return item
 
     @staticmethod

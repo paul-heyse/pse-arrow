@@ -1591,6 +1591,9 @@ class PythonSelectionTests(unittest.TestCase):
         environment = dict(os.environ)
         environment.pop("PYTEST_ADDOPTS", None)
         environment["PSE_TEST_ENUMERATION"] = str(selected)
+        # The isolated pytest population owns its own collection. Its parent
+        # setup invocation is neither selected nor open for these identities.
+        environment.pop("PSE_TEST_INVOCATION", None)
         environment["PYTHONPATH"] = str(native_tests.ROOT)
         result = subprocess.run(
             [
