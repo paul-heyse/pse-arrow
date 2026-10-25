@@ -43,6 +43,7 @@ from scripts.capabilities import (
     telemetry_profiles,
 )
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
+from scripts.capabilities.cleanup import settle
 from scripts.capabilities.coherence import LOADED, Interface, install
 from scripts.capabilities.diagnostics import refusal as safe_refusal
 from scripts.capabilities.guidance import Guidance, register_guides
@@ -143,8 +144,7 @@ def build(root: Path = ROOT) -> Runtime:
         try:
             yield {}
         finally:
-            await telemetry.close()
-            await owner.close()
+            await settle(telemetry.close(), owner.close())
 
     server = FastMCP(
         "pse-capabilities",

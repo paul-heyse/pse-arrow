@@ -335,7 +335,7 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I11 | open | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Exact SDK task/context/header propagation and actual database/module parentage; consume TEL01/TEL03 and preserve native deadline/drain authority |
 | I12 | resolved | [G02](52g-agent-and-operator-workflows.md#G02) | Operator selected one canonical FastMCP endpoint on 2026-10-24; optional direct-versus-MCP adoption inquiry superseded. Actual host, schema and lifecycle questions remain Q01–Q06 below; no delivery claim |
 | I13 | open | [G05](52g-agent-and-operator-workflows.md#G05) | Interactive evidence use versus standalone report/plot; no product frontend |
-| I14 | open | [Endpoint lifecycle inquiry](#endpoint-shutdown-inquiry) | Assess the separately observed non-cancellation shutdown exception path after 52k delivery; identify reachable failure/independent cleanup guarantees and select a supported disposition or separately authorized remedy. No Plan53/MCP01 completion dependency or delivery claim. |
+| I14 | resolved | [Endpoint lifecycle inquiry](#endpoint-shutdown-inquiry) | Actual exception controls reproduced lost teardown errors and skipped sibling cleanup. Maintainer selected the bounded repair; independent owners now settle, errors remain visible and cancellation repropagates after settlement. Targeted controls below; no Plan53/MCP01 completion dependency. |
 
 <a id="endpoint-shutdown-inquiry"></a>
 ### Endpoint shutdown inquiry — separate post-delivery concern
@@ -358,6 +358,18 @@ repair owner/acceptance; preserve uncertainty if it cannot yet be settled. A pos
 selection must include independent sibling settlement and truthful retained failures, under the
 endpoint's actual lifetime contract. It does not silently reopen completed MCP delivery, add a
 new required Plan53 package or authorize production correction through this document revision.
+
+**Implemented / Tested — selected I14 repair, 2026-10-24:** the maintainer explicitly selected
+the bounded repair after `build/plan52-i14-inquiry-20261024.json` reproduced the two gaps.
+Endpoint telemetry and specialist cleanup now settle independently; specialist connection exits
+retain their original failures. Repeated observer cancellation cannot abandon selected cleanup;
+it repropagates after settlement with cleanup errors retained as its cause.
+`scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_capability_cleanup`
+passed three controls against zero failures, and the existing specialist suite passed 12.
+The explicit `scripts.tests.plan52_shutdown_inquiry` repair run retained
+`build/plan52-i14-repair-20261024.json`: both actual context/HTTP exception paths attempted all
+independent owners, exposed their failures and left every fixture task settled. This establishes
+the injected local paths, not arbitrary provider/process settlement or a new host campaign.
 
 ## Unified-interface rule decisions
 

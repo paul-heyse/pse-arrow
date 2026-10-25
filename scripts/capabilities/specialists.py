@@ -32,6 +32,7 @@ from pydantic import Field, JsonValue
 
 from scripts import pse_env, semantic_edits, semantic_navigation, surreal_server
 from scripts.capabilities.model import Capability, Contract, Prerequisite
+from scripts.capabilities.cleanup import settle
 from scripts.capabilities.responses import ReadResult, bounded
 
 if TYPE_CHECKING:
@@ -240,6 +241,10 @@ class Connection(Generic[T]):
         except asyncio.CancelledError:
             raise
         except Exception as error:
+            if self.closed:
+                # Context teardown failed after close selected this owner. Keep
+                # the original task exception so close can report it.
+                raise
             if current is not None and not current.done():
                 current.set_exception(error)
             while not self.queue.empty():
@@ -262,9 +267,12 @@ class Connection(Generic[T]):
     async def close(self) -> None:
         self.closed = True
         if self.task is not None:
-            self.task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.task
+            async def stop() -> None:
+                assert self.task is not None
+                self.task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.task
+            await settle(stop())
 
 
 def _tool(tools: ClientTools, name: str, arguments: dict) -> None:
@@ -784,9 +792,7 @@ class Specialists:
             self._previews.clear()
             self._preview_work.clear()
             self._preview_bytes = 0
-        for connection in (*self.languages.values(), self.database):
-            if connection is not None:
-                await connection.close()
+        await settle(*(connection.close() for connection in (*self.languages.values(), self.database) if connection is not None))
 
 
 def bindings(
