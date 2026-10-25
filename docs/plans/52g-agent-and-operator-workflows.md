@@ -140,6 +140,15 @@ observation and unrelated dirty state. Check native outcomes independently of th
 an exposed list alone does not qualify integration. Source-only use survives unavailable native
 services. Two attachments retain independent reveal/context, and reconnect never replays effects.
 A selected CLI consumer, if any, uses MCP04's faithful derivative rather than another interface.
+
+Consume the selected [LIFE04](52n-readiness-progress-and-edit-lifecycles.md#LIFE04)/
+[MCP06](52k-unified-entry-point-and-derived-interfaces.md#MCP06) follow-up in an actual current-checkout
+journey: identify attachment checkout and launch selection → edit same-schema native implementation
+→ observe stale refusal without setup/effects → explicitly prepare → reattach/check as required →
+execute the expected current artifact. Include a changed derived default alongside an intentional
+override and two checkout-bound attachments with independent reveal. Reconnect never replays effects.
+G03 checks that current advertised examples and safe remedies suffice without schema guessing;
+reuse its representative tasks rather than create another agent-evaluation campaign.
 No measured productivity claim is required; behavioral observations and support limits are required.
 
 Consume NAV01's compact instruction-resource index and CON01's meaningful request alternatives

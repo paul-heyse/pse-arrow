@@ -601,6 +601,31 @@ inquiry and I13 remains the operator-view decision; this table does not duplicat
 | TQ04 | resolved | [TEL17](52s-telemetry-queries-and-agent-investigations.md#TEL17) | Actual OSS native scheduled queue/export/storage rules, local delivery/history, missing/stale and disable/read passed. Four fixed conditions selected; explicit control only, no automatic intervention or MCP scheduler. Ordinary selected generation configured; unpublished export-failure stream remains missing. |
 | TQ05 | resolved | [TEL08](52q-local-telemetry-pipeline-and-health.md#TEL08), [TEL16](52s-telemetry-queries-and-agent-investigations.md#TEL16) | [52q's disposition](52q-local-telemetry-pipeline-and-health.md#targeted-execution-outcome--2026-10-24) retains the existing finite capture: the selected standard file exporter does not supply its activation/restoration, drain, sealed publication and retained-reader contract. Revisit substitution only with a concrete composition closing those obligations; TEL16 still owns new custody integration. |
 
+<a id="execution-freshness-amendment--2026-10-24"></a>
+## Execution freshness amendment — 2026-10-24
+
+**Proposed, maintainer-selected:** the current-checkout MCP assessment adds
+[LIFE04](52n-readiness-progress-and-edit-lifecycles.md#LIFE04) and
+[MCP06](52k-unified-entry-point-and-derived-interfaces.md#MCP06) to existing owners. The inspected
+baseline is main `1687016e2`; known serving-source fences, fixed native children and explicit
+preparation already exist. `ReceiptObservation.currency` remains unknown, native dispatch checks
+schema compatibility, and catalogue revision includes schemas/declarations/source identity rather
+than the complete exposed tool wire. These are foundations to extend, not failed prior Outcomes.
+The operator authorized plan amendments, not production implementation or another review campaign.
+
+LIFE04 supplies selected native artifact/source correspondence through existing preparation/admission
+owners. MCP06 consumes it for execution identity and adds effective launch-selection and admitted
+wire-contract agreement. Their shared basis can be designed together; host environment/wire controls
+need not wait for native qualification. G02/G03 compose the real recovery workflow; H01/H02 reconcile
+and qualify it, and H04 publishes actual guarantees and limits. Completed MCP01–MCP05/LIFE01–LIFE03,
+CON/NAV and TEL deliveries retain their Outcomes. New package state belongs only to the table below.
+
+No new rule change, dependency, backend, public scientific boundary or per-call multi-checkout router
+is selected. Existing explicit preparation, one-checkout attachments, zero-failure qualification,
+source-only browsing and native outcome/drain authority remain. Plans53/54 retain preparation/build
+contracts. Optional OPT01/OPT02 adoption consumes these fences without becoming a prerequisite.
+No universal fresh-child policy, per-read global scan or new freshness ledger is introduced.
+
 ## Package state and execution route
 
 This is the single package progress table. The companion links explain prerequisites and
@@ -662,6 +687,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | MCP03 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP03) | Loaded source/worker/schema fences and scoped guidance restart controls delivered; Q06 resolved |
 | MCP04 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP04) | Complete composed reference generated and checked; Q05 resolved with selected CLI deferral |
 | MCP05 | done | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP05) | Bounded interface diagnostics/correlation retain original native outcomes and authentic result owners; see 52k Outcome |
+| MCP06 | planned | [52k](52k-unified-entry-point-and-derived-interfaces.md#MCP06) | Checkout/effective launch selection and complete admitted wire-contract agreement; consumes LIFE04 native basis |
 | CON01 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON01) | Eleven tagged owner requests, independent examples and migrated callers; bounded fresh-Codex acceptance passed |
 | CON02 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON02) | Fourteen typed selected answer families with actual schemas and explicit detail/refusal states |
 | CON03 | done | [52l](52l-typed-requests-results-and-diagnostics.md#CON03) | Safe owner/native decode diagnostics and preserved version/header/trailing/contextual admission |
@@ -673,6 +699,7 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | LIFE01 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE01) | Selected readiness and explicit owner preparation consumers |
 | LIFE02 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic progress/early handles with attached cancellation/drain and reader fallback |
 | LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
+| LIFE04 | planned | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE04) | Current native artifact readiness/admission from existing preparation and source owners |
 | OPT01 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Paused after bounded real-Monty/typed/small-read comparison and dispatch/lifecycle controls; fresh host/final policy remain |
 | OPT02 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Paused after native-owner/task/STDIO-loss/projection inquiry; integrated native recovery, actual host and final selection remain |
 | TEL01 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |

@@ -108,6 +108,12 @@ do not retain a parallel scheduler. Unselected backend infrastructure remains de
 **Proposed:** OPT01 depends on CON01/CON02 and relevant F01/G01 selected-read semantics, not entire
 companion completion. OPT02 follows the delivered LIFE02/native observation comparison. The inquiries
 are independent of each other and neither blocks ordinary contract/guidance/lifecycle improvements.
+If OPT01/OPT02 is adopted, consume [MCP06](52k-unified-entry-point-and-derived-interfaces.md#MCP06)
+and [LIFE04](52n-readiness-progress-and-edit-lifecycles.md#LIFE04): preserve admitted effect/route/schema
+agreement and check the required native basis at actual execution, including delayed execution.
+Initiation-time currency is insufficient after relevant changes; task retries cannot bypass native
+admission or replay unknown effects. These follow-ups do not depend on optional framework adoption.
+
 Use bounded source inspection or focused feasibility probes only where a material question needs
 them; do not install a production path to research feasibility. Exact pins and affected targeted checks
 apply to any deliberately selected dependency, without wholesale lockfile re-resolution.

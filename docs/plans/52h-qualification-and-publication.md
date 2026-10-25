@@ -53,6 +53,9 @@ not production lane/parameter counts or a full Cartesian product of tools/config
 | Native and host contracts | Correct native authoring/hydrated schema plus native admission, local refs/enums/recursion, strict host input, independent absent/null/empty expectations and nested output completeness. |
 | Lazy service failure | Compiler/admission/store unavailable leaves source/offline reads reachable; selected specialist acquisition retains identity, cancellation and owned shutdown without eager launch. |
 | Loaded interface edit | Relevant handler/schema/guide edit requires coherent snapshot/restart, unrelated source edits remain independently inspectable, restart supplies matching new definitions. |
+| Native implementation freshness | Same-schema Rust body edit is stale despite schema/import compatibility; explicit existing-owner preparation restores supported correspondence before native effects. Missing/unsupported evidence stays explicit. |
+| Effective launch selection | Changed derived defaults reach the next selected operation, explicit overrides survive, and process-owned selections disclose reattachment. Independent checkout attachments expose their actual interpreter/context without cross-mutation. |
+| Admitted operation agreement | Changed schema/effect/route refuses before effects on direct and fixed paths; full wire annotations/metadata/transforms have independent expected changes. Current actual Codex renders structured answers/refusals and follows recovery. |
 | Derived consumers | Reference signatures match canonical components; any adopted Cyclopts CLI includes hidden families, activates exact target on fresh connection and preserves null/empty/default/refusal semantics. |
 | Construct a first useful request | An unfamiliar agent uses CON01's schemas/examples for representative concept alternatives and receives independently expected facts or an actionable structural/contextual refusal. |
 | Selected answer and recovery | CON02/CON03 preserve mandatory source/population/completeness, distinguish omitted optional detail from incomplete population, retain safe nested error paths and original native recovery authority. |
@@ -125,7 +128,11 @@ acceptance or automatically add a Plan53 qualification obligation.
 <a id="H01"></a>
 ### H01 — Reconcile actual scope, consumers and inquiry outcomes
 
-Inspect delivered producers/consumers against 52a–52s. Reconcile the original review's O01–O30/
+Inspect delivered producers/consumers against 52a–52s, including the
+[execution freshness amendment](52-agent-effectiveness-and-engineering-workflows.md#execution-freshness-amendment--2026-10-24).
+Reconcile new LIFE04/MCP06 separately from the historical completed LIFE01–LIFE03/MCP01–MCP05
+Outcomes. Native currency, loaded contract compatibility and current launch selection need their
+own evidence; catalogue/transport success does not establish all three. Reconcile the original review's O01–O30/
 RC01–RC09, the unified-interface review's O01–O10/Q01–Q06/RC01–RC05 and the usability review's
 O01–O17/RC01–RC03/U01–U04 at their distinct coordinator tables. Preserve RC01's accepted planning
 direction versus published changes and RC02/RC03's investigation-only selections. Separately
@@ -162,7 +169,11 @@ Codex request→selected answer→next inspection. Native outcomes must agree wi
 Actual notification/negotiation/rendering is required for any host-dependent feature claimed;
 unsupported hosts retain explicit supported ordinary paths. Selected optional infrastructure adds
 its required acceptance here, while inquiry-only/non-adoption outcomes require no production task
-backend, CodeMode or App deployment. Do not launch a broad campaign per companion.
+backend, CodeMode or App deployment. Do not launch a broad campaign per companion. LIFE04/MCP06 add focused negative controls and
+one real native preparation/recovery consumer plus current actual-host conformance; reuse valid
+G02/G03 execution where its source/mode/expectations match. Verify stale refusals have no hidden
+build/sync or native effects. Do not make every negative fixture rebuild the extension, run the
+solver fleet, or duplicate already valid local contract tests.
 Choose current recipes and [qualification guidance](../dev/validation-assessment.md) for actual
 Rust/default/native/Python/host/offline contexts. Reuse applicable valid evidence only through
 its existing source-bound contract; historical replay is not current-source qualification.
@@ -206,6 +217,9 @@ custody, bounded retention and recovery, supported profiling/watch choices and d
 TEL01/FND00 schedule the accepted RC changes; H04 reconciles the resulting enduring owners.
 Include the one-endpoint attachment/reveal procedure, native versus host schema ownership,
 loaded-revision/restart policy, cheap read/effectful admission split and actual CLI adoption/fidelity.
+For LIFE04/MCP06, publish supported admission-time artifact correspondence, environment precedence,
+checkout identity and complete admitted contract agreement, with unsupported/unknown modes and
+explicit prepare/reattach remedies. No claim of an immutable checkout throughout execution follows.
 Publish actual CON/NAV/LIFE contracts: valid query examples, serialized answer/completeness meanings,
 safe remedies, shape-first scientific access, compact guide retrieval, relevant restart boundaries,
 selected preparation, progress fallback and preview release/in-flight retention. Record conditional
@@ -228,8 +242,10 @@ series was authored or because another plan's number is lower.
 **Interface-checked:** source owners and prior Outcomes establish the baseline and integration
 seams described here. CAP/ADP/MCP delivery is recorded at the completed 52i–52k Outcomes and
 coordinator; those packages are not proposed remaining implementation. **Proposed:** remaining
-F/G/H and TEL01–TEL17 work, plus any still-open U/OPT inquiry outcomes or explicitly selected
-optional delivery. CON/NAV/LIFE deliveries retain their recorded Outcomes. Recorded 52a–52e deliveries
+F/G/H, the scheduled LIFE04/MCP06 follow-ups, and any still-open U/OPT inquiry outcomes or explicitly
+selected optional delivery. TEL01–TEL17 retain their delivered scoped Outcomes and separate F02/I11
+and assembled qualification limits; this amendment does not reopen them. CON/NAV/LIFE deliveries
+retain their recorded Outcomes. Recorded 52a–52e deliveries
 and C04's separately denied acceptance retain their exact boundaries; this expanded qualification does not revoke or broaden them. Documentation validation
 and publication establish document usability only. No new product tests, model/service probes,
 compiler campaign or scientific qualification was run to author these amendments; actual

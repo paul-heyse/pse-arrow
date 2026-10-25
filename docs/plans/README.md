@@ -61,7 +61,9 @@ records delivered actual Codex resource/template/prompt/action/result access, re
 fences, complete generated reference and native-owner interface correlation. Its focused Outcome
 closes MCP01–MCP05 and Q01–Q06; the selected CLI deferral retains its concrete-consumer revisit
 trigger. F/G/H retain broader evidence/tracing, assembled agent workflows and series qualification.
-Launch guidance lives in the
+The [execution freshness amendment](52-agent-effectiveness-and-engineering-workflows.md#execution-freshness-amendment--2026-10-24)
+adds LIFE04/MCP06 within 52n/52k, with existing G/H workflow and qualification consumers;
+the earlier completed Outcomes remain intact. Launch guidance lives in the
 [capability interface guide](../dev/capability-interface.md).
 The [usability amendment](52-agent-effectiveness-and-engineering-workflows.md#usability-opportunity-dispositions)
 captures all seventeen opportunities from the subsequent FastMCP review. New

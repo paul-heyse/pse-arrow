@@ -1,6 +1,6 @@
 ---
 title: "Plan 52n: Readiness, progress and edit lifecycles"
-status: done
+status: in-progress
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md]
@@ -10,6 +10,13 @@ doc_topics: [current-work, environment, diagnostics, design, validation]
 ---
 
 # Plan 52n: Readiness, progress and edit lifecycles
+
+## Scheduled follow-up — 2026-10-24
+
+The maintainer authorized this plan amendment after the current-checkout MCP assessment.
+LIFE04 extends the delivered LIFE01–LIFE03 foundation; their recorded Outcome and evidence remain
+unchanged. The [coordinator amendment](52-agent-effectiveness-and-engineering-workflows.md#execution-freshness-amendment--2026-10-24)
+owns its selection, progress and sequencing. This document revision does not implement the follow-up.
 
 ## Target and foundation assessment
 
@@ -130,12 +137,50 @@ permit subsequent release. No release result invents rollback or erases required
 Remove the close-only assumption in current guide/callers/tests
 once the extension is integrated; no silent LRU, TTL or durable preview store is introduced.
 
+<a id="LIFE04"></a>
+### LIFE04 — Current native artifact readiness and admission
+
+**Proposed:** distinguish historical preparation, compatible schema/import and an installed artifact
+corresponding to the selected checkout's current supported inputs. Current readiness explicitly leaves
+receipt currency unknown; native worker schema equality cannot detect a same-schema Rust body edit.
+Reuse `scripts/python_extension.py`'s preparation inputs, installed-artifact identity and existing
+source/provider admission contracts. Plans53/54 retain build/preparation authority; this package adds
+their selected read/admission consumer, not another builder, receipt ledger or scientific schema.
+
+Expose current, stale, unknown and unsupported evidence with the actual checkout/interpreter,
+mode/features/validation and preparation/artifact basis needed to explain it. Keep secrets private.
+Cheap passive description remains source-only; a selected check may inspect the required artifacts
+and inputs but cannot synchronize dependencies, build/install, start services or repair providers.
+For native operations requiring current implementation, bind the checked basis at existing admission
+and refuse stale or unestablished required prerequisites before native effects, with CON03's exact
+explicit preparation/reattachment remedy. An import-compatible result alone is insufficient.
+
+Keep the check scoped and reusable through the existing owner's complete dependency contract.
+Do not run full preparation-input reconstruction, compiler/provider setup or a whole-repository hash
+for every catalogue/read call, or narrow dependencies through an unsound handwritten whitelist.
+If a sound cheap check is unavailable for a mode, disclose that limit and select an explicit check;
+never label unknown current. Preparation remains an explicit action, and its publication does not
+mutate the running endpoint's environment. MCP06 consumes this basis at dispatch. Checks establish
+admission-time correspondence, not an immutable checkout throughout execution; subsequent source
+changes cannot manufacture rollback, cancellation or permission to replay effects.
+
+Targeted acceptance includes a same-schema Rust implementation edit, changed relevant configuration,
+installed-artifact replacement, absent/unsupported preparation evidence and unchanged valid reuse.
+Verify that browsing stays available without native providers and that stale refusal causes no
+build or native effect. Explicit preparation followed by the supported fresh attachment/check must
+admit the expected current artifact. Reuse owner fixtures and small controlled changes rather than
+rebuilding a native solver for every negative case; H02 owns one actual native consumer journey.
+Delete replaced readiness/admission shortcuts and migrate their consumers together; retain useful
+separate historical-receipt and import-compatibility observations.
+
 ## Dependencies, verification and publication
 
 **Proposed:** LIFE01 consumes actual Plan53d contracts and CON03 diagnostics; it does not take over
 Plan53 status or wait for all Plan53 qualification. LIFE02 can advance from existing original-owner
 references, with CON02/CON03 contracts for useful typed presentation. LIFE03 is independent of protocol
 tasks and CodeMode; coordinate source edits with NAV03 when both change specialist/worker wiring.
+LIFE04 establishes the selected native basis before MCP06 relies on it; their host/native identity
+contract can be agreed together without waiting for unrelated OPT or broader Plan53/54 completion.
 
 Use focused owner/adapter/cancellation tests and affected compilation during implementation. Existing
 Python/asyncio/context-manager and native cancellation primitives are preferred where adequate;

@@ -48,6 +48,10 @@ constraints in tool descriptions and enforcement. Complete guidance remains deli
 there is no acknowledgment ceremony. Workflow intent can select declared relevant steps without
 activating every operation in every mentioned family. Explicit whole-family selection remains useful.
 
+[MCP06](52k-unified-entry-point-and-derived-interfaces.md#MCP06) consumes delivered NAV03 source
+fences for its scheduled execution-identity follow-up; NAV01–NAV04 retain their completed Outcomes.
+The follow-up must preserve unaffected source-only reads and selected, relevant restart diagnosis.
+
 ## Work packages
 
 <a id="NAV01"></a>

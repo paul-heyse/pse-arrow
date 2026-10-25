@@ -1,6 +1,6 @@
 ---
 title: "Plan 52k: Unified entry point and derived interfaces"
-status: complete
+status: in-progress
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md]
@@ -10,6 +10,12 @@ doc_topics: [current-work, environment, design, diagnostics, documentation]
 ---
 
 # Plan 52k: Unified entry point and derived interfaces
+
+## Scheduled follow-up — 2026-10-24
+
+The maintainer authorized MCP06 after the current-checkout MCP assessment. MCP01–MCP05 and their
+completed Outcomes remain the baseline; the [coordinator amendment](52-agent-effectiveness-and-engineering-workflows.md#execution-freshness-amendment--2026-10-24)
+owns the added scope and progress. Plan authoring does not establish implementation or qualification.
 
 ## Subsequent usability extension
 
@@ -273,6 +279,41 @@ lazy failure, relevant restart, migrated specialist consumers and any adopted ge
 H03 owns scope-end static/manual checks; no full campaign recurs per package. Source O10/O07;
 Q06. Quantitative overhead/productivity claims require separately named conditions and
 measurements; functional completion needs no invented performance score.
+
+<a id="MCP06"></a>
+### MCP06 — Execution identity, environment selection and wire agreement
+
+**Proposed:** make the selected checkout, effective launch selection and admitted operation contract
+agree across the existing endpoint/worker boundary. Reuse MCP03/NAV03 source fences, catalogue/tool
+definitions, fixed worker envelopes and LIFE04's native artifact basis. Preserve one explicit checkout
+per attachment: show its identity and use its interpreter/cwd; do not add a general per-call worktree
+router, second service environment or fresh process for every lightweight read. Existing native
+helpers and lazy managed specialist lifetimes remain selected by their actual ownership needs.
+
+At dispatch, distinguish explicit operator overrides from inherited derived defaults. Resolve the
+selected operation's launch defaults through `pse_env`/existing owners without silently retaining an
+obsolete derived selection or overwriting an intentional override. Keep deliberately process-owned
+SDK/provider settings fixed until their disclosed reattachment boundary; request-local credentials
+remain private. Existing compiler/test-width refresh logic is a foundation, not a reason to reset
+all environment variables. Carry only the selected non-secret identity needed for diagnosis.
+
+Fingerprint the complete exposed `to_mcp_tool()` contract, including schemas, annotations, metadata
+and descriptions, from canonical definitions at the composition owner. Separate underlying operation
+identity from attachment reveal/transforms so visibility changes do not invalidate unrelated native
+artifacts. Carry the admitted schema/effect/route revision through fixed helper dispatch and compare
+against the executing definition before effects; mismatch returns a bounded stale-contract remedy.
+A post-call ledger or refreshed catalogue alone cannot establish that agreement. Keep schema
+compatibility, loaded-source identity, launch selection and artifact currency distinguishable;
+no new universal identity store, hot reload or atomic whole-checkout snapshot is selected.
+
+Targeted acceptance overlaps two different selected environments without shared-state mutation,
+changes a derived default while preserving an explicit override, and rejects changed schema/effect/
+route before effects through direct and fixed invoker paths. Include independent checkout attachments,
+unchanged/unrelated-source reads, metadata/annotation/transform fingerprint changes and relevant
+restart recovery. Existing typed bounded answers/detail references must preserve output schemas and
+completeness; a rendering limiter must not silently erase their advertised contract. Regenerate
+reference/examples from their current owners and remove replaced incomplete identity/dispatch logic
+and its obsolete tests once callers migrate. G02/G03 and H02 own the current actual-host journey.
 
 ## Execution and verification boundaries
 

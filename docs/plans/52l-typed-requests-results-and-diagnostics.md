@@ -71,6 +71,10 @@ AP-07/H5–H8 require useful selection before expensive acquisition where semant
 Scientific completeness, units and native contextual admission cannot be inferred from JSON shape.
 No broad audit, product qualification or measured usability benefit follows from this assessment.
 
+LIFE04/MCP06's [scheduled follow-up](52-agent-effectiveness-and-engineering-workflows.md#execution-freshness-amendment--2026-10-24)
+consumes these delivered CON contracts for freshness facts, validated examples and safe remedies.
+It does not reopen CON01–CON04 or introduce another error/schema framework.
+
 ## Ownership and physical design
 
 Host tooling owners define query alternatives and response families; MCP and useful native callers
