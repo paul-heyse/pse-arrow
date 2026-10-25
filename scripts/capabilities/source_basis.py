@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Bounded local source bytes without constructing a capability server."""
+
 from __future__ import annotations
 
 import ast
@@ -8,7 +9,6 @@ import hashlib
 import json
 import stat
 from dataclasses import dataclass
-from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING
 
@@ -16,6 +16,8 @@ from scripts.capabilities.source_modules import module_candidates
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+    from pathlib import Path
+
 
 @dataclass(frozen=True)
 class Source:
@@ -39,7 +41,9 @@ def local_imports(raw: bytes) -> tuple[str, ...]:
 
 
 class Sources:
-    def __init__(self, root: Path, paths: Iterable[str], *, follow_imports: bool = True) -> None:
+    def __init__(
+        self, root: Path, paths: Iterable[str], *, follow_imports: bool = True
+    ) -> None:
         self.root = root.resolve(strict=True)
         self.sources: dict[str, Source] = {}
         self.changed: set[str] = set()
@@ -52,7 +56,9 @@ class Sources:
             path = self.root / relative
             raw = self._read_optional(relative)
             dependencies = (
-                local_imports(raw) if follow_imports and raw is not None and path.suffix == ".py" else ()
+                local_imports(raw)
+                if follow_imports and raw is not None and path.suffix == ".py"
+                else ()
             )
             self.sources[relative] = Source(
                 hashlib.sha256(raw).hexdigest() if raw is not None else None,
@@ -132,4 +138,3 @@ class Sources:
             raise ValueError(
                 "Serving source changed while loading; restart the endpoint"
             )
-

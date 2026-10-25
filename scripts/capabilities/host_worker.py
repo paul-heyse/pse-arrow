@@ -15,8 +15,8 @@ from pathlib import Path
 
 from pydantic import JsonValue, ValidationError
 
-from scripts.capabilities.execution_basis import AdmissionRefused
 from scripts.capabilities.diagnostics import safe_path
+from scripts.capabilities.execution_basis import AdmissionRefusedError
 from scripts.capabilities.worker_progress import ProgressReporter
 
 
@@ -46,8 +46,16 @@ def main(argv: list[str] | None = None) -> int:
     response: dict[str, object]
     try:
         progress.publish("request", "started")
-        from scripts.capabilities.execution_basis import verify
-        verify(Path(__file__).resolve().parents[2], 'host', operation, Path(source).read_bytes())
+        from scripts.capabilities.execution_basis import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            verify,
+        )
+
+        verify(
+            Path(__file__).resolve().parents[2],
+            "host",
+            operation,
+            Path(source).read_bytes(),
+        )
         result = invoke(operation, Path(source).read_text())
         response = {"result": result}
         progress.publish("request", "completed")
@@ -59,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             "message": "The selected host request could not be served; supplied values are redacted.",
             "remedy": "Inspect the original owner and any issued output before deciding whether another action is safe. No automatic retry or rollback is inferred.",
         }
-        if isinstance(error, AdmissionRefused):
+        if isinstance(error, AdmissionRefusedError):
             detail.update(error.detail())
         if isinstance(error, ValidationError):
             detail["message"] = "Invalid host request; supplied values omitted."

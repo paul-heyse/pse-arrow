@@ -14,14 +14,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import os
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -44,6 +45,19 @@ ROOT = Path(__file__).resolve().parents[2]
 ANCESTOR = "d3c4b5a697887766"
 
 
+def canonical_tools_preflight() -> None:
+    """Observe the selected executable's real mode before provisioning a fixture."""
+    executable = ROOT / "target/debug/xtask"
+    require(executable.is_file(), "f02.canonical_tools_executable_missing")
+    result = subprocess.run(
+        [str(executable), "--help"], capture_output=True, timeout=15, check=False
+    )
+    require(
+        result.returncode == 0 and b"canonical-init" in result.stdout,
+        "f02.canonical_tools_mode_missing; explicitly build xtask with canonical-tools",
+    )
+
+
 def producer(state: Path, database: str, output: Path, expected_trace: str) -> int:
     """Two native sibling requests share one real SDK engine, with actual parents."""
     from opentelemetry import context, trace  # noqa: PLC0415
@@ -60,7 +74,10 @@ def producer(state: Path, database: str, output: Path, expected_trace: str) -> i
     from pse.tests.study_fixtures import request as study_request  # noqa: PLC0415
     from pse.tests.test_studies import _package  # noqa: PLC0415
     from scripts import telemetry_process  # noqa: PLC0415
-    from scripts.capabilities.native_worker import native_report, scientific_error  # noqa: PLC0415
+    from scripts.capabilities.native_worker import (  # noqa: PLC0415
+        native_report,
+        scientific_error,
+    )
 
     image: dict[str, object] = {"status": "running", "baseline_failures": 0}
     try:
@@ -86,12 +103,37 @@ def producer(state: Path, database: str, output: Path, expected_trace: str) -> i
                 settings, substrate=str(state), database=database, ephemeral=False
             )
             try:
+                # A resumed disposable fixture can contain the original failed
+                # attempt's cancelled points. Settle those through their native
+                # worker before creating this attempt's distinct population.
+                image["prior_worker_actions"] = runtime.work(maximum_actions=8)
                 package, case = _package(
                     runtime,
-                    source='package f02 { def Root { param x:Scalar=2; annotation report x("constant"); } }',
+                    # The default study intent is Optimize. Reuse the tiny
+                    # bounded linear case from test_local_runtime rather than
+                    # admitting a constant report with no authored objective.
+                    source=(
+                        "package f02 { def Root { var x:Scalar; "
+                        "annotation bounds x(0,2); annotation start x(1); "
+                        "let cost:Scalar=x; annotation objective cost(minimize); "
+                        'eq floor:x>=0.5; annotation report x("minimum"); } }'
+                    ),
+                )
+                definitions = {
+                    key: runtime.record_study(
+                        package.admit_study(
+                            study_request(point(case, pse.SolveSettings(), key))
+                        )
+                    )
+                    for key in (7, 11)
+                }
+                image["workload_scope"] = (
+                    "Two one-point studies over one bounded authored linear optimization case; telemetry does not establish a solver result."
                 )
                 inherited = context.get_current()
                 barrier = threading.Barrier(2)
+                admitted: dict[str, object] = {}
+                image["admitted_studies"] = admitted
 
                 def sibling(key: int) -> dict[str, object]:
                     token = context.attach(inherited)
@@ -100,42 +142,83 @@ def producer(state: Path, database: str, output: Path, expected_trace: str) -> i
                             "pse.f02.sibling", attributes={"fixture.member": key}
                         ) as span:
                             barrier.wait(timeout=30)
-                            local = package.admit_study(
-                                study_request(point(case, pse.SolveSettings(), key))
+                            handle = runtime.start_study(definitions[key])
+                            admitted[str(key)] = handle.study_id.to_hex()
+                            created = handle.status()
+                            require(
+                                len(created.points) == 1, "f02.study_population_changed"
                             )
-                            definition = runtime.record_study(local)
-                            # Activation calls the actual installed study module.
-                            # No numerical solve is needed to establish that edge.
-                            handle = runtime.start_study(definition)
+                            # Activation alone publishes headers. The original
+                            # worker's readiness/repair path calls the guest; a
+                            # finite native action supplies that actual consumer.
+                            barrier.wait(timeout=30)
+                            processed = runtime.work(maximum_actions=1)
+                            require(
+                                processed == 1, "f02.native_worker_action_not_observed"
+                            )
+                            barrier.wait(timeout=30)
                             before = handle.status()
-                            require(len(before.points) == 1, "f02.study_population_changed")
                             cancelled = handle.cancel()
                             after = handle.status()
                             require(after.cancelled, "f02.native_cancel_not_recorded")
+                            require(
+                                after.points[0].outcome == before.points[0].outcome,
+                                "f02.native_cancellation_replaced_original_outcome",
+                            )
                             return {
                                 "span_id": f"{span.get_span_context().span_id:016x}",
                                 "trace_id": f"{span.get_span_context().trace_id:032x}",
                                 "study": handle.study_id.to_hex(),
+                                "created": codec.document_builtins(created),
+                                "worker_actions": processed,
                                 "before": codec.document_builtins(before),
                                 "cancel": codec.document_builtins(cancelled),
                                 "after": codec.document_builtins(after),
                             }
+                    except BaseException:
+                        # Preserve the failing owner's exception; do not make
+                        # its peer's subsequent barrier timeout the diagnosis.
+                        barrier.abort()
+                        raise
                     finally:
                         context.detach(token)
 
                 with ThreadPoolExecutor(max_workers=2) as workers:
                     futures = [workers.submit(sibling, key) for key in (7, 11)]
-                    siblings = [future.result(timeout=150) for future in futures]
+                failures = [
+                    error
+                    for future in futures
+                    if (error := future.exception()) is not None
+                ]
+                if failures:
+                    image["sibling_failures"] = [
+                        {"failure": type(error).__name__, "reason": str(error)}
+                        for error in failures
+                    ]
+                    raise next(
+                        (
+                            error
+                            for error in failures
+                            if not isinstance(error, threading.BrokenBarrierError)
+                        ),
+                        failures[0],
+                    )
+                siblings = [future.result() for future in futures]
                 require(
                     len({item["study"] for item in siblings}) == 2
                     and len({item["span_id"] for item in siblings}) == 2,
                     "f02.independent_siblings_merged",
                 )
                 image["siblings"] = siblings
-                metadata = ProjectMetadataRequest(kind=ProjectMetadataKind.PROJECTS, owner="", cursor=None)
+                metadata = ProjectMetadataRequest(
+                    kind=ProjectMetadataKind.PROJECTS, owner="", cursor=None
+                )
                 token = context.attach(context.Context())
                 try:
-                    require(not telemetry_process.current_carrier(), "f02.stale_context_before_missing_call")
+                    require(
+                        not telemetry_process.current_carrier(),
+                        "f02.stale_context_before_missing_call",
+                    )
                     runtime.project_metadata(metadata)
                     image["missing_context"] = {
                         "native_outcome": "observed",
@@ -147,30 +230,50 @@ def producer(state: Path, database: str, output: Path, expected_trace: str) -> i
                 try:
                     physical = runtime.physical_from_documents(
                         {
-                            str(path.relative_to(ROOT / "tests/fixtures/packages/physical-primitives")): path.read_bytes()
-                            for path in (ROOT / "tests/fixtures/packages/physical-primitives").rglob("*")
+                            str(
+                                path.relative_to(
+                                    ROOT / "tests/fixtures/packages/physical-primitives"
+                                )
+                            ): path.read_bytes()
+                            for path in (
+                                ROOT / "tests/fixtures/packages/physical-primitives"
+                            ).rglob("*")
                             if path.is_file()
                         }
                     )
                     runtime.project_select(
-                        ProjectSelectRequest(reference=ProjectReferenceBranch(key="f02-deliberately-absent")),
+                        ProjectSelectRequest(
+                            reference=ProjectReferenceBranch(
+                                key="f02-deliberately-absent"
+                            )
+                        ),
                         physical,
                     )
                 except Exception as error:
-                    require(native_report(error) is not None, "f02.refusal_has_no_native_diagnostic")
-                    image["database_refusal"] = scientific_error(error, operation="project_select")
+                    require(
+                        native_report(error) is not None,
+                        "f02.refusal_has_no_native_diagnostic",
+                    )
+                    image["database_refusal"] = scientific_error(
+                        error, operation="project_select"
+                    )
                 else:
                     raise RuntimeError("f02.expected_native_refusal_missing")
                 runtime.project_metadata(metadata)
-                require(telemetry_process.current_carrier().get("traceparent", "")[3:35] == expected_trace, "f02.missing_context_leaked")
+                require(
+                    telemetry_process.current_carrier().get("traceparent", "")[3:35]
+                    == expected_trace,
+                    "f02.missing_context_leaked",
+                )
                 image["after_refusal"] = "native metadata read succeeded"
             finally:
                 runtime.close()
-        image["status"] = "passed"
-        return 0
     except BaseException as error:
         image.update(status="failed", failure=type(error).__name__, reason=str(error))
         raise
+    else:
+        image["status"] = "passed"
+        return 0
     finally:
         server.write_json(output, image)
 
@@ -197,7 +300,9 @@ async def canonical_request(
             "capabilities_describe",
             {"capability": "diagnostic_action", "include_schema": True},
         )
-        await client.call_tool("capabilities_select", {"capabilities": ["diagnostic_action"]})
+        await client.call_tool(
+            "capabilities_select", {"capabilities": ["diagnostic_action"]}
+        )
         answer = await client.call_tool(
             "capabilities_invoke_action",
             {
@@ -210,19 +315,37 @@ async def canonical_request(
                         "output_bytes": 1 << 20,
                         "command": [
                             str(ROOT / ".venv/bin/python"),
-                            "-m", "scripts.tests.plan52_f02_acceptance",
-                            "--producer", "--server-state", str(state),
-                            "--database", database, "--output", str(output / "producer.json"),
-                            "--expected-trace", trace_id,
+                            "-m",
+                            "scripts.tests.plan52_f02_acceptance",
+                            "--producer",
+                            "--server-state",
+                            str(state),
+                            "--database",
+                            database,
+                            "--output",
+                            str(output / "producer.json"),
+                            "--expected-trace",
+                            trace_id,
                         ],
                     }
                 },
             },
-            meta={"traceparent": f"00-{trace_id}-{ANCESTOR}-01", "tracestate": "f02=independent"},
+            meta={
+                "traceparent": f"00-{trace_id}-{ANCESTOR}-01",
+                "tracestate": "f02=independent",
+            },
         )
         content = mapping(answer.structured_content)
         if set(content) == {"result"}:
             content = mapping(content["result"])
+        action = server.read_json(output / "owned-action/action.json")
+        targets = records(action.get("target_outcome"))
+        require(
+            targets
+            and targets[-1].get("exit_code") == 0
+            and all(not target.get("signal") for target in targets),
+            "f02.owned_target_failed; inspect original diagnostic action target outcome",
+        )
         return content
 
 
@@ -237,7 +360,9 @@ def compact(row: dict[str, object]) -> dict[str, object]:
     }
 
 
-async def trace_rows(telemetry_state: Path, trace_id: str, started: int) -> list[dict[str, object]]:
+async def trace_rows(
+    telemetry_state: Path, trace_id: str, started: int
+) -> list[dict[str, object]]:
     # A real canonical operation emits many small SDK/server spans. Select
     # narrower original time windows before hydration when a row bound is hit;
     # never reconstruct a missing parent or claim a frozen/complete population.
@@ -252,11 +377,17 @@ async def trace_rows(telemetry_state: Path, trace_id: str, started: int) -> list
             answer = await client.query(
                 telemetry_state,
                 QueryRequest(
-                    signal="traces", trace_id=trace_id, start_time_us=lower,
-                    end_time_us=upper, limit=200,
+                    signal="traces",
+                    trace_id=trace_id,
+                    start_time_us=lower,
+                    end_time_us=upper,
+                    limit=200,
                 ),
             )
-            require(answer.status in {"available", "empty", "partial"}, "f02.continuous_trace_unavailable")
+            require(
+                answer.status in {"available", "empty", "partial"},
+                "f02.continuous_trace_unavailable",
+            )
             for row in answer.records:
                 selected = compact(dict(row))
                 indexed[str(selected["span_id"])] = selected
@@ -280,7 +411,9 @@ def parent_chain(rows: list[dict[str, object]], leaf: str) -> list[dict[str, obj
     return result
 
 
-def chains(rows: list[dict[str, object]], siblings: list[dict[str, object]]) -> list[list[dict[str, object]]]:
+def chains(
+    rows: list[dict[str, object]], siblings: list[dict[str, object]]
+) -> list[list[dict[str, object]]]:
     accepted = []
     for sibling in siblings:
         sibling_id = str(sibling["span_id"])
@@ -292,7 +425,15 @@ def chains(rows: list[dict[str, object]], siblings: list[dict[str, object]]) -> 
             names = {row["name"] for row in chain}
             if sibling_id not in {row["span_id"] for row in chain}:
                 continue
-            if not {"executor", "surrealdb.sdk.request", "pse.native.operation", "pse.helper"} <= names:
+            if (
+                not {
+                    "executor",
+                    "surrealdb.sdk.request",
+                    "pse.native.operation",
+                    "pse.helper",
+                }
+                <= names
+            ):
                 continue
             if chain[-1]["parent_span_id"] != ANCESTOR:
                 continue
@@ -300,7 +441,7 @@ def chains(rows: list[dict[str, object]], siblings: list[dict[str, object]]) -> 
             # matching request label or reconstructed time-window association.
             boundaries = [
                 (child, parent)
-                for child, parent in zip(chain, chain[1:], strict=False)
+                for child, parent in pairwise(chain)
                 if parent["name"] == "surrealdb.sdk.request"
                 and child["name"] != "surrealdb.sdk.request"
                 and child["service_instance_id"] != parent["service_instance_id"]
@@ -310,18 +451,36 @@ def chains(rows: list[dict[str, object]], siblings: list[dict[str, object]]) -> 
         require(candidates, "f02.complete_module_parent_chain_not_observed")
         selected = min(candidates, key=len)
         require(
-            len({row["service_instance_id"] for row in selected if row["service_instance_id"]}) >= 3,
+            len(
+                {
+                    row["service_instance_id"]
+                    for row in selected
+                    if row["service_instance_id"]
+                }
+            )
+            >= 3,
             "f02.process_incarnations_not_observed",
         )
         require(
-            sum(row["span_id"] == item["span_id"] for row in selected for item in siblings) == 1,
+            sum(
+                row["span_id"] == item["span_id"]
+                for row in selected
+                for item in siblings
+            )
+            == 1,
             "f02.sibling_parent_leak",
         )
         accepted.append(selected)
     return accepted
 
 
-def observe(telemetry_state: Path, trace_id: str, started: int, siblings: list[dict[str, object]], extra: list[dict[str, object]] | None = None) -> dict[str, object]:
+def observe(
+    telemetry_state: Path,
+    trace_id: str,
+    started: int,
+    siblings: list[dict[str, object]],
+    extra: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
     deadline = time.monotonic() + 60
     while True:
         rows = asyncio.run(trace_rows(telemetry_state, trace_id, started))
@@ -336,10 +495,19 @@ def observe(telemetry_state: Path, trace_id: str, started: int, siblings: list[d
             rows = list(indexed.values())
         try:
             selected = chains(rows, siblings)
-            return {"trace_id": trace_id, "complete": False, "rows": rows, "parent_chains": selected}
         except RuntimeError:
-            require(time.monotonic() < deadline, "f02.complete_module_parent_chain_not_observed")
+            require(
+                time.monotonic() < deadline,
+                "f02.complete_module_parent_chain_not_observed",
+            )
             time.sleep(0.5)
+        else:
+            return {
+                "trace_id": trace_id,
+                "complete": False,
+                "rows": rows,
+                "parent_chains": selected,
+            }
 
 
 def journey(telemetry_state: Path, state: Path, database: str, output: Path) -> None:
@@ -350,14 +518,22 @@ def journey(telemetry_state: Path, state: Path, database: str, output: Path) -> 
         continuous = output / "continuous"
         continuous.mkdir(mode=0o700)
         trace_id = uuid4().hex
+        receipt["requested_trace_id"] = trace_id
         started = time.time_ns() // 1000
-        receipt["canonical"] = asyncio.run(canonical_request(state, database, continuous, trace_id, selected_environment))
+        receipt["canonical"] = asyncio.run(
+            canonical_request(
+                state, database, continuous, trace_id, selected_environment
+            )
+        )
         produced = server.read_json(continuous / "producer.json")
         require(produced.get("status") == "passed", "f02.native_producer_failed")
-        receipt["continuous"] = observe(telemetry_state, trace_id, started, records(produced["siblings"]))
+        receipt["continuous"] = observe(
+            telemetry_state, trace_id, started, records(produced["siblings"])
+        )
         finite = output / "finite"
         finite.mkdir(mode=0o700)
         finite_id = uuid4().hex
+        receipt["requested_finite_trace_id"] = finite_id
         finite_started = time.time_ns() // 1000
         # The original finite owner provides data bounds, independently reported
         # workload/restoration and physical drain. It exports only server spans.
@@ -366,27 +542,58 @@ def journey(telemetry_state: Path, state: Path, database: str, output: Path) -> 
         os.environ.update(selected_environment)
         try:
             capture = surreal_telemetry.capture_operation(
-                state, output / "capture",
-                [sys.executable, "-m", "scripts.tests.plan52_f02_acceptance",
-                 "--canonical", "--telemetry-state", str(telemetry_state),
-                 "--server-state", str(state), "--database", database,
-                 "--output", str(finite), "--expected-trace", finite_id],
+                state,
+                output / "capture",
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.tests.plan52_f02_acceptance",
+                    "--canonical",
+                    "--telemetry-state",
+                    str(telemetry_state),
+                    "--server-state",
+                    str(state),
+                    "--database",
+                    database,
+                    "--output",
+                    str(finite),
+                    "--expected-trace",
+                    finite_id,
+                ],
             )
         finally:
             os.environ.clear()
             os.environ.update(original)
         receipt["capture"] = capture
         require(capture.get("workload") == 0, "f02.finite_workload_failed")
-        require(mapping(capture.get("restoration")).get("phase") == "restored", "f02.finite_restoration_missing")
-        require(not capture.get("capture_errors") and capture.get("omitted_spans") == 0, "f02.finite_capture_incomplete")
-        captured = [compact(row) for row in records(capture["spans"]) if row.get("trace_id") == finite_id]
-        instance = mapping(mapping(capture["activation"])["after"])["telemetry_service_instance_id"]
+        require(
+            mapping(capture.get("restoration")).get("phase") == "restored",
+            "f02.finite_restoration_missing",
+        )
+        require(
+            not capture.get("capture_errors") and capture.get("omitted_spans") == 0,
+            "f02.finite_capture_incomplete",
+        )
+        captured = [
+            compact(row)
+            for row in records(capture["spans"])
+            if row.get("trace_id") == finite_id
+        ]
+        instance = mapping(mapping(capture["activation"])["after"])[
+            "telemetry_service_instance_id"
+        ]
         require(isinstance(instance, str), "f02.finite_server_incarnation_missing")
         for row in captured:
             row["service_instance_id"] = instance
         produced = server.read_json(finite / "producer.json")
         require(produced.get("status") == "passed", "f02.finite_native_producer_failed")
-        receipt["finite"] = observe(telemetry_state, finite_id, finite_started, records(produced["siblings"]), captured)
+        receipt["finite"] = observe(
+            telemetry_state,
+            finite_id,
+            finite_started,
+            records(produced["siblings"]),
+            captured,
+        )
         receipt.update(
             status="passed",
             controls="Actual HTTP/2 stream error/cancellation and dispatch uncertainty are verified separately by grpc_lifecycle::tests; same-generation reconnect requires its native integration controls.",
@@ -403,6 +610,7 @@ def journey(telemetry_state: Path, state: Path, database: str, output: Path) -> 
 
 
 def run(telemetry_state: Path, output: Path) -> None:
+    canonical_tools_preflight()
     output.mkdir(parents=True, mode=0o700, exist_ok=False)
     fixtures = output / "fixtures"
     fixtures.mkdir(mode=0o700)
@@ -411,19 +619,43 @@ def run(telemetry_state: Path, output: Path) -> None:
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
             port = listener.getsockname()[1]
-        minimum = 8 * server.integer(surrealism_module.LIMITS["max_memory_bytes"]) * server.integer(surrealism_module.LIMITS["max_pool_size"]) // server.MIB
-        args = server.parser().parse_args([
-            "setup", "--state", str(state), "--port", str(port), "--no-resident",
-            "--interpretation", server.SUBSTRATE_INTERPRETATION,
-            "--memory-mib", str(minimum + 512), "--server-memory-mib", str(minimum),
-            "--native-workers", "1", "--native-worker-memory-mib", "512",
-        ])
+        minimum = (
+            8
+            * server.integer(surrealism_module.LIMITS["max_memory_bytes"])
+            * server.integer(surrealism_module.LIMITS["max_pool_size"])
+            // server.MIB
+        )
+        args = server.parser().parse_args(
+            [
+                "setup",
+                "--state",
+                str(state),
+                "--port",
+                str(port),
+                "--no-resident",
+                "--interpretation",
+                server.SUBSTRATE_INTERPRETATION,
+                "--memory-mib",
+                str(minimum + 512),
+                "--server-memory-mib",
+                str(minimum),
+                "--native-workers",
+                "1",
+                "--native-worker-memory-mib",
+                "512",
+            ]
+        )
         server.setup(args)
         try:
             initialize_canonical(state)
             server.start(state, server.config_for(state))
             record_ownership(directory, server.unit_name(state))
-            journey(telemetry_state, state, str(server.config_for(state)["database"]), output)
+            journey(
+                telemetry_state,
+                state,
+                str(server.config_for(state)["database"]),
+                output,
+            )
             record_ownership(directory, server.unit_name(state))
         finally:
             server.stop(state, server.config_for(state))
@@ -440,15 +672,35 @@ def main() -> int:
     parser.add_argument("--canonical", action="store_true")
     args = parser.parse_args()
     if args.producer or args.canonical:
-        if args.server_state is None or args.database is None or args.expected_trace is None:
-            parser.error("fixed child requires server-state, database and expected-trace")
+        if (
+            args.server_state is None
+            or args.database is None
+            or args.expected_trace is None
+        ):
+            parser.error(
+                "fixed child requires server-state, database and expected-trace"
+            )
         if args.producer:
             from scripts.telemetry_process import run_helper  # noqa: PLC0415
 
-            return run_helper("pse-f02-producer", lambda: producer(args.server_state, args.database, args.output, args.expected_trace), native=True)
+            return run_helper(
+                "pse-f02-producer",
+                lambda: producer(
+                    args.server_state, args.database, args.output, args.expected_trace
+                ),
+                native=True,
+            )
         if args.telemetry_state is None:
             parser.error("canonical request requires telemetry-state")
-        answer = asyncio.run(canonical_request(args.server_state, args.database, args.output, args.expected_trace, environment(args.telemetry_state)))
+        answer = asyncio.run(
+            canonical_request(
+                args.server_state,
+                args.database,
+                args.output,
+                args.expected_trace,
+                environment(args.telemetry_state),
+            )
+        )
         server.write_json(args.output / "canonical.json", answer)
         return 0
     if args.telemetry_state is None:

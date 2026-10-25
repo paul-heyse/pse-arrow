@@ -242,15 +242,26 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
         println!("{}", serde_json::to_string(&output)?);
         return Ok(());
     }
-    if let EvidenceCommand::CompareOffline { input, request, observations } = &args.command {
-        let snapshots = input.iter()
+    if let EvidenceCommand::CompareOffline {
+        input,
+        request,
+        observations,
+    } = &args.command
+    {
+        let snapshots = input
+            .iter()
             .map(|path| pse_operations::evidence_query::EvidenceAnalysis::read_snapshot(path))
             .collect::<Result<Vec<_>, _>>()?;
         let request = read_comparison_request(request)?;
         let observations = read_observations(observations.as_deref())?;
         let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
-        let output = runtime.block_on(evidence::within_allowance(deadline, analysis.compare(&request, &observations)))?;
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let output = runtime.block_on(evidence::within_allowance(
+            deadline,
+            analysis.compare(&request, &observations),
+        ))?;
         println!("{}", serde_json::to_string(&output)?);
         return Ok(());
     }
@@ -436,6 +447,12 @@ fn supplied_document(path: &Path, limit: u64) -> Result<Vec<u8>> {
     Ok(std::fs::read(path)?)
 }
 
-fn read_comparison_request(path: &Path) -> Result<pse_operations::evidence_query::EvidenceComparisonRequest> {
-    Ok(pse_operations::evidence_query::EvidenceComparisonRequest::decode_json(&supplied_document(path, 4 << 20)?)?)
+fn read_comparison_request(
+    path: &Path,
+) -> Result<pse_operations::evidence_query::EvidenceComparisonRequest> {
+    Ok(
+        pse_operations::evidence_query::EvidenceComparisonRequest::decode_json(
+            &supplied_document(path, 4 << 20)?,
+        )?,
+    )
 }

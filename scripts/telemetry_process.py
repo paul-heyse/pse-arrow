@@ -471,10 +471,19 @@ def _compose(owner: ProcessLifetime) -> None:
 
 
 def _activate_native(owner: ProcessLifetime) -> None:
-    if owner.native is None and owner.status == "initialized" and not owner.closed and owner.settings is not None:
+    if (
+        owner.native is None
+        and owner.status == "initialized"
+        and not owner.closed
+        and owner.settings is not None
+    ):
         facade = importlib.import_module("pse._telemetry")
         owner.native = facade.initialize(owner.settings.native_json(), current_carrier)
-        if owner.native.activation.get("status") not in {"initialized", "already_initialized", "disabled"}:
+        if owner.native.activation.get("status") not in {
+            "initialized",
+            "already_initialized",
+            "disabled",
+        }:
             _diagnostic("native_initialization_refused")
 
 

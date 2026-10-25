@@ -6,17 +6,16 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import tempfile
-import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from fastmcp.tools import Tool, ToolResult
 from mcp.types import ToolAnnotations
 from pydantic import JsonValue, PrivateAttr, ValidationError
 
-from scripts.capabilities import schema_bindings
+from scripts.capabilities import execution_basis, schema_bindings
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.model import Capability
 from scripts.capabilities.native_contracts import (
@@ -27,10 +26,7 @@ from scripts.capabilities.native_contracts import (
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.process import run_worker
 from scripts.capabilities.responses import ReadResult, bounded
-from scripts.capabilities import execution_basis
 from scripts.capabilities.workers import WORKERS
-
-
 
 _PENDING: set[asyncio.Task[dict[str, JsonValue]]] = set()
 
@@ -112,8 +108,14 @@ def run_child(
         "-m",
         WORKERS["native"].module,
     ]
-    with tempfile.TemporaryDirectory(prefix="pse-native-admission-") as directory, tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
-        admitted = execution_basis.publish(Path(directory), root, "native", operation, request)
+    with (
+        tempfile.TemporaryDirectory(prefix="pse-native-admission-") as directory,
+        tempfile.TemporaryFile() as output,
+        tempfile.TemporaryFile() as errors,
+    ):
+        admitted = execution_basis.publish(
+            Path(directory), root, "native", operation, request
+        )
         try:
             completed = subprocess.run(
                 command,

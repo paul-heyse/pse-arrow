@@ -14,8 +14,8 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from scripts import preflight, pse_env, validation, validation_receipts
-from scripts.capabilities.execution_basis import AdmissionRefused
 from scripts.capabilities.diagnostics import safe_path
+from scripts.capabilities.execution_basis import AdmissionRefusedError
 from scripts.capabilities.qualification_contracts import (
     AssessmentRequest,
     CompilationRequest,
@@ -220,7 +220,10 @@ def main(argv: list[str] | None = None) -> int:
     progress = ProgressReporter(Path(source).parent / "progress.json", operation)
     response: dict[str, object]
     try:
-        from scripts.capabilities.execution_basis import verify
+        from scripts.capabilities.execution_basis import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            verify,
+        )
+
         worker = "rust-tests" if operation == "rust-test" else "qualification"
         verify(ROOT, worker, operation, Path(source).read_bytes())
         progress.publish("request", "started")
@@ -242,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
             "message": "The selected qualification request could not be served; supplied values are redacted.",
             "remedy": "Inspect the original assessment owner and any issued receipt before deciding whether another action is safe. No automatic retry or effect settlement is inferred.",
         }
-        if isinstance(error, AdmissionRefused):
+        if isinstance(error, AdmissionRefusedError):
             detail.update(error.detail())
         if isinstance(error, ValidationError):
             detail["code"] = "pse.qualification.input_refused"

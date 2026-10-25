@@ -228,7 +228,9 @@ def parser() -> argparse.ArgumentParser:
         comparison.add_argument("--request", type=Path, required=True)
         comparison.add_argument("--observations", type=Path)
         if command == "compare-offline":
-            comparison.add_argument("--input", type=Path, action="append", required=True)
+            comparison.add_argument(
+                "--input", type=Path, action="append", required=True
+            )
     for command in ("offline", "analyze"):
         selected = commands.add_parser(command)
         selected.add_argument(
@@ -472,7 +474,12 @@ def main(argv: list[str] | None = None) -> int:
                 arguments += ["--input", str(source.absolute())]
             if args.observations:
                 arguments += ["--observations", str(args.observations.absolute())]
-            return run_offline(args.tool.absolute(), arguments, deadline=deadline, operation="compare-offline")
+            return run_offline(
+                args.tool.absolute(),
+                arguments,
+                deadline=deadline,
+                operation="compare-offline",
+            )
         if args.command == "offline":
             return analyze(args, deadline=deadline)
         if args.state is None:

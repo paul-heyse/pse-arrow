@@ -125,7 +125,13 @@ class ReadGuard(Middleware):
         policy.attempts += 1
         if name not in policy.eligible or policy.attempts > policy.max_calls:
             policy.incomplete = True
-            policy.records.append({"capability": name, "arguments": arguments, "outcome": "dispatch-refused"})
+            policy.records.append(
+                {
+                    "capability": name,
+                    "arguments": arguments,
+                    "outcome": "dispatch-refused",
+                }
+            )
             raise ToolError("opt01.execution_eligibility_or_call_bound")
         if policy.before_dispatch is not None:
             policy.before_dispatch()
@@ -133,14 +139,18 @@ class ReadGuard(Middleware):
             result = await call_next(context)
         except Exception:
             policy.incomplete = True
-            policy.records.append({"capability": name, "arguments": arguments, "outcome": "reader-failed"})
+            policy.records.append(
+                {"capability": name, "arguments": arguments, "outcome": "reader-failed"}
+            )
             raise
         structured = JSON.validate_python(result.structured_content)
         size = len(encoded(structured))
         policy.transferred += size
         if policy.transferred > policy.max_bytes:
             policy.incomplete = True
-            policy.records.append({"capability": name, "arguments": arguments, "outcome": "bytes-refused"})
+            policy.records.append(
+                {"capability": name, "arguments": arguments, "outcome": "bytes-refused"}
+            )
             raise ToolError("opt01.cumulative_callback_bytes")
         policy.incomplete |= result.is_error
         policy.records.append(
@@ -236,7 +246,8 @@ class BoundedMonty(MontySandboxProvider):
 
 
 def exact_factory(
-    factory: DiscoveryToolFactory, eligible: frozenset[str] = ELIGIBLE,
+    factory: DiscoveryToolFactory,
+    eligible: frozenset[str] = ELIGIBLE,
 ) -> DiscoveryToolFactory:
     def make(get_catalog: GetToolCatalog) -> Tool:
         async def exact(ctx: Context) -> Sequence[Tool]:
@@ -244,7 +255,9 @@ def exact_factory(
 
         tool = factory(exact)
         tool.annotations = ToolAnnotations(
-            readOnlyHint=True, destructiveHint=False, idempotentHint=True,
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
         )
         return tool
 
@@ -252,7 +265,9 @@ def exact_factory(
 
 
 async def inquiry_server(
-    *, eligible: frozenset[str] = ELIGIBLE, additional_tools: tuple[Tool, ...] = (),
+    *,
+    eligible: frozenset[str] = ELIGIBLE,
+    additional_tools: tuple[Tool, ...] = (),
 ) -> tuple[canonical.Runtime, BoundedMonty]:
     """Register public CodeMode-produced tools through the canonical binding seam."""
     sandbox = BoundedMonty(eligible)

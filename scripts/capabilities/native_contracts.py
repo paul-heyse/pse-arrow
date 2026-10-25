@@ -104,7 +104,9 @@ class ResultInspection(Deployment):
 class EvidenceCompare(Contract):
     request: JsonValue
     snapshots: Annotated[list[JsonValue], Field(min_length=1, max_length=64)]
-    observations: Annotated[list[JsonValue], Field(max_length=64)] = Field(default_factory=list)
+    observations: Annotated[list[JsonValue], Field(max_length=64)] = Field(
+        default_factory=list
+    )
 
 
 @dataclass(frozen=True)
@@ -165,11 +167,14 @@ EXACT_READS = frozenset(
 
 BINDINGS = (
     Binding(
-        "evidence_compare", "Compare explicit baseline and candidate evidence", EvidenceCompare,
+        "evidence_compare",
+        "Compare explicit baseline and candidate evidence",
+        EvidenceCompare,
         {"request": "evidence-comparison-request", "snapshots": "evidence-snapshot"},
         "pse.diagnostics.compare_evidence",
         "Compare supplied original evidence snapshots through the native finite owner. Select exact baseline/candidate generations and explicit correspondence where owner identities differ. Preserve full denominators, ambiguity, unsupported measurement associations and separately bounded sections. Opens no store and performs no scientific execution. Continue only on the exact returned cut.",
-        "diagnostics", "Bounded supplied-only native evidence analysis; no build or service startup.",
+        "diagnostics",
+        "Bounded supplied-only native evidence analysis; no build or service startup.",
         "evidence-comparison",
     ),
     Binding(

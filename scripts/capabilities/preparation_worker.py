@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import python_extension
-from scripts.capabilities.execution_basis import AdmissionRefused
+from scripts.capabilities.execution_basis import AdmissionRefusedError
 from scripts.capabilities.preparation import (
     CurrencyCheckRequest,
     ImportCheckRequest,
@@ -114,7 +114,11 @@ def main(argv: list[str] | None = None) -> int:
     from scripts.capabilities.worker_progress import ProgressReporter  # noqa: PLC0415
 
     arguments = sys.argv[1:] if argv is None else argv
-    if len(arguments) != 3 or arguments[0] not in {"stage", "import-check", "currency-check"}:
+    if len(arguments) != 3 or arguments[0] not in {
+        "stage",
+        "import-check",
+        "currency-check",
+    }:
         raise ValueError(
             "select one fixed preparation operation, request file and response file"
         )
@@ -135,11 +139,21 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     try:
-        from scripts.capabilities.execution_basis import verify, ENVIRONMENT, Handoff
+        from scripts.capabilities.execution_basis import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            ENVIRONMENT,
+            Handoff,
+            verify,
+        )
+
         supplied = os.environ.get(ENVIRONMENT)
         if supplied:
             identity = Handoff.model_validate_json(Path(supplied).read_bytes())
-            verify(Path(__file__).resolve().parents[2], identity.worker, operation, Path(source).read_bytes())
+            verify(
+                Path(__file__).resolve().parents[2],
+                identity.worker,
+                operation,
+                Path(source).read_bytes(),
+            )
         response = {
             "result": invoke(operation, Path(source).read_text(), on_stage=observe)
         }
@@ -161,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
                 "remedy": "Inspect the original stage owner and existing artifacts before explicitly selecting further preparation. No retry, rollback or successful installation is inferred.",
             }
         }
-        if isinstance(error, AdmissionRefused):
+        if isinstance(error, AdmissionRefusedError):
             response = {"error": error.detail()}
     with Path(destination).open("x") as stream:
         json.dump(response, stream)

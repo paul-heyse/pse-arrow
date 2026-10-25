@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING, TypeVar, cast
 import msgspec
 from pydantic import JsonValue
 
-from scripts.capabilities.execution_basis import AdmissionRefused
 from scripts.capabilities.diagnostics import safe_path, schema_keys
+from scripts.capabilities.execution_basis import AdmissionRefusedError
 from scripts.capabilities.native_schema import JSON_OBJECT
 from scripts.capabilities.responses import bounded
 from scripts.capabilities.telemetry_profile_worker import capture
@@ -260,8 +260,12 @@ def scientific_error(
 def execute(
     operation: str, arguments: Mapping[str, object], *, scratch: Path
 ) -> dict[str, object]:
-    from scripts.capabilities import native_contracts as host
-    from scripts import python_extension
+    from scripts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        python_extension,
+    )
+    from scripts.capabilities import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        native_contracts as host,
+    )
 
     supplied = dict(arguments)
     fingerprint = supplied.pop("schema_set_fingerprint", None)
@@ -269,30 +273,71 @@ def execute(
         raise TypeError("fixed native request requires its loaded schema fingerprint")
     current = None
     if os.environ.get("PSE_CAPABILITY_ADMISSION"):
-        binding = next((item for item in host.BINDINGS if item.operation == operation), None)
-        requirement = next((item for item in binding.requirements if item.kind == "python-extension"), None) if binding else None
+        binding = next(
+            (item for item in host.BINDINGS if item.operation == operation), None
+        )
+        requirement = (
+            next(
+                (
+                    item
+                    for item in binding.requirements
+                    if item.kind == "python-extension"
+                ),
+                None,
+            )
+            if binding
+            else None
+        )
         if requirement is not None:
             current = python_extension.currency_check_installed(
                 python_extension.bind_interpreter(os.environ),
-                mode=requirement.mode or "dev", validated=requirement.validated is True,
+                mode=requirement.mode or "dev",
+                validated=requirement.validated is True,
             )
             if current.state != "current":
-                return {"outcome": "prerequisite_unavailable", "code": "pse.native.artifact_not_current", "currency": current.model_dump(mode="json")}
-            if "pse._native" in sys.modules or current.artifact is None or current.artifact_stamp is None:
-                return {"outcome": "stale_interface", "code": "pse.native.unbound_loaded_artifact", "remedy": "Use a fresh native worker after explicit preparation; no native receiver was entered."}
-    import pse
-    from pse import codec, diagnostics
-    from pse.contracts import documents as contracts
+                return {
+                    "outcome": "prerequisite_unavailable",
+                    "code": "pse.native.artifact_not_current",
+                    "currency": current.model_dump(mode="json"),
+                }
+            if (
+                "pse._native" in sys.modules
+                or current.artifact is None
+                or current.artifact_stamp is None
+            ):
+                return {
+                    "outcome": "stale_interface",
+                    "code": "pse.native.unbound_loaded_artifact",
+                    "remedy": "Use a fresh native worker after explicit preparation; no native receiver was entered.",
+                }
+    import pse  # noqa: PLC0415 -- selected owner loads only at this boundary
+    from pse import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        codec,
+        diagnostics,
+    )
+    from pse.contracts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        documents as contracts,
+    )
+
     if current is not None:
         loaded = sys.modules.get("pse._native")
         try:
-            unchanged = (current.artifact is not None and loaded is not None
-                and Path(str(getattr(loaded, "__file__", ""))).resolve() == Path(current.artifact.binary)
-                and python_extension.artifact_stamp(current.artifact) == current.artifact_stamp)
+            unchanged = (
+                current.artifact is not None
+                and loaded is not None
+                and Path(str(getattr(loaded, "__file__", ""))).resolve()
+                == Path(current.artifact.binary)
+                and python_extension.artifact_stamp(current.artifact)
+                == current.artifact_stamp
+            )
         except (OSError, ValueError):
             unchanged = False
         if not unchanged:
-            return {"outcome": "stale_interface", "code": "pse.native.artifact_changed_during_import", "remedy": "Let explicit preparation settle, then use a fresh worker; no native receiver was entered."}
+            return {
+                "outcome": "stale_interface",
+                "code": "pse.native.artifact_changed_during_import",
+                "remedy": "Let explicit preparation settle, then use a fresh worker; no native receiver was entered.",
+            }
     if fingerprint != pse.SCHEMA_SET_FINGERPRINT:
         return {
             "outcome": "stale_interface",
@@ -300,16 +345,22 @@ def execute(
             "stage": "native_interface_selection",
             "remedy": "Explicitly prepare the compatible correctness extension with just py-sync-native-correctness, then restart or reattach this endpoint. This refusal does not build, retry or enter a native receiver.",
         }
-    from scripts.telemetry_process import activate_native
+    from scripts.telemetry_process import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        activate_native,
+    )
+
     activate_native()
     if operation == "evidence_compare":
         request = host.EvidenceCompare.model_validate(supplied)
-        result = diagnostics.compare_evidence(
+        comparison = diagnostics.compare_evidence(
             json.dumps(request.request, allow_nan=False),
             json.dumps(request.snapshots, allow_nan=False),
             json.dumps(request.observations, allow_nan=False),
         )
-        return {"outcome": "observed", "document": json.loads(codec.encode_json(result))}
+        return {
+            "outcome": "observed",
+            "document": json.loads(codec.encode_json(comparison)),
+        }
     physical_packages: list[dict[str, bytes]] = []
     packages: list[dict[str, bytes]] = []
     resources = host.Resources()
@@ -604,7 +655,10 @@ def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
             request_bytes = input_file.read(MAXIMUM_REQUEST_BYTES + 1)
         if len(request_bytes) > MAXIMUM_REQUEST_BYTES:
             raise ValueError("native request exceeds transport byte bound")
-        from scripts.capabilities.execution_basis import verify
+        from scripts.capabilities.execution_basis import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            verify,
+        )
+
         verify(Path(__file__).resolve().parents[2], "native", operation, request_bytes)
         arguments = JSON_OBJECT.validate_json(request_bytes, strict=True)
         return operation, arguments
@@ -617,7 +671,10 @@ def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
     operation, arguments = payload["operation"], payload["arguments"]
     if not isinstance(operation, str) or not isinstance(arguments, dict):
         raise TypeError("invalid fixed worker envelope")
-    from scripts.capabilities.execution_basis import verify
+    from scripts.capabilities.execution_basis import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        verify,
+    )
+
     verify(Path(__file__).resolve().parents[2], "native", operation, raw)
     return operation, arguments
 
@@ -652,7 +709,7 @@ def main(argv: list[str] | None = None) -> int:
             "cause": type(error).__name__,
             "remedy": "Explicitly prepare the compatible extension with just py-sync-native-correctness and reattach from a prepared native environment. Read operations never build import providers.",
         }
-    except AdmissionRefused as error:
+    except AdmissionRefusedError as error:
         value = {"outcome": "stale_interface", **error.detail()}
     except Exception as error:
         native = native_report(error) is not None

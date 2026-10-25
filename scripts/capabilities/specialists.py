@@ -31,8 +31,8 @@ from mcp.types import ToolAnnotations
 from pydantic import Field, JsonValue
 
 from scripts import pse_env, semantic_edits, semantic_navigation, surreal_server
-from scripts.capabilities.model import Capability, Contract, Prerequisite
 from scripts.capabilities.cleanup import settle
+from scripts.capabilities.model import Capability, Contract, Prerequisite
 from scripts.capabilities.responses import ReadResult, bounded
 
 if TYPE_CHECKING:
@@ -266,12 +266,14 @@ class Connection(Generic[T]):
 
     async def close(self) -> None:
         self.closed = True
-        if self.task is not None:
+        task = self.task
+        if task is not None:
+
             async def stop() -> None:
-                assert self.task is not None
-                self.task.cancel()
+                task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
-                    await self.task
+                    await task
+
             await settle(stop())
 
 
@@ -792,7 +794,13 @@ class Specialists:
             self._previews.clear()
             self._preview_work.clear()
             self._preview_bytes = 0
-        await settle(*(connection.close() for connection in (*self.languages.values(), self.database) if connection is not None))
+        await settle(
+            *(
+                connection.close()
+                for connection in (*self.languages.values(), self.database)
+                if connection is not None
+            )
+        )
 
 
 def bindings(

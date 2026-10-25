@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING, TypeVar
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-from scripts.capabilities.worker_progress import ProgressObserver
 from scripts.capabilities import execution_basis
+from scripts.capabilities.worker_progress import ProgressObserver
 from scripts.telemetry_process import helper_environment
 
 if TYPE_CHECKING:
@@ -63,11 +63,18 @@ async def run_worker(
         )
         document = json.dumps(value, allow_nan=False).encode()
         source.write_bytes(document)
-        admitted = execution_basis.publish(directory, root, call.worker, operation, document)
+        admitted = execution_basis.publish(
+            directory, root, call.worker, operation, document
+        )
         source.chmod(0o600)
         command = [str(root / ".venv/bin/python"), "-m", declaration.module]
         if declaration.launch == "environment":
-            command = [str(root / "scripts/pse-env"), *declaration.environment, "--", *command]
+            command = [
+                str(root / "scripts/pse-env"),
+                *declaration.environment,
+                "--",
+                *command,
+            ]
         with tempfile.TemporaryFile() as log:
             spawn = asyncio.create_task(
                 asyncio.create_subprocess_exec(

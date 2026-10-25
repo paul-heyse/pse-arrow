@@ -660,7 +660,13 @@ def artifact_stamp(artifact: ExtensionArtifact) -> tuple[int, int, int, int, int
     if path.is_symlink() or not path.is_file():
         raise ValueError("prepared native artifact is not an ordinary file")
     value = path.stat()
-    return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
 
 
 def currency_check(
@@ -691,9 +697,7 @@ def currency_check(
         "remedy": remedy,
     }
 
-    def observed(
-        state: str, cause: str, **facts: object
-    ) -> ExtensionCurrency:
+    def observed(state: str, cause: str, **facts: object) -> ExtensionCurrency:
         return ExtensionCurrency.model_validate(
             {**base, "state": state, "cause": cause, **facts}
         )
@@ -706,8 +710,13 @@ def currency_check(
         recorded = ExtensionArtifact.model_validate(previous.get("artifact"))
     except ValueError:
         return observed("unknown", "missing-preparation-evidence")
-    if not isinstance(inputs, dict) or inputs.get("schema") != "ordinary-editable-inputs-v1":
-        return observed("unsupported", "unsupported-preparation-evidence", receipt_recorded=True)
+    if (
+        not isinstance(inputs, dict)
+        or inputs.get("schema") != "ordinary-editable-inputs-v1"
+    ):
+        return observed(
+            "unsupported", "unsupported-preparation-evidence", receipt_recorded=True
+        )
     try:
         current = preparation_inputs(
             "python-extension", mode, profile, environment, validated=validated
@@ -715,7 +724,9 @@ def currency_check(
     except (OSError, ValueError, TypeError, subprocess.SubprocessError):
         return observed("unknown", "inputs-unavailable", receipt_recorded=True)
     if current is None:
-        return observed("unsupported", "unsupported-inputs-or-providers", receipt_recorded=True)
+        return observed(
+            "unsupported", "unsupported-inputs-or-providers", receipt_recorded=True
+        )
     basis = hashlib.sha256(
         json.dumps(current, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()

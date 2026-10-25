@@ -37,7 +37,10 @@ class Worker:
             return self.declared_operations
         # Native bindings own their complete closed operation set. Resolve only
         # after module composition to avoid a second hand-maintained allowlist.
-        from scripts.capabilities.native_contracts import BINDINGS
+        from scripts.capabilities.native_contracts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            BINDINGS,
+        )
+
         return frozenset(binding.operation for binding in BINDINGS)
 
 

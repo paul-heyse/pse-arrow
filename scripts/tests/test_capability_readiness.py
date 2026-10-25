@@ -94,39 +94,76 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-    async def test_selected_currency_keeps_historical_import_and_operation_facts_separate(self) -> None:
+    async def test_selected_currency_keeps_historical_import_and_operation_facts_separate(
+        self,
+    ) -> None:
         self.receipt()
         tools = self.tools(capability(extension()))
         currency = python_extension.ExtensionCurrency(
-            state="stale", checkout=str(self.root),
-            interpreter=str(self.root / ".venv/bin/python"), mode="dev",
-            profile="producer", validated=True, source_basis="fresh-source-basis",
-            receipt_recorded=True, cause="inputs-changed", remedy="Explicitly prepare and reattach.",
+            state="stale",
+            checkout=str(self.root),
+            interpreter=str(self.root / ".venv/bin/python"),
+            mode="dev",
+            profile="producer",
+            validated=True,
+            source_basis="fresh-source-basis",
+            receipt_recorded=True,
+            cause="inputs-changed",
+            remedy="Explicitly prepare and reattach.",
         )
         with (
-            patch.object(preparation, "currency_check", new_callable=AsyncMock, return_value=currency) as check,
-            patch.object(preparation, "import_check", new_callable=AsyncMock) as imported,
+            patch.object(
+                preparation,
+                "currency_check",
+                new_callable=AsyncMock,
+                return_value=currency,
+            ) as check,
+            patch.object(
+                preparation, "import_check", new_callable=AsyncMock
+            ) as imported,
         ):
-            result = observed(await tools["capability_readiness_check"].run({"request": {
-                "capability": "selected", "checks": ["native-currency"], "profile": "producer",
-            }}))
+            result = observed(
+                await tools["capability_readiness_check"].run(
+                    {
+                        "request": {
+                            "capability": "selected",
+                            "checks": ["native-currency"],
+                            "profile": "producer",
+                        }
+                    }
+                )
+            )
         self.assertEqual(result.native_currency, currency)
         self.assertTrue(result.artifact_prepared.value)
         self.assertIsNone(result.import_compatible.value)
         self.assertIsNone(result.operation_exercised.value)
         self.assertEqual(result.receipts[0].currency, "unknown")
-        check.assert_awaited_once_with(self.root, "dev", profile="producer", validated=True)
+        check.assert_awaited_once_with(
+            self.root, "dev", profile="producer", validated=True
+        )
         imported.assert_not_called()
 
     async def test_currency_transport_failure_is_unknown_and_redacted(self) -> None:
         tools = self.tools(capability(extension("native")))
         with (
-            patch.object(preparation, "currency_check", new_callable=AsyncMock, side_effect=ToolError("private credential")),
+            patch.object(
+                preparation,
+                "currency_check",
+                new_callable=AsyncMock,
+                side_effect=ToolError("private credential"),
+            ),
             patch.object(python_extension, "run_stages") as stages,
         ):
-            result = observed(await tools["capability_readiness_check"].run({"request": {
-                "capability": "selected", "checks": ["native-currency"],
-            }}))
+            result = observed(
+                await tools["capability_readiness_check"].run(
+                    {
+                        "request": {
+                            "capability": "selected",
+                            "checks": ["native-currency"],
+                        }
+                    }
+                )
+            )
         assert result.native_currency is not None
         self.assertEqual(result.native_currency.state, "unknown")
         self.assertEqual(result.native_currency.cause, "check-unavailable")
@@ -135,11 +172,20 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_currency_selection_is_validated_before_any_live_check(self) -> None:
         tools = self.tools(capability(extension()))
-        with patch.object(preparation, "currency_check", new_callable=AsyncMock) as check:
-            with self.assertRaises(ToolError):
-                await tools["capability_readiness_check"].run({"request": {
-                    "capability": "selected", "checks": ["native-currency", "language-provider"],
-                }})
+        with (
+            patch.object(
+                preparation, "currency_check", new_callable=AsyncMock
+            ) as check,
+            self.assertRaises(ToolError),
+        ):
+            await tools["capability_readiness_check"].run(
+                {
+                    "request": {
+                        "capability": "selected",
+                        "checks": ["native-currency", "language-provider"],
+                    }
+                }
+            )
         check.assert_not_called()
 
     async def test_passive_lookup_with_missing_providers_never_imports_prepares_or_connects(
@@ -501,7 +547,8 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
             spec for spec in specs if spec.id == "capability_readiness_check"
         )
         self.assertEqual(
-            declared.worker_calls, (*preparation.IMPORT_CALLS.values(), preparation.CURRENCY_CALL)
+            declared.worker_calls,
+            (*preparation.IMPORT_CALLS.values(), preparation.CURRENCY_CALL),
         )
 
 

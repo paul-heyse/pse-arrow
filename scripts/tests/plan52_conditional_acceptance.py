@@ -24,22 +24,32 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
-from fastmcp import Client
-from fastmcp import FastMCP
+from fastmcp import Client, FastMCP
 from fastmcp.client.transports import StdioTransport
 from fastmcp.exceptions import ToolError
-from fastmcp.server.context import Context
-from fastmcp.server.extensions import MethodBinding, ServerExtension, read_client_extension_settings
+from fastmcp.server.extensions import (
+    MethodBinding,
+    ServerExtension,
+    read_client_extension_settings,
+)
 from fastmcp.server.middleware import Middleware
 from fastmcp.tools import Tool
 from fastmcp.utilities.tasks import TASKS_EXTENSION_ID
 from fastmcp_tasks import call_tool_task
-from fastmcp_tasks.models import CancelTaskResult, CreateTaskResult, GetTaskParams, GetTaskResult
+from fastmcp_tasks.models import (
+    CancelTaskResult,
+    CreateTaskResult,
+    GetTaskParams,
+    GetTaskResult,
+)
 from mcp.shared.exceptions import MCPError
 from mcp.types import ToolAnnotations
 from mcp_types.version import MODERN_PROTOCOL_VERSIONS
-from pydantic import JsonValue
+from pydantic import (
+    JsonValue,  # noqa: TC002 -- FunctionTool resolves return annotations at registration.
+)
 
 from scripts import codex_session
 from scripts.capabilities import coherence
@@ -48,12 +58,17 @@ from scripts.tests.capability_codex_check import drain
 from scripts.tests.capability_tasks_inquiry import get_task
 
 if TYPE_CHECKING:
-    import pse
+    from collections.abc import Mapping
+    from typing import BinaryIO
+
+    from fastmcp.server.context import Context
     from fastmcp.server.extensions import ToolCallContinuation, ToolCallOutcome
     from fastmcp.server.middleware import CallNext, MiddlewareContext
     from fastmcp.tools import ToolResult
     from mcp.server.context import ServerRequestContext
     from mcp_types import CallToolRequestParams
+
+    import pse
 
 ROOT = Path(__file__).resolve().parents[2]
 SERVER = "pse-capabilities"
@@ -61,34 +76,67 @@ F01_INPUTS = "inquiry_comparison_inputs"
 F01_COMPARE = "native_evidence_compare"
 PREPARE = "python_extension_native_stage"
 PREPARATION = {"request": {"stage": "prepare", "profile": "dev", "validated": True}}
-BOOTSTRAP = frozenset({
-    "capabilities_domains", "capabilities_workflows", "capabilities_describe", "capabilities_select",
-    "capabilities_reset", "capabilities_invoke_read", "list_resources", "read_resource", "list_prompts", "get_prompt",
-})
+BOOTSTRAP = frozenset(
+    {
+        "capabilities_domains",
+        "capabilities_workflows",
+        "capabilities_describe",
+        "capabilities_select",
+        "capabilities_reset",
+        "capabilities_invoke_read",
+        "list_resources",
+        "read_resource",
+        "list_prompts",
+        "get_prompt",
+    }
+)
 
 
 class InquiryHostGuard(Middleware):
     """The authorized host journey has an exact read closure, including wrappers."""
 
-    def __init__(self, eligible: frozenset[str], *, prepare_native: bool = False) -> None:
-        self.eligible = eligible | BOOTSTRAP | {
-            composition.EXECUTE, composition.LIST, composition.SCHEMAS, composition.TAGS,
-            composition.TYPED, "inquiry_native_study_projection",
-        }
+    def __init__(
+        self, eligible: frozenset[str], *, prepare_native: bool = False
+    ) -> None:
+        self.eligible = (
+            eligible
+            | BOOTSTRAP
+            | {
+                composition.EXECUTE,
+                composition.LIST,
+                composition.SCHEMAS,
+                composition.TAGS,
+                composition.TYPED,
+                "inquiry_native_study_projection",
+            }
+        )
         self.prepare_native = prepare_native
         self.preparations = 0
 
     async def on_call_tool(
-        self, context: MiddlewareContext[CallToolRequestParams],
+        self,
+        context: MiddlewareContext[CallToolRequestParams],
         call_next: CallNext[CallToolRequestParams, ToolResult],
     ) -> ToolResult:
         name = context.message.name
         arguments = context.message.arguments or {}
         if name in {"capabilities_invoke_action", PREPARE}:
-            target = arguments.get("capability") if name == "capabilities_invoke_action" else name
-            request = arguments.get("arguments") if name == "capabilities_invoke_action" else arguments
-            if (not self.prepare_native or composition.ACTIVE.get() is not None
-                or target != PREPARE or request != PREPARATION):
+            target = (
+                arguments.get("capability")
+                if name == "capabilities_invoke_action"
+                else name
+            )
+            request = (
+                arguments.get("arguments")
+                if name == "capabilities_invoke_action"
+                else arguments
+            )
+            if (
+                not self.prepare_native
+                or composition.ACTIVE.get() is not None
+                or target != PREPARE
+                or request != PREPARATION
+            ):
                 raise ToolError("opt01.only_explicit_native_prepare_setup_authorized")
             if name == PREPARE:
                 self.preparations += 1
@@ -102,7 +150,19 @@ class InquiryHostGuard(Middleware):
 
 def mapping(value: object) -> dict[str, object]:
     if not isinstance(value, dict):
-        raise ValueError("expected an object in retained inquiry evidence")
+        raise TypeError("expected an object in retained inquiry evidence")
+    return value
+
+
+def sequence(value: object, message: str) -> list[object]:
+    if not isinstance(value, list):
+        raise TypeError(message)
+    return value
+
+
+def string(value: object, message: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(message)
     return value
 
 
@@ -123,17 +183,33 @@ def load_control(fixture: Path) -> dict[str, object]:
             value["_native_projection_expected"] = True
         return value
     value = mapping(json.loads(source.read_text()))
-    require("expected" not in value, "independent expected answer must have separate custody")
-    return {**value, "expected": mapping(json.loads((fixture / "comparison-expected.json").read_text()))}
+    require(
+        "expected" not in value,
+        "independent expected answer must have separate custody",
+    )
+    return {
+        **value,
+        "expected": mapping(
+            json.loads((fixture / "comparison-expected.json").read_text())
+        ),
+    }
 
 
 async def selected(client: Client) -> None:
     await client.call_tool(
         "capabilities_select",
-        {"capabilities": sorted(composition.ELIGIBLE | {
-            composition.EXECUTE, composition.LIST, composition.SCHEMAS,
-            composition.TAGS, composition.TYPED,
-        })},
+        {
+            "capabilities": sorted(
+                composition.ELIGIBLE
+                | {
+                    composition.EXECUTE,
+                    composition.LIST,
+                    composition.SCHEMAS,
+                    composition.TAGS,
+                    composition.TYPED,
+                }
+            )
+        },
     )
 
 
@@ -143,8 +219,11 @@ async def controls(output: Path) -> dict[str, object]:
     output.mkdir(parents=True, exist_ok=False)
     control = composition.fixtures(output / "fixtures")
     write(output / "fixtures.json", control)
-    paths = control["outputs"]
-    require(isinstance(paths, list) and all(isinstance(p, str) for p in paths), "fixture paths")
+    paths = sequence(control["outputs"], "fixture paths")
+    require(
+        isinstance(paths, list) and all(isinstance(p, str) for p in paths),
+        "fixture paths",
+    )
     runtime, sandbox = await composition.inquiry_server()
     cases: dict[str, object] = {}
     async with Client(runtime.server, timeout=15) as client:
@@ -161,13 +240,17 @@ async def controls(output: Path) -> dict[str, object]:
             await asyncio.sleep(0)
             return {"label": label}
 
-        runtime.server.add_tool(Tool.from_function(
-            inquiry_yield_reader, annotations=ToolAnnotations(readOnlyHint=True),
-        ))
+        runtime.server.add_tool(
+            Tool.from_function(
+                inquiry_yield_reader,
+                annotations=ToolAnnotations(readOnlyHint=True),
+            )
+        )
 
         async def overlapping(label: str, maximum: int) -> dict[str, object]:
             policy = composition.Policy(
-                eligible=frozenset({"inquiry_yield_reader"}), max_calls=maximum,
+                eligible=frozenset({"inquiry_yield_reader"}),
+                max_calls=maximum,
             )
             sandbox.next_policy = policy
             code = (
@@ -178,28 +261,48 @@ async def controls(output: Path) -> dict[str, object]:
                 "return [first, second]"
             )
             try:
-                return mapping(await composition.read_value(client, composition.EXECUTE, {"code": code}))
+                return mapping(
+                    await composition.read_value(
+                        client, composition.EXECUTE, {"code": code}
+                    )
+                )
             finally:
                 sandbox.next_policy = None
 
         limited, independent = await asyncio.gather(
-            overlapping("limited", 1), overlapping("independent", 2),
+            overlapping("limited", 1),
+            overlapping("independent", 2),
         )
-        require(limited["complete"] is False and independent["complete"] is True,
-                "concurrent policy completeness leaked")
-        require(limited["examined_dispatches"] == independent["examined_dispatches"] == 2,
-                "concurrent callback counters leaked")
-        require(limited["derived"] == [{"label": "limited"}, "refused"],
-                "limited request acquired a peer's policy")
-        require(independent["derived"] == [{"label": "independent"}, {"label": "independent"}],
-                "independent request acquired a peer's refusal")
+        require(
+            limited["complete"] is False and independent["complete"] is True,
+            "concurrent policy completeness leaked",
+        )
+        require(
+            limited["examined_dispatches"] == independent["examined_dispatches"] == 2,
+            "concurrent callback counters leaked",
+        )
+        require(
+            limited["derived"] == [{"label": "limited"}, "refused"],
+            "limited request acquired a peer's policy",
+        )
+        require(
+            independent["derived"]
+            == [{"label": "independent"}, {"label": "independent"}],
+            "independent request acquired a peer's refusal",
+        )
         for label, answer in (("limited", limited), ("independent", independent)):
-            for record in answer["observations"]:
+            for record in sequence(answer["observations"], "callback observations"):
                 row = mapping(record)
                 if row.get("outcome") == "observed":
                     structured = mapping(row["structured"])
-                    require(structured == {"label": label}, "callback provenance crossed requests")
-        cases["concurrent_request_policy_isolation"] = {"limited": limited, "independent": independent}
+                    require(
+                        structured == {"label": label},
+                        "callback provenance crossed requests",
+                    )
+        cases["concurrent_request_policy_isolation"] = {
+            "limited": limited,
+            "independent": independent,
+        }
 
         # Use the production Sources/Interface/RestartMiddleware implementation
         # against copied real source bytes. Never mutate the shared checkout.
@@ -214,7 +317,10 @@ async def controls(output: Path) -> dict[str, object]:
         interface = coherence.Interface(sources, runtime.catalogue)
         runtime.server.add_middleware(coherence.RestartMiddleware(interface))
         target = "scripts/run_inspection.py"
-        require(target in interface.operations["product_run_read"], "source fence omitted real reader dependency")
+        require(
+            target in interface.operations["product_run_read"],
+            "source fence omitted real reader dependency",
+        )
         before = hashlib.sha256((source_root / target).read_bytes()).hexdigest()
         attempts = 0
 
@@ -227,17 +333,33 @@ async def controls(output: Path) -> dict[str, object]:
 
         sandbox.next_policy = composition.Policy(before_dispatch=change_selected_source)
         code = composition.code_for([str(paths[0])])
-        code = "try:\n" + "\n".join("    " + line for line in code.splitlines()[:-1]) + "\nexcept Exception:\n    pass\nreturn 'caught'"
-        answer = mapping(await composition.read_value(client, composition.EXECUTE, {"code": code}))
+        code = (
+            "try:\n"
+            + "\n".join("    " + line for line in code.splitlines()[:-1])
+            + "\nexcept Exception:\n    pass\nreturn 'caught'"
+        )
+        answer = mapping(
+            await composition.read_value(client, composition.EXECUTE, {"code": code})
+        )
         sandbox.next_policy = None
-        require(answer["complete"] is False and answer["examined_dispatches"] == 2,
-                "real changed source became complete after caught refusal")
+        require(
+            answer["complete"] is False and answer["examined_dispatches"] == 2,
+            "real changed source became complete after caught refusal",
+        )
         status = interface.status("product_run_read")
-        require(status["restart_required"] is True and target in status["changed_serving_sources"],
-                "canonical source fence did not identify changed reader")
+        require(
+            status["restart_required"] is True
+            and target
+            in sequence(status["changed_serving_sources"], "changed serving sources"),
+            "canonical source fence did not identify changed reader",
+        )
         cases["changed_callback_source"] = {
-            "answer": answer, "source_status": status, "before_sha256": before,
-            "after_sha256": hashlib.sha256((source_root / target).read_bytes()).hexdigest(),
+            "answer": answer,
+            "source_status": status,
+            "before_sha256": before,
+            "after_sha256": hashlib.sha256(
+                (source_root / target).read_bytes()
+            ).hexdigest(),
             "scope": "production fence on copied real source closure; shared checkout unchanged",
         }
 
@@ -255,12 +377,15 @@ async def controls(output: Path) -> dict[str, object]:
         "try:\n    await fails()\nexcept Exception:\n    pass\nreturn 'caught'",
         external_functions={"fails": fails},
     )
-    require(answer["complete"] is False and drained.is_set(), "caught callback failure lost partiality/drain")
+    require(
+        answer["complete"] is False and drained.is_set(),
+        "caught callback failure lost partiality/drain",
+    )
     cases["caught_callback_failure"] = answer
 
     entered_cleanup, cleanup_finished = asyncio.Event(), asyncio.Event()
 
-    async def cleanup_failure() -> str:
+    async def cleanup_failure() -> None:
         entered_cleanup.set()
         try:
             await asyncio.Event().wait()
@@ -270,12 +395,20 @@ async def controls(output: Path) -> dict[str, object]:
 
     sandbox.next_policy = composition.Policy(deadline=0.05)
     try:
-        await sandbox.run("return await cleanup_failure()", external_functions={"cleanup_failure": cleanup_failure})
+        await sandbox.run(
+            "return await cleanup_failure()",
+            external_functions={"cleanup_failure": cleanup_failure},
+        )
     except (TimeoutError, RuntimeError, ToolError) as error:
-        require(entered_cleanup.is_set() and cleanup_finished.is_set(), "cleanup was not attempted")
+        require(
+            entered_cleanup.is_set() and cleanup_finished.is_set(),
+            "cleanup was not attempted",
+        )
         cases["deadline_cleanup_failure"] = {
-            "outcome": "refused", "error_type": type(error).__name__,
-            "cleanup_attempted": True, "successful_cleanup_claim": False,
+            "outcome": "refused",
+            "error_type": type(error).__name__,
+            "cleanup_attempted": True,
+            "successful_cleanup_claim": False,
         }
     else:
         raise AssertionError("cleanup failure produced a complete successful answer")
@@ -293,13 +426,19 @@ async def controls(output: Path) -> dict[str, object]:
     sandbox.next_policy = composition.Policy(deadline=cancellation_deadline)
     started = time.monotonic()
     try:
-        await sandbox.run("return await slow_cleanup()", external_functions={"slow_cleanup": slow_cleanup})
+        await sandbox.run(
+            "return await slow_cleanup()",
+            external_functions={"slow_cleanup": slow_cleanup},
+        )
     except TimeoutError:
         elapsed = time.monotonic() - started
-        require(callback_done.is_set() and elapsed > cancellation_deadline,
-                "cooperative cleanup did not retain its actual deadline overshoot")
+        require(
+            callback_done.is_set() and elapsed > cancellation_deadline,
+            "cooperative cleanup did not retain its actual deadline overshoot",
+        )
         cases["deadline_is_cancellation_not_hard_return_bound"] = {
-            "configured_cancellation_seconds": cancellation_deadline, "observed_return_seconds": elapsed,
+            "configured_cancellation_seconds": cancellation_deadline,
+            "observed_return_seconds": elapsed,
             "callback_cleanup_finished": True,
             "interpretation": "Original framework joins cooperative cleanup after cancellation; this is no hard return or detached native drain guarantee",
         }
@@ -313,77 +452,140 @@ async def controls(output: Path) -> dict[str, object]:
         try:
             await sandbox.run(code)
         except Exception as error:
-            require(fragment in str(error).lower(), "sandbox refused for an unexpected reason: " + str(error))
-            cases[label] = {"outcome": "refused", "error_type": type(error).__name__, "message": str(error)}
+            require(
+                fragment in str(error).lower(),
+                "sandbox refused for an unexpected reason: " + str(error),
+            )
+            cases[label] = {
+                "outcome": "refused",
+                "error_type": type(error).__name__,
+                "message": str(error),
+            }
         else:
             raise AssertionError(label + " did not refuse")
-    result = {"status": "passed", "baseline": "zero failures", "cases": cases,
-              "scope": "in-process controls; not Codex, scientific execution or production adoption"}
+    result: dict[str, object] = {
+        "status": "passed",
+        "baseline": "zero failures",
+        "cases": cases,
+        "scope": "in-process controls; not Codex, scientific execution or production adoption",
+    }
     write(output / "result.json", result)
     return result
 
 
 def validate_provenance(answer: dict[str, object], expected: list[object]) -> None:
     """A model summary cannot replace retained original callback observations."""
-    observations = answer.get("observations")
-    require(isinstance(observations, list), "composition omitted recoverable observations")
+    observations = sequence(
+        answer.get("observations"), "composition omitted recoverable observations"
+    )
     native_rows = {}
     for value in observations:
         row = mapping(value)
-        require(row.get("outcome") == "observed", "three-way comparison has a refused callback")
+        require(
+            row.get("outcome") == "observed",
+            "three-way comparison has a refused callback",
+        )
         structured = mapping(row.get("structured"))
-        require(row.get("sha256") == hashlib.sha256(composition.encoded(structured)).hexdigest(),
-                "callback bytes disagree with retained provenance digest")
+        require(
+            row.get("sha256")
+            == hashlib.sha256(composition.encoded(structured)).hexdigest(),
+            "callback bytes disagree with retained provenance digest",
+        )
         if row.get("capability") == "product_run_read":
             payload = mapping(mapping(structured.get("result")).get("payload"))
-            require(isinstance(payload.get("terminal_identity"), str), "missing original terminal identity")
-            require(isinstance(payload.get("registry"), str), "missing original registry")
-            subjects = payload.get("subjects")
-            require(isinstance(subjects, list) and len(subjects) == 1, "unexpected selected native population")
+            require(
+                isinstance(payload.get("terminal_identity"), str),
+                "missing original terminal identity",
+            )
+            require(
+                isinstance(payload.get("registry"), str), "missing original registry"
+            )
+            subjects = sequence(
+                payload.get("subjects"), "unexpected selected native population"
+            )
+            require(
+                isinstance(subjects, list) and len(subjects) == 1,
+                "unexpected selected native population",
+            )
             subject = mapping(subjects[0])
-            fact = {"identity": subject.get("identity"), "outcome": subject.get("outcome"),
-                    "assurance": payload.get("assurance")}
+            fact = {
+                "identity": subject.get("identity"),
+                "outcome": subject.get("outcome"),
+                "assurance": payload.get("assurance"),
+            }
             identity = fact["identity"]
             require(isinstance(identity, str), "subject omitted its native identity")
-            require(identity not in native_rows or native_rows[identity] == fact,
-                    "repeated native observations disagree")
+            require(
+                identity not in native_rows or native_rows[identity] == fact,
+                "repeated native observations disagree",
+            )
             native_rows[identity] = fact
-    require(list(native_rows.values()) == expected, "composition's retained native facts differ from independent oracle")
-    require(answer.get("derived") == expected, "composition's derived answer changed native facts")
-    require(answer.get("complete") is False, "unreported population was promoted to complete")
+    require(
+        list(native_rows.values()) == expected,
+        "composition's retained native facts differ from independent oracle",
+    )
+    require(
+        answer.get("derived") == expected,
+        "composition's derived answer changed native facts",
+    )
+    require(
+        answer.get("complete") is False,
+        "unreported population was promoted to complete",
+    )
 
 
 class StudyReader:
     """Read/cancel one exact acknowledged native identity through public APIs."""
 
     def __init__(self, config: dict[str, object]) -> None:
-        import pse
-        from pse.contracts.identities import StudyId
-        from pse.contracts.values import SemanticId
+        import pse  # noqa: PLC0415 -- selected owner loads only at this boundary
+        from pse.contracts.identities import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            StudyId,
+        )
+        from pse.contracts.values import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            SemanticId,
+        )
 
         self.config = config
         self.runtime = pse.Runtime(
-            pse.EngineSettings(memory_limit_bytes=16 << 30, threads=16,
-                               spill_dir=str(config["spill"]), max_spill_bytes=1 << 30, batch_size=32),
-            substrate=str(config["state"]), database=str(config["database"]),
+            pse.EngineSettings(
+                memory_limit_bytes=16 << 30,
+                threads=16,
+                spill_dir=str(config["spill"]),
+                max_spill_bytes=1 << 30,
+                batch_size=32,
+            ),
+            substrate=str(config["state"]),
+            database=str(config["database"]),
         )
         try:
-            self.handle = self.runtime.study(StudyId(SemanticId.from_hex(str(config["study_id"]))))
+            self.handle = self.runtime.study(
+                StudyId(SemanticId.from_hex(str(config["study_id"])))
+            )
         except BaseException:
             self.runtime.close()
             raise
 
     def snapshot(self) -> dict[str, object]:
-        from pse import codec
+        from pse import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            codec,
+        )
 
         status = mapping(json.loads(codec.encode_json(self.handle.status())))
         result = self.handle.result()
-        return {"study_id": self.handle.study_id.to_hex(), "native_status": status,
-                "native_result": None if result is None else json.loads(codec.encode_json(result)),
-                "native_drain": "not_established_by_protocol_projection"}
+        return {
+            "study_id": self.handle.study_id.to_hex(),
+            "native_status": status,
+            "native_result": None
+            if result is None
+            else json.loads(codec.encode_json(result)),
+            "native_drain": "not_established_by_protocol_projection",
+        }
 
     def cancel(self) -> dict[str, object]:
-        from pse import codec
+        from pse import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            codec,
+        )
 
         return mapping(json.loads(codec.encode_json(self.handle.cancel())))
 
@@ -403,30 +605,50 @@ class StudyProjection(ServerExtension):
 
     def methods(self) -> list[MethodBinding]:
         return [
-            MethodBinding(method="tasks/get", params_type=GetTaskParams, handler=self.read,
-                          protocol_versions=frozenset(MODERN_PROTOCOL_VERSIONS)),
-            MethodBinding(method="tasks/cancel", params_type=GetTaskParams, handler=self.cancel,
-                          protocol_versions=frozenset(MODERN_PROTOCOL_VERSIONS)),
+            MethodBinding(
+                method="tasks/get",
+                params_type=GetTaskParams,
+                handler=self.read,
+                protocol_versions=frozenset(MODERN_PROTOCOL_VERSIONS),
+            ),
+            MethodBinding(
+                method="tasks/cancel",
+                params_type=GetTaskParams,
+                handler=self.cancel,
+                protocol_versions=frozenset(MODERN_PROTOCOL_VERSIONS),
+            ),
         ]
 
     def authorized(self, context: ServerRequestContext, task_id: str) -> None:
         if task_id != self.identity:
-            raise MCPError(code=-32602, message="Select the exact acknowledged native study identity")
+            raise MCPError(
+                code=-32602,
+                message="Select the exact acknowledged native study identity",
+            )
         if read_client_extension_settings(context, TASKS_EXTENSION_ID) is None:
             raise MCPError(code=-32021, message="Tasks capability not declared")
 
-    async def read(self, ctx: ServerRequestContext, params: GetTaskParams) -> GetTaskResult:
+    async def read(
+        self, ctx: ServerRequestContext, params: GetTaskParams
+    ) -> GetTaskResult:
         self.authorized(ctx, params.task_id)
         snapshot = await asyncio.to_thread(self.reader.snapshot)
         terminal = snapshot["native_result"] is not None
         return GetTaskResult(
-            task_id=self.identity, status="completed" if terminal else "working",
-            created_at=self.created, last_updated_at=datetime.now(UTC).isoformat(), ttl_ms=None,
-            result={"content": [], "structuredContent": snapshot, "isError": False} if terminal else None,
+            task_id=self.identity,
+            status="completed" if terminal else "working",
+            created_at=self.created,
+            last_updated_at=datetime.now(UTC).isoformat(),
+            ttl_ms=None,
+            result={"content": [], "structuredContent": snapshot, "isError": False}
+            if terminal
+            else None,
             status_message="Original native lifecycle; protocol completion does not certify scientific success or drain",
         )
 
-    async def cancel(self, ctx: ServerRequestContext, params: GetTaskParams) -> CancelTaskResult:
+    async def cancel(
+        self, ctx: ServerRequestContext, params: GetTaskParams
+    ) -> CancelTaskResult:
         self.authorized(ctx, params.task_id)
         original = await asyncio.to_thread(self.reader.cancel)
         destination = self.reader.config.get("cancel_receipt")
@@ -435,46 +657,92 @@ class StudyProjection(ServerExtension):
         return CancelTaskResult()
 
     async def intercept_tool_call(
-        self, params: CallToolRequestParams, context: Context, call_next: ToolCallContinuation,
+        self,
+        params: CallToolRequestParams,
+        context: Context,
+        call_next: ToolCallContinuation,
     ) -> ToolCallOutcome:
         if params.name != "inquiry_native_study_projection":
             return await call_next()
         request = context.request_context
         if request is None or request.protocol_version not in MODERN_PROTOCOL_VERSIONS:
-            raise MCPError(code=-32021, message="Modern tasks protocol required; use original native handle")
+            raise MCPError(
+                code=-32021,
+                message="Modern tasks protocol required; use original native handle",
+            )
         if context.client_extension_settings(TASKS_EXTENSION_ID) is None:
             raise MCPError(code=-32021, message="Tasks capability not declared")
-        return CreateTaskResult(task_id=self.identity, status="working", created_at=self.created,
-                                last_updated_at=datetime.now(UTC).isoformat(), ttl_ms=None)
+        return CreateTaskResult(
+            task_id=self.identity,
+            status="working",
+            created_at=self.created,
+            last_updated_at=datetime.now(UTC).isoformat(),
+            ttl_ms=None,
+        )
 
 
 def negotiation(wire: Path) -> dict[str, object]:
-    requests = [mapping(json.loads(line)) for line in (wire / "requests.jsonl").read_text().splitlines()]
-    responses = [mapping(json.loads(line)) for line in (wire / "responses.jsonl").read_text().splitlines()]
+    requests = [
+        mapping(json.loads(line))
+        for line in (wire / "requests.jsonl").read_text().splitlines()
+    ]
+    responses = [
+        mapping(json.loads(line))
+        for line in (wire / "responses.jsonl").read_text().splitlines()
+    ]
     initialize = [row for row in requests if row.get("method") == "initialize"]
     require(len(initialize) == 1, "expected exactly one captured MCP initialization")
-    response = next((row for row in responses if row.get("id") == initialize[0].get("id") and "result" in row), None)
+    response = next(
+        (
+            row
+            for row in responses
+            if row.get("id") == initialize[0].get("id") and "result" in row
+        ),
+        None,
+    )
     require(response is not None, "MCP initialization response missing")
     calls = [row for row in requests if row.get("method") == "tools/call"]
-    task_calls = [row for row in calls if mapping(row.get("params")).get("name") == "inquiry_native_study_projection"]
-    return {"initialization_request": initialize[0], "initialization_response": response,
-            "task_projection_requests": task_calls,
-            "task_methods": [row for row in requests if str(row.get("method", "")).startswith("tasks/")],
-            "interpretation": "raw actual-host negotiation; extension initialization alone is not per-request task consent"}
+    task_calls = [
+        row
+        for row in calls
+        if mapping(row.get("params")).get("name") == "inquiry_native_study_projection"
+    ]
+    return {
+        "initialization_request": initialize[0],
+        "initialization_response": response,
+        "task_projection_requests": task_calls,
+        "task_methods": [
+            row for row in requests if str(row.get("method", "")).startswith("tasks/")
+        ],
+        "interpretation": "raw actual-host negotiation; extension initialization alone is not per-request task consent",
+    }
 
 
-def assess_native_host_negotiation(wire: Path, control: dict[str, object]) -> dict[str, object]:
+def assess_native_host_negotiation(
+    wire: Path, control: dict[str, object]
+) -> dict[str, object]:
     observed = negotiation(wire)
     if control.get("_native_projection_expected") is True:
         task_calls = observed["task_projection_requests"]
-        require(isinstance(task_calls, list) and len(task_calls) == 1,
-                "host did not make exactly one authorized native projection request")
-        protocol = mapping(mapping(observed["initialization_response"])["result"])["protocolVersion"]
+        require(
+            isinstance(task_calls, list) and len(task_calls) == 1,
+            "host did not make exactly one authorized native projection request",
+        )
+        protocol = mapping(mapping(observed["initialization_response"])["result"])[
+            "protocolVersion"
+        ]
         if protocol not in MODERN_PROTOCOL_VERSIONS:
-            require(not observed["task_methods"], "legacy host unexpectedly dispatched modern task methods")
-            observed["native_projection_acceptance"] = "unsupported by actually negotiated legacy protocol; no native start or retry"
+            require(
+                not observed["task_methods"],
+                "legacy host unexpectedly dispatched modern task methods",
+            )
+            observed["native_projection_acceptance"] = (
+                "unsupported by actually negotiated legacy protocol; no native start or retry"
+            )
         else:
-            observed["native_projection_acceptance"] = "modern protocol; inspect captured task consent/result independently"
+            observed["native_projection_acceptance"] = (
+                "modern protocol; inspect captured task consent/result independently"
+            )
     return observed
 
 
@@ -497,23 +765,43 @@ def host_calls(path: Path) -> list[dict[str, object]]:
             terminal = True
         require(kind not in {"turn.failed", "error"}, "host turn failed")
         item = event.get("item")
-        if not isinstance(item, dict) or item.get("type") in {"reasoning", "agent_message"}:
+        if not isinstance(item, dict) or item.get("type") in {
+            "reasoning",
+            "agent_message",
+        }:
             continue
-        require(item.get("type") == "mcp_tool_call" and item.get("server") == SERVER,
-                "host used a tool outside the single inquiry endpoint")
-        identity = item.get("id")
-        require(isinstance(identity, str), "host call has no identity")
+        require(
+            item.get("type") == "mcp_tool_call" and item.get("server") == SERVER,
+            "host used a tool outside the single inquiry endpoint",
+        )
+        identity = string(item.get("id"), "host call has no identity")
         if kind == "item.started":
-            require(identity not in started and identity not in completed, "host duplicate start")
+            require(
+                identity not in started and identity not in completed,
+                "host duplicate start",
+            )
             started[identity] = item
         elif kind == "item.completed":
             old = started.pop(identity, None)
-            require(old is not None and identity not in completed, "host unmatched completion")
-            require(all(old.get(key) == item.get(key) for key in ("server", "tool", "arguments")),
-                    "host changed call arguments")
+            if old is None:
+                raise AssertionError("host unmatched completion")
+            require(
+                identity not in completed,
+                "host unmatched completion",
+            )
+            require(
+                all(
+                    old.get(key) == item.get(key)
+                    for key in ("server", "tool", "arguments")
+                ),
+                "host changed call arguments",
+            )
             calls.append(item)
             completed.add(identity)
-    require(thread and terminal and not started, "host evidence is not a complete fresh turn")
+    require(
+        thread and terminal and not started,
+        "host evidence is not a complete fresh turn",
+    )
     return calls
 
 
@@ -521,48 +809,82 @@ def operation(call: dict[str, object]) -> str:
     name = call.get("tool")
     if name in {"capabilities_invoke_read", "capabilities_invoke_action"}:
         name = mapping(call.get("arguments")).get("capability")
-    require(isinstance(name, str), "host call lacks an operation")
-    return name
+    return string(name, "host call lacks an operation")
 
 
 def structured(call: dict[str, object]) -> dict[str, object]:
     envelope = mapping(call.get("result"))
-    return mapping(envelope.get("structured_content", envelope.get("structuredContent")))
+    return mapping(
+        envelope.get("structured_content", envelope.get("structuredContent"))
+    )
 
 
 def comparison_document(value: dict[str, object]) -> dict[str, object]:
     payload = mapping(value.get("payload"))
-    require(payload.get("outcome") == "observed", "original comparison owner did not return an observed document")
+    require(
+        payload.get("outcome") == "observed",
+        "original comparison owner did not return an observed document",
+    )
     return mapping(payload.get("document"))
 
 
 def comparison_essential(document: dict[str, object]) -> dict[str, object]:
-    return {name: document[name] for name in (
-        "cut", "baseline_sources", "candidate_sources", "baseline_denominator", "candidate_denominator", "summary",
-    )}
+    return {
+        name: document[name]
+        for name in (
+            "cut",
+            "baseline_sources",
+            "candidate_sources",
+            "baseline_denominator",
+            "candidate_denominator",
+            "summary",
+        )
+    }
 
 
-def native_setup_observation(calls: list[dict[str, object]], comparisons: list[dict[str, object]], observed: list[dict[str, object]], preparation: dict[str, object]) -> dict[str, object]:
+def native_setup_observation(
+    calls: list[dict[str, object]],
+    comparisons: list[dict[str, object]],
+    observed: list[dict[str, object]],
+    preparation: dict[str, object],
+) -> dict[str, object]:
     """Preserve an exact current or controlled-stale basis around one authorized setup."""
     request = mapping(preparation["arguments"])
-    require(request.get("arguments") == PREPARATION, "host changed the authorized setup stage")
+    require(
+        request.get("arguments") == PREPARATION,
+        "host changed the authorized setup stage",
+    )
     prepared = structured(preparation)
-    require(prepared.get("exit_code") == 0 and prepared.get("operation") == "prepare"
-            and prepared.get("mode") == "native" and prepared.get("profile") == "dev"
-            and prepared.get("validated") is True,
-            "original preparation owner did not report the exact successful setup")
+    require(
+        prepared.get("exit_code") == 0
+        and prepared.get("operation") == "prepare"
+        and prepared.get("mode") == "native"
+        and prepared.get("profile") == "dev"
+        and prepared.get("validated") is True,
+        "original preparation owner did not report the exact successful setup",
+    )
     index = calls.index(preparation)
     before = [row for row in comparisons if calls.index(row) < index]
     after = [row for row in observed if calls.index(row) > index]
-    require(len(before) == 1 and bool(after), "setup requires one original before observation and an observed after comparison")
+    require(
+        len(before) == 1 and bool(after),
+        "setup requires one original before observation and an observed after comparison",
+    )
     basis = before[0]
     current = basis in observed
     if not current:
         refusal = mapping(structured(basis).get("payload"))
-        require(refusal.get("code") == "pse.native.artifact_not_current", "setup followed an unrelated native refusal")
-    return {"before": structured(basis), "before_state": "observed_current" if current else "artifact_not_current",
-            "original_preparation_owner": prepared, "after": structured(after[0]),
-            "interpretation": "Explicit authorized setup outside read-only CodeMode; no scientific action or automatic replay"}
+        require(
+            refusal.get("code") == "pse.native.artifact_not_current",
+            "setup followed an unrelated native refusal",
+        )
+    return {
+        "before": structured(basis),
+        "before_state": "observed_current" if current else "artifact_not_current",
+        "original_preparation_owner": prepared,
+        "after": structured(after[0]),
+        "interpretation": "Explicit authorized setup outside read-only CodeMode; no scientific action or automatic replay",
+    }
 
 
 def assess_f01_host(output: Path, control: dict[str, object]) -> dict[str, object]:
@@ -571,23 +893,44 @@ def assess_f01_host(output: Path, control: dict[str, object]) -> dict[str, objec
     expected = mapping(control["expected"])
     essential = comparison_essential(expected)
     all_direct = [row for row in calls if operation(row) == F01_COMPARE]
-    direct = [row for row in all_direct if mapping(structured(row).get("payload")).get("outcome") == "observed"]
+    direct = [
+        row
+        for row in all_direct
+        if mapping(structured(row).get("payload")).get("outcome") == "observed"
+    ]
     require(bool(direct), "host omitted actual typed native composition")
     for row in direct:
-        require(comparison_document(structured(row)) == expected, "host native comparison changed the expected original cut")
+        require(
+            comparison_document(structured(row)) == expected,
+            "host native comparison changed the expected original cut",
+        )
     preparation_calls = [row for row in calls if operation(row) == PREPARE]
     setup = None
     if preparation_calls:
         require(len(preparation_calls) == 1, "native setup action was replayed")
         preparation = preparation_calls[0]
         setup = native_setup_observation(calls, all_direct, direct, preparation)
-    requested_small = control.get("small_reads")
-    require(isinstance(requested_small, list) and bool(requested_small), "authentic comparison has no supplied small-reader baseline")
+    requested_small = sequence(
+        control.get("small_reads"),
+        "authentic comparison has no supplied small-reader baseline",
+    )
+    require(
+        isinstance(requested_small, list) and bool(requested_small),
+        "authentic comparison has no supplied small-reader baseline",
+    )
     for small in requested_small:
         selected_read = mapping(small)
-        matches = [row for row in calls if operation(row) == selected_read["capability"] and
-                   (mapping(row.get("arguments")).get("arguments")
-                    if row.get("tool") == "capabilities_invoke_read" else row.get("arguments")) == selected_read["arguments"]]
+        matches = [
+            row
+            for row in calls
+            if operation(row) == selected_read["capability"]
+            and (
+                mapping(row.get("arguments")).get("arguments")
+                if row.get("tool") == "capabilities_invoke_read"
+                else row.get("arguments")
+            )
+            == selected_read["arguments"]
+        ]
         require(bool(matches), "host omitted an exact original small-reader question")
     composed = []
     for row in calls:
@@ -596,47 +939,86 @@ def assess_f01_host(output: Path, control: dict[str, object]) -> dict[str, objec
         answer = structured(row)
         if answer.get("derived") != essential:
             continue
-        records = answer.get("observations")
-        require(isinstance(records, list), "native composition omitted callback provenance")
+        records = sequence(
+            answer.get("observations"), "native composition omitted callback provenance"
+        )
         typed_records = []
         input_records = []
         for value in records:
             record = mapping(value)
-            require(record.get("outcome") == "observed", "native composition has a refused callback")
+            require(
+                record.get("outcome") == "observed",
+                "native composition has a refused callback",
+            )
             original = mapping(record.get("structured"))
-            require(record.get("sha256") == hashlib.sha256(composition.encoded(original)).hexdigest(),
-                    "native composition callback provenance digest changed")
+            require(
+                record.get("sha256")
+                == hashlib.sha256(composition.encoded(original)).hexdigest(),
+                "native composition callback provenance digest changed",
+            )
             if record.get("capability") == F01_COMPARE:
                 typed_records.append(comparison_document(original))
-                require(record.get("arguments") == control["comparison"], "CodeMode changed the original native question")
+                require(
+                    record.get("arguments") == control["comparison"],
+                    "CodeMode changed the original native question",
+                )
             if record.get("capability") == F01_INPUTS:
                 input_records.append(original)
-        require(typed_records == [expected] and len(input_records) == 1,
-                "CodeMode has no recoverable original input and native result")
-        require(mapping(input_records[0]["inputs"]) == {key: value for key, value in control.items() if key != "expected"},
-                "CodeMode's original inputs changed")
+        require(
+            typed_records == [expected] and len(input_records) == 1,
+            "CodeMode has no recoverable original input and native result",
+        )
+        require(
+            mapping(input_records[0]["inputs"])
+            == {key: value for key, value in control.items() if key != "expected"},
+            "CodeMode's original inputs changed",
+        )
         composed.append(row)
-    require(bool(composed), "host did not produce an independently checked native CodeMode answer")
+    require(
+        bool(composed),
+        "host did not produce an independently checked native CodeMode answer",
+    )
     write(output / "negotiation.json", negotiation(output / "wire"))
-    sizes = {"small": sum(len(composition.encoded(row["result"])) for row in calls
-                          if operation(row) in {mapping(s)["capability"] for s in requested_small}),
-             "typed": sum(len(composition.encoded(row["result"])) for row in direct),
-             "codemode": sum(len(composition.encoded(row["result"])) for row in composed)}
-    return {"status": "passed", "baseline": "zero failures", "calls": len(calls), "observed_result_bytes": sizes,
-            "scope": "actual fresh Codex and canonical native F01 owner over authentic supplied original evidence; no productivity or latency benchmark",
-            "original_cut": expected["cut"], "callback_provenance": "full original input, request arguments and native response retained",
-            "explicit_native_setup": setup}
+    sizes = {
+        "small": sum(
+            len(composition.encoded(row["result"]))
+            for row in calls
+            if operation(row) in {mapping(s)["capability"] for s in requested_small}
+        ),
+        "typed": sum(len(composition.encoded(row["result"])) for row in direct),
+        "codemode": sum(len(composition.encoded(row["result"])) for row in composed),
+    }
+    return {
+        "status": "passed",
+        "baseline": "zero failures",
+        "calls": len(calls),
+        "observed_result_bytes": sizes,
+        "scope": "actual fresh Codex and canonical native F01 owner over authentic supplied original evidence; no productivity or latency benchmark",
+        "original_cut": expected["cut"],
+        "callback_provenance": "full original input, request arguments and native response retained",
+        "explicit_native_setup": setup,
+    }
 
 
 def proxy(output: Path, fixture: Path) -> int:
     """Transparent disposable STDIO endpoint capture, including initialization."""
     output.mkdir(parents=True, exist_ok=False)
     process = subprocess.Popen(
-        [sys.executable, "-m", "scripts.tests.plan52_conditional_acceptance", "--serve", str(fixture)],
-        cwd=ROOT, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=(output / "server-stderr.log").open("wb"), start_new_session=True,
+        [
+            sys.executable,
+            "-m",
+            "scripts.tests.plan52_conditional_acceptance",
+            "--serve",
+            str(fixture),
+        ],
+        cwd=ROOT,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=(output / "server-stderr.log").open("wb"),
+        start_new_session=True,
     )
-    assert process.stdin is not None and process.stdout is not None
+    assert process.stdin is not None
+    assert process.stdout is not None
 
     def requests() -> None:
         with (output / "requests.jsonl").open("wb") as capture:
@@ -673,7 +1055,10 @@ async def serve(fixture: Path) -> None:
         original = inputs.read_bytes()
         original_digest = hashlib.sha256(original).hexdigest()
         source = composition.OBJECT.validate_json(original)
-        require("expected" not in source, "independent expected answer cannot be exposed to the host")
+        require(
+            "expected" not in source,
+            "independent expected answer cannot be exposed to the host",
+        )
 
         def inquiry_comparison_inputs() -> dict[str, JsonValue]:
             """Read retained original inquiry inputs and source references; no build, store or scientific execution."""
@@ -681,12 +1066,21 @@ async def serve(fixture: Path) -> None:
                 raise ToolError("opt01.original_inquiry_inputs_changed")
             return {"inputs": source, "input_sha256": original_digest}
 
-        additional = (Tool.from_function(
-            inquiry_comparison_inputs, annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-        ),)
+        additional = (
+            Tool.from_function(
+                inquiry_comparison_inputs,
+                annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+            ),
+        )
         eligible |= {F01_INPUTS, F01_COMPARE}
-    runtime, _sandbox = await composition.inquiry_server(eligible=eligible, additional_tools=additional)
-    runtime.server.add_middleware(InquiryHostGuard(eligible, prepare_native=(fixture / "prepare-native-authorized").is_file()))
+    runtime, _sandbox = await composition.inquiry_server(
+        eligible=eligible, additional_tools=additional
+    )
+    runtime.server.add_middleware(
+        InquiryHostGuard(
+            eligible, prepare_native=(fixture / "prepare-native-authorized").is_file()
+        )
+    )
     # This test server is built from the current canonical bindings. It has no
     # alternate scientific interpreter and no production extension registration.
     native_config = fixture / "native-study.json"
@@ -699,76 +1093,133 @@ async def serve(fixture: Path) -> None:
             """Inquiry only: negotiated task view over the exact existing native study; never starts work."""
             raise AssertionError("task extension must intercept")
 
-        runtime.server.add_tool(Tool.from_function(
-            inquiry_native_study_projection,
-            annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
-        ))
+        runtime.server.add_tool(
+            Tool.from_function(
+                inquiry_native_study_projection,
+                annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
+            )
+        )
     capture_directory = fixture / "private-child-diagnostics"
-    original_run = None
+    diagnostic_capture = contextlib.ExitStack()
     if capture_directory.is_dir():
-        from scripts.capabilities import native as native_binding
+        from scripts.capabilities import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            native as native_binding,
+        )
 
         original_run = native_binding.subprocess.run
-        write(capture_directory / "endpoint-environment.json", {
-            "keys": sorted(os.environ), "linked_library_path_present": bool(os.environ.get("LD_LIBRARY_PATH")),
-            "host_allocation_present": bool(os.environ.get("PSE_HOST_ALLOCATION")),
-            "native_operation_present": bool(os.environ.get("PSE_NATIVE_OPERATION")),
-        })
+        write(
+            capture_directory / "endpoint-environment.json",
+            {
+                "keys": sorted(os.environ),
+                "linked_library_path_present": bool(os.environ.get("LD_LIBRARY_PATH")),
+                "host_allocation_present": bool(os.environ.get("PSE_HOST_ALLOCATION")),
+                "native_operation_present": bool(
+                    os.environ.get("PSE_NATIVE_OPERATION")
+                ),
+            },
+        )
 
-        def capture_worker(command: object, *args: object, **kwargs: object) -> object:
-            completed = original_run(command, *args, **kwargs)
-            if isinstance(command, list) and "scripts.capabilities.native_worker" in command:
-                stream = kwargs.get("stderr")
-                stream.seek(0)
-                raw = stream.read((1 << 20) + 1)
-                stderr = capture_directory / "native-worker-stderr.log"
-                stderr.write_bytes(raw)
-                stderr.chmod(0o600)
-                write(capture_directory / "worker.json", {
-                    "command": command, "exit_code": completed.returncode, "stderr_bytes": len(raw),
-                    "environment_keys": sorted(kwargs.get("env", {})),
-                })
+        def capture_worker(
+            command: list[str],
+            *,
+            input: bytes,
+            stdout: BinaryIO,
+            stderr: BinaryIO,
+            cwd: Path,
+            env: Mapping[str, str],
+            check: bool,
+        ) -> subprocess.CompletedProcess[bytes]:
+            completed = original_run(
+                command,
+                input=input,
+                stdout=stdout,
+                stderr=stderr,
+                cwd=cwd,
+                env=env,
+                check=check,
+            )
+            if "scripts.capabilities.native_worker" in command:
+                stderr.seek(0)
+                raw = stderr.read((1 << 20) + 1)
+                stderr_path = capture_directory / "native-worker-stderr.log"
+                stderr_path.write_bytes(raw)
+                stderr_path.chmod(0o600)
+                write(
+                    capture_directory / "worker.json",
+                    {
+                        "command": command,
+                        "exit_code": completed.returncode,
+                        "stderr_bytes": len(raw),
+                        "environment_keys": sorted(env),
+                    },
+                )
             return completed
 
-        native_binding.subprocess.run = capture_worker
+        diagnostic_capture.enter_context(
+            patch.object(native_binding.subprocess, "run", side_effect=capture_worker)
+        )
     try:
         await runtime.server.run_async(transport="stdio", show_banner=False)
     finally:
-        if original_run is not None:
-            native_binding.subprocess.run = original_run
+        diagnostic_capture.close()
         if reader is not None:
             reader.close()
 
 
 def native_runtime(config: dict[str, object]) -> pse.Runtime:
-    import pse
+    import pse  # noqa: PLC0415 -- selected owner loads only at this boundary
 
     return pse.Runtime(
-        pse.EngineSettings(memory_limit_bytes=16 << 30, threads=16,
-                           spill_dir=str(config["spill"]), max_spill_bytes=1 << 30, batch_size=32),
-        substrate=str(config["state"]), database=str(config["database"]),
+        pse.EngineSettings(
+            memory_limit_bytes=16 << 30,
+            threads=16,
+            spill_dir=str(config["spill"]),
+            max_spill_bytes=1 << 30,
+            batch_size=32,
+        ),
+        substrate=str(config["state"]),
+        database=str(config["database"]),
     )
 
 
 def native_fixture(output: Path) -> dict[str, object]:
     """Own one disposable service using the established fixture lifetime owner."""
-    from scripts import surreal_server as server
-    from scripts import surrealism_module
-    from scripts.tests.telemetry_database_acceptance import (
-        initialize_canonical, owned_fixture, record_ownership,
+    from scripts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        surreal_server as server,
+    )
+    from scripts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        surrealism_module,
+    )
+    from scripts.tests.telemetry_database_acceptance import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        initialize_canonical,
+        owned_fixture,
+        record_ownership,
     )
 
     initializer = ROOT / "target/debug/xtask"
-    preflight = subprocess.run([str(initializer), "canonical-init", "--help"],
-                               cwd=ROOT, capture_output=True, timeout=15, check=False)
+    preflight = subprocess.run(
+        [str(initializer), "canonical-init", "--help"],
+        cwd=ROOT,
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
     if preflight.returncode != 0:
-        raise RuntimeError("Current target/debug/xtask lacks nonmutating canonical-init capability; no fixture provisioned")
+        raise RuntimeError(
+            "Current target/debug/xtask lacks nonmutating canonical-init capability; no fixture provisioned"
+        )
     output = output.resolve()
     output.mkdir(parents=True, mode=0o700, exist_ok=False)
     fixtures = output / "fixtures"
     fixtures.mkdir(mode=0o700)
-    write(output / "initializer-preflight.json", {"command": [str(initializer), "canonical-init", "--help"],
-                                                "exit_code": preflight.returncode, "effects": "none; CLI help only"})
+    write(
+        output / "initializer-preflight.json",
+        {
+            "command": [str(initializer), "canonical-init", "--help"],
+            "exit_code": preflight.returncode,
+            "effects": "none; CLI help only",
+        },
+    )
     result: dict[str, object] = {"status": "failed", "baseline": "zero failures"}
     try:
         with owned_fixture(fixtures, output / "retirement") as directory:
@@ -776,39 +1227,78 @@ def native_fixture(output: Path) -> dict[str, object]:
             with socket.socket() as listener:
                 listener.bind(("127.0.0.1", 0))
                 port = listener.getsockname()[1]
-            minimum = (8 * server.integer(surrealism_module.LIMITS["max_memory_bytes"])
-                       * server.integer(surrealism_module.LIMITS["max_pool_size"]) // server.MIB)
-            args = server.parser().parse_args([
-                "setup", "--state", str(state), "--port", str(port), "--no-resident",
-                "--interpretation", server.SUBSTRATE_INTERPRETATION,
-                "--memory-mib", str(minimum + 512), "--server-memory-mib", str(minimum),
-                "--native-workers", "1", "--native-worker-memory-mib", "512",
-            ])
+            minimum = (
+                8
+                * server.integer(surrealism_module.LIMITS["max_memory_bytes"])
+                * server.integer(surrealism_module.LIMITS["max_pool_size"])
+                // server.MIB
+            )
+            args = server.parser().parse_args(
+                [
+                    "setup",
+                    "--state",
+                    str(state),
+                    "--port",
+                    str(port),
+                    "--no-resident",
+                    "--interpretation",
+                    server.SUBSTRATE_INTERPRETATION,
+                    "--memory-mib",
+                    str(minimum + 512),
+                    "--server-memory-mib",
+                    str(minimum),
+                    "--native-workers",
+                    "1",
+                    "--native-worker-memory-mib",
+                    "512",
+                ]
+            )
             server.setup(args)
             try:
                 initialize_canonical(state)
                 server.start(state, server.config_for(state))
                 record_ownership(directory, server.unit_name(state))
                 database = str(server.config_for(state)["database"])
-                write(output / "active-fixture.json", {"state": str(state), "database": database,
-                                                       "unit": server.unit_name(state), "owner_pid": os.getpid()})
+                write(
+                    output / "active-fixture.json",
+                    {
+                        "state": str(state),
+                        "database": database,
+                        "unit": server.unit_name(state),
+                        "owner_pid": os.getpid(),
+                    },
+                )
                 result = asyncio.run(native(output / "journey", state, database))
                 controls = composition.fixtures(output / "host-reader-controls")
                 write(output / "journey/fixtures.json", controls)
-                host_result = host(output / "codex-native-projection", output / "journey", 600)
-                require(host_result["status"] == "passed", "fresh Codex native-projection inquiry failed")
+                host_result = host(
+                    output / "codex-native-projection", output / "journey", 600
+                )
+                require(
+                    host_result["status"] == "passed",
+                    "fresh Codex native-projection inquiry failed",
+                )
                 result["actual_codex"] = host_result
                 # The worker owner supplies physical settlement independently of
                 # protocol/native cancellation acknowledgement and metadata.
                 units = server.drain_context(state, database)
-                write(output / "native-drain.json", {"status": "passed", "original_owner_units": units,
-                                                     "state": str(state), "database": database})
+                write(
+                    output / "native-drain.json",
+                    {
+                        "status": "passed",
+                        "original_owner_units": units,
+                        "state": str(state),
+                        "database": database,
+                    },
+                )
                 record_ownership(directory, server.unit_name(state))
             finally:
                 server.stop(state, server.config_for(state))
         result["fixture_retirement"] = str(output / "retirement/passed.json")
     except BaseException as error:
-        result.update(status="failed", error_type=type(error).__name__, error=str(error))
+        result.update(
+            status="failed", error_type=type(error).__name__, error=str(error)
+        )
         raise
     finally:
         write(output / "acceptance.json", result)
@@ -817,30 +1307,46 @@ def native_fixture(output: Path) -> dict[str, object]:
 
 def start_native(config: dict[str, object]) -> tuple[pse.Runtime, pse.StudyHandle]:
     """Exercise the original public recorded-definition/start APIs, once."""
-    import pse
-    from pse.tests.study_fixtures import point
-    from pse.tests.study_fixtures import request as study_request
-    from pse.tests.test_studies import _package
+    import pse  # noqa: PLC0415 -- selected owner loads only at this boundary
+    from pse.tests.study_fixtures import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        point,
+    )
+    from pse.tests.study_fixtures import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        request as study_request,
+    )
+    from pse.tests.test_studies import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+        _package,
+    )
 
     runtime = native_runtime(config)
     try:
         package, case = _package(
-            runtime, source='package opt02 { def Root { param x:Scalar=2; annotation report x("constant"); } }',
+            runtime,
+            source='package opt02 { def Root { param x:Scalar=2; annotation report x("constant"); } }',
         )
         local = package.admit_study(study_request(point(case, pse.SolveSettings(), 0)))
         definition = runtime.record_study(local)
         handle = runtime.start_study(definition)
-        return runtime, handle
     except BaseException:
         runtime.close()
         raise
+    else:
+        return runtime, handle
 
 
 def projection_transport(fixture: Path, *, lost_start: bool = False) -> StdioTransport:
-    return StdioTransport(command=sys.executable,
-                          args=["-m", "scripts.tests.plan52_conditional_acceptance",
-                                "--serve-lost-start" if lost_start else "--serve", str(fixture)],
-                          cwd=str(ROOT), env=dict(os.environ), keep_alive=False)
+    return StdioTransport(
+        command=sys.executable,
+        args=[
+            "-m",
+            "scripts.tests.plan52_conditional_acceptance",
+            "--serve-lost-start" if lost_start else "--serve",
+            str(fixture),
+        ],
+        cwd=str(ROOT),
+        env=dict(os.environ),
+        keep_alive=False,
+    )
 
 
 async def lost_start_server(fixture: Path) -> None:
@@ -851,15 +1357,25 @@ async def lost_start_server(fixture: Path) -> None:
     async def inquiry_start_then_lose_ack() -> str:
         """Inquiry only: admit exactly once, then lose this disposable endpoint before acknowledgement."""
         with (fixture / "oracle-start-entries.jsonl").open("a") as entries:
-            entries.write(json.dumps({"endpoint_pid": os.getpid(), "phase": "native-start-entered"}) + "\n")
+            entries.write(
+                json.dumps(
+                    {"endpoint_pid": os.getpid(), "phase": "native-start-entered"}
+                )
+                + "\n"
+            )
             entries.flush()
             os.fsync(entries.fileno())
         _runtime, handle = await asyncio.to_thread(start_native, config)
         # Independent observer custody, never returned or used as a hidden client
         # recovery key. The harness reads this only to settle its owned fixture.
-        write(fixture / "oracle-native-identity.json", {
-            **config, "study_id": handle.study_id.to_hex(), "created_at": datetime.now(UTC).isoformat(),
-        })
+        write(
+            fixture / "oracle-native-identity.json",
+            {
+                **config,
+                "study_id": handle.study_id.to_hex(),
+                "created_at": datetime.now(UTC).isoformat(),
+            },
+        )
         os._exit(17)
 
     await server.run_async(transport="stdio", show_banner=False)
@@ -871,10 +1387,16 @@ async def native(output: Path, state: Path, database: str) -> dict[str, object]:
     output.mkdir(parents=True, exist_ok=False)
     spill = output / "spill"
     spill.mkdir()
-    config: dict[str, object] = {"state": str(state.resolve()), "database": database, "spill": str(spill),
-                               "cancel_receipt": str(output / "native-cancel-receipt.json")}
+    config: dict[str, object] = {
+        "state": str(state.resolve()),
+        "database": database,
+        "spill": str(spill),
+        "cancel_receipt": str(output / "native-cancel-receipt.json"),
+    }
     runtime, handle = await asyncio.to_thread(start_native, config)
-    config.update(study_id=handle.study_id.to_hex(), created_at=datetime.now(UTC).isoformat())
+    config.update(
+        study_id=handle.study_id.to_hex(), created_at=datetime.now(UTC).isoformat()
+    )
     write(output / "native-study.json", config)
     try:
         reader = StudyReader(config)
@@ -888,40 +1410,91 @@ async def native(output: Path, state: Path, database: str) -> dict[str, object]:
     cases: dict[str, object] = {}
     try:
         queued = await asyncio.to_thread(reader.snapshot)
-        points = mapping(queued["native_status"])["points"]
-        require(isinstance(points, list) and len(points) == 1, "unexpected native queued population")
-        require(all(mapping(point)["attempt"] is None and not mapping(point)["settled"] for point in points),
-                "native work started before queued observation")
-        require(queued["native_result"] is None, "queued native study already has a result")
+        points = sequence(
+            mapping(queued["native_status"])["points"],
+            "unexpected native queued population",
+        )
+        require(
+            isinstance(points, list) and len(points) == 1,
+            "unexpected native queued population",
+        )
+        require(
+            all(
+                mapping(point)["attempt"] is None and not mapping(point)["settled"]
+                for point in points
+            ),
+            "native work started before queued observation",
+        )
+        require(
+            queued["native_result"] is None, "queued native study already has a result"
+        )
         cases["queued"] = queued
         write(output / "native-observations.json", cases)
-        async with Client(projection_transport(output), mode="auto", timeout=60) as first:
+        async with Client(
+            projection_transport(output), mode="auto", timeout=60
+        ) as first:
             task = await call_tool_task(first, "inquiry_native_study_projection")
-            require(task.task_id == str(config["study_id"]), "projection changed acknowledged native identity")
+            require(
+                task.task_id == str(config["study_id"]),
+                "projection changed acknowledged native identity",
+            )
             observed = await get_task(first, str(config["study_id"]))
-            require(observed.status == "working", "queued task projection claimed terminal")
-        async with Client(projection_transport(output), mode="auto", timeout=60) as fresh:
+            require(
+                observed.status == "working", "queued task projection claimed terminal"
+            )
+        async with Client(
+            projection_transport(output), mode="auto", timeout=60
+        ) as fresh:
             reopened = await get_task(fresh, str(config["study_id"]))
-            require(reopened.status == "working", "fresh endpoint lost original native queued status")
+            require(
+                reopened.status == "working",
+                "fresh endpoint lost original native queued status",
+            )
             task = await call_tool_task(fresh, "inquiry_native_study_projection")
             await task.cancel()
-        cases["fresh_endpoint_queued_recovery"] = {"original_study_id": config["study_id"], "status": reopened.status}
+        cases["fresh_endpoint_queued_recovery"] = {
+            "original_study_id": config["study_id"],
+            "status": reopened.status,
+        }
         write(output / "native-observations.json", cases)
-        cancellation = mapping(json.loads((output / "native-cancel-receipt.json").read_text()))
-        require(mapping((await asyncio.to_thread(reader.snapshot))["native_status"])["cancelled"] is True,
-                "task cancellation acknowledgement did not reach original native owner")
+        cancellation = mapping(
+            json.loads((output / "native-cancel-receipt.json").read_text())
+        )
+        require(
+            mapping((await asyncio.to_thread(reader.snapshot))["native_status"])[
+                "cancelled"
+            ]
+            is True,
+            "task cancellation acknowledgement did not reach original native owner",
+        )
         # Original worker authority finalizes the cancelled occurrences. This is
         # not a host task state update and does not dispatch a replacement study.
         actions = await asyncio.to_thread(runtime.work)
         terminal = await asyncio.to_thread(reader.snapshot)
-        require(terminal["native_result"] is not None, "cancelled native queue did not finalize")
-        require(terminal["study_id"] == queued["study_id"], "recovery changed native identity")
-        async with Client(projection_transport(output), mode="auto", timeout=60) as fresh:
+        require(
+            terminal["native_result"] is not None,
+            "cancelled native queue did not finalize",
+        )
+        require(
+            terminal["study_id"] == queued["study_id"],
+            "recovery changed native identity",
+        )
+        async with Client(
+            projection_transport(output), mode="auto", timeout=60
+        ) as fresh:
             concluded = await get_task(fresh, str(config["study_id"]))
-            require(concluded.status == "completed", "terminal task projection did not retain original result")
-            require(mapping(concluded.result)["structuredContent"] == terminal, "projection changed native result")
+            require(
+                concluded.status == "completed",
+                "terminal task projection did not retain original result",
+            )
+            require(
+                mapping(concluded.result)["structuredContent"] == terminal,
+                "projection changed native result",
+            )
         cases["pre_native_cancellation_and_terminal_recovery"] = {
-            "native_cancel_ack": cancellation, "original_worker_actions": actions, "original_terminal": terminal,
+            "native_cancel_ack": cancellation,
+            "original_worker_actions": actions,
+            "original_terminal": terminal,
             "protocol_status": concluded.status,
             "interpretation": "completed projection of native cancellation; not scientific success or proof of physical drain",
         }
@@ -938,38 +1511,70 @@ async def native(output: Path, state: Path, database: str) -> dict[str, object]:
 
     lost = output / "lost-start-ack"
     lost.mkdir()
-    write(lost / "connection.json", {key: config[key] for key in ("state", "database", "spill")})
+    write(
+        lost / "connection.json",
+        {key: config[key] for key in ("state", "database", "spill")},
+    )
     failure = None
     try:
-        async with Client(projection_transport(lost, lost_start=True), timeout=120) as client:
+        async with Client(
+            projection_transport(lost, lost_start=True), timeout=120
+        ) as client:
             await client.call_tool("inquiry_start_then_lose_ack")
     except Exception as error:
         failure = {"type": type(error).__name__, "message": str(error)[:2000]}
     require(failure is not None, "lost endpoint unexpectedly acknowledged native start")
-    require((lost / "oracle-native-identity.json").is_file(), "endpoint failed before authentic native admission")
-    entries = [mapping(json.loads(line)) for line in (lost / "oracle-start-entries.jsonl").read_text().splitlines()]
-    require(len(entries) == 1, "lost acknowledgement caused more than one observed native start entry")
+    require(
+        (lost / "oracle-native-identity.json").is_file(),
+        "endpoint failed before authentic native admission",
+    )
+    entries = [
+        mapping(json.loads(line))
+        for line in (lost / "oracle-start-entries.jsonl").read_text().splitlines()
+    ]
+    require(
+        len(entries) == 1,
+        "lost acknowledgement caused more than one observed native start entry",
+    )
     # The client path stops at unknown, with zero repeated start calls. Only the
     # independent fixture owner gets the oracle identity for inspection/cleanup.
-    client_outcome = {"effect": "unknown", "native_identity_received": False, "start_calls": len(entries),
-                      "automatic_retry": False, "owner_lookup_by_request": "missing from current public Runtime API",
-                      "transport_failure": failure}
+    client_outcome = {
+        "effect": "unknown",
+        "native_identity_received": False,
+        "start_calls": len(entries),
+        "automatic_retry": False,
+        "owner_lookup_by_request": "missing from current public Runtime API",
+        "transport_failure": failure,
+    }
     write(lost / "client-outcome.json", client_outcome)
-    oracle = StudyReader(mapping(json.loads((lost / "oracle-native-identity.json").read_text())))
+    oracle = StudyReader(
+        mapping(json.loads((lost / "oracle-native-identity.json").read_text()))
+    )
     try:
         original = await asyncio.to_thread(oracle.snapshot)
         cancel = await asyncio.to_thread(oracle.cancel)
         await asyncio.to_thread(oracle.runtime.work)
         settled = await asyncio.to_thread(oracle.snapshot)
-        require(settled["native_result"] is not None, "independent lost-ack fixture did not settle")
-        cases["authentic_lost_start_ack"] = {"client": client_outcome, "independent_oracle": original,
-                                             "owner_cleanup_cancel": cancel, "owner_cleanup_terminal": settled,
-                                             "client_recovery_established": False}
+        require(
+            settled["native_result"] is not None,
+            "independent lost-ack fixture did not settle",
+        )
+        cases["authentic_lost_start_ack"] = {
+            "client": client_outcome,
+            "independent_oracle": original,
+            "owner_cleanup_cancel": cancel,
+            "owner_cleanup_terminal": settled,
+            "client_recovery_established": False,
+        }
     finally:
         oracle.close()
-    result = {"status": "passed", "baseline": "zero failures", "cases": cases,
-              "native_started_control": "not_run: requires independent authentic native-entry owner",
-              "scope": "public Runtime durable queued/cancelled studies and fresh STDIO projection; no production task adoption, solver-entry or database restart claim"}
+    result: dict[str, object] = {
+        "status": "passed",
+        "baseline": "zero failures",
+        "cases": cases,
+        "native_started_control": "not_run: requires independent authentic native-entry owner",
+        "scope": "public Runtime durable queued/cancelled studies and fresh STDIO projection; no production task adoption, solver-entry or database restart claim",
+    }
     write(output / "native-result.json", result)
     return result
 
@@ -980,8 +1585,11 @@ def assess_host(output: Path, control: dict[str, object]) -> dict[str, object]:
         return assess_f01_host(output, control)
     calls = host_calls(output / "events.jsonl")
     operations = {operation(row) for row in calls}
-    require({composition.EXECUTE, composition.TYPED, composition.LIST, composition.SCHEMAS} <= operations,
-            "host did not exercise the requested three-way inquiry")
+    require(
+        {composition.EXECUTE, composition.TYPED, composition.LIST, composition.SCHEMAS}
+        <= operations,
+        "host did not exercise the requested three-way inquiry",
+    )
     # Numerical sizes count observed serialized MCP results, never estimated
     # token counts. Keep full original results and raw protocol traffic.
     sizes = {"small": 0, "typed": 0, "codemode": 0}
@@ -994,20 +1602,39 @@ def assess_host(output: Path, control: dict[str, object]) -> dict[str, object]:
             category = "typed" if name == composition.TYPED else "codemode"
             sizes[category] += len(composition.encoded(row.get("result")))
             envelope = mapping(row.get("result"))
-            structured = envelope.get("structured_content", envelope.get("structuredContent"))
-            if isinstance(structured, dict) and isinstance(structured.get("derived"), list):
-                require(structured["derived"] == control["expected"], "host typed/CodeMode facts differ from oracle")
+            structured = envelope.get(
+                "structured_content", envelope.get("structuredContent")
+            )
+            if isinstance(structured, dict) and isinstance(
+                structured.get("derived"), list
+            ):
+                require(
+                    structured["derived"] == control["expected"],
+                    "host typed/CodeMode facts differ from oracle",
+                )
                 if name == composition.EXECUTE:
-                    validate_provenance(structured, control["expected"])
+                    validate_provenance(
+                        structured,
+                        sequence(control["expected"], "reader oracle population"),
+                    )
                     full_comparisons += 1
-    require(full_comparisons >= 1, "host omitted a complete recoverable CodeMode comparison")
+    require(
+        full_comparisons >= 1, "host omitted a complete recoverable CodeMode comparison"
+    )
     observed_negotiation = assess_native_host_negotiation(output / "wire", control)
     write(output / "negotiation.json", observed_negotiation)
-    return {"status": "passed", "baseline": "zero failures", "calls": len(calls), "observed_result_bytes": sizes,
-            "scope": "actual fresh Codex control-reader inquiry; native F01 and scientific recovery separate"}
+    return {
+        "status": "passed",
+        "baseline": "zero failures",
+        "calls": len(calls),
+        "observed_result_bytes": sizes,
+        "scope": "actual fresh Codex control-reader inquiry; native F01 and scientific recovery separate",
+    }
 
 
-def host(output: Path, fixture: Path, timeout: int, *, prepare_native: bool = False) -> dict[str, object]:
+def host(
+    output: Path, fixture: Path, timeout: int, *, prepare_native: bool = False
+) -> dict[str, object]:
     output.mkdir(parents=True, exist_ok=False)
     control = load_control(fixture)
     prompt = (
@@ -1045,15 +1672,19 @@ def host(output: Path, fixture: Path, timeout: int, *, prepare_native: bool = Fa
         )
         if prepare_native:
             (fixture / "prepare-native-authorized").touch(exist_ok=True)
-            prompt = prompt.replace("No shell, edits, actions, builds, service startup or scientific execution.",
-                                    "No shell, edits, service startup or scientific execution. One exact native preparation setup action is explicitly authorized below.")
-            prompt = prompt.replace("Then call actual native_evidence_compare with the exact comparison object.",
+            prompt = prompt.replace(
+                "No shell, edits, actions, builds, service startup or scientific execution.",
+                "No shell, edits, service startup or scientific execution. One exact native preparation setup action is explicitly authorized below.",
+            )
+            prompt = prompt.replace(
+                "Then call actual native_evidence_compare with the exact comparison object.",
                 "First call native_evidence_compare with the exact comparison object and retain its original before-preparation observation. It may already be current, or may report the exact artifact_not_current currency refusal; do not invent staleness. "
                 "Then describe/select python_extension_native_stage and invoke capabilities_invoke_action EXACTLY ONCE with "
                 "capability=python_extension_native_stage, arguments={request:{stage:prepare,profile:dev,validated:true}}. "
                 "This explicitly authorized setup is outside CodeMode; it may prepare/install the native extension for this exact selected environment. "
                 "Wait for its original owner result, then call native_evidence_compare again with the exact original comparison object. "
-                "Do not replay setup or scientific work. Retain the actual before-current or controlled-stale basis, original preparation and after-current native comparison evidence.")
+                "Do not replay setup or scientific work. Retain the actual before-current or controlled-stale basis, original preparation and after-current native comparison evidence.",
+            )
     diagnostic = (fixture / "private-child-diagnostics").is_dir()
     if diagnostic:
         prompt = (
@@ -1064,60 +1695,123 @@ def host(output: Path, fixture: Path, timeout: int, *, prepare_native: bool = Fa
             "Do not retry the comparison or invoke CodeMode, further native tools or any action."
         )
     if (fixture / "native-study.json").is_file():
-        prompt += (" Also invoke inquiry_native_study_projection exactly once to test real task negotiation over an already "
-                   "acknowledged native identity. If unsupported, report the refusal and use the original native handle; "
-                   "do not retry initiation, cancel, start or replay any work. If tasks are supported, inspect its original result.")
+        prompt += (
+            " Also invoke inquiry_native_study_projection exactly once to test real task negotiation over an already "
+            "acknowledged native identity. If unsupported, report the refusal and use the original native handle; "
+            "do not retry initiation, cancel, start or replay any work. If tasks are supported, inspect its original result."
+        )
     command, description = codex_session.session_description(
-        state=None, database=False, rust=False, python=False,
-        require_database=False, require_rust=False,
+        state=None,
+        database=False,
+        rust=False,
+        python=False,
+        require_database=False,
+        require_rust=False,
         arguments=[
-            "-c", "mcp_servers.pse-capabilities.args=" + json.dumps([
-                "-m", "scripts.tests.plan52_conditional_acceptance", "--proxy", str(output / "wire"),
-                "--fixture", str(fixture),
-            ]),
-            "-a", "never", "--disable", "shell_tool", "exec", "--json", "--ephemeral",
-            "--sandbox", "read-only", "--color", "never", "-",
+            "-c",
+            "mcp_servers.pse-capabilities.args="
+            + json.dumps(
+                [
+                    "-m",
+                    "scripts.tests.plan52_conditional_acceptance",
+                    "--proxy",
+                    str(output / "wire"),
+                    "--fixture",
+                    str(fixture),
+                ]
+            ),
+            "-a",
+            "never",
+            "--disable",
+            "shell_tool",
+            "exec",
+            "--json",
+            "--ephemeral",
+            "--sandbox",
+            "read-only",
+            "--color",
+            "never",
+            "-",
         ],
     )
     if prepare_native:
         position = command.index("-a")
-        command[position:position] = ["-c", 'mcp_servers.pse-capabilities.tools.capabilities_invoke_action.approval_mode="approve"']
+        command[position:position] = [
+            "-c",
+            'mcp_servers.pse-capabilities.tools.capabilities_invoke_action.approval_mode="approve"',
+        ]
     if (fixture / "native-study.json").is_file() or "comparison" in control:
         # A disposable native projection imports the linked extension directly;
         # ordinary canonical serving stays source-only. Use the established
         # native environment owner instead of recording secret-bearing env.
         position = command.index("-a")
         command[position:position] = [
-            "-c", "mcp_servers.pse-capabilities.command=" + json.dumps(str(ROOT / "scripts/pse-env")),
-            "-c", "mcp_servers.pse-capabilities.args=" + json.dumps([
-                "--native", "--", str(ROOT / ".venv/bin/python"),
-                "-m", "scripts.tests.plan52_conditional_acceptance", "--proxy", str(output / "wire"),
-                "--fixture", str(fixture),
-            ]),
+            "-c",
+            "mcp_servers.pse-capabilities.command="
+            + json.dumps(str(ROOT / "scripts/pse-env")),
+            "-c",
+            "mcp_servers.pse-capabilities.args="
+            + json.dumps(
+                [
+                    "--native",
+                    "--",
+                    str(ROOT / ".venv/bin/python"),
+                    "-m",
+                    "scripts.tests.plan52_conditional_acceptance",
+                    "--proxy",
+                    str(output / "wire"),
+                    "--fixture",
+                    str(fixture),
+                ]
+            ),
         ]
-        description["inquiry_endpoint_environment"] = "Explicit prepared native attachment owned by scripts/pse-env --native; ordinary production endpoint unchanged"
+        description["inquiry_endpoint_environment"] = (
+            "Explicit prepared native attachment owned by scripts/pse-env --native; ordinary production endpoint unchanged"
+        )
     write(output / "session.json", {"command": command, "description": description})
     (output / "prompt.txt").write_text(prompt)
     outcome: dict[str, object] = {"status": "failed", "baseline": "zero failures"}
     process = None
     try:
-        with (output / "events.jsonl").open("wb") as events, (output / "stderr.log").open("wb") as errors:
-            process = subprocess.Popen(command, cwd=ROOT, stdin=subprocess.PIPE,
-                                       stdout=events, stderr=errors, start_new_session=True)
+        with (
+            (output / "events.jsonl").open("wb") as events,
+            (output / "stderr.log").open("wb") as errors,
+        ):
+            process = subprocess.Popen(
+                command,
+                cwd=ROOT,
+                stdin=subprocess.PIPE,
+                stdout=events,
+                stderr=errors,
+                start_new_session=True,
+            )
             try:
                 process.communicate(prompt.encode(), timeout=timeout)
             except subprocess.TimeoutExpired:
                 drain(process)
-                raise TimeoutError("fresh host inquiry expired; retain evidence before any replay") from None
+                raise TimeoutError(
+                    "fresh host inquiry expired; retain evidence before any replay"
+                ) from None
         require(process.returncode == 0, "host process exited unsuccessfully")
         if diagnostic:
             calls = host_calls(output / "events.jsonl")
-            require(sum(operation(call) == F01_COMPARE for call in calls) == 1,
-                    "diagnostic host did not perform exactly one immutable native comparison")
-            outcome.update(status="passed", scope="actual Codex fixed-child transport diagnostic only; no native comparison acceptance")
+            require(
+                sum(operation(call) == F01_COMPARE for call in calls) == 1,
+                "diagnostic host did not perform exactly one immutable native comparison",
+            )
+            outcome.update(
+                status="passed",
+                scope="actual Codex fixed-child transport diagnostic only; no native comparison acceptance",
+            )
         else:
             outcome.update(assess_host(output, control))
-    except (OSError, ValueError, AssertionError, TimeoutError, subprocess.SubprocessError) as error:
+    except (
+        OSError,
+        ValueError,
+        AssertionError,
+        TimeoutError,
+        subprocess.SubprocessError,
+    ) as error:
         outcome["error"] = str(error)
     finally:
         if process is not None:
@@ -1157,8 +1851,12 @@ def main() -> int:
         result = assess_host(args.assess_host, control)
         write(args.assess_host / "reassessed-outcome.json", result)
     elif args.host is not None and args.fixture is not None:
-        result = host(args.host, args.fixture, args.timeout, prepare_native=args.prepare_native)
-    elif args.native is not None and args.state is not None and args.database is not None:
+        result = host(
+            args.host, args.fixture, args.timeout, prepare_native=args.prepare_native
+        )
+    elif (
+        args.native is not None and args.state is not None and args.database is not None
+    ):
         result = asyncio.run(native(args.native, args.state, args.database))
     elif args.native_fixture is not None:
         result = native_fixture(args.native_fixture)

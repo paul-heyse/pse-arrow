@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Native images enter a fresh worker only after currency admission."""
-# ruff: noqa: PT009, PT027 -- stdlib host controls
+
+# ruff: noqa: PT009 -- stdlib host controls
 from __future__ import annotations
 
 import hashlib
@@ -22,15 +23,42 @@ class NativeImportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             binary = Path(directory) / "_native.so"
             binary.write_bytes(b"current image")
-            artifact = python_extension.ExtensionArtifact(binary=str(binary), sha256=hashlib.sha256(binary.read_bytes()).hexdigest(), features=["force-validate", "native-solvers"])
-            current = python_extension.ExtensionCurrency(
-                state="current", checkout=directory, interpreter=sys.executable,
-                mode="native", profile="dev", validated=True, source_basis="selected-source",
-                artifact=artifact, artifact_stamp=python_extension.artifact_stamp(artifact),
-                receipt_recorded=True, cause="matching-inputs-and-artifact", remedy="Explicit preparation only.",
+            artifact = python_extension.ExtensionArtifact(
+                binary=str(binary),
+                sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
+                features=["force-validate", "native-solvers"],
             )
-            with patch.dict(sys.modules, {"pse._native": types.ModuleType("pse._native")}), patch.dict(os.environ, {execution_basis.ENVIRONMENT: "/private/admission.json"}), patch.object(python_extension, "currency_check_installed", return_value=current), patch.object(telemetry_process, "activate_native") as activate:
-                result = native_worker.execute("diagnostic_checkpoint", {"schema_set_fingerprint": "same-schema"}, scratch=Path(directory))
+            current = python_extension.ExtensionCurrency(
+                state="current",
+                checkout=directory,
+                interpreter=sys.executable,
+                mode="native",
+                profile="dev",
+                validated=True,
+                source_basis="selected-source",
+                artifact=artifact,
+                artifact_stamp=python_extension.artifact_stamp(artifact),
+                receipt_recorded=True,
+                cause="matching-inputs-and-artifact",
+                remedy="Explicit preparation only.",
+            )
+            with (
+                patch.dict(
+                    sys.modules, {"pse._native": types.ModuleType("pse._native")}
+                ),
+                patch.dict(
+                    os.environ, {execution_basis.ENVIRONMENT: "/private/admission.json"}
+                ),
+                patch.object(
+                    python_extension, "currency_check_installed", return_value=current
+                ),
+                patch.object(telemetry_process, "activate_native") as activate,
+            ):
+                result = native_worker.execute(
+                    "diagnostic_checkpoint",
+                    {"schema_set_fingerprint": "same-schema"},
+                    scratch=Path(directory),
+                )
             self.assertEqual(result["code"], "pse.native.unbound_loaded_artifact")
             activate.assert_not_called()
 
@@ -42,7 +70,12 @@ class NativeImportTests(unittest.TestCase):
         facade = Mock()
         facade.initialize.return_value = native
         owner = telemetry_process.ProcessLifetime(settings, "initialized")
-        with patch.object(telemetry_process._STATE, "active", owner), patch.object(telemetry_process.importlib, "import_module", return_value=facade):
+        with (
+            patch.object(telemetry_process._STATE, "active", owner),  # noqa: SLF001 -- exercise the original private lifecycle or admission boundary
+            patch.object(
+                telemetry_process.importlib, "import_module", return_value=facade
+            ),
+        ):
             telemetry_process.activate_native()
             telemetry_process.activate_native()
             self.assertIs(owner.native, native)

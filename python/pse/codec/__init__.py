@@ -301,7 +301,9 @@ class _JsonDecoders(local):
     """Bounded per-thread library state; generated schema declarations stay shared."""
 
     def __init__(self) -> None:
-        self.entries: dict[type, tuple[msgspec.inspect.Type, bool, msgspec.json.Decoder[object]]] = {}
+        # Each key binds a different Decoder[T]; only this heterogeneous slot
+        # erases T. The matching type key restores it in _json_decoder.
+        self.entries: dict[type, tuple[msgspec.inspect.Type, bool, object]] = {}
 
 
 _json_decoders = _JsonDecoders()
@@ -309,7 +311,9 @@ _schema_preparation = RLock()
 _MAX_JSON_DECODERS = 64
 
 
-def _json_decoder(document_type: type[T]) -> tuple[msgspec.inspect.Type, bool, msgspec.json.Decoder[T]]:
+def _json_decoder(
+    document_type: type[T],
+) -> tuple[msgspec.inspect.Type, bool, msgspec.json.Decoder[T]]:
     entry = _json_decoders.entries.get(document_type)
     if entry is None:
         # Library schema preparation can populate shared generated-type state.

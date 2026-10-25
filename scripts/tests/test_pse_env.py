@@ -852,10 +852,16 @@ class PseEnvTests(unittest.TestCase):
             self.assertEqual(nested["CARGO_BUILD_JOBS"], "16")
             described = pse_env.operation_description(self.root, env, None, local={})
             self.assertEqual(described["compiler"]["CARGO_BUILD_JOBS"]["value"], "16")
-            self.assertEqual(described["compiler"]["CARGO_BUILD_JOBS"]["source"], "default")
-            explicit = pse_env.operation_description(self.root, {**env, "CARGO_BUILD_JOBS": "24"}, None, local={})
+            self.assertEqual(
+                described["compiler"]["CARGO_BUILD_JOBS"]["source"], "default"
+            )
+            explicit = pse_env.operation_description(
+                self.root, {**env, "CARGO_BUILD_JOBS": "24"}, None, local={}
+            )
             self.assertEqual(explicit["compiler"]["CARGO_BUILD_JOBS"]["value"], "24")
-            self.assertEqual(explicit["compiler"]["CARGO_BUILD_JOBS"]["source"], "caller")
+            self.assertEqual(
+                explicit["compiler"]["CARGO_BUILD_JOBS"]["source"], "caller"
+            )
             pse_env.admitted_cargo_jobs(nested, owner)
             self.assertEqual(nested, env)
             declaration = "3"

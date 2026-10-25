@@ -56,7 +56,9 @@ pub struct EvidenceMeasurementMapping {
     pub candidate: EvidenceMeasurementIdentity,
 }
 /// Details selected before acquisition; no section is implicitly hydrated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceComparisonSection {
     /// One row per paired or unpaired subject cohort.
@@ -98,7 +100,9 @@ pub struct EvidenceComparisonRequest {
 impl EvidenceComparisonRequest {
     /// Admit the exact native request version before decoding the bounded body.
     pub fn decode_json(bytes: &[u8]) -> Result<Self, EvidenceError> {
-        if bytes.len() > 4 * 1024 * 1024 { return Err(invalid("comparison request exceeds 4 MiB")); }
+        if bytes.len() > 4 * 1024 * 1024 {
+            return Err(invalid("comparison request exceeds 4 MiB"));
+        }
         pse_model::document::decode_versioned::<Self, 1>(bytes).map_err(invalid)
     }
 }
@@ -160,9 +164,15 @@ pub struct EvidenceOutcomeCounts {
     pub other: usize,
 }
 impl EvidenceOutcomeCounts {
-    fn total(&self) -> usize { self.failures + self.successes + self.unexecuted + self.other }
-    fn mixed(&self) -> bool { self.failures > 0 && self.successes > 0 }
-    fn all_success(&self) -> bool { self.successes > 0 && self.successes == self.total() }
+    fn total(&self) -> usize {
+        self.failures + self.successes + self.unexecuted + self.other
+    }
+    fn mixed(&self) -> bool {
+        self.failures > 0 && self.successes > 0
+    }
+    fn all_success(&self) -> bool {
+        self.successes > 0 && self.successes == self.total()
+    }
 }
 /// Owner identity of one cohort. Original binary IDs are never normalized away.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
@@ -395,16 +405,27 @@ struct Subject {
     context_id: Option<String>,
 }
 #[derive(Default)]
-struct Cohort { rows: Vec<Subject> }
+struct Cohort {
+    rows: Vec<Subject>,
+}
 impl Cohort {
     fn counts(&self) -> EvidenceOutcomeCounts {
         let mut counts = EvidenceOutcomeCounts::default();
-        for row in &self.rows { match outcome(&row.status) { 0 => counts.failures += 1, 1 => counts.successes += 1, 2 => counts.unexecuted += 1, _ => counts.other += 1 } }
+        for row in &self.rows {
+            match outcome(&row.status) {
+                0 => counts.failures += 1,
+                1 => counts.successes += 1,
+                2 => counts.unexecuted += 1,
+                _ => counts.other += 1,
+            }
+        }
         counts
     }
     fn ambiguous(&self) -> bool {
         let mut sources = BTreeSet::new();
-        self.rows.iter().any(|r| !sources.insert(&r.original.generation))
+        self.rows
+            .iter()
+            .any(|r| !sources.insert(&r.original.generation))
     }
 }
 fn outcome(status: &str) -> u8 {
@@ -416,204 +437,670 @@ fn outcome(status: &str) -> u8 {
     }
 }
 fn text(row: &serde_json::Value, name: &str) -> Result<String, EvidenceError> {
-    row[name].as_str().map(str::to_owned).ok_or_else(|| invalid("comparison scalar identity unavailable"))
+    row[name]
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| invalid("comparison scalar identity unavailable"))
 }
-fn optional(row: &serde_json::Value, name: &str) -> Option<String> { row[name].as_str().map(str::to_owned) }
-fn quote(value: &str) -> String { format!("'{}'", value.replace('\'', "''")) }
-fn page<T: Clone>(cut: &str, rows: &[T], selection: EvidenceSectionSelection) -> EvidenceComparisonPage<T> {
-    let end = selection.offset.saturating_add(selection.limit).min(rows.len());
-    EvidenceComparisonPage { cut: cut.into(), total_rows: rows.len(), offset: selection.offset, limit: selection.limit,
-        complete: selection.offset == 0 && end == rows.len(), next_offset: (end < rows.len()).then_some(end),
-        rows: rows.get(selection.offset..end).unwrap_or_default().to_vec() }
+fn optional(row: &serde_json::Value, name: &str) -> Option<String> {
+    row[name].as_str().map(str::to_owned)
+}
+fn quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+fn page<T: Clone>(
+    cut: &str,
+    rows: &[T],
+    selection: EvidenceSectionSelection,
+) -> EvidenceComparisonPage<T> {
+    let end = selection
+        .offset
+        .saturating_add(selection.limit)
+        .min(rows.len());
+    EvidenceComparisonPage {
+        cut: cut.into(),
+        total_rows: rows.len(),
+        offset: selection.offset,
+        limit: selection.limit,
+        complete: selection.offset == 0 && end == rows.len(),
+        next_offset: (end < rows.len()).then_some(end),
+        rows: rows.get(selection.offset..end).unwrap_or_default().to_vec(),
+    }
 }
 impl EvidenceAnalysis {
-    async fn comparison_selection(&self, name: &str, selection: &EvidenceComparisonSelection) -> Result<(), EvidenceError> {
-        if selection.generations.is_empty() || selection.generations.len() > 64 { return Err(invalid("comparison requires 1..=64 exact generations per side")); }
+    async fn comparison_selection(
+        &self,
+        name: &str,
+        selection: &EvidenceComparisonSelection,
+    ) -> Result<(), EvidenceError> {
+        if selection.generations.is_empty() || selection.generations.len() > 64 {
+            return Err(invalid(
+                "comparison requires 1..=64 exact generations per side",
+            ));
+        }
         let mut seen = BTreeSet::new();
         for id in &selection.generations {
-            if !self.generations.contains(id) || !seen.insert(id) { return Err(invalid("comparison generation unavailable or repeated")); }
+            if !self.generations.contains(id) || !seen.insert(id) {
+                return Err(invalid("comparison generation unavailable or repeated"));
+            }
         }
-        if [&selection.crate_name, &selection.context_id].into_iter().flatten().any(|value| value.len() > 4096) { return Err(invalid("comparison selection identity exceeds bound")); }
+        if [&selection.crate_name, &selection.context_id]
+            .into_iter()
+            .flatten()
+            .any(|value| value.len() > 4096)
+        {
+            return Err(invalid("comparison selection identity exceeds bound"));
+        }
         let mut selected = self.context.table("evidence").await.map_err(invalid)?;
-        selected = selected.filter(col("generation").in_list(selection.generations.iter().map(|id| lit(id.clone())).collect(), false)).map_err(invalid)?;
-        if let Some(value) = &selection.crate_name { selected = selected.filter(col("crate_name").eq(lit(value.clone()))).map_err(invalid)?; }
-        if let Some(value) = &selection.context_id { selected = selected.filter(col("context_id").eq(lit(value.clone()))).map_err(invalid)?; }
+        selected = selected
+            .filter(
+                col("generation").in_list(
+                    selection
+                        .generations
+                        .iter()
+                        .map(|id| lit(id.clone()))
+                        .collect(),
+                    false,
+                ),
+            )
+            .map_err(invalid)?;
+        if let Some(value) = &selection.crate_name {
+            selected = selected
+                .filter(col("crate_name").eq(lit(value.clone())))
+                .map_err(invalid)?;
+        }
+        if let Some(value) = &selection.context_id {
+            selected = selected
+                .filter(col("context_id").eq(lit(value.clone())))
+                .map_err(invalid)?;
+        }
         self.context.deregister_table(name).map_err(invalid)?;
-        self.context.register_table(name, selected.into_view()).map_err(invalid)?;
+        self.context
+            .register_table(name, selected.into_view())
+            .map_err(invalid)?;
         Ok(())
     }
     async fn comparison_subjects(&self, name: &str) -> Result<Vec<Subject>, EvidenceError> {
         let rows = json_rows(&self.sql(&format!("SELECT generation,member,kind,test_id,binary_id,crate_name,status,context_id FROM {name} WHERE kind IN ('rust_test','python_test') ORDER BY generation,member")).await?)?;
-        rows.into_iter().map(|row| {
-            let generation = text(&row, "generation")?;
-            let index = self.generations.iter().position(|id| *id == generation).ok_or_else(|| invalid("comparison source unavailable"))?;
-            let snapshot = &self.snapshots[index];
-            Ok(Subject { original: EvidenceMemberIdentity { generation, member: text(&row,"member")? }, identity: EvidenceSubjectIdentity { authority:snapshot.authority.clone(), codec:snapshot.codec.clone(), kind:text(&row,"kind")?, crate_name:optional(&row,"crate_name"), binary_id:optional(&row,"binary_id"), test_id:optional(&row,"test_id") }, status:text(&row,"status")?, context_id:optional(&row,"context_id") })
-        }).collect()
+        rows.into_iter()
+            .map(|row| {
+                let generation = text(&row, "generation")?;
+                let index = self
+                    .generations
+                    .iter()
+                    .position(|id| *id == generation)
+                    .ok_or_else(|| invalid("comparison source unavailable"))?;
+                let snapshot = &self.snapshots[index];
+                Ok(Subject {
+                    original: EvidenceMemberIdentity {
+                        generation,
+                        member: text(&row, "member")?,
+                    },
+                    identity: EvidenceSubjectIdentity {
+                        authority: snapshot.authority.clone(),
+                        codec: snapshot.codec.clone(),
+                        kind: text(&row, "kind")?,
+                        crate_name: optional(&row, "crate_name"),
+                        binary_id: optional(&row, "binary_id"),
+                        test_id: optional(&row, "test_id"),
+                    },
+                    status: text(&row, "status")?,
+                    context_id: optional(&row, "context_id"),
+                })
+            })
+            .collect()
     }
-    async fn comparison_denominator(&self, name: &str, rows: &[Subject]) -> Result<EvidenceComparisonDenominator, EvidenceError> {
+    async fn comparison_denominator(
+        &self,
+        name: &str,
+        rows: &[Subject],
+    ) -> Result<EvidenceComparisonDenominator, EvidenceError> {
         let selected = json_rows(&self.sql(&format!("SELECT count(*) AS members,sum(CASE WHEN kind='criterion_sample' THEN 1 ELSE 0 END) AS samples FROM {name}")).await?)?;
-        let scalar = selected.first().ok_or_else(|| invalid("comparison denominator unavailable"))?;
-        let mut denominator = EvidenceComparisonDenominator { selected_tests:rows.len(), selected_members:scalar["members"].as_u64().unwrap_or(0) as usize, samples:scalar["samples"].as_u64().unwrap_or(0) as usize, ..Default::default() };
+        let scalar = selected
+            .first()
+            .ok_or_else(|| invalid("comparison denominator unavailable"))?;
+        let mut denominator = EvidenceComparisonDenominator {
+            selected_tests: rows.len(),
+            selected_members: scalar["members"].as_u64().unwrap_or(0) as usize,
+            samples: scalar["samples"].as_u64().unwrap_or(0) as usize,
+            ..Default::default()
+        };
         for row in rows {
             denominator.declared_crate_tests += usize::from(row.identity.crate_name.is_some());
             denominator.declared_context_tests += usize::from(row.context_id.is_some());
-            match outcome(&row.status) { 0 => denominator.failures += 1, 1 => denominator.successes += 1, 2 => denominator.unexecuted += 1, _ => denominator.other_outcomes += 1 }
+            match outcome(&row.status) {
+                0 => denominator.failures += 1,
+                1 => denominator.successes += 1,
+                2 => denominator.unexecuted += 1,
+                _ => denominator.other_outcomes += 1,
+            }
         }
         Ok(denominator)
     }
     /// Compare full selected populations before applying independently requested detail pages.
     /// The original source bytes, outcomes and IDs remain unchanged.
-    pub async fn compare(&mut self, request: &EvidenceComparisonRequest, observations: &[EvidenceSourceObservation]) -> Result<EvidenceComparison, EvidenceError> {
-        for selection in request.sections.values() { selection.validate()?; }
-        if request.mappings.len() > 10000 || request.measurement_mappings.len() > 10000 { return Err(invalid("comparison mapping exceeds 10000 exact pairs")); }
+    pub async fn compare(
+        &mut self,
+        request: &EvidenceComparisonRequest,
+        observations: &[EvidenceSourceObservation],
+    ) -> Result<EvidenceComparison, EvidenceError> {
+        for selection in request.sections.values() {
+            selection.validate()?;
+        }
+        if request.mappings.len() > 10000 || request.measurement_mappings.len() > 10000 {
+            return Err(invalid("comparison mapping exceeds 10000 exact pairs"));
+        }
         validate_observations(observations)?;
-        self.comparison_selection("comparison_baseline", &request.baseline).await?;
-        self.comparison_selection("comparison_candidate", &request.candidate).await?;
+        self.comparison_selection("comparison_baseline", &request.baseline)
+            .await?;
+        self.comparison_selection("comparison_candidate", &request.candidate)
+            .await?;
         let baseline = self.comparison_subjects("comparison_baseline").await?;
         let candidate = self.comparison_subjects("comparison_candidate").await?;
-        let baseline_denominator = self.comparison_denominator("comparison_baseline", &baseline).await?;
-        let candidate_denominator = self.comparison_denominator("comparison_candidate", &candidate).await?;
-        let selected_generations: BTreeSet<_> = request.baseline.generations.iter().chain(&request.candidate.generations).collect();
-        let content: BTreeMap<_,_> = self.contents.iter().filter(|(id,_)|selected_generations.contains(id)).collect();
-        let cut = Sha256::digest(serde_json::to_vec(&(&request.baseline,&request.candidate,&request.mappings,&request.measurement_mappings,content)).map_err(invalid)?).iter().map(|byte| format!("{byte:02x}")).collect::<String>();
-        if request.continuation_cut.as_ref().is_some_and(|expected|expected!=&cut) || (request.sections.values().any(|selection|selection.offset>0) && request.continuation_cut.is_none()) {return Err(invalid("comparison continuation does not belong to this exact source cut and selection"));}
-        let (subjects, members, mut summary) = pair_subjects(baseline, candidate, &request.mappings)?;
-        summary.changed_selection_denominator = baseline_denominator.selected_tests != candidate_denominator.selected_tests;
-        summary.selection_membership_changed_or_unresolved = summary.unmatched_baseline + summary.unmatched_candidate + summary.ambiguous > 0;
-        let (measurement_summary, measurement_rows) = self.comparison_measurements(&request.measurement_mappings).await?;
-        let all_sources: Vec<EvidenceComparisonSource> = serde_json::from_value(self.sources(observations)).map_err(invalid)?;
+        let baseline_denominator = self
+            .comparison_denominator("comparison_baseline", &baseline)
+            .await?;
+        let candidate_denominator = self
+            .comparison_denominator("comparison_candidate", &candidate)
+            .await?;
+        let selected_generations: BTreeSet<_> = request
+            .baseline
+            .generations
+            .iter()
+            .chain(&request.candidate.generations)
+            .collect();
+        let content: BTreeMap<_, _> = self
+            .contents
+            .iter()
+            .filter(|(id, _)| selected_generations.contains(id))
+            .collect();
+        let cut = Sha256::digest(
+            serde_json::to_vec(&(
+                &request.baseline,
+                &request.candidate,
+                &request.mappings,
+                &request.measurement_mappings,
+                content,
+            ))
+            .map_err(invalid)?,
+        )
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+        if request
+            .continuation_cut
+            .as_ref()
+            .is_some_and(|expected| expected != &cut)
+            || (request
+                .sections
+                .values()
+                .any(|selection| selection.offset > 0)
+                && request.continuation_cut.is_none())
+        {
+            return Err(invalid(
+                "comparison continuation does not belong to this exact source cut and selection",
+            ));
+        }
+        let (subjects, members, mut summary) =
+            pair_subjects(baseline, candidate, &request.mappings)?;
+        summary.changed_selection_denominator =
+            baseline_denominator.selected_tests != candidate_denominator.selected_tests;
+        summary.selection_membership_changed_or_unresolved =
+            summary.unmatched_baseline + summary.unmatched_candidate + summary.ambiguous > 0;
+        let (measurement_summary, measurement_rows) = self
+            .comparison_measurements(&request.measurement_mappings)
+            .await?;
+        let all_sources: Vec<EvidenceComparisonSource> =
+            serde_json::from_value(self.sources(observations)).map_err(invalid)?;
         let selected_sources = |selection: &EvidenceComparisonSelection| {
-            let mut sources:Vec<_>=all_sources.iter().filter(|source| selection.generations.contains(&source.generation)).cloned().collect();
-            sources.sort_by(|left,right|left.generation.cmp(&right.generation));sources
+            let mut sources: Vec<_> = all_sources
+                .iter()
+                .filter(|source| selection.generations.contains(&source.generation))
+                .cloned()
+                .collect();
+            sources.sort_by(|left, right| left.generation.cmp(&right.generation));
+            sources
         };
         let mut result = EvidenceComparison { version:pse_model::document::Version, cut:cut.clone(), baseline_sources:selected_sources(&request.baseline),candidate_sources:selected_sources(&request.candidate),baseline_denominator,candidate_denominator,summary,measurement_summary,
             interpretation:"Explicit source cut only; partial coverage and stale/missing sources remain partial. Exact compatible owner identity or supplied mapping only. Mixed outcomes are retained; no causal, regression or flakiness verdict. Original binary IDs and unsupported measurement association remain unchanged.".into(), subjects:None,members:None,samples:None,measurements:None,contexts:None,associations:None };
-        for (section, selection) in &request.sections { match section {
-            EvidenceComparisonSection::Subjects => result.subjects=Some(page(&cut,&subjects,*selection)),
-            EvidenceComparisonSection::Members => result.members=Some(page(&cut,&members,*selection)),
-            EvidenceComparisonSection::Measurements => result.measurements=Some(page(&cut,&measurement_rows,*selection)),
-            section => {
-                let predicate = match section { EvidenceComparisonSection::Samples => "kind='criterion_sample'", EvidenceComparisonSection::Contexts => "kind='context'", _ => "kind IN ('measurement_population','measurement_association','measurement_summary','capture_cost')" };
-                let detail=Some(self.comparison_detail(&cut, predicate, *section == EvidenceComparisonSection::Contexts,*selection).await?);
-                match section { EvidenceComparisonSection::Samples=>result.samples=detail, EvidenceComparisonSection::Contexts=>result.contexts=detail, _=>result.associations=detail }
+        for (section, selection) in &request.sections {
+            match section {
+                EvidenceComparisonSection::Subjects => {
+                    result.subjects = Some(page(&cut, &subjects, *selection))
+                }
+                EvidenceComparisonSection::Members => {
+                    result.members = Some(page(&cut, &members, *selection))
+                }
+                EvidenceComparisonSection::Measurements => {
+                    result.measurements = Some(page(&cut, &measurement_rows, *selection))
+                }
+                section => {
+                    let predicate = match section {
+                        EvidenceComparisonSection::Samples => "kind='criterion_sample'",
+                        EvidenceComparisonSection::Contexts => "kind='context'",
+                        _ => {
+                            "kind IN ('measurement_population','measurement_association','measurement_summary','capture_cost')"
+                        }
+                    };
+                    let detail = Some(
+                        self.comparison_detail(
+                            &cut,
+                            predicate,
+                            *section == EvidenceComparisonSection::Contexts,
+                            *selection,
+                        )
+                        .await?,
+                    );
+                    match section {
+                        EvidenceComparisonSection::Samples => result.samples = detail,
+                        EvidenceComparisonSection::Contexts => result.contexts = detail,
+                        _ => result.associations = detail,
+                    }
+                }
             }
-        } }
-        if serde_json::to_vec(&result).map_err(invalid)?.len()>4*1024*1024 { return Err(invalid("comparison response exceeds 4 MiB; select smaller independent section pages")); }
+        }
+        if serde_json::to_vec(&result).map_err(invalid)?.len() > 4 * 1024 * 1024 {
+            return Err(invalid(
+                "comparison response exceeds 4 MiB; select smaller independent section pages",
+            ));
+        }
         Ok(result)
     }
-    async fn comparison_detail(&self, cut: &str, predicate: &str, contexts: bool, selection: EvidenceSectionSelection) -> Result<EvidenceComparisonPage<EvidenceComparisonFact>, EvidenceError> {
-        let side = |table:&str, label:&str| if contexts {
-            format!("SELECT {} AS side,e.* FROM evidence e JOIN (SELECT DISTINCT generation,context_id FROM {table} WHERE context_id IS NOT NULL) s ON e.generation=s.generation AND e.context_id=s.context_id WHERE e.kind='context'",quote(label))
-        } else { format!("SELECT {} AS side,* FROM {table} WHERE {predicate}",quote(label)) };
-        let query=format!("{} UNION ALL {}",side("comparison_baseline","baseline"),side("comparison_candidate","candidate"));
-        let counts=json_rows(&self.sql(&format!("SELECT count(*) AS total FROM ({query}) detail")).await?)?;
-        let total_rows=counts.first().and_then(|row|row["total"].as_u64()).ok_or_else(||invalid("comparison section denominator unavailable"))? as usize;
-        let rows=json_rows(&self.sql(&format!("{query} ORDER BY side,generation,member LIMIT {} OFFSET {}",selection.limit,selection.offset)).await?)?;
-        let rows = rows.into_iter().map(|mut row| {
-            let side=text(&row,"side")?;
-            let generation=text(&row,"generation")?;
-            let object=row.as_object_mut().ok_or_else(||invalid("original comparison fact layout unavailable"))?;
-            object.remove("side");object.remove("generation");object.remove("key");
-            let fact=serde_json::from_value(row).map_err(invalid)?;
-            Ok(EvidenceComparisonFact{side,generation,fact})
-        }).collect::<Result<Vec<_>,EvidenceError>>()?;
-        let end=selection.offset.saturating_add(rows.len());
-        Ok(EvidenceComparisonPage{cut:cut.into(),total_rows,offset:selection.offset,limit:selection.limit,complete:selection.offset==0 && end==total_rows,next_offset:(end<total_rows).then_some(end),rows})
+    async fn comparison_detail(
+        &self,
+        cut: &str,
+        predicate: &str,
+        contexts: bool,
+        selection: EvidenceSectionSelection,
+    ) -> Result<EvidenceComparisonPage<EvidenceComparisonFact>, EvidenceError> {
+        let side = |table: &str, label: &str| {
+            if contexts {
+                format!(
+                    "SELECT {} AS side,e.* FROM evidence e JOIN (SELECT DISTINCT generation,context_id FROM {table} WHERE context_id IS NOT NULL) s ON e.generation=s.generation AND e.context_id=s.context_id WHERE e.kind='context'",
+                    quote(label)
+                )
+            } else {
+                format!(
+                    "SELECT {} AS side,* FROM {table} WHERE {predicate}",
+                    quote(label)
+                )
+            }
+        };
+        let query = format!(
+            "{} UNION ALL {}",
+            side("comparison_baseline", "baseline"),
+            side("comparison_candidate", "candidate")
+        );
+        let counts = json_rows(
+            &self
+                .sql(&format!("SELECT count(*) AS total FROM ({query}) detail"))
+                .await?,
+        )?;
+        let total_rows = counts
+            .first()
+            .and_then(|row| row["total"].as_u64())
+            .ok_or_else(|| invalid("comparison section denominator unavailable"))?
+            as usize;
+        let rows = json_rows(
+            &self
+                .sql(&format!(
+                    "{query} ORDER BY side,generation,member LIMIT {} OFFSET {}",
+                    selection.limit, selection.offset
+                ))
+                .await?,
+        )?;
+        let rows = rows
+            .into_iter()
+            .map(|mut row| {
+                let side = text(&row, "side")?;
+                let generation = text(&row, "generation")?;
+                let object = row
+                    .as_object_mut()
+                    .ok_or_else(|| invalid("original comparison fact layout unavailable"))?;
+                object.remove("side");
+                object.remove("generation");
+                object.remove("key");
+                let fact = serde_json::from_value(row).map_err(invalid)?;
+                Ok(EvidenceComparisonFact {
+                    side,
+                    generation,
+                    fact,
+                })
+            })
+            .collect::<Result<Vec<_>, EvidenceError>>()?;
+        let end = selection.offset.saturating_add(rows.len());
+        Ok(EvidenceComparisonPage {
+            cut: cut.into(),
+            total_rows,
+            offset: selection.offset,
+            limit: selection.limit,
+            complete: selection.offset == 0 && end == total_rows,
+            next_offset: (end < total_rows).then_some(end),
+            rows,
+        })
     }
-    async fn comparison_measurements(&self, mappings:&[EvidenceMeasurementMapping]) -> Result<(EvidenceMeasurementSummary, Vec<EvidenceMeasurementComparison>), EvidenceError> {
-        let mut baseline_rows=BTreeMap::new();let mut candidate_rows=BTreeMap::new();
-        let mut groups: BTreeMap<(String,String,String), (Vec<serde_json::Value>, Vec<serde_json::Value>)> = BTreeMap::new();
-        for (table, baseline) in [("comparison_baseline",true),("comparison_candidate",false)] {
+    async fn comparison_measurements(
+        &self,
+        mappings: &[EvidenceMeasurementMapping],
+    ) -> Result<
+        (
+            EvidenceMeasurementSummary,
+            Vec<EvidenceMeasurementComparison>,
+        ),
+        EvidenceError,
+    > {
+        let mut baseline_rows = BTreeMap::new();
+        let mut candidate_rows = BTreeMap::new();
+        let mut groups: BTreeMap<(String, String, String), MeasurementGroup> = BTreeMap::new();
+        for (table, baseline) in [
+            ("comparison_baseline", true),
+            ("comparison_candidate", false),
+        ] {
             let rows=json_rows(&self.sql(&format!("SELECT generation,context_id,population_id,sum(CASE WHEN kind='criterion_sample' THEN 1 ELSE 0 END) AS sample_count,min(CASE WHEN kind='criterion_sample' THEN value_ns END) AS min_ns,max(CASE WHEN kind='criterion_sample' THEN value_ns END) AS max_ns,avg(CASE WHEN kind='criterion_sample' THEN value_ns END) AS mean_ns,sum(CASE WHEN kind='measurement_population' AND status IN ('censored','not_measured','incomplete') THEN 1 ELSE 0 END) AS censored_populations,sum(CASE WHEN kind='measurement_association' THEN 1 ELSE 0 END) AS declared_associations,sum(CASE WHEN kind='measurement_association' AND status IN ('unavailable','unsupported','unknown') THEN 1 ELSE 0 END) AS unavailable_associations FROM {table} WHERE kind IN ('criterion_sample','measurement_population','measurement_association','measurement_summary') AND population_id IS NOT NULL GROUP BY generation,context_id,population_id ORDER BY generation,context_id,population_id")).await?)?;
             for row in rows {
-                let identity=EvidenceMeasurementIdentity{generation:text(&row,"generation")?,context_id:optional(&row,"context_id"),population_id:text(&row,"population_id")?};
-                if baseline {baseline_rows.insert(identity,row);} else {candidate_rows.insert(identity,row);}
+                let identity = EvidenceMeasurementIdentity {
+                    generation: text(&row, "generation")?,
+                    context_id: optional(&row, "context_id"),
+                    population_id: text(&row, "population_id")?,
+                };
+                if baseline {
+                    baseline_rows.insert(identity, row);
+                } else {
+                    candidate_rows.insert(identity, row);
+                }
             }
         }
-        let mut pairs=Vec::new();
+        let mut pairs = Vec::new();
         for mapping in mappings {
-            let left=baseline_rows.remove(&mapping.baseline).ok_or_else(||invalid("baseline measurement mapping is conflicting or outside selected population"))?;
-            let right=candidate_rows.remove(&mapping.candidate).ok_or_else(||invalid("candidate measurement mapping is conflicting or outside selected population"))?;
-            pairs.push(("supplied_mapping".to_owned(),vec![left],vec![right]));
+            let left = baseline_rows.remove(&mapping.baseline).ok_or_else(|| {
+                invalid(
+                    "baseline measurement mapping is conflicting or outside selected population",
+                )
+            })?;
+            let right = candidate_rows.remove(&mapping.candidate).ok_or_else(|| {
+                invalid(
+                    "candidate measurement mapping is conflicting or outside selected population",
+                )
+            })?;
+            pairs.push(("supplied_mapping".to_owned(), vec![left], vec![right]));
         }
-        for (source_rows,baseline) in [(baseline_rows,true),(candidate_rows,false)] {
-            for (identity,row) in source_rows {
-                let index=self.generations.iter().position(|id| *id==identity.generation).ok_or_else(||invalid("measurement source unavailable"))?;
-                let key=(self.snapshots[index].authority.clone(),self.snapshots[index].codec.clone(),identity.population_id);
-                let group=groups.entry(key).or_default();
-                if baseline {group.0.push(row)} else {group.1.push(row)}
+        for (source_rows, baseline) in [(baseline_rows, true), (candidate_rows, false)] {
+            for (identity, row) in source_rows {
+                let index = self
+                    .generations
+                    .iter()
+                    .position(|id| *id == identity.generation)
+                    .ok_or_else(|| invalid("measurement source unavailable"))?;
+                let key = (
+                    self.snapshots[index].authority.clone(),
+                    self.snapshots[index].codec.clone(),
+                    identity.population_id,
+                );
+                let group = groups.entry(key).or_default();
+                if baseline {
+                    group.baseline.push(row)
+                } else {
+                    group.candidate.push(row)
+                }
             }
         }
-        for (_, (baseline,candidate)) in groups {pairs.push(("exact_compatible_owner_identity".to_owned(),baseline,candidate));}
+        for (_, group) in groups {
+            pairs.push((
+                "exact_compatible_owner_identity".to_owned(),
+                group.baseline,
+                group.candidate,
+            ));
+        }
         let mut summary=EvidenceMeasurementSummary { populations:pairs.len(), verdict:"inconclusive: descriptive supplied populations only; no automatic causal, regression or flakiness inference".into(), ..Default::default() };
-        let mut rows=Vec::new();
-        let fields=["workload","input","revision","build","profile","features","provider","isa","capture","source","environment","host"];
-        for (correspondence, baseline,candidate) in pairs {
-            let mut changed=Vec::new(); let mut unknown=Vec::new();
-            if baseline.is_empty() || candidate.is_empty() || baseline.iter().chain(&candidate).any(|row|row["declared_associations"].as_u64().unwrap_or(0)==0 || row["unavailable_associations"].as_u64().unwrap_or(0)>0) { summary.unavailable_association_populations+=1; }
-            let context_for=|row:&serde_json::Value| row["context_id"].as_str().and_then(|id| self.contexts.get(&(row["generation"].as_str()?.into(),id.into())));
-            let state=if baseline.len()!=1 || candidate.len()!=1 || baseline[0]["sample_count"].as_u64().unwrap_or(0)==0 || candidate[0]["sample_count"].as_u64().unwrap_or(0)==0 { "unavailable" } else if let (Some(left),Some(right))=(context_for(&baseline[0]),context_for(&candidate[0])) {
-                for field in fields { if left[field].is_null() || right[field].is_null() {unknown.push(field)} else if left[field]!=right[field] {changed.push(field)} }
-                if !changed.is_empty() {"incompatible"} else if !unknown.is_empty() {"unavailable"} else {"comparable_conditions"}
-            } else {"unavailable"};
-            match state {"incompatible"=>summary.incompatible+=1,"comparable_conditions"=>summary.comparable+=1,_=>summary.unavailable+=1}
+        let mut rows = Vec::new();
+        let fields = [
+            "workload",
+            "input",
+            "revision",
+            "build",
+            "profile",
+            "features",
+            "provider",
+            "isa",
+            "capture",
+            "source",
+            "environment",
+            "host",
+        ];
+        for (correspondence, baseline, candidate) in pairs {
+            let mut changed = Vec::new();
+            let mut unknown = Vec::new();
+            if baseline.is_empty()
+                || candidate.is_empty()
+                || baseline.iter().chain(&candidate).any(|row| {
+                    row["declared_associations"].as_u64().unwrap_or(0) == 0
+                        || row["unavailable_associations"].as_u64().unwrap_or(0) > 0
+                })
+            {
+                summary.unavailable_association_populations += 1;
+            }
+            let context_for = |row: &serde_json::Value| {
+                row["context_id"].as_str().and_then(|id| {
+                    self.contexts
+                        .get(&(row["generation"].as_str()?.into(), id.into()))
+                })
+            };
+            let state = if baseline.len() != 1
+                || candidate.len() != 1
+                || baseline[0]["sample_count"].as_u64().unwrap_or(0) == 0
+                || candidate[0]["sample_count"].as_u64().unwrap_or(0) == 0
+            {
+                "unavailable"
+            } else if let (Some(left), Some(right)) =
+                (context_for(&baseline[0]), context_for(&candidate[0]))
+            {
+                for field in fields {
+                    if left[field].is_null() || right[field].is_null() {
+                        unknown.push(field)
+                    } else if left[field] != right[field] {
+                        changed.push(field)
+                    }
+                }
+                if !changed.is_empty() {
+                    "incompatible"
+                } else if !unknown.is_empty() {
+                    "unavailable"
+                } else {
+                    "comparable_conditions"
+                }
+            } else {
+                "unavailable"
+            };
+            match state {
+                "incompatible" => summary.incompatible += 1,
+                "comparable_conditions" => summary.comparable += 1,
+                _ => summary.unavailable += 1,
+            }
             let cohort = |original: &[serde_json::Value]| -> Result<Option<EvidenceMeasurementCohort>,EvidenceError> {
                 if original.len()==1 {serde_json::from_value(original[0].clone()).map(Some).map_err(invalid)} else {Ok(None)}
             };
             rows.push(EvidenceMeasurementComparison {correspondence,baseline_cohorts:baseline.len(),candidate_cohorts:candidate.len(),baseline:cohort(&baseline)?,candidate:cohort(&candidate)?,conditions:state.into(),changed_fields:changed.into_iter().map(str::to_owned).collect(),unknown_fields:unknown.into_iter().map(str::to_owned).collect(),association:"original declared association only; criterion-to-invocation membership is not inferred".into(),verdict:"inconclusive".into(),revision_build:"included among compatibility conditions; differences do not establish causality".into()});
         }
-        Ok((summary,rows))
+        Ok((summary, rows))
     }
 }
-fn validate_observations(observations:&[EvidenceSourceObservation])->Result<(),EvidenceError> {
-    if observations.len()>64 {return Err(invalid("comparison freshness observation bound exceeded"));}
-    let mut seen=BTreeSet::new();
+#[derive(Default)]
+struct MeasurementGroup {
+    baseline: Vec<serde_json::Value>,
+    candidate: Vec<serde_json::Value>,
+}
+
+fn validate_observations(observations: &[EvidenceSourceObservation]) -> Result<(), EvidenceError> {
+    if observations.len() > 64 {
+        return Err(invalid("comparison freshness observation bound exceeded"));
+    }
+    let mut seen = BTreeSet::new();
     for value in observations {
-        if !seen.insert((&value.authority,&value.codec,&value.source_id)) || [&value.authority,&value.codec,&value.source_id].iter().any(|value| value.len()>4096) || value.snapshot_digest.as_ref().is_some_and(|value| value.len()!=64 || !value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))) {return Err(invalid("comparison freshness observation is ambiguous or invalid"));}
+        if !seen.insert((&value.authority, &value.codec, &value.source_id))
+            || [&value.authority, &value.codec, &value.source_id]
+                .iter()
+                .any(|value| value.len() > 4096)
+            || value.snapshot_digest.as_ref().is_some_and(|value| {
+                value.len() != 64
+                    || !value
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            })
+        {
+            return Err(invalid(
+                "comparison freshness observation is ambiguous or invalid",
+            ));
+        }
     }
     Ok(())
 }
-fn pair_subjects(baseline:Vec<Subject>,candidate:Vec<Subject>,mappings:&[EvidenceSubjectMapping])->Result<(Vec<EvidenceSubjectComparison>,Vec<EvidenceComparisonMember>,EvidenceComparisonSummary),EvidenceError> {
-    let mut baseline:BTreeMap<_,_>=baseline.into_iter().map(|row|(row.original.clone(),row)).collect();
-    let mut candidate:BTreeMap<_,_>=candidate.into_iter().map(|row|(row.original.clone(),row)).collect();
-    let mut subjects=Vec::new();let mut members=Vec::new();let mut summary=EvidenceComparisonSummary::default();
+fn pair_subjects(
+    baseline: Vec<Subject>,
+    candidate: Vec<Subject>,
+    mappings: &[EvidenceSubjectMapping],
+) -> Result<
+    (
+        Vec<EvidenceSubjectComparison>,
+        Vec<EvidenceComparisonMember>,
+        EvidenceComparisonSummary,
+    ),
+    EvidenceError,
+> {
+    let mut baseline: BTreeMap<_, _> = baseline
+        .into_iter()
+        .map(|row| (row.original.clone(), row))
+        .collect();
+    let mut candidate: BTreeMap<_, _> = candidate
+        .into_iter()
+        .map(|row| (row.original.clone(), row))
+        .collect();
+    let mut subjects = Vec::new();
+    let mut members = Vec::new();
+    let mut summary = EvidenceComparisonSummary::default();
     for mapping in mappings {
-        let left=baseline.remove(&mapping.baseline).ok_or_else(||invalid("supplied baseline mapping is conflicting or outside selected test population"))?;
-        let right=candidate.remove(&mapping.candidate).ok_or_else(||invalid("supplied candidate mapping is conflicting or outside selected test population"))?;
-        if left.identity.kind!=right.identity.kind {return Err(invalid("supplied mapping crosses incompatible subject categories"));}
-        append_pair(Cohort{rows:vec![left]},Cohort{rows:vec![right]},Some("supplied_mapping"),false,&mut subjects,&mut members,&mut summary);
+        let left = baseline.remove(&mapping.baseline).ok_or_else(|| {
+            invalid("supplied baseline mapping is conflicting or outside selected test population")
+        })?;
+        let right = candidate.remove(&mapping.candidate).ok_or_else(|| {
+            invalid("supplied candidate mapping is conflicting or outside selected test population")
+        })?;
+        if left.identity.kind != right.identity.kind {
+            return Err(invalid(
+                "supplied mapping crosses incompatible subject categories",
+            ));
+        }
+        append_pair(
+            Cohort { rows: vec![left] },
+            Cohort { rows: vec![right] },
+            Some("supplied_mapping"),
+            false,
+            &mut subjects,
+            &mut members,
+            &mut summary,
+        );
     }
-    let mut cohorts:BTreeMap<EvidenceSubjectIdentity,(Cohort,Cohort)>=BTreeMap::new();
-    for (rows,left) in [(baseline,true),(candidate,false)] {for (_,row) in rows {
-        let group=cohorts.entry(row.identity.clone()).or_default();
-        if left {group.0.rows.push(row)} else {group.1.rows.push(row)}
-    }}
-    for (identity,(left,right)) in cohorts {
-        let ambiguous=identity.test_id.is_none() || (identity.kind=="rust_test" && identity.binary_id.is_none()) || left.ambiguous() || right.ambiguous();
-        let correspondence=(!ambiguous && !left.rows.is_empty() && !right.rows.is_empty()).then_some("exact_compatible_owner_identity");
-        append_pair(left,right,correspondence,ambiguous,&mut subjects,&mut members,&mut summary);
+    let mut cohorts: BTreeMap<EvidenceSubjectIdentity, (Cohort, Cohort)> = BTreeMap::new();
+    for (rows, left) in [(baseline, true), (candidate, false)] {
+        for (_, row) in rows {
+            let group = cohorts.entry(row.identity.clone()).or_default();
+            if left {
+                group.0.rows.push(row)
+            } else {
+                group.1.rows.push(row)
+            }
+        }
     }
-    Ok((subjects,members,summary))
+    for (identity, (left, right)) in cohorts {
+        let ambiguous = identity.test_id.is_none()
+            || (identity.kind == "rust_test" && identity.binary_id.is_none())
+            || left.ambiguous()
+            || right.ambiguous();
+        let correspondence = (!ambiguous && !left.rows.is_empty() && !right.rows.is_empty())
+            .then_some("exact_compatible_owner_identity");
+        append_pair(
+            left,
+            right,
+            correspondence,
+            ambiguous,
+            &mut subjects,
+            &mut members,
+            &mut summary,
+        );
+    }
+    Ok((subjects, members, summary))
 }
-#[allow(clippy::too_many_arguments, reason="single native cohort emission keeps mandatory counts and original membership consistent")]
-fn append_pair(left:Cohort,right:Cohort,correspondence:Option<&str>,ambiguous:bool,subjects:&mut Vec<EvidenceSubjectComparison>,members:&mut Vec<EvidenceComparisonMember>,summary:&mut EvidenceComparisonSummary) {
-    let baseline_outcomes=left.counts();let candidate_outcomes=right.counts();
-    let classification=if ambiguous {summary.ambiguous+=1;"ambiguous"} else if left.rows.is_empty() {summary.unmatched_candidate+=1;"unmatched_candidate"} else if right.rows.is_empty() {summary.unmatched_baseline+=1;"unmatched_baseline"} else {
-        summary.paired+=1;
-        let unexecuted=baseline_outcomes.unexecuted>0 || candidate_outcomes.unexecuted>0;
-        summary.unexecuted+=usize::from(unexecuted);
-        if baseline_outcomes.failures>0 && candidate_outcomes.failures>0 {summary.persistent_failures+=1;"persistent_failure"}
-        else if baseline_outcomes.all_success() && candidate_outcomes.failures>0 {summary.new_failures+=1;"new_failure"}
-        else if baseline_outcomes.failures>0 && candidate_outcomes.all_success() {summary.resolved_failures+=1;"resolved_failure"}
-        else if unexecuted {"unexecuted"}
-        else if baseline_outcomes.all_success() && candidate_outcomes.all_success() {summary.unchanged_successes+=1;"unchanged_success"}
-        else {summary.inconclusive+=1;"inconclusive"}
+#[allow(
+    clippy::too_many_arguments,
+    reason = "single native cohort emission keeps mandatory counts and original membership consistent"
+)]
+fn append_pair(
+    left: Cohort,
+    right: Cohort,
+    correspondence: Option<&str>,
+    ambiguous: bool,
+    subjects: &mut Vec<EvidenceSubjectComparison>,
+    members: &mut Vec<EvidenceComparisonMember>,
+    summary: &mut EvidenceComparisonSummary,
+) {
+    let baseline_outcomes = left.counts();
+    let candidate_outcomes = right.counts();
+    let classification = if ambiguous {
+        summary.ambiguous += 1;
+        "ambiguous"
+    } else if left.rows.is_empty() {
+        summary.unmatched_candidate += 1;
+        "unmatched_candidate"
+    } else if right.rows.is_empty() {
+        summary.unmatched_baseline += 1;
+        "unmatched_baseline"
+    } else {
+        summary.paired += 1;
+        let unexecuted = baseline_outcomes.unexecuted > 0 || candidate_outcomes.unexecuted > 0;
+        summary.unexecuted += usize::from(unexecuted);
+        if baseline_outcomes.failures > 0 && candidate_outcomes.failures > 0 {
+            summary.persistent_failures += 1;
+            "persistent_failure"
+        } else if baseline_outcomes.all_success() && candidate_outcomes.failures > 0 {
+            summary.new_failures += 1;
+            "new_failure"
+        } else if baseline_outcomes.failures > 0 && candidate_outcomes.all_success() {
+            summary.resolved_failures += 1;
+            "resolved_failure"
+        } else if unexecuted {
+            "unexecuted"
+        } else if baseline_outcomes.all_success() && candidate_outcomes.all_success() {
+            summary.unchanged_successes += 1;
+            "unchanged_success"
+        } else {
+            summary.inconclusive += 1;
+            "inconclusive"
+        }
     };
-    let mixed_outcomes=baseline_outcomes.mixed() || candidate_outcomes.mixed();summary.mixed_outcome_cohorts+=usize::from(mixed_outcomes);
-    let cohort=format!("subject:{}",subjects.len());
-    subjects.push(EvidenceSubjectComparison {cohort:cohort.clone(),correspondence:correspondence.map(str::to_owned),classification:classification.into(),baseline:left.rows.first().map(|row|row.identity.clone()),candidate:right.rows.first().map(|row|row.identity.clone()),baseline_outcomes,candidate_outcomes,mixed_outcomes});
-    for (rows,side) in [(left.rows,"baseline"),(right.rows,"candidate")] {for row in rows {members.push(EvidenceComparisonMember{side:side.into(),cohort:cohort.clone(),original:row.original,identity:row.identity,status:row.status,context_id:row.context_id});}}
+    let mixed_outcomes = baseline_outcomes.mixed() || candidate_outcomes.mixed();
+    summary.mixed_outcome_cohorts += usize::from(mixed_outcomes);
+    let cohort = format!("subject:{}", subjects.len());
+    subjects.push(EvidenceSubjectComparison {
+        cohort: cohort.clone(),
+        correspondence: correspondence.map(str::to_owned),
+        classification: classification.into(),
+        baseline: left.rows.first().map(|row| row.identity.clone()),
+        candidate: right.rows.first().map(|row| row.identity.clone()),
+        baseline_outcomes,
+        candidate_outcomes,
+        mixed_outcomes,
+    });
+    for (rows, side) in [(left.rows, "baseline"), (right.rows, "candidate")] {
+        for row in rows {
+            members.push(EvidenceComparisonMember {
+                side: side.into(),
+                cohort: cohort.clone(),
+                original: row.original,
+                identity: row.identity,
+                status: row.status,
+                context_id: row.context_id,
+            });
+        }
+    }
 }
 
 #[cfg(test)]

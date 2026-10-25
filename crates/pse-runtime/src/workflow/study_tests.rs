@@ -233,7 +233,10 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
     let package = runtime
         .package_from_sources(
             std::slice::from_ref(&modeling),
-            runtime.physical_from_sources(&physical, &cancel).await.unwrap(),
+            runtime
+                .physical_from_sources(&physical, &cancel)
+                .await
+                .unwrap(),
             &cancel,
         )
         .await
@@ -262,7 +265,12 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
             .await
             .unwrap();
         let recorded = runtime.record_study(&local, &cancel).await.unwrap();
-        handles.push(runtime.start_recorded_study(recorded, &cancel).await.unwrap());
+        handles.push(
+            runtime
+                .start_recorded_study(recorded, &cancel)
+                .await
+                .unwrap(),
+        );
     }
     let settings = WorkerSettings {
         maximum_actions: Some(1),
@@ -281,10 +289,7 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
                 barrier.clone(),
                 runtime.serve(settings, &left_stop),
             ),
-            worker::synchronized_first_study_claim(
-                barrier,
-                runtime.serve(settings, &right_stop),
-            ),
+            worker::synchronized_first_study_claim(barrier, runtime.serve(settings, &right_stop),),
         )
     };
     tokio::pin!(joined);
@@ -305,7 +310,13 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
     for _ in 0..4 {
         let mut pending = false;
         for handle in &handles {
-            pending |= handle.status().await.unwrap().points.iter().any(|point| !point.settled);
+            pending |= handle
+                .status()
+                .await
+                .unwrap()
+                .points
+                .iter()
+                .any(|point| !point.settled);
         }
         if !pending {
             break;
@@ -321,12 +332,26 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
         assert_eq!(point.outcome.as_ref().unwrap().attempts.len(), 1);
         let attempt = point.attempt.as_deref().unwrap();
         assert!(attempts.insert(attempt.to_owned()));
-        let record = runtime.operations().unwrap().record(&point.run, attempt).await.unwrap();
+        let record = runtime
+            .operations()
+            .unwrap()
+            .record(&point.run, attempt)
+            .await
+            .unwrap();
         assert!(record.attempt.is_ok() && record.manifest.is_some());
-        let original = record.completion.as_ref().unwrap().completion.as_ref().unwrap();
+        let original = record
+            .completion
+            .as_ref()
+            .unwrap()
+            .completion
+            .as_ref()
+            .unwrap();
         assert_eq!(original.solves.len(), 1);
         assert!((original.solves[0].objective.unwrap() - 0.5).abs() < 1e-6);
-        runtime.finalize_canonical_study(&handle.study_id().to_string()).await.unwrap();
+        runtime
+            .finalize_canonical_study(&handle.study_id().to_string())
+            .await
+            .unwrap();
         assert!(handle.result().await.unwrap().is_some());
     }
     assert_eq!(attempts.len(), 2);

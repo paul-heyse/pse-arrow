@@ -60,7 +60,12 @@ class CapabilityReadiness(Contract):
 class ReadinessCheckRequest(Contract):
     capability: Identifier
     checks: list[
-        Literal["import-compatible", "native-currency", "selected-service", "language-provider"]
+        Literal[
+            "import-compatible",
+            "native-currency",
+            "selected-service",
+            "language-provider",
+        ]
     ] = Field(min_length=1, max_length=4)
     language: Literal["python", "rust"] | None = None
     file_path: str | None = Field(default=None, min_length=1)
@@ -232,7 +237,8 @@ def bindings(
             ):
                 raise refusal("pse.readiness.extension_selection_required")
         if "native-currency" in request.checks:
-            assert mode is not None and validated is not None
+            if mode is None or validated is None:
+                raise refusal("pse.readiness.extension_selection_required")
             try:
                 currency = await preparation.currency_check(
                     root, mode, profile=request.profile, validated=validated
@@ -257,7 +263,8 @@ def bindings(
                 )
             update["native_currency"] = currency
         if "import-compatible" in request.checks:
-            assert mode is not None and validated is not None
+            if mode is None or validated is None:
+                raise refusal("pse.readiness.extension_selection_required")
             try:
                 imported = await preparation.import_check(
                     root, mode, validated=validated

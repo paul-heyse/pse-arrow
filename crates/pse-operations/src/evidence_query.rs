@@ -4,8 +4,8 @@
 //! automatic detail reads or public arbitrary SQL. Sources parse once and become the
 //! registry-owned Arrow relation, shared by every question in an analysis.
 mod comparison;
-pub use comparison::*;
 use crate::evidence::{EvidenceError, EvidenceSnapshot};
+pub use comparison::*;
 use datafusion::{
     arrow::{
         array::{Array, Float64Array, Int64Array, StringArray, StringViewArray, UInt64Array},

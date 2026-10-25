@@ -1058,14 +1058,39 @@ pub(crate) fn diagnostic_compare_evidence(
     snapshots_json: &str,
     observations_json: &str,
 ) -> PyResult<DocumentValue<pse_operations::evidence_query::EvidenceComparison>> {
-    use pse_operations::evidence_query::{EvidenceAnalysis, EvidenceComparisonRequest, EvidenceSourceObservation};
-    let request: EvidenceComparisonRequest = crate::documents::decode_document(py, "evidence comparison request", request_json.as_bytes(), 4 << 20)?;
-    let snapshots: Vec<pse_operations::evidence::EvidenceSnapshot> = crate::documents::decode(py, "evidence comparison sources", snapshots_json.as_bytes(), 16 << 20)?;
-    let observations: Vec<EvidenceSourceObservation> = crate::documents::decode(py, "evidence comparison observations", observations_json.as_bytes(), 1 << 20)?;
+    use pse_operations::evidence_query::{
+        EvidenceAnalysis, EvidenceComparisonRequest, EvidenceSourceObservation,
+    };
+    let request: EvidenceComparisonRequest = crate::documents::decode_document(
+        py,
+        "evidence comparison request",
+        request_json.as_bytes(),
+        4 << 20,
+    )?;
+    let snapshots: Vec<pse_operations::evidence::EvidenceSnapshot> = crate::documents::decode(
+        py,
+        "evidence comparison sources",
+        snapshots_json.as_bytes(),
+        16 << 20,
+    )?;
+    let observations: Vec<EvidenceSourceObservation> = crate::documents::decode(
+        py,
+        "evidence comparison observations",
+        observations_json.as_bytes(),
+        1 << 20,
+    )?;
     py.detach(move || {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()
-            .map_err(|_| pse_operations::evidence::EvidenceError::Configuration("comparison executor unavailable".into()))?;
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|_| {
+                pse_operations::evidence::EvidenceError::Configuration(
+                    "comparison executor unavailable".into(),
+                )
+            })?;
         let mut analysis = EvidenceAnalysis::new(snapshots, true)?;
         runtime.block_on(analysis.compare(&request, &observations))
-    }).map(DocumentValue).map_err(|error| errors::diagnostic(py, &error))
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
 }

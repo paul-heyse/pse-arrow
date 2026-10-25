@@ -1111,11 +1111,20 @@ mod tests {
         provider.force_flush().unwrap();
         let records = recorded.0.lock().unwrap();
         assert_eq!(records.len(), 2);
-        let native = records.iter().find(|span| span.name == "pse.native.operation").unwrap();
-        let sdk = records.iter().find(|span| span.name == "surrealdb.sdk.request").unwrap();
+        let native = records
+            .iter()
+            .find(|span| span.name == "pse.native.operation")
+            .unwrap();
+        let sdk = records
+            .iter()
+            .find(|span| span.name == "surrealdb.sdk.request")
+            .unwrap();
         assert_eq!(native.parent_span_id.to_string(), "9123456789abcdef");
         assert_eq!(sdk.parent_span_id, native_id);
-        assert_eq!(sdk.span_context.trace_id().to_string(), "8123456789abcdef0123456789abcdef");
+        assert_eq!(
+            sdk.span_context.trace_id().to_string(),
+            "8123456789abcdef0123456789abcdef"
+        );
         assert!(records.iter().all(|span| span.events.events.is_empty()));
         drop(records);
         provider.shutdown().unwrap();

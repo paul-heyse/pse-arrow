@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from scripts.capabilities.execution_basis import wire
-
 import hashlib
 import json
 from dataclasses import dataclass
@@ -13,6 +11,7 @@ from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import JsonValue, TypeAdapter
 
+from scripts.capabilities.execution_basis import wire
 from scripts.capabilities.model import Capability, Domain, Guide, Workflow
 
 JSON_OBJECT = TypeAdapter(dict[str, JsonValue])

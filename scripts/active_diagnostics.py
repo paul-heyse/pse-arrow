@@ -438,7 +438,10 @@ def collect(
     code = None
     status = "returned"
     try:
-        from scripts.telemetry_process import helper_environment
+        from scripts.telemetry_process import (  # noqa: PLC0415 -- selected owner loads only at this boundary
+            helper_environment,
+        )
+
         environment = helper_environment()
         for name in environment_remove:
             environment.pop(name, None)

@@ -30,8 +30,8 @@ from pse._build import (
     _diagnostic_analyze,
     _diagnostic_capture,
     _diagnostic_capture_arrow,
-    _diagnostic_compare_invocations,
     _diagnostic_compare_evidence,
+    _diagnostic_compare_invocations,
     _diagnostic_detail_arrow,
     _diagnostic_detail_records,
     _diagnostic_explain_invocation,
@@ -68,7 +68,6 @@ from pse._build import (
 from pse._diagnostic_launch import record_launch as launch
 from pse._diagnostic_query import run_query
 from pse.contracts.documents import (
-    EvidenceComparisonOutput,
     AnalysisDocument,
     AnalysisDocumentOutput,
     AnalysisRequest,
@@ -86,6 +85,7 @@ from pse.contracts.documents import (
     DiagnosticListRequest,
     DiagnosticProcessPageOutput,
     DiagnosticRuntimeSettings,
+    EvidenceComparisonOutput,
     FrozenEvidenceSet,
     FrozenEvidenceSetOutput,
     FrozenInspectionDocumentOutput,
