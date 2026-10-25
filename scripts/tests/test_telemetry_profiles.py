@@ -21,6 +21,7 @@ from pydantic import ValidationError
 
 from scripts.capabilities import (
     native,
+    native_contracts,
     native_worker,
     telemetry_profile_worker,
     telemetry_profiles,
@@ -117,9 +118,9 @@ class ProfileBindingTests(unittest.TestCase):
             request = envelope()
             request["suspect"].update(changes)
             with self.subTest(changes=changes), self.assertRaises(ValidationError):
-                telemetry_profiles.ProfileCaptureRequest.model_validate(request)
+                native_contracts.ProfileCaptureRequest.model_validate(request)
         with self.assertRaises(ValidationError):
-            telemetry_profiles.ProfileCaptureRequest.model_validate(
+            native_contracts.ProfileCaptureRequest.model_validate(
                 {**envelope(), "expected": None}
             )
 

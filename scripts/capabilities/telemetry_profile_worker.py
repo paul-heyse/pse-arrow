@@ -32,10 +32,12 @@ def capture(supplied: dict[str, object]) -> dict[str, object]:
         diagnostics,
     )
     from pse.contracts import documents  # noqa: PLC0415
+    from scripts.capabilities.native_contracts import (  # noqa: PLC0415 -- original request owner
+        ProfileCaptureRequest,
+    )
     from scripts.capabilities.native_worker import decoded  # noqa: PLC0415
     from scripts.capabilities.telemetry_profiles import (  # noqa: PLC0415
         CaptureContext,
-        ProfileCaptureRequest,
     )
 
     selected = ProfileCaptureRequest.model_validate(supplied, strict=True)

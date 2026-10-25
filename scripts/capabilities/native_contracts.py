@@ -7,10 +7,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, model_validator
 
 from scripts.capabilities.model import Contract, Prerequisite
 from scripts.capabilities.workers import WorkerCall
+from scripts.telemetry_investigation import QueryAnswer
 
 Positive = Annotated[int, Field(ge=1)]
 Text = Annotated[str, Field(min_length=1)]
@@ -107,6 +108,28 @@ class EvidenceCompare(Contract):
     observations: Annotated[list[JsonValue], Field(max_length=64)] = Field(
         default_factory=list
     )
+
+
+class ProfileCaptureRequest(Contract):
+    """Host association only; both native documents are decoded by their owner."""
+
+    request: JsonValue
+    expected: JsonValue
+    suspect: QueryAnswer
+
+    @model_validator(mode="after")
+    def observed_source(self) -> ProfileCaptureRequest:
+        if self.expected is None:
+            raise ValueError("Capture requires an original checkpoint identity")
+        if (
+            self.suspect.source is None
+            or self.suspect.status not in {"available", "partial"}
+            or not self.suspect.records
+        ):
+            raise ValueError(
+                "Select an actual bounded telemetry observation with its original source"
+            )
+        return self
 
 
 @dataclass(frozen=True)
@@ -351,10 +374,20 @@ BINDINGS = (
 )
 
 
-def worker_bindings() -> tuple[Binding, ...]:
-    """Resolve original native and profile declarations after module composition."""
-    from scripts.capabilities.telemetry_profiles import (  # noqa: PLC0415 -- avoid the native-tool composition cycle
-        PROFILE_BINDING,
-    )
+PROFILE_BINDING = Binding(
+    operation="telemetry_profile_capture",
+    title="Capture an explicitly selected native telemetry suspect",
+    request=ProfileCaptureRequest,
+    documents={"request": "capture-request", "expected": "checkpoint-identity"},
+    receiver="pse.diagnostics.read_checkpoint + capture + CaptureSession.wait/stop",
+    description="Associate a selected bounded telemetry observation with an explicit original native CaptureRequest and CheckpointIdentity. Start only the requested finite Timeline/CPU capture against its exact checkpoint/OperationId, then return the intact original CaptureDocument. The original native owner validates operation/liveness; preflight and postcheck preserve process/start association but are not atomic expected-identity admission. Elapsed telemetry time is not CPU time, and late attachment cannot recover preceding samples. Cancelling this attached helper drains capture only; it never cancels or restarts science, starts telemetry services, changes permissions/tuning or launches a profiler UI. Existing output directories refuse. Capture failure, symbols, overlap and loss remain independent of scientific outcomes.",
+    domain="diagnostics",
+    effects="Explicit bounded native Timeline/CPU capture and fresh retained output only; native capture owns samplers/exporters and drains them independently of target science.",
+    output_document="capture-document",
+    prepare_import=True,
+)
 
+
+def worker_bindings() -> tuple[Binding, ...]:
+    """The complete fixed native worker routes, from declaration owners only."""
     return (*BINDINGS, PROFILE_BINDING)
