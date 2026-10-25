@@ -16,7 +16,8 @@ match the contract is an error at the boundary, never a default further in.
 
 from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime
-from typing import TypeVar
+from threading import RLock, local
+from typing import TypeVar, cast
 
 import attrs
 import cattrs
@@ -296,6 +297,35 @@ def _check_version_headers(
             _check_version_headers(item, item_type, f"{path}[{index}]")
 
 
+class _JsonDecoders(local):
+    """Bounded per-thread library state; generated schema declarations stay shared."""
+
+    def __init__(self) -> None:
+        self.entries: dict[type, tuple[msgspec.inspect.Type, bool, msgspec.json.Decoder[object]]] = {}
+
+
+_json_decoders = _JsonDecoders()
+_schema_preparation = RLock()
+_MAX_JSON_DECODERS = 64
+
+
+def _json_decoder(document_type: type[T]) -> tuple[msgspec.inspect.Type, bool, msgspec.json.Decoder[T]]:
+    entry = _json_decoders.entries.get(document_type)
+    if entry is None:
+        # Library schema preparation can populate shared generated-type state.
+        # Only preparation is serialized; each thread owns its decoder and all
+        # actual value decoding remains outside this lock.
+        with _schema_preparation:
+            info = msgspec.inspect.type_info(document_type)
+            required = _has_required_version(info, set())
+            decoder = msgspec.json.Decoder(document_type, dec_hook=_decode_identity)
+        if len(_json_decoders.entries) == _MAX_JSON_DECODERS:
+            _json_decoders.entries.pop(next(iter(_json_decoders.entries)))
+        entry = (info, required, decoder)
+        _json_decoders.entries[document_type] = entry
+    return cast("tuple[msgspec.inspect.Type, bool, msgspec.json.Decoder[T]]", entry)
+
+
 def decode_json(data: bytes | str, type: type[T]) -> T:
     """Decode JSON into the selected generated document, refusing unknown fields.
 
@@ -310,11 +340,11 @@ def decode_json(data: bytes | str, type: type[T]) -> T:
         msgspec.ValidationError: If the document does not match the struct.
         msgspec.DecodeError: If the document is not well-formed JSON.
     """
-    info = msgspec.inspect.type_info(type)
-    if _has_required_version(info, set()):
+    info, required, decoder = _json_decoder(type)
+    if required:
         raw = msgspec.Raw(data.encode() if isinstance(data, str) else data)
         _check_version_headers(raw, info, "$")
-    return msgspec.json.decode(data, type=type, dec_hook=_decode_identity)
+    return decoder.decode(data)
 
 
 def convert_document(value: object, type: type[T]) -> T:
