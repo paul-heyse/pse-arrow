@@ -35,7 +35,12 @@ if TYPE_CHECKING:
         Mapping,
     )
 
-from scripts import build_environment, producer_deployment, telemetry_metrics, validation_receipts
+from scripts import (
+    build_environment,
+    producer_deployment,
+    telemetry_metrics,
+    validation_receipts,
+)
 from scripts.validation_scope import (
     EXCLUSIONS,
     FUNCTIONAL_SCOPES,
@@ -537,10 +542,20 @@ def tail(path: Path, lines: int = FAILURE_TAIL_LINES) -> list[str]:
 
 
 def execute(
-    root: Path, output: Path, name: str, command: list[str], env: dict[str, str],
+    root: Path,
+    output: Path,
+    name: str,
+    command: list[str],
+    env: dict[str, str],
 ) -> dict:
     # Names are supplied by this command owner, never proc or trace inference.
-    stage = "discovery" if name.endswith("-enumeration") else "setup" if name in {"py-sync-native-correctness", "producer-deployment"} else "execution"
+    stage = (
+        "discovery"
+        if name.endswith("-enumeration")
+        else "setup"
+        if name in {"py-sync-native-correctness", "producer-deployment"}
+        else "execution"
+    )
     with telemetry_metrics.host_metrics().stage(stage) as stage_result:
         started = time.time()
         path = output / f"{name}.log"
@@ -600,7 +615,10 @@ def execute(
             "report_errors": [],
         }
 
-        stage_result.update(status=result["status"], failure_class=telemetry_metrics.failure_class(result))
+        stage_result.update(
+            status=result["status"],
+            failure_class=telemetry_metrics.failure_class(result),
+        )
         return result
 
 

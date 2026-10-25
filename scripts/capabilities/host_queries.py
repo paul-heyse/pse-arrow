@@ -25,7 +25,9 @@ if TYPE_CHECKING:
     from scripts.telemetry_investigation import BackendClient
 
 
-def bindings(root: Path, *, telemetry: BackendClient | None = None) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
+def bindings(
+    root: Path, *, telemetry: BackendClient | None = None
+) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     specs = []
     tools: dict[str, Tool] = {}
     for factory in (

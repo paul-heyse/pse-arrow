@@ -310,9 +310,9 @@ async def inquiry_server() -> tuple[canonical.Runtime, BoundedMonty]:
     old = canonical.bindings
 
     def bindings(
-        root: Path, *, owner: Specialists
+        root: Path, *, owner: Specialists, telemetry: canonical.BackendClient
     ) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
-        declarations, tools = old(root, owner=owner)
+        declarations, tools = old(root, owner=owner, telemetry=telemetry)
         specs = tuple(
             Capability(
                 id=tool.name,

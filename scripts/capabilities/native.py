@@ -37,13 +37,19 @@ _PENDING: set[asyncio.Task[dict[str, JsonValue]]] = set()
 def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
     """Preserve exact selected native documents/IPC, or refuse them as a whole."""
     if len(json.dumps(value, ensure_ascii=True, allow_nan=False).encode()) > 120 * 1024:
-        diagnostic = operation.startswith("native_diagnostic_")
+        capture = operation in {
+            "telemetry_profile_capture",
+            "native_telemetry_profile_capture",
+        }
+        diagnostic = operation.startswith("native_diagnostic_") or capture
         value = {
             "outcome": "detail_refused",
             "code": "pse.native.observation_detail_bound"
             if diagnostic
             else "pse.native.result_detail_bound",
-            "remedy": "Narrow the original diagnostic selection or use its explicit native reader; no target facts were truncated."
+            "remedy": "Read the original retained CaptureDocument in the explicitly requested capture output; no capture facts were truncated."
+            if capture
+            else "Narrow the original diagnostic selection or use its explicit native reader; no target facts were truncated."
             if diagnostic
             else "Narrow the selected field/row window; exact IPC remains available through the protected reader.",
         }

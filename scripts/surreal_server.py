@@ -5896,7 +5896,10 @@ def module_runtime_allocation(allocation: dict[str, object]) -> dict[str, int]:
 
 
 def server_environment(
-    config: dict[str, object], credentials: dict[str, object], *, bootstrap: bool = True,
+    config: dict[str, object],
+    credentials: dict[str, object],
+    *,
+    bootstrap: bool = True,
     telemetry_instance_id: str | None = None,
 ) -> dict[str, str]:
     allocation = config["resources"]
@@ -5961,7 +5964,9 @@ def server_environment(
     selection = telemetry_service.producer_configuration()
     if selection is not None:
         endpoint = selection.get("otlp_grpc_endpoint")
-        if not isinstance(endpoint, str) or not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}", endpoint):
+        if not isinstance(endpoint, str) or not re.fullmatch(
+            r"http://127\.0\.0\.1:[0-9]{1,5}", endpoint
+        ):
             raise SupervisorError("Selected telemetry gRPC ingress must be loopback")
         environment.update(
             SURREAL_TELEMETRY_PROVIDER="otlp",
@@ -10080,8 +10085,15 @@ def selected_service(state: Path, deadline: float) -> SelectedService:
     ):
         raise SupervisorError("MCP VIEWER readiness identity is unavailable")
     process_path = state / "server-process.json"
-    telemetry_identity = read_json(process_path, deadline=deadline).get("telemetry_service_instance_id") if process_path.is_file() else None
-    if telemetry_identity is not None and (not isinstance(telemetry_identity, str) or not re.fullmatch(r"[a-f0-9]{32}", telemetry_identity)):
+    telemetry_identity = (
+        read_json(process_path, deadline=deadline).get("telemetry_service_instance_id")
+        if process_path.is_file()
+        else None
+    )
+    if telemetry_identity is not None and (
+        not isinstance(telemetry_identity, str)
+        or not re.fullmatch(r"[a-f0-9]{32}", telemetry_identity)
+    ):
         raise SupervisorError("Invalid native telemetry process association")
     selected = SelectedService(
         state,

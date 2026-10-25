@@ -17,6 +17,7 @@ from scripts.capabilities.read_contracts import (
     finish_read,
 )
 from scripts.telemetry_investigation import QueryAnswer
+from scripts.telemetry_selection import SelectionPage
 
 
 class SignalSettings(Contract):
@@ -168,8 +169,59 @@ def query(value: QueryAnswer) -> TelemetryQueryResult | DetailRefused:
     return finish_read(
         TelemetryQueryResult,
         value,
-        population="unavailable" if value.status in {"unavailable", "stale", "unsupported"} else "partial",
+        population="unavailable"
+        if value.status in {"unavailable", "stale", "unsupported"}
+        else "partial",
         reasons=[value.reason or "bounded_live_selection", *value.limits],
+    )
+
+
+class TelemetrySelectionResult(ReadAnswer):
+    operation: Literal["telemetry_selection_read"] = "telemetry_selection_read"
+    complete: bool
+    omissions: list[str]
+    answer: AnswerState
+    payload: SelectionPage
+
+
+def selection(value: SelectionPage) -> TelemetrySelectionResult | DetailRefused:
+    return finish_read(
+        TelemetrySelectionResult,
+        value,
+        population="partial",
+        reasons=[value.interpretation, *value.missing_context],
+    )
+
+
+class WatchPayload(Contract):
+    status: str
+    reason: str | None = None
+    rules: list[OwnerRecord]
+    records: list[OwnerRecord]
+    history: list[OwnerRecord] = Field(default_factory=list)
+    complete: Literal[False]
+    source: OwnerRecord | None = None
+    delivery_stream: str | None = None
+    automatic_intervention: Literal[False] = False
+
+
+class TelemetryWatchResult(ReadAnswer):
+    operation: Literal["telemetry_watch_read"] = "telemetry_watch_read"
+    complete: bool
+    omissions: list[str]
+    answer: AnswerState
+    payload: WatchPayload
+
+
+def watch(value: object) -> TelemetryWatchResult | DetailRefused:
+    selected = WatchPayload.model_validate(value)
+    return finish_read(
+        TelemetryWatchResult,
+        selected,
+        population="unavailable" if selected.status == "unavailable" else "partial",
+        reasons=[
+            "Backend-native schedule/history and local delivery; no automatic intervention. Quiet or missing history does not establish health."
+        ],
     )
 
 

@@ -368,17 +368,37 @@ class TelemetryServiceTests(unittest.TestCase):
             service._unit_quote("/fixture/bad\npath")  # noqa: SLF001 -- exercise private unit-path escaping boundary
 
     def test_collector_internal_reader_pushes_to_existing_ingress(self) -> None:
-        config = service.collector_configuration(self.state, service.DEFAULT_PORTS, "default", service.DEFAULT_STREAMS)
-        readers = config["service"]["telemetry"]["metrics"]["readers"]
-        self.assertEqual(readers[0]["periodic"]["interval"], 10000)
-        self.assertEqual(readers[0]["periodic"]["exporter"]["otlp"], {"protocol": "grpc", "endpoint": "http://127.0.0.1:4317"})
-        self.assertEqual(readers[1]["pull"]["exporter"]["prometheus"]["port"], 8888)
-        self.assertEqual(set(config["receivers"]), {"otlp"})
+        config = service.collector_configuration(
+            self.state, service.DEFAULT_PORTS, "default", service.DEFAULT_STREAMS
+        )
+        readers = mapping(mapping(mapping(config["service"])["telemetry"])["metrics"])[
+            "readers"
+        ]
+        if not isinstance(readers, list):
+            self.fail("Internal readers must be a list")
+        periodic = mapping(mapping(readers[0])["periodic"])
+        self.assertEqual(periodic["interval"], 10000)
+        self.assertEqual(
+            mapping(periodic["exporter"])["otlp"],
+            {"protocol": "grpc", "endpoint": "http://127.0.0.1:4317"},
+        )
+        self.assertEqual(
+            mapping(
+                mapping(mapping(mapping(readers[1])["pull"])["exporter"])["prometheus"]
+            )["port"],
+            8888,
+        )
+        self.assertEqual(set(mapping(config["receivers"])), {"otlp"})
 
-    def test_reconfiguration_preserves_credentials_data_and_sealed_generation(self) -> None:
+    def test_reconfiguration_preserves_credentials_data_and_sealed_generation(
+        self,
+    ) -> None:
         before = self.setup()
-        original = service._configuration(self.state)
-        old_files = {path: (self.state / path).read_bytes() for path in original["files"]}
+        original = service._configuration(self.state)  # noqa: SLF001 -- Authenticate sealed fixture generation records and recovery effects.
+        old_files = {
+            path: (self.state / path).read_bytes()
+            for path in mapping(original["files"])
+        }
         sentinel = self.state / "openobserve-data" / "retained"
         sentinel.write_bytes(b"keep diagnostic data")
         with patch.object(service, "_systemctl", self.systemctl):
@@ -386,12 +406,32 @@ class TelemetryServiceTests(unittest.TestCase):
         self.assertNotEqual(before["configuration_id"], after["configuration_id"])
         self.assertEqual(after["retention_days"], 7)
         self.assertEqual(sentinel.read_bytes(), b"keep diagnostic data")
-        self.assertEqual(old_files, {path: (self.state / path).read_bytes() for path in original["files"]})
-        selected = service._configuration(self.state)
-        new_env = dict(line.split("=", 1) for line in Path(selected["environment_file"]).read_text().splitlines())
-        old_env = dict(line.split("=", 1) for line in (self.state / "service.env").read_text().splitlines())
-        self.assertEqual(new_env["PSE_TELEMETRY_AUTHORIZATION"], old_env["PSE_TELEMETRY_AUTHORIZATION"])
-        self.assertEqual(json.loads((self.state / "reconfiguration.json").read_text())["phase"], "activated")
+        self.assertEqual(
+            old_files,
+            {
+                path: (self.state / path).read_bytes()
+                for path in mapping(original["files"])
+            },
+        )
+        selected = service._configuration(self.state)  # noqa: SLF001 -- Authenticate sealed fixture generation records and recovery effects.
+        new_env = dict(
+            line.split("=", 1)
+            for line in Path(text(selected["environment_file"]))
+            .read_text()
+            .splitlines()
+        )
+        old_env = dict(
+            line.split("=", 1)
+            for line in (self.state / "service.env").read_text().splitlines()
+        )
+        self.assertEqual(
+            new_env["PSE_TELEMETRY_AUTHORIZATION"],
+            old_env["PSE_TELEMETRY_AUTHORIZATION"],
+        )
+        self.assertEqual(
+            json.loads((self.state / "reconfiguration.json").read_text())["phase"],
+            "activated",
+        )
         self.assertNotIn("start", [call[0] for call in self.calls])
 
     def test_reconfiguration_validation_failure_leaves_previous_selection(self) -> None:
@@ -400,41 +440,58 @@ class TelemetryServiceTests(unittest.TestCase):
         self.calls.clear()
         with (
             patch.object(service, "_systemctl", self.systemctl),
-            patch.object(service.subprocess, "run", return_value=subprocess.CompletedProcess([], 1)),
-            self.assertRaisesRegex(service.TelemetryServiceError, "prior generation remains"),
+            patch.object(
+                service.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 1),
+            ),
+            self.assertRaisesRegex(
+                service.TelemetryServiceError, "prior generation remains"
+            ),
         ):
             service.reconfigure(self.state, environment=self.environment)
         self.assertEqual((self.state / "service.json").read_bytes(), before)
         self.assertNotIn("stop", [call[0] for call in self.calls])
 
-    def test_reconfiguration_failed_publication_restores_previous_selection(self) -> None:
+    def test_reconfiguration_failed_publication_restores_previous_selection(
+        self,
+    ) -> None:
         self.setup()
-        before = service._configuration(self.state)
+        before = service._configuration(self.state)  # noqa: SLF001 -- Authenticate sealed fixture generation records and recovery effects.
         published = []
+
         def fail_candidate(config: Mapping[str, object], _environment: object) -> None:
             published.append(config["configuration_id"])
             if config["configuration_id"] != before["configuration_id"]:
                 raise service.TelemetryServiceError("fixture activation failed")
+
         with (
             patch.object(service, "_systemctl", self.systemctl),
             patch.object(service, "_publish_units", fail_candidate),
-            self.assertRaisesRegex(service.TelemetryServiceError, "fixture activation failed"),
+            self.assertRaisesRegex(
+                service.TelemetryServiceError, "fixture activation failed"
+            ),
         ):
             service.reconfigure(self.state, environment=self.environment)
-        self.assertEqual(service._configuration(self.state), before)
+        self.assertEqual(service._configuration(self.state), before)  # noqa: SLF001 -- Authenticate sealed fixture generation records and recovery effects.
         self.assertEqual(published[-1], before["configuration_id"])
-        self.assertEqual(json.loads((self.state / "reconfiguration.json").read_text())["phase"], "rolled_back")
+        self.assertEqual(
+            json.loads((self.state / "reconfiguration.json").read_text())["phase"],
+            "rolled_back",
+        )
 
     def test_explicit_recovery_repairs_interrupted_public_pointer(self) -> None:
         self.setup()
-        before = service._configuration(self.state)
+        before = service._configuration(self.state)  # noqa: SLF001 -- Authenticate sealed fixture generation records and recovery effects.
         with patch.object(service, "_systemctl", self.systemctl):
             service.reconfigure(self.state, environment=self.environment)
         (self.state / "configuration.json").write_text("{}")
         with patch.object(service, "_systemctl", self.systemctl):
-            result = service.recover_previous_configuration(self.state, environment=self.environment)
+            result = service.recover_previous_configuration(
+                self.state, environment=self.environment
+            )
         self.assertEqual(result["configuration_id"], before["configuration_id"])
-        self.assertEqual(service._configuration(self.state), before)
+        self.assertEqual(service._configuration(self.state), before)  # noqa: SLF001 -- Authenticate sealed fixture generation records and recovery effects.
 
 
 if __name__ == "__main__":

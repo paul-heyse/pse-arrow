@@ -20,7 +20,9 @@ from pydantic import JsonValue
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.native_schema import JSON_OBJECT
 from scripts.capabilities.responses import bounded
+from scripts.capabilities.telemetry_profile_worker import capture
 from scripts.capabilities.worker_progress import ProgressReporter
+from scripts.capabilities.workers import WORKERS
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -291,6 +293,8 @@ def execute(
     result: host.Result | None = None
     result_inspection: contracts.ResultInspectionRequest | None = None
     # Decode every generated request before Runtime construction or store access.
+    if operation == "telemetry_profile_capture":
+        return capture(supplied)
     if operation in {"source_admit", "preparation_discover"}:
         source = (
             host.Preparation.model_validate(supplied, strict=True)
@@ -562,10 +566,7 @@ def read_result(runtime: Runtime, request: Result) -> dict[str, object]:
 
 def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
     if selected:
-        if len(selected) != 3 or selected[0] not in {
-            "source_admit",
-            "preparation_discover",
-        }:
+        if len(selected) != 3 or selected[0] not in WORKERS["native"].operations:
             raise ValueError(
                 "select one fixed native action, request and response file"
             )
@@ -595,8 +596,7 @@ def main(argv: list[str] | None = None) -> int:
     operation = "unknown"
     destination = (
         Path(selected[2])
-        if len(selected) == 3
-        and selected[0] in {"source_admit", "preparation_discover"}
+        if len(selected) == 3 and selected[0] in WORKERS["native"].operations
         else None
     )
     try:

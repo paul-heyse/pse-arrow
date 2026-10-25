@@ -14,9 +14,15 @@ import unittest
 from contextlib import ExitStack, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
-from scripts import telemetry, telemetry_investigation, telemetry_process, telemetry_query, telemetry_service
+from scripts import (
+    telemetry,
+    telemetry_investigation,
+    telemetry_process,
+    telemetry_query,
+    telemetry_service,
+)
 
 TRACE_ID = "1234567890abcdef1234567890abcdef"
 PARENT_TRACE_ID = "abcdef1234567890abcdef1234567890"
@@ -334,7 +340,7 @@ class TelemetryReadTests(unittest.TestCase):
         self.assertEqual(document["query"]["size"], 10)
         self.assertEqual(document["query"]["from"], 0)
         self.assertIn(
-            "FROM pse_traces WHERE trace_id = '" + TRACE_ID + "'",
+            'FROM "pse_traces" WHERE trace_id = \'' + TRACE_ID + "'",
             document["query"]["sql"],
         )
         self.assertIn("ORDER BY _timestamp,span_id", document["query"]["sql"])
@@ -343,7 +349,7 @@ class TelemetryReadTests(unittest.TestCase):
         source = mapping(answer["source"])
         self.assertEqual(source["configuration_id"], "fixture-generation")
         self.assertEqual(source["retention_days"], 7)
-        self.assertIn("no atomic snapshot", text(source["source_cut"]))
+        self.assertEqual(text(source["source_cut"]), "bounded_live_observation")
         self.assertNotIn(PRIVATE_SENTINEL, json.dumps(answer))
 
     def test_partial_empty_and_row_limit_never_claim_complete_population(self) -> None:
@@ -513,9 +519,9 @@ class TelemetryReadTests(unittest.TestCase):
                 telemetry_service, "backend_access", return_value=(self.base, {})
             ),
             patch.object(
-                telemetry_query,
+                telemetry_investigation.BackendClient,
                 "request",
-                return_value=(200, b'{"hits":[{"trace_id":"foreign"}]}'),
+                new=AsyncMock(return_value=(200, b'{"hits":[{"trace_id":"foreign"}]}')),
             ),
         ):
             answer = telemetry_query.lookup_trace(

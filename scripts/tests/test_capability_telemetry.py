@@ -14,14 +14,18 @@ import unittest
 from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 from fastmcp.exceptions import ToolError
 from jsonschema import Draft202012Validator
 
-from scripts import telemetry_investigation, telemetry_process, telemetry_query, telemetry_service
+from scripts import (
+    telemetry_investigation,
+    telemetry_process,
+    telemetry_service,
+)
 from scripts.capabilities.inventory import _families
 from scripts.capabilities.server import build
 from scripts.tests.test_capabilities import BOOTSTRAP
@@ -29,7 +33,17 @@ from scripts.tests.test_capabilities import BOOTSTRAP
 ROOT = Path(__file__).resolve().parents[2]
 TRACE_ID = "1234567890abcdef1234567890abcdef"
 PRIVATE = "private-telemetry-credential-or-response"
-OPERATIONS = {"telemetry_health", "telemetry_configuration", "telemetry_trace_lookup", "telemetry_query", "telemetry_schema"}
+OPERATIONS = {
+    "telemetry_health",
+    "telemetry_configuration",
+    "telemetry_trace_lookup",
+    "telemetry_query",
+    "telemetry_schema",
+    "telemetry_selection_read",
+    "telemetry_investigation_export",
+    "telemetry_watch_read",
+    "telemetry_watch_configure",
+}
 
 
 class TelemetryClientCase(unittest.IsolatedAsyncioTestCase):
@@ -97,7 +111,11 @@ class TelemetryTests(TelemetryClientCase):
             annotations = self.runtime.catalogue.tools[operation].annotations
             if annotations is None:
                 self.fail("Expected explicit read-only tool annotations")
-            self.assertTrue(annotations.read_only_hint)
+            self.assertEqual(
+                annotations.read_only_hint,
+                operation
+                not in {"telemetry_investigation_export", "telemetry_watch_configure"},
+            )
             description = await self.client.call_tool(
                 "capabilities_describe", {"capability": operation}
             )
@@ -226,9 +244,11 @@ class TelemetryTests(TelemetryClientCase):
     ) -> None:
         with (
             patch.object(
-                telemetry_query,
-                "lookup_trace",
-                side_effect=telemetry_service.TelemetryServiceError(PRIVATE),
+                telemetry_investigation.BackendClient,
+                "query",
+                new=AsyncMock(
+                    side_effect=telemetry_service.TelemetryServiceError(PRIVATE)
+                ),
             ),
             self.assertRaises(ToolError) as error,
         ):
@@ -335,6 +355,59 @@ class BackendTests(TelemetryClientCase):
             },
         )
 
+    async def test_typed_metric_query_preserves_original_points_and_declared_schema(
+        self,
+    ) -> None:
+        self.body = json.dumps(
+            {
+                "hits": [
+                    {
+                        "_timestamp": 101,
+                        "start_time": 90,
+                        "value": 4,
+                        "owner_epoch": "a",
+                    },
+                    {
+                        "_timestamp": 150,
+                        "start_time": 140,
+                        "value": 1,
+                        "owner_epoch": "b",
+                    },
+                ]
+            }
+        ).encode()
+        answer = await self.call(
+            "telemetry_query",
+            {
+                "request": {
+                    "signal": "metrics",
+                    "metric": "native_work",
+                    "start_time_us": 100,
+                    "end_time_us": 200,
+                }
+            },
+        )
+        self.assertEqual(
+            [item["start_time"] for item in answer["payload"]["records"]], [90, 140]
+        )
+        self.assertFalse(answer["complete"])
+        self.assertEqual(answer["payload"]["meaning"], "observed_points")
+        self.assertEqual(self.requests[-1]["query"]["size"], 100)
+        result = await self.client.read_resource("pse://telemetry/schema")
+        content = " ".join(item.text for item in result if hasattr(item, "text"))
+        self.assertIn("microseconds", content)
+        self.assertIn("pse_native_supervisor_events", content)
+
+    async def test_watch_control_is_an_action_and_refuses_read_invoker(self) -> None:
+        await self.client.call_tool(
+            "capabilities_select", {"capabilities": ["telemetry_watch_configure"]}
+        )
+        with self.assertRaises(ToolError):
+            await self.client.call_tool(
+                "capabilities_invoke_read",
+                {"capability": "telemetry_watch_configure", "arguments": {}},
+            )
+
     async def test_actual_backend_partial_and_empty_results_preserve_attribution(
         self,
     ) -> None:
@@ -431,7 +504,7 @@ class BackendTests(TelemetryClientCase):
         for code, body in (
             (503, PRIVATE.encode()),
             (200, b'{"hits":{}}'),
-            (200, b"x" * (telemetry_query.MAX_RESPONSE_BYTES + 1)),
+            (200, b"x" * (telemetry_investigation.MAX_RESPONSE_BYTES + 1)),
         ):
             self.code, self.body = code, body
             with self.subTest(code=code, bytes=len(body)):

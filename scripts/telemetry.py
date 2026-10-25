@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import (
+    telemetry_alerts,
     telemetry_config,
     telemetry_process,
     telemetry_query,
@@ -208,6 +209,17 @@ def _operation(args: argparse.Namespace) -> Mapping[str, object]:
             start_time_us=args.start_us,
             end_time_us=args.end_us,
         )
+    elif args.command in {"watch-configure", "watch-disable", "watch-read"}:
+        if args.command == "watch-read":
+            if args.start_us is None or args.end_us is None:
+                raise ValueError("Watch history requires --start-us and --end-us")
+            result = telemetry_alerts.read(
+                args.state, start_time_us=args.start_us, end_time_us=args.end_us
+            )
+        else:
+            result = telemetry_alerts.configure(
+                args.state, enabled=args.command == "watch-configure"
+            )
     else:
         action = {
             "start": telemetry_service.start,
@@ -216,6 +228,8 @@ def _operation(args: argparse.Namespace) -> Mapping[str, object]:
             "stop": telemetry_service.stop,
             "enable": telemetry_service.enable,
             "disable": telemetry_service.disable,
+            "reconfigure": telemetry_service.reconfigure,
+            "recover-configuration": telemetry_service.recover_previous_configuration,
         }[args.command]
         result = action(args.state)
     return result
@@ -237,6 +251,11 @@ def main(argv: list[str] | None = None) -> int:
             "disable",
             "configuration",
             "lookup-trace",
+            "reconfigure",
+            "recover-configuration",
+            "watch-configure",
+            "watch-disable",
+            "watch-read",
         ),
     )
     parser.add_argument("--state", type=Path)
@@ -249,10 +268,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.ports is not None and args.command != "setup":
         parser.error("--ports is supported only by setup")
-    if (
-        any(value is not None for value in (args.trace_id, args.start_us, args.end_us))
-        and args.command != "lookup-trace"
-    ):
+    if any(
+        value is not None for value in (args.trace_id, args.start_us, args.end_us)
+    ) and args.command not in {"lookup-trace", "watch-read"}:
         parser.error("trace filters are supported only by lookup-trace")
     try:
         result = _operation(args)

@@ -26,6 +26,7 @@ from fastmcp.tools import (
 from mcp.types import ResourceLink, TextContent
 from pydantic import Field, JsonValue
 
+from scripts import telemetry_selection
 from scripts.capabilities import (
     host_actions,
     host_queries,
@@ -37,6 +38,8 @@ from scripts.capabilities import (
     qualification,
     readiness,
     specialists,
+    telemetry_contracts,
+    telemetry_profiles,
 )
 from scripts.capabilities.catalogue import JSON_OBJECT, Catalogue
 from scripts.capabilities.coherence import LOADED, Interface, install
@@ -89,6 +92,7 @@ def bindings(
         host_actions.bindings,
         qualification.bindings,
         native.bindings,
+        telemetry_profiles.bindings,
         preparation.bindings,
         lambda path: specialists.bindings(path, owner=owner),
     ):
@@ -157,10 +161,30 @@ def build(root: Path = ROOT) -> Runtime:
             server.disable(keys={key})
     presentation_view = presentation.register(server, catalogue, guidance)
 
-    @server.resource("pse://telemetry/schema", name="telemetry_query_schema", mime_type="application/json")
+    @server.resource(
+        "pse://telemetry/schema",
+        name="telemetry_query_schema",
+        mime_type="application/json",
+    )
     def telemetry_schema_resource() -> dict[str, object]:
         interface.require("telemetry_schema")
         return dict(schema_description())
+
+    @server.resource(
+        "pse://telemetry/selection/{reference}/{selection}/{limit}",
+        name="telemetry_copied_selection",
+        mime_type="application/json",
+    )
+    def telemetry_selection_resource(
+        reference: str, selection: int, limit: int
+    ) -> dict[str, object]:
+        interface.require("telemetry_selection_read")
+        selected = telemetry_selection.page(
+            telemetry_selection.from_resource(reference),
+            selection=selection,
+            limit=limit,
+        )
+        return telemetry_contracts.selection(selected).model_dump(mode="json")
 
     lock = asyncio.Lock()
 
@@ -406,6 +430,8 @@ def build(root: Path = ROOT) -> Runtime:
         resource_names={
             **guidance.resource_owners(),
             presentation.CAPABILITY_TEMPLATE: "capability_description",
+            "pse://telemetry/schema": "telemetry_query_schema",
+            "pse://telemetry/selection/{reference}/{selection}/{limit}": "telemetry_copied_selection",
         },
         prompt_names=frozenset(
             "workflow_" + identity for identity in catalogue.workflows

@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
     from scripts.capabilities.catalogue import Catalogue
 
+METRIC_DECLARATIONS = "scripts/generated/native_metric_declarations.json"
 COMMON = (
     "scripts/capabilities/__init__.py",
     "scripts/capabilities/__main__.py",
@@ -178,6 +179,8 @@ class Interface:
             function = getattr(tool, "fn", None)
             module = getattr(function, "__module__", "")
             paths = [spec.owner, spec.source]
+            if spec.family == "telemetry-observation":
+                paths.append(METRIC_DECLARATIONS)
             if module.startswith("scripts."):
                 paths.append(module.replace(".", "/") + ".py")
             # Fixed workers are executed by name in fresh children, not imported
@@ -239,6 +242,7 @@ LOADED = Sources(
     Path(__file__).resolve().parents[2],
     (
         *COMMON,
+        METRIC_DECLARATIONS,
         *(worker.module.replace(".", "/") + ".py" for worker in WORKERS.values()),
         *(path for worker in WORKERS.values() for path in worker.sources),
     ),

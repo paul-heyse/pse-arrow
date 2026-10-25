@@ -182,7 +182,10 @@ def run_command(command: list[str], *, env: dict[str, str]) -> int:
                 observation = None
             with selectors.DefaultSelector() as selected:
                 buffers = {"stdout": b"", "stderr": b""}
-                for stream, name in ((child.stdout, "stdout"), (child.stderr, "stderr")):
+                for stream, name in (
+                    (child.stdout, "stdout"),
+                    (child.stderr, "stderr"),
+                ):
                     if stream is None:
                         raise RuntimeError("Cargo output stream was not created")
                     selected.register(stream, selectors.EVENT_READ, name)
@@ -218,7 +221,9 @@ def run_command(command: list[str], *, env: dict[str, str]) -> int:
         # never claim completion or a terminal duration without a settled exit.
         code = child.poll()
         if code is not None:
-            telemetry_metrics.host_metrics().build_finished(time.monotonic() - started, code)
+            telemetry_metrics.host_metrics().build_finished(
+                time.monotonic() - started, code
+            )
 
 
 def observations(directory: Path) -> list[dict]:

@@ -145,6 +145,8 @@ class Binding:
 # These original native documents/bytes are kept intact at both transport stages.
 EXACT_READS = frozenset(
     {
+        # The explicit capture action also preserves its original whole document.
+        "telemetry_profile_capture",
         "result_read",
         "result_inspect",
         "diagnostic_inspect",

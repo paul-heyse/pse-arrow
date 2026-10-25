@@ -17,6 +17,8 @@ from typing import Literal
 
 import msgspec
 
+from scripts.telemetry_metrics import host_metrics
+
 CGROUP = Path("/sys/fs/cgroup")
 PROC = Path("/proc")
 COUNTERS = (
@@ -299,8 +301,6 @@ def sample(
 
 
 def capture(group: str | None) -> Capture:
-    from scripts.telemetry_metrics import host_metrics  # noqa: PLC0415 -- only explicit observation publishes metrics
-
     selected = (
         sample(group)
         if group is not None

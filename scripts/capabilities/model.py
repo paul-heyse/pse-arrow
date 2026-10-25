@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from scripts.capabilities.workers import (
-    WorkerCall,  # noqa: TC001 -- Pydantic resolves the declaration field at runtime.
+    WorkerCall,
 )
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,95}$")]

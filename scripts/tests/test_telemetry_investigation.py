@@ -12,28 +12,91 @@ from unittest.mock import AsyncMock, patch
 from pydantic import ValidationError
 
 from scripts import telemetry_service
-from scripts.telemetry_investigation import BackendClient, QueryRequest, backend_request
+from scripts.telemetry_investigation import (
+    BackendClient,
+    QueryAnswer,
+    QueryRequest,
+    backend_request,
+)
 
 
 class QueryTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.client = BackendClient()
         self.addAsyncCleanup(self.client.close)
-        self.inspected = {"configuration": {"configuration_id": "one", "organization": "default", "streams": {"traces": "pse_traces", "logs": "pse_logs"}}, "services": {"openobserve": {"ownership": "verified", "process": {"pid": 1, "incarnation": "one"}}}, "versions": {"openobserve": "1.1.2"}}
+        self.inspected = {
+            "configuration": {
+                "configuration_id": "one",
+                "organization": "default",
+                "streams": {"traces": "pse_traces", "logs": "pse_logs"},
+            },
+            "services": {
+                "openobserve": {
+                    "ownership": "verified",
+                    "process": {"pid": 1, "incarnation": "one"},
+                }
+            },
+            "versions": {"openobserve": "1.1.2"},
+        }
 
     def request(self, **overrides: object) -> QueryRequest:
-        return QueryRequest.model_validate({"signal": "metrics", "metric": "native_work", "start_time_us": 1_000_000, "end_time_us": 121_000_000, **overrides})
+        return QueryRequest.model_validate(
+            {
+                "signal": "metrics",
+                "metric": "native_work",
+                "start_time_us": 1_000_000,
+                "end_time_us": 121_000_000,
+                **overrides,
+            }
+        )
 
-    async def answer(self, response: object, *, selected: QueryRequest | None = None, after: dict | None = None):
-        with (patch.object(telemetry_service, "inspect", side_effect=[self.inspected, after or self.inspected]),
-              patch.object(telemetry_service, "backend_access", return_value=("http://127.0.0.1:5080", {})),
-              patch.object(self.client, "request", new=AsyncMock(return_value=(200, json.dumps(response).encode())))):
+    async def answer(
+        self,
+        response: object,
+        *,
+        selected: QueryRequest | None = None,
+        after: dict | None = None,
+    ) -> QueryAnswer:
+        with (
+            patch.object(
+                telemetry_service,
+                "inspect",
+                side_effect=[self.inspected, after or self.inspected],
+            ),
+            patch.object(
+                telemetry_service,
+                "backend_access",
+                return_value=("http://127.0.0.1:5080", {}),
+            ),
+            patch.object(
+                self.client,
+                "request",
+                new=AsyncMock(return_value=(200, json.dumps(response).encode())),
+            ),
+        ):
             return await self.client.query(None, selected or self.request())
 
     async def test_original_points_keep_reset_and_unknown_source_fields(self) -> None:
-        points = [{"_timestamp": 1_000_000, "start_time": 900_000, "value": 1, "owner_epoch": "a"},
-                  {"_timestamp": 2_000_000, "start_time": 900_000, "value": 4, "owner_epoch": "a"},
-                  {"_timestamp": 3_000_000, "start_time": 2_500_000, "value": 2, "owner_epoch": "b"}]
+        points = [
+            {
+                "_timestamp": 1_000_000,
+                "start_time": 900_000,
+                "value": 1,
+                "owner_epoch": "a",
+            },
+            {
+                "_timestamp": 2_000_000,
+                "start_time": 900_000,
+                "value": 4,
+                "owner_epoch": "a",
+            },
+            {
+                "_timestamp": 3_000_000,
+                "start_time": 2_500_000,
+                "value": 2,
+                "owner_epoch": "b",
+            },
+        ]
         answer = await self.answer({"hits": points, "total": 3})
         self.assertEqual(answer.records, points)
         self.assertEqual(answer.meaning, "observed_points")
@@ -42,7 +105,20 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_parent_and_link_meaning_not_inferred(self) -> None:
         selected = self.request(signal="traces", metric=None, trace_id="a" * 32)
-        answer = await self.answer({"hits": [{"trace_id": "a" * 32, "span_id": "1" * 16, "reference_parent_span_id": "2" * 16, "links": [{"span_id": "3" * 16}], "service_service_instance_id": "p1"}]}, selected=selected)
+        answer = await self.answer(
+            {
+                "hits": [
+                    {
+                        "trace_id": "a" * 32,
+                        "span_id": "1" * 16,
+                        "reference_parent_span_id": "2" * 16,
+                        "links": [{"span_id": "3" * 16}],
+                        "service_service_instance_id": "p1",
+                    }
+                ]
+            },
+            selected=selected,
+        )
         self.assertEqual(answer.records[0]["parent_span_id"], "2" * 16)
         self.assertEqual(answer.records[0]["links"], [{"span_id": "3" * 16}])
         self.assertEqual(answer.records[0]["service_instance_id"], "p1")
@@ -54,28 +130,103 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(answer.records, [])
 
     async def test_estimates_and_examples_never_claim_exactness(self) -> None:
-        for kind, meaning in [("rate", "estimated_rate"), ("increase", "estimated_increase"), ("p95", "estimated_quantile"), ("exemplars", "related_examples")]:
+        for kind, meaning in [
+            ("rate", "estimated_rate"),
+            ("increase", "estimated_increase"),
+            ("p95", "estimated_quantile"),
+            ("exemplars", "related_examples"),
+        ]:
             selected = self.request(kind=kind)
-            response = {"status": "success", "data": [{"exemplars": [{"value": 4}]}] if kind == "exemplars" else {"result": [{"values": [[1, "2.1"]]}]}}
+            response = {
+                "status": "success",
+                "data": [{"exemplars": [{"value": 4}]}]
+                if kind == "exemplars"
+                else {"result": [{"values": [[1, "2.1"]]}]},
+            }
             answer = await self.answer(response, selected=selected)
             self.assertEqual(answer.meaning, meaning)
             self.assertFalse(answer.complete)
+
+    async def test_fraction_requires_an_emitted_boundary_and_retains_units(
+        self,
+    ) -> None:
+        unsupported = await self.answer(
+            {"status": "success", "data": {"result": []}},
+            selected=self.request(
+                metric="pse_build_duration", kind="fraction_below", threshold=0.0101
+            ),
+        )
+        self.assertEqual(unsupported.status, "unsupported")
+        selected = self.request(
+            metric="pse_build_duration", kind="fraction_below", threshold=0.01
+        )
+        observed = await self.answer(
+            {"status": "success", "data": {"result": [{"values": [[1, "0.6667"]]}]}},
+            selected=selected,
+        )
+        self.assertEqual(observed.meaning, "estimated_fraction")
+        self.assertEqual(observed.unit, "1")
+        duration = await self.answer(
+            {"hits": [{"value": 0.01}]},
+            selected=self.request(metric="pse_build_duration_sum"),
+        )
+        self.assertIsNone(
+            duration.unit,
+            "Unknown backend derivative names must not acquire invented units",
+        )
+
+    async def test_nonfinite_backend_points_refuse_the_answer(self) -> None:
+        answer = await self.answer({"hits": [{"value": float("nan")}]})
+        self.assertEqual(answer.status, "unavailable")
+        self.assertEqual(answer.records, [])
 
     async def test_missing_or_partial_data_is_not_a_zero_population(self) -> None:
         empty = await self.answer({"hits": []})
         partial = await self.answer({"hits": [{"value": 1}], "is_partial": True})
         invalid = await self.answer({"hits": "private invalid backend body"})
-        self.assertEqual((empty.status, partial.status, invalid.status), ("empty", "partial", "unavailable"))
+        self.assertEqual(
+            (empty.status, partial.status, invalid.status),
+            ("empty", "partial", "unavailable"),
+        )
         self.assertNotIn("private", invalid.model_dump_json())
 
     def test_closed_inputs_reject_query_injection_and_wrong_units(self) -> None:
-        for override in [{"metric": "x' OR true"}, {"start_time_us": True}, {"end_time_us": 1}, {"limit": 0}, {"kind": "sql"}, {"signal": "traces", "metric": None}, {"kind": "rate", "step_seconds": 1, "limit": 2}, {"sql": "select *"}]:
+        for override in [
+            {"metric": "x' OR true"},
+            {"start_time_us": True},
+            {"end_time_us": 1},
+            {"limit": 0},
+            {"kind": "sql"},
+            {"signal": "traces", "metric": None},
+            {"kind": "rate", "step_seconds": 1, "limit": 2},
+            {"sql": "select *"},
+        ]:
             with self.assertRaises(ValidationError):
                 self.request(**override)
-        path, body = backend_request("default", "native_work", self.request(kind="rate"))
+        path, body = backend_request(
+            "default", "native_work", self.request(kind="rate")
+        )
         self.assertIn("start=1.0", path)
         self.assertIn("end=121.0", path)
         self.assertIsNone(body)
+
+    def test_trace_points_do_not_require_unemitted_optional_attribute_columns(
+        self,
+    ) -> None:
+        selected = self.request(
+            signal="traces", metric=None, service_instance_id="ordinary-python-sdk"
+        )
+        path, body = backend_request("default", "traces", selected)
+        self.assertIn("type=traces", path)
+        assert body is not None
+        selected_query = body["query"]
+        assert isinstance(selected_query, dict)
+        query = selected_query["sql"]
+        self.assertEqual(
+            query,
+            "SELECT * FROM \"traces\" WHERE service_service_instance_id = 'ordinary-python-sdk' ORDER BY _timestamp,span_id",
+        )
+        self.assertNotIn("pse_operation_id", query)
 
 
 if __name__ == "__main__":

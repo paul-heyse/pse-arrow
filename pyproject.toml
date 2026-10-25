@@ -354,7 +354,12 @@ allow-star-arg-any = false
 [tool.ruff.lint.flake8-type-checking]
 # attrs/msgspec classes evaluate annotations at runtime (the import-time Any lint); TC
 # rules must not move their imports under TYPE_CHECKING.
-runtime-evaluated-base-classes = ["msgspec.Struct"]
+runtime-evaluated-base-classes = [
+  "msgspec.Struct",
+  "scripts.capabilities.model.Contract",
+  "scripts.capabilities.read_contracts.Contract",
+  "scripts.capabilities.read_contracts.ReadAnswer",
+]
 runtime-evaluated-decorators = [
   "attrs.define",
   "attrs.frozen",

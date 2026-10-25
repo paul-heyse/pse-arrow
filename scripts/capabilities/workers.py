@@ -78,7 +78,9 @@ WORKERS = {
     ),
     "native": Worker(
         "scripts.capabilities.native_worker",
-        frozenset({"source_admit", "preparation_discover"}),
+        frozenset(
+            {"source_admit", "preparation_discover", "telemetry_profile_capture"}
+        ),
         ("--native=solver,klu,isolation,uno,petsc",),
     ),
 }
