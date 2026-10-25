@@ -3214,3 +3214,169 @@ kind = "depends-on"
 from = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D03"
 to = "docs/plans/54d-measurement-qualification-and-adoption.md::package-state::D02"
 kind = "depends-on"
+
+# Plan55 native tables own opportunity dispositions and package progress.
+
+[[scope_tables]]
+path = "docs/plans/55-mcp-development-effectiveness.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = ["Opportunity", "Disposition", "Work owner", "Completion or trigger"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/55a-capability-contracts-clients-and-recovery.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/55b-structured-change-context-and-knowledge.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/55c-native-model-and-result-inspection.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/55d-editing-validation-and-regression-experiments.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/55e-diagnostics-and-investigation-handoffs.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/55f-qualification-and-publication.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/55a-capability-contracts-clients-and-recovery.md::package-state::A02"
+to = "docs/plans/55a-capability-contracts-clients-and-recovery.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55a-capability-contracts-clients-and-recovery.md::package-state::A04"
+to = "docs/plans/55a-capability-contracts-clients-and-recovery.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55b-structured-change-context-and-knowledge.md::package-state::B03"
+to = "docs/plans/55b-structured-change-context-and-knowledge.md::package-state::B01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55b-structured-change-context-and-knowledge.md::package-state::B03"
+to = "docs/plans/55b-structured-change-context-and-knowledge.md::package-state::B02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55c-native-model-and-result-inspection.md::package-state::C03"
+to = "docs/plans/55c-native-model-and-result-inspection.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55c-native-model-and-result-inspection.md::package-state::C03"
+to = "docs/plans/55c-native-model-and-result-inspection.md::package-state::C02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55c-native-model-and-result-inspection.md::package-state::C03"
+to = "docs/plans/55a-capability-contracts-clients-and-recovery.md::package-state::A01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D02"
+to = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D04"
+to = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D04"
+to = "docs/plans/55a-capability-contracts-clients-and-recovery.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D06"
+to = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D08"
+to = "docs/plans/55d-editing-validation-and-regression-experiments.md::package-state::D07"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55e-diagnostics-and-investigation-handoffs.md::package-state::E03"
+to = "docs/plans/55e-diagnostics-and-investigation-handoffs.md::package-state::E02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55e-diagnostics-and-investigation-handoffs.md::package-state::E05"
+to = "docs/plans/55e-diagnostics-and-investigation-handoffs.md::package-state::E04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55f-qualification-and-publication.md::package-state::F02"
+to = "docs/plans/55f-qualification-and-publication.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/55f-qualification-and-publication.md::package-state::F03"
+to = "docs/plans/55f-qualification-and-publication.md::package-state::F02"
+kind = "depends-on"
