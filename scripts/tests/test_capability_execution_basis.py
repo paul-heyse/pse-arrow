@@ -89,7 +89,7 @@ class AdmissionTests(unittest.TestCase):
         self,
     ) -> None:
         from scripts.capabilities.native_contracts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
-            BINDINGS,
+            worker_bindings,
         )
         from scripts.capabilities.workers import (  # noqa: PLC0415 -- selected owner loads only at this boundary
             WORKERS,
@@ -97,9 +97,17 @@ class AdmissionTests(unittest.TestCase):
 
         self.assertEqual(
             WORKERS["native"].operations,
-            frozenset(binding.operation for binding in BINDINGS),
+            frozenset(binding.operation for binding in worker_bindings()),
         )
-        for binding in BINDINGS:
+        self.assertEqual(WORKERS["native"].operations, frozenset({
+            "source_admit", "preparation_discover", "project_select",
+            "project_metadata", "revision_source", "revision_preparation_discover",
+            "project_bundle_inspect", "research_read", "result_read",
+            "result_inspect", "diagnostic_inspect", "diagnostic_processes",
+            "diagnostic_checkpoint", "evidence_inspect", "invocation_read",
+            "evidence_compare", "telemetry_profile_capture",
+        }))
+        for binding in worker_bindings():
             with (
                 self.subTest(operation=binding.operation),
                 tempfile.TemporaryDirectory() as directory,
@@ -183,17 +191,19 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
             cause="missing-preparation-evidence",
             remedy="Explicitly prepare and reattach.",
         )
-        with (
-            patch.dict(sys.modules, {"pse": fake, "pse.contracts": contracts}),
-            patch.dict(os.environ, {basis.ENVIRONMENT: "/private/admission.json"}),
-            patch.object(
-                python_extension, "currency_check_installed", return_value=observation
-            ) as checked,
-        ):
-            result = native_worker.execute(
-                "diagnostic_checkpoint",
-                {"schema_set_fingerprint": "same-schema"},
-                scratch=Path("/unused"),
-            )
-        self.assertEqual(result["code"], "pse.native.artifact_not_current")
-        checked.assert_called_once()
+        for operation in ("diagnostic_checkpoint", "telemetry_profile_capture"):
+            with (
+                self.subTest(operation=operation),
+                patch.dict(sys.modules, {"pse": fake, "pse.contracts": contracts}),
+                patch.dict(os.environ, {basis.ENVIRONMENT: "/private/admission.json"}),
+                patch.object(
+                    python_extension, "currency_check_installed", return_value=observation
+                ) as checked,
+            ):
+                result = native_worker.execute(
+                    operation,
+                    {"schema_set_fingerprint": "same-schema"},
+                    scratch=Path("/unused"),
+                )
+            self.assertEqual(result["code"], "pse.native.artifact_not_current")
+            checked.assert_called_once()

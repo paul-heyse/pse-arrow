@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,6 +25,37 @@ class TelemetryLaunchTests(unittest.TestCase):
             "PSE_TELEMETRY_STATE": str(self.root / "unselected"),
             telemetry_launch.SETTINGS: "stale-private-settings",
         }
+
+    def test_minimal_interpreter_keeps_optional_configuration_unavailable(self) -> None:
+        # -S reproduces the docs/minimal interpreter without site dependencies.
+        # It must still import the environment owner and clear an inherited
+        # private carrier rather than treating failed resolution as disabled.
+        source = """
+import json, sys
+from pathlib import Path
+from scripts import telemetry_launch, pse_env
+assert 'scripts.telemetry_config' not in sys.modules
+root = Path(sys.argv[1])
+inherited = {
+    telemetry_launch.SETTINGS: 'must-not-cross-unavailable-owner',
+    'PSE_TELEMETRY_STATE': str(root / 'unselected'),
+    'OTEL_EXPORTER_OTLP_ENDPOINT': 'http://127.0.0.1:4318',
+}
+selected = pse_env.base_environment(root, inherited, {})
+assert telemetry_launch.SETTINGS not in selected
+assert selected[telemetry_launch.STATUS] == 'unavailable'
+assert not (root / 'unselected').exists()
+print(json.dumps({'status': selected[telemetry_launch.STATUS]}))
+"""
+        completed = subprocess.run(
+            [sys.executable, "-S", "-c", source, str(self.root)],
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertEqual(json.loads(completed.stdout), {"status": "unavailable"})
 
     def test_unselected_and_malformed_configuration_cannot_reuse_stale_settings(
         self,

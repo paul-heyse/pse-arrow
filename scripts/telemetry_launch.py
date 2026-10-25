@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from scripts.telemetry_config import resolve_process
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -17,6 +15,14 @@ STATUS = "PSE_TELEMETRY_CONFIGURATION_STATUS"
 
 def configure(root: Path, environment: dict[str, str]) -> None:
     """Passive resolution only; no SDK installation or scientific/service setup."""
+    try:
+        from scripts.telemetry_config import (  # noqa: PLC0415 -- optional process configuration owner
+            resolve_process,
+        )
+    except ImportError:
+        environment.pop(SETTINGS, None)
+        environment[STATUS] = "unavailable"
+        return
     try:
         settings = resolve_process(
             "pse-native-host", root=root, environment=environment

@@ -62,7 +62,7 @@ class ReferenceTests(unittest.TestCase):
         self.assertIn("AGENTS.md](../../../AGENTS.md)", content)
         self.assertNotIn(str(ROOT), content)
 
-    def test_all_host_families_publish_valid_wrapped_serialization_schemas(
+    def test_all_host_families_publish_their_declared_serialization_schemas(
         self,
     ) -> None:
         _, workspace_tools = operations.bindings(ROOT)
@@ -75,7 +75,20 @@ class ReferenceTests(unittest.TestCase):
             reference_tool.output_schema["properties"]["outcome"]["enum"],
             ["issued", "not_observed"],
         )
-        self.assertEqual(len(tools), 17)
+        self.assertEqual(
+            set(tools),
+            {
+                "workspace_task_context", "workspace_concepts_query",
+                "workspace_producer_relationships", "workspace_recipe_describe",
+                "workspace_inventory", "environment_explain", "storage_observe",
+                "knowledge_source_corpus", "library_source_packet",
+                "document_scope_query", "product_run_read", "assessment_read",
+                "workload_watch", "coverage_correspondence_read",
+                "telemetry_configuration", "telemetry_health", "telemetry_trace_lookup",
+                "telemetry_query", "telemetry_schema", "telemetry_investigation_export",
+                "telemetry_selection_read", "telemetry_watch_read", "telemetry_watch_configure",
+            },
+        )
         for identity, tool in tools.items():
             with self.subTest(operation=identity):
                 schema = tool.output_schema
@@ -84,6 +97,23 @@ class ReferenceTests(unittest.TestCase):
                     self.fail("typed host output schema absent")
                 Draft202012Validator.check_schema(schema)
                 self.assertEqual(schema["type"], "object")
+                if identity in {"telemetry_schema", "telemetry_watch_configure"}:
+                    # These original operations return an open host description,
+                    # not the bounded owner-read union used by passive queries.
+                    self.assertTrue(schema["additionalProperties"])
+                    self.assertEqual(schema.get("properties", {}), {})
+                    self.assertNotIn("required", schema)
+                    Draft202012Validator(schema).validate({"original": "host-object"})
+                    continue
+                if identity == "telemetry_investigation_export":
+                    self.assertEqual(schema["required"], ["directory", "sha256"])
+                    self.assertEqual(set(schema["properties"]), {"version", "directory", "sha256"})
+                    self.assertFalse(schema["additionalProperties"])
+                    validator = Draft202012Validator(schema)
+                    validator.validate({"version": 1, "directory": "/explicit-copy", "sha256": "a" * 64})
+                    self.assertFalse(validator.is_valid({"result": {"directory": "/explicit-copy", "sha256": "a" * 64}}))
+                    self.assertFalse(validator.is_valid({"directory": "/explicit-copy", "sha256": "not-a-digest"}))
+                    continue
                 self.assertEqual(schema["required"], ["result"])
                 self.assertIn("anyOf", schema["properties"]["result"])
                 refusal = {

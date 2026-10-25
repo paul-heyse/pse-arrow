@@ -188,13 +188,15 @@ def scientific_error(
     location = getattr(report, "decode_location", None)
     if location is not None:
         from pse import codec  # noqa: PLC0415
-        from scripts.capabilities.native_contracts import BINDINGS  # noqa: PLC0415
+        from scripts.capabilities.native_contracts import (  # noqa: PLC0415 -- original closed worker declarations
+            worker_bindings,
+        )
         from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
 
         keys: frozenset[str] = frozenset({"version", "document_version"})
         if operation is not None:
             schemas = SchemaSet(Path(__file__).resolve().parents[2])
-            for binding in BINDINGS:
+            for binding in worker_bindings():
                 if binding.operation == operation:
                     for slug in binding.documents.values():
                         keys |= schema_keys(schemas.document(slug))
@@ -274,7 +276,7 @@ def execute(
     current = None
     if os.environ.get("PSE_CAPABILITY_ADMISSION"):
         binding = next(
-            (item for item in host.BINDINGS if item.operation == operation), None
+            (item for item in host.worker_bindings() if item.operation == operation), None
         )
         requirement = (
             next(

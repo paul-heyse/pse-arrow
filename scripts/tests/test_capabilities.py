@@ -872,6 +872,7 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                     ),
                 },
                 keep_alive=False,
+                log_file=Path(directory) / "server-stderr.log",
             )
             try:
                 async with Client(transport, timeout=20) as client:
@@ -906,14 +907,16 @@ class StdioTests(unittest.IsolatedAsyncioTestCase):
                 await transport.close()
 
     async def test_two_real_processes_reveal_and_teardown_independently(self) -> None:
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
         transports = [
             StdioTransport(
                 command=sys.executable,
                 args=["-m", "scripts.capabilities"],
                 cwd=str(ROOT),
                 keep_alive=False,
+                log_file=directory / f"server-{index}-stderr.log",
             )
-            for _ in range(2)
+            for index in range(2)
         ]
         try:
             async with (

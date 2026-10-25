@@ -349,3 +349,12 @@ BINDINGS = (
         "result-inspection-document",
     ),
 )
+
+
+def worker_bindings() -> tuple[Binding, ...]:
+    """Resolve original native and profile declarations after module composition."""
+    from scripts.capabilities.telemetry_profiles import (  # noqa: PLC0415 -- avoid the native-tool composition cycle
+        PROFILE_BINDING,
+    )
+
+    return (*BINDINGS, PROFILE_BINDING)
