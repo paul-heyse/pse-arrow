@@ -27,6 +27,12 @@ use tracing_subscriber::{Layer, layer::SubscriberExt};
 /// Instrumentation scope shared by native spans and the cheap host activation read.
 pub const INSTRUMENTATION_SCOPE: &str = "pse-runtime";
 
+fn exported_owner_span(metadata: &tracing::Metadata<'_>) -> bool {
+    metadata.is_span()
+        && (metadata.target().starts_with("pse")
+            || metadata.target() == "surrealdb::engine::remote::grpc_lifecycle")
+}
+
 /// Actual compiled SDK metadata, supplied by the SDK's own detector without
 /// importing endpoint/resource environment interpretation or duplicating pins.
 pub fn sdk_metadata() -> BTreeMap<String, String> {
@@ -882,7 +888,8 @@ impl Host {
                     metadata.target() == "pse.telemetry.diagnostic"
                 }))
         });
-        // Ordinary traces expose owner spans only. Existing tracing events can
+        // Ordinary traces expose native owners and the patched SDK's request
+        // owner, which bridges dispatch/body lifetime to the server. Existing tracing events can
         // contain rendered scientific errors; their finite CaptureLayer consumer
         // retains its separate contract. Typed diagnostics use the log bridge.
         let layer = traces.as_ref().map(|provider| {
@@ -894,9 +901,7 @@ impl Host {
                             .build(),
                     ),
                 )
-                .with_filter(tracing_subscriber::filter::filter_fn(|metadata| {
-                    metadata.is_span() && metadata.target().starts_with("pse")
-                }))
+                .with_filter(tracing_subscriber::filter::filter_fn(exported_owner_span))
         });
         let stderr = tracing_subscriber::fmt::layer()
             .with_writer(std::io::stderr)
@@ -1068,6 +1073,52 @@ mod tests {
             self.0.lock().unwrap().extend(batch);
             Ok(())
         }
+    }
+    #[test]
+    fn production_span_filter_retains_exact_sdk_parent_without_events_or_other_library_spans() {
+        let recorded = Recorded::default();
+        let provider = SdkTracerProvider::builder()
+            .with_simple_exporter(recorded.clone())
+            .build();
+        let subscriber = tracing_subscriber::registry().with(
+            tracing_opentelemetry::layer()
+                .with_tracer(provider.tracer("fixture"))
+                .with_filter(tracing_subscriber::filter::filter_fn(exported_owner_span)),
+        );
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let carrier = Carrier::from_fields(BTreeMap::from([(
+            "traceparent".into(),
+            "00-8123456789abcdef0123456789abcdef-9123456789abcdef-01".into(),
+        )]))
+        .unwrap();
+        let native_id = tracing::dispatcher::with_default(&dispatch, || {
+            let native = carrier.operation_span("fixture.sdk");
+            let native_id = native.context().span().span_context().span_id();
+            native.in_scope(|| {
+                let sdk = tracing::info_span!(
+                    target: "surrealdb::engine::remote::grpc_lifecycle",
+                    "surrealdb.sdk.request"
+                );
+                assert!(!sdk.is_disabled());
+                sdk.in_scope(|| {
+                    tracing::warn!(target: "surrealdb::engine::remote::grpc_lifecycle", private = "must-not-export", "private request event");
+                    let unrelated = tracing::info_span!(target: "surrealdb::engine::remote::grpc", "unrelated.sdk.span");
+                    assert!(unrelated.is_disabled());
+                });
+            });
+            native_id
+        });
+        provider.force_flush().unwrap();
+        let records = recorded.0.lock().unwrap();
+        assert_eq!(records.len(), 2);
+        let native = records.iter().find(|span| span.name == "pse.native.operation").unwrap();
+        let sdk = records.iter().find(|span| span.name == "surrealdb.sdk.request").unwrap();
+        assert_eq!(native.parent_span_id.to_string(), "9123456789abcdef");
+        assert_eq!(sdk.parent_span_id, native_id);
+        assert_eq!(sdk.span_context.trace_id().to_string(), "8123456789abcdef0123456789abcdef");
+        assert!(records.iter().all(|span| span.events.events.is_empty()));
+        drop(records);
+        provider.shutdown().unwrap();
     }
     #[test]
     fn native_carrier_retains_parent_across_actual_task_and_thread_hops() {
