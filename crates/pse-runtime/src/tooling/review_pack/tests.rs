@@ -112,6 +112,80 @@ fn supplied_members_seal_and_relocate_without_scientific_analysis() {
 }
 
 #[test]
+fn supplied_query_json_retains_v1_and_accepts_v2_without_unknown_codec_admission() {
+    let root = tempfile::tempdir().unwrap();
+    for version in [1, 2] {
+        let mut member = raw("investigation", true, PackMemberRole::Query);
+        member.format = PackFormat::Json;
+        member.document_version = Some(version);
+        let mut pack = PackSession::create_members(
+            &root.path().join(format!("query-v{version}")),
+            PackSelection {
+                members: vec![member],
+                ..Default::default()
+            },
+            CancellationToken::new(),
+        )
+        .unwrap();
+        let bytes = format!(r#"{{"version":{version},"records":[{{"value":4}}]}}"#);
+        pack.copy_prefix(
+            "investigation",
+            source(root.path(), bytes.as_bytes()),
+            bytes.len() as u64,
+        )
+        .unwrap();
+        let index = pack.seal().unwrap();
+        assert_eq!(index.publication, PackPublication::Sealed);
+        assert_eq!(index.members[0].selection.document_version, Some(version));
+    }
+    for version in [0, 3, u32::MAX] {
+        let mut member = raw("investigation", true, PackMemberRole::Query);
+        member.format = PackFormat::Json;
+        member.document_version = Some(version);
+        assert!(
+            PackSession::create_members(
+                &root.path().join(format!("unsupported-v{version}")),
+                PackSelection {
+                    members: vec![member],
+                    ..Default::default()
+                },
+                CancellationToken::new(),
+            )
+            .is_err()
+        );
+    }
+    for (index, declared, bytes) in [
+        (0, 1, br#"{"version":2,"records":[]}"#.as_slice()),
+        (1, 2, br#"{"version":1,"records":[]}"#.as_slice()),
+        (2, 2, br#"{"version":3,"records":[]}"#.as_slice()),
+        (3, 2, br#"{"records":[]}"#.as_slice()),
+        (4, 2, br#"{"version":"2","records":[]}"#.as_slice()),
+    ] {
+        let mut member = raw("investigation", true, PackMemberRole::Query);
+        member.format = PackFormat::Json;
+        member.document_version = Some(declared);
+        let mut pack = PackSession::create_members(
+            &root.path().join(format!("mismatched-{index}")),
+            PackSelection {
+                members: vec![member],
+                ..Default::default()
+            },
+            CancellationToken::new(),
+        )
+        .unwrap();
+        assert!(
+            pack.copy_prefix(
+                "investigation",
+                source(root.path(), bytes),
+                bytes.len() as u64
+            )
+            .is_err()
+        );
+        assert!(pack.seal().is_err());
+    }
+}
+
+#[test]
 fn supplied_members_preserve_required_and_output_bound_refusals() {
     let root = tempfile::tempdir().unwrap();
     let selection = PackSelection {

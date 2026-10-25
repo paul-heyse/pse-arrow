@@ -9,39 +9,48 @@
   "relationships": [
     {
       "basis": "declared",
+      "contract_sections": [
+        "21.5"
+      ],
       "declaration_key": "_native",
       "declaration_kind": "pyo3_exception_supplement",
       "direction": null,
       "generator_path": "xtask/src/codegen/python_stubs.rs",
       "generator_symbol": "run",
       "output_path": "python/pse/_native.pyi",
-      "source_identity": "pyo3-stub-sha256:72a7a7638b331c08b6c9c32eba04f121575a461e8dc986f425ff4b5155f3d889",
+      "source_identity": "pyo3-stub-sha256:08e6f438f49140323e235f9284eed3c4b2bdc1888b642bac56b28af444defa93",
       "source_path": "crates/pse-py/src/inspection/errors.rs",
       "source_role": "introspector_supplement",
       "source_symbol": "_native"
     },
     {
       "basis": "declared",
+      "contract_sections": [
+        "21.5"
+      ],
       "declaration_key": "_native",
       "declaration_kind": "pyo3_metadata",
       "direction": null,
       "generator_path": "xtask/src/codegen/python_stubs.rs",
       "generator_symbol": "run",
       "output_path": "python/pse/_native.pyi",
-      "source_identity": "pyo3-stub-sha256:72a7a7638b331c08b6c9c32eba04f121575a461e8dc986f425ff4b5155f3d889",
+      "source_identity": "pyo3-stub-sha256:08e6f438f49140323e235f9284eed3c4b2bdc1888b642bac56b28af444defa93",
       "source_path": null,
       "source_role": "compiled_pyo3_metadata",
       "source_symbol": "_native"
     },
     {
       "basis": "declared",
+      "contract_sections": [
+        "21.5"
+      ],
       "declaration_key": "_native",
       "declaration_kind": "pyo3_module",
       "direction": null,
       "generator_path": "xtask/src/codegen/python_stubs.rs",
       "generator_symbol": "run",
       "output_path": "python/pse/_native.pyi",
-      "source_identity": "pyo3-stub-sha256:72a7a7638b331c08b6c9c32eba04f121575a461e8dc986f425ff4b5155f3d889",
+      "source_identity": "pyo3-stub-sha256:08e6f438f49140323e235f9284eed3c4b2bdc1888b642bac56b28af444defa93",
       "source_path": "crates/pse-py/src/lib.rs",
       "source_role": "module_registration",
       "source_symbol": "_native"

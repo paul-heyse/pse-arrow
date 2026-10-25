@@ -897,12 +897,11 @@ impl Runtime {
                     return Ok(refused(ResultInspectionRefusal::ManifestChanged));
                 }
                 let selection = reader.pack_selection(PackScientificState::Unknown)?;
-                if let Some(cursor) = &request.cursor {
-                    if cursor.manifest != manifest
-                        || reader.validate_pack_selection(&cursor.selection).is_err()
-                    {
-                        return Ok(refused(ResultInspectionRefusal::CursorChanged));
-                    }
+                if let Some(cursor) = &request.cursor
+                    && (cursor.manifest != manifest
+                        || reader.validate_pack_selection(&cursor.selection).is_err())
+                {
+                    return Ok(refused(ResultInspectionRefusal::CursorChanged));
                 }
                 let next_cursor = |position: u64| ResultInspectionCursor {
                     issuing_store: issuer.clone(),

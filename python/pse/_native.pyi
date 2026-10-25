@@ -89,7 +89,13 @@ from pse.contracts.documents import (
     LifecycleSelectionOutput,
     LifecycleTarget,
     ManagedStudyDiagnosticsDocumentOutput,
+    ModelingComparisonObservation,
+    ModelingComparisonRequest,
+    ModelingDeclarationPage,
+    ModelingDeclarationRequest,
     ModelingInspectionOutput,
+    ModelingInspectionRequest,
+    ModelingInspectionRequestOutput,
     ModelingSourceMapDocumentOutput,
     NumericalPolicy,
     NumericalPolicyOutput,
@@ -738,6 +744,9 @@ class NativeModelingPackage:
     def canonical_problem(self, /) -> str | None: ...
     @property
     def canonical_revision(self, /) -> str | None: ...
+    def comparison_observation(
+        self, /, other: NativeModelingPackage, request: ModelingComparisonRequest
+    ) -> ModelingComparisonObservation: ...
     def conform(
         self,
         /,
@@ -746,6 +755,9 @@ class NativeModelingPackage:
         controls: bytes | None = None,
         preparation: PreparationSettings | PreparationSettingsOutput | None = None,
     ) -> NativeModelingConformance: ...
+    def declaration_page(
+        self, /, request: ModelingDeclarationRequest
+    ) -> ModelingDeclarationPage: ...
     def declarations(self, /) -> DeclarationInventoryOutput: ...
     def diagnose(
         self,
@@ -809,7 +821,7 @@ class NativeModelingPackage:
         overrides: bytes | None = None,
     ) -> NativeModelingInitialization: ...
     def inspect(
-        self, /, case_id: DeclarationId, settings: SolveSettings | SolveSettingsOutput
+        self, /, request: ModelingInspectionRequest | ModelingInspectionRequestOutput
     ) -> ModelingInspectionOutput: ...
     def knowledge(
         self, /, owner_id: DeclarationId | None = None, *, controls: bytes | None = None

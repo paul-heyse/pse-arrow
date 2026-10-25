@@ -421,16 +421,18 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
         }
 
         if let Some(version) = member.document_version {
-            let expected = match (member.role, member.format) {
-                (PackMemberRole::FrozenEvidence, PackFormat::FrozenEvidenceV3) => Some(3),
-                (PackMemberRole::Analysis, PackFormat::AnalysisV2) => Some(2),
-                (PackMemberRole::Context, PackFormat::Json) => Some(1),
-                (PackMemberRole::Capture | PackMemberRole::Detail, PackFormat::Json) => Some(2),
-                (PackMemberRole::Detail, PackFormat::JsonLines) => Some(2),
-                (PackMemberRole::Query, PackFormat::Json) => Some(1),
+            let supported: Option<&[u32]> = match (member.role, member.format) {
+                (PackMemberRole::FrozenEvidence, PackFormat::FrozenEvidenceV3) => Some(&[3]),
+                (PackMemberRole::Analysis, PackFormat::AnalysisV2) => Some(&[2]),
+                (PackMemberRole::Context, PackFormat::Json) => Some(&[1]),
+                (PackMemberRole::Capture | PackMemberRole::Detail, PackFormat::Json) => Some(&[2]),
+                (PackMemberRole::Detail, PackFormat::JsonLines) => Some(&[2]),
+                // Retained query documents use v1; current investigation export
+                // uses v2. The declared codec must still match the actual bytes.
+                (PackMemberRole::Query, PackFormat::Json) => Some(&[1, 2]),
                 _ => None,
             };
-            if version == 0 || expected.is_some_and(|expected| version != expected) {
+            if version == 0 || supported.is_some_and(|supported| !supported.contains(&version)) {
                 return Err(invalid("unsupported declared selected document version"));
             }
         }
