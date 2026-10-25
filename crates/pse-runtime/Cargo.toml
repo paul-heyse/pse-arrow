@@ -123,7 +123,7 @@ datafusion-execution.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 # The operational store: durable attempts, jobs, streams and seeds (ADR-0112).
-pse-operations.workspace = true
+pse-operations = { workspace = true, features = ["evidence-query"] }
 chrono.workspace = true
 flatbuffers.workspace = true
 

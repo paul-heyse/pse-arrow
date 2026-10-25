@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from scripts.capabilities.execution_basis import wire
+
 import hashlib
 import json
 from dataclasses import dataclass
@@ -126,6 +128,7 @@ class Catalogue:
                 key: {"input": tool.parameters, "output": tool.output_schema}
                 for key, tool in sorted(tools.items())
             },
+            "wire_contracts": {key: wire(tool) for key, tool in sorted(tools.items())},
             "loaded_source_revision": loaded_source_revision,
         }
         self.revision = hashlib.sha256(

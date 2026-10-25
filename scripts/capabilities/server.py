@@ -30,6 +30,7 @@ from scripts import telemetry_selection
 from scripts.capabilities import (
     host_actions,
     host_queries,
+    integration_view,
     native,
     observation,
     operations,
@@ -88,6 +89,7 @@ def bindings(
     tools = {}
     for factory in (
         operations.bindings,
+        integration_view.bindings,
         lambda path: host_queries.bindings(path, telemetry=telemetry),
         host_actions.bindings,
         qualification.bindings,

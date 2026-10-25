@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `1626d2d3180ba98bea5f239f807f467dea1aa8dfac9050653f60cf009216b59c`.
+Catalogue content revision: `28daf19b63397724c19c1c60d3810a19877834ac26459b3dbfa5b5cb91d16b86`.
 
 ## Domains
 
@@ -388,6 +388,15 @@ Catalogue content revision: `1626d2d3180ba98bea5f239f807f467dea1aa8dfac9050653f6
   "steps": [
     {
       "capabilities": [
+        "native_evidence_compare"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "paired-comparison",
+      "purpose": "Compare explicit native source cuts and exact correspondence, retaining denominators and independent detail completeness."
+    },
+    {
+      "capabilities": [
         "knowledge_source_corpus"
       ],
       "default": true,
@@ -533,6 +542,15 @@ Catalogue content revision: `1626d2d3180ba98bea5f239f807f467dea1aa8dfac9050653f6
   ],
   "id": "qualify-change",
   "steps": [
+    {
+      "capabilities": [
+        "workspace_integration_view"
+      ],
+      "default": false,
+      "guides": [],
+      "id": "integration",
+      "purpose": "Inspect explicit ownership, conflicts, producer relationships and proposed commit selection without changing Git or running checks."
+    },
     {
       "capabilities": [
         "assessment_select",
@@ -2497,6 +2515,102 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
         ],
         "type": "object"
       },
+      "ExtensionCurrency": {
+        "additionalProperties": false,
+        "description": "Redacted admission-time correspondence, separate from import compatibility.",
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cause": {
+            "enum": [
+              "matching-inputs-and-artifact",
+              "missing-preparation-evidence",
+              "unsupported-preparation-evidence",
+              "unsupported-inputs-or-providers",
+              "inputs-unavailable",
+              "inputs-changed",
+              "import-unavailable",
+              "artifact-changed",
+              "not-selected",
+              "check-unavailable"
+            ],
+            "type": "string"
+          },
+          "checkout": {
+            "type": "string"
+          },
+          "interpreter": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "dev",
+              "native"
+            ],
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt_recorded": {
+            "default": false,
+            "type": "boolean"
+          },
+          "remedy": {
+            "type": "string"
+          },
+          "source_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "state": {
+            "enum": [
+              "current",
+              "stale",
+              "unknown",
+              "unsupported"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "checkout",
+          "interpreter",
+          "mode",
+          "profile",
+          "validated",
+          "cause",
+          "remedy"
+        ],
+        "type": "object"
+      },
       "Prerequisite": {
         "additionalProperties": false,
         "properties": {
@@ -2702,6 +2816,17 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
       "language_provider_available": {
         "$ref": "#/$defs/ReadinessFact"
       },
+      "native_currency": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExtensionCurrency"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
       "operation_exercised": {
         "$ref": "#/$defs/ReadinessFact"
       },
@@ -2743,9 +2868,9 @@ Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration sour
 
 ```json
 {
-  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child in the inherited endpoint environment with actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization, native provider preparation or source publication. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
+  "description": "Explicitly check selected prerequisites without preparation. native-currency compares existing supported preparation inputs and actual imported bytes for the selected mode/profile/validation, separately from historical preparation and import compatibility. Missing provider admission is unsupported, never repaired. Imports and currency use a fixed child in the inherited endpoint environment; service and language checks use their original owners. Language checks need language and file_path. No build, installation, synchronization, provider preparation or source publication. A check never qualifies the selected operation.",
   "domain": "environment",
-  "effects": "Explicit selected live import or specialist prerequisite checks; no extension build, source synchronization or stub publication.",
+  "effects": "Explicit selected native artifact currency, import or specialist prerequisite checks; no extension build, provider preparation, source synchronization or stub publication.",
   "exposure": "tool",
   "family": null,
   "guides": [
@@ -2770,6 +2895,11 @@ Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration sour
     {
       "lifetime": "attached",
       "operation": "import-check",
+      "worker": "prep-import"
+    },
+    {
+      "lifetime": "attached",
+      "operation": "currency-check",
       "worker": "prep-import"
     }
   ],
@@ -2798,7 +2928,7 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
     "openWorldHint": false,
     "readOnlyHint": false
   },
-  "description": "Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child in the inherited endpoint environment with actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization, native provider preparation or source publication. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation.",
+  "description": "Explicitly check selected prerequisites without preparation. native-currency compares existing supported preparation inputs and actual imported bytes for the selected mode/profile/validation, separately from historical preparation and import compatibility. Missing provider admission is unsupported, never repaired. Imports and currency use a fixed child in the inherited endpoint environment; service and language checks use their original owners. Language checks need language and file_path. No build, installation, synchronization, provider preparation or source publication. A check never qualifies the selected operation.",
   "inputSchema": {
     "$defs": {
       "ReadinessCheckRequest": {
@@ -2812,12 +2942,13 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
             "items": {
               "enum": [
                 "import-compatible",
+                "native-currency",
                 "selected-service",
                 "language-provider"
               ],
               "type": "string"
             },
-            "maxItems": 3,
+            "maxItems": 4,
             "minItems": 1,
             "type": "array"
           },
@@ -2862,6 +2993,11 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
               }
             ],
             "default": null
+          },
+          "profile": {
+            "default": "dev",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+            "type": "string"
           },
           "validated": {
             "anyOf": [
@@ -2920,6 +3056,102 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
         ],
         "type": "object"
       },
+      "ExtensionCurrency": {
+        "additionalProperties": false,
+        "description": "Redacted admission-time correspondence, separate from import compatibility.",
+        "properties": {
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ExtensionArtifact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "cause": {
+            "enum": [
+              "matching-inputs-and-artifact",
+              "missing-preparation-evidence",
+              "unsupported-preparation-evidence",
+              "unsupported-inputs-or-providers",
+              "inputs-unavailable",
+              "inputs-changed",
+              "import-unavailable",
+              "artifact-changed",
+              "not-selected",
+              "check-unavailable"
+            ],
+            "type": "string"
+          },
+          "checkout": {
+            "type": "string"
+          },
+          "interpreter": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "dev",
+              "native"
+            ],
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt_recorded": {
+            "default": false,
+            "type": "boolean"
+          },
+          "remedy": {
+            "type": "string"
+          },
+          "source_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "state": {
+            "enum": [
+              "current",
+              "stale",
+              "unknown",
+              "unsupported"
+            ],
+            "type": "string"
+          },
+          "validated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "checkout",
+          "interpreter",
+          "mode",
+          "profile",
+          "validated",
+          "cause",
+          "remedy"
+        ],
+        "type": "object"
+      },
       "Prerequisite": {
         "additionalProperties": false,
         "properties": {
@@ -3124,6 +3356,17 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
       },
       "language_provider_available": {
         "$ref": "#/$defs/ReadinessFact"
+      },
+      "native_currency": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ExtensionCurrency"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
       },
       "operation_exercised": {
         "$ref": "#/$defs/ReadinessFact"
@@ -8357,7 +8600,7 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
         "direction": null,
         "slug": "authoring"
       },
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -8511,7 +8754,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: CheckpointIdentity",
           "schema_path": "docs/generated/schema/checkpoint-identity.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "6af9026242d01a555d7fa4f3e196d18d8506831851b2c953c55e886419f58e0d",
           "slug": "checkpoint-identity",
           "version": 1,
@@ -8524,7 +8767,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
           "schema_path": "docs/generated/schema/process-checkpoint.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "a2f6d6708b571a01d5f44c6ca7fd7582c7940bcc7a835284c5d0b7faf30c287a",
           "slug": "process-checkpoint",
           "version": 6,
@@ -8532,7 +8775,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
         }
       },
       "receiver": "pse.diagnostics.read_checkpoint",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -8581,7 +8824,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:checkpoint-identity:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact diagnostic association supplied by the registered receiver, never stop authority.",
@@ -8620,7 +8863,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
       "expected": {
         "anyOf": [
           {
-            "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:checkpoint-identity:input"
+            "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input"
           },
           {
             "type": "null"
@@ -10916,7 +11159,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
           "schema_path": "docs/generated/schema/inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "0d3dd2835f79a88584e80b3215991c5a3a69606f8adbbcb9ba30e8314453674e",
           "slug": "inspection-document",
           "version": 4,
@@ -10929,7 +11172,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionRequest",
           "schema_path": "docs/generated/schema/inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "d9b91fb3481af8a0396509f645a33d50752ac2577c6a6b3dc701356dab55d16a",
           "slug": "inspection-request",
           "version": 2,
@@ -10937,7 +11180,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         }
       },
       "receiver": "pse.diagnostics.inspect_checkpoint",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -11071,7 +11314,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:inspection-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
@@ -11136,7 +11379,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:inspection-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:inspection-request:input"
       }
     },
     "required": [
@@ -13568,7 +13811,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticProcessPage",
           "schema_path": "docs/generated/schema/diagnostic-process-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "a57461a610f58d030ee3411ff0d4d273e74bd385866dec8ff722062369e23c5a",
           "slug": "diagnostic-process-page",
           "version": 2,
@@ -13581,7 +13824,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticListRequest",
           "schema_path": "docs/generated/schema/diagnostic-list-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "e53fe554306a8e3a6e49e8aece0ee18c0d1964913e7bd75735f78cab78cdcda5",
           "slug": "diagnostic-list-request",
           "version": 1,
@@ -13589,7 +13832,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
         }
       },
       "receiver": "pse.diagnostics.list_processes",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -13604,7 +13847,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
       "JsonValue": {},
       "diagnostic-list-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:diagnostic-list-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:diagnostic-list-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Discovery request; only matching page images are decoded, never scientific store members.",
@@ -13653,7 +13896,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
         "title": "Directory"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:diagnostic-list-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:diagnostic-list-request:input"
       }
     },
     "required": [
@@ -14590,6 +14833,1741 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
 
 - Native `request`: [docs/generated/schema/diagnostic-list-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/diagnostic-list-request.input.schema.json).
 
+### `native_evidence_compare` — Compare explicit baseline and candidate evidence
+
+Exposure: **tool**. Owner: `pse.diagnostics.compare_evidence`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Compare supplied original evidence snapshots through the native finite owner. Select exact baseline/candidate generations and explicit correspondence where owner identities differ. Preserve full denominators, ambiguity, unsupported measurement associations and separately bounded sections. Opens no store and performs no scientific execution. Continue only on the exact returned cut.",
+  "domain": "diagnostics",
+  "effects": "Bounded supplied-only native evidence analysis; no build or service startup.",
+  "exposure": "tool",
+  "family": "scientific-diagnostics",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_evidence_compare",
+  "owner": "pse.diagnostics.compare_evidence",
+  "prerequisites": [
+    "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Compare explicit baseline and candidate evidence",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "detached",
+      "operation": "evidence_compare",
+      "worker": "native"
+    }
+  ],
+  "workflows": [
+    "investigate-evidence"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_evidence_compare@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_evidence_compare",
+        "domain:diagnostics",
+        "family:scientific-diagnostics",
+        "workflow:investigate-evidence"
+      ]
+    },
+    "pse.native": {
+      "authoring_guidance": null,
+      "contracts": {
+        "output_document": {
+          "direction": "output",
+          "exported_name": "EvidenceComparisonOutput",
+          "name": "EvidenceComparison",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_operations :: evidence_query :: EvidenceComparison",
+          "schema_path": "docs/generated/schema/evidence-comparison.output.schema.json",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_sha256": "b899f1ecbabf5957eca7ea2105c23bc3699e60384815f768d4dc807257ca9184",
+          "slug": "evidence-comparison",
+          "version": 1,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "EvidenceComparisonRequest",
+          "name": "EvidenceComparisonRequest",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_operations :: evidence_query :: EvidenceComparisonRequest",
+          "schema_path": "docs/generated/schema/evidence-comparison-request.input.schema.json",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_sha256": "c04e4f836adee3441520f8c73566941e182b5d252aa98de996b4b884754edcfc",
+          "slug": "evidence-comparison-request",
+          "version": 1,
+          "wire": "Native"
+        },
+        "snapshots": {
+          "direction": "input",
+          "exported_name": "EvidenceSnapshot",
+          "name": "EvidenceSnapshot",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_operations :: evidence :: EvidenceSnapshot",
+          "schema_path": "docs/generated/schema/evidence-snapshot.input.schema.json",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
+          "schema_sha256": "173b19090caa73b22ce73089931a7d1aae0ec4bc1955cd77e1ee50305271b7ac",
+          "slug": "evidence-snapshot",
+          "version": null,
+          "wire": "Native"
+        }
+      },
+      "receiver": "pse.diagnostics.compare_evidence",
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Compare supplied original evidence snapshots through the native finite owner. Select exact baseline/candidate generations and explicit correspondence where owner identities differ. Preserve full denominators, ambiguity, unsupported measurement associations and separately bounded sections. Opens no store and performs no scientific execution. Continue only on the exact returned cut.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "evidence-comparison-request": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "EvidenceComparisonSelection": {
+            "additionalProperties": false,
+            "description": "An explicit side of a comparison. Generation IDs identify exact source versions.",
+            "properties": {
+              "context_id": {
+                "description": "Owner-declared context selection, before all denominators.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "crate_name": {
+                "description": "Owner-declared crate selection, before all denominators.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "generations": {
+                "description": "Exact generations; repeated IDs and unavailable IDs are refused.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "generations"
+            ],
+            "type": "object"
+          },
+          "EvidenceMeasurementIdentity": {
+            "additionalProperties": false,
+            "description": "Exact original measurement cohort, without invented invocation membership.",
+            "properties": {
+              "context_id": {
+                "description": "Original context, including its explicit absence.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "generation": {
+                "description": "Exact source version.",
+                "type": "string"
+              },
+              "population_id": {
+                "description": "Original declared population identity.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "generation",
+              "population_id"
+            ],
+            "type": "object"
+          },
+          "EvidenceMeasurementMapping": {
+            "additionalProperties": false,
+            "description": "Explicit correspondence between two original measurement populations.",
+            "properties": {
+              "baseline": {
+                "$ref": "#/$defs/EvidenceMeasurementIdentity",
+                "description": "Exact baseline population."
+              },
+              "candidate": {
+                "$ref": "#/$defs/EvidenceMeasurementIdentity",
+                "description": "Exact candidate population."
+              }
+            },
+            "required": [
+              "baseline",
+              "candidate"
+            ],
+            "type": "object"
+          },
+          "EvidenceMemberIdentity": {
+            "additionalProperties": false,
+            "description": "An original source member, never a guessed spelling or timestamp.",
+            "properties": {
+              "generation": {
+                "description": "Exact source version.",
+                "type": "string"
+              },
+              "member": {
+                "description": "Original owner member.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "generation",
+              "member"
+            ],
+            "type": "object"
+          },
+          "EvidenceSectionSelection": {
+            "additionalProperties": false,
+            "description": "An explicit finite page of one optional section on the immutable source cut.",
+            "properties": {
+              "limit": {
+                "description": "Returned detail rows, 1..=10000.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "offset": {
+                "default": 0,
+                "description": "Continue with the previous next_offset on this same analysis and question.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit"
+            ],
+            "type": "object"
+          },
+          "EvidenceSubjectMapping": {
+            "additionalProperties": false,
+            "description": "Explicit correspondence supplied by the caller, including a renamed subject.",
+            "properties": {
+              "baseline": {
+                "$ref": "#/$defs/EvidenceMemberIdentity",
+                "description": "Original baseline member."
+              },
+              "candidate": {
+                "$ref": "#/$defs/EvidenceMemberIdentity",
+                "description": "Original candidate member."
+              }
+            },
+            "required": [
+              "baseline",
+              "candidate"
+            ],
+            "type": "object"
+          }
+        },
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-comparison-request:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Finite native request. Both sides and every mapping remain explicit.",
+        "properties": {
+          "baseline": {
+            "$ref": "#/$defs/EvidenceComparisonSelection",
+            "description": "Baseline source population."
+          },
+          "candidate": {
+            "$ref": "#/$defs/EvidenceComparisonSelection",
+            "description": "Candidate source population."
+          },
+          "continuation_cut": {
+            "default": null,
+            "description": "Cut returned by the preceding page; mandatory when any section offset is nonzero.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mappings": {
+            "default": [],
+            "description": "Exact caller-supplied mappings; conflicting or unknown endpoints are refused.",
+            "items": {
+              "$ref": "#/$defs/EvidenceSubjectMapping"
+            },
+            "type": "array"
+          },
+          "measurement_mappings": {
+            "default": [],
+            "description": "Explicit measurement population mappings; unknown or conflicting endpoints are refused.",
+            "items": {
+              "$ref": "#/$defs/EvidenceMeasurementMapping"
+            },
+            "type": "array"
+          },
+          "sections": {
+            "additionalProperties": {
+              "$ref": "#/$defs/EvidenceSectionSelection"
+            },
+            "default": {},
+            "description": "Optional independently bounded detail pages.",
+            "type": "object"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "description": "Exact native request interpretation; required before decoding the body.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "baseline",
+          "candidate"
+        ],
+        "title": "EvidenceComparisonRequest",
+        "type": "object"
+      },
+      "evidence-snapshot": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "EvidenceFact": {
+            "additionalProperties": false,
+            "description": "One compact authentic owner fact, without raw bytes or a lifetime grant.",
+            "properties": {
+              "binary_id": {
+                "description": "Compact owner-declared binary id; absent means unknown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "context_id": {
+                "description": "Compact owner-declared context id; absent means unknown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "context_json": {
+                "description": "Compact owner-declared context json; absent means unknown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "crate_name": {
+                "description": "Declared owning crate, if available.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "detail_ref": {
+                "description": "Descriptive owner reference, never an automatic path or grant.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "kind": {
+                "description": "Owner-declared category.",
+                "type": "string"
+              },
+              "link_relation": {
+                "description": "Compact owner-declared link relation; absent means unknown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "link_target": {
+                "description": "Compact owner-declared link target; absent means unknown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "member": {
+                "description": "Original stable member identity.",
+                "type": "string"
+              },
+              "population_id": {
+                "description": "Compact owner-declared population id; absent means unknown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sample_id": {
+                "description": "Compact owner-declared sample id; absent means unknown.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "description": "Original outcome, including unreported/command failures.",
+                "type": "string"
+              },
+              "test_id": {
+                "description": "Exact Rust binary/test identity or Python node ID, if available.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "value_ns": {
+                "description": "Compact owner-declared value ns; absent means unknown.",
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "member",
+              "kind",
+              "status"
+            ],
+            "type": "object"
+          }
+        },
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-snapshot:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Frozen owner adapter output. Partial source coverage is not a complete test population.",
+        "properties": {
+          "authority": {
+            "description": "Original authority identity.",
+            "type": "string"
+          },
+          "codec": {
+            "description": "Original owner codec.",
+            "type": "string"
+          },
+          "coverage": {
+            "description": "Original population completeness: complete or partial.",
+            "type": "string"
+          },
+          "expected_members": {
+            "description": "Exact selected member identities, including unreported members.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "facts": {
+            "description": "Compact facts emitted by original readers.",
+            "items": {
+              "$ref": "#/$defs/EvidenceFact"
+            },
+            "type": "array"
+          },
+          "snapshot_digest": {
+            "description": "SHA256 of original authenticated source snapshot bytes.",
+            "type": "string"
+          },
+          "source_id": {
+            "description": "Original invocation/snapshot source identity.",
+            "type": "string"
+          },
+          "version": {
+            "description": "Boundary codec version.",
+            "format": "uint32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "authority",
+          "codec",
+          "source_id",
+          "snapshot_digest",
+          "coverage",
+          "expected_members",
+          "facts"
+        ],
+        "title": "EvidenceSnapshot",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "observations": {
+        "items": {
+          "$ref": "#/$defs/JsonValue"
+        },
+        "maxItems": 64,
+        "title": "Observations",
+        "type": "array"
+      },
+      "request": {
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-comparison-request:input"
+      },
+      "snapshots": {
+        "items": {
+          "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:evidence-snapshot:input"
+        },
+        "maxItems": 64,
+        "minItems": 1,
+        "title": "Snapshots",
+        "type": "array"
+      }
+    },
+    "required": [
+      "request",
+      "snapshots"
+    ],
+    "title": "EvidenceCompare",
+    "type": "object"
+  },
+  "name": "native_evidence_compare",
+  "outputSchema": {
+    "$defs": {
+      "EvidenceComparisonDenominator": {
+        "additionalProperties": false,
+        "description": "Full semantic population counts, computed before detail limits.",
+        "properties": {
+          "declared_context_tests": {
+            "description": "Original test rows declaring a context.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "declared_crate_tests": {
+            "description": "Original test rows declaring a crate.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "failures": {
+            "description": "Original failure rows.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "other_outcomes": {
+            "description": "Other original statuses; these are never treated as passing.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "samples": {
+            "description": "Selected actual measurement samples.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "selected_members": {
+            "description": "Selected original expected members of all categories.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "selected_tests": {
+            "description": "Selected original test rows, including repeats and missing execution.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "successes": {
+            "description": "Original explicit success rows.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unexecuted": {
+            "description": "Original missing, skipped, reused or transferred execution rows.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "selected_tests",
+          "declared_crate_tests",
+          "declared_context_tests",
+          "failures",
+          "successes",
+          "unexecuted",
+          "other_outcomes",
+          "samples",
+          "selected_members"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonFact": {
+        "additionalProperties": false,
+        "description": "Original codec fact with its exact source and comparison side.",
+        "properties": {
+          "fact": {
+            "$ref": "#/$defs/EvidenceFact",
+            "description": "Original native fact, including member, sample identity and context declaration."
+          },
+          "generation": {
+            "description": "Original immutable generation.",
+            "type": "string"
+          },
+          "side": {
+            "description": "Baseline or candidate selected population.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "side",
+          "generation",
+          "fact"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonMemberOutput": {
+        "additionalProperties": false,
+        "description": "Original membership retained separately from compact paired cohorts.",
+        "properties": {
+          "cohort": {
+            "description": "Exact cohort reference in subjects.",
+            "type": "string"
+          },
+          "context_id": {
+            "description": "Original declared context.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "identity": {
+            "$ref": "#/$defs/EvidenceSubjectIdentityOutput",
+            "description": "Original owner identity."
+          },
+          "original": {
+            "$ref": "#/$defs/EvidenceMemberIdentity",
+            "description": "Original generation and member."
+          },
+          "side": {
+            "description": "Baseline or candidate.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Original binary outcome, including unknowns.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "side",
+          "cohort",
+          "original",
+          "identity",
+          "status",
+          "context_id"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonPage2Output": {
+        "additionalProperties": false,
+        "description": "A bounded section with a full row denominator and explicit continuation.",
+        "properties": {
+          "complete": {
+            "description": "Whole section is present in this response.",
+            "type": "boolean"
+          },
+          "cut": {
+            "description": "Immutable comparison cut; reuse only with the same request selection.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Requested page limit.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "next_offset": {
+            "description": "Next offset in this exact cut, if any.",
+            "format": "uint",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "description": "Requested offset.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "description": "Bounded original rows.",
+            "items": {
+              "$ref": "#/$defs/EvidenceComparisonMemberOutput"
+            },
+            "type": "array"
+          },
+          "total_rows": {
+            "description": "Full section rows before display limits.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cut",
+          "total_rows",
+          "offset",
+          "limit",
+          "complete",
+          "next_offset",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonPage3Output": {
+        "additionalProperties": false,
+        "description": "A bounded section with a full row denominator and explicit continuation.",
+        "properties": {
+          "complete": {
+            "description": "Whole section is present in this response.",
+            "type": "boolean"
+          },
+          "cut": {
+            "description": "Immutable comparison cut; reuse only with the same request selection.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Requested page limit.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "next_offset": {
+            "description": "Next offset in this exact cut, if any.",
+            "format": "uint",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "description": "Requested offset.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "description": "Bounded original rows.",
+            "items": {
+              "$ref": "#/$defs/EvidenceComparisonFact"
+            },
+            "type": "array"
+          },
+          "total_rows": {
+            "description": "Full section rows before display limits.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cut",
+          "total_rows",
+          "offset",
+          "limit",
+          "complete",
+          "next_offset",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonPage4Output": {
+        "additionalProperties": false,
+        "description": "A bounded section with a full row denominator and explicit continuation.",
+        "properties": {
+          "complete": {
+            "description": "Whole section is present in this response.",
+            "type": "boolean"
+          },
+          "cut": {
+            "description": "Immutable comparison cut; reuse only with the same request selection.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Requested page limit.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "next_offset": {
+            "description": "Next offset in this exact cut, if any.",
+            "format": "uint",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "description": "Requested offset.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "description": "Bounded original rows.",
+            "items": {
+              "$ref": "#/$defs/EvidenceMeasurementComparisonOutput"
+            },
+            "type": "array"
+          },
+          "total_rows": {
+            "description": "Full section rows before display limits.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cut",
+          "total_rows",
+          "offset",
+          "limit",
+          "complete",
+          "next_offset",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonPageOutput": {
+        "additionalProperties": false,
+        "description": "A bounded section with a full row denominator and explicit continuation.",
+        "properties": {
+          "complete": {
+            "description": "Whole section is present in this response.",
+            "type": "boolean"
+          },
+          "cut": {
+            "description": "Immutable comparison cut; reuse only with the same request selection.",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Requested page limit.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "next_offset": {
+            "description": "Next offset in this exact cut, if any.",
+            "format": "uint",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "description": "Requested offset.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "rows": {
+            "description": "Bounded original rows.",
+            "items": {
+              "$ref": "#/$defs/EvidenceSubjectComparisonOutput"
+            },
+            "type": "array"
+          },
+          "total_rows": {
+            "description": "Full section rows before display limits.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cut",
+          "total_rows",
+          "offset",
+          "limit",
+          "complete",
+          "next_offset",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonSource": {
+        "additionalProperties": false,
+        "description": "Coverage and freshness of one selected original source.",
+        "properties": {
+          "authority": {
+            "description": "Original authority.",
+            "type": "string"
+          },
+          "codec": {
+            "description": "Original codec.",
+            "type": "string"
+          },
+          "coverage": {
+            "description": "Original complete/partial coverage.",
+            "type": "string"
+          },
+          "expected_members": {
+            "description": "Original declared selected membership, including non-test facts.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "freshness": {
+            "description": "Freshness against explicit owner observations only.",
+            "type": "string"
+          },
+          "generation": {
+            "description": "Exact source cut.",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "description": "Original source digest.",
+            "type": "string"
+          },
+          "source_id": {
+            "description": "Original source identity.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generation",
+          "authority",
+          "codec",
+          "source_id",
+          "snapshot_digest",
+          "coverage",
+          "expected_members",
+          "freshness"
+        ],
+        "type": "object"
+      },
+      "EvidenceComparisonSummary": {
+        "additionalProperties": false,
+        "description": "Full selected populations. Missing execution and mixed outcomes are independent\naxes and may overlap failure classifications.",
+        "properties": {
+          "ambiguous": {
+            "description": "Duplicate owner identities within a source or unavailable exact identity.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "changed_selection_denominator": {
+            "description": "Full selected test-row counts differ.",
+            "type": "boolean"
+          },
+          "inconclusive": {
+            "description": "Unknown or mixed change evidence without an eligible change verdict.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mixed_outcome_cohorts": {
+            "description": "Cohorts with original failure and success evidence.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "new_failures": {
+            "description": "Candidate failures following an all-success baseline.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "paired": {
+            "description": "Subjects paired by exact identity or supplied mapping.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "persistent_failures": {
+            "description": "Failure evidence in both sides, retaining mixed outcomes.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "resolved_failures": {
+            "description": "Baseline failures followed by an all-success candidate.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "selection_membership_changed_or_unresolved": {
+            "description": "Unmatched or ambiguous cohorts prevent a same-subject selection claim.",
+            "type": "boolean"
+          },
+          "unchanged_successes": {
+            "description": "Compatible pairs with only explicit successes.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unexecuted": {
+            "description": "Pairs lacking execution in either side.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unmatched_baseline": {
+            "description": "Baseline-only cohorts.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unmatched_candidate": {
+            "description": "Candidate-only cohorts.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "paired",
+          "new_failures",
+          "resolved_failures",
+          "persistent_failures",
+          "unexecuted",
+          "inconclusive",
+          "unchanged_successes",
+          "unmatched_baseline",
+          "unmatched_candidate",
+          "ambiguous",
+          "mixed_outcome_cohorts",
+          "changed_selection_denominator",
+          "selection_membership_changed_or_unresolved"
+        ],
+        "type": "object"
+      },
+      "EvidenceFact": {
+        "additionalProperties": false,
+        "description": "One compact authentic owner fact, without raw bytes or a lifetime grant.",
+        "properties": {
+          "binary_id": {
+            "description": "Compact owner-declared binary id; absent means unknown.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "context_id": {
+            "description": "Compact owner-declared context id; absent means unknown.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "context_json": {
+            "description": "Compact owner-declared context json; absent means unknown.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "crate_name": {
+            "description": "Declared owning crate, if available.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detail_ref": {
+            "description": "Descriptive owner reference, never an automatic path or grant.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "Owner-declared category.",
+            "type": "string"
+          },
+          "link_relation": {
+            "description": "Compact owner-declared link relation; absent means unknown.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "link_target": {
+            "description": "Compact owner-declared link target; absent means unknown.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "member": {
+            "description": "Original stable member identity.",
+            "type": "string"
+          },
+          "population_id": {
+            "description": "Compact owner-declared population id; absent means unknown.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sample_id": {
+            "description": "Compact owner-declared sample id; absent means unknown.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "Original outcome, including unreported/command failures.",
+            "type": "string"
+          },
+          "test_id": {
+            "description": "Exact Rust binary/test identity or Python node ID, if available.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value_ns": {
+            "description": "Compact owner-declared value ns; absent means unknown.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "member",
+          "kind",
+          "status"
+        ],
+        "type": "object"
+      },
+      "EvidenceMeasurementCohortOutput": {
+        "additionalProperties": false,
+        "description": "Descriptive statistics and membership counts of one original measurement cohort.",
+        "properties": {
+          "censored_populations": {
+            "description": "Original censored or unmeasured population declarations.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "context_id": {
+            "description": "Original declared context identity, if available.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "declared_associations": {
+            "description": "Original association declarations, regardless of their status.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "generation": {
+            "description": "Original immutable generation.",
+            "type": "string"
+          },
+          "max_ns": {
+            "description": "Maximum actual sample value, if any.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "mean_ns": {
+            "description": "Mean actual sample value, if any; no change verdict follows from it.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "min_ns": {
+            "description": "Minimum actual sample value, if any.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "population_id": {
+            "description": "Original owner population identity.",
+            "type": "string"
+          },
+          "sample_count": {
+            "description": "Actual original sample rows.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unavailable_associations": {
+            "description": "Original explicitly unavailable, unsupported or unknown association declarations.",
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generation",
+          "context_id",
+          "population_id",
+          "sample_count",
+          "min_ns",
+          "max_ns",
+          "mean_ns",
+          "censored_populations",
+          "declared_associations",
+          "unavailable_associations"
+        ],
+        "type": "object"
+      },
+      "EvidenceMeasurementComparisonOutput": {
+        "additionalProperties": false,
+        "description": "Paired or honestly unpaired original measurement cohorts.",
+        "properties": {
+          "association": {
+            "description": "Explicit scope of supported original association.",
+            "type": "string"
+          },
+          "baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EvidenceMeasurementCohortOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Baseline descriptor only when exactly one original cohort exists."
+          },
+          "baseline_cohorts": {
+            "description": "Baseline original cohorts before display bounds.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EvidenceMeasurementCohortOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Candidate descriptor only when exactly one original cohort exists."
+          },
+          "candidate_cohorts": {
+            "description": "Candidate original cohorts before display bounds.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "changed_fields": {
+            "description": "Relevant declared conditions that differ.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "conditions": {
+            "description": "Comparable conditions, incompatible conditions, or unavailable basis.",
+            "type": "string"
+          },
+          "correspondence": {
+            "description": "Exact compatible owner identity or explicitly supplied mapping.",
+            "type": "string"
+          },
+          "revision_build": {
+            "description": "Revision/build interpretation retained with the assessment.",
+            "type": "string"
+          },
+          "unknown_fields": {
+            "description": "Relevant conditions not declared by at least one original owner.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "verdict": {
+            "description": "Descriptive-only verdict; statistical and causal conclusions are not inferred.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "correspondence",
+          "baseline_cohorts",
+          "candidate_cohorts",
+          "baseline",
+          "candidate",
+          "conditions",
+          "changed_fields",
+          "unknown_fields",
+          "association",
+          "verdict",
+          "revision_build"
+        ],
+        "type": "object"
+      },
+      "EvidenceMeasurementSummary": {
+        "additionalProperties": false,
+        "description": "Cross-side measurement compatibility counts, retaining inconclusive cohorts.",
+        "properties": {
+          "comparable": {
+            "description": "Pairs with declared and equal relevant conditions; sample association remains separate.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "incompatible": {
+            "description": "Pairs with at least one different declared condition.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "populations": {
+            "description": "Exact owner/population cohorts examined across both sides.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unavailable": {
+            "description": "Missing/unknown conditions, absent samples, ambiguity or unpaired populations.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unavailable_association_populations": {
+            "description": "Cohorts lacking any declared association or reporting unavailable/unsupported association.\nThis axis is independent of condition compatibility.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "verdict": {
+            "description": "No automatic regression, causality or flakiness verdict is produced.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "populations",
+          "comparable",
+          "incompatible",
+          "unavailable",
+          "unavailable_association_populations",
+          "verdict"
+        ],
+        "type": "object"
+      },
+      "EvidenceMemberIdentity": {
+        "additionalProperties": false,
+        "description": "An original source member, never a guessed spelling or timestamp.",
+        "properties": {
+          "generation": {
+            "description": "Exact source version.",
+            "type": "string"
+          },
+          "member": {
+            "description": "Original owner member.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generation",
+          "member"
+        ],
+        "type": "object"
+      },
+      "EvidenceOutcomeCounts": {
+        "additionalProperties": false,
+        "description": "Outcome counts retain repeated mixed results without a flakiness verdict.",
+        "properties": {
+          "failures": {
+            "description": "Original failures.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "other": {
+            "description": "All other original statuses.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "successes": {
+            "description": "Explicit successes.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "unexecuted": {
+            "description": "Missing execution, skipped, reused or transferred.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "failures",
+          "successes",
+          "unexecuted",
+          "other"
+        ],
+        "type": "object"
+      },
+      "EvidenceSubjectComparisonOutput": {
+        "additionalProperties": false,
+        "description": "A paired cohort or an honestly unpaired original population.",
+        "properties": {
+          "baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EvidenceSubjectIdentityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Original baseline identity."
+          },
+          "baseline_outcomes": {
+            "$ref": "#/$defs/EvidenceOutcomeCounts",
+            "description": "Full baseline outcome counts."
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EvidenceSubjectIdentityOutput"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Original candidate identity."
+          },
+          "candidate_outcomes": {
+            "$ref": "#/$defs/EvidenceOutcomeCounts",
+            "description": "Full candidate outcome counts."
+          },
+          "classification": {
+            "description": "Classification never rewrites either original outcome.",
+            "type": "string"
+          },
+          "cohort": {
+            "description": "Deterministic reference within this exact comparison cut.",
+            "type": "string"
+          },
+          "correspondence": {
+            "description": "Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mixed_outcomes": {
+            "description": "Repeated success and failure occurred in at least one side; no statistical inference.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cohort",
+          "correspondence",
+          "classification",
+          "baseline",
+          "candidate",
+          "baseline_outcomes",
+          "candidate_outcomes",
+          "mixed_outcomes"
+        ],
+        "type": "object"
+      },
+      "EvidenceSubjectIdentityOutput": {
+        "additionalProperties": false,
+        "description": "Owner identity of one cohort. Original binary IDs are never normalized away.",
+        "properties": {
+          "authority": {
+            "description": "Compatible owner authority.",
+            "type": "string"
+          },
+          "binary_id": {
+            "description": "Original binary ID, required for automatic Rust pairing.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "codec": {
+            "description": "Exact codec; codec migrations need an explicit mapping.",
+            "type": "string"
+          },
+          "crate_name": {
+            "description": "Declared owning crate.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "description": "Rust or Python test category.",
+            "type": "string"
+          },
+          "test_id": {
+            "description": "Original owner test identity.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "authority",
+          "codec",
+          "kind",
+          "crate_name",
+          "binary_id",
+          "test_id"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "description": "Typed comparison result shared by native, offline and canonical consumers.",
+                "properties": {
+                  "associations": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/EvidenceComparisonPage3Output"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Requested original measurement association and population declarations only."
+                  },
+                  "baseline_denominator": {
+                    "$ref": "#/$defs/EvidenceComparisonDenominator",
+                    "description": "Full baseline denominator, independent of optional details."
+                  },
+                  "baseline_sources": {
+                    "description": "Original selected baseline sources and coverage.",
+                    "items": {
+                      "$ref": "#/$defs/EvidenceComparisonSource"
+                    },
+                    "type": "array"
+                  },
+                  "candidate_denominator": {
+                    "$ref": "#/$defs/EvidenceComparisonDenominator",
+                    "description": "Full candidate denominator, independent of optional details."
+                  },
+                  "candidate_sources": {
+                    "description": "Original selected candidate sources and coverage.",
+                    "items": {
+                      "$ref": "#/$defs/EvidenceComparisonSource"
+                    },
+                    "type": "array"
+                  },
+                  "contexts": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/EvidenceComparisonPage3Output"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Requested original context rows only."
+                  },
+                  "cut": {
+                    "description": "Exact selected cut and mappings, independent of page bounds.",
+                    "type": "string"
+                  },
+                  "interpretation": {
+                    "description": "Scope and non-inference limits.",
+                    "type": "string"
+                  },
+                  "measurement_summary": {
+                    "$ref": "#/$defs/EvidenceMeasurementSummary",
+                    "description": "Full measurement context comparison, without sample hydration."
+                  },
+                  "measurements": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/EvidenceComparisonPage4Output"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Requested measurement cohorts only."
+                  },
+                  "members": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/EvidenceComparisonPage2Output"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Requested original outcome rows only."
+                  },
+                  "samples": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/EvidenceComparisonPage3Output"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Requested original measurement sample rows only."
+                  },
+                  "subjects": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/EvidenceComparisonPageOutput"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "Requested subject detail only."
+                  },
+                  "summary": {
+                    "$ref": "#/$defs/EvidenceComparisonSummary",
+                    "description": "Full semantic subject comparison summary."
+                  },
+                  "version": {
+                    "const": 1,
+                    "default": 1,
+                    "description": "Native comparison codec version.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version",
+                  "cut",
+                  "baseline_sources",
+                  "candidate_sources",
+                  "baseline_denominator",
+                  "candidate_denominator",
+                  "summary",
+                  "measurement_summary",
+                  "interpretation",
+                  "subjects",
+                  "members",
+                  "samples",
+                  "measurements",
+                  "contexts",
+                  "associations"
+                ],
+                "title": "EvidenceComparisonOutput",
+                "type": "object"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Evidence Compare"
+}
+```
+
+- Native `output_document`: [docs/generated/schema/evidence-comparison.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/evidence-comparison.output.schema.json).
+
+- Native `request`: [docs/generated/schema/evidence-comparison-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/evidence-comparison-request.input.schema.json).
+
+- Native `snapshots`: [docs/generated/schema/evidence-snapshot.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/evidence-snapshot.input.schema.json).
+
 ### `native_evidence_inspect` — Inspect supplied frozen evidence
 
 Exposure: **tool**. Owner: `pse.diagnostics.read_evidence + inspect_frozen`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
@@ -14665,7 +16643,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
           "schema_path": "docs/generated/schema/frozen-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "4070de8de1055badf6b24453186c03c208d2b2006921c83e3d36cb90ea1c2f49",
           "slug": "frozen-inspection-document",
           "version": 1,
@@ -14678,7 +16656,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionRequest",
           "schema_path": "docs/generated/schema/frozen-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "a9bdc3183ed66ba9252fe3d4586d8b8b21dfeb0607c99fd7df04ef9a51a3ef68",
           "slug": "frozen-inspection-request",
           "version": 1,
@@ -14686,7 +16664,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.read_evidence + inspect_frozen",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -14935,7 +16913,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
             ]
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:frozen-inspection-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:frozen-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
@@ -14975,7 +16953,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:frozen-inspection-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:frozen-inspection-request:input"
       }
     },
     "required": [
@@ -15107,7 +17085,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: invocation :: InvocationEvidenceDocument",
           "schema_path": "docs/generated/schema/invocation-evidence.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "513b0d130552259de59f3ab1575423c5b4b56cd3123ee249df6e93aabf2285b8",
           "slug": "invocation-evidence",
           "version": 2,
@@ -15115,7 +17093,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         }
       },
       "receiver": "pse.diagnostics.read_invocation",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -15263,7 +17241,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -15276,7 +17254,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -15289,7 +17267,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -15302,7 +17280,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -15310,7 +17288,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
         }
       },
       "receiver": "pse.ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -15912,7 +17890,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -15966,7 +17944,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -16006,13 +17984,13 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -16152,7 +18130,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectManifest",
           "schema_path": "docs/generated/schema/project-manifest.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "afcf6d813ebe9d5488cda86d5df827416faf129419c05527ce1aba6d53d9aa78",
           "slug": "project-manifest",
           "version": 1,
@@ -16160,7 +18138,7 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
         }
       },
       "receiver": "pse.ProjectBundle.manifest + digest",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -16323,7 +18301,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataPage",
           "schema_path": "docs/generated/schema/project-metadata-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "247bcbf54ba1f8787e71f6e84fcd093b719a27f83b18dc7730bf0a9f14119c9c",
           "slug": "project-metadata-page",
           "version": 1,
@@ -16336,7 +18314,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataRequest",
           "schema_path": "docs/generated/schema/project-metadata-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "5f252f295e44801126cafb6f147efdade00a0c618978098dbe75d854481614cd",
           "slug": "project-metadata-request",
           "version": 1,
@@ -16344,7 +18322,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         }
       },
       "receiver": "pse.Runtime.project_metadata",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -16422,7 +18400,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-metadata-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-metadata-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact owner and optional continuation for a bounded live metadata listing.",
@@ -16470,7 +18448,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-metadata-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-metadata-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -16623,7 +18601,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelection",
           "schema_path": "docs/generated/schema/project-selection.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "94c26dbd186b231b086e6e37d8dd6df5a0d4b00655a6e8f4d95a498e8b3f37d9",
           "slug": "project-selection",
           "version": 1,
@@ -16636,7 +18614,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -16649,7 +18627,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelectRequest",
           "schema_path": "docs/generated/schema/project-select-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "393a032a9136db4e6aaa0ae0168ed9aafc244c47bb9207f48d340763164d5284",
           "slug": "project-select-request",
           "version": 1,
@@ -16657,7 +18635,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         }
       },
       "receiver": "pse.Runtime.project_select",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -16698,7 +18676,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -16780,7 +18758,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-select-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-select-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit navigation command transport.",
@@ -16813,10 +18791,10 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-select-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-select-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -16971,7 +18949,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadResult",
           "schema_path": "docs/generated/schema/research-read-result.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "edf625447db75b6278030fd28171b9b009aa21cb85ff16c05108e3c33f99e8b4",
           "slug": "research-read-result",
           "version": 1,
@@ -16984,7 +18962,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
           "schema_path": "docs/generated/schema/research-read-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
           "slug": "research-read-request",
           "version": 1,
@@ -16992,7 +18970,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         }
       },
       "receiver": "pse.Runtime.research_read",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -17033,7 +19011,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
       },
       "research-read-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:research-read-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:research-read-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "Exact discovery and selected detail commands; metadata does not retain payloads.",
         "oneOf": [
@@ -17147,7 +19125,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:research-read-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:research-read-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -17297,7 +19275,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
           "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "7f9e0c189b0d7588008ba5e443b18823f1f93212bf1b50882fe13f5bcc1f3ee4",
           "slug": "result-inspection-document",
           "version": 1,
@@ -17310,7 +19288,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
           "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "fb0431325e5ee50f1704f3921c3d636e4503a0c3d902e9b36492b3132105e2fa",
           "slug": "result-inspection-request",
           "version": 1,
@@ -17318,7 +19296,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         }
       },
       "receiver": "pse.Runtime.inspect_result",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -17423,7 +19401,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:result-inspection-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:result-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Select one exact immutable result; schema discovery does not read its Arrow rows.",
@@ -17492,7 +19470,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:result-inspection-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:result-inspection-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -18373,7 +20351,7 @@ Exact callable component key: `tool:native_result_read@`. The following is the r
       "authoring_guidance": null,
       "contracts": {},
       "receiver": "pse.Runtime.results",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -18605,7 +20583,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -18618,7 +20596,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -18631,7 +20609,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
           "slug": "preparation-discovery-request",
           "version": 1,
@@ -18639,7 +20617,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -19241,7 +21219,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -19295,7 +21273,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -19340,10 +21318,10 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -19507,7 +21485,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -19515,7 +21493,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -19556,7 +21534,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -19611,7 +21589,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         "type": "array"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -19760,7 +21738,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -19773,7 +21751,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -19781,7 +21759,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
         }
       },
       "receiver": "pse.Runtime.physical_from_documents + modeling_from_documents",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -19822,7 +21800,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -19862,10 +21840,10 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -26948,7 +28926,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: CheckpointIdentity",
           "schema_path": "docs/generated/schema/checkpoint-identity.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "6af9026242d01a555d7fa4f3e196d18d8506831851b2c953c55e886419f58e0d",
           "slug": "checkpoint-identity",
           "version": 1,
@@ -26961,7 +28939,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: capture :: CaptureDocument",
           "schema_path": "docs/generated/schema/capture-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "a24d936afaec4c26c1f6844495fc6f2c55dfaf6ac46caeed1d4dcfc5ffd13ed9",
           "slug": "capture-document",
           "version": 2,
@@ -26974,7 +28952,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: capture :: CaptureRequest",
           "schema_path": "docs/generated/schema/capture-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+          "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
           "schema_sha256": "7286d53165bd8a87506ad6defdefb0e92087340c203cc3d73cd95abb223fd182",
           "slug": "capture-request",
           "version": 1,
@@ -26982,7 +28960,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
         }
       },
       "receiver": "pse.diagnostics.read_checkpoint + capture + CaptureSession.wait/stop",
-      "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+      "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"
     }
   },
   "annotations": {
@@ -27474,7 +29452,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:capture-request:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:capture-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit capture request; passive inspection never creates one implicitly.",
@@ -27564,7 +29542,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:checkpoint-identity:input",
+        "$id": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact diagnostic association supplied by the registered receiver, never stop authority.",
@@ -27597,10 +29575,10 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
     "description": "Host association only; both native documents are decoded by their owner.",
     "properties": {
       "expected": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:checkpoint-identity:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:checkpoint-identity:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f:capture-request:input"
+        "$ref": "urn:pse:boundary:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67:capture-request:input"
       },
       "suspect": {
         "$ref": "#/$defs/QueryAnswer"
@@ -32831,6 +34809,1184 @@ Exact callable component key: `tool:workspace_concepts_query@`. The following is
     "x-fastmcp-wrap-result": true
   },
   "title": "Workspace Concepts Query"
+}
+```
+
+### `workspace_integration_view` — Ownership-aware integration view
+
+Exposure: **tool**. Owner: `scripts/capabilities/integration_view.py`. Declaration source: [scripts/capabilities/integration_view.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/integration_view.py).
+
+```json
+{
+  "description": "Read a selected dirty-path page using explicit task/worker ownership claims bound to current source_sha256 and optional diff_sha256. Empty hunks explicitly claim the whole path; hunk coordinates refer to current bytes. Deletions require absence plus the current Git diff digest. Git state never establishes authorship. Preserve unknown, unrelated and overlapping claims, producer relationships, proposed checks and native lifecycle preflight. No staging, merge, generation, test execution, deletion or completion certification.",
+  "domain": "workspace",
+  "effects": "Read-only source/Git/producer and explicitly selected native status/lifecycle observations; no compiler, preparation, staging or mutation.",
+  "exposure": "tool",
+  "family": "source-context",
+  "guides": [
+    "root",
+    "tooling",
+    "decisions"
+  ],
+  "id": "workspace_integration_view",
+  "owner": "scripts/capabilities/integration_view.py",
+  "prerequisites": [],
+  "reason": "",
+  "requirements": [],
+  "route": [],
+  "source": "scripts/capabilities/integration_view.py",
+  "title": "Ownership-aware integration view",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": [
+    "qualify-change"
+  ]
+}
+```
+
+Exact callable component key: `tool:workspace_integration_view@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:workspace_integration_view",
+        "domain:workspace",
+        "family:source-context",
+        "workflow:qualify-change"
+      ]
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Read a selected dirty-path page using explicit task/worker ownership claims bound to current source_sha256 and optional diff_sha256. Empty hunks explicitly claim the whole path; hunk coordinates refer to current bytes. Deletions require absence plus the current Git diff digest. Git state never establishes authorship. Preserve unknown, unrelated and overlapping claims, producer relationships, proposed checks and native lifecycle preflight. No staging, merge, generation, test execution, deletion or completion certification.",
+  "inputSchema": {
+    "$defs": {
+      "IntegrationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "claims": {
+            "items": {
+              "$ref": "#/$defs/OwnershipClaim"
+            },
+            "maxItems": 64,
+            "type": "array"
+          },
+          "limit": {
+            "default": 40,
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_task": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "outcomes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "retiring_paths": {
+            "items": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "task": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "task"
+        ],
+        "type": "object"
+      },
+      "Lines": {
+        "additionalProperties": false,
+        "properties": {
+          "end_line": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "start_line": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_line",
+          "end_line"
+        ],
+        "type": "object"
+      },
+      "OwnershipClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "diff_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "explanation": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "hunks": {
+            "items": {
+              "$ref": "#/$defs/Lines"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "owner": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "owner",
+          "source_sha256",
+          "explanation"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "request": {
+        "$ref": "#/$defs/IntegrationRequest"
+      }
+    },
+    "required": [
+      "request"
+    ],
+    "type": "object"
+  },
+  "name": "workspace_integration_view",
+  "outputSchema": {
+    "$defs": {
+      "AnswerState": {
+        "additionalProperties": false,
+        "description": "Reader completeness is independent of the observed workload's outcome.",
+        "properties": {
+          "detail": {
+            "default": "selected",
+            "enum": [
+              "selected",
+              "omitted"
+            ],
+            "type": "string"
+          },
+          "population": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "population"
+        ],
+        "type": "object"
+      },
+      "ChangedPath": {
+        "additionalProperties": false,
+        "properties": {
+          "claims": {
+            "items": {
+              "$ref": "#/$defs/OwnershipClaim"
+            },
+            "type": "array"
+          },
+          "classification": {
+            "enum": [
+              "owned",
+              "unknown",
+              "unrelated",
+              "mixed"
+            ],
+            "type": "string"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "diff_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "generated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "git_status": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "ranges": {
+            "items": {
+              "$ref": "#/$defs/ClaimedRange"
+            },
+            "type": "array"
+          },
+          "source_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "path",
+          "git_status",
+          "classification",
+          "claims",
+          "ranges",
+          "conflicts",
+          "generated"
+        ],
+        "type": "object"
+      },
+      "ClaimedRange": {
+        "additionalProperties": false,
+        "properties": {
+          "classification": {
+            "enum": [
+              "owned",
+              "unknown",
+              "unrelated"
+            ],
+            "type": "string"
+          },
+          "lines": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Lines"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owners": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines",
+          "classification",
+          "owners",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "CommitSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "diff_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hunks": {
+            "items": {
+              "$ref": "#/$defs/Lines"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "selection": {
+            "enum": [
+              "whole-path",
+              "selected-hunks",
+              "excluded"
+            ],
+            "type": "string"
+          },
+          "source_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "source_sha256",
+          "diff_sha256",
+          "selection",
+          "hunks",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "DetailRefused": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "const": false,
+            "default": false,
+            "type": "boolean"
+          },
+          "encoded_bytes": {
+            "type": "integer"
+          },
+          "maximum_bytes": {
+            "default": 131072,
+            "type": "integer"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "outcome": {
+            "const": "detail-refused",
+            "default": "detail-refused",
+            "type": "string"
+          },
+          "remedy": {
+            "default": "Narrow the original owner's selection or use its explicit protected export; no facts were truncated.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "omissions",
+          "encoded_bytes"
+        ],
+        "type": "object"
+      },
+      "GitRationale": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "basis",
+          "mode",
+          "query"
+        ],
+        "type": "object"
+      },
+      "IntegrationPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_consumers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/$defs/ChangedPath"
+            },
+            "type": "array"
+          },
+          "checkout": {
+            "type": "string"
+          },
+          "commit_selection": {
+            "items": {
+              "$ref": "#/$defs/CommitSelection"
+            },
+            "type": "array"
+          },
+          "effects": {
+            "const": "read-only; no staging, merge, deletion, retirement, execution or completion certification",
+            "default": "read-only; no staging, merge, deletion, retirement, execution or completion certification",
+            "type": "string"
+          },
+          "native_task": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TaskContextPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome_references": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ownership_basis": {
+            "default": "Explicit caller claims bound to current source bytes; claims do not prove authorship. Git state never grants task ownership.",
+            "type": "string"
+          },
+          "regeneration_routes": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "relationships": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RelationshipsPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remaining_verification": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "retirement_preflight": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string"
+          },
+          "test_scope": {
+            "$ref": "#/$defs/TestScope"
+          },
+          "total_changes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "task",
+          "checkout",
+          "revision",
+          "changes",
+          "total_changes",
+          "next_offset",
+          "relationships",
+          "changed_consumers",
+          "regeneration_routes",
+          "test_scope",
+          "native_task",
+          "retirement_preflight",
+          "outcome_references",
+          "commit_selection",
+          "remaining_verification"
+        ],
+        "type": "object"
+      },
+      "IntegrationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/$defs/AnswerState"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "operation": {
+            "const": "workspace_integration_view",
+            "default": "workspace_integration_view",
+            "type": "string"
+          },
+          "payload": {
+            "$ref": "#/$defs/IntegrationPayload"
+          }
+        },
+        "required": [
+          "complete",
+          "omissions",
+          "answer",
+          "payload"
+        ],
+        "type": "object"
+      },
+      "JsonValue": {},
+      "Lines": {
+        "additionalProperties": false,
+        "properties": {
+          "end_line": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "start_line": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start_line",
+          "end_line"
+        ],
+        "type": "object"
+      },
+      "OwnerRecord": {
+        "additionalProperties": true,
+        "description": "Original owner vocabulary; extensions must remain real JSON values.",
+        "properties": {},
+        "type": "object"
+      },
+      "OwnershipClaim": {
+        "additionalProperties": false,
+        "properties": {
+          "diff_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "explanation": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "hunks": {
+            "items": {
+              "$ref": "#/$defs/Lines"
+            },
+            "maxItems": 32,
+            "type": "array"
+          },
+          "owner": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "owner",
+          "source_sha256",
+          "explanation"
+        ],
+        "type": "object"
+      },
+      "RelationshipsPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "type": "string"
+          },
+          "coverage": {
+            "default": "no admitted paths",
+            "type": "string"
+          },
+          "current_source_facts": {
+            "items": {
+              "$ref": "#/$defs/SourceFact"
+            },
+            "type": "array"
+          },
+          "exact_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "gaps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/OwnerRecord"
+            },
+            "type": "array"
+          },
+          "predicates": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/$defs/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "producer_documents": {
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "producer_freshness": {
+            "default": "unobserved",
+            "type": "string"
+          },
+          "producers": {
+            "items": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "array"
+          },
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "selection_basis": {
+            "default": "no admitted paths",
+            "type": "string"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "truncated": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "availability"
+        ],
+        "type": "object"
+      },
+      "ScopeItem": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "document": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "native_cells": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "native_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "native_state": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "raw_status": {
+            "type": "string"
+          },
+          "relationships": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_line": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          },
+          "status_basis": {
+            "type": "string"
+          },
+          "status_owner": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "document",
+          "kind",
+          "source",
+          "source_line",
+          "raw_status",
+          "state",
+          "native_state",
+          "status_owner",
+          "status_basis",
+          "owner",
+          "native_cells",
+          "relationships"
+        ],
+        "type": "object"
+      },
+      "SourceFact": {
+        "additionalProperties": true,
+        "properties": {
+          "availability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "path": {
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Only when explicitly selected at the original source owner."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "TaskContextPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "type": "string"
+          },
+          "dirty_delta": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "exclusions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "git_rationale": {
+            "$ref": "#/$defs/GitRationale"
+          },
+          "native_scope": {
+            "items": {
+              "$ref": "#/$defs/ScopeItem"
+            },
+            "type": "array"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "population_complete": {
+            "type": "boolean"
+          },
+          "relationships": {
+            "$ref": "#/$defs/RelationshipsPayload"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/$defs/SourceFact"
+            },
+            "type": "array"
+          },
+          "symbol_leads": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RelationshipsPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "task",
+          "population_complete",
+          "unknowns",
+          "exclusions",
+          "native_scope",
+          "sources",
+          "relationships",
+          "symbol_leads",
+          "dirty_delta",
+          "git_rationale",
+          "evidence",
+          "omissions",
+          "authority"
+        ],
+        "type": "object"
+      },
+      "TestScope": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_owned_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "owner": {
+            "default": "scripts/affected.py",
+            "type": "string"
+          },
+          "package_seeds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "qualification": {
+            "default": "Proposed checks only; dependency reach and test success are not established by this view.",
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "unknowns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_owned_paths",
+          "package_seeds",
+          "routes",
+          "unknowns"
+        ],
+        "type": "object"
+      }
+    },
+    "properties": {
+      "result": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/IntegrationResult"
+          },
+          {
+            "$ref": "#/$defs/DetailRefused"
+          }
+        ]
+      }
+    },
+    "required": [
+      "result"
+    ],
+    "type": "object",
+    "x-fastmcp-wrap-result": true
+  },
+  "title": "Workspace Integration View"
 }
 ```
 

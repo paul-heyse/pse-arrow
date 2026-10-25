@@ -14,6 +14,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from scripts import preflight, pse_env, validation, validation_receipts
+from scripts.capabilities.execution_basis import AdmissionRefused
 from scripts.capabilities.diagnostics import safe_path
 from scripts.capabilities.qualification_contracts import (
     AssessmentRequest,
@@ -219,6 +220,8 @@ def main(argv: list[str] | None = None) -> int:
     progress = ProgressReporter(Path(source).parent / "progress.json", operation)
     response: dict[str, object]
     try:
+        from scripts.capabilities.execution_basis import verify
+        verify(Path(__file__).resolve().parents[2], 'qualification', operation, Path(source).read_bytes())
         progress.publish("request", "started")
         response = {
             "result": execute(operation, Path(source).read_text(), progress=progress)
@@ -238,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
             "message": "The selected qualification request could not be served; supplied values are redacted.",
             "remedy": "Inspect the original assessment owner and any issued receipt before deciding whether another action is safe. No automatic retry or effect settlement is inferred.",
         }
+        if isinstance(error, AdmissionRefused):
+            detail.update(error.detail())
         if isinstance(error, ValidationError):
             detail["code"] = "pse.qualification.input_refused"
             detail["message"] = "Invalid host selection; supplied values omitted."

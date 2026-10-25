@@ -365,6 +365,29 @@ impl crate::documents::DocumentType for pse_runtime::workflow::EligibilityDocume
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType
+for pse_operations::evidence_query::EvidenceComparison {
+    const INPUT_NAME: &'static str = "EvidenceComparison";
+    const OUTPUT_NAME: &'static str = "EvidenceComparisonOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_operations::evidence_query::EvidenceComparisonRequest {
+    const INPUT_NAME: &'static str = "EvidenceComparisonRequest";
+    const OUTPUT_NAME: &'static str = "EvidenceComparisonRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_operations::evidence::EvidenceSnapshot {
+    const INPUT_NAME: &'static str = "EvidenceSnapshot";
+    const OUTPUT_NAME: &'static str = "EvidenceSnapshot";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::FitDeclarations {
     const INPUT_NAME: &'static str = "FitDeclarations";
     const OUTPUT_NAME: &'static str = "FitDeclarationsOutput";

@@ -13,9 +13,9 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -41,6 +41,47 @@ class ExtensionArtifact(ExtensionContract):
 
 Stage = Literal["environment", "prepare", "stubs", "stubs-check", "admit"]
 Mode = Literal["dev", "native"]
+Profile = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
+PROFILE = TypeAdapter(Profile)
+
+
+class ExtensionCurrency(ExtensionContract):
+    """Redacted admission-time correspondence, separate from import compatibility."""
+
+    state: Literal["current", "stale", "unknown", "unsupported"]
+    checkout: str
+    interpreter: str
+    mode: Mode
+    profile: str | None
+    validated: bool
+    source_basis: str | None = None
+    artifact: ExtensionArtifact | None = None
+    receipt_recorded: bool = False
+    cause: Literal[
+        "matching-inputs-and-artifact",
+        "missing-preparation-evidence",
+        "unsupported-preparation-evidence",
+        "unsupported-inputs-or-providers",
+        "inputs-unavailable",
+        "inputs-changed",
+        "import-unavailable",
+        "artifact-changed",
+        "not-selected",
+        "check-unavailable",
+    ]
+    remedy: str
+
+    @model_validator(mode="after")
+    def established_current(self) -> ExtensionCurrency:
+        if self.state == "current" and (
+            self.source_basis is None
+            or self.artifact is None
+            or self.profile is None
+            or not self.receipt_recorded
+            or self.cause != "matching-inputs-and-artifact"
+        ):
+            raise ValueError("current currency requires source and artifact evidence")
+        return self
 
 
 class StageResult(ExtensionContract):
@@ -445,6 +486,7 @@ PREPARATION_SESSION_ENVIRONMENT = frozenset(
         "DIRENV_WATCHES",
         "DIRENV_DIR",
         "DIRENV_FILE",
+        "SHLVL",
     }
 )
 
@@ -454,7 +496,8 @@ def preparation_environment_identity(environment: Mapping[str, str]) -> dict[str
 
     Direnv's evaluated exports and local configuration remain inputs. Its diff and
     watch state describe how to restore the invoking shell, while the Codex
-    identifiers route the invoking session. Unknown variables remain bound.
+    identifiers route the invoking session, and SHLVL records shell nesting.
+    Unknown variables remain bound.
     Scientific execution provenance retains its independent full environment.
     """
     from scripts import native_tests  # noqa: PLC0415
@@ -487,13 +530,6 @@ def preparation_inputs(
     # belong to the supported ordinary editable domain. They still prepare.
     if any(name.startswith(("PYO3_CROSS", "MATURIN_")) for name in environment):
         return None
-    files = validation.sources(ROOT, scope=stage)
-    if any(
-        (ROOT / name).is_symlink() and (ROOT / name).is_dir()
-        for name in files
-        if not name.startswith("resolved:")
-    ):
-        return None
     generations = {}
     if mode == "native":
         for name in (
@@ -517,7 +553,17 @@ def preparation_inputs(
                 "admission": admitted,
                 "receipt": file_identity(prefix / ".complete.json"),
             }
+    files = validation.sources(ROOT, scope=stage)
+    if any(
+        (ROOT / name).is_symlink() and (ROOT / name).is_dir()
+        for name in files
+        if not name.startswith("resolved:")
+    ):
+        return None
     selected_python = interpreter(environment)
+    # Observation must never let a rustup proxy install a missing toolchain.
+    # Keep this inspection control out of the actual build-input identity.
+    probe_environment = {**environment, "RUSTUP_AUTO_INSTALL": "0"}
     configuration = json.loads(
         subprocess.check_output(
             [
@@ -526,7 +572,7 @@ def preparation_inputs(
                 "import json,sys,sysconfig; print(json.dumps({'executable':sys.executable,'prefix':sys.prefix,'version':sys.version,'config':sysconfig.get_config_vars()}))",
             ],
             cwd=ROOT,
-            env=environment,
+            env=probe_environment,
             text=True,
         )
     )
@@ -537,7 +583,7 @@ def preparation_inputs(
     tools["maturin"] = file_identity(interpreter(environment).parent / "maturin")
     sysroot = Path(
         subprocess.check_output(
-            ["rustc", "--print", "sysroot"], cwd=ROOT, env=environment, text=True
+            ["rustc", "--print", "sysroot"], cwd=ROOT, env=probe_environment, text=True
         ).strip()
     )
     for name in ("rustc", "cargo"):
@@ -581,7 +627,7 @@ def preparation_inputs(
             "venv": file_identity(selected_python.parent.parent / "pyvenv.cfg"),
         },
         "compiler": subprocess.check_output(
-            ["rustc", "-Vv"], cwd=ROOT, env=environment, text=True
+            ["rustc", "-Vv"], cwd=ROOT, env=probe_environment, text=True
         ),
         "tools": tools,
         "generations": generations,
@@ -605,6 +651,106 @@ def read_receipt(path: Path) -> dict[str, object]:
         return result if isinstance(result, dict) else {}
     except (OSError, ValueError):
         return {}
+
+
+def currency_check(
+    environment: Mapping[str, str],
+    *,
+    mode: Mode,
+    profile: str = "dev",
+    validated: bool = True,
+) -> ExtensionCurrency:
+    """Inspect existing preparation and actual import; never prepare or repair.
+
+    Native providers must already have been admitted by their original operation
+    owner. A source-only caller cannot establish that prerequisite by importing.
+    No result is cached: callers may carry it only within their admitted operation.
+    """
+    remedy = (
+        "Explicitly select python_extension_" + mode + "_stage with stage=prepare, "
+        f"profile={profile} and validated={str(validated).lower()} in the selected "
+        "checkout/environment; then restart or reattach and check again. "
+        "Preparation does not update a running endpoint or replay effects."
+    )
+    base: dict[str, object] = {
+        "checkout": str(ROOT.resolve()),
+        "interpreter": str(interpreter(environment).absolute()),
+        "mode": mode,
+        "profile": profile,
+        "validated": validated,
+        "remedy": remedy,
+    }
+
+    def observed(
+        state: str, cause: str, **facts: object
+    ) -> ExtensionCurrency:
+        return ExtensionCurrency.model_validate(
+            {**base, "state": state, "cause": cause, **facts}
+        )
+
+    previous = read_receipt(stage_receipt("extension", environment))
+    if not previous:
+        return observed("unknown", "missing-preparation-evidence")
+    inputs = previous.get("inputs")
+    try:
+        recorded = ExtensionArtifact.model_validate(previous.get("artifact"))
+    except ValueError:
+        return observed("unknown", "missing-preparation-evidence")
+    if not isinstance(inputs, dict) or inputs.get("schema") != "ordinary-editable-inputs-v1":
+        return observed("unsupported", "unsupported-preparation-evidence", receipt_recorded=True)
+    try:
+        current = preparation_inputs(
+            "python-extension", mode, profile, environment, validated=validated
+        )
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+        return observed("unknown", "inputs-unavailable", receipt_recorded=True)
+    if current is None:
+        return observed("unsupported", "unsupported-inputs-or-providers", receipt_recorded=True)
+    basis = hashlib.sha256(
+        json.dumps(current, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    facts: dict[str, object] = {"source_basis": basis, "receipt_recorded": True}
+    if inputs != current:
+        return observed("stale", "inputs-changed", **facts)
+    try:
+        artifact = ExtensionArtifact.model_validate(
+            capture(environment, validated=validated, native=mode == "native")
+        )
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+        return observed("unknown", "import-unavailable", **facts)
+    facts["artifact"] = artifact
+    if artifact != recorded:
+        return observed("stale", "artifact-changed", **facts)
+    return observed("current", "matching-inputs-and-artifact", **facts)
+
+
+def currency_check_installed(
+    environment: Mapping[str, str], *, mode: Mode, validated: bool = True
+) -> ExtensionCurrency:
+    """Use only the installed preparation owner's explicit supported profile.
+
+    Execution requirements select mode and validation, not an invented build
+    profile. A missing or malformed recorded selection cannot establish currency.
+    """
+    previous = read_receipt(stage_receipt("extension", environment))
+    inputs = previous.get("inputs")
+    try:
+        profile = PROFILE.validate_python(
+            inputs.get("profile") if isinstance(inputs, dict) else None,
+            strict=True,
+        )
+    except ValueError:
+        return ExtensionCurrency(
+            state="unknown",
+            checkout=str(ROOT.resolve()),
+            interpreter=str(interpreter(environment).absolute()),
+            mode=mode,
+            profile=None,
+            validated=validated,
+            cause="missing-preparation-evidence",
+            remedy="Inspect the original Python preparation owner and explicitly select its prepare stage with a supported profile, mode and validation; then restart or reattach and check again. No profile was guessed or preparation attempted.",
+        )
+    return currency_check(environment, mode=mode, profile=profile, validated=validated)
 
 
 def publish_receipt(path: Path, value: dict[str, object]) -> None:

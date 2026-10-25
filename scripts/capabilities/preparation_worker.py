@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import python_extension
+from scripts.capabilities.execution_basis import AdmissionRefused
 from scripts.capabilities.preparation import (
+    CurrencyCheckRequest,
     ImportCheckRequest,
     ImportCheckResult,
     StageInvocation,
@@ -82,6 +84,29 @@ def invoke(
                 ),
             )
         return result.model_dump(mode="json")
+    if operation == "currency-check":
+        request = CurrencyCheckRequest.model_validate_json(document)
+        if on_stage is not None:
+            on_stage("currency", None)
+        currency = python_extension.currency_check(
+            python_extension.bind_interpreter(
+                {**os.environ, "UV_PROJECT_ENVIRONMENT": sys.prefix}
+            ),
+            mode=request.mode,
+            profile=request.profile,
+            validated=request.validated,
+        )
+        if on_stage is not None:
+            on_stage(
+                "currency",
+                python_extension.StageResult(
+                    stage="admit",
+                    status="checked" if currency.state == "current" else "failed",
+                    exit_code=0 if currency.state == "current" else 1,
+                    artifact=currency.artifact,
+                ),
+            )
+        return currency.model_dump(mode="json")
     raise ValueError("unsupported fixed preparation operation")
 
 
@@ -89,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     from scripts.capabilities.worker_progress import ProgressReporter  # noqa: PLC0415
 
     arguments = sys.argv[1:] if argv is None else argv
-    if len(arguments) != 3 or arguments[0] not in {"stage", "import-check"}:
+    if len(arguments) != 3 or arguments[0] not in {"stage", "import-check", "currency-check"}:
         raise ValueError(
             "select one fixed preparation operation, request file and response file"
         )
@@ -110,6 +135,11 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     try:
+        from scripts.capabilities.execution_basis import verify, ENVIRONMENT, Handoff
+        supplied = os.environ.get(ENVIRONMENT)
+        if supplied:
+            identity = Handoff.model_validate_json(Path(supplied).read_bytes())
+            verify(Path(__file__).resolve().parents[2], identity.worker, operation, Path(source).read_bytes())
         response = {
             "result": invoke(operation, Path(source).read_text(), on_stage=observe)
         }
@@ -131,6 +161,8 @@ def main(argv: list[str] | None = None) -> int:
                 "remedy": "Inspect the original stage owner and existing artifacts before explicitly selecting further preparation. No retry, rollback or successful installation is inferred.",
             }
         }
+        if isinstance(error, AdmissionRefused):
+            response = {"error": error.detail()}
     with Path(destination).open("x") as stream:
         json.dump(response, stream)
     return 0

@@ -3,6 +3,8 @@
 //! Finite selected evidence questions. No service, scientific runtime, source traversal,
 //! automatic detail reads or public arbitrary SQL. Sources parse once and become the
 //! registry-owned Arrow relation, shared by every question in an analysis.
+mod comparison;
+pub use comparison::*;
 use crate::evidence::{EvidenceError, EvidenceSnapshot};
 use datafusion::{
     arrow::{
@@ -123,7 +125,7 @@ impl EvidenceSection {
     }
 }
 /// An explicit finite page of one optional section on the immutable source cut.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceSectionSelection {
     /// Returned detail rows, 1..=10000.
@@ -176,7 +178,7 @@ pub struct EvidenceQuestion {
     pub sections: BTreeMap<EvidenceSection, EvidenceSectionSelection>,
 }
 /// Explicit current owner observation, supplied separately from an imported cut.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceSourceObservation {
     /// Original authority.
@@ -195,6 +197,7 @@ pub struct EvidenceAnalysis {
     generations: Vec<String>,
     history: bool,
     contexts: BTreeMap<(String, String), serde_json::Value>,
+    contents: BTreeMap<String, String>,
     // Retain the same native assembly/pool for the entire selected analysis.
     _factory: EngineFactory,
 }
@@ -315,6 +318,7 @@ impl EvidenceAnalysis {
             generations,
             history,
             contexts,
+            contents,
             _factory: factory,
         })
     }
@@ -1231,3 +1235,6 @@ mod tests {
         );
     }
 }
+
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(crate) use comparison::tests::exercise_indexed_comparison;

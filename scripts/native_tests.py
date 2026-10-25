@@ -260,6 +260,10 @@ RUST_EXECUTION_ENVIRONMENT = frozenset(
         "PSE_RUST_TERMINAL_OWNER",
         "PSE_NATIVE_OPERATION",
         "PSE_NATIVE_HANDOFF",
+        # Request-private observation/handoff values never select compiler behavior.
+        "PSE_CAPABILITY_ADMISSION",
+        "PSE_TELEMETRY_CARRIER",
+        "PSE_NATIVE_TELEMETRY_SETTINGS",
         "PSE_NATIVE_WORKER_SLOT",
         "PSE_NATIVE_WORKER_MEMORY_BYTES",
         "PSE_MEMORY_MAX",

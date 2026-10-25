@@ -36,6 +36,50 @@ def outcome(
 
 
 class PreparationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_currency_check_uses_fixed_passive_worker_and_validates_selection(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        expected = python_extension.ExtensionCurrency(
+            state="unsupported", checkout=str(root.resolve()),
+            interpreter=str((root / ".venv/bin/python").absolute()),
+            mode="native", profile="dev", validated=True,
+            receipt_recorded=True, cause="unsupported-inputs-or-providers",
+            remedy="Explicitly prepare, reattach and check again.",
+        )
+        with patch.object(
+            preparation.process, "run_worker", new_callable=AsyncMock,
+            return_value=expected.model_dump(mode="json"),
+        ) as worker:
+            self.assertEqual(await preparation.currency_check(root, "native", validated=True), expected)
+            self.assertEqual(worker.call_args.args[1], preparation.CURRENCY_CALL)
+            worker.return_value = expected.model_copy(update={"validated": False}).model_dump(mode="json")
+            with self.assertRaisesRegex(ValueError, "differs"):
+                await preparation.currency_check(root, "native", validated=True)
+
+    async def test_currency_child_uses_existing_environment_without_preparing(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        expected = python_extension.ExtensionCurrency(
+            state="unknown", checkout=str(root), interpreter="/selected/bin/python",
+            mode="dev", profile="producer", validated=False,
+            cause="missing-preparation-evidence", remedy="Explicitly prepare.",
+        )
+        stages = []
+        with (
+            patch.object(python_extension, "currency_check", return_value=expected) as check,
+            patch.object(python_extension, "run_stages") as prepare,
+        ):
+            actual = python_extension.ExtensionCurrency.model_validate(
+                preparation_worker.invoke(
+                    "currency-check",
+                    preparation.CurrencyCheckRequest(mode="dev", profile="producer", validated=False).model_dump_json(),
+                    on_stage=lambda stage, result: stages.append((stage, result)),
+                )
+            )
+        self.assertEqual(actual, expected)
+        self.assertEqual(check.call_args.kwargs, {"mode": "dev", "profile": "producer", "validated": False})
+        self.assertEqual(stages[0], ("currency", None))
+        self.assertEqual(stages[1][1].status, "failed")
+        prepare.assert_not_called()
+
     async def test_actual_stage_tools_have_owner_schema_and_fixed_worker_effects(
         self,
     ) -> None:

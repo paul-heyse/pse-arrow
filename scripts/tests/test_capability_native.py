@@ -992,7 +992,7 @@ class NativeSchemaTests(unittest.TestCase):
             result = asyncio.run(
                 self.tools["native_source_admit"].run({"physical": {}, "documents": {}})
             )
-        self.assertEqual(run.call_args.args[1], native.BINDINGS[0].worker)
+        self.assertEqual(run.call_args.args[1], next(binding.worker for binding in native.BINDINGS if binding.operation == "source_admit"))
         self.assertEqual(
             at(run.call_args.args[2], "schema_set_fingerprint"),
             self.schemas.fingerprint,

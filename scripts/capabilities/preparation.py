@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
-from pydantic import Field, model_validator
+from pydantic import model_validator
 
 from scripts import python_extension
 from scripts.capabilities import process
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 class StageRequest(Contract):
     stage: python_extension.Stage
-    profile: str = Field(default="dev", pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+    profile: python_extension.Profile = "dev"
     validated: bool = True
 
 
@@ -32,6 +32,10 @@ class StageInvocation(StageRequest):
 class ImportCheckRequest(Contract):
     mode: python_extension.Mode
     validated: bool = True
+
+
+class CurrencyCheckRequest(ImportCheckRequest):
+    profile: python_extension.Profile = "dev"
 
 
 class ImportCheckResult(Contract):
@@ -58,6 +62,27 @@ IMPORT_CALLS = {
     "dev": WorkerCall("prep-import", "import-check"),
     "native": WorkerCall("prep-import", "import-check"),
 }
+CURRENCY_CALL = WorkerCall("prep-import", "currency-check")
+
+
+async def currency_check(
+    root: Path, mode: python_extension.Mode, *, profile: str = "dev", validated: bool
+) -> python_extension.ExtensionCurrency:
+    result = await process.run_worker(
+        root,
+        CURRENCY_CALL,
+        CurrencyCheckRequest(mode=mode, profile=profile, validated=validated),
+    )
+    observed = python_extension.ExtensionCurrency.model_validate(result)
+    if (
+        observed.mode != mode
+        or observed.profile != profile
+        or observed.validated != validated
+        or observed.checkout != str(root.resolve())
+        or observed.interpreter != str((root / ".venv/bin/python").absolute())
+    ):
+        raise ValueError("currency check result differs from the selected requirement")
+    return observed
 
 
 async def import_check(

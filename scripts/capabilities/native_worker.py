@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import sys
 import tempfile
 from collections import deque
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 import msgspec
 from pydantic import JsonValue
 
+from scripts.capabilities.execution_basis import AdmissionRefused
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.native_schema import JSON_OBJECT
 from scripts.capabilities.responses import bounded
@@ -281,6 +283,25 @@ def execute(
             "stage": "native_interface_selection",
             "remedy": "Explicitly prepare the compatible correctness extension with just py-sync-native-correctness, then restart or reattach this endpoint. This refusal does not build, retry or enter a native receiver.",
         }
+    if os.environ.get("PSE_CAPABILITY_ADMISSION"):
+        from scripts import python_extension
+        binding = next((item for item in host.BINDINGS if item.operation == operation), None)
+        requirement = next((item for item in binding.requirements if item.kind == "python-extension"), None) if binding else None
+        if requirement is not None:
+            current = python_extension.currency_check_installed(
+                python_extension.bind_interpreter(os.environ),
+                mode=requirement.mode or "dev", validated=requirement.validated is True,
+            )
+            if current.state != "current":
+                return {"outcome": "prerequisite_unavailable", "code": "pse.native.artifact_not_current", "currency": current.model_dump(mode="json")}
+    if operation == "evidence_compare":
+        request = host.EvidenceCompare.model_validate(supplied)
+        result = diagnostics.compare_evidence(
+            json.dumps(request.request, allow_nan=False),
+            json.dumps(request.snapshots, allow_nan=False),
+            json.dumps(request.observations, allow_nan=False),
+        )
+        return {"outcome": "observed", "document": json.loads(codec.encode_json(result))}
     physical_packages: list[dict[str, bytes]] = []
     packages: list[dict[str, bytes]] = []
     resources = host.Resources()
@@ -575,6 +596,8 @@ def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
             request_bytes = input_file.read(MAXIMUM_REQUEST_BYTES + 1)
         if len(request_bytes) > MAXIMUM_REQUEST_BYTES:
             raise ValueError("native request exceeds transport byte bound")
+        from scripts.capabilities.execution_basis import verify
+        verify(Path(__file__).resolve().parents[2], "native", operation, request_bytes)
         arguments = JSON_OBJECT.validate_json(request_bytes, strict=True)
         return operation, arguments
     raw = sys.stdin.buffer.read(MAXIMUM_REQUEST_BYTES + 1)
@@ -586,6 +609,8 @@ def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
     operation, arguments = payload["operation"], payload["arguments"]
     if not isinstance(operation, str) or not isinstance(arguments, dict):
         raise TypeError("invalid fixed worker envelope")
+    from scripts.capabilities.execution_basis import verify
+    verify(Path(__file__).resolve().parents[2], "native", operation, raw)
     return operation, arguments
 
 
@@ -619,6 +644,8 @@ def main(argv: list[str] | None = None) -> int:
             "cause": type(error).__name__,
             "remedy": "Explicitly prepare the compatible extension with just py-sync-native-correctness and reattach from a prepared native environment. Read operations never build import providers.",
         }
+    except AdmissionRefused as error:
+        value = {"outcome": "stale_interface", **error.detail()}
     except Exception as error:
         native = native_report(error) is not None
         outcome = (

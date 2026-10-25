@@ -59,6 +59,7 @@ from pse.contracts.documents import (
     DiffsolSettings,
     DiffsolSettingsOutput,
     EligibilityDocumentOutput,
+    EvidenceComparisonOutput,
     FitExecutionDocument,
     FitProfileDocument,
     FlowGraphDocument,
@@ -1689,6 +1690,9 @@ def diagnostic_capture(
 def diagnostic_capture_arrow(
     document: CaptureDocument | CaptureDocumentOutput, memory_bytes: int
 ) -> object: ...
+def diagnostic_compare_evidence(
+    request_json: str, snapshots_json: str, observations_json: str = "[]"
+) -> EvidenceComparisonOutput: ...
 def diagnostic_compare_invocations(
     left: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,
     right: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,

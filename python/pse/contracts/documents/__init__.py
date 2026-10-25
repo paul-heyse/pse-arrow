@@ -8603,6 +8603,731 @@ class EventSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.optional_key(v.scalar_key)(self.coordinates), v.scalar_key(self.family), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.norm), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.record_key)(self.producer), v.optional_key(v.scalar_key)(self.producer_family_sequence), v.optional_key(v.scalar_key)(self.producer_generation), v.optional_key(v.scalar_key)(self.producer_sequence), v.scalar_key(self.role), v.scalar_key(self.sequence),))
 
 
+class EvidenceComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed comparison result shared by native, offline and canonical consumers."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Native comparison codec version.
+    version: Literal[1] = 1
+    #: Requested original measurement association and population declarations only.
+    associations: EvidenceComparisonPage3 | None = None
+    #: Full baseline denominator, independent of optional details.
+    baseline_denominator: EvidenceComparisonDenominator
+    #: Original selected baseline sources and coverage.
+    baseline_sources: tuple[EvidenceComparisonSource, ...]
+    #: Full candidate denominator, independent of optional details.
+    candidate_denominator: EvidenceComparisonDenominator
+    #: Original selected candidate sources and coverage.
+    candidate_sources: tuple[EvidenceComparisonSource, ...]
+    #: Requested original context rows only.
+    contexts: EvidenceComparisonPage3 | None = None
+    #: Exact selected cut and mappings, independent of page bounds.
+    cut: str
+    #: Scope and non-inference limits.
+    interpretation: str
+    #: Full measurement context comparison, without sample hydration.
+    measurement_summary: EvidenceMeasurementSummary
+    #: Requested measurement cohorts only.
+    measurements: EvidenceComparisonPage4 | None = None
+    #: Requested original outcome rows only.
+    members: EvidenceComparisonPage2 | None = None
+    #: Requested original measurement sample rows only.
+    samples: EvidenceComparisonPage3 | None = None
+    #: Requested subject detail only.
+    subjects: EvidenceComparisonPage | None = None
+    #: Full semantic subject comparison summary.
+    summary: EvidenceComparisonSummary
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.associations), v.record_key(self.baseline_denominator), v.sequence_key(v.record_key)(self.baseline_sources), v.record_key(self.candidate_denominator), v.sequence_key(v.record_key)(self.candidate_sources), v.optional_key(v.record_key)(self.contexts), v.scalar_key(self.cut), v.scalar_key(self.interpretation), v.record_key(self.measurement_summary), v.optional_key(v.record_key)(self.measurements), v.optional_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.samples), v.optional_key(v.record_key)(self.subjects), v.record_key(self.summary),))
+
+
+class EvidenceComparisonDenominator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full semantic population counts, computed before detail limits."""
+
+    #: Original test rows declaring a context.
+    declared_context_tests: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original test rows declaring a crate.
+    declared_crate_tests: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original failure rows.
+    failures: Annotated[int, msgspec.Meta(ge=0)]
+    #: Other original statuses; these are never treated as passing.
+    other_outcomes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected actual measurement samples.
+    samples: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected original expected members of all categories.
+    selected_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected original test rows, including repeats and missing execution.
+    selected_tests: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original explicit success rows.
+    successes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original missing, skipped, reused or transferred execution rows.
+    unexecuted: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.declared_context_tests), v.scalar_key(self.declared_crate_tests), v.scalar_key(self.failures), v.scalar_key(self.other_outcomes), v.scalar_key(self.samples), v.scalar_key(self.selected_members), v.scalar_key(self.selected_tests), v.scalar_key(self.successes), v.scalar_key(self.unexecuted),))
+
+
+class EvidenceComparisonFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original codec fact with its exact source and comparison side."""
+
+    #: Original native fact, including member, sample identity and context declaration.
+    fact: EvidenceFact
+    #: Original immutable generation.
+    generation: str
+    #: Baseline or candidate selected population.
+    side: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.fact), v.scalar_key(self.generation), v.scalar_key(self.side),))
+
+
+class EvidenceComparisonMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original membership retained separately from compact paired cohorts."""
+
+    #: Exact cohort reference in subjects.
+    cohort: str
+    #: Original declared context.
+    context_id: str | None = None
+    #: Original owner identity.
+    identity: EvidenceSubjectIdentity
+    #: Original generation and member.
+    original: EvidenceMemberIdentity
+    #: Baseline or candidate.
+    side: str
+    #: Original binary outcome, including unknowns.
+    status: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.context_id), v.record_key(self.identity), v.record_key(self.original), v.scalar_key(self.side), v.scalar_key(self.status),))
+
+
+class EvidenceComparisonMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original membership retained separately from compact paired cohorts."""
+
+    #: Exact cohort reference in subjects.
+    cohort: str
+    #: Original declared context.
+    context_id: str | None
+    #: Original owner identity.
+    identity: EvidenceSubjectIdentityOutput
+    #: Original generation and member.
+    original: EvidenceMemberIdentity
+    #: Baseline or candidate.
+    side: str
+    #: Original binary outcome, including unknowns.
+    status: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.context_id), v.record_key(self.identity), v.record_key(self.original), v.scalar_key(self.side), v.scalar_key(self.status),))
+
+
+class EvidenceComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Typed comparison result shared by native, offline and canonical consumers."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Native comparison codec version.
+    version: Literal[1] = 1
+    #: Requested original measurement association and population declarations only.
+    associations: EvidenceComparisonPage3Output | None
+    #: Full baseline denominator, independent of optional details.
+    baseline_denominator: EvidenceComparisonDenominator
+    #: Original selected baseline sources and coverage.
+    baseline_sources: tuple[EvidenceComparisonSource, ...]
+    #: Full candidate denominator, independent of optional details.
+    candidate_denominator: EvidenceComparisonDenominator
+    #: Original selected candidate sources and coverage.
+    candidate_sources: tuple[EvidenceComparisonSource, ...]
+    #: Requested original context rows only.
+    contexts: EvidenceComparisonPage3Output | None
+    #: Exact selected cut and mappings, independent of page bounds.
+    cut: str
+    #: Scope and non-inference limits.
+    interpretation: str
+    #: Full measurement context comparison, without sample hydration.
+    measurement_summary: EvidenceMeasurementSummary
+    #: Requested measurement cohorts only.
+    measurements: EvidenceComparisonPage4Output | None
+    #: Requested original outcome rows only.
+    members: EvidenceComparisonPage2Output | None
+    #: Requested original measurement sample rows only.
+    samples: EvidenceComparisonPage3Output | None
+    #: Requested subject detail only.
+    subjects: EvidenceComparisonPageOutput | None
+    #: Full semantic subject comparison summary.
+    summary: EvidenceComparisonSummary
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.associations), v.record_key(self.baseline_denominator), v.sequence_key(v.record_key)(self.baseline_sources), v.record_key(self.candidate_denominator), v.sequence_key(v.record_key)(self.candidate_sources), v.optional_key(v.record_key)(self.contexts), v.scalar_key(self.cut), v.scalar_key(self.interpretation), v.record_key(self.measurement_summary), v.optional_key(v.record_key)(self.measurements), v.optional_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.samples), v.optional_key(v.record_key)(self.subjects), v.record_key(self.summary),))
+
+
+class EvidenceComparisonPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceSubjectComparison, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonPage2(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceComparisonMember, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonPage2Output(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceComparisonMemberOutput, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonPage3(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceComparisonFact, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonPage3Output(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceComparisonFact, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonPage4(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceMeasurementComparison, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonPage4Output(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceMeasurementComparisonOutput, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded section with a full row denominator and explicit continuation."""
+
+    #: Whole section is present in this response.
+    complete: bool
+    #: Immutable comparison cut; reuse only with the same request selection.
+    cut: str
+    #: Requested page limit.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next offset in this exact cut, if any.
+    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Requested offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded original rows.
+    rows: tuple[EvidenceSubjectComparisonOutput, ...]
+    #: Full section rows before display limits.
+    total_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
+
+
+class EvidenceComparisonRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite native request. Both sides and every mapping remain explicit."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Exact native request interpretation; required before decoding the body.
+    version: Literal[1] = 1
+    #: Baseline source population.
+    baseline: EvidenceComparisonSelection
+    #: Candidate source population.
+    candidate: EvidenceComparisonSelection
+    #: Cut returned by the preceding page; mandatory when any section offset is nonzero.
+    continuation_cut: str | None = None
+    #: Exact caller-supplied mappings; conflicting or unknown endpoints are refused.
+    mappings: tuple[EvidenceSubjectMapping, ...] = msgspec.field(default_factory=tuple)
+    #: Explicit measurement population mappings; unknown or conflicting endpoints are refused.
+    measurement_mappings: tuple[EvidenceMeasurementMapping, ...] = msgspec.field(default_factory=tuple)
+    #: Optional independently bounded detail pages.
+    sections: dict[str, EvidenceSectionSelection] = msgspec.field(default_factory=dict)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.baseline), v.record_key(self.candidate), v.optional_key(v.scalar_key)(self.continuation_cut), v.sequence_key(v.record_key)(self.mappings), v.sequence_key(v.record_key)(self.measurement_mappings), v.mapping_key(v.scalar_key, v.record_key)(self.sections),))
+
+
+class EvidenceComparisonRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite native request. Both sides and every mapping remain explicit."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Exact native request interpretation; required before decoding the body.
+    version: Literal[1] = 1
+    #: Baseline source population.
+    baseline: EvidenceComparisonSelectionOutput
+    #: Candidate source population.
+    candidate: EvidenceComparisonSelectionOutput
+    #: Cut returned by the preceding page; mandatory when any section offset is nonzero.
+    continuation_cut: str | None = None
+    #: Exact caller-supplied mappings; conflicting or unknown endpoints are refused.
+    mappings: tuple[EvidenceSubjectMapping, ...] = msgspec.field(default_factory=tuple)
+    #: Explicit measurement population mappings; unknown or conflicting endpoints are refused.
+    measurement_mappings: tuple[EvidenceMeasurementMappingOutput, ...] = msgspec.field(default_factory=tuple)
+    #: Optional independently bounded detail pages.
+    sections: dict[str, EvidenceSectionSelectionOutput] = msgspec.field(default_factory=dict)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.baseline), v.record_key(self.candidate), v.optional_key(v.scalar_key)(self.continuation_cut), v.sequence_key(v.record_key)(self.mappings), v.sequence_key(v.record_key)(self.measurement_mappings), v.mapping_key(v.scalar_key, v.record_key)(self.sections),))
+
+
+class EvidenceComparisonSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicit side of a comparison. Generation IDs identify exact source versions."""
+
+    #: Owner-declared context selection, before all denominators.
+    context_id: str | None = None
+    #: Owner-declared crate selection, before all denominators.
+    crate_name: str | None = None
+    #: Exact generations; repeated IDs and unavailable IDs are refused.
+    generations: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.optional_key(v.scalar_key)(self.crate_name), v.sequence_key(v.scalar_key)(self.generations),))
+
+
+class EvidenceComparisonSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicit side of a comparison. Generation IDs identify exact source versions."""
+
+    #: Owner-declared context selection, before all denominators.
+    context_id: str | None
+    #: Owner-declared crate selection, before all denominators.
+    crate_name: str | None
+    #: Exact generations; repeated IDs and unavailable IDs are refused.
+    generations: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.optional_key(v.scalar_key)(self.crate_name), v.sequence_key(v.scalar_key)(self.generations),))
+
+
+class EvidenceComparisonSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Coverage and freshness of one selected original source."""
+
+    #: Original authority.
+    authority: str
+    #: Original codec.
+    codec: str
+    #: Original complete/partial coverage.
+    coverage: str
+    #: Original declared selected membership, including non-test facts.
+    expected_members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Freshness against explicit owner observations only.
+    freshness: str
+    #: Exact source cut.
+    generation: str
+    #: Original source digest.
+    snapshot_digest: str
+    #: Original source identity.
+    source_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.authority), v.scalar_key(self.codec), v.scalar_key(self.coverage), v.scalar_key(self.expected_members), v.scalar_key(self.freshness), v.scalar_key(self.generation), v.scalar_key(self.snapshot_digest), v.scalar_key(self.source_id),))
+
+
+class EvidenceComparisonSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full selected populations. Missing execution and mixed outcomes are independent
+    axes and may overlap failure classifications.
+    """
+
+    #: Duplicate owner identities within a source or unavailable exact identity.
+    ambiguous: Annotated[int, msgspec.Meta(ge=0)]
+    #: Full selected test-row counts differ.
+    changed_selection_denominator: bool
+    #: Unknown or mixed change evidence without an eligible change verdict.
+    inconclusive: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cohorts with original failure and success evidence.
+    mixed_outcome_cohorts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Candidate failures following an all-success baseline.
+    new_failures: Annotated[int, msgspec.Meta(ge=0)]
+    #: Subjects paired by exact identity or supplied mapping.
+    paired: Annotated[int, msgspec.Meta(ge=0)]
+    #: Failure evidence in both sides, retaining mixed outcomes.
+    persistent_failures: Annotated[int, msgspec.Meta(ge=0)]
+    #: Baseline failures followed by an all-success candidate.
+    resolved_failures: Annotated[int, msgspec.Meta(ge=0)]
+    #: Unmatched or ambiguous cohorts prevent a same-subject selection claim.
+    selection_membership_changed_or_unresolved: bool
+    #: Compatible pairs with only explicit successes.
+    unchanged_successes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pairs lacking execution in either side.
+    unexecuted: Annotated[int, msgspec.Meta(ge=0)]
+    #: Baseline-only cohorts.
+    unmatched_baseline: Annotated[int, msgspec.Meta(ge=0)]
+    #: Candidate-only cohorts.
+    unmatched_candidate: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.ambiguous), v.scalar_key(self.changed_selection_denominator), v.scalar_key(self.inconclusive), v.scalar_key(self.mixed_outcome_cohorts), v.scalar_key(self.new_failures), v.scalar_key(self.paired), v.scalar_key(self.persistent_failures), v.scalar_key(self.resolved_failures), v.scalar_key(self.selection_membership_changed_or_unresolved), v.scalar_key(self.unchanged_successes), v.scalar_key(self.unexecuted), v.scalar_key(self.unmatched_baseline), v.scalar_key(self.unmatched_candidate),))
+
+
+class EvidenceFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One compact authentic owner fact, without raw bytes or a lifetime grant."""
+
+    #: Compact owner-declared binary id; absent means unknown.
+    binary_id: str | None = None
+    #: Compact owner-declared context id; absent means unknown.
+    context_id: str | None = None
+    #: Compact owner-declared context json; absent means unknown.
+    context_json: str | None = None
+    #: Declared owning crate, if available.
+    crate_name: str | None = None
+    #: Descriptive owner reference, never an automatic path or grant.
+    detail_ref: str | None = None
+    #: Owner-declared category.
+    kind: str
+    #: Compact owner-declared link relation; absent means unknown.
+    link_relation: str | None = None
+    #: Compact owner-declared link target; absent means unknown.
+    link_target: str | None = None
+    #: Original stable member identity.
+    member: str
+    #: Compact owner-declared population id; absent means unknown.
+    population_id: str | None = None
+    #: Compact owner-declared sample id; absent means unknown.
+    sample_id: str | None = None
+    #: Original outcome, including unreported/command failures.
+    status: str
+    #: Exact Rust binary/test identity or Python node ID, if available.
+    test_id: str | None = None
+    #: Compact owner-declared value ns; absent means unknown.
+    value_ns: float | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.binary_id), v.optional_key(v.scalar_key)(self.context_id), v.optional_key(v.scalar_key)(self.context_json), v.optional_key(v.scalar_key)(self.crate_name), v.optional_key(v.scalar_key)(self.detail_ref), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.link_relation), v.optional_key(v.scalar_key)(self.link_target), v.scalar_key(self.member), v.optional_key(v.scalar_key)(self.population_id), v.optional_key(v.scalar_key)(self.sample_id), v.scalar_key(self.status), v.optional_key(v.scalar_key)(self.test_id), v.optional_key(v.scalar_key)(self.value_ns),))
+
+
+class EvidenceMeasurementCohort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Descriptive statistics and membership counts of one original measurement cohort."""
+
+    #: Original censored or unmeasured population declarations.
+    censored_populations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original declared context identity, if available.
+    context_id: str | None = None
+    #: Original association declarations, regardless of their status.
+    declared_associations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original immutable generation.
+    generation: str
+    #: Maximum actual sample value, if any.
+    max_ns: float | None = None
+    #: Mean actual sample value, if any; no change verdict follows from it.
+    mean_ns: float | None = None
+    #: Minimum actual sample value, if any.
+    min_ns: float | None = None
+    #: Original owner population identity.
+    population_id: str
+    #: Actual original sample rows.
+    sample_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original explicitly unavailable, unsupported or unknown association declarations.
+    unavailable_associations: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.censored_populations), v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.declared_associations), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.max_ns), v.optional_key(v.scalar_key)(self.mean_ns), v.optional_key(v.scalar_key)(self.min_ns), v.scalar_key(self.population_id), v.scalar_key(self.sample_count), v.scalar_key(self.unavailable_associations),))
+
+
+class EvidenceMeasurementCohortOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Descriptive statistics and membership counts of one original measurement cohort."""
+
+    #: Original censored or unmeasured population declarations.
+    censored_populations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original declared context identity, if available.
+    context_id: str | None
+    #: Original association declarations, regardless of their status.
+    declared_associations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original immutable generation.
+    generation: str
+    #: Maximum actual sample value, if any.
+    max_ns: float | None
+    #: Mean actual sample value, if any; no change verdict follows from it.
+    mean_ns: float | None
+    #: Minimum actual sample value, if any.
+    min_ns: float | None
+    #: Original owner population identity.
+    population_id: str
+    #: Actual original sample rows.
+    sample_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original explicitly unavailable, unsupported or unknown association declarations.
+    unavailable_associations: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.censored_populations), v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.declared_associations), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.max_ns), v.optional_key(v.scalar_key)(self.mean_ns), v.optional_key(v.scalar_key)(self.min_ns), v.scalar_key(self.population_id), v.scalar_key(self.sample_count), v.scalar_key(self.unavailable_associations),))
+
+
+class EvidenceMeasurementComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Paired or honestly unpaired original measurement cohorts."""
+
+    #: Explicit scope of supported original association.
+    association: str
+    #: Baseline descriptor only when exactly one original cohort exists.
+    baseline: EvidenceMeasurementCohort | None = None
+    #: Baseline original cohorts before display bounds.
+    baseline_cohorts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Candidate descriptor only when exactly one original cohort exists.
+    candidate: EvidenceMeasurementCohort | None = None
+    #: Candidate original cohorts before display bounds.
+    candidate_cohorts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Relevant declared conditions that differ.
+    changed_fields: tuple[str, ...]
+    #: Comparable conditions, incompatible conditions, or unavailable basis.
+    conditions: str
+    #: Exact compatible owner identity or explicitly supplied mapping.
+    correspondence: str
+    #: Revision/build interpretation retained with the assessment.
+    revision_build: str
+    #: Relevant conditions not declared by at least one original owner.
+    unknown_fields: tuple[str, ...]
+    #: Descriptive-only verdict; statistical and causal conclusions are not inferred.
+    verdict: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.association), v.optional_key(v.record_key)(self.baseline), v.scalar_key(self.baseline_cohorts), v.optional_key(v.record_key)(self.candidate), v.scalar_key(self.candidate_cohorts), v.sequence_key(v.scalar_key)(self.changed_fields), v.scalar_key(self.conditions), v.scalar_key(self.correspondence), v.scalar_key(self.revision_build), v.sequence_key(v.scalar_key)(self.unknown_fields), v.scalar_key(self.verdict),))
+
+
+class EvidenceMeasurementComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Paired or honestly unpaired original measurement cohorts."""
+
+    #: Explicit scope of supported original association.
+    association: str
+    #: Baseline descriptor only when exactly one original cohort exists.
+    baseline: EvidenceMeasurementCohortOutput | None
+    #: Baseline original cohorts before display bounds.
+    baseline_cohorts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Candidate descriptor only when exactly one original cohort exists.
+    candidate: EvidenceMeasurementCohortOutput | None
+    #: Candidate original cohorts before display bounds.
+    candidate_cohorts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Relevant declared conditions that differ.
+    changed_fields: tuple[str, ...]
+    #: Comparable conditions, incompatible conditions, or unavailable basis.
+    conditions: str
+    #: Exact compatible owner identity or explicitly supplied mapping.
+    correspondence: str
+    #: Revision/build interpretation retained with the assessment.
+    revision_build: str
+    #: Relevant conditions not declared by at least one original owner.
+    unknown_fields: tuple[str, ...]
+    #: Descriptive-only verdict; statistical and causal conclusions are not inferred.
+    verdict: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.association), v.optional_key(v.record_key)(self.baseline), v.scalar_key(self.baseline_cohorts), v.optional_key(v.record_key)(self.candidate), v.scalar_key(self.candidate_cohorts), v.sequence_key(v.scalar_key)(self.changed_fields), v.scalar_key(self.conditions), v.scalar_key(self.correspondence), v.scalar_key(self.revision_build), v.sequence_key(v.scalar_key)(self.unknown_fields), v.scalar_key(self.verdict),))
+
+
+class EvidenceMeasurementIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact original measurement cohort, without invented invocation membership."""
+
+    #: Original context, including its explicit absence.
+    context_id: str | None = None
+    #: Exact source version.
+    generation: str
+    #: Original declared population identity.
+    population_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.generation), v.scalar_key(self.population_id),))
+
+
+class EvidenceMeasurementIdentityOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact original measurement cohort, without invented invocation membership."""
+
+    #: Original context, including its explicit absence.
+    context_id: str | None
+    #: Exact source version.
+    generation: str
+    #: Original declared population identity.
+    population_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.generation), v.scalar_key(self.population_id),))
+
+
+class EvidenceMeasurementMapping(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit correspondence between two original measurement populations."""
+
+    #: Exact baseline population.
+    baseline: EvidenceMeasurementIdentity
+    #: Exact candidate population.
+    candidate: EvidenceMeasurementIdentity
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.baseline), v.record_key(self.candidate),))
+
+
+class EvidenceMeasurementMappingOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit correspondence between two original measurement populations."""
+
+    #: Exact baseline population.
+    baseline: EvidenceMeasurementIdentityOutput
+    #: Exact candidate population.
+    candidate: EvidenceMeasurementIdentityOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.baseline), v.record_key(self.candidate),))
+
+
+class EvidenceMeasurementSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Cross-side measurement compatibility counts, retaining inconclusive cohorts."""
+
+    #: Pairs with declared and equal relevant conditions; sample association remains separate.
+    comparable: Annotated[int, msgspec.Meta(ge=0)]
+    #: Pairs with at least one different declared condition.
+    incompatible: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact owner/population cohorts examined across both sides.
+    populations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Missing/unknown conditions, absent samples, ambiguity or unpaired populations.
+    unavailable: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cohorts lacking any declared association or reporting unavailable/unsupported association.
+    #: This axis is independent of condition compatibility.
+    unavailable_association_populations: Annotated[int, msgspec.Meta(ge=0)]
+    #: No automatic regression, causality or flakiness verdict is produced.
+    verdict: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.comparable), v.scalar_key(self.incompatible), v.scalar_key(self.populations), v.scalar_key(self.unavailable), v.scalar_key(self.unavailable_association_populations), v.scalar_key(self.verdict),))
+
+
+class EvidenceMemberIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An original source member, never a guessed spelling or timestamp."""
+
+    #: Exact source version.
+    generation: str
+    #: Original owner member.
+    member: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.member),))
+
+
+class EvidenceOutcomeCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Outcome counts retain repeated mixed results without a flakiness verdict."""
+
+    #: Original failures.
+    failures: Annotated[int, msgspec.Meta(ge=0)]
+    #: All other original statuses.
+    other: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit successes.
+    successes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Missing execution, skipped, reused or transferred.
+    unexecuted: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.failures), v.scalar_key(self.other), v.scalar_key(self.successes), v.scalar_key(self.unexecuted),))
+
+
 class EvidenceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact observed location supporting an explanatory statement."""
 
@@ -8649,6 +9374,154 @@ class EvidenceRefOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.generation), v.optional_key(v.scalar_key)(self.metric), v.optional_key(v.record_key)(self.observed_at), v.record_key(self.operation), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.producer), v.optional_key(v.scalar_key)(self.record_sequence), v.optional_key(v.record_key)(self.value),))
+
+
+class EvidenceSectionSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicit finite page of one optional section on the immutable source cut."""
+
+    #: Returned detail rows, 1..=10000.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Continue with the previous next_offset on this same analysis and question.
+    offset: Annotated[int, msgspec.Meta(ge=0)] = 0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset),))
+
+
+class EvidenceSectionSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicit finite page of one optional section on the immutable source cut."""
+
+    #: Returned detail rows, 1..=10000.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Continue with the previous next_offset on this same analysis and question.
+    offset: Annotated[int, msgspec.Meta(ge=0)] = 0
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset),))
+
+
+class EvidenceSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Frozen owner adapter output. Partial source coverage is not a complete test population."""
+
+    #: Boundary codec version.
+    version: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original authority identity.
+    authority: str
+    #: Original owner codec.
+    codec: str
+    #: Original population completeness: complete or partial.
+    coverage: str
+    #: Exact selected member identities, including unreported members.
+    expected_members: tuple[str, ...]
+    #: Compact facts emitted by original readers.
+    facts: tuple[EvidenceFact, ...]
+    #: SHA256 of original authenticated source snapshot bytes.
+    snapshot_digest: str
+    #: Original invocation/snapshot source identity.
+    source_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.authority), v.scalar_key(self.codec), v.scalar_key(self.coverage), v.sequence_key(v.scalar_key)(self.expected_members), v.sequence_key(v.record_key)(self.facts), v.scalar_key(self.snapshot_digest), v.scalar_key(self.source_id),))
+
+
+class EvidenceSubjectComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A paired cohort or an honestly unpaired original population."""
+
+    #: Original baseline identity.
+    baseline: EvidenceSubjectIdentity | None = None
+    #: Full baseline outcome counts.
+    baseline_outcomes: EvidenceOutcomeCounts
+    #: Original candidate identity.
+    candidate: EvidenceSubjectIdentity | None = None
+    #: Full candidate outcome counts.
+    candidate_outcomes: EvidenceOutcomeCounts
+    #: Classification never rewrites either original outcome.
+    classification: str
+    #: Deterministic reference within this exact comparison cut.
+    cohort: str
+    #: Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.
+    correspondence: str | None = None
+    #: Repeated success and failure occurred in at least one side; no statistical inference.
+    mixed_outcomes: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.baseline), v.record_key(self.baseline_outcomes), v.optional_key(v.record_key)(self.candidate), v.record_key(self.candidate_outcomes), v.scalar_key(self.classification), v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.correspondence), v.scalar_key(self.mixed_outcomes),))
+
+
+class EvidenceSubjectComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A paired cohort or an honestly unpaired original population."""
+
+    #: Original baseline identity.
+    baseline: EvidenceSubjectIdentityOutput | None
+    #: Full baseline outcome counts.
+    baseline_outcomes: EvidenceOutcomeCounts
+    #: Original candidate identity.
+    candidate: EvidenceSubjectIdentityOutput | None
+    #: Full candidate outcome counts.
+    candidate_outcomes: EvidenceOutcomeCounts
+    #: Classification never rewrites either original outcome.
+    classification: str
+    #: Deterministic reference within this exact comparison cut.
+    cohort: str
+    #: Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.
+    correspondence: str | None
+    #: Repeated success and failure occurred in at least one side; no statistical inference.
+    mixed_outcomes: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.baseline), v.record_key(self.baseline_outcomes), v.optional_key(v.record_key)(self.candidate), v.record_key(self.candidate_outcomes), v.scalar_key(self.classification), v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.correspondence), v.scalar_key(self.mixed_outcomes),))
+
+
+class EvidenceSubjectIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Owner identity of one cohort. Original binary IDs are never normalized away."""
+
+    #: Compatible owner authority.
+    authority: str
+    #: Original binary ID, required for automatic Rust pairing.
+    binary_id: str | None = None
+    #: Exact codec; codec migrations need an explicit mapping.
+    codec: str
+    #: Declared owning crate.
+    crate_name: str | None = None
+    #: Rust or Python test category.
+    kind: str
+    #: Original owner test identity.
+    test_id: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.authority), v.optional_key(v.scalar_key)(self.binary_id), v.scalar_key(self.codec), v.optional_key(v.scalar_key)(self.crate_name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.test_id),))
+
+
+class EvidenceSubjectIdentityOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Owner identity of one cohort. Original binary IDs are never normalized away."""
+
+    #: Compatible owner authority.
+    authority: str
+    #: Original binary ID, required for automatic Rust pairing.
+    binary_id: str | None
+    #: Exact codec; codec migrations need an explicit mapping.
+    codec: str
+    #: Declared owning crate.
+    crate_name: str | None
+    #: Rust or Python test category.
+    kind: str
+    #: Original owner test identity.
+    test_id: str | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.authority), v.optional_key(v.scalar_key)(self.binary_id), v.scalar_key(self.codec), v.optional_key(v.scalar_key)(self.crate_name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.test_id),))
+
+
+class EvidenceSubjectMapping(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit correspondence supplied by the caller, including a renamed subject."""
+
+    #: Original baseline member.
+    baseline: EvidenceMemberIdentity
+    #: Original candidate member.
+    candidate: EvidenceMemberIdentity
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.baseline), v.record_key(self.candidate),))
 
 
 class ExecutorMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -29855,8 +30728,48 @@ __all__ = [
     "EvaluatorInterpreted",
     "EventSource",
     "EventSourceOutput",
+    "EvidenceComparison",
+    "EvidenceComparisonDenominator",
+    "EvidenceComparisonFact",
+    "EvidenceComparisonMember",
+    "EvidenceComparisonMemberOutput",
+    "EvidenceComparisonOutput",
+    "EvidenceComparisonPage",
+    "EvidenceComparisonPage2",
+    "EvidenceComparisonPage2Output",
+    "EvidenceComparisonPage3",
+    "EvidenceComparisonPage3Output",
+    "EvidenceComparisonPage4",
+    "EvidenceComparisonPage4Output",
+    "EvidenceComparisonPageOutput",
+    "EvidenceComparisonRequest",
+    "EvidenceComparisonRequestOutput",
+    "EvidenceComparisonSelection",
+    "EvidenceComparisonSelectionOutput",
+    "EvidenceComparisonSource",
+    "EvidenceComparisonSummary",
+    "EvidenceFact",
+    "EvidenceMeasurementCohort",
+    "EvidenceMeasurementCohortOutput",
+    "EvidenceMeasurementComparison",
+    "EvidenceMeasurementComparisonOutput",
+    "EvidenceMeasurementIdentity",
+    "EvidenceMeasurementIdentityOutput",
+    "EvidenceMeasurementMapping",
+    "EvidenceMeasurementMappingOutput",
+    "EvidenceMeasurementSummary",
+    "EvidenceMemberIdentity",
+    "EvidenceOutcomeCounts",
     "EvidenceRef",
     "EvidenceRefOutput",
+    "EvidenceSectionSelection",
+    "EvidenceSectionSelectionOutput",
+    "EvidenceSnapshot",
+    "EvidenceSubjectComparison",
+    "EvidenceSubjectComparisonOutput",
+    "EvidenceSubjectIdentity",
+    "EvidenceSubjectIdentityOutput",
+    "EvidenceSubjectMapping",
     "ExecutorMetricsSnapshot",
     "ExecutorMetricsSnapshotOutput",
     "ExplanatoryRequirement",
@@ -31077,4 +31990,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"
+SCHEMA_SET_FINGERPRINT = "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67"

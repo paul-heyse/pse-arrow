@@ -36,8 +36,8 @@ selection. Offline and canonical consumers need the same interpretation under bo
 ## Options
 
 Retain single-population queries alone, compare in host middleware, or extend the existing native
-analysis. Select the native extension: sources parse once, existing relational execution owns the
-joins and denominators, and consumer adapters need no duplicate semantic model.
+analysis. Select the native extension: sources parse once, existing native analysis owns correspondence and relational
+denominators, and consumer adapters need no duplicate semantic model.
 
 ## Outcome
 

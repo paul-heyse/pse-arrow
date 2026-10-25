@@ -29,12 +29,14 @@ class Worker:
     operations: frozenset[str]
     environment: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
+    launch: Literal["environment", "inherited"] = "environment"
 
 
 WORKERS = {
     "prep-import": Worker(
         "scripts.capabilities.preparation_worker",
-        frozenset({"import-check"}),
+        frozenset({"import-check", "currency-check"}),
+        launch="inherited",
     ),
     "prep-dev": Worker(
         "scripts.capabilities.preparation_worker",
@@ -79,7 +81,8 @@ WORKERS = {
     "native": Worker(
         "scripts.capabilities.native_worker",
         frozenset(
-            {"source_admit", "preparation_discover", "telemetry_profile_capture"}
+            {
+                "evidence_compare","source_admit", "preparation_discover", "telemetry_profile_capture"}
         ),
         ("--native=solver,klu,isolation,uno,petsc",),
     ),

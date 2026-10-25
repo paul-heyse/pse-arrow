@@ -690,6 +690,10 @@ class ManagedRustSelectionTests(unittest.TestCase):
         observer.pop("PSE_NATIVE_SETUP_PYTHON")
         identity = native_tests.rust_environment_identity
         self.assertEqual(identity(parent), identity(observer))
+        self.assertEqual(
+            identity(parent),
+            identity({**observer, "PSE_NATIVE_TELEMETRY_SETTINGS": "request-observation"}),
+        )
         self.assertNotEqual(
             identity(parent), identity({**observer, "CARGO_BUILD_JOBS": "8"})
         )

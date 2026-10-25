@@ -189,6 +189,8 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         assert!(reader.source_cut(&[first.generation.clone(),changed_receipt.generation.clone()],false).await.is_err());
         assert_eq!(reader.source_cut(&[first.generation.clone(),changed_receipt.generation],true).await?.len(),2);
         let history=reader.generations(None,64).await?;assert_eq!(history["generations"].as_array().unwrap().len(),3);
+        #[cfg(feature="evidence-query")]
+        crate::evidence_query::exercise_indexed_comparison(&importer,&reader).await?;
         // A staged generation with no complete membership never becomes selected.
         let (key,digest)= {let mut interrupted=source.clone();interrupted.source_id="interrupted".into();interrupted.identity()?};
         let row=pse_model::generated::runtime::evidence_generations::Row{key:key.clone(),authority:"owner".into(),codec:"owner-v1".into(),source_id:"interrupted".into(),snapshot_digest:"c".repeat(64),content_digest:digest,coverage:pse_model::generated::enums::EvidenceCoverage::Partial,expected_members:2,state:pse_model::generated::enums::EvidenceGenerationState::Staged};

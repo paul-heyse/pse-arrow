@@ -223,6 +223,12 @@ def parser() -> argparse.ArgumentParser:
         selected.add_argument(
             "--invocations", action="append", default=[], metavar="CASE=JSONL"
         )
+    for command in ("compare-offline", "compare-indexed"):
+        comparison = commands.add_parser(command)
+        comparison.add_argument("--request", type=Path, required=True)
+        comparison.add_argument("--observations", type=Path)
+        if command == "compare-offline":
+            comparison.add_argument("--input", type=Path, action="append", required=True)
     for command in ("offline", "analyze"):
         selected = commands.add_parser(command)
         selected.add_argument(
@@ -322,8 +328,12 @@ def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceS
     return evidence_sources.host_snapshot(path)
 
 
-def run_offline(tool: Path, arguments: list[str], *, deadline: float) -> int:
+def run_offline(
+    tool: Path, arguments: list[str], *, deadline: float, operation: str = "offline"
+) -> int:
     """Dispatch an explicitly built tool without configuration, service or build effects."""
+    if operation not in {"offline", "compare-offline"}:
+        raise ValueError("unsupported supplied-only evidence operation")
     information = tool.stat()
     if not stat.S_ISREG(information.st_mode) or not os.access(tool, os.X_OK):
         raise ValueError(
@@ -341,7 +351,7 @@ def run_offline(tool: Path, arguments: list[str], *, deadline: float) -> int:
         }
     }
     return subprocess.run(
-        [str(tool), "evidence", "offline", *arguments],
+        [str(tool), "evidence", operation, *arguments],
         check=False,
         timeout=surreal_server.remaining(deadline),
         env=environment,
@@ -456,6 +466,13 @@ def main(argv: list[str] | None = None) -> int:
             value = selected_detail(args)
             print(json.dumps(value, sort_keys=True, allow_nan=False))
             return 0
+        if args.command == "compare-offline":
+            arguments = ["--request", str(args.request.absolute())]
+            for source in args.input:
+                arguments += ["--input", str(source.absolute())]
+            if args.observations:
+                arguments += ["--observations", str(args.observations.absolute())]
+            return run_offline(args.tool.absolute(), arguments, deadline=deadline, operation="compare-offline")
         if args.command == "offline":
             return analyze(args, deadline=deadline)
         if args.state is None:
@@ -473,6 +490,11 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             return 0
+        if args.command == "compare-indexed":
+            arguments = ["compare-indexed", "--request", str(args.request.absolute())]
+            if args.observations:
+                arguments += ["--observations", str(args.observations.absolute())]
+            return run_native(state, args.tool.absolute(), arguments, deadline=deadline)
         if args.command == "analyze":
             return analyze(args, deadline=deadline)
         arguments = [args.command]

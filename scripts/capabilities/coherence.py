@@ -23,6 +23,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import Middleware
 
 from scripts.capabilities.source_modules import module_candidates
+from scripts.capabilities import execution_basis
 from scripts.capabilities.workers import WORKERS
 
 if TYPE_CHECKING:
@@ -173,6 +174,8 @@ class Interface:
         self.sources = sources
         self.revision = catalogue.revision
         self.common = frozenset(path for path in COMMON if path in sources.sources)
+        self.tools = catalogue.tools
+        self.wires = {name: execution_basis.wire(tool) for name, tool in catalogue.tools.items()}
         self.operations = {}
         for name, tool in catalogue.tools.items():
             spec = catalogue.capabilities[name]
@@ -195,9 +198,14 @@ class Interface:
 
     def status(self, capability: str | None = None) -> dict[str, JsonValue]:
         paths = self.common | self.operations.get(capability, frozenset())
-        changed = self.sources.check(paths)
+        changed = list(self.sources.check(paths))
+        if capability in self.tools and execution_basis.wire(self.tools[capability]) != self.wires[capability]:
+            changed.append("exposed-tool-contract:" + capability)
         return {
             "revision": self.revision,
+            "checkout": str(self.sources.root),
+            "interpreter": str(self.sources.root / ".venv/bin/python"),
+            "operation_wire_revision": execution_basis.digest(self.wires[capability]) if capability in self.wires else None,
             "restart_required": bool(changed),
             "changed_serving_sources": list(changed),
             "scope": "known local serving sources; native/dependency readiness remains operation-owned",
@@ -225,6 +233,14 @@ class RestartMiddleware(Middleware):
         # The invokers call canonical dispatch again, where the selected owner is fenced.
         if name in self.interface.operations:
             self.interface.require(name)
+            paths = self.interface.common | self.interface.operations[name]
+            definition = execution_basis.Definition(
+                checkout=str(self.interface.sources.root), operation=name,
+                wire_revision=execution_basis.digest(self.interface.wires[name]),
+                sources={path: self.interface.sources.sources[path].digest for path in paths},
+            )
+            with execution_basis.selected(definition):
+                return await call_next(context)
         return await call_next(context)
 
 

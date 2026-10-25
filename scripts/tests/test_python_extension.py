@@ -405,6 +405,161 @@ class PreparationCurrencyTests(unittest.TestCase):
             stage, "dev", "dev", self.environment, validated=True
         )
 
+    def record_extension(self) -> None:
+        python_extension.publish_receipt(
+            python_extension.stage_receipt("extension", self.environment),
+            {
+                "inputs": self.inputs(),
+                "artifact": python_extension.capture(self.environment),
+            },
+        )
+
+    def currency(self) -> python_extension.ExtensionCurrency:
+        return python_extension.currency_check(self.environment, mode="dev")
+
+    def test_read_only_currency_reuses_owner_basis_without_install_or_publication(self) -> None:
+        self.record_extension()
+        with (
+            patch.object(python_extension.subprocess, "call") as install,
+            patch.object(python_extension, "publish_receipt") as publish,
+        ):
+            first = self.currency()
+            second = self.currency()
+        self.assertEqual(first.state, "current")
+        self.assertEqual(first, second)
+        assert first.artifact is not None
+        self.assertEqual(first.artifact.sha256, "installed-transformed-bytes")
+        self.assertTrue(first.receipt_recorded)
+        self.assertIsNotNone(first.source_basis)
+        install.assert_not_called()
+        publish.assert_not_called()
+
+    def test_installed_currency_uses_owner_profile_without_guessing_dev(self) -> None:
+        with patch.object(python_extension.subprocess, "call", return_value=0):
+            python_extension.extension_prepare("dev", "release", self.environment)
+        self.assertEqual(self.currency().state, "stale")
+        current = python_extension.currency_check_installed(self.environment, mode="dev")
+        self.assertEqual(current.state, "current")
+        self.assertEqual(current.profile, "release")
+
+    def test_installed_currency_rejects_malformed_profile_without_probe_or_import(self) -> None:
+        self.record_extension()
+        path = python_extension.stage_receipt("extension", self.environment)
+        previous = python_extension.read_receipt(path)
+        inputs = previous.get("inputs")
+        assert isinstance(inputs, dict)
+        for profile in (None, 7, "", "secret/path", "x" * 65):
+            inputs["profile"] = profile
+            python_extension.publish_receipt(path, previous)
+            with (
+                patch.object(python_extension, "preparation_inputs") as probe,
+                patch.object(python_extension, "capture") as imported,
+            ):
+                result = python_extension.currency_check_installed(self.environment, mode="dev")
+            self.assertEqual(result.state, "unknown")
+            self.assertIsNone(result.profile)
+            self.assertNotIn("secret/path", result.model_dump_json())
+            probe.assert_not_called()
+            imported.assert_not_called()
+
+    def test_explicit_preparation_then_fresh_check_recovers_current_currency(self) -> None:
+        with patch.object(python_extension.subprocess, "call", return_value=0) as install:
+            self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment).status, "prepared")
+            self.assertEqual(self.currency().state, "current")
+            (self.root / "crates/pse-py/src/lib.rs").write_text("new implementation")
+            self.assertEqual(self.currency().state, "stale")
+            self.assertEqual(install.call_count, 1)
+            self.assertEqual(python_extension.extension_prepare("dev", "dev", self.environment).status, "prepared")
+            self.assertEqual(self.currency().state, "current")
+        self.assertEqual(install.call_count, 2)
+
+    def test_same_schema_rust_change_is_stale_before_import_and_does_not_cache(self) -> None:
+        self.record_extension()
+        current = self.currency()
+        path = self.root / "crates/pse-py/src/lib.rs"
+        path.write_text("same schema; changed implementation")
+        with patch.object(python_extension, "capture") as imported:
+            stale = self.currency()
+        self.assertEqual(stale.state, "stale")
+        self.assertEqual(stale.cause, "inputs-changed")
+        self.assertNotEqual(stale.source_basis, current.source_basis)
+        imported.assert_not_called()
+        path.write_text("module")
+        self.assertEqual(self.currency().state, "current")
+
+    def test_relevant_configuration_and_artifact_replacement_refuse_currency(self) -> None:
+        self.record_extension()
+        (self.root / ".cargo").mkdir()
+        (self.root / ".cargo/config.toml").write_text('[build]\nrustflags=["--cfg=changed"]')
+        self.assertEqual(self.currency().cause, "inputs-changed")
+        (self.root / ".cargo/config.toml").unlink()
+        with patch.object(
+            python_extension,
+            "capture",
+            return_value={"binary": "/installed/native.so", "sha256": "replaced", "features": ["force-validate"]},
+        ):
+            replaced = self.currency()
+        self.assertEqual(replaced.state, "stale")
+        self.assertEqual(replaced.cause, "artifact-changed")
+
+    def test_missing_and_unsupported_evidence_never_imports_or_claims_current(self) -> None:
+        with (
+            patch.object(python_extension, "preparation_inputs") as inputs,
+            patch.object(python_extension, "capture") as imported,
+        ):
+            self.assertEqual(self.currency().state, "unknown")
+            python_extension.publish_receipt(
+                python_extension.stage_receipt("extension", self.environment),
+                {"inputs": {"schema": "future-inputs"}, "artifact": {"binary": "/installed/native.so", "sha256": "recorded", "features": []}},
+            )
+            self.assertEqual(self.currency().state, "unsupported")
+        inputs.assert_not_called()
+        imported.assert_not_called()
+        self.record_extension()
+        self.environment["PYO3_CROSS_LIB_DIR"] = "private unsupported selection"
+        result = self.currency()
+        self.assertEqual(result.state, "unsupported")
+        self.assertNotIn("private unsupported selection", result.model_dump_json())
+
+    def test_unavailable_inputs_and_imports_redact_owner_errors(self) -> None:
+        self.record_extension()
+        with patch.object(python_extension, "preparation_inputs", side_effect=OSError("private tool path")):
+            unavailable = self.currency()
+        self.assertEqual(unavailable.state, "unknown")
+        self.assertEqual(unavailable.cause, "inputs-unavailable")
+        self.assertNotIn("private tool path", unavailable.model_dump_json())
+        with patch.object(python_extension, "capture", side_effect=ValueError("private import input")):
+            unavailable = self.currency()
+        self.assertEqual(unavailable.cause, "import-unavailable")
+        self.assertNotIn("private import input", unavailable.model_dump_json())
+
+    def test_native_currency_never_prepares_unadmitted_providers(self) -> None:
+        self.record_extension()
+        with (
+            patch.object(native_operation, "remembered", return_value=None),
+            patch.object(python_extension.subprocess, "check_output") as probe,
+            patch.object(python_extension, "capture") as imported,
+            patch.object(native_operation, "environment") as prepare,
+        ):
+            result = python_extension.currency_check(self.environment, mode="native")
+        self.assertEqual(result.state, "unsupported")
+        probe.assert_not_called()
+        imported.assert_not_called()
+        prepare.assert_not_called()
+
+    def test_preparation_observation_disables_rustup_installation_without_changing_basis(self) -> None:
+        original = python_extension.subprocess.check_output
+        with patch.object(python_extension.subprocess, "check_output", wraps=original) as probe:
+            result = self.inputs()
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertTrue(probe.call_args_list)
+        for call in probe.call_args_list:
+            if call.args[0][0] != "git":
+                self.assertEqual(call.kwargs["env"]["RUSTUP_AUTO_INSTALL"], "0")
+        self.assertNotIn("RUSTUP_AUTO_INSTALL", self.environment)
+        self.assertNotIn("RUSTUP_AUTO_INSTALL", result["environment"])
+
     def test_real_source_currency_separates_pure_python_stub_and_rust_inputs(
         self,
     ) -> None:

@@ -75,6 +75,11 @@ impl From<surrealdb::Error> for EvidenceError {
         Self::Transport(e.into())
     }
 }
+impl pse_diagnostics::TypedDiagnostic for EvidenceError {
+    fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
+        Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure)
+    }
+}
 fn config(message: impl Into<String>) -> EvidenceError {
     EvidenceError::Configuration(message.into())
 }
@@ -258,7 +263,7 @@ impl ToolingOptions {
     }
 }
 /// One compact authentic owner fact, without raw bytes or a lifetime grant.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceFact {
     /// Original stable member identity.
@@ -328,7 +333,7 @@ impl EvidenceFact {
     }
 }
 /// Frozen owner adapter output. Partial source coverage is not a complete test population.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceSnapshot {
     /// Boundary codec version.

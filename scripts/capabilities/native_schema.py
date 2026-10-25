@@ -239,6 +239,9 @@ class SchemaSet:
             nullable = (
                 isinstance(alternatives, list) and {"type": "null"} in alternatives
             )
+            if original.get("type") == "array":
+                fields[field] = {**original, "items": {"$ref": identity}}
+                continue
             fields[field] = (
                 {"anyOf": [{"$ref": identity}, {"type": "null"}], "default": None}
                 if nullable

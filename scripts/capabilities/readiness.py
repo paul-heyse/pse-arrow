@@ -54,17 +54,19 @@ class CapabilityReadiness(Contract):
     operation_exercised: ReadinessFact
     receipts: list[ReceiptObservation] = Field(default_factory=list)
     imported_artifact: python_extension.ExtensionArtifact | None = None
+    native_currency: python_extension.ExtensionCurrency | None = None
 
 
 class ReadinessCheckRequest(Contract):
     capability: Identifier
     checks: list[
-        Literal["import-compatible", "selected-service", "language-provider"]
-    ] = Field(min_length=1, max_length=3)
+        Literal["import-compatible", "native-currency", "selected-service", "language-provider"]
+    ] = Field(min_length=1, max_length=4)
     language: Literal["python", "rust"] | None = None
     file_path: str | None = Field(default=None, min_length=1)
     mode: python_extension.Mode | None = None
     validated: bool | None = None
+    profile: python_extension.Profile = "dev"
 
     @model_validator(mode="after")
     def distinct_checks(self) -> ReadinessCheckRequest:
@@ -176,7 +178,7 @@ def bindings(
     async def capability_readiness_check(
         request: ReadinessCheckRequest,
     ) -> CapabilityReadiness:
-        """Explicitly check only selected live prerequisites of one capability. Imports use an admitted fixed child in the inherited endpoint environment with actual byte/origin/features fences; selected toolkit service and language checks use their original specialist owner. Language checks need an explicit language and file_path. No build, installation, synchronization, native provider preparation or source publication. Request-specific stores remain unknown without their real request; a check never qualifies the selected operation."""
+        """Explicitly check selected prerequisites without preparation. native-currency compares existing supported preparation inputs and actual imported bytes for the selected mode/profile/validation, separately from historical preparation and import compatibility. Missing provider admission is unsupported, never repaired. Imports and currency use a fixed child in the inherited endpoint environment; service and language checks use their original owners. Language checks need language and file_path. No build, installation, synchronization, provider preparation or source publication. A check never qualifies the selected operation."""
         capability = selected(request.capability)
         result = passive(root, capability)
         update: dict[str, object] = {}
@@ -201,7 +203,9 @@ def bindings(
                 )
             ):
                 raise refusal("pse.readiness.language_selection_required")
-        if "import-compatible" in request.checks:
+        mode = None
+        validated = None
+        if set(request.checks) & {"import-compatible", "native-currency"}:
             extensions = [
                 item
                 for item in capability.requirements
@@ -227,6 +231,33 @@ def bindings(
                 or (requirement.validated is True and request.validated is False)
             ):
                 raise refusal("pse.readiness.extension_selection_required")
+        if "native-currency" in request.checks:
+            assert mode is not None and validated is not None
+            try:
+                currency = await preparation.currency_check(
+                    root, mode, profile=request.profile, validated=validated
+                )
+            except (
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                subprocess.SubprocessError,
+                ToolError,
+            ):
+                currency = python_extension.ExtensionCurrency(
+                    state="unknown",
+                    checkout=str(root.resolve()),
+                    interpreter=str((root / ".venv/bin/python").absolute()),
+                    mode=mode,
+                    profile=request.profile,
+                    validated=validated,
+                    cause="check-unavailable",
+                    remedy="Inspect the selected existing environment and preparation owner; explicitly prepare if required, then restart or reattach and check again. No preparation or effect replay was attempted.",
+                )
+            update["native_currency"] = currency
+        if "import-compatible" in request.checks:
+            assert mode is not None and validated is not None
             try:
                 imported = await preparation.import_check(
                     root, mode, validated=validated
@@ -335,10 +366,12 @@ def bindings(
             owner="scripts/capabilities/readiness.py",
             source="scripts/capabilities/readiness.py",
             exposure="tool",
-            worker_calls=() if read_only else tuple(preparation.IMPORT_CALLS.values()),
+            worker_calls=()
+            if read_only
+            else (*preparation.IMPORT_CALLS.values(), preparation.CURRENCY_CALL),
             effects="Read declared requirements and existing owner receipt metadata only."
             if read_only
-            else "Explicit selected live import or specialist prerequisite checks; no extension build, source synchronization or stub publication.",
+            else "Explicit selected native artifact currency, import or specialist prerequisite checks; no extension build, provider preparation, source synchronization or stub publication.",
         )
         tool.tags.update(spec.tags)
         specs.append(spec)

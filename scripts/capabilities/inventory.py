@@ -801,6 +801,7 @@ def inventory(
             ),
         ),
         "qualify-change": (
+            step("integration", "Inspect explicit ownership, conflicts, producer relationships and proposed commit selection without changing Git or running checks.", "workspace_integration_view", default=False),
             step(
                 "select",
                 "Describe the relevant assessment and test closure before choosing correctness scope.",
@@ -835,6 +836,7 @@ def inventory(
             ),
         ),
         "investigate-evidence": (
+            step("paired-comparison", "Compare explicit native source cuts and exact correspondence, retaining denominators and independent detail completeness.", "native_evidence_compare", default=False),
             step(
                 "source",
                 "Read attributed original source evidence with explicit completeness.",

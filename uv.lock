@@ -2847,6 +2847,7 @@ dependencies = [
     { name = "cattrs" },
     { name = "msgspec" },
     { name = "pyarrow" },
+    { name = "referencing" },
 ]
 
 [package.optional-dependencies]
@@ -3024,6 +3025,7 @@ requires-dist = [
     { name = "numpy", marker = "python_full_version >= '3.12' and extra == 'array'", specifier = "==2.5.3" },
     { name = "numpy", marker = "python_full_version < '3.12' and extra == 'array'", specifier = "==2.4.6" },
     { name = "pyarrow", specifier = "==25.0.1" },
+    { name = "referencing", specifier = "==0.37.0" },
 ]
 provides-extras = ["array"]
 

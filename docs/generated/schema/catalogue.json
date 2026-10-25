@@ -1219,6 +1219,78 @@
     },
     {
       "direction": "input",
+      "exported_name": "EvidenceComparison",
+      "name": "EvidenceComparison",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: evidence_query :: EvidenceComparison",
+      "schema_path": "docs/generated/schema/evidence-comparison.input.schema.json",
+      "schema_sha256": "ddf6b24e381c3fd149f695e9bb8b814c35170f9c6bc9e4d347024a141af37df9",
+      "slug": "evidence-comparison",
+      "version": 1,
+      "wire": "Native"
+    },
+    {
+      "direction": "output",
+      "exported_name": "EvidenceComparisonOutput",
+      "name": "EvidenceComparison",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: evidence_query :: EvidenceComparison",
+      "schema_path": "docs/generated/schema/evidence-comparison.output.schema.json",
+      "schema_sha256": "b899f1ecbabf5957eca7ea2105c23bc3699e60384815f768d4dc807257ca9184",
+      "slug": "evidence-comparison",
+      "version": 1,
+      "wire": "Native"
+    },
+    {
+      "direction": "input",
+      "exported_name": "EvidenceComparisonRequest",
+      "name": "EvidenceComparisonRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: evidence_query :: EvidenceComparisonRequest",
+      "schema_path": "docs/generated/schema/evidence-comparison-request.input.schema.json",
+      "schema_sha256": "c04e4f836adee3441520f8c73566941e182b5d252aa98de996b4b884754edcfc",
+      "slug": "evidence-comparison-request",
+      "version": 1,
+      "wire": "Native"
+    },
+    {
+      "direction": "output",
+      "exported_name": "EvidenceComparisonRequestOutput",
+      "name": "EvidenceComparisonRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: evidence_query :: EvidenceComparisonRequest",
+      "schema_path": "docs/generated/schema/evidence-comparison-request.output.schema.json",
+      "schema_sha256": "9c3ebbb95ce74b5ef4ee7eb6565d6117da9a3156d5459409881af2acf8b531ed",
+      "slug": "evidence-comparison-request",
+      "version": 1,
+      "wire": "Native"
+    },
+    {
+      "direction": "input",
+      "exported_name": "EvidenceSnapshot",
+      "name": "EvidenceSnapshot",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: evidence :: EvidenceSnapshot",
+      "schema_path": "docs/generated/schema/evidence-snapshot.input.schema.json",
+      "schema_sha256": "173b19090caa73b22ce73089931a7d1aae0ec4bc1955cd77e1ee50305271b7ac",
+      "slug": "evidence-snapshot",
+      "version": null,
+      "wire": "Native"
+    },
+    {
+      "direction": "output",
+      "exported_name": "EvidenceSnapshot",
+      "name": "EvidenceSnapshot",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_operations :: evidence :: EvidenceSnapshot",
+      "schema_path": "docs/generated/schema/evidence-snapshot.output.schema.json",
+      "schema_sha256": "173b19090caa73b22ce73089931a7d1aae0ec4bc1955cd77e1ee50305271b7ac",
+      "slug": "evidence-snapshot",
+      "version": null,
+      "wire": "Native"
+    },
+    {
+      "direction": "input",
       "exported_name": "FitDeclarations",
       "name": "FitDeclarations",
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
@@ -5310,6 +5382,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f",
+  "schema_set_fingerprint": "blake3:c9341b9e5a86495fc5bfdcda1394b3f0311d1e738deedf5bc1feeda2808e9c67",
   "version": 1
 }

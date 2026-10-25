@@ -52,6 +52,7 @@ dependencies = [
   "attrs==26.1.0",
   "cattrs==26.2.0",
   "msgspec==0.21.1",
+  "referencing==0.37.0",
 ]
 
 [project.optional-dependencies]

@@ -53,6 +53,22 @@ enum EvidenceCommand {
         #[arg(long)]
         observations: Option<PathBuf>,
     },
+    /// Compare explicitly supplied source cuts without configuration or a service.
+    CompareOffline {
+        #[arg(long, required = true)]
+        input: Vec<PathBuf>,
+        #[arg(long)]
+        request: PathBuf,
+        #[arg(long)]
+        observations: Option<PathBuf>,
+    },
+    /// Compare exact activated generations with the same native paired-evidence kernel.
+    CompareIndexed {
+        #[arg(long)]
+        request: PathBuf,
+        #[arg(long)]
+        observations: Option<PathBuf>,
+    },
     /// Ask the same finite question over explicit activated multi-source generations.
     Analyze {
         #[arg(long, required = true)]
@@ -226,6 +242,18 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
         println!("{}", serde_json::to_string(&output)?);
         return Ok(());
     }
+    if let EvidenceCommand::CompareOffline { input, request, observations } = &args.command {
+        let snapshots = input.iter()
+            .map(|path| pse_operations::evidence_query::EvidenceAnalysis::read_snapshot(path))
+            .collect::<Result<Vec<_>, _>>()?;
+        let request = read_comparison_request(request)?;
+        let observations = read_observations(observations.as_deref())?;
+        let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+        let output = runtime.block_on(evidence::within_allowance(deadline, analysis.compare(&request, &observations)))?;
+        println!("{}", serde_json::to_string(&output)?);
+        return Ok(());
+    }
     let state = args
         .state
         .as_deref()
@@ -302,6 +330,14 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                                     evidence::EvidenceError::Configuration(e.to_string())
                                 })?;
                             analysis.ask(&question, &observations).await
+                        }
+                        EvidenceCommand::CompareIndexed { request, observations } => {
+                            let request = read_comparison_request(&request).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
+                            let generations = request.baseline.generations.iter().chain(&request.candidate.generations).cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect::<Vec<_>>();
+                            let snapshots = store.source_cut(&generations, true).await?;
+                            let observations = read_observations(observations.as_deref()).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
+                            let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
+                            serde_json::to_value(analysis.compare(&request, &observations).await?).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))
                         }
                         EvidenceCommand::Import { input } => {
                             let metadata = std::fs::metadata(&input).map_err(|e| {
@@ -398,4 +434,8 @@ fn supplied_document(path: &Path, limit: u64) -> Result<Vec<u8>> {
         "bounded explicit document required"
     );
     Ok(std::fs::read(path)?)
+}
+
+fn read_comparison_request(path: &Path) -> Result<pse_operations::evidence_query::EvidenceComparisonRequest> {
+    Ok(pse_operations::evidence_query::EvidenceComparisonRequest::decode_json(&supplied_document(path, 4 << 20)?)?)
 }

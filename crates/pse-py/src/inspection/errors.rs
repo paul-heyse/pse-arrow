@@ -258,6 +258,11 @@ impl ReportSource for pse_columnar::CanonError {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
     }
 }
+impl ReportSource for pse_operations::evidence::EvidenceError {
+    fn report_boundary(&self) -> BoundaryDiagnostic {
+        pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
+    }
+}
 impl ReportSource for pse_operations::canonical::CanonicalError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
         pse_model::diagnostic::project_typed(self, DiagnosticStage::Workflow)
