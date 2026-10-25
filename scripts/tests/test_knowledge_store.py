@@ -236,6 +236,65 @@ class KnowledgeStoreTests(unittest.TestCase):
                 any(item["subject_id"] is None for item in result["excerpts"])
             )
 
+    def test_actual_native_stub_producers_share_one_attributed_governing_extent(
+        self,
+    ) -> None:
+        root = Path(__file__).resolve().parents[2]
+        artifact = "generated_artifact:python/pse/_native.pyi"
+        projection = knowledge_store.workspace_domains.query(
+            knowledge_store.workspace_domain_contracts.parse_query(
+                {
+                    "concept": "generated-output",
+                    "identity": "python/pse/_native.pyi",
+                }
+            ),
+            root=root,
+        )
+        assert projection["complete"], projection["omissions"]
+        expected = {
+            (
+                f"declaration:{kind}:_native",
+                "generator:xtask/src/codegen/python_stubs.rs#run",
+                artifact,
+            )
+            for kind in (
+                "pyo3_exception_supplement",
+                "pyo3_metadata",
+                "pyo3_module",
+            )
+        }
+        assert {
+            (row["declaration_id"], row["generator_id"], row["artifact_id"])
+            for row in projection["productions"]
+        } == expected
+        extents = [
+            row
+            for row in projection["section_ranges"]
+            if row["subject_id"] == "contract:21.5"
+        ]
+        assert len(extents) == 1
+        extent = extents[0]
+        selected_end = min(extent["end_line"], extent["start_line"] + 239)
+        corpus = knowledge_store.corpus(
+            concept="generated-output",
+            identity="python/pse/_native.pyi",
+            root=root,
+            ranges={extent["source_id"]: (extent["start_line"], selected_end)},
+        )
+        attributed = [
+            row
+            for row in corpus["excerpts"]
+            if row["subject_id"] == "contract:21.5"
+        ]
+        assert attributed
+        assert len({row["id"] for row in corpus["excerpts"]}) == len(corpus["excerpts"])
+        assert len(attributed) == (selected_end - extent["start_line"]) // 40 + 1
+        assert all(row["source_id"] == extent["source_id"] for row in attributed)
+        assert {
+            (row["declaration_id"], row["generator_id"], row["artifact_id"])
+            for row in corpus["productions"]
+        } == expected
+
     def test_exact_section_corpus_selects_its_actual_later_owner_range(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

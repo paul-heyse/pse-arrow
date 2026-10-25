@@ -408,6 +408,38 @@ kind = "depends-on"
         )
         self.assertEqual(len(result["productions"]), 1)
 
+    def test_repeated_governing_section_keeps_distinct_nested_attributions(
+        self,
+    ) -> None:
+        path = (
+            self.root / "docs/generated/source-relationships/fixture/relationships.json"
+        )
+        document = json.loads(path.read_text())
+        original = document["relationships"][0]
+        original["contract_sections"] = ["20.5", "20.5.1"]
+        document["relationships"].append(
+            {**original, "declaration_key": "other-alpha@1"}
+        )
+        path.write_text(json.dumps(document))
+        result = domains.query(
+            parse_query(
+                {"concept": "generated-output", "identity": "src/generated/alpha.rs"}
+            ),
+            root=self.root,
+        )
+        assert result["complete"], result["omissions"]
+        assert len(result["productions"]) == 2
+        extents = result["section_ranges"]
+        assert len(extents) == 2
+        assert {row["subject_id"] for row in extents} == {
+            "contract:20.5", "contract:20.5.1"
+        }
+        assert len({(row["start_line"], row["end_line"]) for row in extents}) == 2
+        assert all(
+            row["source_id"] == "docs/authoritative_design/sections/different-name.md"
+            for row in extents
+        )
+
     def test_original_executed_contract_evidence_links_exact_producer_and_keeps_failure(
         self,
     ) -> None:

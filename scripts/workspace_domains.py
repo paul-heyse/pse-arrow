@@ -331,15 +331,18 @@ def _sections(
             if index + 1 < len(numbered)
             else len(fact["text"].splitlines())
         )
-        projection.ranges.append(
-            {
-                "subject_id": subject["id"],
-                "source_id": relative,
-                "section_id": section,
-                "start_line": start,
-                "end_line": end,
-            }
-        )
+        extent = {
+            "subject_id": subject["id"],
+            "source_id": relative,
+            "section_id": section,
+            "start_line": start,
+            "end_line": end,
+        }
+        # Multiple real producers can cite the same governing section. Its
+        # attributed source extent is one fact, independent of incoming edges.
+        # Compare the entire record so distinct spans or attribution survive.
+        if extent not in projection.ranges:
+            projection.ranges.append(extent)
 
 
 def _decisions(projection: _Projection, facts: list[dict]) -> None:

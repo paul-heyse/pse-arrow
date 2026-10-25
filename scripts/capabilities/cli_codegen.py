@@ -103,7 +103,6 @@ def render_tools(
             "from typing import TYPE_CHECKING, Annotated",
             "",
             "from cyclopts import App, Parameter",
-            "",
             "from scripts.capability_cli_runtime import call, parse_value",
             "",
             "if TYPE_CHECKING:",
