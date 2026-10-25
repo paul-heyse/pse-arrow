@@ -308,13 +308,21 @@ def product_result(
         "unreported_count": len(unreported),
         "outcome_counts": dict(Counter(outcomes.values())),
         "observed_stage": observed_stage,
-        "stage_basis": "performing-owner terminal evidence" if observed_stage else "stage not supplied by the selected original owner",
+        "stage_basis": "performing-owner terminal evidence"
+        if observed_stage
+        else "stage not supplied by the selected original owner",
         "owned_drain": evidence.get("owned_drain", "unobserved"),
-        "next_readers": [{
-            "reference": {"kind": "invocation", "invocation": declaration["nonce"], "registry": str(root)},
-            "reason": "Read the same original invocation with a selected subject or protected artifact tail; this suggestion executes no work.",
-            "disposition": "unexecuted",
-        }],
+        "next_readers": [
+            {
+                "reference": {
+                    "kind": "invocation",
+                    "invocation": declaration["nonce"],
+                    "registry": str(root),
+                },
+                "reason": "Read the same original invocation with a selected subject or protected artifact tail; this suggestion executes no work.",
+                "disposition": "unexecuted",
+            }
+        ],
         "limits": [
             "Reported outcomes are original lifecycle observations, not proof that every test body executed.",
             "Missing terminal outcomes do not identify compilation, preparation or subject execution stage.",

@@ -26,8 +26,16 @@ class ValidationResultTests(unittest.TestCase):
     def test_explanation_separates_explicit_preparation_and_execution(self) -> None:
         self.record["scope"] = [{"name": "prepare"}, {"name": "execute"}]
         self.record["checks"] = [
-            {**self.check("prepare", "passed"), "phase": "preparation", "elapsed_seconds": 2.0},
-            {**self.check("execute", "running"), "phase": "execution", "elapsed_seconds": 5.0},
+            {
+                **self.check("prepare", "passed"),
+                "phase": "preparation",
+                "elapsed_seconds": 2.0,
+            },
+            {
+                **self.check("execute", "running"),
+                "phase": "execution",
+                "elapsed_seconds": 5.0,
+            },
         ]
         for name in ("prepare", "execute"):
             (self.run_directory / f"{name}.log").write_text("original owner log")

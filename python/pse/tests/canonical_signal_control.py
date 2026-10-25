@@ -24,10 +24,10 @@ import msgspec
 from scripts import surreal_server as server
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse._build import compiled_features
 from pse.contracts.documents import SensitivityRequest
 from pse.contracts.enums import NativeSolveIntent
+from pse.tests.physical_input_fixture import inspection_request
 from pse.tests.test_canonical_results import (
     _assert_owned_delayed_canonical_sigint,
     _package,
@@ -51,7 +51,6 @@ class SignalResultFixture(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     terminal_class: str
     first_page_ordinals: tuple[int, int]
     file_instances: tuple[str, str]
-
 
 
 def analysis_signal_control(

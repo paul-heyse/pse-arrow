@@ -19,10 +19,15 @@ def application() -> App:
     def diagnose(*, probe: bool = False, capability: str | None = None) -> None:
         """Explain independent launch placement; --probe explicitly handshakes a fresh endpoint, with optional passive capability readiness. Never prepares or repairs."""
         if capability is not None and not probe:
-            raise runtime.ClientRefusedError("--capability needs explicit --probe for live description/readiness.")
+            raise runtime.ClientRefusedError(
+                "--capability needs explicit --probe for live description/readiness."
+            )
         report = asyncio.run(runtime.probe(capability)) if probe else runtime.diagnose()
         runtime.emit(report)
-        if report.get("connection") in {"unavailable", "refused"} or report.get("original_result") is not None:
+        if (
+            report.get("connection") in {"unavailable", "refused"}
+            or report.get("original_result") is not None
+        ):
             raise SystemExit(1)
 
     # Diagnose and generic help remain available when generation is absent/broken.
@@ -42,23 +47,43 @@ def application() -> App:
         asyncio.run(runtime.session(OPERATIONS))
 
     @app.command
-    def invoke(capability: str, *, input_json: str | None = None, input_file: Path | None = None) -> None:
+    def invoke(
+        capability: str,
+        *,
+        input_json: str | None = None,
+        input_file: Path | None = None,
+    ) -> None:
         """Invoke an exact operation with lossless JSON object input, selecting in one connection."""
         if (input_json is None) == (input_file is None):
-            raise runtime.ClientRefusedError("Select exactly one of --input-json or --input-file.")
+            raise runtime.ClientRefusedError(
+                "Select exactly one of --input-json or --input-file."
+            )
         expected = OPERATIONS.get(capability)
         if expected is None:
-            raise runtime.ClientRefusedError("Unknown generated callable operation; describe the native route or regenerate.")
-        raw = input_json if input_json is not None else input_file.read_text(encoding="utf-8")
+            raise runtime.ClientRefusedError(
+                "Unknown generated callable operation; describe the native route or regenerate."
+            )
+        if input_json is not None:
+            raw = input_json
+        elif isinstance(input_file, Path):
+            raw = input_file.read_text(encoding="utf-8")
+        else:
+            raise runtime.ClientRefusedError("Select an input object or file before effects.")
         runtime.call(capability, runtime.parse_request(raw), expected)
 
     @app.command
     def describe(capability: str) -> None:
         """Read the exact live schema, source requirements and original recovery routes."""
+
         async def read() -> dict[str, object]:
             async with runtime.connection(runtime.checkout_root()) as client:
-                result = await client.call_tool("capabilities_describe", {"capability": capability, "include_schema": True}, raise_on_error=False)
+                result = await client.call_tool(
+                    "capabilities_describe",
+                    {"capability": capability, "include_schema": True},
+                    raise_on_error=False,
+                )
                 return runtime.result_document(result)
+
         result = asyncio.run(read())
         runtime.emit(result)
         if result["is_error"]:

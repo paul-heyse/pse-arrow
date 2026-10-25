@@ -12,7 +12,6 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
@@ -25,6 +24,7 @@ from pse.contracts.enums import (
 from pse.contracts.values import SemanticId
 from pse.tests.physical_input_fixture import (
     coordinate_batch,
+    inspection_request,
     member,
     sample_batch,
     stage_batch,
@@ -33,7 +33,6 @@ from pse.tests.test_native_workflow import identity, package_documents, physical
 
 
 @pytest.fixture
-
 def local_runtime(inspection_settings: pse.EngineSettings) -> Iterator[pse.Runtime]:
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     try:

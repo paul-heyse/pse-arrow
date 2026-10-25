@@ -34,6 +34,9 @@ class ActualTelemetryFenceTests(unittest.IsolatedAsyncioTestCase):
         page = SelectionPage(
             reference=reference,
             selection=0,
+            question="Source coherence fixture",
+            original_references=[],
+            next_readers=[],
             request={},
             source=None,
             records=[{"fixture_row": 0}],

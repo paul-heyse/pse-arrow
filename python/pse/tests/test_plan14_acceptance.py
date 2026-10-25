@@ -13,7 +13,6 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import authored
@@ -34,8 +33,11 @@ from pse.contracts.identities import DeclarationId
 from pse.contracts.reference import ReferenceSchemaRelationsRow
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
-from pse.tests.physical_input_fixture import coordinate_batch, member
-
+from pse.tests.physical_input_fixture import (
+    coordinate_batch,
+    inspection_request,
+    member,
+)
 
 
 def _source_declarations(

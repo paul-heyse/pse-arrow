@@ -382,17 +382,27 @@ def execute(
     if operation == "telemetry_profile_capture":
         return capture(supplied)
     if operation in {"model_declarations", "model_inspect", "model_compare"}:
-        source = (host.ModelingComparison if operation == "model_compare" else host.Preparation).model_validate(supplied, strict=True)
+        source = (
+            host.ModelingComparison
+            if operation == "model_compare"
+            else host.Preparation
+        ).model_validate(supplied, strict=True)
         physical_packages = source_documents(source.physical)
         packages = source_documents(source.documents)
         resources = source.resources
-        request_type = {"model_declarations": contracts.ModelingDeclarationRequest, "model_inspect": contracts.ModelingInspectionRequest, "model_compare": contracts.ModelingComparisonRequest}[operation]
+        request_type = {
+            "model_declarations": contracts.ModelingDeclarationRequest,
+            "model_inspect": contracts.ModelingInspectionRequest,
+            "model_compare": contracts.ModelingComparisonRequest,
+        }[operation]
         model_request = decoded(source.request, request_type)
         if isinstance(source, host.ModelingComparison):
             other_physical_packages = source_documents(source.other_physical)
             other_packages = source_documents(source.other_documents)
             if len(other_physical_packages) != 1:
-                raise ValueError("comparison physical source requires one complete package")
+                raise ValueError(
+                    "comparison physical source requires one complete package"
+                )
     elif operation in {"source_admit", "preparation_discover"}:
         source = (
             host.Preparation.model_validate(supplied, strict=True)
@@ -538,14 +548,25 @@ def execute(
             physical = runtime.physical_from_documents(physical_packages[0])
             package = runtime.modeling_from_documents(packages, physical)
             if operation == "model_declarations":
-                observed = package.declaration_page(cast("contracts.ModelingDeclarationRequest", model_request))
+                observed = package.declaration_page(
+                    cast("contracts.ModelingDeclarationRequest", model_request)
+                )
             elif operation == "model_inspect":
-                observed = package.inspect(cast("contracts.ModelingInspectionRequest", model_request))
+                observed = package.inspect(
+                    cast("contracts.ModelingInspectionRequest", model_request)
+                )
             else:
-                other_physical = runtime.physical_from_documents(other_physical_packages[0])
+                other_physical = runtime.physical_from_documents(
+                    other_physical_packages[0]
+                )
                 other = runtime.modeling_from_documents(other_packages, other_physical)
-                observed = package.comparison_observation(other, cast("contracts.ModelingComparisonRequest", model_request))
-            return {"outcome": "observed", "document": codec.document_builtins(observed)}
+                observed = package.comparison_observation(
+                    other, cast("contracts.ModelingComparisonRequest", model_request)
+                )
+            return {
+                "outcome": "observed",
+                "document": codec.document_builtins(observed),
+            }
         if operation in {"source_admit", "preparation_discover"}:
             physical = runtime.physical_from_documents(physical_packages[0])
             package = runtime.modeling_from_documents(packages, physical)

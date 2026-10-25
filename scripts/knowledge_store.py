@@ -281,7 +281,9 @@ def native(state: Path, tool: Path, arguments: list[str], *, deadline: float) ->
                 state, tool, arguments, deadline=deadline, stdout=output
             )
         except (OSError, ValueError, subprocess.TimeoutExpired) as error:
-            raise NativeKnowledgeUnavailableError("original knowledge owner unavailable") from error
+            raise NativeKnowledgeUnavailableError(
+                "original knowledge owner unavailable"
+            ) from error
         if code:
             raise NativeKnowledgeUnavailableError(
                 f"native knowledge operation failed with exit {code}; no source fallback was substituted"
@@ -292,7 +294,7 @@ def native(state: Path, tool: Path, arguments: list[str], *, deadline: float) ->
             raise ValueError("native knowledge response exceeds 8MiB")
         result = json.loads(text)
         if not isinstance(result, dict):
-            raise ValueError("native knowledge result must be an original object")
+            raise TypeError("native knowledge result must be an original object")
         return result
 
 
@@ -321,7 +323,11 @@ def indexed(
         result = native(
             state.absolute(),
             tool.absolute(),
-            ["knowledge-explain" if explain else "knowledge-query", "--input", str(path)],
+            [
+                "knowledge-explain" if explain else "knowledge-query",
+                "--input",
+                str(path),
+            ],
             deadline=time.monotonic() + timeout,
         )
     if result.get("outcome") is not None:

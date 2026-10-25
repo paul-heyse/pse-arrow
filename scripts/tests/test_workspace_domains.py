@@ -374,38 +374,113 @@ kind = "depends-on"
             any("source location unavailable" in value for value in alpha["unknowns"])
         )
 
-    def test_explicit_producer_contract_is_projected_without_shared_generator_cross_product(self) -> None:
-        path = self.root / "docs/generated/source-relationships/fixture/relationships.json"
+    def test_explicit_producer_contract_is_projected_without_shared_generator_cross_product(
+        self,
+    ) -> None:
+        path = (
+            self.root / "docs/generated/source-relationships/fixture/relationships.json"
+        )
         document = json.loads(path.read_text())
         document["relationships"][0]["contract_sections"] = ["20.5"]
         path.write_text(json.dumps(document))
-        result = domains.query(parse_query({"concept": "generated-output", "identity": "src/generated/alpha.rs"}), root=self.root)
-        self.assertIn({"from": "contract:20.5", "to": "generated_artifact:src/generated/alpha.rs", "relation": "governs"}, [
-            {key: edge[key] for key in ("from", "to", "relation")} for edge in result["edges"]
-        ])
-        self.assertFalse(any(edge["to"] == "generated_artifact:src/generated/beta.rs" for edge in result["edges"]))
+        result = domains.query(
+            parse_query(
+                {"concept": "generated-output", "identity": "src/generated/alpha.rs"}
+            ),
+            root=self.root,
+        )
+        self.assertIn(
+            {
+                "from": "contract:20.5",
+                "to": "generated_artifact:src/generated/alpha.rs",
+                "relation": "governs",
+            },
+            [
+                {key: edge[key] for key in ("from", "to", "relation")}
+                for edge in result["edges"]
+            ],
+        )
+        self.assertFalse(
+            any(
+                edge["to"] == "generated_artifact:src/generated/beta.rs"
+                for edge in result["edges"]
+            )
+        )
         self.assertEqual(len(result["productions"]), 1)
 
-    def test_original_executed_contract_evidence_links_exact_producer_and_keeps_failure(self) -> None:
-        path = self.root / "docs/generated/source-relationships/fixture/relationships.json"
+    def test_original_executed_contract_evidence_links_exact_producer_and_keeps_failure(
+        self,
+    ) -> None:
+        path = (
+            self.root / "docs/generated/source-relationships/fixture/relationships.json"
+        )
         producer = json.loads(path.read_text())
         producer["relationships"][0]["contract_sections"] = ["20.5"]
         path.write_text(json.dumps(producer))
         snapshot = {
-            "version": 2, "authority": "assessment:/selected", "codec": "assessment-v6",
-            "source_id": "/selected", "snapshot_digest": "a" * 64, "coverage": "complete",
-            "facts": [{"member": "contract-execution:test:stub", "kind": "declared_link",
-                       "status": "failure", "test_id": "test_stub.py::test_surface",
-                       "link_relation": "executed_contract", "link_target": "20.5",
-                       "detail_ref": "src/generated/alpha.rs"}],
+            "version": 2,
+            "authority": "assessment:/selected",
+            "codec": "assessment-v6",
+            "source_id": "/selected",
+            "snapshot_digest": "a" * 64,
+            "coverage": "complete",
+            "facts": [
+                {
+                    "member": "contract-execution:test:stub",
+                    "kind": "declared_link",
+                    "status": "failure",
+                    "test_id": "test_stub.py::test_surface",
+                    "link_relation": "executed_contract",
+                    "link_target": "20.5",
+                    "detail_ref": "src/generated/alpha.rs",
+                }
+            ],
         }
-        with patch.object(domains.evidence_sources, "assessment_snapshot", return_value=snapshot):
-            result = domains.query(parse_query({"concept": "evidence-reference", "selected_reference": {"adapter": "assessment", "path": "/selected"}}), root=self.root)
-        self.assertTrue(any(edge["relation"] == "supports" and edge["to"] == "contract:20.5" for edge in result["edges"]))
+        with patch.object(
+            domains.evidence_sources, "assessment_snapshot", return_value=snapshot
+        ):
+            result = domains.query(
+                parse_query(
+                    {
+                        "concept": "evidence-reference",
+                        "selected_reference": {
+                            "adapter": "assessment",
+                            "path": "/selected",
+                        },
+                    }
+                ),
+                root=self.root,
+            )
+        self.assertTrue(
+            any(
+                edge["relation"] == "supports" and edge["to"] == "contract:20.5"
+                for edge in result["edges"]
+            )
+        )
         self.assertTrue(result["complete"], result["omissions"])
-        self.assertEqual([(row["declaration_id"], row["artifact_id"]) for row in result["productions"]], [("declaration:relation:alpha@1", "generated_artifact:src/generated/alpha.rs")])
-        self.assertFalse(any(row["id"] == "generated_artifact:src/generated/beta.rs" for row in result["subjects"]))
-        fact = next(row["original_fact"] for row in result["native_facts"] if "original_fact" in row)
+        self.assertEqual(
+            [
+                (row["declaration_id"], row["artifact_id"])
+                for row in result["productions"]
+            ],
+            [
+                (
+                    "declaration:relation:alpha@1",
+                    "generated_artifact:src/generated/alpha.rs",
+                )
+            ],
+        )
+        self.assertFalse(
+            any(
+                row["id"] == "generated_artifact:src/generated/beta.rs"
+                for row in result["subjects"]
+            )
+        )
+        fact = next(
+            row["original_fact"]
+            for row in result["native_facts"]
+            if "original_fact" in row
+        )
         self.assertEqual(fact["status"], "failure")
         self.assertIsNone(result["items"][0]["native_state"])
 

@@ -74,7 +74,10 @@ impl PreparationStage {
     /// Called only inside the single-flight producer future, never once per waiter.
     pub(crate) fn producer(self) -> OwnerInterval {
         increment(&PREPARATION[self.index()][2]);
-        OwnerInterval::new(super::metric_declarations::INTERVAL_FAMILIES[1], self.name())
+        OwnerInterval::new(
+            super::metric_declarations::INTERVAL_FAMILIES[1],
+            self.name(),
+        )
     }
 }
 /// Copied owner totals. Acquisition callers and shared producers are overlapping populations.
@@ -154,7 +157,10 @@ impl NativeAttempt {
         increment(&NATIVE[0]);
         increment(&NATIVE[6]);
         Self {
-            _interval: OwnerInterval::new(super::metric_declarations::INTERVAL_FAMILIES[0], super::metric_declarations::SUPERVISOR_STAGE),
+            _interval: OwnerInterval::new(
+                super::metric_declarations::INTERVAL_FAMILIES[0],
+                super::metric_declarations::SUPERVISOR_STAGE,
+            ),
         }
     }
     pub(crate) fn admitted(&self) {

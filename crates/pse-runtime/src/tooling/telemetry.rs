@@ -515,7 +515,14 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
             if sample.source_started_unix_micros.is_none() || sample.saturated {
                 return;
             }
-            for (event, count) in NATIVE_EVENTS.into_iter().zip([sample.native_attempts, sample.native_admitted, sample.native_dispatched, sample.native_joined, sample.native_cancel_requests, sample.native_deadline_requests]) {
+            for (event, count) in NATIVE_EVENTS.into_iter().zip([
+                sample.native_attempts,
+                sample.native_admitted,
+                sample.native_dispatched,
+                sample.native_joined,
+                sample.native_cancel_requests,
+                sample.native_deadline_requests,
+            ]) {
                 observer.observe(count, &[KeyValue::new("event", event)]);
             }
         })
@@ -541,7 +548,12 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
                 return;
             }
             for stage in sample.preparation {
-                for (event, count) in PREPARATION_EVENTS.into_iter().zip([stage.acquisitions, stage.retained_reuses, stage.producers, stage.flight_waiters]) {
+                for (event, count) in PREPARATION_EVENTS.into_iter().zip([
+                    stage.acquisitions,
+                    stage.retained_reuses,
+                    stage.producers,
+                    stage.flight_waiters,
+                ]) {
                     observer.observe(
                         count,
                         &[
@@ -565,7 +577,12 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
                 return;
             }
             let sample = crate::math::preparation_metrics();
-            for (product, count) in PRODUCTS.into_iter().zip([sample.views, sample.observations, sample.rebuilt, sample.shared]) {
+            for (product, count) in PRODUCTS.into_iter().zip([
+                sample.views,
+                sample.observations,
+                sample.rebuilt,
+                sample.shared,
+            ]) {
                 observer.observe(count as u64, &[KeyValue::new("product", product)]);
             }
         })
@@ -579,7 +596,15 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
             if sample.source_started_unix_micros.is_none() || sample.saturated {
                 return;
             }
-            for (event, count) in QUERY_EVENTS.into_iter().zip([sample.builders, sample.request_failures, sample.statements, sample.statements_succeeded, sample.statements_failed, sample.statements_timed, sample.statements_untimed]) {
+            for (event, count) in QUERY_EVENTS.into_iter().zip([
+                sample.builders,
+                sample.request_failures,
+                sample.statements,
+                sample.statements_succeeded,
+                sample.statements_failed,
+                sample.statements_timed,
+                sample.statements_untimed,
+            ]) {
                 observer.observe(count, &[KeyValue::new("event", event)]);
             }
         })
@@ -625,7 +650,16 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
         .with_unit(PSE_RUNTIME_TASK_EVENTS.unit)
         .with_callback(|observer| {
             for task in super::runtime_metrics::snapshot().task_classes {
-                for (event, count) in TASK_EVENTS.into_iter().zip([task.instrumented_count, task.dropped_count, task.poll_count, task.scheduled_count, task.idle_count, task.first_poll_count, task.slow_poll_count, task.long_delay_count]) {
+                for (event, count) in TASK_EVENTS.into_iter().zip([
+                    task.instrumented_count,
+                    task.dropped_count,
+                    task.poll_count,
+                    task.scheduled_count,
+                    task.idle_count,
+                    task.first_poll_count,
+                    task.slow_poll_count,
+                    task.long_delay_count,
+                ]) {
                     observer.observe(
                         count,
                         &[
@@ -643,7 +677,14 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
         .with_unit(PSE_RUNTIME_TASK_DURATION.unit)
         .with_callback(|observer| {
             for task in super::runtime_metrics::snapshot().task_classes {
-                for (phase, nanos) in TASK_PHASES.into_iter().zip([task.poll_nanos, task.scheduled_nanos, task.idle_nanos, task.first_poll_delay_nanos, task.slow_poll_nanos, task.long_delay_nanos]) {
+                for (phase, nanos) in TASK_PHASES.into_iter().zip([
+                    task.poll_nanos,
+                    task.scheduled_nanos,
+                    task.idle_nanos,
+                    task.first_poll_delay_nanos,
+                    task.slow_poll_nanos,
+                    task.long_delay_nanos,
+                ]) {
                     observer.observe(
                         nanos as f64 / 1_000_000_000.0,
                         &[
@@ -661,7 +702,10 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
         .with_unit(PSE_RUNTIME_TASK_THRESHOLD.unit)
         .with_callback(|observer| {
             for task in super::runtime_metrics::snapshot().task_classes {
-                for (threshold, nanos) in TASK_THRESHOLDS.into_iter().zip([task.slow_poll_threshold_nanos, task.long_delay_threshold_nanos]) {
+                for (threshold, nanos) in TASK_THRESHOLDS.into_iter().zip([
+                    task.slow_poll_threshold_nanos,
+                    task.long_delay_threshold_nanos,
+                ]) {
                     observer.observe(
                         nanos as f64 / 1_000_000_000.0,
                         &[

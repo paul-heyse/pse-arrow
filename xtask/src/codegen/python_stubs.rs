@@ -211,7 +211,11 @@ mod provenance_tests {
                 .any(|record| record["declaration_kind"] == "pyo3_metadata"
                     && record["source_path"].is_null())
         );
-        assert!(records.iter().all(|record| record["contract_sections"] == serde_json::json!(["21.5"])));
+        assert!(
+            records
+                .iter()
+                .all(|record| record["contract_sections"] == serde_json::json!(["21.5"]))
+        );
         assert_ne!(
             tree.files,
             provenance_tree(b"class Changed: ...\n").unwrap().files

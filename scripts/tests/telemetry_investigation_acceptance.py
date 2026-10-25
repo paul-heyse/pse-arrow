@@ -173,7 +173,10 @@ def offline(output: Path, answers: list[QueryAnswer]) -> dict[str, object]:
     )
     bound = expect_refusal(
         lambda: telemetry_selection.export(
-            output / "too-small", answers, question="Which bounded observations are retained?", maximum_output_bytes=1
+            output / "too-small",
+            answers,
+            question="Which bounded observations are retained?",
+            maximum_output_bytes=1,
         ),
         "investigation.output_bound_ignored",
     )

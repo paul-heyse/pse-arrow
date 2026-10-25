@@ -171,7 +171,9 @@ def prepare_python(
     prepare_controller(None, environment)
 
 
-def affected(changes: Sequence[tuple[str, str]], *, root: Path = ROOT, prepare: bool = True) -> dict:
+def affected(
+    changes: Sequence[tuple[str, str]], *, root: Path = ROOT, prepare: bool = True
+) -> dict:
     declaration = catalog(root)
     inventory = str(declaration["package_inventory"]).rstrip("/") + "/"
     relevant = [

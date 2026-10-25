@@ -18,7 +18,6 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse import modeling as w
 from pse.contracts import authored as a
@@ -58,6 +57,7 @@ from pse.tests.canonical_fixture import CanonicalFixture
 from pse.tests.invalid_call import invalid_call
 from pse.tests.physical_input_fixture import (
     coordinate_batch,
+    inspection_request,
     primitive_quantity,
     stage_batch,
 )
@@ -68,7 +68,6 @@ PRIMITIVES = (
     'dependencies = [{ package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a", '
     'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]'
 )
-
 
 
 def identity(n: int) -> SemanticId:

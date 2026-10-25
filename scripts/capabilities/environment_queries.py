@@ -97,7 +97,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 source=source,
                 guides=guides,
                 exposure="tool",
-            invocation_lifetime="single",
+                invocation_lifetime="single",
                 effects="Bounded owner read; no subject execution or disposal",
             )
         )

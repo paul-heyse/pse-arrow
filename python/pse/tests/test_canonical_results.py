@@ -24,7 +24,6 @@ import pytest
 from scripts import surreal_server as server
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse._build import compiled_features
 from pse.contracts.documents import (
@@ -47,6 +46,7 @@ from pse.contracts.enums import (
 )
 from pse.contracts.identities import DeclarationId
 from pse.tests.canonical_fixture import CanonicalFixture
+from pse.tests.physical_input_fixture import inspection_request
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -64,7 +64,6 @@ SOURCE = """package algebraic { def Root {
     annotation report x("root");
     annotation check x(x>1);
 } }"""
-
 
 
 def _physical(runtime: pse.Runtime) -> pse.PhysicalContext:

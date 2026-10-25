@@ -8,16 +8,29 @@ use pse_model::generated::{
 };
 use std::collections::BTreeMap;
 
-pub(in crate::workflow) fn bound_observation<T: serde::Serialize>(value: T) -> Result<T, super::super::WorkflowError> {
+pub(in crate::workflow) fn bound_observation<T: serde::Serialize>(
+    value: T,
+) -> Result<T, super::super::WorkflowError> {
     struct Extent(usize);
     impl std::io::Write for Extent {
         fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0 = self.0.checked_add(bytes.len()).filter(|size| *size <= 64 << 10).ok_or_else(|| std::io::Error::other("native model observation exceeds64KiB; narrow the selected page/detail"))?;
+            self.0 = self
+                .0
+                .checked_add(bytes.len())
+                .filter(|size| *size <= 64 << 10)
+                .ok_or_else(|| {
+                    std::io::Error::other(
+                        "native model observation exceeds64KiB; narrow the selected page/detail",
+                    )
+                })?;
             Ok(bytes.len())
         }
-        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
     }
-    serde_json::to_writer(Extent(0), &value).map_err(|error| super::super::contract(error.to_string()))?;
+    serde_json::to_writer(Extent(0), &value)
+        .map_err(|error| super::super::contract(error.to_string()))?;
     Ok(value)
 }
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -113,18 +126,30 @@ impl super::ModelingPackage {
     /// Read a bounded declaration page without cloning the complete inventory into the answer.
     /// # Errors
     /// Native source admission or invalid page bounds propagate.
-    pub async fn declaration_page(&self, request: &ModelingDeclarationRequest) -> Result<ModelingDeclarationPage, super::super::WorkflowError> {
-        if request.limit == 0 || request.limit > 128 { return Err(super::super::contract("declaration page limit must be between one and128")); }
+    pub async fn declaration_page(
+        &self,
+        request: &ModelingDeclarationRequest,
+    ) -> Result<ModelingDeclarationPage, super::super::WorkflowError> {
+        if request.limit == 0 || request.limit > 128 {
+            return Err(super::super::contract(
+                "declaration page limit must be between one and128",
+            ));
+        }
         let activity = self.runtime.admit_activity()?;
-        activity.scope(async {
-            let (total, declarations) = self.declaration_window(request.offset, request.limit)?;
-            let next = request.offset.saturating_add(request.limit);
-            bound_observation(ModelingDeclarationPage {
-                source: super::super::OperationSource::of(self), total, offset: request.offset,
-                next_offset: (next < total).then_some(next),
-                declarations: declarations.rows,
+        activity
+            .scope(async {
+                let (total, declarations) =
+                    self.declaration_window(request.offset, request.limit)?;
+                let next = request.offset.saturating_add(request.limit);
+                bound_observation(ModelingDeclarationPage {
+                    source: super::super::OperationSource::of(self),
+                    total,
+                    offset: request.offset,
+                    next_offset: (next < total).then_some(next),
+                    declarations: declarations.rows,
+                })
             })
-        }).await
+            .await
     }
 }
 /// Finite selection of an admitted model observation, with explicit preparation policy.
@@ -149,7 +174,9 @@ fn inspection_request_example() -> ModelingInspectionRequest {
     ModelingInspectionRequest {
         case: DeclarationId::from(SemanticId::from_bytes([1; 16])),
         preparation: super::super::PreparationSettings::default(),
-        settings: crate::math::settings::SolveSettings::default(), offset: 0, limit: 16,
+        settings: crate::math::settings::SolveSettings::default(),
+        offset: 0,
+        limit: 16,
     }
 }
 /// Independent total populations, distinct from the number of returned observations.
@@ -294,17 +321,27 @@ impl super::DeclaredExecution {
     ) -> ModelingInspection {
         let source = &self.model.compiled().model;
         let population = InspectionPopulation {
-            instances: source.instances.len(), members: source.symbols.len(),
-            ports: source.ports.len(), connections: source.connections.len(),
+            instances: source.instances.len(),
+            members: source.symbols.len(),
+            ports: source.ports.len(),
+            connections: source.connections.len(),
         };
-        let maximum = [population.instances, population.members, population.ports, population.connections]
-            .into_iter().max().unwrap_or(0);
+        let maximum = [
+            population.instances,
+            population.members,
+            population.ports,
+            population.connections,
+        ]
+        .into_iter()
+        .max()
+        .unwrap_or(0);
         ModelingInspection {
             source: source_identity,
             preparation,
             population,
             offset,
-            next_offset: (offset.saturating_add(limit) < maximum).then_some(offset.saturating_add(limit)),
+            next_offset: (offset.saturating_add(limit) < maximum)
+                .then_some(offset.saturating_add(limit)),
             execution: InspectionExecution {
                 route: self.route,
                 procedure: self.procedure.kind(),
@@ -313,7 +350,8 @@ impl super::DeclaredExecution {
             instances: source
                 .instances
                 .values()
-                .skip(offset).take(limit)
+                .skip(offset)
+                .take(limit)
                 .map(|instance| InspectionInstance {
                     id: instance.id,
                     definition: instance.definition,
@@ -325,7 +363,8 @@ impl super::DeclaredExecution {
             members: source
                 .symbols
                 .values()
-                .skip(offset).take(limit)
+                .skip(offset)
+                .take(limit)
                 .map(|symbol| InspectionMember {
                     id: symbol.id,
                     role: symbol.role,
@@ -335,7 +374,8 @@ impl super::DeclaredExecution {
             ports: source
                 .ports
                 .values()
-                .skip(offset).take(limit)
+                .skip(offset)
+                .take(limit)
                 .map(|port| InspectionPort {
                     id: port.id,
                     symbol: port.symbol,
@@ -345,7 +385,8 @@ impl super::DeclaredExecution {
             connections: source
                 .connections
                 .values()
-                .skip(offset).take(limit)
+                .skip(offset)
+                .take(limit)
                 .map(|connection| InspectionConnection {
                     id: connection.id,
                     from: connection.from,

@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-07, DP-09, DP-21, DP-23]
 blueprint: [§23.1, §24.1]
 review: "not-required: short native evidence kernel contract within existing Rust-owned diagnostic boundaries; maintainer authorized Plan52 F01 execution"
-evidence: "Tested: native comparison controls in the 57-test operations selection passed on 2026-10-25 with force-validation; authentic typed offline/indexed/canonical consumers retain explicit source cuts and qualification limits"
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A required comparison cannot preserve exact correspondence and source custody through the finite native evidence operation.
@@ -65,6 +65,9 @@ One native owner avoids divergent interpretation, while requiring receiver/schem
 consumer migration rather than an isolated presentation helper.
 
 ## More information
+
+Tested: native comparison controls in the 57-test operations selection passed on 2026-10-25 with force-validation; authentic typed offline/indexed/canonical consumers retain explicit source cuts and qualification limits
+
 
 [Plan52 F01](../plans/52f-evidence-analysis-and-trace-correlation.md#F01) owns delivery;
 [the coordinator](../plans/52-agent-effectiveness-and-engineering-workflows.md) owns progress.

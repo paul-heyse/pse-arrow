@@ -34,6 +34,7 @@ from scripts import pse_env, semantic_edits, semantic_navigation, surreal_server
 from scripts.capabilities.cleanup import settle
 from scripts.capabilities.model import Capability, Contract, Prerequisite
 from scripts.capabilities.responses import ReadResult, bounded
+from scripts.structural_migrations import migration
 
 if TYPE_CHECKING:
     from collections.abc import (
@@ -1216,11 +1217,15 @@ def bindings(
             ),
         )
 
-    def structural_json_source_bytes_preview(paths: Annotated[list[str], Field(min_length=1, max_length=64)]) -> ReadResult:
+    def structural_json_source_bytes_preview(
+        paths: Annotated[list[str], Field(min_length=1, max_length=64)],
+    ) -> ReadResult:
         """Preview the existing finite stdlib json.loads(Path.read_text()) to bytes migration. Retain complete source/basis under this endpoint; no apply, arbitrary rules or language-server acquisition."""
-        from scripts.structural_migrations import migration  # noqa: PLC0415 -- original transformation owner.
         try:
-            return bounded(owner.retain_preview(migration(root, paths)), "structural_json_source_bytes_preview")
+            return bounded(
+                owner.retain_preview(migration(root, paths)),
+                "structural_json_source_bytes_preview",
+            )
         except (ValueError, OSError) as error:
             raise refusal("structural_json_source_bytes_preview", error) from error
 
@@ -1432,7 +1437,20 @@ def bindings(
             owner=source,
             source=source,
             exposure="tool",
-            invocation_lifetime="endpoint" if domain == "integration" or function in (structural_json_source_bytes_preview, navigation_rename_preview, navigation_action_preview, edit_preview_read, edit_preview_status, edit_preview_release, edit_preview_apply, edit_preview_reconcile) else "single",
+            invocation_lifetime="endpoint"
+            if domain == "integration"
+            or function
+            in (
+                structural_json_source_bytes_preview,
+                navigation_rename_preview,
+                navigation_action_preview,
+                edit_preview_read,
+                edit_preview_status,
+                edit_preview_release,
+                edit_preview_apply,
+                edit_preview_reconcile,
+            )
+            else "single",
             requirements=(
                 Prerequisite(
                     kind="selected-service",

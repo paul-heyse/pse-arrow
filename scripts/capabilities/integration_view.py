@@ -8,8 +8,8 @@ import hashlib
 import json
 import re
 from itertools import pairwise
-from typing import Annotated, Literal
 from pathlib import Path
+from typing import Annotated, Literal
 
 from fastmcp.tools import Tool
 from mcp.types import ToolAnnotations
@@ -19,6 +19,7 @@ from scripts import (
     affected,
     document_lifecycle,
     document_metadata,
+    test_invocation,
     workspace_sources,
     workspace_tasks,
 )
@@ -62,7 +63,9 @@ class IntegrationRequest(Contract):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=40, ge=1, le=100)
     features: str = Field(default="", max_length=2048, pattern=r"^[A-Za-z0-9_./, -]*$")
-    validation_evidence: list[read_contracts.OwnerReference] = Field(default_factory=list, max_length=16)
+    validation_evidence: list[read_contracts.OwnerReference] = Field(
+        default_factory=list, max_length=16
+    )
     validation_profile: str | None = Field(default=None, min_length=1, max_length=160)
     validation_mode: str | None = Field(default=None, min_length=1, max_length=160)
 
@@ -302,37 +305,93 @@ def _change(
     )
 
 
-def _tests(root: Path, changes: list[ChangedPath], *, request: IntegrationRequest, revision: str) -> TestScope:
+def _tests(
+    root: Path,
+    changes: list[ChangedPath],
+    *,
+    request: IntegrationRequest,
+    revision: str,
+) -> TestScope:
     paths = [change.path for change in changes]
     selected = affected.preview(
         [(change.git_status, change.path) for change in changes],
-        root=root, base=revision, features=request.features, prepare=False,
+        root=root,
+        base=revision,
+        features=request.features,
+        prepare=False,
     )
     routes = []
     for path in paths:
         if path.startswith("scripts/tests/test_") and path.endswith(".py"):
-            routes.append(["scripts/pse-env", "--", ".venv/bin/python", "-m", "unittest", path[:-3].replace("/", ".")])
-        elif path.startswith(("scripts/", "python/")) or path in {"pyproject.toml", "uv.lock", "conftest.py"}:
-            routes.append(["just", "setup-test"] if path.startswith("scripts/") else ["just", "py-unit"])
-    routes.extend(["just", "unit-package", package] for package in selected["changed_packages"])
+            routes.append(
+                [
+                    "scripts/pse-env",
+                    "--",
+                    ".venv/bin/python",
+                    "-m",
+                    "unittest",
+                    path[:-3].replace("/", "."),
+                ]
+            )
+        elif path.startswith(("scripts/", "python/")) or path in {
+            "pyproject.toml",
+            "uv.lock",
+            "conftest.py",
+        }:
+            routes.append(
+                ["just", "setup-test"]
+                if path.startswith("scripts/")
+                else ["just", "py-unit"]
+            )
+    routes.extend(
+        ["just", "unit-package", package] for package in selected["changed_packages"]
+    )
     if selected["command"]:
         routes.append(selected["command"])
     if paths:
-        routes.append(["just", "affected", "--json", "--passive", "--base", revision, *(["--features", request.features] if request.features else []), "--changes-json", json.dumps([(change.git_status, change.path) for change in changes], separators=(",", ":"))])
+        routes.append(
+            [
+                "just",
+                "affected",
+                "--json",
+                "--passive",
+                "--base",
+                revision,
+                *(["--features", request.features] if request.features else []),
+                "--changes-json",
+                json.dumps(
+                    [(change.git_status, change.path) for change in changes],
+                    separators=(",", ":"),
+                ),
+            ]
+        )
     unknowns = [
         "The change population is exactly the currently claimed paths, including the full file for a claimed hunk; other dirty paths are excluded.",
         "No compiler, scientific capture or test discovery was started. The execution receiver still owns actual feature/force-validation admission.",
         "Dynamic/cross-language consumers not declared by original owners remain unknown.",
-        *(["Cargo graph unavailable; nearest package names are source leads only."] if selected["graph_status"] == "unavailable" else []),
-        *([str(selected["scientific_inputs"]["reason"])] if selected["scientific_inputs"].get("reason") else []),
+        *(
+            ["Cargo graph unavailable; nearest package names are source leads only."]
+            if selected["graph_status"] == "unavailable"
+            else []
+        ),
+        *(
+            [str(selected["scientific_inputs"]["reason"])]
+            if selected["scientific_inputs"].get("reason")
+            else []
+        ),
     ]
     return TestScope(
         changed_owned_paths=paths,
         package_seeds=selected["changed_packages"],
         selected_packages=selected["selected_packages"],
         workspace_widening=selected["workspace_widening"],
-        scientific_inputs=read_contracts.OwnerRecord.model_validate(selected["scientific_inputs"]),
-        exclusions=[read_contracts.OwnerRecord.model_validate(item) for item in selected["exclusions"]],
+        scientific_inputs=read_contracts.OwnerRecord.model_validate(
+            selected["scientific_inputs"]
+        ),
+        exclusions=[
+            read_contracts.OwnerRecord.model_validate(item)
+            for item in selected["exclusions"]
+        ],
         selection_basis=selected["graph_status"] + "; " + selected["validation"],
         source_cut={change.path: change.source_sha256 for change in changes},
         validation_evidence=_validation_evidence(root, changes, request),
@@ -341,24 +400,45 @@ def _tests(root: Path, changes: list[ChangedPath], *, request: IntegrationReques
     )
 
 
-def _validation_evidence(root: Path, changes: list[ChangedPath], request: IntegrationRequest) -> list[read_contracts.OwnerRecord]:
+def _validation_evidence(
+    root: Path, changes: list[ChangedPath], request: IntegrationRequest
+) -> list[read_contracts.OwnerRecord]:
     if not request.validation_evidence:
         return []
-    from scripts import validation, validation_result, run_inspection  # noqa: PLC0415 -- explicit original evidence only
+    from scripts import (  # noqa: PLC0415 -- explicit original evidence only
+        run_inspection,
+        validation,
+        validation_result,
+    )
 
     results = []
-    current_stamps = {change.path: validation.source_stamp(root / change.path) for change in changes}
+    current_stamps = {
+        change.path: validation.source_stamp(root / change.path) for change in changes
+    }
     for reference in request.validation_evidence:
-        value = {"reference": reference.model_dump(mode="json"), "applicability": "unknown", "qualification": "Historical evidence only; no automatic reuse or narrowed test selection."}
+        value: dict[str, object] = {
+            "reference": reference.model_dump(mode="json"),
+            "applicability": "unknown",
+            "qualification": "Historical evidence only; no automatic reuse or narrowed test selection.",
+        }
         try:
             if isinstance(reference, read_contracts.AssessmentReference):
                 directory = Path(reference.directory)
                 if not directory.is_absolute():
                     directory = root / directory
-                observed = validation_result.read_assessment(directory, gate=reference.gate, source_detail=reference.gate is not None, full_export=False)
+                observed = validation_result.read_assessment(
+                    directory,
+                    gate=reference.gate,
+                    source_detail=reference.gate is not None,
+                    full_export=False,
+                )
                 original = [item["record"] for item in observed["checks"]]
                 if reference.gate is None:
-                    value.update(availability="available", execution_explanation=observed.get("execution_explanation"), reason="Select an exact original assessment gate before hydrating source/population context.")
+                    value.update(
+                        availability="available",
+                        execution_explanation=observed.get("execution_explanation"),
+                        reason="Select an exact original assessment gate before hydrating source/population context.",
+                    )
                     results.append(read_contracts.OwnerRecord.model_validate(value))
                     continue
                 mismatches = []
@@ -369,47 +449,106 @@ def _validation_evidence(root: Path, changes: list[ChangedPath], request: Integr
                     files = inputs.get("files", {}) if isinstance(inputs, dict) else {}
                     for change in changes:
                         actual = current_stamps[change.path]
-                        expected = files.get(change.path) if isinstance(files, dict) else None
+                        expected = (
+                            files.get(change.path) if isinstance(files, dict) else None
+                        )
                         if expected is None:
                             missing.append(change.path)
                         elif expected != actual:
                             mismatches.append(change.path)
-                    if request.validation_profile is not None and record.get("profile") != request.validation_profile:
+                    if (
+                        request.validation_profile is not None
+                        and record.get("profile") != request.validation_profile
+                    ):
                         mismatches.append("profile:" + str(record["gate"]))
-                    if request.validation_mode is not None and record.get("mode") != request.validation_mode:
+                    if (
+                        request.validation_mode is not None
+                        and record.get("mode") != request.validation_mode
+                    ):
                         mismatches.append("mode:" + str(record["gate"]))
                     if request.features:
-                        from scripts import test_invocation  # noqa: PLC0415 -- original pure feature interpretation
-
                         invocation = record.get("invocation", {})
-                        arguments = invocation.get("args") if isinstance(invocation, dict) else None
-                        if isinstance(arguments, list) and all(isinstance(arg, str) for arg in arguments):
+                        arguments = (
+                            invocation.get("args")
+                            if isinstance(invocation, dict)
+                            else None
+                        )
+                        if isinstance(arguments, list) and all(
+                            isinstance(arg, str) for arg in arguments
+                        ):
                             try:
-                                groups = test_invocation.rust(arguments).values("--features")
-                                selected_features = {feature for group in groups for feature in re.split(r"[ ,]+", group) if feature}
-                                requested_features = set(filter(None, re.split(r"[ ,]+", request.features)))
+                                groups = test_invocation.rust(arguments).values(
+                                    "--features"
+                                )
+                                selected_features = {
+                                    feature
+                                    for group in groups
+                                    for feature in re.split(r"[ ,]+", group)
+                                    if feature
+                                }
+                                requested_features = set(
+                                    filter(None, re.split(r"[ ,]+", request.features))
+                                )
                                 if not groups:
-                                    missing.append("feature-context:" + str(record["gate"]))
+                                    missing.append(
+                                        "feature-context:" + str(record["gate"])
+                                    )
                                 elif selected_features != requested_features:
                                     mismatches.append("features:" + str(record["gate"]))
                             except (ValueError, TypeError):
                                 missing.append("feature-context:" + str(record["gate"]))
                         else:
                             missing.append("feature-context:" + str(record["gate"]))
-                    contexts.append({"gate": record["gate"], "mode": record.get("mode"), "profile": record.get("profile"), "invocation": record.get("invocation"), "evidence_kind": record.get("evidence_kind"), "status": record.get("status"), "native_recorded": record.get("native") is not None, "selected_count": len(record["selected"]) if isinstance(record.get("selected"), list) else None, "environment_keys": sorted(inputs.get("environment", {})) if isinstance(inputs, dict) else []})
+                    contexts.append(
+                        {
+                            "gate": record["gate"],
+                            "mode": record.get("mode"),
+                            "profile": record.get("profile"),
+                            "invocation": record.get("invocation"),
+                            "evidence_kind": record.get("evidence_kind"),
+                            "status": record.get("status"),
+                            "native_recorded": record.get("native") is not None,
+                            "selected_count": len(record["selected"])
+                            if isinstance(record.get("selected"), list)
+                            else None,
+                            "environment_keys": sorted(inputs.get("environment", {}))
+                            if isinstance(inputs, dict)
+                            else [],
+                        }
+                    )
                 value.update(
-                    availability="available", applicability="inapplicable" if mismatches else "unknown",
-                    source_mismatches=sorted(set(mismatches)), missing_source_context=sorted(set(missing)), original_contexts=contexts,
+                    availability="available",
+                    applicability="inapplicable" if mismatches else "unknown",
+                    source_mismatches=sorted(set(mismatches)),
+                    missing_source_context=sorted(set(missing)),
+                    original_contexts=contexts,
                     execution_explanation=observed.get("execution_explanation"),
-                    reason="Current selected sources/profile/mode differ." if mismatches else "Selected source equality alone cannot establish feature, native environment, population and execution eligibility; inspect original context before choosing validation.",
+                    reason="Current selected sources/profile/mode differ."
+                    if mismatches
+                    else "Selected source equality alone cannot establish feature, native environment, population and execution eligibility; inspect original context before choosing validation.",
                 )
             elif isinstance(reference, read_contracts.InvocationReference):
-                observed = run_inspection.product_result(reference.invocation, registry=Path(reference.registry) if reference.registry else None, limit=1)
-                value.update(availability="available", execution_explanation=observed.get("execution_explanation"), reason="Original invocation has no complete selected-source/feature comparison; its outcomes are not current acceptance.")
+                observed = run_inspection.product_result(
+                    reference.invocation,
+                    registry=Path(reference.registry) if reference.registry else None,
+                    limit=1,
+                )
+                value.update(
+                    availability="available",
+                    execution_explanation=observed.get("execution_explanation"),
+                    reason="Original invocation has no complete selected-source/feature comparison; its outcomes are not current acceptance.",
+                )
             else:
-                value.update(availability="unsupported", reason="Native diagnostic/result references remain with their exact original reader; no inferred validation correspondence.")
+                value.update(
+                    availability="unsupported",
+                    reason="Native diagnostic/result references remain with their exact original reader; no inferred validation correspondence.",
+                )
         except (OSError, RuntimeError, TypeError, ValueError) as error:
-            value.update(availability="unavailable", reason=type(error).__name__ + ": original selected evidence unavailable")
+            value.update(
+                availability="unavailable",
+                reason=type(error).__name__
+                + ": original selected evidence unavailable",
+            )
         results.append(read_contracts.OwnerRecord.model_validate(value))
     return results
 
@@ -629,7 +768,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         owner="scripts/capabilities/integration_view.py",
         source="scripts/capabilities/integration_view.py",
         exposure="tool",
-            invocation_lifetime="single",
+        invocation_lifetime="single",
         effects="Read-only source/Git/producer and explicitly selected native status/lifecycle observations; no compiler, preparation, staging or mutation.",
     )
     tool.tags.update(capability.tags)

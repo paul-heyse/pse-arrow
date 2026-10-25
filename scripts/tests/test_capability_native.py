@@ -540,19 +540,40 @@ class NativeSchemaTests(unittest.TestCase):
 
     def test_model_observations_use_exact_directional_native_schemas(self) -> None:
         for operation, request_slug, output_slug in (
-            ("model_declarations", "modeling-declaration-request", "modeling-declaration-page"),
+            (
+                "model_declarations",
+                "modeling-declaration-request",
+                "modeling-declaration-page",
+            ),
             ("model_inspect", "modeling-inspection-request", "modeling-inspection"),
-            ("model_compare", "modeling-comparison-request", "modeling-comparison-observation"),
+            (
+                "model_compare",
+                "modeling-comparison-request",
+                "modeling-comparison-observation",
+            ),
         ):
             tool = self.tools["native_" + operation]
             facts = object_value(at(tool.meta, "pse.native"))
             self.assertEqual(at(facts, "contracts", "request", "slug"), request_slug)
-            self.assertEqual(at(facts, "contracts", "output_document", "slug"), output_slug)
-            binding = next(item for item in native_contracts.BINDINGS if item.operation == operation)
+            self.assertEqual(
+                at(facts, "contracts", "output_document", "slug"), output_slug
+            )
+            binding = next(
+                item
+                for item in native_contracts.BINDINGS
+                if item.operation == operation
+            )
             self.assertTrue(binding.prepare_import)
             self.assertIn(operation, native_contracts.EXACT_READS)
             Draft202012Validator.check_schema(tool.parameters)
-            document: dict[str, JsonValue] = {"outcome": "observed", "document": {"text": "x" * 20000, "rows": list(range(110)), "native_null": None}}
+            document: dict[str, JsonValue] = {
+                "outcome": "observed",
+                "document": {
+                    "text": "x" * 20000,
+                    "rows": list(range(110)),
+                    "native_null": None,
+                },
+            }
             preserved = native.intact_result(document, "native_" + operation)
             self.assertEqual(preserved.payload, document)
             self.assertTrue(preserved.complete)

@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-import re
 import json
+import re
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Self
@@ -72,7 +72,9 @@ class QueryRequest(Contract):
     metric: Identifier | None = None
     step_seconds: Annotated[int, Field(ge=1, le=3600)] = 60
     threshold: FiniteFloat | None = None
-    metric_filters: Annotated[dict[str, str], Field(max_length=16)] = Field(default_factory=dict)
+    metric_filters: Annotated[dict[str, str], Field(max_length=16)] = Field(
+        default_factory=dict
+    )
     group_by: Annotated[list[str], Field(max_length=16)] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -98,20 +100,26 @@ class QueryRequest(Contract):
         if self.signal != "metrics" and (self.metric_filters or self.group_by):
             raise ValueError("Dimensions select metric populations only")
         if self.kind in {"points", "exemplars"} and self.group_by:
-            raise ValueError("Grouping applies to metric estimators, not raw points or examples")
+            raise ValueError(
+                "Grouping applies to metric estimators, not raw points or examples"
+            )
         if len(set(self.group_by)) != len(self.group_by):
             raise ValueError("Select each grouping attribute once")
         if self.metric_filters or self.group_by:
             declaration = metric_declaration(self.metric)
             if declaration is None:
                 raise ValueError("Dimension selection requires a declared instrument")
-            domains = ATTRIBUTE_DOMAINS.validate_python(declaration.get("attribute_values", {}), strict=True)
+            domains = ATTRIBUTE_DOMAINS.validate_python(
+                declaration.get("attribute_values", {}), strict=True
+            )
             for key in {*self.metric_filters, *self.group_by}:
                 if key not in domains:
                     raise ValueError("Attribute is not declared for this instrument")
             for key, value in self.metric_filters.items():
                 if value not in domains[key]:
-                    raise ValueError("Value is outside the instrument's finite vocabulary")
+                    raise ValueError(
+                        "Value is outside the instrument's finite vocabulary"
+                    )
         if (self.kind == "fraction_below") != (self.threshold is not None):
             raise ValueError("A threshold is required only for fraction_below")
         if self.kind != "points" and (
@@ -224,7 +232,10 @@ def metric_declarations() -> list[dict[str, JsonValue]]:
             "temporality": item.temporality,
             "reset": item.reset,
             "scope": item.scope,
-            "attribute_values": item.attribute_values(),
+            "attribute_values": {
+                key: list[JsonValue](values)
+                for key, values in item.attribute_values().items()
+            },
         }
         for item in METRIC_DECLARATIONS
     ]
@@ -237,12 +248,17 @@ def metric_declarations() -> list[dict[str, JsonValue]]:
 def metric_declaration(stream: str | None) -> dict[str, JsonValue] | None:
     """Resolve histogram suffixes without introducing another metric authority."""
     return next(
-        (item for item in metric_declarations() if stream in {
-            item["backend_name"],
-            str(item["backend_name"]) + "_bucket",
-            str(item["backend_name"]) + "_count",
-            str(item["backend_name"]) + "_sum",
-        }),
+        (
+            item
+            for item in metric_declarations()
+            if stream
+            in {
+                item["backend_name"],
+                str(item["backend_name"]) + "_bucket",
+                str(item["backend_name"]) + "_count",
+                str(item["backend_name"]) + "_sum",
+            }
+        ),
         None,
     )
 
@@ -516,7 +532,9 @@ def backend_request(
         if request.signal == "traces"
         else "service_instance_id": request.service_instance_id,
     }
-    fields.update({key.replace(".", "_"): value for key, value in request.metric_filters.items()})
+    fields.update(
+        {key.replace(".", "_"): value for key, value in request.metric_filters.items()}
+    )
     for name, value in fields.items():
         if value is not None:
             predicates.append(name + " = '" + value.replace("'", "''") + "'")
@@ -538,14 +556,28 @@ def backend_request(
             },
             "timeout": TIMEOUT_SECONDS,
         }
-    label_values = {key.replace(".", "_"): value for key, value in request.metric_filters.items()}
+    label_values = {
+        key.replace(".", "_"): value for key, value in request.metric_filters.items()
+    }
     if request.service_instance_id:
         label_values["service_instance_id"] = request.service_instance_id
-    labels = "{" + ",".join(f'{key}={json.dumps(value)}' for key, value in sorted(label_values.items())) + "}" if label_values else ""
+    labels = (
+        "{"
+        + ",".join(
+            f"{key}={json.dumps(value)}" for key, value in sorted(label_values.items())
+        )
+        + "}"
+        if label_values
+        else ""
+    )
     groups = [key.replace(".", "_") for key in request.group_by]
+
     def summed(expression: str, *, histogram: bool = False) -> str:
         keys = [*(["le"] if histogram else []), *groups]
-        return f"sum by({','.join(keys)})({expression})" if keys else f"sum({expression})"
+        return (
+            f"sum by({','.join(keys)})({expression})" if keys else f"sum({expression})"
+        )
+
     expression = stream + labels
     window = lookback_seconds(request)
     if request.kind in {"rate", "increase"}:
@@ -568,7 +600,14 @@ def backend_request(
             raise ValueError("Select an actual declared explicit histogram boundary")
         bound = format(request.threshold, ".15g")
         bucket_values = {**label_values, "le": bound}
-        bucket_labels = "{" + ",".join(f'{key}={json.dumps(value)}' for key, value in sorted(bucket_values.items())) + "}"
+        bucket_labels = (
+            "{"
+            + ",".join(
+                f"{key}={json.dumps(value)}"
+                for key, value in sorted(bucket_values.items())
+            )
+            + "}"
+        )
         expression = f"{summed(f'rate({stream}_bucket{bucket_labels}[{window}s])')}/{summed(f'rate({stream}_count{labels}[{window}s])')}"
     parameters: dict[str, str | int | float] = {
         "query": expression,

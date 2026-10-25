@@ -13,7 +13,11 @@ from typing import Annotated, Literal
 
 from pydantic import Field, JsonValue
 
-from scripts.capabilities.read_contracts import Contract, OwnerReference, ReaderSuggestion
+from scripts.capabilities.read_contracts import (
+    Contract,
+    OwnerReference,
+    ReaderSuggestion,
+)
 from scripts.telemetry_investigation import QueryAnswer, schema_description
 
 MAX_DOCUMENT_BYTES = 8 << 20
@@ -23,8 +27,12 @@ class Investigation(Contract):
     version: Literal[2] = 2
     created_at_ns: int
     question: Annotated[str, Field(min_length=1, max_length=4096)]
-    original_references: Annotated[list[OwnerReference], Field(max_length=32)] = Field(default_factory=list)
-    next_readers: Annotated[list[ReaderSuggestion], Field(max_length=32)] = Field(default_factory=list)
+    original_references: Annotated[list[OwnerReference], Field(max_length=32)] = Field(
+        default_factory=list
+    )
+    next_readers: Annotated[list[ReaderSuggestion], Field(max_length=32)] = Field(
+        default_factory=list
+    )
     schema_description: dict[str, JsonValue]
     selections: Annotated[list[QueryAnswer], Field(min_length=1, max_length=16)]
     missing_context: Annotated[list[str], Field(max_length=64)] = Field(

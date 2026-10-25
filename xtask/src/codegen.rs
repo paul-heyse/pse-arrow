@@ -1226,11 +1226,17 @@ mod tests {
     fn private_contracts_preserve_cli_nested_owner_without_hiding_stale_source() {
         let checkout = tempfile::tempdir().unwrap();
         let scratch = tempfile::tempdir().unwrap();
-        let cli = checkout.path().join("scripts/generated/capabilities/cli.py");
+        let cli = checkout
+            .path()
+            .join("scripts/generated/capabilities/cli.py");
         fs::create_dir_all(cli.parent().unwrap()).unwrap();
         fs::write(&cli, b"independent CLI producer\n").unwrap();
-        let mut contracts = GeneratedTree::empty(vec![PathBuf::from(documents::PRIVATE_PYTHON_ROOT)]);
-        contracts.files.insert(PathBuf::from("scripts/generated/fixture.py"), b"contract = 1\n".to_vec());
+        let mut contracts =
+            GeneratedTree::empty(vec![PathBuf::from(documents::PRIVATE_PYTHON_ROOT)]);
+        contracts.files.insert(
+            PathBuf::from("scripts/generated/fixture.py"),
+            b"contract = 1\n".to_vec(),
+        );
         write_tree(checkout.path(), &contracts).unwrap();
         write_tree(scratch.path(), &contracts).unwrap();
         assert_eq!(fs::read(&cli).unwrap(), b"independent CLI producer\n");

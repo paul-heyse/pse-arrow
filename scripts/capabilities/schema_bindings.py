@@ -50,7 +50,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
         owner="crates/pse-codegen/src/codegen/documents.rs",
         source="scripts/capabilities/schema_bindings.py",
         exposure="tool",
-            invocation_lifetime="single",
+        invocation_lifetime="single",
         effects="Read prepared generated schema resources only; no native import, installation, build or service.",
     )
     schema_tool = Tool.from_function(

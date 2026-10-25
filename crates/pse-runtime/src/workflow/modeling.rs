@@ -92,8 +92,8 @@ use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 pub use project_comparison::{
-    ModelingComparisonRequest, ModelingComparisonObservation,
-    ProjectChangeImpact, ProjectComparison, ProjectComparisonSelection, ProjectDocumentComposition,
+    ModelingComparisonObservation, ModelingComparisonRequest, ProjectChangeImpact,
+    ProjectComparison, ProjectComparisonSelection, ProjectDocumentComposition,
     ProjectDocumentSource, ProjectMergeChoice, ProjectMergeConflict, ProjectMergeConflictKind,
     ProjectMergeIntent, ProjectMergeMode, ProjectMergePreview, ProjectMergeProposal,
     ProjectMergeResolution, ProjectObjectChange, ProjectSourceDetail, ProjectSourceObject,

@@ -253,26 +253,70 @@ impl ModelingPackage {
     /// Compare and select detail from one pair of source snapshots.
     /// # Errors
     /// Context mismatch, invalid bounds and original source failures propagate.
-    pub async fn comparison_observation(&self, other: &Self, request: &ModelingComparisonRequest, cancel: &CancelSource) -> Result<ModelingComparisonObservation, WorkflowError> {
-        if request.limit == 0 || request.limit > 128 || request.logical.len() > 32 || request.logical.iter().any(|key| key.len() > 4096) {
+    pub async fn comparison_observation(
+        &self,
+        other: &Self,
+        request: &ModelingComparisonRequest,
+        cancel: &CancelSource,
+    ) -> Result<ModelingComparisonObservation, WorkflowError> {
+        if request.limit == 0
+            || request.limit > 128
+            || request.logical.len() > 32
+            || request.logical.iter().any(|key| key.len() > 4096)
+        {
             return Err(contract("model comparison selection exceeds finite bounds"));
         }
         if !request.source_only && self.physical.key != other.physical.key {
-            return Err(contract("semantic comparison physical contexts differ; request source-only comparison explicitly"));
+            return Err(contract(
+                "semantic comparison physical contexts differ; request source-only comparison explicitly",
+            ));
         }
-        self.runtime.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
-            let from = self.project_snapshot(cancel).await?;
-            let to = other.project_snapshot(cancel).await?;
-            let mut changes = compare(&from.objects, &to.objects)?;
-            if request.source_only { for change in &mut changes { change.impacts = vec![ProjectChangeImpact::Source, ProjectChangeImpact::Unknown]; } }
-            let total = changes.len();
-            let next = request.offset.saturating_add(request.limit);
-            let details = |snapshot: &Snapshot| request.logical.iter().map(|logical| ProjectSourceDetail { logical: logical.clone(), object: snapshot.objects.get(logical).cloned() }).collect();
-            super::documents::bound_observation(ModelingComparisonObservation {
-                comparison: ProjectComparison { from: self.project_comparison_selection()?, to: other.project_comparison_selection()?, semantic_context_matches: !request.source_only && self.physical.key == other.physical.key, changes: changes.into_iter().skip(request.offset).take(request.limit).collect() },
-                total, offset: request.offset, next_offset: (next < total).then_some(next), before: details(&from), after: details(&to),
-            })
-        })).await
+        self.runtime
+            .scope_activity(pse_operations::canonical::operation_scope(
+                operation_deadline(cancel),
+                async {
+                    let from = self.project_snapshot(cancel).await?;
+                    let to = other.project_snapshot(cancel).await?;
+                    let mut changes = compare(&from.objects, &to.objects)?;
+                    if request.source_only {
+                        for change in &mut changes {
+                            change.impacts =
+                                vec![ProjectChangeImpact::Source, ProjectChangeImpact::Unknown];
+                        }
+                    }
+                    let total = changes.len();
+                    let next = request.offset.saturating_add(request.limit);
+                    let details = |snapshot: &Snapshot| {
+                        request
+                            .logical
+                            .iter()
+                            .map(|logical| ProjectSourceDetail {
+                                logical: logical.clone(),
+                                object: snapshot.objects.get(logical).cloned(),
+                            })
+                            .collect()
+                    };
+                    super::documents::bound_observation(ModelingComparisonObservation {
+                        comparison: ProjectComparison {
+                            from: self.project_comparison_selection()?,
+                            to: other.project_comparison_selection()?,
+                            semantic_context_matches: !request.source_only
+                                && self.physical.key == other.physical.key,
+                            changes: changes
+                                .into_iter()
+                                .skip(request.offset)
+                                .take(request.limit)
+                                .collect(),
+                        },
+                        total,
+                        offset: request.offset,
+                        next_offset: (next < total).then_some(next),
+                        before: details(&from),
+                        after: details(&to),
+                    })
+                },
+            ))
+            .await
     }
     pub(in crate::workflow) fn runtime_store_issuer(&self) -> Result<&str, WorkflowError> {
         Ok(self.runtime.canonical_store()?.issuing_store()?)
@@ -1175,28 +1219,83 @@ mod tests {
         let runtime = crate::workflow::tests::runtime();
         let original = declarations("package p { param a:Scalar=1; param b:Scalar=2; }");
         let mut changed = original.clone();
-        changed.iter_mut().find(|row| row.name == "a").unwrap().value.binding.as_mut().unwrap().expression = Some("3".into());
-        let package = runtime.modeling_package(original.clone(), crate::workflow::tests::physical()).await.unwrap();
+        changed
+            .iter_mut()
+            .find(|row| row.name == "a")
+            .unwrap()
+            .value
+            .binding
+            .as_mut()
+            .unwrap()
+            .expression = Some("3".into());
+        let package = runtime
+            .modeling_package(original.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
         let mut foreign_physical = crate::workflow::tests::physical();
         // Deliberately distinct fixture authority; no scientific equivalence is asserted.
         foreign_physical.key = pse_ids::ContentHash::from_bytes([0x91; 32]);
-        let other = runtime.modeling_package(changed, foreign_physical).await.unwrap();
-        let page = package.declaration_page(&ModelingDeclarationRequest { offset: 1, limit: 1 }).await.unwrap();
+        let other = runtime
+            .modeling_package(changed, foreign_physical)
+            .await
+            .unwrap();
+        let page = package
+            .declaration_page(&ModelingDeclarationRequest {
+                offset: 1,
+                limit: 1,
+            })
+            .await
+            .unwrap();
         assert_eq!(page.total, original.len());
         assert_eq!(page.declarations, original[1..2]);
         assert_eq!(page.source.physical_context, package.physical.key);
         assert_eq!(page.next_offset, (original.len() > 2).then_some(2));
-        assert!(package.declaration_page(&ModelingDeclarationRequest { offset: 0, limit: 129 }).await.is_err());
-        let logical = format!("modeling:{}", original.iter().find(|row| row.name == "a").unwrap().declaration_id.as_id());
-        let mut request = ModelingComparisonRequest { source_only: false, offset: 0, limit: 1, logical: vec![logical.clone()] };
-        assert!(package.comparison_observation(&other, &request, &CancelSource::new()).await.is_err());
+        assert!(
+            package
+                .declaration_page(&ModelingDeclarationRequest {
+                    offset: 0,
+                    limit: 129
+                })
+                .await
+                .is_err()
+        );
+        let logical = format!(
+            "modeling:{}",
+            original
+                .iter()
+                .find(|row| row.name == "a")
+                .unwrap()
+                .declaration_id
+                .as_id()
+        );
+        let mut request = ModelingComparisonRequest {
+            source_only: false,
+            offset: 0,
+            limit: 1,
+            logical: vec![logical.clone()],
+        };
+        assert!(
+            package
+                .comparison_observation(&other, &request, &CancelSource::new())
+                .await
+                .is_err()
+        );
         request.source_only = true;
-        let observed = package.comparison_observation(&other, &request, &CancelSource::new()).await.unwrap();
+        let observed = package
+            .comparison_observation(&other, &request, &CancelSource::new())
+            .await
+            .unwrap();
         assert!(!observed.comparison.semantic_context_matches);
         assert_eq!(observed.total, 1);
         assert_eq!(observed.comparison.changes[0].logical, logical);
-        assert_eq!(observed.comparison.changes[0].impacts, [ProjectChangeImpact::Source, ProjectChangeImpact::Unknown]);
-        assert_ne!(observed.comparison.from.physical, observed.comparison.to.physical);
+        assert_eq!(
+            observed.comparison.changes[0].impacts,
+            [ProjectChangeImpact::Source, ProjectChangeImpact::Unknown]
+        );
+        assert_ne!(
+            observed.comparison.from.physical,
+            observed.comparison.to.physical
+        );
         assert_ne!(observed.before[0].object, observed.after[0].object);
     }
     #[tokio::test]

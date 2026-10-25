@@ -9,8 +9,8 @@ import unittest
 from unittest.mock import patch
 
 from scripts import telemetry_selection as selection
-from scripts.telemetry_investigation import QueryAnswer, QueryRequest
 from scripts.capabilities.read_contracts import InvocationReference
+from scripts.telemetry_investigation import QueryAnswer, QueryRequest
 
 
 class CopiedPages(unittest.TestCase):
@@ -63,9 +63,15 @@ class CopiedPages(unittest.TestCase):
         self.assertEqual(third.question, self.document.question)
 
     def test_question_handoff_keeps_original_readers_unexecuted(self) -> None:
-        reference = InvocationReference(kind="invocation", invocation="authentic-id", registry="/original/registry")
-        suggestion = selection.ReaderSuggestion(reference=reference, reason="Inspect original settlement")
-        document = self.document.model_copy(update={"original_references": [reference], "next_readers": [suggestion]})
+        reference = InvocationReference(
+            kind="invocation", invocation="authentic-id", registry="/original/registry"
+        )
+        suggestion = selection.ReaderSuggestion(
+            reference=reference, reason="Inspect original settlement"
+        )
+        document = self.document.model_copy(
+            update={"original_references": [reference], "next_readers": [suggestion]}
+        )
         with patch.object(selection, "read_document", return_value=document):
             page = selection.page(self.reference)
         self.assertEqual(page.original_references[0], reference)

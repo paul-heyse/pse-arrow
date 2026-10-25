@@ -616,8 +616,14 @@ def _productions(projection: _Projection, predicates: dict[str, str]) -> None:
         ).hexdigest()
         projection.productions[identity] = {"id": identity, **triple}
         sections = row.get("contract_sections", [])
-        if not isinstance(sections, list) or len(sections) > 16 or any(not isinstance(section, str) for section in sections):
-            raise ValueError("producer contract sections require finite stable identities")
+        if (
+            not isinstance(sections, list)
+            or len(sections) > 16
+            or any(not isinstance(section, str) for section in sections)
+        ):
+            raise ValueError(
+                "producer contract sections require finite stable identities"
+            )
         for section in sections:
             _sections(projection, set(), section)
             projection.edge(_identity("contract", section), artifact["id"], "governs")
@@ -686,7 +692,9 @@ def _selected_reference(projection: _Projection, kind: str, selection: dict) -> 
     if adapter == "diagnostic":
         snapshot = evidence_sources.diagnostic_snapshot(selected_path)
     elif adapter == "assessment":
-        snapshot = evidence_sources.assessment_snapshot(selected_path, root=projection.root)
+        snapshot = evidence_sources.assessment_snapshot(
+            selected_path, root=projection.root
+        )
     else:
         snapshot = evidence_projection.invocation_snapshot(path)
     if selection.get("codec") not in {None, snapshot["codec"]}:
@@ -774,7 +782,10 @@ def _selected_reference(projection: _Projection, kind: str, selection: dict) -> 
         projection.native_facts.append(
             {"subject_id": subject["id"], "original_fact": fact, "adapter": adapter}
         )
-        if adapter == "assessment" and fact.get("link_relation") in {"selected_contract", "executed_contract"}:
+        if adapter == "assessment" and fact.get("link_relation") in {
+            "selected_contract",
+            "executed_contract",
+        }:
             section = fact.get("link_target")
             artifact = fact.get("detail_ref")
             if isinstance(section, str) and isinstance(artifact, str):
@@ -801,7 +812,14 @@ def _select_query_context(result: dict, items: list[dict]) -> None:
     into unrelated sibling sections. Producer triples remain indivisible.
     """
     selected = {item["id"] for item in items}
-    semantic_relations = {"depends_on", "status_owned_by", "superseded_by", "governs", "references", "supports"}
+    semantic_relations = {
+        "depends_on",
+        "status_owned_by",
+        "superseded_by",
+        "governs",
+        "references",
+        "supports",
+    }
     while True:
         related = selected | {
             endpoint
@@ -813,7 +831,9 @@ def _select_query_context(result: dict, items: list[dict]) -> None:
         related.update(
             row[field]
             for row in result["productions"]
-            if related.intersection((row["declaration_id"], row["generator_id"], row["artifact_id"]))
+            if related.intersection(
+                (row["declaration_id"], row["generator_id"], row["artifact_id"])
+            )
             for field in ("declaration_id", "generator_id", "artifact_id")
         )
         if related == selected:

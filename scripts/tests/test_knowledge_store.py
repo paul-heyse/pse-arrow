@@ -20,26 +20,47 @@ from scripts import knowledge_store, workspace_sources
 
 class KnowledgeStoreTests(unittest.TestCase):
     def test_indexed_read_keeps_native_document_and_separate_freshness(self) -> None:
-        request = {"version": 1, "mode": "productions", "artifact_id": "artifact:one", "limit": 1}
-        original = {"version": 1, "generation": "a" * 64, "sources": [], "next": {"after": "exact"}, "subjects": [{"label": "x" * 17000}]}
+        request = {
+            "version": 1,
+            "mode": "productions",
+            "artifact_id": "artifact:one",
+            "limit": 1,
+        }
+        original = {
+            "version": 1,
+            "generation": "a" * 64,
+            "sources": [],
+            "next": {"after": "exact"},
+            "subjects": [{"label": "x" * 17000}],
+        }
 
-        def read(_state: Path, _tool: Path, arguments: list[str], *, deadline: float) -> dict:
+        def read(
+            _state: Path, _tool: Path, arguments: list[str], *, deadline: float
+        ) -> dict:
             self.assertGreater(deadline, 0)
             self.assertEqual(arguments[0], "knowledge-query")
             self.assertEqual(json.loads(Path(arguments[2]).read_bytes()), request)
             return original
 
         with patch.object(knowledge_store, "native", side_effect=read):
-            result = knowledge_store.indexed(request, state=Path("/selected"), tool=Path("/tool"))
+            result = knowledge_store.indexed(
+                request, state=Path("/selected"), tool=Path("/tool")
+            )
         self.assertIs(result["document"], original)
         self.assertEqual(result["source_observations"], [])
         self.assertEqual(result["document"]["subjects"][0]["label"], "x" * 17000)
 
     def test_indexed_refusal_is_not_replaced_by_source_corpus(self) -> None:
         refusal = {"outcome": "refused", "code": "pse.knowledge.cursor_context"}
-        with (patch.object(knowledge_store, "native", return_value=refusal),
-              patch.object(knowledge_store, "corpus", side_effect=AssertionError("fallback"))):
-            result = knowledge_store.indexed({"version": 1}, state=Path("/state"), tool=Path("/tool"))
+        with (
+            patch.object(knowledge_store, "native", return_value=refusal),
+            patch.object(
+                knowledge_store, "corpus", side_effect=AssertionError("fallback")
+            ),
+        ):
+            result = knowledge_store.indexed(
+                {"version": 1}, state=Path("/state"), tool=Path("/tool")
+            )
         self.assertEqual(result, refusal)
 
     def test_source_only_corpus_and_selected_later_range_survive_index_loss(

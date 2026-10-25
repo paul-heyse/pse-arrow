@@ -61,9 +61,9 @@ pub mod result_blocks;
 pub mod result_files;
 mod result_inspection;
 pub use result_inspection::{
-    ArrowFieldPath, ArrowFieldStep, ResultInspectionCursor, ResultInspectionBasis, ResultInspectionStorage,
-    ResultCellUnavailable, ResultFloatClass, ResultInspectionCell, ResultInspectionDocument,
-    ResultInspectionField, ResultInspectionRefusal, ResultInspectionRequest, ResultInspectionRow,
+    ArrowFieldPath, ArrowFieldStep, ResultCellUnavailable, ResultFloatClass, ResultInspectionBasis,
+    ResultInspectionCell, ResultInspectionCursor, ResultInspectionDocument, ResultInspectionField,
+    ResultInspectionRefusal, ResultInspectionRequest, ResultInspectionRow, ResultInspectionStorage,
     ResultInspectionView,
 };
 mod result_snapshot;
@@ -231,10 +231,10 @@ pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
     InspectionConnection, InspectionExecution, InspectionInstance, InspectionLineage,
-    InspectionMember, InspectionPort, JacobianDiagnosticControls, KnowledgeControls,
-    LinearDiagnosticControls, ModelingInspection, ModelingInspectionRequest, InspectionPopulation,
-    ModelingDeclarationRequest, ModelingDeclarationPage, PureConformanceControls, SourceDelta,
-    SourceDocumentDelta, SourceFitDelta,
+    InspectionMember, InspectionPopulation, InspectionPort, JacobianDiagnosticControls,
+    KnowledgeControls, LinearDiagnosticControls, ModelingDeclarationPage,
+    ModelingDeclarationRequest, ModelingInspection, ModelingInspectionRequest,
+    PureConformanceControls, SourceDelta, SourceDocumentDelta, SourceFitDelta,
 };
 pub use projects::{
     ProjectDraftDelta, ProjectDraftDocuments, ProjectDraftSaveIntent, ProjectReference,
@@ -247,22 +247,22 @@ pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
     DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop, DiscreteInitialization,
     ElasticObservation, InitializationOverrides, ModelingAnalysis, ModelingCheck,
-    ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
-    ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
-    ModelingDiagnostics, ModelingElasticAttempt, ModelingFixtureSelection,
-    ModelingInfeasibilityCertificate, ModelingInitialization, ModelingInitializationAttempt,
-    ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
-    ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
-    ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingSourceMap, ModelingSourceMapDocument, ModelingTrajectory, OwnedDeclarations,
-    PreparationDiscoveryReport, PreparationDiscoveryRequest, PreparationEligibility,
-    PreparationProductKind, ProjectChangeImpact, ProjectComparison, ProjectComparisonSelection,
-    ModelingComparisonRequest, ModelingComparisonObservation,
-    ProjectDocumentComposition, ProjectDocumentSource, ProjectMergeChoice, ProjectMergeConflict,
-    ProjectMergeConflictKind, ProjectMergeIntent, ProjectMergeMode, ProjectMergePreview,
-    ProjectMergeProposal, ProjectMergeResolution, ProjectObjectChange, ProjectSourceDetail,
-    ProjectSourceObject, ResidentPreparation, SimulationSampleAttempt, SimulationSampleObserver,
-    StartSource, conform_pure_documents, with_simulation_sample_wait,
+    ModelingComparisonObservation, ModelingComparisonRequest, ModelingConformanceCheck,
+    ModelingConformancePolicy, ModelingConformanceReport, ModelingDiagnosticPolicy,
+    ModelingDiagnosticPreparation, ModelingDiagnosticSamples, ModelingDiagnostics,
+    ModelingElasticAttempt, ModelingFixtureSelection, ModelingInfeasibilityCertificate,
+    ModelingInitialization, ModelingInitializationAttempt, ModelingInitializationReport,
+    ModelingInitializationStep, ModelingKnowledge, ModelingNonlinearExplanation,
+    ModelingNonlinearPolicy, ModelingObservations, ModelingPackage, ModelingReport, ModelingResult,
+    ModelingSimulation, ModelingSolvePreparation, ModelingSourceMap, ModelingSourceMapDocument,
+    ModelingTrajectory, OwnedDeclarations, PreparationDiscoveryReport, PreparationDiscoveryRequest,
+    PreparationEligibility, PreparationProductKind, ProjectChangeImpact, ProjectComparison,
+    ProjectComparisonSelection, ProjectDocumentComposition, ProjectDocumentSource,
+    ProjectMergeChoice, ProjectMergeConflict, ProjectMergeConflictKind, ProjectMergeIntent,
+    ProjectMergeMode, ProjectMergePreview, ProjectMergeProposal, ProjectMergeResolution,
+    ProjectObjectChange, ProjectSourceDetail, ProjectSourceObject, ResidentPreparation,
+    SimulationSampleAttempt, SimulationSampleObserver, StartSource, conform_pure_documents,
+    with_simulation_sample_wait,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};

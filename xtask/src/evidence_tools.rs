@@ -280,7 +280,10 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                 }
             };
             if request.validate().is_err() {
-                println!("{}", serde_json::json!({"outcome":"refused","code":"pse.knowledge.input_refused","remedy":"Correct the finite mode-specific predicates; no store was opened."}));
+                println!(
+                    "{}",
+                    serde_json::json!({"outcome":"refused","code":"pse.knowledge.input_refused","remedy":"Correct the finite mode-specific predicates; no store was opened."})
+                );
                 return Ok(());
             }
             Some(request)
@@ -296,7 +299,10 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
-    let knowledge_read = matches!(&args.command, EvidenceCommand::KnowledgeQuery { .. } | EvidenceCommand::KnowledgeExplain { .. });
+    let knowledge_read = matches!(
+        &args.command,
+        EvidenceCommand::KnowledgeQuery { .. } | EvidenceCommand::KnowledgeExplain { .. }
+    );
     let output = rt.block_on(evidence::within_allowance(deadline, async {
         match args.command {
             EvidenceCommand::Init => {

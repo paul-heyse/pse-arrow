@@ -255,7 +255,9 @@ fn query(mode: KnowledgeMode, generation: Option<String>) -> KnowledgeQuery {
 }
 #[test]
 fn knowledge_query_checks_version_before_body_and_preserves_predicate() {
-    let example = KnowledgeQuery::decode_json(&serde_json::to_vec(&knowledge_query_example()).unwrap()).unwrap();
+    let example =
+        KnowledgeQuery::decode_json(&serde_json::to_vec(&knowledge_query_example()).unwrap())
+            .unwrap();
     example.validate().unwrap();
     let request = query(KnowledgeMode::Productions, None);
     let mut value = serde_json::to_value(&request).unwrap();
@@ -713,7 +715,11 @@ pub(crate) async fn exercise_native(
     assert_eq!(false_pair.sources.len(), 3);
     for request in [&selected, &graph_request, &production_request] {
         let plan = reader.knowledge_explain(request).await?;
-        assert!(!serde_json::from_str::<serde_json::Value>(&plan.raw_plan_json).unwrap().is_null());
+        assert!(
+            !serde_json::from_str::<serde_json::Value>(&plan.raw_plan_json)
+                .unwrap()
+                .is_null()
+        );
         eprintln!("knowledge structured native plan {}", plan.raw_plan_json);
     }
     let all = KnowledgeQuery {

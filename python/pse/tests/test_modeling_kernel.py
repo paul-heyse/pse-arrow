@@ -13,7 +13,6 @@ import pyarrow.parquet as pq
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse.conformance import RunSummary, load_manifest
 from pse.conformance import main as conformance_main
@@ -30,8 +29,12 @@ from pse.contracts.enums import (
 from pse.contracts.identities import DeclarationId, RunId
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
-from pse.tests.physical_input_fixture import coordinate_batch, member, sample_batch
-
+from pse.tests.physical_input_fixture import (
+    coordinate_batch,
+    inspection_request,
+    member,
+    sample_batch,
+)
 
 
 def identity(n: int) -> SemanticId:
@@ -1213,9 +1216,15 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     with pytest.raises(pse.InspectionError, match="admission table absent"):
         conformance.admission("runtime.modeling_checks")
     assert (
-        package.inspect(inspection_request(declaration(207), settings)).execution.procedure == "initialize"
+        package.inspect(
+            inspection_request(declaration(207), settings)
+        ).execution.procedure
+        == "initialize"
     )
-    assert package.inspect(inspection_request(declaration(207), settings)).execution.route == "simultaneous"
+    assert (
+        package.inspect(inspection_request(declaration(207), settings)).execution.route
+        == "simultaneous"
+    )
     with pytest.raises(pse.InspectionError, match="authored solve procedure"):
         package.prepare_solve(declaration(207), settings)
     initialized = package.initialize(

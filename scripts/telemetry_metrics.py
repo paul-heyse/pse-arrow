@@ -108,7 +108,9 @@ BUILD_RECORDS = frozenset(
     {"compiler-artifact", "compiler-message", "build-script-executed", "build-finished"}
 )
 FRESHNESS = frozenset({"fresh", "nonfresh"})
-GATE_POPULATIONS = frozenset({"declared", "unattempted", "executed", "reused", "outcome"})
+GATE_POPULATIONS = frozenset(
+    {"declared", "unattempted", "executed", "reused", "outcome"}
+)
 CASE_POPULATIONS = frozenset({"selected", "executed", "outcome"})
 
 
@@ -139,7 +141,9 @@ class MetricDeclaration:
             else CASE_POPULATIONS,
         }
         if self.name == "pse.host.pressure":
-            from scripts.pressure_observation import PSI  # noqa: PLC0415 -- original producer vocabulary
+            from scripts.pressure_observation import (  # noqa: PLC0415 -- original vocabulary; pressure consumes host_metrics.
+                PSI,
+            )
 
             domains.update(
                 scope=frozenset({"host", "selected"}),

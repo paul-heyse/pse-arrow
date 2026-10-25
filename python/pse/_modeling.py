@@ -53,12 +53,12 @@ from pse.contracts.documents import (
     LazyStudyDefinition,
     LinearDiagnosticControls,
     ManagedStudyDiagnosticsDocumentOutput,
-    ModelingNonlinearPolicy,
-    ModelingInspectionRequest,
-    ModelingDeclarationRequest,
-    ModelingDeclarationPageOutput,
+    ModelingComparisonObservation,
     ModelingComparisonRequest,
-    ModelingComparisonObservationOutput,
+    ModelingDeclarationPage,
+    ModelingDeclarationRequest,
+    ModelingInspectionRequest,
+    ModelingNonlinearPolicy,
     ModelingSourceMapDocumentOutput,
     OperationSourceOutput,
     PhysicalFitRequest,
@@ -846,7 +846,9 @@ class ModelingPackage:
             self._handle.with_declarations(encode_declarations(declarations))
         )
 
-    def declaration_page(self, request: ModelingDeclarationRequest) -> ModelingDeclarationPageOutput:
+    def declaration_page(
+        self, request: ModelingDeclarationRequest
+    ) -> ModelingDeclarationPage:
         """Read a finite native declaration page with exact source attribution."""
         return self._handle.declaration_page(request)
 
@@ -873,7 +875,9 @@ class ModelingPackage:
             self._handle.reload_from_parent([dict(bundle) for bundle in documents])
         )
 
-    def comparison_observation(self, other: "ModelingPackage", request: ModelingComparisonRequest) -> ModelingComparisonObservationOutput:
+    def comparison_observation(
+        self, other: "ModelingPackage", request: ModelingComparisonRequest
+    ) -> ModelingComparisonObservation:
         """Read a finite exact comparison with native source-only/context semantics."""
         return self._handle.comparison_observation(other._handle, request)  # noqa: SLF001 -- same native receiver composition.
 
@@ -906,9 +910,7 @@ class ModelingPackage:
         """
         return self._handle.preparation_discovery(request)
 
-    def inspect(
-        self, request: ModelingInspectionRequest
-    ) -> ModelingInspection:
+    def inspect(self, request: ModelingInspectionRequest) -> ModelingInspection:
         """Inspect a finite native page under its explicit preparation/source policy."""
         return self._handle.inspect(request)
 

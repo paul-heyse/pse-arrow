@@ -8,7 +8,6 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse import codec
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import (
@@ -18,7 +17,7 @@ from pse.contracts.enums import (
     TearMethod,
 )
 from pse.tests.canonical_fixture import CanonicalFixture
-from pse.tests.physical_input_fixture import primitive_quantity
+from pse.tests.physical_input_fixture import inspection_request, primitive_quantity
 
 #: A manifest dependency on the physical primitives fixture. Its document names
 #: `Scalar`, `Length` and `Time` (ADR-0123 Outcome 6).
@@ -29,7 +28,6 @@ PRIMITIVES = (
 
 
 @pytest.mark.integration
-
 def test_authored_recycle_uses_declared_ports_and_owned_results(
     inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
 ) -> None:

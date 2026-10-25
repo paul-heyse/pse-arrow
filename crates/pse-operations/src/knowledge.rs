@@ -20,8 +20,8 @@ use pse_model::generated::{
     },
 };
 use pse_schema::catalog::knowledge as declaration;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use surrealdb::types::{Object, Value};
@@ -1466,11 +1466,19 @@ impl EvidenceStore {
         }
         Ok(KnowledgeExplain {
             version: pse_model::document::Version,
-            issuing_store: self.issuing_store.clone(), generation, mode: request.mode,
+            issuing_store: self.issuing_store.clone(),
+            generation,
+            mode: request.mode,
             query_digest: identity,
-            raw_plan_json: serde_json::to_string(&plan).map_err(|cause| invalid(cause.to_string()))?,
-            population_plan_json: population_plan.map(|value| serde_json::to_string(&value)).transpose().map_err(|cause| invalid(cause.to_string()))?,
-            coverage: COVERAGE, freshness: "imported-cut-only", experimental_execution: false,
+            raw_plan_json: serde_json::to_string(&plan)
+                .map_err(|cause| invalid(cause.to_string()))?,
+            population_plan_json: population_plan
+                .map(|value| serde_json::to_string(&value))
+                .transpose()
+                .map_err(|cause| invalid(cause.to_string()))?,
+            coverage: COVERAGE,
+            freshness: "imported-cut-only",
+            experimental_execution: false,
         })
     }
 }

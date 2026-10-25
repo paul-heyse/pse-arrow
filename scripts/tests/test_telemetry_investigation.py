@@ -9,9 +9,9 @@ import asyncio
 import copy
 import json
 import unittest
-from urllib.parse import parse_qs, urlsplit
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
+from urllib.parse import parse_qs, urlsplit
 
 import httpx2
 from pydantic import ValidationError
@@ -29,7 +29,9 @@ if TYPE_CHECKING:
 
 
 class QueryTests(unittest.IsolatedAsyncioTestCase):
-    def test_metric_dimensions_are_instrument_specific_and_preserve_grouping(self) -> None:
+    def test_metric_dimensions_are_instrument_specific_and_preserve_grouping(
+        self,
+    ) -> None:
         selected = self.request(
             metric="pse_assessment_duration",
             kind="p95",
@@ -38,7 +40,10 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
         )
         path, body = backend_request("default", "pse_assessment_duration", selected)
         expression = parse_qs(urlsplit(path).query)["query"][0]
-        self.assertEqual(expression, 'histogram_quantile(0.95,sum by(le,status)(rate(pse_assessment_duration_bucket{mode="native-force-validate",stage="execution"}[120s])))')
+        self.assertEqual(
+            expression,
+            'histogram_quantile(0.95,sum by(le,status)(rate(pse_assessment_duration_bucket{mode="native-force-validate",stage="execution"}[120s])))',
+        )
         self.assertIsNone(body)
         for override in [
             {"metric_filters": {"status": "arbitrary-process-id"}},
@@ -51,32 +56,61 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
                 self.request(metric="pse_assessment_duration", **override)
 
     def test_metric_points_filter_before_backend_expansion(self) -> None:
-        selected = self.request(metric="pse_build_duration", metric_filters={"status": "failed"})
+        selected = self.request(
+            metric="pse_build_duration", metric_filters={"status": "failed"}
+        )
         _, body = backend_request("default", "pse_build_duration", selected)
         assert body is not None
         query = body["query"]
         assert isinstance(query, dict)
-        self.assertEqual(query["sql"], 'SELECT * FROM "pse_build_duration" WHERE status = \'failed\' ORDER BY _timestamp')
+        self.assertEqual(
+            query["sql"],
+            "SELECT * FROM \"pse_build_duration\" WHERE status = 'failed' ORDER BY _timestamp",
+        )
 
     def test_native_attribute_uses_original_domain_and_owned_backend_name(self) -> None:
-        with patch("scripts.telemetry_investigation.metric_declarations", return_value=[{
-            "backend_name": "pse_runtime_executor_workers",
-            "attribute_values": {"executor.role": ["worker", "python", "canonical_tools"]},
-        }]):
-            selected = self.request(metric="pse_runtime_executor_workers", metric_filters={"executor.role": "worker"})
-            _, body = backend_request("default", "pse_runtime_executor_workers", selected)
+        with patch(
+            "scripts.telemetry_investigation.metric_declarations",
+            return_value=[
+                {
+                    "backend_name": "pse_runtime_executor_workers",
+                    "attribute_values": {
+                        "executor.role": ["worker", "python", "canonical_tools"]
+                    },
+                }
+            ],
+        ):
+            selected = self.request(
+                metric="pse_runtime_executor_workers",
+                metric_filters={"executor.role": "worker"},
+            )
+            _, body = backend_request(
+                "default", "pse_runtime_executor_workers", selected
+            )
             assert body is not None
             query = body["query"]
             assert isinstance(query, dict)
             self.assertIn("executor_role = 'worker'", query["sql"])
             with self.assertRaises(ValidationError):
-                self.request(metric="pse_runtime_executor_workers", metric_filters={"executor.role": "arbitrary-job-id"})
+                self.request(
+                    metric="pse_runtime_executor_workers",
+                    metric_filters={"executor.role": "arbitrary-job-id"},
+                )
 
     def test_grouped_fraction_preserves_numerator_denominator_population(self) -> None:
-        selected = self.request(metric="pse_assessment_duration", kind="fraction_below", threshold=0.01, metric_filters={"stage": "execution"}, group_by=["mode"])
+        selected = self.request(
+            metric="pse_assessment_duration",
+            kind="fraction_below",
+            threshold=0.01,
+            metric_filters={"stage": "execution"},
+            group_by=["mode"],
+        )
         path, _ = backend_request("default", "pse_assessment_duration", selected)
         expression = parse_qs(urlsplit(path).query)["query"][0]
-        self.assertEqual(expression, 'sum by(mode)(rate(pse_assessment_duration_bucket{le="0.01",stage="execution"}[120s]))/sum by(mode)(rate(pse_assessment_duration_count{stage="execution"}[120s]))')
+        self.assertEqual(
+            expression,
+            'sum by(mode)(rate(pse_assessment_duration_bucket{le="0.01",stage="execution"}[120s]))/sum by(mode)(rate(pse_assessment_duration_count{stage="execution"}[120s]))',
+        )
 
     async def asyncSetUp(self) -> None:
         self.client = BackendClient()

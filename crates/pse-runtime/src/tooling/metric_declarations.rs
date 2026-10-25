@@ -306,13 +306,49 @@ pub fn metric_declarations() -> &'static [MetricDeclaration] {
     ]
 }
 
-
-pub(super) const NATIVE_EVENTS: [&str; 6] = ["attempt", "admitted", "dispatched", "joined", "cancel_requested", "deadline_requested"];
-pub(super) const PREPARATION_EVENTS: [&str; 4] = ["acquisition", "retained_reuse", "producer", "flight_waiter"];
-pub(super) const PRODUCTS: [&str; 4] = ["structural_view", "observation_program", "value_rebuilt", "value_shared"];
-pub(super) const QUERY_EVENTS: [&str; 7] = ["builder", "request_failed", "statement", "statement_succeeded", "statement_failed", "statement_timed", "statement_untimed"];
-pub(super) const TASK_EVENTS: [&str; 8] = ["instrumented", "dropped", "poll", "scheduled", "idle", "first_poll", "slow_poll", "long_delay"];
-pub(super) const TASK_PHASES: [&str; 6] = ["poll", "scheduled", "idle", "first_poll", "slow_poll", "long_delay"];
+pub(super) const NATIVE_EVENTS: [&str; 6] = [
+    "attempt",
+    "admitted",
+    "dispatched",
+    "joined",
+    "cancel_requested",
+    "deadline_requested",
+];
+pub(super) const PREPARATION_EVENTS: [&str; 4] =
+    ["acquisition", "retained_reuse", "producer", "flight_waiter"];
+pub(super) const PRODUCTS: [&str; 4] = [
+    "structural_view",
+    "observation_program",
+    "value_rebuilt",
+    "value_shared",
+];
+pub(super) const QUERY_EVENTS: [&str; 7] = [
+    "builder",
+    "request_failed",
+    "statement",
+    "statement_succeeded",
+    "statement_failed",
+    "statement_timed",
+    "statement_untimed",
+];
+pub(super) const TASK_EVENTS: [&str; 8] = [
+    "instrumented",
+    "dropped",
+    "poll",
+    "scheduled",
+    "idle",
+    "first_poll",
+    "slow_poll",
+    "long_delay",
+];
+pub(super) const TASK_PHASES: [&str; 6] = [
+    "poll",
+    "scheduled",
+    "idle",
+    "first_poll",
+    "slow_poll",
+    "long_delay",
+];
 pub(super) const TASK_THRESHOLDS: [&str; 2] = ["slow_poll", "long_delay"];
 pub(super) const SOURCE_OWNERS: [&str; 2] = ["native_preparation", "canonical_query"];
 pub(super) const INTERVAL_FAMILIES: [&str; 2] = ["native", "preparation"];
@@ -349,23 +385,50 @@ pub enum AttributeValues {
 
 impl AttributeValues {
     fn domains(self) -> std::collections::BTreeMap<&'static str, Vec<&'static str>> {
-        use pse_diagnostics::{ExecutorRole, NativeTaskClass};
         use super::operational_metrics::PreparationStage;
-        let tasks = || NativeTaskClass::ALL.iter().map(|class| class.as_str()).collect();
-        let stages = || PreparationStage::ALL.iter().map(|stage| stage.name()).collect();
+        use pse_diagnostics::{ExecutorRole, NativeTaskClass};
+        let tasks = || {
+            NativeTaskClass::ALL
+                .iter()
+                .map(|class| class.as_str())
+                .collect()
+        };
+        let stages = || {
+            PreparationStage::ALL
+                .iter()
+                .map(|stage| stage.name())
+                .collect()
+        };
         match self {
             Self::None => std::collections::BTreeMap::new(),
-            Self::Executor => [("executor.role", ExecutorRole::ALL.iter().map(|role| role.as_str()).collect())].into(),
+            Self::Executor => [(
+                "executor.role",
+                ExecutorRole::ALL.iter().map(|role| role.as_str()).collect(),
+            )]
+            .into(),
             Self::NativeEvents => [("event", NATIVE_EVENTS.to_vec())].into(),
-            Self::PreparationEvents => [("stage", stages()), ("event", PREPARATION_EVENTS.to_vec())].into(),
+            Self::PreparationEvents => {
+                [("stage", stages()), ("event", PREPARATION_EVENTS.to_vec())].into()
+            }
             Self::Products => [("product", PRODUCTS.to_vec())].into(),
             Self::QueryEvents => [("event", QUERY_EVENTS.to_vec())].into(),
             Self::Owners => [("owner", SOURCE_OWNERS.to_vec())].into(),
             Self::TaskEvents => [("task.class", tasks()), ("event", TASK_EVENTS.to_vec())].into(),
             Self::TaskPhases => [("task.class", tasks()), ("phase", TASK_PHASES.to_vec())].into(),
-            Self::TaskThresholds => [("task.class", tasks()), ("threshold", TASK_THRESHOLDS.to_vec())].into(),
+            Self::TaskThresholds => [
+                ("task.class", tasks()),
+                ("threshold", TASK_THRESHOLDS.to_vec()),
+            ]
+            .into(),
             Self::TaskClasses => [("task.class", tasks())].into(),
-            Self::OwnerIntervals => [("owner.family", INTERVAL_FAMILIES.to_vec()), ("stage", std::iter::once(SUPERVISOR_STAGE).chain(stages()).collect())].into(),
+            Self::OwnerIntervals => [
+                ("owner.family", INTERVAL_FAMILIES.to_vec()),
+                (
+                    "stage",
+                    std::iter::once(SUPERVISOR_STAGE).chain(stages()).collect(),
+                ),
+            ]
+            .into(),
         }
     }
 }
@@ -381,10 +444,22 @@ mod vocabulary_tests {
     fn metric_dimensions_are_exact_finite_producer_domains() {
         for declaration in super::metric_declarations() {
             let domains = declaration.attribute_values.domains();
-            assert_eq!(domains.keys().copied().collect::<std::collections::BTreeSet<_>>(), declaration.attributes.iter().copied().collect());
+            assert_eq!(
+                domains
+                    .keys()
+                    .copied()
+                    .collect::<std::collections::BTreeSet<_>>(),
+                declaration.attributes.iter().copied().collect()
+            );
             for values in domains.values() {
                 assert!(!values.is_empty());
-                assert_eq!(values.len(), values.iter().collect::<std::collections::BTreeSet<_>>().len());
+                assert_eq!(
+                    values.len(),
+                    values
+                        .iter()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .len()
+                );
             }
         }
     }

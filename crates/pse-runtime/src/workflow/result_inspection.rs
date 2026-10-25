@@ -7,8 +7,8 @@ use datafusion::arrow::{
     array::{
         Array, ArrayRef, BinaryArray, BooleanArray, FixedSizeBinaryArray, Float32Array,
         Float64Array, Int8Array, Int16Array, Int32Array, Int64Array, LargeBinaryArray,
-        LargeStringArray, StringArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
-        StructArray, ListArray,
+        LargeStringArray, ListArray, StringArray, StructArray, UInt8Array, UInt16Array,
+        UInt32Array, UInt64Array,
     },
     datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
@@ -52,15 +52,29 @@ pub struct ResultInspectionRequest {
 }
 fn result_request_example() -> ResultInspectionRequest {
     ResultInspectionRequest {
-        run: "illustrative-original-run".into(), attempt: "illustrative-terminal-attempt".into(),
-        relation: "runtime.study_outcomes".into(), start: 0, end: 1,
-        expected_manifest: None, cursor: None,
-        view: ResultInspectionView::Values { fields: vec![ArrowFieldPath { field: "start".into(), steps: vec![ArrowFieldStep::StructField { name: "kind".into() }] }], maximum_rows: 1 },
+        run: "illustrative-original-run".into(),
+        attempt: "illustrative-terminal-attempt".into(),
+        relation: "runtime.study_outcomes".into(),
+        start: 0,
+        end: 1,
+        expected_manifest: None,
+        cursor: None,
+        view: ResultInspectionView::Values {
+            fields: vec![ArrowFieldPath {
+                field: "start".into(),
+                steps: vec![ArrowFieldStep::StructField {
+                    name: "kind".into(),
+                }],
+            }],
+            maximum_rows: 1,
+        },
     }
 }
 
 /// Exact typed Arrow navigation; an empty step list selects the original root field.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ArrowFieldPath {
     /// Exact original root column name.
@@ -69,13 +83,25 @@ pub struct ArrowFieldPath {
     pub steps: Vec<ArrowFieldStep>,
 }
 impl From<&str> for ArrowFieldPath {
-    fn from(field: &str) -> Self { Self { field: field.into(), steps: Vec::new() } }
+    fn from(field: &str) -> Self {
+        Self {
+            field: field.into(),
+            steps: Vec::new(),
+        }
+    }
 }
 impl From<String> for ArrowFieldPath {
-    fn from(field: String) -> Self { Self { field, steps: Vec::new() } }
+    fn from(field: String) -> Self {
+        Self {
+            field,
+            steps: Vec::new(),
+        }
+    }
 }
 /// A native array operation, not a JSON pointer or a string expression.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ArrowFieldStep {
     /// Exact declared struct child.
@@ -125,7 +151,14 @@ pub struct ResultInspectionCursor {
 }
 impl ResultInspectionRequest {
     fn basis(&self) -> ResultInspectionBasis {
-        ResultInspectionBasis { run: self.run.clone(), attempt: self.attempt.clone(), relation: self.relation.clone(), start: self.start, end: self.end, view: self.view.clone() }
+        ResultInspectionBasis {
+            run: self.run.clone(),
+            attempt: self.attempt.clone(),
+            relation: self.relation.clone(),
+            start: self.start,
+            end: self.end,
+            view: self.view.clone(),
+        }
     }
 }
 
@@ -474,21 +507,43 @@ impl Budget {
         index: usize,
         field: &Field,
     ) -> Result<ResultInspectionField, ResultInspectionRefusal> {
-        self.field_at(index, field, ArrowFieldPath { field: field.name().clone(), steps: Vec::new() }, &[])
+        self.field_at(
+            index,
+            field,
+            ArrowFieldPath {
+                field: field.name().clone(),
+                steps: Vec::new(),
+            },
+            &[],
+        )
     }
-    fn field_at(&mut self, index: usize, field: &Field, path: ArrowFieldPath, ancestors: &[&Field]) -> Result<ResultInspectionField, ResultInspectionRefusal> {
+    fn field_at(
+        &mut self,
+        index: usize,
+        field: &Field,
+        path: ArrowFieldPath,
+        ancestors: &[&Field],
+    ) -> Result<ResultInspectionField, ResultInspectionRefusal> {
         self.charge(field.name().len().saturating_add(256))?;
         let storage = match field.data_type() {
-            DataType::Struct(children) => ResultInspectionStorage::Struct { child_count: children.len() },
-            DataType::List(element) => ResultInspectionStorage::List { element_name: element.name().clone() },
+            DataType::Struct(children) => ResultInspectionStorage::Struct {
+                child_count: children.len(),
+            },
+            DataType::List(element) => ResultInspectionStorage::List {
+                element_name: element.name().clone(),
+            },
             datatype => {
-                let datatype_json = serde_json::to_string(datatype).map_err(|_| ResultInspectionRefusal::ResponseExtent)?;
+                let datatype_json = serde_json::to_string(datatype)
+                    .map_err(|_| ResultInspectionRefusal::ResponseExtent)?;
                 self.charge(datatype_json.len())?;
                 ResultInspectionStorage::Scalar { datatype_json }
             }
         };
         let metadata = self.metadata(field.metadata())?;
-        let ancestor_metadata = ancestors.iter().map(|field| self.metadata(field.metadata())).collect::<Result<Vec<_>,_>>()?;
+        let ancestor_metadata = ancestors
+            .iter()
+            .map(|field| self.metadata(field.metadata()))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(ResultInspectionField {
             index,
             name: field.name().clone(),
@@ -507,7 +562,9 @@ fn path_fields<'a>(schema: &'a Schema, path: &ArrowFieldPath) -> Option<(usize, 
     for step in &path.steps {
         let field = *fields.last()?;
         let child = match (field.data_type(), step) {
-            (DataType::Struct(children), ArrowFieldStep::StructField { name }) => children.iter().find(|field| field.name() == name)?.as_ref(),
+            (DataType::Struct(children), ArrowFieldStep::StructField { name }) => {
+                children.iter().find(|field| field.name() == name)?.as_ref()
+            }
             (DataType::List(element), ArrowFieldStep::ListElement { .. }) => element.as_ref(),
             _ => return None,
         };
@@ -516,27 +573,54 @@ fn path_fields<'a>(schema: &'a Schema, path: &ArrowFieldPath) -> Option<(usize, 
     Some((root, fields))
 }
 
-fn selected_cell(array: &ArrayRef, row: usize, steps: &[ArrowFieldStep], depth: usize) -> Result<ResultInspectionCell, WorkflowError> {
-    if steps.is_empty() { return cell(array, row); }
-    if row >= array.len() { return Err(contract("nested result coordinate exceeds admitted array")); }
-    if array.is_null(row) { return Ok(ResultInspectionCell::ParentNull { depth }); }
+fn selected_cell(
+    array: &ArrayRef,
+    row: usize,
+    steps: &[ArrowFieldStep],
+    depth: usize,
+) -> Result<ResultInspectionCell, WorkflowError> {
+    if steps.is_empty() {
+        return cell(array, row);
+    }
+    if row >= array.len() {
+        return Err(contract("nested result coordinate exceeds admitted array"));
+    }
+    if array.is_null(row) {
+        return Ok(ResultInspectionCell::ParentNull { depth });
+    }
     match (&steps[0], array.data_type()) {
         (ArrowFieldStep::StructField { name }, DataType::Struct(_)) => {
-            let values = array.as_any().downcast_ref::<StructArray>().ok_or_else(|| contract("admitted struct storage differs"))?;
-            let child = values.column_by_name(name).ok_or_else(|| contract("selected struct child disappeared"))?;
+            let values = array
+                .as_any()
+                .downcast_ref::<StructArray>()
+                .ok_or_else(|| contract("admitted struct storage differs"))?;
+            let child = values
+                .column_by_name(name)
+                .ok_or_else(|| contract("selected struct child disappeared"))?;
             selected_cell(child, row, &steps[1..], depth + 1)
         }
         (ArrowFieldStep::ListElement { index }, DataType::List(_)) => {
-            let values = array.as_any().downcast_ref::<ListArray>().ok_or_else(|| contract("admitted list storage differs"))?;
+            let values = array
+                .as_any()
+                .downcast_ref::<ListArray>()
+                .ok_or_else(|| contract("admitted list storage differs"))?;
             let offsets = values.value_offsets();
-            let start = usize::try_from(offsets[row]).map_err(|_| contract("negative list offset"))?;
-            let end = usize::try_from(offsets[row + 1]).map_err(|_| contract("negative list offset"))?;
+            let start =
+                usize::try_from(offsets[row]).map_err(|_| contract("negative list offset"))?;
+            let end =
+                usize::try_from(offsets[row + 1]).map_err(|_| contract("negative list offset"))?;
             let length = end.saturating_sub(start);
-            let Ok(index) = usize::try_from(*index) else { return Ok(ResultInspectionCell::MissingElement { depth, length }); };
-            if index >= length { return Ok(ResultInspectionCell::MissingElement { depth, length }); }
+            let Ok(index) = usize::try_from(*index) else {
+                return Ok(ResultInspectionCell::MissingElement { depth, length });
+            };
+            if index >= length {
+                return Ok(ResultInspectionCell::MissingElement { depth, length });
+            }
             selected_cell(values.values(), start + index, &steps[1..], depth + 1)
         }
-        _ => Ok(ResultInspectionCell::Unavailable { reason: ResultCellUnavailable::UnsupportedStorage }),
+        _ => Ok(ResultInspectionCell::Unavailable {
+            reason: ResultCellUnavailable::UnsupportedStorage,
+        }),
     }
 }
 
@@ -676,22 +760,64 @@ fn row_values(
         .collect()
 }
 
-fn preflight(request: &ResultInspectionRequest, schema: &Schema) -> Option<ResultInspectionRefusal> {
-    if request.start > request.end || [&request.run, &request.attempt, &request.relation].iter().any(|value| value.is_empty() || value.len() > pse_schema::catalog::substrate::METADATA_ID_BYTES)
-        || request.expected_manifest.as_ref().is_some_and(|value| value.len() > 128) {
+fn preflight(
+    request: &ResultInspectionRequest,
+    schema: &Schema,
+) -> Option<ResultInspectionRefusal> {
+    if request.start > request.end
+        || [&request.run, &request.attempt, &request.relation]
+            .iter()
+            .any(|value| {
+                value.is_empty() || value.len() > pse_schema::catalog::substrate::METADATA_ID_BYTES
+            })
+        || request
+            .expected_manifest
+            .as_ref()
+            .is_some_and(|value| value.len() > 128)
+    {
         return Some(ResultInspectionRefusal::Selection);
     }
-    let valid_path = |path: &ArrowFieldPath| path.steps.len() <= 16 && path.field.len() <= 1024 && path.steps.iter().all(|step| match step { ArrowFieldStep::StructField { name } => name.len() <= 1024, _ => true });
+    let valid_path = |path: &ArrowFieldPath| {
+        path.steps.len() <= 16
+            && path.field.len() <= 1024
+            && path.steps.iter().all(|step| match step {
+                ArrowFieldStep::StructField { name } => name.len() <= 1024,
+                _ => true,
+            })
+    };
     match &request.view {
-        ResultInspectionView::Schema { offset, limit } => (*limit == 0 || *limit > 16 || *offset > schema.fields().len()).then_some(ResultInspectionRefusal::Selection),
-        ResultInspectionView::Children { path, limit, .. } | ResultInspectionView::Metadata { path, limit, .. } => {
-            if *limit == 0 || *limit > 16 || !valid_path(path) { Some(ResultInspectionRefusal::Selection) }
-            else { path_fields(schema, path).is_none().then_some(ResultInspectionRefusal::UnknownField) }
+        ResultInspectionView::Schema { offset, limit } => {
+            (*limit == 0 || *limit > 16 || *offset > schema.fields().len())
+                .then_some(ResultInspectionRefusal::Selection)
         }
-        ResultInspectionView::Values { fields, maximum_rows } => {
-            if fields.is_empty() || fields.len() > 8 || *maximum_rows == 0 || *maximum_rows > 16 || fields.iter().collect::<BTreeSet<_>>().len() != fields.len() || fields.iter().any(|path| !valid_path(path)) {
+        ResultInspectionView::Children { path, limit, .. }
+        | ResultInspectionView::Metadata { path, limit, .. } => {
+            if *limit == 0 || *limit > 16 || !valid_path(path) {
                 Some(ResultInspectionRefusal::Selection)
-            } else { fields.iter().any(|path| path_fields(schema, path).is_none()).then_some(ResultInspectionRefusal::UnknownField) }
+            } else {
+                path_fields(schema, path)
+                    .is_none()
+                    .then_some(ResultInspectionRefusal::UnknownField)
+            }
+        }
+        ResultInspectionView::Values {
+            fields,
+            maximum_rows,
+        } => {
+            if fields.is_empty()
+                || fields.len() > 8
+                || *maximum_rows == 0
+                || *maximum_rows > 16
+                || fields.iter().collect::<BTreeSet<_>>().len() != fields.len()
+                || fields.iter().any(|path| !valid_path(path))
+            {
+                Some(ResultInspectionRefusal::Selection)
+            } else {
+                fields
+                    .iter()
+                    .any(|path| path_fields(schema, path).is_none())
+                    .then_some(ResultInspectionRefusal::UnknownField)
+            }
         }
     }
 }
@@ -700,102 +826,344 @@ impl Runtime {
     /// Observe one protected exact result through native shallow/path pages.
     /// # Errors
     /// Original protection, full-batch validation, cancellation and allocation failures propagate.
-    pub async fn inspect_result(&self, request: ResultInspectionRequest, cancel: CancellationToken) -> Result<ResultInspectionDocument, WorkflowError> {
+    pub async fn inspect_result(
+        &self,
+        request: ResultInspectionRequest,
+        cancel: CancellationToken,
+    ) -> Result<ResultInspectionDocument, WorkflowError> {
         self.scope_activity(async {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            let spec = self.registry().relation(&request.relation).ok_or_else(|| contract("unknown result inspection relation"))?;
-            let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec).map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
-            if let Some(reason) = preflight(&request, schema.as_ref()) { return Ok(refused(reason)); }
+            let spec = self
+                .registry()
+                .relation(&request.relation)
+                .ok_or_else(|| contract("unknown result inspection relation"))?;
+            let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
+                .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
+            if let Some(reason) = preflight(&request, schema.as_ref()) {
+                return Ok(refused(reason));
+            }
             let basis = request.basis();
             let issuer = self.canonical_store()?.issuing_store()?.to_owned();
-            let schema_fingerprint = schema.metadata().get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT).cloned().ok_or_else(|| contract("registered result schema fingerprint absent"))?;
-            if request.cursor.as_ref().is_some_and(|cursor| cursor.basis != basis || cursor.issuing_store != issuer || cursor.schema_fingerprint != schema_fingerprint) { return Ok(refused(ResultInspectionRefusal::CursorChanged)); }
-            let owner = MemoryConsumer::new("canonical:readable-result-observation").register(&self.shared.pool());
-            owner.try_grow(16 * DOCUMENT_BYTES).map_err(pse_engine::EngineError::from)?;
+            let schema_fingerprint = schema
+                .metadata()
+                .get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
+                .cloned()
+                .ok_or_else(|| contract("registered result schema fingerprint absent"))?;
+            if request.cursor.as_ref().is_some_and(|cursor| {
+                cursor.basis != basis
+                    || cursor.issuing_store != issuer
+                    || cursor.schema_fingerprint != schema_fingerprint
+            }) {
+                return Ok(refused(ResultInspectionRefusal::CursorChanged));
+            }
+            let owner = MemoryConsumer::new("canonical:readable-result-observation")
+                .register(&self.shared.pool());
+            owner
+                .try_grow(16 * DOCUMENT_BYTES)
+                .map_err(pse_engine::EngineError::from)?;
             let owner = Arc::new(owner);
-            let mut budget = Budget { remaining: DOCUMENT_BYTES };
-            let schema_metadata = match budget.metadata(schema.metadata()) { Ok(value) => value, Err(reason) => return Ok(refused(reason)) };
+            let mut budget = Budget {
+                remaining: DOCUMENT_BYTES,
+            };
+            let schema_metadata = match budget.metadata(schema.metadata()) {
+                Ok(value) => value,
+                Err(reason) => return Ok(refused(reason)),
+            };
             let descriptor = |path: &ArrowFieldPath, budget: &mut Budget| {
-                let (index, chain) = path_fields(&schema, path).ok_or(ResultInspectionRefusal::UnknownField)?;
-                let (field, ancestors) = chain.split_last().ok_or(ResultInspectionRefusal::UnknownField)?;
+                let (index, chain) =
+                    path_fields(&schema, path).ok_or(ResultInspectionRefusal::UnknownField)?;
+                let (field, ancestors) = chain
+                    .split_last()
+                    .ok_or(ResultInspectionRefusal::UnknownField)?;
                 budget.field_at(index, field, path.clone(), ancestors)
             };
-            let mut reader = self.results(&request.run, &request.attempt, &request.relation, request.start, request.end, cancel.clone()).await?;
+            let mut reader = self
+                .results(
+                    &request.run,
+                    &request.attempt,
+                    &request.relation,
+                    request.start,
+                    request.end,
+                    cancel.clone(),
+                )
+                .await?;
             let outcome = async {
                 let manifest = reader.selection().manifest().digest.clone();
-                if request.expected_manifest.as_ref().is_some_and(|value| value != &manifest) { return Ok(refused(ResultInspectionRefusal::ManifestChanged)); }
+                if request
+                    .expected_manifest
+                    .as_ref()
+                    .is_some_and(|value| value != &manifest)
+                {
+                    return Ok(refused(ResultInspectionRefusal::ManifestChanged));
+                }
                 let selection = reader.pack_selection(PackScientificState::Unknown)?;
                 if let Some(cursor) = &request.cursor {
-                    if cursor.manifest != manifest || reader.validate_pack_selection(&cursor.selection).is_err() {
+                    if cursor.manifest != manifest
+                        || reader.validate_pack_selection(&cursor.selection).is_err()
+                    {
                         return Ok(refused(ResultInspectionRefusal::CursorChanged));
                     }
                 }
-                let next_cursor = |position: u64| ResultInspectionCursor { issuing_store: issuer.clone(), selection: selection.clone(), manifest: manifest.clone(), schema_fingerprint: schema_fingerprint.clone(), basis: basis.clone(), position };
+                let next_cursor = |position: u64| ResultInspectionCursor {
+                    issuing_store: issuer.clone(),
+                    selection: selection.clone(),
+                    manifest: manifest.clone(),
+                    schema_fingerprint: schema_fingerprint.clone(),
+                    basis: basis.clone(),
+                    position,
+                };
                 let snapshot = reader.snapshot();
-                let recorded_rows = snapshot.blocks().iter().try_fold(0u64, |count, block| count.checked_add(request.end.min(block.end).saturating_sub(request.start.max(block.start))).ok_or_else(|| contract("result inspection population overflow")))?;
+                let recorded_rows = snapshot.blocks().iter().try_fold(0u64, |count, block| {
+                    count
+                        .checked_add(
+                            request
+                                .end
+                                .min(block.end)
+                                .saturating_sub(request.start.max(block.start)),
+                        )
+                        .ok_or_else(|| contract("result inspection population overflow"))
+                })?;
                 match &request.view {
-                    ResultInspectionView::Schema { offset, limit } | ResultInspectionView::Children { offset, limit, .. } => {
-                        let offset = match request.cursor.as_ref() { Some(cursor) => usize::try_from(cursor.position).map_err(|_| contract("descriptor cursor exceeds platform"))?, None => *offset };
-                        let paths = if let ResultInspectionView::Children { path, .. } = &request.view {
-                            let (_, chain) = path_fields(&schema, path).ok_or_else(|| contract("selected child disappeared"))?;
-                            match chain.last().map(|field| field.data_type()) {
-                                Some(DataType::Struct(children)) => children.iter().map(|field| { let mut child = path.clone(); child.steps.push(ArrowFieldStep::StructField { name: field.name().clone() }); child }).collect::<Vec<_>>(),
-                                Some(DataType::List(_)) => { let mut child = path.clone(); child.steps.push(ArrowFieldStep::ListElement { index: 0 }); vec![child] },
-                                _ => Vec::new(),
-                            }
-                        } else { schema.fields().iter().map(|field| ArrowFieldPath { field: field.name().clone(), steps: Vec::new() }).collect() };
-                        if offset > paths.len() { return Ok(refused(ResultInspectionRefusal::Selection)); }
-                        let end = offset.saturating_add(*limit).min(paths.len());
-                        let fields = match paths[offset..end].iter().map(|path| descriptor(path, &mut budget)).collect::<Result<Vec<_>,_>>() { Ok(value) => value, Err(reason) => return Ok(refused(reason)) };
-                        let next = (end < paths.len()).then_some(end);
-                        Ok(bound_document(ResultInspectionDocument::Schema { selection: selection.clone(), manifest: manifest.clone(), schema_metadata, field_count: paths.len(), offset, fields, next, next_cursor: next.map(|position| next_cursor(position as u64)), recorded_rows, owner: Some(owner) }))
-                    }
-                    ResultInspectionView::Metadata { path, offset, limit } => {
-                        let offset = match request.cursor.as_ref() { Some(cursor) => usize::try_from(cursor.position).map_err(|_| contract("metadata cursor exceeds platform"))?, None => *offset };
-                        let (_, chain) = path_fields(&schema, path).ok_or_else(|| contract("selected metadata disappeared"))?;
-                        let field = chain.last().ok_or_else(|| contract("selected metadata field absent"))?;
-                        let mut entries = field.metadata().iter().collect::<Vec<_>>(); entries.sort_by(|a,b| a.0.cmp(b.0));
-                        if offset > entries.len() { return Ok(refused(ResultInspectionRefusal::Selection)); }
-                        let end = offset.saturating_add(*limit).min(entries.len());
-                        let selected = entries[offset..end].iter().map(|(key,value)| ((*key).clone(), (*value).clone())).collect::<std::collections::HashMap<_,_>>();
-                        let selected = match budget.metadata(&selected) { Ok(value) => value, Err(reason) => return Ok(refused(reason)) };
-                        Ok(bound_document(ResultInspectionDocument::Metadata { selection: selection.clone(), manifest: manifest.clone(), path: path.clone(), entry_count: entries.len(), offset, entries: selected, next_cursor: (end < entries.len()).then(|| next_cursor(end as u64)), owner: Some(owner) }))
-                    }
-                    ResultInspectionView::Values { fields, maximum_rows } => {
-                        let resume = request.cursor.as_ref().map_or(request.start, |cursor| cursor.position);
-                        if resume < request.start || resume > request.end { return Ok(refused(ResultInspectionRefusal::CursorChanged)); }
-                        let selected_fields = match fields.iter().map(|path| descriptor(path, &mut budget)).collect::<Result<Vec<_>,_>>() { Ok(value) => value, Err(reason) => return Ok(refused(reason)) };
-                        let roots = fields.iter().filter(|path| path.steps.is_empty()).filter_map(|path| schema.index_of(&path.field).ok()).collect::<BTreeSet<_>>();
-                        let context = spec.columns.iter().enumerate().filter(|(index, field)| !roots.contains(index) && field.result_selection_role() != Some(pse_schema::model::ResultSelectionRole::Value)).map(|(index,_)| index).collect::<Vec<_>>();
-                        if context.len() > CONTEXT_FIELDS { return Ok(refused(ResultInspectionRefusal::ContextExtent)); }
-                        let context_fields = match context.iter().map(|index| budget.field(*index, schema.field(*index))).collect::<Result<Vec<_>,_>>() { Ok(value) => value, Err(_) => return Ok(refused(ResultInspectionRefusal::ContextExtent)) };
-                        reader.skip_recorded_prefix(resume)?;
-                        let mut rows = Vec::new(); let mut next_row = None;
-                        for block in snapshot.blocks() {
-                            let start = request.start.max(block.start); let end = request.end.min(block.end);
-                            if start >= end || end <= resume { continue; }
-                            if rows.len() == *maximum_rows { next_row = Some(start.max(resume)); break; }
-                            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                            let batch = reader.next_batch().await?.ok_or_else(|| contract("result inspection frozen block is absent"))?;
-                            if batch.num_rows() as u64 != end-start { return Err(contract("result inspection source coordinates differ")); }
-                            let first = usize::try_from(resume.saturating_sub(start)).map_err(|_| contract("result cursor exceeds platform"))?;
-                            for row in first..batch.num_rows() {
-                                if rows.len() == *maximum_rows { next_row = Some(start + row as u64); break; }
-                                let values = fields.iter().map(|path| { let index = schema.index_of(&path.field).map_err(|_| contract("selected root disappeared"))?; selected_cell(batch.column(index), row, &path.steps, 0) }).collect::<Result<Vec<_>, WorkflowError>>()?;
-                                let context = row_values(&batch, row, &context)?;
-                                let context_complete = !context.iter().any(|value| matches!(value, ResultInspectionCell::Unavailable { .. }));
-                                for value in values.iter().chain(context.iter()) { if let Err(reason) = budget.charge(serde_json::to_vec(value).map_err(|error| contract(error.to_string()))?.len()) { return Ok(refused(reason)); } }
-                                rows.push(ResultInspectionRow { source_row: start + row as u64, values, context, context_complete });
-                            }
-                            if next_row.is_some() { break; }
+                    ResultInspectionView::Schema { offset, limit }
+                    | ResultInspectionView::Children { offset, limit, .. } => {
+                        let offset = match request.cursor.as_ref() {
+                            Some(cursor) => usize::try_from(cursor.position)
+                                .map_err(|_| contract("descriptor cursor exceeds platform"))?,
+                            None => *offset,
+                        };
+                        let paths =
+                            if let ResultInspectionView::Children { path, .. } = &request.view {
+                                let (_, chain) = path_fields(&schema, path)
+                                    .ok_or_else(|| contract("selected child disappeared"))?;
+                                match chain.last().map(|field| field.data_type()) {
+                                    Some(DataType::Struct(children)) => children
+                                        .iter()
+                                        .map(|field| {
+                                            let mut child = path.clone();
+                                            child.steps.push(ArrowFieldStep::StructField {
+                                                name: field.name().clone(),
+                                            });
+                                            child
+                                        })
+                                        .collect::<Vec<_>>(),
+                                    Some(DataType::List(_)) => {
+                                        let mut child = path.clone();
+                                        child.steps.push(ArrowFieldStep::ListElement { index: 0 });
+                                        vec![child]
+                                    }
+                                    _ => Vec::new(),
+                                }
+                            } else {
+                                schema
+                                    .fields()
+                                    .iter()
+                                    .map(|field| ArrowFieldPath {
+                                        field: field.name().clone(),
+                                        steps: Vec::new(),
+                                    })
+                                    .collect()
+                            };
+                        if offset > paths.len() {
+                            return Ok(refused(ResultInspectionRefusal::Selection));
                         }
-                        let readable_complete = rows.iter().all(|row| row.context_complete && !row.values.iter().any(|value| matches!(value, ResultInspectionCell::Unavailable { .. })));
-                        Ok(bound_document(ResultInspectionDocument::Values { selection: selection.clone(), manifest: manifest.clone(), schema_metadata, selected_fields, context_fields, recorded_rows, rows, next_row, next_cursor: next_row.map(next_cursor), readable_complete, owner: Some(owner) }))
+                        let end = offset.saturating_add(*limit).min(paths.len());
+                        let fields = match paths[offset..end]
+                            .iter()
+                            .map(|path| descriptor(path, &mut budget))
+                            .collect::<Result<Vec<_>, _>>()
+                        {
+                            Ok(value) => value,
+                            Err(reason) => return Ok(refused(reason)),
+                        };
+                        let next = (end < paths.len()).then_some(end);
+                        Ok(bound_document(ResultInspectionDocument::Schema {
+                            selection: selection.clone(),
+                            manifest: manifest.clone(),
+                            schema_metadata,
+                            field_count: paths.len(),
+                            offset,
+                            fields,
+                            next,
+                            next_cursor: next.map(|position| next_cursor(position as u64)),
+                            recorded_rows,
+                            owner: Some(owner),
+                        }))
+                    }
+                    ResultInspectionView::Metadata {
+                        path,
+                        offset,
+                        limit,
+                    } => {
+                        let offset = match request.cursor.as_ref() {
+                            Some(cursor) => usize::try_from(cursor.position)
+                                .map_err(|_| contract("metadata cursor exceeds platform"))?,
+                            None => *offset,
+                        };
+                        let (_, chain) = path_fields(&schema, path)
+                            .ok_or_else(|| contract("selected metadata disappeared"))?;
+                        let field = chain
+                            .last()
+                            .ok_or_else(|| contract("selected metadata field absent"))?;
+                        let mut entries = field.metadata().iter().collect::<Vec<_>>();
+                        entries.sort_by(|a, b| a.0.cmp(b.0));
+                        if offset > entries.len() {
+                            return Ok(refused(ResultInspectionRefusal::Selection));
+                        }
+                        let end = offset.saturating_add(*limit).min(entries.len());
+                        let selected = entries[offset..end]
+                            .iter()
+                            .map(|(key, value)| ((*key).clone(), (*value).clone()))
+                            .collect::<std::collections::HashMap<_, _>>();
+                        let selected = match budget.metadata(&selected) {
+                            Ok(value) => value,
+                            Err(reason) => return Ok(refused(reason)),
+                        };
+                        Ok(bound_document(ResultInspectionDocument::Metadata {
+                            selection: selection.clone(),
+                            manifest: manifest.clone(),
+                            path: path.clone(),
+                            entry_count: entries.len(),
+                            offset,
+                            entries: selected,
+                            next_cursor: (end < entries.len()).then(|| next_cursor(end as u64)),
+                            owner: Some(owner),
+                        }))
+                    }
+                    ResultInspectionView::Values {
+                        fields,
+                        maximum_rows,
+                    } => {
+                        let resume = request
+                            .cursor
+                            .as_ref()
+                            .map_or(request.start, |cursor| cursor.position);
+                        if resume < request.start || resume > request.end {
+                            return Ok(refused(ResultInspectionRefusal::CursorChanged));
+                        }
+                        let selected_fields = match fields
+                            .iter()
+                            .map(|path| descriptor(path, &mut budget))
+                            .collect::<Result<Vec<_>, _>>()
+                        {
+                            Ok(value) => value,
+                            Err(reason) => return Ok(refused(reason)),
+                        };
+                        let roots = fields
+                            .iter()
+                            .filter(|path| path.steps.is_empty())
+                            .filter_map(|path| schema.index_of(&path.field).ok())
+                            .collect::<BTreeSet<_>>();
+                        let context = spec
+                            .columns
+                            .iter()
+                            .enumerate()
+                            .filter(|(index, field)| {
+                                !roots.contains(index)
+                                    && field.result_selection_role()
+                                        != Some(pse_schema::model::ResultSelectionRole::Value)
+                            })
+                            .map(|(index, _)| index)
+                            .collect::<Vec<_>>();
+                        if context.len() > CONTEXT_FIELDS {
+                            return Ok(refused(ResultInspectionRefusal::ContextExtent));
+                        }
+                        let context_fields = match context
+                            .iter()
+                            .map(|index| budget.field(*index, schema.field(*index)))
+                            .collect::<Result<Vec<_>, _>>()
+                        {
+                            Ok(value) => value,
+                            Err(_) => return Ok(refused(ResultInspectionRefusal::ContextExtent)),
+                        };
+                        reader.skip_recorded_prefix(resume)?;
+                        let mut rows = Vec::new();
+                        let mut next_row = None;
+                        for block in snapshot.blocks() {
+                            let start = request.start.max(block.start);
+                            let end = request.end.min(block.end);
+                            if start >= end || end <= resume {
+                                continue;
+                            }
+                            if rows.len() == *maximum_rows {
+                                next_row = Some(start.max(resume));
+                                break;
+                            }
+                            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                            let batch = reader.next_batch().await?.ok_or_else(|| {
+                                contract("result inspection frozen block is absent")
+                            })?;
+                            if batch.num_rows() as u64 != end - start {
+                                return Err(contract(
+                                    "result inspection source coordinates differ",
+                                ));
+                            }
+                            let first = usize::try_from(resume.saturating_sub(start))
+                                .map_err(|_| contract("result cursor exceeds platform"))?;
+                            for row in first..batch.num_rows() {
+                                if rows.len() == *maximum_rows {
+                                    next_row = Some(start + row as u64);
+                                    break;
+                                }
+                                let values = fields
+                                    .iter()
+                                    .map(|path| {
+                                        let index = schema
+                                            .index_of(&path.field)
+                                            .map_err(|_| contract("selected root disappeared"))?;
+                                        selected_cell(batch.column(index), row, &path.steps, 0)
+                                    })
+                                    .collect::<Result<Vec<_>, WorkflowError>>()?;
+                                let context = row_values(&batch, row, &context)?;
+                                let context_complete = !context.iter().any(|value| {
+                                    matches!(value, ResultInspectionCell::Unavailable { .. })
+                                });
+                                for value in values.iter().chain(context.iter()) {
+                                    if let Err(reason) = budget.charge(
+                                        serde_json::to_vec(value)
+                                            .map_err(|error| contract(error.to_string()))?
+                                            .len(),
+                                    ) {
+                                        return Ok(refused(reason));
+                                    }
+                                }
+                                rows.push(ResultInspectionRow {
+                                    source_row: start + row as u64,
+                                    values,
+                                    context,
+                                    context_complete,
+                                });
+                            }
+                            if next_row.is_some() {
+                                break;
+                            }
+                        }
+                        let readable_complete = rows.iter().all(|row| {
+                            row.context_complete
+                                && !row.values.iter().any(|value| {
+                                    matches!(value, ResultInspectionCell::Unavailable { .. })
+                                })
+                        });
+                        Ok(bound_document(ResultInspectionDocument::Values {
+                            selection: selection.clone(),
+                            manifest: manifest.clone(),
+                            schema_metadata,
+                            selected_fields,
+                            context_fields,
+                            recorded_rows,
+                            rows,
+                            next_row,
+                            next_cursor: next_row.map(next_cursor),
+                            readable_complete,
+                            owner: Some(owner),
+                        }))
                     }
                 }
-            }.await;
-            reader.close(); outcome
-        }).await
+            }
+            .await;
+            reader.close();
+            outcome
+        })
+        .await
     }
 }
 
@@ -805,17 +1173,54 @@ mod result_inspection_unit {
 
     #[test]
     fn nested_cells_distinguish_parent_validity_empty_missing_and_null_element() {
-        let lists: ArrayRef = Arc::new(ListArray::from_iter_primitive::<datafusion::arrow::datatypes::Int32Type, _, _>(vec![Some(vec![Some(7), None]), Some(vec![]), None]));
+        let lists: ArrayRef = Arc::new(ListArray::from_iter_primitive::<
+            datafusion::arrow::datatypes::Int32Type,
+            _,
+            _,
+        >(vec![
+            Some(vec![Some(7), None]),
+            Some(vec![]),
+            None,
+        ]));
         let step = [ArrowFieldStep::ListElement { index: 1 }];
-        assert_eq!(selected_cell(&lists, 0, &step, 0).unwrap(), ResultInspectionCell::Null);
-        assert_eq!(selected_cell(&lists, 1, &step, 0).unwrap(), ResultInspectionCell::MissingElement { depth: 0, length: 0 });
-        assert_eq!(selected_cell(&lists, 2, &step, 0).unwrap(), ResultInspectionCell::ParentNull { depth: 0 });
-        assert_eq!(selected_cell(&lists, 0, &[ArrowFieldStep::ListElement { index: 0 }], 0).unwrap(), ResultInspectionCell::Integer { value: 7 });
+        assert_eq!(
+            selected_cell(&lists, 0, &step, 0).unwrap(),
+            ResultInspectionCell::Null
+        );
+        assert_eq!(
+            selected_cell(&lists, 1, &step, 0).unwrap(),
+            ResultInspectionCell::MissingElement {
+                depth: 0,
+                length: 0
+            }
+        );
+        assert_eq!(
+            selected_cell(&lists, 2, &step, 0).unwrap(),
+            ResultInspectionCell::ParentNull { depth: 0 }
+        );
+        assert_eq!(
+            selected_cell(&lists, 0, &[ArrowFieldStep::ListElement { index: 0 }], 0).unwrap(),
+            ResultInspectionCell::Integer { value: 7 }
+        );
         let values: ArrayRef = Arc::new(Int64Array::from(vec![999, 11]));
-        let structures: ArrayRef = Arc::new(StructArray::new(vec![Arc::new(Field::new("child", DataType::Int64, false))].into(), vec![values], Some(datafusion::arrow::buffer::NullBuffer::from(vec![false, true]))));
-        let step = [ArrowFieldStep::StructField { name: "child".into() }];
-        assert_eq!(selected_cell(&structures, 0, &step, 0).unwrap(), ResultInspectionCell::ParentNull { depth: 0 });
-        assert_eq!(selected_cell(&structures, 1, &step, 0).unwrap(), ResultInspectionCell::Integer { value: 11 });
+        let structures: ArrayRef = Arc::new(StructArray::new(
+            vec![Arc::new(Field::new("child", DataType::Int64, false))].into(),
+            vec![values],
+            Some(datafusion::arrow::buffer::NullBuffer::from(vec![
+                false, true,
+            ])),
+        ));
+        let step = [ArrowFieldStep::StructField {
+            name: "child".into(),
+        }];
+        assert_eq!(
+            selected_cell(&structures, 0, &step, 0).unwrap(),
+            ResultInspectionCell::ParentNull { depth: 0 }
+        );
+        assert_eq!(
+            selected_cell(&structures, 1, &step, 0).unwrap(),
+            ResultInspectionCell::Integer { value: 11 }
+        );
     }
 
     #[test]
@@ -873,12 +1278,11 @@ mod result_inspection_unit {
                 reason: ResultCellUnavailable::ValueExtent
             }
         );
-        let nested: ArrayRef =
-            Arc::new(ListArray::from_iter_primitive::<
-                datafusion::arrow::datatypes::Int32Type,
-                _,
-                _,
-            >(vec![Some(vec![Some(1), Some(2)])]));
+        let nested: ArrayRef = Arc::new(ListArray::from_iter_primitive::<
+            datafusion::arrow::datatypes::Int32Type,
+            _,
+            _,
+        >(vec![Some(vec![Some(1), Some(2)])]));
         assert_eq!(
             cell(&nested, 0).unwrap(),
             ResultInspectionCell::Unavailable {
@@ -906,7 +1310,10 @@ mod result_inspection_unit {
         .unwrap();
         assert_eq!(projected.index, 5);
         assert_eq!(projected.name, "physical");
-        assert!(matches!(projected.storage, ResultInspectionStorage::Struct { child_count: 1 }));
+        assert!(matches!(
+            projected.storage,
+            ResultInspectionStorage::Struct { child_count: 1 }
+        ));
         assert_eq!(projected.metadata["original.unit"], "K");
         assert!(!projected.nullable);
     }

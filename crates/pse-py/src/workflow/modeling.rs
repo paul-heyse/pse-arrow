@@ -752,8 +752,7 @@ impl NativeModelingPackage {
         let inspection = blocking(
             py,
             &self.owner,
-            self.inner
-                .inspect_case_request(&request.0, &cancel),
+            self.inner.inspect_case_request(&request.0, &cancel),
             || cancel.cancel(),
         )?;
         Ok(documents::DocumentValue(inspection))
@@ -883,7 +882,12 @@ impl NativeModelingPackage {
         py: Python<'_>,
         request: documents::DocumentInput<native::ModelingDeclarationRequest>,
     ) -> PyResult<documents::DocumentValue<native::ModelingDeclarationPage>> {
-        Ok(documents::DocumentValue(blocking(py, &self.owner, self.inner.declaration_page(&request.0), || {})?))
+        Ok(documents::DocumentValue(blocking(
+            py,
+            &self.owner,
+            self.inner.declaration_page(&request.0),
+            || {},
+        )?))
     }
     fn declarations(
         &self,
@@ -912,12 +916,19 @@ impl NativeModelingPackage {
     }
     /// Compact logical-object source comparison, with explicit source-only context handling.
     fn comparison_observation(
-        &self, py: Python<'_>, other: &NativeModelingPackage,
+        &self,
+        py: Python<'_>,
+        other: &NativeModelingPackage,
         request: documents::DocumentInput<native::ModelingComparisonRequest>,
     ) -> PyResult<documents::DocumentValue<native::ModelingComparisonObservation>> {
         let cancel = CancelSource::new();
-        Ok(documents::DocumentValue(blocking(py, &self.owner,
-            self.inner.comparison_observation(&other.inner, &request.0, &cancel), || cancel.cancel())?))
+        Ok(documents::DocumentValue(blocking(
+            py,
+            &self.owner,
+            self.inner
+                .comparison_observation(&other.inner, &request.0, &cancel),
+            || cancel.cancel(),
+        )?))
     }
     /// Compact logical-object source comparison, with explicit source-only context handling.
     #[pyo3(signature=(other,*,source_only=false))]

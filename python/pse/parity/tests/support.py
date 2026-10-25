@@ -14,11 +14,11 @@ from types import MappingProxyType
 import pyarrow as pa
 
 import pse
-from pse.tests.physical_input_fixture import inspection_request
 from pse._scientific_inputs import family_packages, package_documents
 from pse.contracts import documents as contract_documents
 from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
+from pse.tests.physical_input_fixture import inspection_request
 
 #: python/pse/parity/tests/support.py -> pse-arrow/
 ROOT = Path(__file__).resolve().parents[4]
@@ -27,7 +27,6 @@ ROOT = Path(__file__).resolve().parents[4]
 ENGINEERING_RELATIVE_FRACTION = (
     contract_documents.NumericalPolicy().engineering_relative_fraction
 )
-
 
 
 def scalar_canonical_allowance() -> float:

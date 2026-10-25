@@ -453,16 +453,41 @@ mod tests {
     use super::*;
     #[test]
     fn inspection_examples_use_the_actual_directional_wire() {
-        let model = schema::<crate::workflow::ModelingInspectionRequest>("ModelingInspectionRequest", "modeling-inspection-request", "pse_runtime::workflow::ModelingInspectionRequest", Direction::Input);
+        let model = schema::<crate::workflow::ModelingInspectionRequest>(
+            "ModelingInspectionRequest",
+            "modeling-inspection-request",
+            "pse_runtime::workflow::ModelingInspectionRequest",
+            Direction::Input,
+        );
         let example = serde_json::to_vec(&model.schema["examples"][0]).unwrap();
-        assert!(Wire::FlatV1.decode_slice::<crate::workflow::ModelingInspectionRequest>(&example).is_ok());
-        let comparison = schema::<crate::workflow::ModelingComparisonRequest>("ModelingComparisonRequest", "modeling-comparison-request", "pse_runtime::workflow::ModelingComparisonRequest", Direction::Input);
+        assert!(
+            Wire::FlatV1
+                .decode_slice::<crate::workflow::ModelingInspectionRequest>(&example)
+                .is_ok()
+        );
+        let comparison = schema::<crate::workflow::ModelingComparisonRequest>(
+            "ModelingComparisonRequest",
+            "modeling-comparison-request",
+            "pse_runtime::workflow::ModelingComparisonRequest",
+            Direction::Input,
+        );
         let example = serde_json::to_vec(&comparison.schema["examples"][0]).unwrap();
-        let decoded = Wire::FlatV1.decode_slice::<crate::workflow::ModelingComparisonRequest>(&example).unwrap();
+        let decoded = Wire::FlatV1
+            .decode_slice::<crate::workflow::ModelingComparisonRequest>(&example)
+            .unwrap();
         assert!(decoded.source_only);
-        let result = schema::<crate::workflow::ResultInspectionRequest>("ResultInspectionRequest", "result-inspection-request", "pse_runtime::workflow::ResultInspectionRequest", Direction::Input);
+        let result = schema::<crate::workflow::ResultInspectionRequest>(
+            "ResultInspectionRequest",
+            "result-inspection-request",
+            "pse_runtime::workflow::ResultInspectionRequest",
+            Direction::Input,
+        );
         let example = serde_json::to_vec(&result.schema["examples"][0]).unwrap();
-        assert!(Wire::FlatV2.decode_slice::<crate::workflow::ResultInspectionRequest>(&example).is_ok());
+        assert!(
+            Wire::FlatV2
+                .decode_slice::<crate::workflow::ResultInspectionRequest>(&example)
+                .is_ok()
+        );
     }
     #[test]
     fn exported_names_reach_nested_generics_without_rewriting_document_values() {

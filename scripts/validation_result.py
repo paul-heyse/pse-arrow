@@ -98,12 +98,14 @@ def selected_result(
         receipt.get("recorded_gates", [check["gate"] for check in receipt["checks"]])
     )
     checks = []
+    selected_records: list[dict[str, object]] = []
     for check in receipt["checks"]:
         if gate is not None and gate != check["gate"]:
             continue
         if failures and qualified(check):
             continue
         origin = origins[check["gate"]]
+        selected_records.append(check)
         checks.append(
             {
                 "record": check,
@@ -119,37 +121,58 @@ def selected_result(
                 ],
             }
         )
-    selected_records = [item["record"] for item in checks]
     durations: dict[str, list[float]] = {"preparation": [], "execution": []}
     for record in selected_records:
         seconds = record.get("elapsed_seconds")
         phase = record.get("phase")
-        if type(seconds) not in {int, float} or not math.isfinite(seconds) or seconds < 0:
+        if (
+            isinstance(seconds, bool)
+            or not isinstance(seconds, int | float)
+            or not math.isfinite(seconds)
+            or seconds < 0
+        ):
             continue
         if phase in {"setup", "preparation", "discovery"}:
             durations["preparation"].append(float(seconds))
         elif phase == "execution":
             durations["execution"].append(float(seconds))
     running = [record for record in selected_records if record["status"] == "running"]
-    phases = {record["phase"] for record in running if isinstance(record.get("phase"), str)}
+    phases = {
+        record["phase"] for record in running if isinstance(record.get("phase"), str)
+    }
     observed_stage = next(iter(phases)) if len(phases) == 1 else None
     explanation = {
         "selected_count": len(receipt["scope"]),
         "reported_count": len(recorded),
         "unreported_count": len(receipt["scope"]) - len(recorded),
         "outcome_counts": dict(Counter(check["status"] for check in receipt["checks"])),
-        "executed_count": sum(check.get("evidence_kind") == "executed" for check in receipt["checks"])
-        if all("evidence_kind" in check for check in receipt["checks"]) else None,
+        "executed_count": sum(
+            check.get("evidence_kind") == "executed" for check in receipt["checks"]
+        )
+        if all("evidence_kind" in check for check in receipt["checks"])
+        else None,
         "observed_stage": observed_stage,
-        "stage_basis": "original running check phase" if observed_stage else "no unique running phase supplied by selected original checks",
-        "preparation_seconds": sum(durations["preparation"]) if durations["preparation"] else None,
-        "execution_seconds": sum(durations["execution"]) if durations["execution"] else None,
+        "stage_basis": "original running check phase"
+        if observed_stage
+        else "no unique running phase supplied by selected original checks",
+        "preparation_seconds": sum(durations["preparation"])
+        if durations["preparation"]
+        else None,
+        "execution_seconds": sum(durations["execution"])
+        if durations["execution"]
+        else None,
         "owned_drain": "unobserved",
-        "next_readers": [{
-            "reference": {"kind": "assessment", "directory": str(run), "gate": gate},
-            "reason": "Read selected original gate/source detail; the copied summary grants no rerun or reuse permission.",
-            "disposition": "unexecuted",
-        }],
+        "next_readers": [
+            {
+                "reference": {
+                    "kind": "assessment",
+                    "directory": str(run),
+                    "gate": gate,
+                },
+                "reason": "Read selected original gate/source detail; the copied summary grants no rerun or reuse permission.",
+                "disposition": "unexecuted",
+            }
+        ],
         "limits": [
             "Timing sums cover only selected hydrated checks with explicit preparation/execution phases; generic functional commands cannot separate compilation from subject execution.",
             "Reported gate outcomes are not a census of test bodies or scientific solves.",
