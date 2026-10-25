@@ -7,7 +7,8 @@ use crate::{
     BasisId, EntityKindId, QuantityKindId, QuantityTypeId, ReferenceStateId, ScaleKind, UnitId,
 };
 /// Components that determine one registered physical type.
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[schemars(deny_unknown_fields)]
 pub struct QuantityTypeKey {
     /// The measured quantity kind.
     pub kind: QuantityKindId,
@@ -23,7 +24,8 @@ pub struct QuantityTypeKey {
     pub subject_kind: Option<EntityKindId>,
 }
 /// A registered physical type and its canonical storage unit.
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[schemars(deny_unknown_fields)]
 pub struct QuantityType {
     /// Registry identity.
     pub id: QuantityTypeId,

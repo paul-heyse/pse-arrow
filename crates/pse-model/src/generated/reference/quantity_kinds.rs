@@ -83,7 +83,7 @@ impl PartialEq for ReferenceQuantityKindsFieldDefinition {
 )]
 pub struct ReferenceQuantityKindsRow {
     ///quantity_kind_id
-    pub r#quantity_kind_id: pse_ids::SemanticId,
+    pub r#quantity_kind_id: crate::generated::identities::QuantityKindId,
     ///name
     pub r#name: String,
     ///dimension

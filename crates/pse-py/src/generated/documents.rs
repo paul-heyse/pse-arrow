@@ -806,6 +806,22 @@ impl crate::documents::DocumentType for pse_runtime::workflow::PhysicalFitReques
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType
+for pse_runtime::workflow::PhysicalInspectionDocument {
+    const INPUT_NAME: &'static str = "PhysicalInspectionDocument";
+    const OUTPUT_NAME: &'static str = "PhysicalInspectionDocument";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
+for pse_runtime::workflow::PhysicalInspectionRequest {
+    const INPUT_NAME: &'static str = "PhysicalInspectionRequest";
+    const OUTPUT_NAME: &'static str = "PhysicalInspectionRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+}
+impl crate::documents::DocumentType
 for pse_runtime::workflow::PhysicalSimulationRequest {
     const INPUT_NAME: &'static str = "PhysicalSimulationRequest";
     const OUTPUT_NAME: &'static str = "PhysicalSimulationRequestOutput";

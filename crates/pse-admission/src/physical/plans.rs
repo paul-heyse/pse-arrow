@@ -4,11 +4,11 @@
 //! Exact unit inventory reconciliation is a native relational computation.
 
 use super::{PhysicalError, invalid};
-use datafusion::logical_expr::{LogicalPlanBuilder, col};
+use datafusion::logical_expr::{LogicalPlanBuilder};
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineSession, output::declare_relation_output};
-use pse_ids::SemanticId;
 use pse_relations::columnar::FieldCheckedBatch;
+use pse_ids::SemanticId;
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
 
@@ -66,44 +66,6 @@ pub(super) async fn units(
         .into_checked_relation(registry, reference, cancel)?;
     batches.insert(reference.key, complete);
     Ok(())
-}
-
-pub(super) async fn context(
-    session: &EngineSession,
-    registry: &Registry,
-    cancel: &CancellationToken,
-) -> Result<Option<(SemanticId, SemanticId)>, PhysicalError> {
-    let Some(spec) = registry
-        .relation("reference.math_context")
-        .filter(|spec| session.table_provider(&spec.key).is_some())
-    else {
-        return Ok(None);
-    };
-    let plan = LogicalPlanBuilder::scan(
-        session.table_reference(&spec.key)?,
-        session.table_source(&spec.key)?,
-        None,
-    )
-    .and_then(|plan| plan.project([col("neutral_quantity_type_id"), col("boolean_kind_id")]))
-    .and_then(LogicalPlanBuilder::distinct)
-    .and_then(LogicalPlanBuilder::build)
-    .map_err(engine)?;
-    let complete = session
-        .prepare_rule_plan(plan, cancel)?
-        .execute(cancel)
-        .await?;
-    let mut selected = None;
-    for batch in complete.batches() {
-        for row in 0..batch.num_rows() {
-            if selected.is_some() {
-                return Err(invalid(
-                    "selected packages have conflicting explicit mathematical contexts",
-                ));
-            }
-            selected = Some((identity(batch, 0, row)?, identity(batch, 1, row)?));
-        }
-    }
-    Ok(selected)
 }
 
 fn identity(

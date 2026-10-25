@@ -16,22 +16,22 @@
 
 pse_ids::semantic_id_newtype! {
     /// Package-declared entity kind used by physical axes and subjects.
-    EntityKindId,
+    EntityKindId: RegistrySemanticId,
     /// Identifies a unit (`reference.units`, blueprint §6.2).
-    UnitId,
+    UnitId: RegistrySemanticId,
     /// Identifies a unit set, the per-package choice of base units (`reference.unit_sets`).
     UnitSetId,
     /// Identifies a quantity kind — what is measured, before basis and datum
     /// (`reference.quantity_kinds`).
-    QuantityKindId,
+    QuantityKindId: RegistrySemanticId,
     /// Identifies a basis: what a specific quantity is specific to (`reference.bases`).
-    BasisId,
+    BasisId: RegistrySemanticId,
     /// Identifies a reference state: the datum an origin-sensitive quantity is measured
     /// from (`reference.reference_states`).
-    ReferenceStateId,
+    ReferenceStateId: RegistrySemanticId,
     /// Identifies a complete quantity type: the §8.1 tuple
     /// (`reference.quantity_types`).
-    QuantityTypeId,
+    QuantityTypeId: RegistrySemanticId,
     /// Identifies a registered conversion between two quantity types
     /// (`reference.conversion_rules`).
     ConversionId,
@@ -46,4 +46,23 @@ pse_ids::semantic_id_newtype! {
     /// Identifies an invariant a rule or an operation depends on (`schema` invariants,
     /// §4.1).
     InvariantId,
+}
+
+#[cfg(test)]
+mod identity_boundary_tests {
+    #![allow(clippy::unwrap_used, reason = "pure schema and identity contract assertions")]
+    use super::*;
+
+    #[test]
+    fn physical_identity_schema_retains_domain_and_wire_bytes() {
+        let quantity = QuantityTypeId::from_bytes([0x31; 16]);
+        let unit = UnitId::from_bytes([0x31; 16]);
+        assert_eq!(quantity.as_bytes(), unit.as_bytes());
+        assert_eq!(serde_json::to_value(quantity).unwrap(), serde_json::to_value(unit).unwrap());
+        let quantity_schema = serde_json::to_value(schemars::schema_for!(QuantityTypeId)).unwrap();
+        let unit_schema = serde_json::to_value(schemars::schema_for!(UnitId)).unwrap();
+        assert_eq!(quantity_schema["x-pse-identity"], "QuantityTypeId");
+        assert_eq!(unit_schema["x-pse-identity"], "UnitId");
+        assert_ne!(quantity_schema["x-pse-identity"], unit_schema["x-pse-identity"]);
+    }
 }

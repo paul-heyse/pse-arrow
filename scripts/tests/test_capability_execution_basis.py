@@ -116,6 +116,7 @@ class AdmissionTests(unittest.TestCase):
                     "research_read",
                     "result_read",
                     "result_inspect",
+                    "physical_inspect",
                     "diagnostic_inspect",
                     "diagnostic_processes",
                     "diagnostic_checkpoint",

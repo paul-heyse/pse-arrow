@@ -33,6 +33,7 @@ pub(super) struct PhysicalOwner {
     pin_metadata_bytes: usize,
 }
 impl PhysicalOwner {
+    pub(super) fn pins(&self) -> &[ProtectedSelection] { &self.pins }
     fn allocation_bytes(&self) -> usize {
         self._allocation
             .size()
@@ -408,7 +409,7 @@ async fn protect_pin(
     Ok((pin, retained))
 }
 
-async fn protect(
+pub(super) async fn protect(
     operations: &Operations,
     revisions: &[Revision],
     bytes: usize,

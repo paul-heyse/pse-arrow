@@ -15,21 +15,21 @@ pub struct ReferenceUnitSetsRow {
     ///name
     pub r#name: String,
     ///time_unit_id
-    pub r#time_unit_id: pse_ids::SemanticId,
+    pub r#time_unit_id: crate::generated::identities::UnitId,
     ///length_unit_id
-    pub r#length_unit_id: pse_ids::SemanticId,
+    pub r#length_unit_id: crate::generated::identities::UnitId,
     ///mass_unit_id
-    pub r#mass_unit_id: pse_ids::SemanticId,
+    pub r#mass_unit_id: crate::generated::identities::UnitId,
     ///amount_unit_id
-    pub r#amount_unit_id: pse_ids::SemanticId,
+    pub r#amount_unit_id: crate::generated::identities::UnitId,
     ///temperature_unit_id
-    pub r#temperature_unit_id: pse_ids::SemanticId,
+    pub r#temperature_unit_id: crate::generated::identities::UnitId,
     ///current_unit_id
-    pub r#current_unit_id: Option<pse_ids::SemanticId>,
+    pub r#current_unit_id: Option<crate::generated::identities::UnitId>,
     ///luminous_intensity_unit_id
-    pub r#luminous_intensity_unit_id: Option<pse_ids::SemanticId>,
+    pub r#luminous_intensity_unit_id: Option<crate::generated::identities::UnitId>,
     ///currency_unit_id
-    pub r#currency_unit_id: Option<pse_ids::SemanticId>,
+    pub r#currency_unit_id: Option<crate::generated::identities::UnitId>,
 }
 impl crate::SemanticEq for ReferenceUnitSetsRow {
     fn semantic_eq(&self, other: &Self) -> bool {

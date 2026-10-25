@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    54u8, 124u8, 190u8, 88u8, 79u8, 137u8, 161u8, 201u8, 31u8, 177u8, 39u8, 36u8, 245u8,
-    107u8, 204u8, 53u8, 155u8, 218u8, 13u8, 60u8, 124u8, 158u8, 182u8, 188u8, 183u8,
-    156u8, 67u8, 100u8, 46u8, 95u8, 174u8, 243u8,
+    150u8, 166u8, 235u8, 1u8, 156u8, 0u8, 166u8, 6u8, 152u8, 151u8, 223u8, 57u8, 142u8,
+    118u8, 94u8, 210u8, 193u8, 84u8, 95u8, 138u8, 9u8, 253u8, 187u8, 36u8, 230u8, 196u8,
+    126u8, 42u8, 236u8, 185u8, 64u8, 215u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceUnitSetsRow {
     fn append(
@@ -83,29 +83,29 @@ impl crate::columnar::ArrowValue for ReferenceUnitSetsRow {
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::append_null(
             children[6usize].as_mut(),
         )?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::UnitId,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::UnitId,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::UnitId,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -125,40 +125,40 @@ impl crate::columnar::ArrowValue for ReferenceUnitSetsRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#time_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#time_unit_id: <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#length_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#length_unit_id: <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#mass_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#mass_unit_id: <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#amount_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#amount_unit_id: <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#temperature_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#temperature_unit_id: <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
             r#current_unit_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::UnitId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
             r#luminous_intensity_unit_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::UnitId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
             r#currency_unit_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::UnitId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,

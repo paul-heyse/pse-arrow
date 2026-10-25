@@ -12,6 +12,8 @@ pub use wire::{Versioned, VersionedValue, Wire, check_header, check_required_hea
 macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
             (DecodeLocation, pse_model::document::DecodeLocation, "decode-location", Both, FlatV1),
+            (PhysicalInspectionRequest, pse_runtime::workflow::PhysicalInspectionRequest, "physical-inspection-request", Both, FlatV1),
+            (PhysicalInspectionDocument, pse_runtime::workflow::PhysicalInspectionDocument, "physical-inspection-document", Output, FlatV1),
             (ResultInspectionRequest, pse_runtime::workflow::ResultInspectionRequest, "result-inspection-request", Both, FlatV2),
             (ResultInspectionDocument, pse_runtime::workflow::ResultInspectionDocument, "result-inspection-document", Output, FlatV2),
             (KnowledgeQuery, pse_operations::knowledge::KnowledgeQuery, "knowledge-query", Input, Native),

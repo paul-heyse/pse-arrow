@@ -2301,15 +2301,13 @@ mod occurrence_execution_tests {
             .quantity_types()
             .find(|q| q.name.as_deref() == Some(quantity_name))
             .unwrap()
-            .id
-            .as_id();
+            .id;
         let unit = package
             .quantities
             .units()
             .find(|unit| unit.symbol == unit_symbol)
             .unwrap()
-            .id
-            .as_id();
+            .id;
         let points: Vec<_> = values
             .iter()
             .enumerate()

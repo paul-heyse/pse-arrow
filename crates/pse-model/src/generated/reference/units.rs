@@ -38,7 +38,7 @@ impl PartialEq for ReferenceUnitsFieldDefinitionItem {
 )]
 pub struct ReferenceUnitsRow {
     ///unit_id
-    pub r#unit_id: pse_ids::SemanticId,
+    pub r#unit_id: crate::generated::identities::UnitId,
     ///symbol
     pub r#symbol: String,
     ///name
@@ -52,7 +52,7 @@ pub struct ReferenceUnitsRow {
     ///is_affine
     pub r#is_affine: Option<bool>,
     ///reference_state_id
-    pub r#reference_state_id: Option<pse_ids::SemanticId>,
+    pub r#reference_state_id: Option<crate::generated::identities::ReferenceStateId>,
     ///definition
     pub r#definition: Option<Vec<ReferenceUnitsFieldDefinitionItem>>,
     ///system

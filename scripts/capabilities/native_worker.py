@@ -375,6 +375,7 @@ def execute(
     revision: host.Revision | host.RevisionPreparation | None = None
     result: host.Result | None = None
     result_inspection: contracts.ResultInspectionRequest | None = None
+    physical_inspection: contracts.PhysicalInspectionRequest | None = None
     model_request: object = None
     other_physical_packages: list[dict[str, bytes]] = []
     other_packages: list[dict[str, bytes]] = []
@@ -498,6 +499,11 @@ def execute(
                 diagnostics.read_invocation(Path(invocation.path))
             ),
         }
+    elif operation == "physical_inspect":
+        selected_physical = host.PhysicalInspection.model_validate(supplied, strict=True)
+        physical_packages = source_documents(selected_physical.physical)
+        physical_inspection = decoded(selected_physical.request, contracts.PhysicalInspectionRequest)
+        resources = selected_physical.resources
     elif operation == "result_inspect":
         selected_result = host.ResultInspection.model_validate(supplied, strict=True)
         result_inspection = decoded(
@@ -515,6 +521,7 @@ def execute(
         operation
         in {
             "source_admit",
+            "physical_inspect",
             "model_declarations",
             "model_inspect",
             "model_compare",
@@ -544,6 +551,9 @@ def execute(
         database=deployment.database if deployment is not None else None,
     )
     try:
+        if physical_inspection is not None:
+            physical = runtime.physical_from_documents(physical_packages[0])
+            return {"outcome": "observed", "document": codec.document_builtins(physical.describe(physical_inspection))}
         if operation in {"model_declarations", "model_inspect", "model_compare"}:
             physical = runtime.physical_from_documents(physical_packages[0])
             package = runtime.modeling_from_documents(packages, physical)

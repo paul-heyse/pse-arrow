@@ -2,13 +2,10 @@
 # Copyright (c) 2026 Paul Heyse
 """Explicit test documents admitted through the generated study boundary."""
 
-from pathlib import Path
-
 import msgspec
 
 import pse
 from pse import codec
-from pse._scientific_inputs import reference_bytes
 from pse.contracts.documents import (
     StudyInputsExplicit,
     StudyOutputDemandFull,
@@ -16,7 +13,6 @@ from pse.contracts.documents import (
     StudyRequest,
 )
 from pse.contracts.identities import DeclarationId
-from pse.contracts.reference import ReferenceQuantityTypesRow
 from pse.contracts.values import SemanticId
 
 
@@ -37,34 +33,9 @@ def assignment(
     }
 
 
-def physical_ids(path: Path, quantity: str, unit: str) -> tuple[str, str]:
-    """Read identities from the fixture's authoritative physical document."""
-    # The physical fixtures use JSON-formatted YAML with a comment header.
-    content = "\n".join(
-        line
-        for line in reference_bytes(path).decode("utf-8").splitlines()
-        if not line.startswith("#")
-    )
-    document = msgspec.json.decode(content, type=dict[str, object])
-    quantities = msgspec.convert(
-        document["quantity_types"], type=list[dict[str, object]]
-    )
-    units = msgspec.convert(document["units"], type=list[dict[str, object]])
-    # Physical documents may omit a quantity type's optional public name. The
-    # relational row represents that unnamed semantic type with a null name.
-    typed_quantities = codec.structure_rows(
-        [{**row, "name": row.get("name")} for row in quantities],
-        ReferenceQuantityTypesRow,
-    )
-    quantity_id = next(
-        row.quantity_type_id.to_hex()
-        for row in typed_quantities
-        if row.name == quantity
-    )
-    unit_id = next(row["unit_id"] for row in units if row["symbol"] == unit)
-    assert isinstance(quantity_id, str)
-    assert isinstance(unit_id, str)
-    return quantity_id, unit_id
+def physical_ids(physical: pse.PhysicalContext, quantity: str, unit: str) -> tuple[str, str]:
+    """Resolve input addresses through the actual selected physical owner."""
+    return physical.resolve_quantity(quantity).to_hex(), physical.resolve_unit(unit).to_hex()
 
 
 def point(

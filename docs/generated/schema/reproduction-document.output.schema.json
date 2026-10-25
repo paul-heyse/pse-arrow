@@ -7413,13 +7413,13 @@
           "description": "Complete physical type.",
           "pattern": "^[0-9a-fA-F]{32}$",
           "type": "string",
-          "x-pse-identity": "SemanticId"
+          "x-pse-identity": "QuantityTypeId"
         },
         "unit": {
           "description": "Representation of values crossing the original oracle.",
           "pattern": "^[0-9a-fA-F]{32}$",
           "type": "string",
-          "x-pse-identity": "SemanticId"
+          "x-pse-identity": "UnitId"
         }
       },
       "required": [

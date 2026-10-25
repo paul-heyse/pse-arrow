@@ -1625,7 +1625,7 @@ mod parameter_point_tests {
                     target: BindingTarget::Member(id(1)),
                     value: BindingQuantity {
                         magnitude: pse_model::scalars::FiniteBound::try_new(fixed).unwrap(),
-                        quantity: quantity.as_id(),
+                        quantity,
                         unit,
                     },
                 },
@@ -1633,7 +1633,7 @@ mod parameter_point_tests {
                     target: BindingTarget::Member(id(2)),
                     value: BindingQuantity {
                         magnitude: pse_model::scalars::FiniteBound::try_new(free).unwrap(),
-                        quantity: quantity.as_id(),
+                        quantity,
                         unit,
                     },
                 },
@@ -1646,7 +1646,7 @@ mod parameter_point_tests {
         let canonical_binding = package
             .admit_fit_overlay(
                 fit,
-                &overlay(2., 3., canonical.as_id()),
+                &overlay(2., 3., canonical),
                 Limits::default(),
                 &cancel,
             )
@@ -1685,7 +1685,7 @@ mod parameter_point_tests {
         let (converted, seed_need) = package
             .admit_operation_overlay(
                 &operation,
-                &overlay(200., 300., percent_id.as_id()),
+                &overlay(200., 300., percent_id),
                 &mut None,
                 &cancel,
             )
@@ -1737,7 +1737,7 @@ mod parameter_point_tests {
         let next_binding = package
             .admit_fit_overlay(
                 fit,
-                &overlay(4., 5., canonical.as_id()),
+                &overlay(4., 5., canonical),
                 Limits::default(),
                 &cancel,
             )
@@ -1774,7 +1774,7 @@ mod parameter_point_tests {
         let replay = constructor.reconstruct(&package, &cancel).await.unwrap();
         assert_eq!(replay.identity(), first.identity());
         assert_eq!(replay.problem.initial, first.problem.initial);
-        let mut ambiguous = overlay(2., 3., canonical.as_id());
+        let mut ambiguous = overlay(2., 3., canonical);
         ambiguous.assignments[0].target = BindingTarget::Path("a".into());
         assert_eq!(
             package

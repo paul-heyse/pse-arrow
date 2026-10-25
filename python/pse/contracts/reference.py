@@ -109,11 +109,11 @@ class ReferenceArtifactProfilesRow:
 class ReferenceBasesRow:
     """Declared relation row or nested value."""
 
-    basis_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    basis_id: i.BasisId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.BasisKind = attrs.field(validator=attrs.validators.instance_of(e.BasisKind))
     composition_basis: e.CompositionBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.CompositionBasis)))
     rate_basis: e.RateBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.RateBasis)))
-    reference_conditions_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    reference_conditions_id: i.ReferenceStateId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.basis_id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.composition_basis), v.optional_key(v.scalar_key)(self.rate_basis), v.optional_key(v.scalar_key)(self.reference_conditions_id),))
@@ -124,8 +124,8 @@ class ReferenceConversionRulesRow:
     """Declared relation row or nested value."""
 
     conversion_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    from_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    to_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    from_quantity_type_id: i.QuantityTypeId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    to_quantity_type_id: i.QuantityTypeId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.ConversionKind = attrs.field(validator=attrs.validators.instance_of(e.ConversionKind))
     kernel_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     required_parameters: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -191,8 +191,8 @@ class ReferenceMathContextRow:
     """Declared relation row or nested value."""
 
     package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    neutral_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    boolean_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    neutral_quantity_type_id: i.QuantityTypeId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    boolean_kind_id: i.QuantityKindId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.package_id), v.scalar_key(self.neutral_quantity_type_id), v.scalar_key(self.boolean_kind_id),))
@@ -229,7 +229,7 @@ class ReferenceQuantityKindsFieldDefinition:
 class ReferenceQuantityKindsRow:
     """Declared relation row or nested value."""
 
-    quantity_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_kind_id: i.QuantityKindId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     dimension: b.tuple[v.DimensionVectorItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8))))
     extensive: b.bool = attrs.field(validator=v.exact_type(b.bool))
@@ -271,7 +271,7 @@ class ReferenceQuantityOperationsRow:
     operation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     opcode: e.Opcode = attrs.field(validator=attrs.validators.instance_of(e.Opcode))
     input_kind_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    result_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    result_kind_id: i.QuantityKindId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     basis_rule: e.BasisRule = attrs.field(validator=attrs.validators.instance_of(e.BasisRule))
     reference_rule: e.ReferenceRule = attrs.field(validator=attrs.validators.instance_of(e.ReferenceRule))
     scale_rule: e.QuantityScaleRule = attrs.field(validator=attrs.validators.instance_of(e.QuantityScaleRule))
@@ -299,8 +299,8 @@ class ReferenceQuantityPreconditionsRow:
     invariant_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.QuantityPreconditionKind = attrs.field(validator=attrs.validators.instance_of(e.QuantityPreconditionKind))
     operand_positions: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 65535), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    required_basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    required_quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    required_basis_id: i.BasisId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    required_quantity_type_id: i.QuantityTypeId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     match_shape: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -311,15 +311,15 @@ class ReferenceQuantityPreconditionsRow:
 class ReferenceQuantityTypesRow:
     """Declared relation row or nested value."""
 
-    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_type_id: i.QuantityTypeId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    quantity_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    quantity_kind_id: i.QuantityKindId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    basis_id: i.BasisId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    reference_state_id: i.ReferenceStateId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     scale_kind: e.ScaleKind = attrs.field(validator=attrs.validators.instance_of(e.ScaleKind))
     shape: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    subject_kind: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    canonical_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    subject_kind: i.EntityKindId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    canonical_unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     nominal_magnitude: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
@@ -331,7 +331,7 @@ class ReferenceQuantityTypesRow:
 class ReferenceReferenceStatesRow:
     """Declared relation row or nested value."""
 
-    reference_state_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    reference_state_id: i.ReferenceStateId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.ReferenceStateKind = attrs.field(validator=attrs.validators.instance_of(e.ReferenceStateKind))
     temperature: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
@@ -547,14 +547,14 @@ class ReferenceUnitSetsRow:
 
     unit_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    time_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    length_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    mass_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    amount_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    temperature_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    current_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    luminous_intensity_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    currency_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    time_unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    length_unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    mass_unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    amount_unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    temperature_unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    current_unit_id: i.UnitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    luminous_intensity_unit_id: i.UnitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    currency_unit_id: i.UnitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.unit_set_id), v.scalar_key(self.name), v.scalar_key(self.time_unit_id), v.scalar_key(self.length_unit_id), v.scalar_key(self.mass_unit_id), v.scalar_key(self.amount_unit_id), v.scalar_key(self.temperature_unit_id), v.optional_key(v.scalar_key)(self.current_unit_id), v.optional_key(v.scalar_key)(self.luminous_intensity_unit_id), v.optional_key(v.scalar_key)(self.currency_unit_id),))
@@ -576,14 +576,14 @@ class ReferenceUnitsFieldDefinitionItem:
 class ReferenceUnitsRow:
     """Declared relation row or nested value."""
 
-    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     dimension: b.tuple[v.DimensionVectorItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8))))
     scale_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     offset_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     is_affine: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    reference_state_id: i.ReferenceStateId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     definition: b.tuple[ReferenceUnitsFieldDefinitionItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceUnitsFieldDefinitionItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
     system: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

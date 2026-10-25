@@ -36,7 +36,7 @@ impl PartialEq for NormalizedUnitsFieldDefinitionItem {
 #[derive(Clone, Debug)]
 pub struct NormalizedUnitsRow {
     ///unit_id
-    pub r#unit_id: pse_ids::SemanticId,
+    pub r#unit_id: crate::generated::identities::UnitId,
     ///symbol
     pub r#symbol: String,
     ///name
@@ -50,7 +50,7 @@ pub struct NormalizedUnitsRow {
     ///is_affine
     pub r#is_affine: Option<bool>,
     ///reference_state_id
-    pub r#reference_state_id: Option<pse_ids::SemanticId>,
+    pub r#reference_state_id: Option<crate::generated::identities::ReferenceStateId>,
     ///definition
     pub r#definition: Option<Vec<NormalizedUnitsFieldDefinitionItem>>,
     ///system

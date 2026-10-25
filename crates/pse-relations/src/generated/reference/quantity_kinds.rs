@@ -22,9 +22,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    221u8, 4u8, 162u8, 150u8, 109u8, 248u8, 24u8, 33u8, 215u8, 20u8, 60u8, 236u8, 23u8,
-    17u8, 30u8, 233u8, 138u8, 129u8, 112u8, 173u8, 107u8, 84u8, 29u8, 135u8, 49u8, 82u8,
-    58u8, 73u8, 20u8, 183u8, 163u8, 50u8,
+    117u8, 139u8, 224u8, 18u8, 39u8, 59u8, 119u8, 3u8, 167u8, 195u8, 244u8, 46u8, 163u8,
+    87u8, 93u8, 35u8, 229u8, 107u8, 144u8, 193u8, 64u8, 156u8, 23u8, 33u8, 207u8, 28u8,
+    151u8, 252u8, 239u8, 128u8, 62u8, 161u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityKindsFieldDefinitionMonomialItem {
     fn append(
@@ -232,7 +232,7 @@ impl crate::columnar::ArrowValue for ReferenceQuantityKindsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::QuantityKindId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -260,7 +260,7 @@ impl crate::columnar::ArrowValue for ReferenceQuantityKindsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#quantity_kind_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#quantity_kind_id: <crate::generated::identities::QuantityKindId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,

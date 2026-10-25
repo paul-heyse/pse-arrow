@@ -17,142 +17,6 @@ from pse.contracts import enums, identities
 from pse.contracts import values as v
 from pse.contracts.values import _convert_document as _document_default
 
-AdviceMetric = Literal["native_execution_nanoseconds", "original_normalized_residual"]
-
-AdviceOutcome = Literal["complete", "budget_exhausted", "policy_preempted", "cancelled", "infrastructure_interrupted", "numerical_failure", "partial"]
-
-AnalysisDirection = Literal["upstream", "downstream"]
-
-AnalysisQuestion = Literal["preparation", "evaluator_work", "evaluation_cost", "root_progress", "dynamic_work", "dependency_readiness", "factor_recovery", "waiting", "comparability", "physical_attribution"]
-
-AnalysisSelectionScope = Literal["direct", "independent", "unknown"]
-
-AttemptOriginalConclusion = Literal["satisfied", "refused", "unavailable"]
-
-Bytes = tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
-
-CopiedExecutionStatus = Literal["running", "completed", "failed", "cancelled", "abandoned"]
-
-CopiedObservationPolicy = Literal["off", "contract", "diagnostic"]
-
-DecodeCategory = Literal["io", "syntax", "data", "eof"]
-
-DecodePathStatus = Literal["tracked_prefix", "unavailable"]
-
-DecodeStage = Literal["header", "body", "trailing"]
-
-DerivativeOrder = Literal["value", "first", "second"]
-
-DetailEnd = Literal["window_elapsed", "owner_finished", "stopped", "writer_failed"]
-
-DetailFamilyActivation = Literal["unobserved", "applicable", "unsupported", "refused"]
-
-DetailOutcome = Literal["active", "complete", "sampled", "incomplete"]
-
-DetailRequirement = Literal["sampled", "complete"]
-
-EvaluationDemand = Literal["objective", "constraints", "all", "directional", "transpose_directional", "hessian_action"]
-
-FiniteBound = float
-
-FitOptimizer = Literal["automatic", "native_nlp", "residual_lm"]
-
-Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
-
-GraphScope = Literal["immediate_blockers", "recorded_sources", "retained_consumers"]
-
-HistoryPurposeBody = Literal["audit", "unsettled"]
-
-IdasInitialStep = Literal["configured", "automatic"]
-
-InvocationOutcome = Literal["completed", "failed", "cancelled"]
-
-KnowledgeMode = Literal["subjects", "graph", "productions"]
-
-LifecycleKind = Literal["source_history", "run_results", "study_results", "run_history", "study_history", "draft_version", "evidence_artifact"]
-
-ManagedDetailReferenceState = Literal["pending", "refused", "captured", "missing"]
-
-ManagedDetailRefusal = Literal["no_managed_budget", "budget_already_allocated", "attempt_bound_unavailable", "per_attempt_budget_insufficient", "collector_refused"]
-
-MetricKind = Literal["counter", "gauge", "native"]
-
-MetricUnit = Literal["rows", "batches", "bytes", "nanoseconds", "count", "native"]
-
-NativePhase = Literal["Main", "Restoration", "Unknown"]
-
-ObservationCoordinates = Literal["SubmittedOracle", "PhysicalTears"]
-
-OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
-
-OptionValue = bool | int | float | str
-
-PackFormat = Literal["frozen_evidence_v3", "analysis_v2", "json", "json_lines", "arrow_ipc_stream", "text", "markdown", "html", "perfetto", "profile_binary"]
-
-PackMemberRole = Literal["frozen_evidence", "analysis", "context", "detail", "capture", "engine", "query", "result", "report"]
-
-PackPublication = Literal["incomplete", "sealed"]
-
-PackScientificState = Literal["unknown", "usable", "partial", "failed", "unusable"]
-
-PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
-
-ProducerRole = Literal["native_callback", "coordinate_transport", "original_oracle", "native_iteration", "evaluator", "provider", "workflow", "native_factor"]
-
-ProductAvailability = Literal["available", "unavailable", "not_requested"]
-
-ProductKind = Literal["selected_partials", "jacobian_action", "transpose_jacobian_action", "weighted_hessian", "weighted_hessian_action"]
-
-ProjectImportRecoveryState = Literal["project_complete", "ready_for_artifact", "original_cleanup_pending", "original_collected"]
-
-RawMapContextKind = Literal["unavailable", "inapplicable", "frozen"]
-
-RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown", "RestartScreening"]
-
-RecordAvailability = Literal["not_requested", "running", "interrupted", "unavailable", "not_supplied", "refused"]
-
-ReductionAnchorRole = Literal["failure_expression", "initial_point"]
-
-ReductionDisposition = Literal["preserved", "different", "refused", "incomplete", "inconclusive"]
-
-ReductionOperator = Literal["declaration_deletion", "binary_subexpression"]
-
-ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
-
-ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
-
-ReproductionStatus = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
-
-ReproductionStatusBody = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
-
-RequiredFact = Literal["model", "input", "effective_settings", "physical_coordinates", "invocation", "operation_evidence"]
-
-RequirementStatus = Literal["available", "missing"]
-
-ResultCellUnavailable = Literal["unsupported_storage", "value_extent"]
-
-ResultFloatClass = Literal["finite", "nan", "positive_infinity", "negative_infinity"]
-
-ResultInspectionRefusal = Literal["selection", "unknown_field", "manifest_changed", "context_extent", "response_extent", "cursor_changed"]
-
-ReviewAttemptSelection = Literal["current", "retained"]
-
-ReviewHandoffState = Literal["active", "complete", "incomplete"]
-
-ReviewQuery = Literal["timeline", "numerical", "coverage"]
-
-ReviewQueryStatus = Literal["completed", "unavailable", "failed", "timed_out", "cancelled", "output_limit", "malformed"]
-
-ReviewTableKind = Literal["detail", "invocation", "capture", "engine", "query"]
-
-SourceMapScope = Literal["static_eligible_alternatives"]
-
-StopFidelity = Literal["EvaluationAndIterationCheckpoints", "EvaluationCheckpoints"]
-
-StudyObservationContinuity = Literal["catch_up", "gap_current_resync", "live_numerics_unavailable", "history_unavailable"]
-
-Tolerance = Annotated[float, msgspec.Meta(gt=0.0)]
-
 
 class AccuracyDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Consumed accuracy of one operation. Its product identity is declared by the math owner
@@ -354,11 +218,11 @@ class AdmittedBindingEntry(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Whether the target is an authored parameter rather than a variable start/value.
     parameter: bool
     #: Expected complete physical quantity.
-    quantity: v.SemanticId
+    quantity: identities.QuantityTypeId
     #: Original input reference, retained only for attribution.
     supplied: BindingTarget
     #: Original unit, retained only for attribution.
-    supplied_unit: v.SemanticId
+    supplied_unit: identities.UnitId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.canonical), v.scalar_key(self.member), v.scalar_key(self.parameter), v.scalar_key(self.quantity), v.record_key(self.supplied), v.scalar_key(self.supplied_unit),))
@@ -4861,9 +4725,9 @@ class BindingQuantity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     #: Supplied finite magnitude.
     magnitude: FiniteBound
     #: Complete quantity type, including basis, datum and subject.
-    quantity: v.SemanticId
+    quantity: identities.QuantityTypeId
     #: Registered representation unit.
-    unit: v.SemanticId
+    unit: identities.UnitId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.magnitude), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
@@ -12579,6 +12443,42 @@ class JacobianDiagnosticControlsOutput(msgspec.Struct, frozen=True, forbid_unkno
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_attempts), v.scalar_key(self.maximum_entries), v.optional_key(v.scalar_key)(self.maximum_nodes), v.scalar_key(self.maximum_rows), v.scalar_key(self.multiplier_bound), v.scalar_key(self.rank_relative), v.scalar_key(self.tolerance),))
 
 
+class KindDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What a derived kind is (ADR-0124): a monomial of other kinds, its declared canonical
+    unit, and the complete result a multiplicative chain resolving to it takes. Kinds are
+    declared, never synthesized.
+    """
+
+    #: Declared result basis. Without one, every basis-carrying chain factor must agree.
+    basis: identities.BasisId | None
+    #: The canonical unit every quantity type of this kind stores in.
+    canonical_unit: identities.UnitId
+    #: Factors over declared kinds; admission expands derived factors, so the admitted
+    #: monomial is over base kinds in identity order.
+    monomial: tuple[KindFactor, ...]
+    #: Declared result datum.
+    reference_state: identities.ReferenceStateId | None
+    #: Declared result scale.
+    scale_kind: enums.ScaleKind
+    #: Declared result subject.
+    subject_kind: identities.EntityKindId | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.basis), v.scalar_key(self.canonical_unit), v.sequence_key(v.record_key)(self.monomial), v.optional_key(v.scalar_key)(self.reference_state), v.scalar_key(self.scale_kind), v.optional_key(v.scalar_key)(self.subject_kind),))
+
+
+class KindFactor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One factor of a kind monomial: a kind and its nonzero rational exponent."""
+
+    #: Its nonzero rational exponent.
+    exponent: Ratio
+    #: The factor kind.
+    kind: identities.QuantityKindId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.exponent), v.scalar_key(self.kind),))
+
+
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
     """Eisenstat-Walker choice 1, KINSOL's default."""
 
@@ -16700,6 +16600,36 @@ class PhaseTransitionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
         return (type(self), (v.optional_key(v.record_key)(self.finished_at), v.record_key(self.started_at), v.scalar_key(self.token),))
 
 
+class PhysicalBasis(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A declared material or specific-quantity basis."""
+
+    #: Optional composition convention.
+    composition_basis: enums.CompositionBasis | None
+    #: Registry identity.
+    id: identities.BasisId
+    #: What this quantity is per.
+    kind: enums.BasisKind
+    #: Optional rate convention.
+    rate_basis: enums.RateBasis | None
+    #: Conditions required for a standard-volume basis.
+    reference_conditions: identities.ReferenceStateId | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.composition_basis), v.scalar_key(self.id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.rate_basis), v.optional_key(v.scalar_key)(self.reference_conditions),))
+
+
+class PhysicalEntityKind(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A declared kind used as a physical axis or subject."""
+
+    #: Stable authored identity.
+    id: identities.EntityKindId
+    #: Qualified inspection name; identity comparisons use `id`.
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.name),))
+
+
 class PhysicalFitRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Host fitting settings whose experiment controls still carry physical coordinates."""
 
@@ -16728,6 +16658,220 @@ class PhysicalFitRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_field
         return (type(self), (v.scalar_key(self.version), v.record_key(self.settings),))
 
 
+class PhysicalInspectionDocumentBodyPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="page"):
+    """Complete selected declarations with their actual immutable context identity."""
+
+    #: Exact physical context that interpreted every record.
+    context: v.ContentHash
+    #: Complete selected population, independent of the current page.
+    count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next original offset; each call reacquires any canonical protection.
+    next: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected quantity records, in stable identity order.
+    quantities: tuple[PhysicalQuantityDescription, ...]
+    #: Selected named reference-state records.
+    reference_states: tuple[ReferenceState, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.context), v.scalar_key(self.count), v.optional_key(v.scalar_key)(self.next), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.quantities), v.sequence_key(v.record_key)(self.reference_states),))
+
+
+class PhysicalInspectionDocumentBodyUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unavailable"):
+    """Required complete records do not fit the fixed document allowance."""
+
+    #: Exact context, retained even when no record can be copied.
+    context: v.ContentHash
+    #: Explicit reason; narrowing the selection may make it readable.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.context), v.scalar_key(self.reason),))
+
+
+class PhysicalInspectionDocumentPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="page"):
+    """Complete selected declarations with their actual immutable context identity."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact physical context that interpreted every record.
+    context: v.ContentHash
+    #: Complete selected population, independent of the current page.
+    count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Next original offset; each call reacquires any canonical protection.
+    next: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Selected quantity records, in stable identity order.
+    quantities: tuple[PhysicalQuantityDescription, ...]
+    #: Selected named reference-state records.
+    reference_states: tuple[ReferenceState, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.context), v.scalar_key(self.count), v.optional_key(v.scalar_key)(self.next), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.quantities), v.sequence_key(v.record_key)(self.reference_states),))
+
+
+class PhysicalInspectionDocumentUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unavailable"):
+    """Required complete records do not fit the fixed document allowance."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact context, retained even when no record can be copied.
+    context: v.ContentHash
+    #: Explicit reason; narrowing the selection may make it readable.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.context), v.scalar_key(self.reason),))
+
+
+class PhysicalInspectionQueryOutputQuantities(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="quantities"):
+    """All quantities in the selected context, paged without cloning its inventory."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PhysicalInspectionQueryOutputQuantity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="quantity"):
+    """One exact quantity and optionally its admitted representation conversion."""
+
+    #: Complete physical quantity identity.
+    id: identities.QuantityTypeId
+    #: Representation unit; absent selects the canonical unit.
+    unit: identities.UnitId | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.optional_key(v.scalar_key)(self.unit),))
+
+
+class PhysicalInspectionQueryOutputQuantityNamed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="quantity_named"):
+    """One exact declared quantity name."""
+
+    #: Declared physical-document name, case sensitive.
+    name: Annotated[str, msgspec.Meta(max_length=1024)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name),))
+
+
+class PhysicalInspectionQueryOutputReferenceStateNamed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="reference_state_named"):
+    """One exact declared reference-state name."""
+
+    #: Declared physical-document name, case sensitive.
+    name: Annotated[str, msgspec.Meta(max_length=1024)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name),))
+
+
+class PhysicalInspectionQueryQuantities(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="quantities"):
+    """All quantities in the selected context, paged without cloning its inventory."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class PhysicalInspectionQueryQuantity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="quantity"):
+    """One exact quantity and optionally its admitted representation conversion."""
+
+    #: Complete physical quantity identity.
+    id: identities.QuantityTypeId
+    #: Representation unit; absent selects the canonical unit.
+    unit: identities.UnitId | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.optional_key(v.scalar_key)(self.unit),))
+
+
+class PhysicalInspectionQueryQuantityNamed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="quantity_named"):
+    """One exact declared quantity name."""
+
+    #: Declared physical-document name, case sensitive.
+    name: Annotated[str, msgspec.Meta(max_length=1024)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name),))
+
+
+class PhysicalInspectionQueryReferenceStateNamed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="reference_state_named"):
+    """One exact declared reference-state name."""
+
+    #: Declared physical-document name, case sensitive.
+    name: Annotated[str, msgspec.Meta(max_length=1024)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.name),))
+
+
+class PhysicalInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded query against one immutable physical context."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: One through sixteen declarations; encoded output is at most 64 KiB.
+    limit: Annotated[int, msgspec.Meta(ge=1, le=16)]
+    #: Original declaration offset in semantic identity order.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact declared identity/name selection.
+    query: PhysicalInspectionQuery
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.query),))
+
+
+class PhysicalInspectionRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded query against one immutable physical context."""
+
+    #: One through sixteen declarations; encoded output is at most 64 KiB.
+    limit: Annotated[int, msgspec.Meta(ge=1, le=16)]
+    #: Original declaration offset in semantic identity order.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact declared identity/name selection.
+    query: PhysicalInspectionQuery
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.query),))
+
+
+class PhysicalInspectionRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded query against one immutable physical context."""
+
+    #: One through sixteen declarations; encoded output is at most 64 KiB.
+    limit: Annotated[int, msgspec.Meta(ge=1, le=16)]
+    #: Original declaration offset in semantic identity order.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact declared identity/name selection.
+    query: PhysicalInspectionQueryOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.query),))
+
+
+class PhysicalInspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded query against one immutable physical context."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: One through sixteen declarations; encoded output is at most 64 KiB.
+    limit: Annotated[int, msgspec.Meta(ge=1, le=16)]
+    #: Original declaration offset in semantic identity order.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact declared identity/name selection.
+    query: PhysicalInspectionQueryOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.query),))
+
+
 class PhysicalObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Finite physical evidence bound to its complete immutable quantity contract."""
 
@@ -16742,6 +16886,36 @@ class PhysicalObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.context), v.scalar_key(self.magnitude), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
+
+
+class PhysicalQuantityDescription(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original selected quantity and its complete physical interpretation."""
+
+    #: Exact original basis and its composition/rate/reference conventions.
+    basis: PhysicalBasis | None
+    #: Actual reference conditions required by a standard-volume or similar basis.
+    basis_reference_state: ReferenceState | None
+    #: Original canonical representation.
+    canonical_unit: Unit
+    #: Admitted conversion offset; difference quantities retain zero here.
+    offset_to_canonical: float
+    #: Exact original type including basis, datum, scale, shape and subject.
+    quantity: QuantityType
+    #: What is measured, including exact rational dimension and arithmetic convention.
+    quantity_kind: QuantityKind
+    #: Exact original datum, including typed reference conditions.
+    reference_state: ReferenceState | None
+    #: Selected representation; raw result values are never changed by inspection.
+    representation_unit: Unit
+    #: Admitted conversion multiplier to canonical magnitude.
+    scale_to_canonical: float
+    #: Declared ordered axis kinds.
+    shape: tuple[PhysicalEntityKind, ...]
+    #: Declared subject kind.
+    subject: PhysicalEntityKind | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.basis), v.optional_key(v.record_key)(self.basis_reference_state), v.record_key(self.canonical_unit), v.scalar_key(self.offset_to_canonical), v.record_key(self.quantity), v.record_key(self.quantity_kind), v.optional_key(v.record_key)(self.reference_state), v.record_key(self.representation_unit), v.scalar_key(self.scale_to_canonical), v.sequence_key(v.record_key)(self.shape), v.optional_key(v.record_key)(self.subject),))
 
 
 class PhysicalSimulationRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17580,7 +17754,7 @@ class PreparationStructuralValueCoordinate(msgspec.Struct, frozen=True, forbid_u
 
     bits: Annotated[int, msgspec.Meta(ge=0)]
     id: v.SemanticId
-    quantity: v.SemanticId
+    quantity: identities.QuantityTypeId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.bits), v.scalar_key(self.id), v.scalar_key(self.quantity),))
@@ -17655,7 +17829,7 @@ class PreparationStructuralValueNumber(msgspec.Struct, frozen=True, forbid_unkno
     """The `PreparationStructuralValueNumber` document type."""
 
     bits: Annotated[int, msgspec.Meta(ge=0)]
-    quantity: v.SemanticId
+    quantity: identities.QuantityTypeId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.bits), v.scalar_key(self.quantity),))
@@ -17664,7 +17838,7 @@ class PreparationStructuralValueNumber(msgspec.Struct, frozen=True, forbid_unkno
 class PreparationStructuralValueQuantityType(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="quantity_type"):
     """The `PreparationStructuralValueQuantityType` document type."""
 
-    id: v.SemanticId
+    id: identities.QuantityTypeId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.id),))
@@ -17673,7 +17847,7 @@ class PreparationStructuralValueQuantityType(msgspec.Struct, frozen=True, forbid
 class PreparationStructuralValueReferenceState(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="value_kind", tag="reference_state"):
     """The `PreparationStructuralValueReferenceState` document type."""
 
-    id: v.SemanticId
+    id: identities.ReferenceStateId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.id),))
@@ -20788,6 +20962,67 @@ class PureConformanceControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
+class QuantityKind(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What is measured, independent of basis and datum."""
+
+    #: Additive or origin-sensitive arithmetic.
+    addition_kind: enums.QuantityAdditionKind
+    #: Discrete category of a dimensionless pure-number kind; `None` for a measured kind.
+    category: enums.QuantityKindCategory | None
+    #: `None` for a base kind; a derived kind's declaration, its monomial expanded to
+    #: canonical base-kind factors at admission.
+    definition: KindDefinition | None
+    #: SI exponents; this alone never resolves a physical type. A derived kind's
+    #: dimension is derived from its monomial at admission.
+    dimension: DimensionVector
+    #: Whether values scale with system size.
+    extensive: bool
+    #: Registry identity.
+    id: identities.QuantityKindId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.addition_kind), v.optional_key(v.scalar_key)(self.category), v.optional_key(v.record_key)(self.definition), v.sequence_key(v.record_key)(self.dimension), v.scalar_key(self.extensive), v.scalar_key(self.id),))
+
+
+class QuantityType(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A registered physical type and its canonical storage unit."""
+
+    #: Canonical unit of the package.
+    canonical_unit: identities.UnitId
+    #: Registry identity.
+    id: identities.QuantityTypeId
+    #: The complete semantic key.
+    key: QuantityTypeKey
+    #: The name packages address it by, declared once in the physical document and unique
+    #: within it (ADR-0123 Outcome 6).
+    name: str | None
+    #: Positive finite default scaling magnitude, if declared.
+    nominal_magnitude: float | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.canonical_unit), v.scalar_key(self.id), v.record_key(self.key), v.optional_key(v.scalar_key)(self.name), v.optional_key(v.scalar_key)(self.nominal_magnitude),))
+
+
+class QuantityTypeKey(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Components that determine one registered physical type."""
+
+    #: Optional material basis.
+    basis: identities.BasisId | None
+    #: The measured quantity kind.
+    kind: identities.QuantityKindId
+    #: Optional datum.
+    reference_state: identities.ReferenceStateId | None
+    #: Point or difference semantics.
+    scale_kind: enums.ScaleKind
+    #: Ordered domain kinds.
+    shape: tuple[identities.EntityKindId, ...]
+    #: Optional subject obligation; absent and explicit `none` stay distinct.
+    subject_kind: identities.EntityKindId | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.basis), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.reference_state), v.scalar_key(self.scale_kind), v.sequence_key(v.scalar_key)(self.shape), v.optional_key(v.scalar_key)(self.subject_kind),))
+
+
 class QueryInterval(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A half-open interval in one explicitly named source clock, in exact nanoseconds."""
 
@@ -20822,6 +21057,36 @@ class QuestionAnalysisOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.question), v.sequence_key(v.record_key)(self.statements),))
+
+
+class Ratio(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A rational exponent in canonical reduced form (blueprint §4.4 `pse.dimension_vector`).
+
+    The invariant is total: `den > 0`, `gcd(|num|, den) == 1`, and zero is exactly `0/1`.
+    Construction goes through [`Ratio::new`] or [`Ratio::from_parts`], both of which reject
+    anything else, and deserialization re-validates. Two `Ratio`s are equal exactly when
+    they are the same rational number.
+
+    `Ord` is the lexicographic order of the canonical `(num, den)` pair, not numeric order:
+    it exists so that a `Ratio` can key a `BTreeMap` deterministically. Compare magnitudes
+    with [`Ratio::checked_sub`] and [`Ratio::is_zero`] rather than with `<`.
+
+    ```
+    use pse_quantity::Ratio;
+
+    assert_eq!(Ratio::new(2, 4)?, Ratio::new(1, 2)?);
+    assert_eq!(Ratio::new(-1, -2)?, Ratio::new(1, 2)?);
+    assert_eq!(Ratio::new(0, 5)?, Ratio::ZERO);
+    assert!(Ratio::new(1, 0).is_err());
+    # Ok::<(), pse_quantity::DimensionError>(())
+    ```
+    """
+
+    den: Annotated[int, msgspec.Meta(ge=-32768, le=32767)]
+    num: Annotated[int, msgspec.Meta(ge=-32768, le=32767)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.den), v.scalar_key(self.num),))
 
 
 class RawMapCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -21448,6 +21713,46 @@ class ReductionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.record_key(self.allowance), v.sequence_key(v.record_key)(self.anchors), v.record_key(self.issue), v.scalar_key(self.maximum_candidates), v.sequence_key(v.scalar_key)(self.operators), v.record_key(self.original),))
+
+
+class ReferenceCondition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A typed reference condition (ADR-0123 Outcome 6): a value in a declared unit of a
+    declared quantity type. Admission checks the type's dimension against the condition it
+    states and the unit against the type.
+    """
+
+    #: The declared quantity type of the condition.
+    quantity_type: identities.QuantityTypeId
+    #: The unit `value` is written in.
+    unit: identities.UnitId
+    #: The value in `unit`.
+    value: float
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.quantity_type), v.scalar_key(self.unit), v.scalar_key(self.value),))
+
+
+class ReferenceState(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The datum carried by origin-sensitive quantities."""
+
+    #: Registry identity.
+    id: identities.ReferenceStateId
+    #: Whether formation enthalpy is included.
+    include_enthalpy_of_formation: bool
+    #: The reference convention.
+    kind: enums.ReferenceStateKind
+    #: The name packages address it by, declared once in the physical document
+    #: (ADR-0123 Outcome 6).
+    name: str
+    #: Typed reference pressure, when specified.
+    pressure: ReferenceCondition | None
+    #: Optional datum subject; physical source admission requires an authored entity.
+    subject: v.SemanticId | None
+    #: Typed reference temperature, when specified.
+    temperature: ReferenceCondition | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.include_enthalpy_of_formation), v.scalar_key(self.kind), v.scalar_key(self.name), v.optional_key(v.record_key)(self.pressure), v.optional_key(v.scalar_key)(self.subject), v.optional_key(v.record_key)(self.temperature),))
 
 
 class RefinementLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -23982,6 +24287,26 @@ class ResultInspectionBasis(msgspec.Struct, frozen=True, forbid_unknown_fields=T
         return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.end), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
 
 
+class ResultInspectionBasisOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable request coordinates retained across pages."""
+
+    #: Original terminal attempt.
+    attempt: str
+    #: Exclusive original window end.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original relation.
+    relation: str
+    #: Original run.
+    run: str
+    #: Complete requested row window.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original view/path/page allowance, unchanged by continuation.
+    view: ResultInspectionViewOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.end), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
+
+
 class ResultInspectionCellBinary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="binary"):
     """Complete bounded bytes; fixed-width semantic identities retain their original field metadata."""
 
@@ -24108,6 +24433,8 @@ class ResultInspectionCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=
     issuing_store: str
     #: Exact closure digest.
     manifest: str
+    #: Original physical context and exact closure availability.
+    physical: ResultPhysicalContext
     #: Next original row or descriptor/metadata position.
     position: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact admitted registry relation contract, independent of its numeric version.
@@ -24116,18 +24443,20 @@ class ResultInspectionCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=
     selection: PackResultSelection
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.basis), v.scalar_key(self.issuing_store), v.scalar_key(self.manifest), v.scalar_key(self.position), v.scalar_key(self.schema_fingerprint), v.record_key(self.selection),))
+        return (type(self), (v.record_key(self.basis), v.scalar_key(self.issuing_store), v.scalar_key(self.manifest), v.record_key(self.physical), v.scalar_key(self.position), v.scalar_key(self.schema_fingerprint), v.record_key(self.selection),))
 
 
 class ResultInspectionCursorOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Store/selection-bound continuation; each call reacquires original protection."""
 
     #: Original request identity.
-    basis: ResultInspectionBasis
+    basis: ResultInspectionBasisOutput
     #: Original canonical store authority; coordinates alone never cross stores.
     issuing_store: str
     #: Exact closure digest.
     manifest: str
+    #: Original physical context and exact closure availability.
+    physical: ResultPhysicalContext
     #: Next original row or descriptor/metadata position.
     position: Annotated[int, msgspec.Meta(ge=0)]
     #: Exact admitted registry relation contract, independent of its numeric version.
@@ -24136,7 +24465,7 @@ class ResultInspectionCursorOutput(msgspec.Struct, frozen=True, forbid_unknown_f
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.basis), v.scalar_key(self.issuing_store), v.scalar_key(self.manifest), v.scalar_key(self.position), v.scalar_key(self.schema_fingerprint), v.record_key(self.selection),))
+        return (type(self), (v.record_key(self.basis), v.scalar_key(self.issuing_store), v.scalar_key(self.manifest), v.record_key(self.physical), v.scalar_key(self.position), v.scalar_key(self.schema_fingerprint), v.record_key(self.selection),))
 
 
 class ResultInspectionDocumentMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="metadata"):
@@ -24156,13 +24485,37 @@ class ResultInspectionDocumentMetadata(msgspec.Struct, frozen=True, forbid_unkno
     next_cursor: ResultInspectionCursorOutput | None
     #: Original entry offset.
     offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original governing permission and physical closure; selected-product usability is independent.
+    original: ResultInspectionOriginal
     #: Original selected field.
     path: ArrowFieldPath
     #: Original protected result selection.
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.mapping_key(v.scalar_key, v.scalar_key)(self.entries), v.scalar_key(self.entry_count), v.scalar_key(self.manifest), v.optional_key(v.record_key)(self.next_cursor), v.scalar_key(self.offset), v.record_key(self.path), v.record_key(self.selection),))
+        return (type(self), (v.scalar_key(self.document_version), v.mapping_key(v.scalar_key, v.scalar_key)(self.entries), v.scalar_key(self.entry_count), v.scalar_key(self.manifest), v.optional_key(v.record_key)(self.next_cursor), v.scalar_key(self.offset), v.record_key(self.original), v.record_key(self.path), v.record_key(self.selection),))
+
+
+class ResultInspectionDocumentPhysical(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical"):
+    """A bounded physical-owner page tied to this exact protected result."""
+
+    _pse_required_version: ClassVar[int] = 2
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[2] = 2
+    #: Exact result closure digest.
+    manifest: str
+    #: Original-query-bound next physical declaration page.
+    next_cursor: ResultInspectionCursorOutput | None
+    #: Original aggregate permission and physical closure locator.
+    original: ResultInspectionOriginal
+    #: Complete selected physical page; absent only when the original closure is unavailable.
+    page: PhysicalInspectionDocumentBody | None
+    #: Exact original selected result; selected product usability remains unknown.
+    selection: PackResultSelectionOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.manifest), v.optional_key(v.record_key)(self.next_cursor), v.record_key(self.original), v.optional_key(v.record_key)(self.page), v.record_key(self.selection),))
 
 
 class ResultInspectionDocumentRefused(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="refused"):
@@ -24200,6 +24553,8 @@ class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown
     next_cursor: ResultInspectionCursorOutput | None
     #: Zero-based original field offset.
     offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original governing permission and physical closure; selected-product usability is independent.
+    original: ResultInspectionOriginal
     #: Recorded rows intersecting the selected range; holes are not invented.
     recorded_rows: Annotated[int, msgspec.Meta(ge=0)]
     #: Original schema metadata including contract version/fingerprint.
@@ -24208,7 +24563,7 @@ class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.field_count), v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.manifest), v.optional_key(v.scalar_key)(self.next), v.optional_key(v.record_key)(self.next_cursor), v.scalar_key(self.offset), v.scalar_key(self.recorded_rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.record_key(self.selection),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.field_count), v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.manifest), v.optional_key(v.scalar_key)(self.next), v.optional_key(v.record_key)(self.next_cursor), v.scalar_key(self.offset), v.record_key(self.original), v.scalar_key(self.recorded_rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.record_key(self.selection),))
 
 
 class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="values"):
@@ -24226,6 +24581,8 @@ class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown
     next_cursor: ResultInspectionCursorOutput | None
     #: Informational next original coordinate; use next_cursor with the unchanged original window.
     next_row: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original governing permission and physical closure; selected-product usability is independent.
+    original: ResultInspectionOriginal
     #: Every returned selected and context cell was representable, independent of population/scientific usability.
     readable_complete: bool
     #: Recorded rows intersecting the complete selected range, not just the returned prefix.
@@ -24240,7 +24597,7 @@ class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.context_fields), v.scalar_key(self.manifest), v.optional_key(v.record_key)(self.next_cursor), v.optional_key(v.scalar_key)(self.next_row), v.scalar_key(self.readable_complete), v.scalar_key(self.recorded_rows), v.sequence_key(v.record_key)(self.rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.sequence_key(v.record_key)(self.selected_fields), v.record_key(self.selection),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.context_fields), v.scalar_key(self.manifest), v.optional_key(v.record_key)(self.next_cursor), v.optional_key(v.scalar_key)(self.next_row), v.record_key(self.original), v.scalar_key(self.readable_complete), v.scalar_key(self.recorded_rows), v.sequence_key(v.record_key)(self.rows), v.mapping_key(v.scalar_key, v.scalar_key)(self.schema_metadata), v.sequence_key(v.record_key)(self.selected_fields), v.record_key(self.selection),))
 
 
 class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -24270,6 +24627,18 @@ class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.ancestor_metadata), v.sequence_key(v.sequence_key(v.record_key))(self.ancestor_metadata_omitted), v.scalar_key(self.index), v.mapping_key(v.scalar_key, v.scalar_key)(self.metadata), v.sequence_key(v.record_key)(self.metadata_omitted), v.scalar_key(self.name), v.scalar_key(self.nullable), v.record_key(self.path), v.record_key(self.storage),))
+
+
+class ResultInspectionOriginal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original governing permission and retained physical interpretation, independent of selected-product usability."""
+
+    #: Producer-authored governing Assessment usable fact. Missing/error/infrastructure is unknown.
+    governing_permission: bool | None
+    #: Original physical source closure availability, never a current-context substitution.
+    physical: ResultPhysicalContext
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.governing_permission), v.record_key(self.physical),))
 
 
 class ResultInspectionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -24326,7 +24695,7 @@ class ResultInspectionRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_
     #: Inclusive original row coordinate.
     start: Annotated[int, msgspec.Meta(ge=0)]
     #: Bounded schema page or readable scalar selection.
-    view: ResultInspectionView
+    view: ResultInspectionViewOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.optional_key(v.record_key)(self.cursor), v.scalar_key(self.end), v.optional_key(v.scalar_key)(self.expected_manifest), v.scalar_key(self.relation), v.scalar_key(self.run), v.scalar_key(self.start), v.record_key(self.view),))
@@ -24406,6 +24775,78 @@ class ResultInspectionViewMetadata(msgspec.Struct, frozen=True, forbid_unknown_f
         return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.path),))
 
 
+class ResultInspectionViewOutputChildren(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="children"):
+    """Immediate native children of one exact field, without result data batches."""
+
+    #: One to sixteen children.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original immediate-child offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original parent field.
+    path: ArrowFieldPath
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.path),))
+
+
+class ResultInspectionViewOutputMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="metadata"):
+    """Exact metadata entries of one original field, without result data batches."""
+
+    #: One to sixteen entries.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original sorted metadata-entry offset.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original field owning the metadata.
+    path: ArrowFieldPath
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset), v.record_key(self.path),))
+
+
+class ResultInspectionViewOutputPhysical(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical"):
+    """Read a finite physical declaration page from the original retained context."""
+
+    #: Same physical-owner query used by direct Python and MCP inspection.
+    request: PhysicalInspectionRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ResultInspectionViewOutputSchema(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="schema"):
+    """Page the original field inventory without decoding any result batch."""
+
+    #: At most sixteen original fields.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Zero-based original field position.
+    offset: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset),))
+
+
+class ResultInspectionViewOutputValues(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="values"):
+    """Read selected original scalar fields together with all declared non-value context."""
+
+    #: One to eight unique exact original root/child paths.
+    fields: tuple[ArrowFieldPath, ...]
+    #: At most sixteen original rows; continuation retains source coordinates.
+    maximum_rows: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.fields), v.scalar_key(self.maximum_rows),))
+
+
+class ResultInspectionViewPhysical(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="physical"):
+    """Read a finite physical declaration page from the original retained context."""
+
+    #: Same physical-owner query used by direct Python and MCP inspection.
+    request: PhysicalInspectionRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
 class ResultInspectionViewSchema(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="schema"):
     """Page the original field inventory without decoding any result batch."""
 
@@ -24440,6 +24881,28 @@ class ResultMetadataOmission(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.scalar_key(self.value_bytes),))
+
+
+class ResultPhysicalContextAvailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="available"):
+    """Original rows were protected and admitted through the physical owner."""
+
+    #: Exact retained revision closure digest.
+    closure: str
+    #: Original full physical context identity.
+    identity: v.ContentHash
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.closure), v.scalar_key(self.identity),))
+
+
+class ResultPhysicalContextUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unavailable"):
+    """Original closure cannot supply readable physical meaning; raw result values remain readable."""
+
+    #: Explicit original-closure failure; no alternate context was consulted.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.reason),))
 
 
 class ResultReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -29728,9 +30191,9 @@ class TargetSpec(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     #: Variable, row, objective, observable or closure.
     kind: enums.NumericalTarget
     #: Complete physical type.
-    quantity: v.SemanticId
+    quantity: identities.QuantityTypeId
     #: Representation of values crossing the original oracle.
-    unit: v.SemanticId
+    unit: identities.UnitId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.declared_tolerance), v.scalar_key(self.id), v.scalar_key(self.integer), v.scalar_key(self.kind), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
@@ -29748,9 +30211,9 @@ class TargetSpecOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     #: Variable, row, objective, observable or closure.
     kind: enums.NumericalTarget
     #: Complete physical type.
-    quantity: v.SemanticId
+    quantity: identities.QuantityTypeId
     #: Representation of values crossing the original oracle.
-    unit: v.SemanticId
+    unit: identities.UnitId
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.declared_tolerance), v.scalar_key(self.id), v.scalar_key(self.integer), v.scalar_key(self.kind), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
@@ -30108,6 +30571,45 @@ class TrustRegionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.initial), v.scalar_key(self.maximum), v.scalar_key(self.minimum),))
+
+
+class Unit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A unit anchored to the canonical SI dimension basis (blueprint §6.2)."""
+
+    #: `None` for an atomic unit; the canonical atomic factors of a defined or composed
+    #: unit, whose dimension and scale were derived from them.
+    definition: tuple[UnitFactor, ...] | None
+    #: SI exponents.
+    dimension: DimensionVector
+    #: Registry identity.
+    id: identities.UnitId
+    #: Whether point conversion may apply an offset.
+    is_affine: bool
+    #: Finite offset to SI; zero for a non-affine unit.
+    offset_to_canonical: float
+    #: Optional datum restriction of the spelling; representation conversion preserves it.
+    reference_state: identities.ReferenceStateId | None
+    #: Positive finite multiplier to SI.
+    scale_to_canonical: float
+    #: Unique package-resolved symbol.
+    symbol: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.record_key))(self.definition), v.sequence_key(v.record_key)(self.dimension), v.scalar_key(self.id), v.scalar_key(self.is_affine), v.scalar_key(self.offset_to_canonical), v.optional_key(v.scalar_key)(self.reference_state), v.scalar_key(self.scale_to_canonical), v.scalar_key(self.symbol),))
+
+
+class UnitFactor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One canonical factor of a unit product: an atomic unit and its nonzero rational
+    exponent (ADR-0124).
+    """
+
+    #: The nonzero rational exponent.
+    exponent: Ratio
+    #: The atomic unit, or, in an authored composition, any declared unit.
+    unit: identities.UnitId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.exponent), v.scalar_key(self.unit),))
 
 
 class UnoSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="uno"):
@@ -30795,11 +31297,23 @@ ActionKind = ActionKindWait | ActionKindStart | ActionKindRefuse | ActionKindCan
 
 ActionKindOutput = ActionKindOutputWait | ActionKindOutputStart | ActionKindOutputRefuse | ActionKindOutputCancel | ActionKindOutputReconcile
 
+AdviceMetric = Literal["native_execution_nanoseconds", "original_normalized_residual"]
+
+AdviceOutcome = Literal["complete", "budget_exhausted", "policy_preempted", "cancelled", "infrastructure_interrupted", "numerical_failure", "partial"]
+
 AdviceSupport = AdviceSupportCompleteMatched | AdviceSupportBaselineTie
+
+AnalysisDirection = Literal["upstream", "downstream"]
+
+AnalysisQuestion = Literal["preparation", "evaluator_work", "evaluation_cost", "root_progress", "dynamic_work", "dependency_readiness", "factor_recovery", "waiting", "comparability", "physical_attribution"]
+
+AnalysisSelectionScope = Literal["direct", "independent", "unknown"]
 
 ArithmeticMappingScope = ArithmeticMappingScopeSelectedCompiledProduct | ArithmeticMappingScopeOriginalValueChecksForWeightedProduct | ArithmeticMappingScopeUnavailable
 
 ArrowFieldStep = ArrowFieldStepStructField | ArrowFieldStepListElement
+
+AttemptOriginalConclusion = Literal["satisfied", "refused", "unavailable"]
 
 BackendSettings = IpoptSettingsDocument | PounceSettingsDocument | KinsolSettingsDocument | HighsSettingsDocument | ClarabelSettingsDocument | ScipSettingsDocument | PounceConvexSettingsDocument | UnoSettingsDocument | PetscSettingsDocument
 
@@ -30811,43 +31325,83 @@ BackendSettingsOutput = IpoptSettingsDocumentOutput | PounceSettingsDocumentOutp
 
 BindingTarget = BindingTargetPath | BindingTargetMember
 
+Bytes = tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
 CausalUnitRealization = CausalUnitRealizationExplicitMap | CausalUnitRealizationConditional
 
 CausalUnitRealizationOutput = CausalUnitRealizationOutputExplicitMap | CausalUnitRealizationOutputConditional
 
 Cone = ConeZero | ConeNonnegative | ConeSecondOrder | ConeExponential | ConePower | ConeGeneralizedPower | ConePsdTriangle
 
+CopiedExecutionStatus = Literal["running", "completed", "failed", "cancelled", "abandoned"]
+
+CopiedObservationPolicy = Literal["off", "contract", "diagnostic"]
+
 CovarianceOrigin = CovarianceOriginQualifiedFit | CovarianceOriginExternal
 
 CovarianceOriginOutput = CovarianceOriginOutputQualifiedFit | CovarianceOriginOutputExternal
 
+DecodeCategory = Literal["io", "syntax", "data", "eof"]
+
 DecodePathSegment = DecodePathSegmentMap | DecodePathSegmentSequence | DecodePathSegmentVariant | DecodePathSegmentUnknown
+
+DecodePathStatus = Literal["tracked_prefix", "unavailable"]
+
+DecodeStage = Literal["header", "body", "trailing"]
 
 Dependency = DependencyOrdering | DependencyUsableResult
 
+DerivativeOrder = Literal["value", "first", "second"]
+
+DetailEnd = Literal["window_elapsed", "owner_finished", "stopped", "writer_failed"]
+
+DetailFamilyActivation = Literal["unobserved", "applicable", "unsupported", "refused"]
+
+DetailOutcome = Literal["active", "complete", "sampled", "incomplete"]
+
+DetailRequirement = Literal["sampled", "complete"]
+
+DimensionVector = Annotated[tuple[Ratio, ...], msgspec.Meta(min_length=8, max_length=8)]
+
 DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFixAtStart | DiscreteInitializationFixAt
+
+EvaluationDemand = Literal["objective", "constraints", "all", "directional", "transpose_directional", "hessian_action"]
 
 Evaluator = EvaluatorInterpreted | EvaluatorCompiledScalar
 
+FiniteBound = float
+
 FitExecutionDocument = FitExecutionDocumentEvaluation | FitExecutionDocumentNativeNlp | FitExecutionDocumentResidualLm
+
+FitOptimizer = Literal["automatic", "native_nlp", "residual_lm"]
 
 FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailable | FitProfileDocumentWithheld
 
 FitResidualTermination = FitResidualTerminationUser | FitResidualTerminationNumerical | FitResidualTerminationFixedEvaluation | FitResidualTerminationResidualsZero | FitResidualTerminationOrthogonal | FitResidualTerminationConverged | FitResidualTerminationNoImprovementPossible | FitResidualTerminationEvaluationLimit | FitResidualTerminationInvalid
 
+Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
+
 GraphAnchor = GraphAnchorStudyPoint | GraphAnchorRun | GraphAnchorAnalysisNode | GraphAnchorArtifact
 
 GraphEdgeRole = GraphEdgeRoleOrdering | GraphEdgeRoleUsableResult | GraphEdgeRoleContinuationSeed | GraphEdgeRoleRecordedSource | GraphEdgeRoleAnalysisInput | GraphEdgeRoleAnalysisRelation
+
+GraphScope = Literal["immediate_blockers", "recorded_sources", "retained_consumers"]
 
 HistoryOwner = HistoryOwnerRun | HistoryOwnerStudy
 
 HistoryOwnerBody = HistoryOwnerBodyRun | HistoryOwnerBodyStudy
 
+HistoryPurposeBody = Literal["audit", "unsettled"]
+
 HorizonSignalDocument = HorizonSignalDocumentMeasured | HorizonSignalDocumentEstimated | HorizonSignalDocumentApplied | HorizonSignalDocumentTrajectory
+
+IdasInitialStep = Literal["configured", "automatic"]
 
 IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpgmrBbd | IdasLinearSpfgmr
 
 IdasLinearOutput = IdasLinearOutputKlu | IdasLinearOutputSpgmr | IdasLinearOutputSpgmrBbd | IdasLinearOutputSpfgmr
+
+InvocationOutcome = Literal["completed", "failed", "cancelled"]
 
 IpoptLinear = IpoptLinearMumps | IpoptLinearSpral | IpoptLinearPardisomkl
 
@@ -30855,9 +31409,23 @@ KinsolEta = KinsolEtaChoice1 | KinsolEtaChoice2 | KinsolEtaConstant
 
 KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolLinearSpfgmr | KinsolLinearSpbcgs | KinsolLinearSptfqmr
 
+KnowledgeMode = Literal["subjects", "graph", "productions"]
+
+LifecycleKind = Literal["source_history", "run_results", "study_results", "run_history", "study_history", "draft_version", "evidence_artifact"]
+
+ManagedDetailReferenceState = Literal["pending", "refused", "captured", "missing"]
+
+ManagedDetailRefusal = Literal["no_managed_budget", "budget_already_allocated", "attempt_bound_unavailable", "per_attempt_budget_insufficient", "collector_refused"]
+
+MetricKind = Literal["counter", "gauge", "native"]
+
+MetricUnit = Literal["rows", "batches", "bytes", "nanoseconds", "count", "native"]
+
 NativeCounters = NativeCountersIpopt | NativeCountersUno | NativeCountersKinsol
 
 NativeCountersOutput = NativeCountersOutputIpopt | NativeCountersOutputUno | NativeCountersOutputKinsol
+
+NativePhase = Literal["Main", "Restoration", "Unknown"]
 
 NumericObservation = NumericObservationReal | NumericObservationNonfinite
 
@@ -30865,15 +31433,45 @@ NumericalMethod = NumericalMethodBackend | NumericalMethodResidualLm
 
 Observation = ObservationMissing | ObservationReal | ObservationNonfinite | ObservationPhysical | ObservationInteger | ObservationBoolean | ObservationText | ObservationContracts
 
+ObservationCoordinates = Literal["SubmittedOracle", "PhysicalTears"]
+
+OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
+
 OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | OperationRequestFit | OperationRequestHorizon
 
 OperationRequestOutput = OperationRequestOutputDeclaredCase | OperationRequestOutputSimulation | OperationRequestOutputFit | OperationRequestOutputHorizon
 
+OptionValue = bool | int | float | str
+
 PackAvailability = PackAvailabilityPending | PackAvailabilityAvailable | PackAvailabilityUnavailable | PackAvailabilityFailed
+
+PackFormat = Literal["frozen_evidence_v3", "analysis_v2", "json", "json_lines", "arrow_ipc_stream", "text", "markdown", "html", "perfetto", "profile_binary"]
+
+PackMemberRole = Literal["frozen_evidence", "analysis", "context", "detail", "capture", "engine", "query", "result", "report"]
+
+PackPublication = Literal["incomplete", "sealed"]
+
+PackScientificState = Literal["unknown", "usable", "partial", "failed", "unusable"]
+
+PhysicalInspectionDocument = PhysicalInspectionDocumentPage | PhysicalInspectionDocumentUnavailable
+
+PhysicalInspectionDocumentBody = PhysicalInspectionDocumentBodyPage | PhysicalInspectionDocumentBodyUnavailable
+
+PhysicalInspectionQuery = PhysicalInspectionQueryQuantities | PhysicalInspectionQueryQuantity | PhysicalInspectionQueryQuantityNamed | PhysicalInspectionQueryReferenceStateNamed
+
+PhysicalInspectionQueryOutput = PhysicalInspectionQueryOutputQuantities | PhysicalInspectionQueryOutputQuantity | PhysicalInspectionQueryOutputQuantityNamed | PhysicalInspectionQueryOutputReferenceStateNamed
+
+PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
 
 PreparationFact = PreparationFactRoute | PreparationFactDynamic | PreparationFactObjectiveLevel | PreparationFactStage
 
 PreparationStructuralValue = PreparationStructuralValueBoolean | PreparationStructuralValueInteger | PreparationStructuralValueNumber | PreparationStructuralValueCoordinate | PreparationStructuralValueText | PreparationStructuralValueEntity | PreparationStructuralValueEnumeration | PreparationStructuralValueIdentifier | PreparationStructuralValueDefinition | PreparationStructuralValueFunction | PreparationStructuralValueRow | PreparationStructuralValueSet | PreparationStructuralValueTuple | PreparationStructuralValueQuantityType | PreparationStructuralValueReferenceState | PreparationStructuralValueMissing
+
+ProducerRole = Literal["native_callback", "coordinate_transport", "original_oracle", "native_iteration", "evaluator", "provider", "workflow", "native_factor"]
+
+ProductAvailability = Literal["available", "unavailable", "not_requested"]
+
+ProductKind = Literal["selected_partials", "jacobian_action", "transpose_jacobian_action", "weighted_hessian", "weighted_hessian_action"]
 
 ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling | ProfileWorkerFailureEnvironment
 
@@ -30887,6 +31485,8 @@ ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | Pr
 
 ProgressWriterOutcome = ProgressWriterOutcomeComplete | ProgressWriterOutcomeMemoryRefused | ProgressWriterOutcomeFailed | ProgressWriterOutcomeJoinFailed
 
+ProjectImportRecoveryState = Literal["project_complete", "ready_for_artifact", "original_cleanup_pending", "original_collected"]
+
 ProjectMergeProposal = ProjectMergeProposalRevision | ProjectMergeProposalDraft
 
 ProjectMergeProposalOutput = ProjectMergeProposalOutputRevision | ProjectMergeProposalOutputDraft
@@ -30899,9 +31499,21 @@ ProjectSourceObject = ProjectSourceObjectDeclaration | ProjectSourceObjectDocume
 
 ProjectSourceObjectOutput = ProjectSourceObjectOutputDeclaration | ProjectSourceObjectOutputDocument | ProjectSourceObjectOutputFit | ProjectSourceObjectOutputPackage
 
+RawMapContextKind = Literal["unavailable", "inapplicable", "frozen"]
+
 RawMapFailure = RawMapFailureTrial | RawMapFailureFatal | RawMapFailureStopped
 
+RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown", "RestartScreening"]
+
+RecordAvailability = Literal["not_requested", "running", "interrupted", "unavailable", "not_supplied", "refused"]
+
 RecordedWindow = RecordedWindowRecorded | RecordedWindowEndingAt | RecordedWindowInterval
+
+ReductionAnchorRole = Literal["failure_expression", "initial_point"]
+
+ReductionDisposition = Literal["preserved", "different", "refused", "incomplete", "inconclusive"]
+
+ReductionOperator = Literal["declaration_deletion", "binary_subexpression"]
 
 Refusal = RefusalDependencyUnusable | RefusalSeedPermission | RefusalSeedUnavailable | RefusalSeedInternal
 
@@ -30912,6 +31524,10 @@ ReplayBoundOverride = ReplayBoundOverrideKeep | ReplayBoundOverrideRemove | Repl
 ReplayForwardSelection = ReplayForwardSelectionSemanticParameters | ReplayForwardSelectionPhysicalAxes
 
 ReplayHorizonSignal = ReplayHorizonSignalMeasured | ReplayHorizonSignalEstimated | ReplayHorizonSignalApplied | ReplayHorizonSignalTrajectory
+
+ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
+
+ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
 
 ReproducerExtractionInput = ReproducerExtractionInputOriginalText | ReproducerExtractionInputFrozenReviewCase
 
@@ -30929,6 +31545,14 @@ ReproducerInputBodyOutput = ReproducerInputBodyOutputOriginalText | ReproducerIn
 
 ReproducerInputOutput = ReproducerInputOutputOriginalText | ReproducerInputOutputFrozenAlgebraic
 
+ReproductionStatus = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
+
+ReproductionStatusBody = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
+
+RequiredFact = Literal["model", "input", "effective_settings", "physical_coordinates", "invocation", "operation_evidence"]
+
+RequirementStatus = Literal["available", "missing"]
+
 ResearchReadRequest = ResearchReadRequestDatasets | ResearchReadRequestDataset | ResearchReadRequestSelection
 
 ResearchReadResult = ResearchReadResultDatasets | ResearchReadResultDataset | ResearchReadResultSelection
@@ -30937,13 +31561,33 @@ ResearchReadResultOutput = ResearchReadResultOutputDatasets | ResearchReadResult
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
+ResultCellUnavailable = Literal["unsupported_storage", "value_extent"]
+
+ResultFloatClass = Literal["finite", "nan", "positive_infinity", "negative_infinity"]
+
 ResultInspectionCell = ResultInspectionCellNull | ResultInspectionCellParentNull | ResultInspectionCellMissingElement | ResultInspectionCellBoolean | ResultInspectionCellInteger | ResultInspectionCellUnsigned | ResultInspectionCellFloat32 | ResultInspectionCellFloat64 | ResultInspectionCellText | ResultInspectionCellBinary | ResultInspectionCellUnavailable
 
-ResultInspectionDocument = ResultInspectionDocumentSchema | ResultInspectionDocumentValues | ResultInspectionDocumentMetadata | ResultInspectionDocumentRefused
+ResultInspectionDocument = ResultInspectionDocumentSchema | ResultInspectionDocumentValues | ResultInspectionDocumentMetadata | ResultInspectionDocumentPhysical | ResultInspectionDocumentRefused
+
+ResultInspectionRefusal = Literal["selection", "unknown_field", "manifest_changed", "context_extent", "response_extent", "cursor_changed"]
 
 ResultInspectionStorage = ResultInspectionStorageScalar | ResultInspectionStorageStruct | ResultInspectionStorageList
 
-ResultInspectionView = ResultInspectionViewSchema | ResultInspectionViewChildren | ResultInspectionViewMetadata | ResultInspectionViewValues
+ResultInspectionView = ResultInspectionViewSchema | ResultInspectionViewChildren | ResultInspectionViewMetadata | ResultInspectionViewPhysical | ResultInspectionViewValues
+
+ResultInspectionViewOutput = ResultInspectionViewOutputSchema | ResultInspectionViewOutputChildren | ResultInspectionViewOutputMetadata | ResultInspectionViewOutputPhysical | ResultInspectionViewOutputValues
+
+ResultPhysicalContext = ResultPhysicalContextAvailable | ResultPhysicalContextUnavailable
+
+ReviewAttemptSelection = Literal["current", "retained"]
+
+ReviewHandoffState = Literal["active", "complete", "incomplete"]
+
+ReviewQuery = Literal["timeline", "numerical", "coverage"]
+
+ReviewQueryStatus = Literal["completed", "unavailable", "failed", "timed_out", "cancelled", "output_limit", "malformed"]
+
+ReviewTableKind = Literal["detail", "invocation", "capture", "engine", "query"]
 
 SeedAvailability = SeedAvailabilityUnresolved | SeedAvailabilityCompatible | SeedAvailabilityAbsent | SeedAvailabilityIncompatible | SeedAvailabilityInternalFailure
 
@@ -30953,11 +31597,15 @@ SeedTransformationOutput = SeedTransformationOutputNormalization | SeedTransform
 
 SourceContributionTarget = SourceContributionTargetRow | SourceContributionTargetObjective
 
+SourceMapScope = Literal["static_eligible_alternatives"]
+
 StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
 
 StartPolicyOutput = StartPolicyOutputFresh | StartPolicyOutputContinuation | StartPolicyOutputExplicit
 
 StartProvenance = StartProvenanceFresh | StartProvenanceNotNeeded | StartProvenanceContinuation | StartProvenanceExplicit | StartProvenanceFreshFallback
+
+StopFidelity = Literal["EvaluationAndIterationCheckpoints", "EvaluationCheckpoints"]
 
 StudyInputs = StudyInputsExplicit | StudyInputsLazy
 
@@ -30965,11 +31613,15 @@ StudyInputsOutput = StudyInputsOutputExplicit | StudyInputsOutputLazy
 
 StudyMemberDemand = StudyMemberDemandVariable | StudyMemberDemandConstraint | StudyMemberDemandFitParameter | StudyMemberDemandFitObservation | StudyMemberDemandTrajectory
 
+StudyObservationContinuity = Literal["catch_up", "gap_current_resync", "live_numerics_unavailable", "history_unavailable"]
+
 StudyOutputDemand = StudyOutputDemandFull | StudyOutputDemandCompact
 
 TerminationCause = TerminationCauseError | TerminationCauseInfrastructure | TerminationCauseAssessment
 
 TerminationCauseOutput = TerminationCauseOutputError | TerminationCauseOutputInfrastructure | TerminationCauseOutputAssessment
+
+Tolerance = Annotated[float, msgspec.Meta(gt=0.0)]
 
 Value = ValueCount | ValueInteger | ValueNumber | ValueBoolean | ValueText | ValueUnavailable | ValueNonFinite | ValueOverflow
 
@@ -31441,6 +32093,7 @@ __all__ = [
     "DiffsolOdeSolverOptionsOutput",
     "DiffsolSettings",
     "DiffsolSettingsOutput",
+    "DimensionVector",
     "DiscreteInitialization",
     "DiscreteInitializationFixAt",
     "DiscreteInitializationFixAtStart",
@@ -31688,6 +32341,8 @@ __all__ = [
     "IpoptSettingsOutput",
     "JacobianDiagnosticControls",
     "JacobianDiagnosticControlsOutput",
+    "KindDefinition",
+    "KindFactor",
     "KinsolEta",
     "KinsolEtaChoice1",
     "KinsolEtaChoice2",
@@ -31923,9 +32578,32 @@ __all__ = [
     "Phase",
     "PhaseTransition",
     "PhaseTransitionOutput",
+    "PhysicalBasis",
+    "PhysicalEntityKind",
     "PhysicalFitRequest",
     "PhysicalFitRequestOutput",
+    "PhysicalInspectionDocument",
+    "PhysicalInspectionDocumentBody",
+    "PhysicalInspectionDocumentBodyPage",
+    "PhysicalInspectionDocumentBodyUnavailable",
+    "PhysicalInspectionDocumentPage",
+    "PhysicalInspectionDocumentUnavailable",
+    "PhysicalInspectionQuery",
+    "PhysicalInspectionQueryOutput",
+    "PhysicalInspectionQueryOutputQuantities",
+    "PhysicalInspectionQueryOutputQuantity",
+    "PhysicalInspectionQueryOutputQuantityNamed",
+    "PhysicalInspectionQueryOutputReferenceStateNamed",
+    "PhysicalInspectionQueryQuantities",
+    "PhysicalInspectionQueryQuantity",
+    "PhysicalInspectionQueryQuantityNamed",
+    "PhysicalInspectionQueryReferenceStateNamed",
+    "PhysicalInspectionRequest",
+    "PhysicalInspectionRequestBody",
+    "PhysicalInspectionRequestBodyOutput",
+    "PhysicalInspectionRequestOutput",
     "PhysicalObservation",
+    "PhysicalQuantityDescription",
     "PhysicalSimulationRequest",
     "PhysicalSimulationRequestOutput",
     "PhysicalSource",
@@ -32175,9 +32853,13 @@ __all__ = [
     "PseudoTimeOutput",
     "PureConformanceControls",
     "PureConformanceControlsOutput",
+    "QuantityKind",
+    "QuantityType",
+    "QuantityTypeKey",
     "QueryInterval",
     "QuestionAnalysis",
     "QuestionAnalysisOutput",
+    "Ratio",
     "RawMapContextKind",
     "RawMapCoordinate",
     "RawMapCoordinateOutput",
@@ -32219,6 +32901,8 @@ __all__ = [
     "ReductionOperator",
     "ReductionRequest",
     "ReductionRequestOutput",
+    "ReferenceCondition",
+    "ReferenceState",
     "RefinementLimits",
     "Refusal",
     "RefusalDependencyUnusable",
@@ -32377,6 +33061,7 @@ __all__ = [
     "ResultCellUnavailable",
     "ResultFloatClass",
     "ResultInspectionBasis",
+    "ResultInspectionBasisOutput",
     "ResultInspectionCell",
     "ResultInspectionCellBinary",
     "ResultInspectionCellBoolean",
@@ -32393,10 +33078,12 @@ __all__ = [
     "ResultInspectionCursorOutput",
     "ResultInspectionDocument",
     "ResultInspectionDocumentMetadata",
+    "ResultInspectionDocumentPhysical",
     "ResultInspectionDocumentRefused",
     "ResultInspectionDocumentSchema",
     "ResultInspectionDocumentValues",
     "ResultInspectionField",
+    "ResultInspectionOriginal",
     "ResultInspectionRefusal",
     "ResultInspectionRequest",
     "ResultInspectionRequestOutput",
@@ -32408,9 +33095,19 @@ __all__ = [
     "ResultInspectionView",
     "ResultInspectionViewChildren",
     "ResultInspectionViewMetadata",
+    "ResultInspectionViewOutput",
+    "ResultInspectionViewOutputChildren",
+    "ResultInspectionViewOutputMetadata",
+    "ResultInspectionViewOutputPhysical",
+    "ResultInspectionViewOutputSchema",
+    "ResultInspectionViewOutputValues",
+    "ResultInspectionViewPhysical",
     "ResultInspectionViewSchema",
     "ResultInspectionViewValues",
     "ResultMetadataOmission",
+    "ResultPhysicalContext",
+    "ResultPhysicalContextAvailable",
+    "ResultPhysicalContextUnavailable",
     "ResultReclamationPage",
     "ReviewAttemptSelection",
     "ReviewContextDocument",
@@ -32709,6 +33406,8 @@ __all__ = [
     "Tolerance",
     "TrustRegion",
     "TrustRegionOutput",
+    "Unit",
+    "UnitFactor",
     "UnoSettings",
     "UnoSettingsDocument",
     "UnoSettingsDocumentOutput",
@@ -32761,4 +33460,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+SCHEMA_SET_FINGERPRINT = "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"

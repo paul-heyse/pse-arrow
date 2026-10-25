@@ -132,6 +132,42 @@ pub struct ResultInspectionBasis {
     /// Original view/path/page allowance, unchanged by continuation.
     pub view: ResultInspectionView,
 }
+/// Original governing permission and retained physical interpretation, independent of selected-product usability.
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResultInspectionOriginal {
+    /// Producer-authored governing Assessment usable fact. Missing/error/infrastructure is unknown.
+    pub governing_permission: Option<bool>,
+    /// Original physical source closure availability, never a current-context substitution.
+    pub physical: ResultPhysicalContext,
+    /// Exact read and source protection custody retained through FFI serialization.
+    #[serde(skip)]
+    #[schemars(skip)]
+    _custody: Option<Arc<ResultInspectionCustody>>,
+}
+#[derive(Debug)]
+struct ResultInspectionCustody {
+    _read: pse_operations::canonical_results::ResultRead,
+    _physical: Option<super::PhysicalContext>,
+}
+/// Original-context locator state, also bound into every immutable continuation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ResultPhysicalContext {
+    /// Original rows were protected and admitted through the physical owner.
+    Available {
+        /// Original full physical context identity.
+        identity: pse_ids::ContentHash,
+        /// Exact retained revision closure digest.
+        closure: String,
+    },
+    /// Original closure cannot supply readable physical meaning; raw result values remain readable.
+    Unavailable {
+        /// Explicit original-closure failure; no alternate context was consulted.
+        reason: String,
+    },
+}
+
 /// Store/selection-bound continuation; each call reacquires original protection.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -146,6 +182,8 @@ pub struct ResultInspectionCursor {
     pub schema_fingerprint: String,
     /// Original request identity.
     pub basis: ResultInspectionBasis,
+    /// Original physical context and exact closure availability.
+    pub physical: ResultPhysicalContext,
     /// Next original row or descriptor/metadata position.
     pub position: u64,
 }
@@ -190,6 +228,11 @@ pub enum ResultInspectionView {
         offset: usize,
         /// One to sixteen entries.
         limit: usize,
+    },
+    /// Read a finite physical declaration page from the original retained context.
+    Physical {
+        /// Same physical-owner query used by direct Python and MCP inspection.
+        request: super::PhysicalInspectionRequest,
     },
     /// Read selected original scalar fields together with all declared non-value context.
     Values {
@@ -402,6 +445,8 @@ pub enum ResultInspectionDocument {
     Schema {
         /// Exact original source/terminal/range; usability remains Unknown.
         selection: PackResultSelection,
+        /// Original governing permission and physical closure; selected-product usability is independent.
+        original: ResultInspectionOriginal,
         /// Actual immutable closure digest, suitable for expected_manifest.
         manifest: String,
         /// Original schema metadata including contract version/fingerprint.
@@ -427,6 +472,8 @@ pub enum ResultInspectionDocument {
     Values {
         /// Exact original source/terminal/range; usability remains Unknown.
         selection: PackResultSelection,
+        /// Original governing permission and physical closure; selected-product usability is independent.
+        original: ResultInspectionOriginal,
         /// Actual immutable closure digest.
         manifest: String,
         /// Original schema metadata including quantity/context checks and fingerprint.
@@ -454,6 +501,8 @@ pub enum ResultInspectionDocument {
     Metadata {
         /// Original protected result selection.
         selection: PackResultSelection,
+        /// Original governing permission and physical closure; selected-product usability is independent.
+        original: ResultInspectionOriginal,
         /// Original closure digest.
         manifest: String,
         /// Original selected field.
@@ -467,6 +516,23 @@ pub enum ResultInspectionDocument {
         /// Exact next page, if any.
         next_cursor: Option<ResultInspectionCursor>,
         /// Native retained custody through serialization.
+        #[serde(skip)]
+        #[schemars(skip)]
+        owner: Option<Arc<MemoryReservation>>,
+    },
+    /// A bounded physical-owner page tied to this exact protected result.
+    Physical {
+        /// Exact original selected result; selected product usability remains unknown.
+        selection: PackResultSelection,
+        /// Original aggregate permission and physical closure locator.
+        original: ResultInspectionOriginal,
+        /// Exact result closure digest.
+        manifest: String,
+        /// Complete selected physical page; absent only when the original closure is unavailable.
+        page: Option<super::PhysicalInspectionDocument>,
+        /// Original-query-bound next physical declaration page.
+        next_cursor: Option<ResultInspectionCursor>,
+        /// Allocation custody through serialization.
         #[serde(skip)]
         #[schemars(skip)]
         owner: Option<Arc<MemoryReservation>>,
@@ -828,6 +894,7 @@ fn preflight(
             })
     };
     match &request.view {
+        ResultInspectionView::Physical { request } => (!request.valid_bounds()).then_some(ResultInspectionRefusal::Selection),
         ResultInspectionView::Schema { offset, limit } => {
             (*limit == 0 || *limit > 16 || *offset > schema.fields().len())
                 .then_some(ResultInspectionRefusal::Selection)
@@ -945,12 +1012,33 @@ impl Runtime {
                 {
                     return Ok(refused(ResultInspectionRefusal::CursorChanged));
                 }
+                let (physical, physical_info) = match self.original_result_physical(reader.selection(), &cancel).await {
+                    Ok((context, closure)) => {
+                        let info = ResultPhysicalContext::Available { identity: context.identity(), closure };
+                        (Some(context), info)
+                    }
+                    Err(error) => {
+                        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                        tracing::debug!(error = %error, "original result physical closure unavailable");
+                        let reason = match &error {
+                            WorkflowError::Input(reason) if reason.len() <= TEXT_BYTES => reason.clone(),
+                            _ => "original retained physical closure failed native admission".into(),
+                        };
+                        (None, ResultPhysicalContext::Unavailable { reason })
+                    }
+                };
+                if request.cursor.as_ref().is_some_and(|cursor| cursor.physical != physical_info) {
+                    return Ok(refused(ResultInspectionRefusal::CursorChanged));
+                }
+                let governing_permission = self.operations()?.result_governing_permission(reader.selection()).await?;
+                let original = ResultInspectionOriginal { governing_permission, physical: physical_info.clone(), _custody: Some(Arc::new(ResultInspectionCustody { _read: reader.selection().clone(), _physical: physical.clone() })) };
                 let next_cursor = |position: u64| ResultInspectionCursor {
                     issuing_store: issuer.clone(),
                     selection: selection.clone(),
                     manifest: manifest.clone(),
                     schema_fingerprint: schema_fingerprint.clone(),
                     basis: basis.clone(),
+                    physical: physical_info.clone(),
                     position,
                 };
                 let snapshot = reader.snapshot();
@@ -965,6 +1053,13 @@ impl Runtime {
                         .ok_or_else(|| contract("result inspection population overflow"))
                 })?;
                 match &request.view {
+                    ResultInspectionView::Physical { request: physical_request } => {
+                        let mut query = physical_request.clone();
+                        if let Some(cursor) = &request.cursor { query.offset = usize::try_from(cursor.position).map_err(|_| contract("physical cursor exceeds platform"))?; }
+                        let page = physical.as_ref().map(|context| context.describe(&query)).transpose()?;
+                        let next = match &page { Some(super::PhysicalInspectionDocument::Page { next, .. }) => *next, _ => None };
+                        Ok(bound_document(ResultInspectionDocument::Physical { selection: selection.clone(), original: original.clone(), manifest: manifest.clone(), page, next_cursor: next.map(|position| next_cursor(position as u64)), owner: Some(owner) }))
+                    }
                     ResultInspectionView::Schema { offset, limit }
                     | ResultInspectionView::Children { offset, limit, .. } => {
                         let offset = match request.cursor.as_ref() {
@@ -1019,6 +1114,7 @@ impl Runtime {
                         let next = (end < paths.len()).then_some(end);
                         Ok(bound_document(ResultInspectionDocument::Schema {
                             selection: selection.clone(),
+                            original: original.clone(),
                             manifest: manifest.clone(),
                             schema_metadata,
                             field_count: paths.len(),
@@ -1061,6 +1157,7 @@ impl Runtime {
                         };
                         Ok(bound_document(ResultInspectionDocument::Metadata {
                             selection: selection.clone(),
+                            original: original.clone(),
                             manifest: manifest.clone(),
                             path: path.clone(),
                             entry_count: entries.len(),
@@ -1192,6 +1289,7 @@ impl Runtime {
                         });
                         Ok(bound_document(ResultInspectionDocument::Values {
                             selection: selection.clone(),
+                            original: original.clone(),
                             manifest: manifest.clone(),
                             schema_metadata,
                             selected_fields,
@@ -1217,6 +1315,15 @@ impl Runtime {
 #[cfg(test)]
 mod result_inspection_unit {
     use super::*;
+
+    #[test]
+    fn physical_query_names_are_bounded_before_result_basis_or_protection() {
+        let mut request = result_request_example();
+        request.view = ResultInspectionView::Physical { request: super::super::PhysicalInspectionRequest {
+            query: super::super::PhysicalInspectionQuery::QuantityNamed { name: "x".repeat(1025) }, offset: 0, limit: 1,
+        }};
+        assert_eq!(preflight(&request, &Schema::empty()), Some(ResultInspectionRefusal::Selection));
+    }
 
     #[test]
     fn registered_nested_descriptors_fit_the_finite_readable_context() {

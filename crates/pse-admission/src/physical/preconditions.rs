@@ -6,8 +6,7 @@
 use super::{PhysicalError, invalid};
 use pse_columnar::CancellationToken;
 use pse_quantity::{
-    BasisId, InvariantId, PhysicalPrecondition, PhysicalRequirement, QuantityRegistry,
-    QuantityTypeId,
+    InvariantId, PhysicalPrecondition, PhysicalRequirement, QuantityRegistry,
 };
 use pse_relations::{
     columnar::FieldCheckedBatch,
@@ -35,7 +34,7 @@ pub(super) fn preconditions(
                     if row.required_quantity_type_id.is_none() && row.match_shape.is_none() =>
                 {
                     PhysicalRequirement::EqualOperandBases {
-                        required: row.required_basis_id.map(BasisId::from_id),
+                        required: row.required_basis_id,
                     }
                 }
                 QuantityPreconditionKind::OperandQuantityContract
@@ -43,9 +42,9 @@ pub(super) fn preconditions(
                     if row.required_basis_id.is_none() =>
                 {
                     let required =
-                        QuantityTypeId::from_id(row.required_quantity_type_id.ok_or_else(
+                        row.required_quantity_type_id.ok_or_else(
                             || invalid("physical quantity prerequisite has no required type"),
-                        )?);
+                        )?;
                     let match_shape = row.match_shape.ok_or_else(|| {
                         invalid("physical quantity prerequisite has no shape policy")
                     })?;

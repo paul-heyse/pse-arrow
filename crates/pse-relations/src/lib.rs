@@ -48,3 +48,6 @@ pub use arrow_array::RecordBatch;
 pub use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 
 mod native;
+
+#[cfg(test)]
+mod identity_boundary_tests;

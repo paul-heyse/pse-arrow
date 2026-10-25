@@ -17,9 +17,11 @@ pub struct ReferenceQuantityPreconditionsRow {
     ///operand_positions
     pub r#operand_positions: Vec<i64>,
     ///required_basis_id
-    pub r#required_basis_id: Option<pse_ids::SemanticId>,
+    pub r#required_basis_id: Option<crate::generated::identities::BasisId>,
     ///required_quantity_type_id
-    pub r#required_quantity_type_id: Option<pse_ids::SemanticId>,
+    pub r#required_quantity_type_id: Option<
+        crate::generated::identities::QuantityTypeId,
+    >,
     ///match_shape
     pub r#match_shape: Option<bool>,
 }

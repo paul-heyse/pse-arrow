@@ -17,6 +17,7 @@ pub struct PhysicalContext {
     pub(crate) preconditions: Arc<PhysicalPreconditions>,
     pub(crate) sources: BTreeMap<pse_schema::model::RelationKey, FieldCheckedBatch>,
     pub(crate) key: ContentHash,
+    pub(super) pool: Arc<dyn pse_columnar::MemoryPool>,
     /// The package whose physical document declared the names (ADR-0123 Outcome 6),
     /// when the context was admitted from documents.
     pub(crate) package: Option<PhysicalPackage>,
@@ -38,6 +39,7 @@ impl PhysicalContext {
         let preconditions = inventory.compiler_preconditions();
         let key = pse_compiler::workspace::physical_identity(&quantities, &preconditions);
         Self {
+            pool: inventory.pool().clone(),
             engine_receipt: None,
             documents: None,
             quantities,

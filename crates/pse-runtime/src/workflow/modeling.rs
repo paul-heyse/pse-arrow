@@ -1594,9 +1594,7 @@ mod import_tests {
                 row.name.map(|name| {
                     (
                         name,
-                        pse_quantity::PhysicalName::QuantityType(QuantityTypeId::from_id(
-                            row.quantity_type_id,
-                        )),
+                        pse_quantity::PhysicalName::QuantityType(row.quantity_type_id),
                     )
                 })
             })
@@ -1604,7 +1602,7 @@ mod import_tests {
                 (
                     row.name,
                     pse_quantity::PhysicalName::ReferenceState(
-                        pse_quantity::ReferenceStateId::from_id(row.reference_state_id),
+                        row.reference_state_id,
                     ),
                 )
             }))

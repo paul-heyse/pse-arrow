@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 fn unit_row() -> units::Row {
     units::Row {
-        unit_id: SemanticId::from_bytes([7; 16]),
+        unit_id: SemanticId::from_bytes([7; 16]).into(),
         symbol: "m".to_owned(),
         name: "metre".to_owned(),
         dimension: Some(std::array::from_fn(|index| {

@@ -111,7 +111,7 @@
           "description": "Expected complete physical quantity.",
           "pattern": "^[0-9a-fA-F]{32}$",
           "type": "string",
-          "x-pse-identity": "SemanticId"
+          "x-pse-identity": "QuantityTypeId"
         },
         "supplied": {
           "$ref": "#/$defs/BindingTarget",
@@ -121,7 +121,7 @@
           "description": "Original unit, retained only for attribution.",
           "pattern": "^[0-9a-fA-F]{32}$",
           "type": "string",
-          "x-pse-identity": "SemanticId"
+          "x-pse-identity": "UnitId"
         }
       },
       "required": [
@@ -6057,13 +6057,13 @@
           "description": "Complete quantity type, including basis, datum and subject.",
           "pattern": "^[0-9a-fA-F]{32}$",
           "type": "string",
-          "x-pse-identity": "SemanticId"
+          "x-pse-identity": "QuantityTypeId"
         },
         "unit": {
           "description": "Registered representation unit.",
           "pattern": "^[0-9a-fA-F]{32}$",
           "type": "string",
-          "x-pse-identity": "SemanticId"
+          "x-pse-identity": "UnitId"
         }
       },
       "required": [

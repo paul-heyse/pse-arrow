@@ -13,9 +13,9 @@ pub struct ReferenceConversionRulesRow {
     ///conversion_id
     pub r#conversion_id: pse_ids::SemanticId,
     ///from_quantity_type_id
-    pub r#from_quantity_type_id: pse_ids::SemanticId,
+    pub r#from_quantity_type_id: crate::generated::identities::QuantityTypeId,
     ///to_quantity_type_id
-    pub r#to_quantity_type_id: pse_ids::SemanticId,
+    pub r#to_quantity_type_id: crate::generated::identities::QuantityTypeId,
     ///kind
     pub r#kind: crate::generated::enums::ConversionKind,
     ///kernel_id

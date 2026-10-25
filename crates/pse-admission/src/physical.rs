@@ -35,6 +35,7 @@ pub struct PhysicalInventory {
     preconditions: Arc<pse_quantity::PhysicalPreconditions>,
     batches: BTreeMap<RelationKey, FieldCheckedBatch>,
     _allocation: Arc<AllocationLease>,
+    pool: Arc<dyn pse_columnar::MemoryPool>,
 }
 
 impl PhysicalInventory {
@@ -97,6 +98,19 @@ impl PhysicalInventory {
             );
         }
         plans::units(session, registry, &mut batches, cancel).await?;
+        Self::from_batches(session.pool(), registry, batches, cancel)
+    }
+
+    /// Admit exact retained physical rows through the same quantity and prerequisite owners.
+    /// No current registry, source names or document parser substitutes missing original rows.
+    /// # Errors
+    /// Missing dependencies, incompatible definitions, conflicting context, cancellation or allocation refusal.
+    pub fn from_batches(
+        pool: &Arc<dyn pse_columnar::MemoryPool>,
+        registry: &Registry,
+        batches: BTreeMap<RelationKey, FieldCheckedBatch>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, PhysicalError> {
         let extent = batches
             .values()
             .try_fold(0usize, |total, batch| {
@@ -105,11 +119,22 @@ impl PhysicalInventory {
             .and_then(|size| size.checked_mul(8))
             .ok_or_else(|| invalid("physical inventory allocation extent overflow"))?;
         let allocation = pse_columnar::MemoryConsumer::new("physical algorithm inventory")
-            .register(session.pool());
+            .register(pool);
         allocation
             .try_grow(extent)
             .map_err(pse_columnar::CanonError::from)?;
-        let context = plans::context(session, registry, cancel).await?;
+        let mut context = None;
+        if let Some(spec) = registry.relation("reference.math_context")
+            && let Some(batch) = batches.get(&spec.key)
+        {
+            let view = pse_relations::generated::reference::math_context::View::from_checked(batch)?;
+            for index in 0..view.len() {
+                let row = view.row(index)?;
+                let pair = (row.neutral_quantity_type_id.into(), row.boolean_kind_id.into());
+                if context.is_some_and(|existing| existing != pair) { return Err(invalid("conflicting selected physical context declarations")); }
+                context = Some(pair);
+            }
+        }
         let (quantities, boolean) =
             pse_relations::physical::inventory(&batches, registry, cancel, context)?;
         let preconditions = preconditions::preconditions(&batches, registry, &quantities, cancel)?;
@@ -120,8 +145,12 @@ impl PhysicalInventory {
             boolean,
             batches,
             _allocation: AllocationLease::new(allocation),
+            pool: pool.clone(),
         })
     }
+
+    /// Shared allocation owner used by bounded projections of these declarations.
+    pub fn pool(&self) -> &Arc<dyn pse_columnar::MemoryPool> { &self.pool }
 
     /// Actual immutable quantity declarations used by exact physical algorithms.
     pub const fn quantities(&self) -> &QuantityRegistry {

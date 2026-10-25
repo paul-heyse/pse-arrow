@@ -229,7 +229,7 @@
             "quantity": {
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string",
-              "x-pse-identity": "SemanticId"
+              "x-pse-identity": "QuantityTypeId"
             },
             "value_kind": {
               "const": "number",
@@ -259,7 +259,7 @@
             "quantity": {
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string",
-              "x-pse-identity": "SemanticId"
+              "x-pse-identity": "QuantityTypeId"
             },
             "value_kind": {
               "const": "coordinate",
@@ -488,7 +488,7 @@
             "id": {
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string",
-              "x-pse-identity": "SemanticId"
+              "x-pse-identity": "QuantityTypeId"
             },
             "value_kind": {
               "const": "quantity_type",
@@ -507,7 +507,7 @@
             "id": {
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string",
-              "x-pse-identity": "SemanticId"
+              "x-pse-identity": "ReferenceStateId"
             },
             "value_kind": {
               "const": "reference_state",

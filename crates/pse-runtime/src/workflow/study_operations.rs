@@ -1839,8 +1839,8 @@ mod study_operation_unit {
         let id = SemanticId::from_bytes([8; 16]);
         let value = super::super::BindingQuantity {
             magnitude: pse_model::scalars::FiniteBound::try_new(12.0).unwrap(),
-            quantity: id,
-            unit: SemanticId::from_bytes([9; 16]),
+            quantity: id.into(),
+            unit: SemanticId::from_bytes([9; 16]).into(),
         };
         let input = HorizonInputDocument {
             parameter: id,
@@ -1877,8 +1877,8 @@ mod study_operation_unit {
                 target: "setpoint".into(),
                 signal: HorizonSignalDocument::Trajectory(vec![super::super::BindingQuantity {
                     magnitude: pse_model::scalars::FiniteBound::try_new(300.0).unwrap(),
-                    quantity: SemanticId::from_bytes([2; 16]),
-                    unit: SemanticId::from_bytes([3; 16]),
+                    quantity: SemanticId::from_bytes([2; 16]).into(),
+                    unit: SemanticId::from_bytes([3; 16]).into(),
                 }]),
             },
         ];

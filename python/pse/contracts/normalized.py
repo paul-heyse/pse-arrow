@@ -42,14 +42,14 @@ class NormalizedUnitsFieldDefinitionItem:
 class NormalizedUnitsRow:
     """Declared relation row or nested value."""
 
-    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: i.UnitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     dimension: b.tuple[v.DimensionVectorItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8))))
     scale_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     offset_to_canonical: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     is_affine: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    reference_state_id: i.ReferenceStateId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     definition: b.tuple[NormalizedUnitsFieldDefinitionItem, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(NormalizedUnitsFieldDefinitionItem), iterable_validator=attrs.validators.instance_of(b.tuple))))
     system: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

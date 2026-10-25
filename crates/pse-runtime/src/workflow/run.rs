@@ -282,9 +282,7 @@ impl RunResult {
     /// Every requested candidate is a result under the requested usability policy.
     /// Seed-only and diagnostic-only candidates are never results (ADR-0106).
     pub fn usable(&self) -> bool {
-        self.report().is_ok()
-            && !self.assessments.is_empty()
-            && self.assessments.iter().all(|a| a.permits_result)
+        super::completion::governing_permission(self.report().is_ok(), &self.assessments)
     }
     pub(super) fn modeling_result(&self, step: usize) -> Option<&super::ModelingResult> {
         match self.report() {

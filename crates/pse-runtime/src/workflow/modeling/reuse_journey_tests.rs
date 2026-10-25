@@ -291,8 +291,8 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
             target: BindingTarget::Member(row(&value.model.model, "p")),
             value: BindingQuantity {
                 magnitude: FiniteBound::try_new(3.).unwrap(),
-                quantity: quantity.id.as_id(),
-                unit: quantity.canonical_unit.as_id(),
+                quantity: quantity.id,
+                unit: quantity.canonical_unit,
             },
         }],
     };

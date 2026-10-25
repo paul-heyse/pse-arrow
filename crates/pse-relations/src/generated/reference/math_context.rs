@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    108u8, 18u8, 74u8, 133u8, 172u8, 75u8, 80u8, 166u8, 101u8, 255u8, 181u8, 96u8, 170u8,
-    135u8, 165u8, 134u8, 247u8, 20u8, 143u8, 195u8, 163u8, 209u8, 112u8, 211u8, 175u8,
-    221u8, 103u8, 64u8, 48u8, 228u8, 219u8, 134u8,
+    206u8, 246u8, 114u8, 121u8, 228u8, 246u8, 83u8, 30u8, 20u8, 125u8, 2u8, 235u8, 109u8,
+    163u8, 247u8, 43u8, 129u8, 86u8, 137u8, 158u8, 55u8, 189u8, 79u8, 253u8, 22u8, 175u8,
+    131u8, 39u8, 211u8, 56u8, 188u8, 79u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceMathContextRow {
     fn append(
@@ -59,10 +59,10 @@ impl crate::columnar::ArrowValue for ReferenceMathContextRow {
         <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::QuantityTypeId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::QuantityKindId as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
         output.append(false);
@@ -79,11 +79,11 @@ impl crate::columnar::ArrowValue for ReferenceMathContextRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#neutral_quantity_type_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#neutral_quantity_type_id: <crate::generated::identities::QuantityTypeId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#boolean_kind_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#boolean_kind_id: <crate::generated::identities::QuantityKindId as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,

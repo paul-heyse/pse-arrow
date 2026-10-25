@@ -8,6 +8,8 @@ import attrs
 
 from pse._build import _NativePhysicalContext
 from pse.contracts.values import ContentHash
+from pse.contracts.documents import PhysicalInspectionRequest, PhysicalInspectionDocument
+from pse.contracts.identities import QuantityTypeId, ReferenceStateId, UnitId
 
 
 class ArrowArrayInput(Protocol):
@@ -49,3 +51,19 @@ class PhysicalContext:
     def identity(self) -> ContentHash:
         """Complete native compiler context identity."""
         return self._handle.identity
+
+    def describe(self, request: PhysicalInspectionRequest) -> PhysicalInspectionDocument:
+        """Read a bounded page of this exact admitted physical context."""
+        return self._handle.describe(request)
+
+    def resolve_quantity(self, name: str) -> QuantityTypeId:
+        """Resolve one declared physical quantity name within this context."""
+        return self._handle.resolve_quantity(name)
+
+    def resolve_reference_state(self, name: str) -> ReferenceStateId:
+        """Resolve one declared reference-state name within this context."""
+        return self._handle.resolve_reference_state(name)
+
+    def resolve_unit(self, symbol: str) -> UnitId:
+        """Resolve one exact declared representation symbol within this context."""
+        return self._handle.resolve_unit(symbol)

@@ -11,7 +11,7 @@
 )]
 pub struct ReferenceReferenceStatesRow {
     ///reference_state_id
-    pub r#reference_state_id: pse_ids::SemanticId,
+    pub r#reference_state_id: crate::generated::identities::ReferenceStateId,
     ///name
     pub r#name: String,
     ///kind

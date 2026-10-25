@@ -408,6 +408,17 @@ impl Operations {
             .await
     }
 
+    /// Original governing permission from the very same protected terminal result selection.
+    /// Missing completion is unknown; corrupt or unreadable original completion propagates.
+    pub(super) async fn result_governing_permission(&self, read: &ResultRead) -> Result<Option<bool>, WorkflowError> {
+        if read.attempt().completion.is_none() { return Ok(None); }
+        let completion = self.decode_completion(CompletionSelection::Full(read)).await?;
+        Ok(match &completion.termination.cause {
+            TerminationCause::Assessment { usable, .. } if completion.completion.is_some() => Some(*usable),
+            _ => None,
+        })
+    }
+
     pub(super) async fn progress_coverage(
         &self,
         read: &ResultRead,
@@ -2479,6 +2490,10 @@ fn request_provenance(request: &RunRequest<'_>) -> Result<Vec<serde_json::Value>
             .map_err(|e| contract(e.to_string()))?,
         ]),
     }
+}
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(super) fn inspection_fixture_completion(stored: StoredCompletion) -> Result<Vec<u8>, WorkflowError> {
+    serde_json::to_vec(&inline_completion(stored)).map_err(|error| contract(error.to_string()))
 }
 fn inline_completion(stored: StoredCompletion) -> CompletionReceipt {
     CompletionReceipt {
@@ -5422,6 +5437,8 @@ mod canonical_durable_codec {
         );
         assert!(record.completion.as_ref().unwrap().completion.is_some());
         assert_eq!(record.attempt_id, attempt_id);
+        let selected = operations.store.read_results(record.run.as_ref().unwrap().key.as_str(), record.attempt_key.as_deref().unwrap()).await.unwrap();
+        assert_eq!(operations.result_governing_permission(&selected).await.unwrap(), Some(false), "authentic cancelled settlement retains producer Assessment permission without inference from lifecycle");
     }
     #[tokio::test]
     async fn canonical_cancelled_file_reservation_settles_the_exact_study_attempt() {

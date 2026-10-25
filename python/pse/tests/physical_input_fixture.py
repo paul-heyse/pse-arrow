@@ -5,7 +5,6 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-import msgspec
 import pyarrow as pa
 
 import pse
@@ -53,39 +52,28 @@ def inspection_request(
     )
 
 
-def primitive_quantity(name: str) -> tuple[SemanticId, SemanticId]:
-    """Read quantity and canonical-unit identities from the actual source fixture."""
-    root = (
-        Path(__file__).resolve().parents[3]
-        / "tests/fixtures/packages/physical-primitives/materials"
-    )
-    found: list[tuple[SemanticId, SemanticId]] = []
-    for path in root.glob("*.yaml"):
-        source = "\n".join(
-            line
-            for line in path.read_text().splitlines()
-            if not line.lstrip().startswith("#")
-        )
-        document = codec.decode_json(source, dict[str, msgspec.Raw])
-        for row in codec.decode_json(
-            bytes(document["quantity_types"]), list[dict[str, msgspec.Raw]]
-        ):
-            encoded_name = row.get("name")
-            if encoded_name is None:
-                continue
-            if codec.decode_json(bytes(encoded_name), str | None) == name:
-                found.append(
-                    (
-                        SemanticId.from_hex(
-                            codec.decode_json(bytes(row["quantity_type_id"]), str)
-                        ),
-                        SemanticId.from_hex(
-                            codec.decode_json(bytes(row["canonical_unit_id"]), str)
-                        ),
-                    )
-                )
-    (meaning,) = found
-    return meaning
+def _primitive_context(runtime: pse.Runtime) -> pse.PhysicalContext:
+    root = Path(__file__).resolve().parents[3] / "tests/fixtures/packages/physical-primitives"
+    return runtime.physical_from_documents({
+        str(path.relative_to(root)): path.read_bytes()
+        for path in root.rglob("*") if path.is_file()
+    })
+
+
+def primitive_quantity(runtime: pse.Runtime, name: str) -> tuple[SemanticId, SemanticId]:
+    """Resolve the fixture through the same admitted physical API as ordinary callers."""
+    return _quantity(_primitive_context(runtime), name)
+
+
+def _quantity(physical: pse.PhysicalContext, name: str) -> tuple[SemanticId, SemanticId]:
+    page = physical.describe(codec.convert_document({
+        "document_version": 1,
+        "query": {"kind": "quantity_named", "name": name}, "offset": 0, "limit": 1,
+    }, documents.PhysicalInspectionRequest))
+    if not isinstance(page, documents.PhysicalInspectionDocumentPage):
+        raise ValueError("physical quantity description unavailable")
+    (meaning,) = page.quantities
+    return meaning.quantity.id, meaning.canonical_unit.id
 
 
 def member(package: pse.ModelingPackage, case: DeclarationId, name: str) -> SemanticId:
@@ -100,8 +88,8 @@ def member(package: pse.ModelingPackage, case: DeclarationId, name: str) -> Sema
     return selected
 
 
-def _coordinate(id_: SemanticId, value: float, quantity: str) -> dict[str, object]:
-    quantity_id, unit_id = primitive_quantity(quantity)
+def _coordinate(meaning: tuple[SemanticId, SemanticId], id_: SemanticId, value: float) -> dict[str, object]:
+    quantity_id, unit_id = meaning
     return {
         "coordinate_id": bytes(id_),
         "value": {
@@ -120,7 +108,9 @@ def coordinate_batch(
 ) -> pa.RecordBatch:
     """Construct physical coordinate rows using the complete native registry schema."""
     schema = pa.schema(runtime.physical_input_schema(kind))
-    rows = [_coordinate(*coordinate) for coordinate in coordinates]
+    physical = _primitive_context(runtime) if coordinates else None
+    meanings = {name: _quantity(physical, name) for name in {coordinate[2] for coordinate in coordinates}} if physical is not None else {}
+    rows = [_coordinate(meanings[name], id_, value) for id_, value, name in coordinates]
     if kind is PhysicalInputKind.PRIMAL_VALUES:
         for row in rows:
             row["coordinate_role"] = NativePrimalCoordinateRole.ORIGINAL.value
@@ -128,7 +118,7 @@ def coordinate_batch(
 
 
 def _coordinate_lists(
-    groups: Sequence[Sequence[Coordinate]], type_: pa.DataType
+    runtime: pse.Runtime, groups: Sequence[Sequence[Coordinate]], type_: pa.DataType
 ) -> pa.ListArray:
     """Build each original extension child before nesting, retaining registry fields."""
     if not isinstance(type_, pa.ListType) or not isinstance(
@@ -136,7 +126,10 @@ def _coordinate_lists(
     ):
         message = "physical coordinate groups require the declared list of structs"
         raise TypeError(message)
-    rows = [_coordinate(*coordinate) for group in groups for coordinate in group]
+    names = {coordinate[2] for group in groups for coordinate in group}
+    physical = _primitive_context(runtime) if names else None
+    meanings = {name: _quantity(physical, name) for name in names} if physical is not None else {}
+    rows = [_coordinate(meanings[name], id_, value) for group in groups for id_, value, name in group]
     struct = type_.value_type
     values = pa.StructArray.from_arrays(
         [
@@ -163,7 +156,7 @@ def stage_batch(
     return pa.RecordBatch.from_arrays(
         [
             pa.array(range(len(stages)), type=schema.field("stage").type),
-            _coordinate_lists(stages, schema.field("values").type),
+            _coordinate_lists(runtime, stages, schema.field("values").type),
         ],
         schema=schema,
     )
@@ -184,7 +177,7 @@ def sample_batch(
                 type=schema.field("sample_id").type,
             ),
             _coordinate_lists(
-                [values for _sample, values in samples], schema.field("values").type
+                runtime, [values for _sample, values in samples], schema.field("values").type
             ),
         ],
         schema=schema,

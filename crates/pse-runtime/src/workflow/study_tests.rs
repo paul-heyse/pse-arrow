@@ -1525,8 +1525,8 @@ async fn related_definition_with_primal_accuracy(
             target: BindingTarget::Path("a".into()),
             value: BindingQuantity {
                 magnitude: pse_model::scalars::FiniteBound::try_new(value).unwrap(),
-                quantity: scalar.as_id(),
-                unit: unit.as_id(),
+                quantity: scalar,
+                unit,
             },
         });
         points.push(next);
@@ -1797,7 +1797,7 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
                                 value: BindingQuantity {
                                     magnitude: entry.canonical,
                                     quantity: entry.quantity,
-                                    unit: unit.as_id(),
+                                    unit,
                                 },
                             }
                         })
@@ -2678,7 +2678,7 @@ async fn stored_study_creation_rechecks_later_binding_source_and_seed_policy() {
             3 => next.policy.seed_need = SeedNeed::NotNeeded,
             _ => {
                 next.binding.entries.values_mut().next().unwrap().quantity =
-                    pse_ids::SemanticId::NIL
+                    pse_ids::SemanticId::NIL.into()
             }
         }
         next.binding_hash = next.binding.identity();
@@ -5164,8 +5164,8 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
             target: BindingTarget::Path("a".into()),
             value: BindingQuantity {
                 magnitude: pse_model::scalars::FiniteBound::try_new(value).unwrap(),
-                quantity: scalar.as_id(),
-                unit: unit.as_id(),
+                quantity: scalar,
+                unit,
             },
         });
         points.push(next);

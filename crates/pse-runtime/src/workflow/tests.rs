@@ -518,6 +518,7 @@ pub(crate) fn physical() -> PhysicalContext {
             .unwrap(),
     );
     PhysicalContext {
+        pool: Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20)),
         engine_receipt: None,
         documents: None,
         key: pse_compiler::workspace::physical_identity(&quantities, &preconditions),

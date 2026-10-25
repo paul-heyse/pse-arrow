@@ -18,13 +18,29 @@ pub struct IdentityDecl {
     pub name: &'static str,
     /// What the identity identifies.
     pub doc: &'static str,
+    /// Optional existing native owner; generation metadata, excluded from scientific fingerprints.
+    pub source: Option<IdentitySource>,
 }
 
 impl IdentityDecl {
+    /// Reuse an existing native identity with an explicitly declared storage base.
+    pub const fn sourced(name: &'static str, doc: &'static str, path: &'static str, base: IdentityBase) -> Self {
+        Self { name, doc, source: Some(IdentitySource { path, base }) }
+    }
+
     /// Declare the identity `name`.
     pub const fn new(name: &'static str, doc: &'static str) -> Self {
-        Self { name, doc }
+        Self { name, doc, source: None }
     }
+}
+
+/// Existing native identity owner and its storage contract.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IdentitySource {
+    /// Absolute Rust type path used by code generation.
+    pub path: &'static str,
+    /// Storage base validated against all declared carriers.
+    pub base: IdentityBase,
 }
 
 /// The value an identity wraps; decided by the columns that carry it.
@@ -72,4 +88,25 @@ pub struct IdentitySpec {
     /// The owning key, when one relation's single-column key was declared its owner.
     /// Unowned identities (a model instance, say) are carried by columns only.
     pub owner: Option<IdentityOwner>,
+    /// Existing Rust owner, analogous to EnumSpec::source; not persisted scientific meaning.
+    pub source: Option<&'static str>,
+}
+
+impl IdentitySpec {
+    /// Restore generation ownership while reconstructing an admitted registry.
+    pub(crate) fn with_source(mut self, source: Option<&'static str>) -> Self {
+        self.source = source;
+        self
+    }
+
+    /// Construct an assembled identity from its validated declaration and carriers.
+    pub(crate) fn new(
+        id: SemanticId,
+        name: &'static str,
+        doc: &'static str,
+        base: IdentityBase,
+        owner: Option<IdentityOwner>,
+    ) -> Self {
+        Self { id, name, doc, base, owner, source: None }
+    }
 }

@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    225u8, 145u8, 115u8, 181u8, 34u8, 232u8, 69u8, 8u8, 230u8, 203u8, 207u8, 86u8, 234u8,
-    181u8, 119u8, 155u8, 97u8, 229u8, 6u8, 123u8, 252u8, 181u8, 146u8, 203u8, 219u8,
-    126u8, 205u8, 253u8, 73u8, 36u8, 232u8, 57u8,
+    216u8, 137u8, 165u8, 185u8, 14u8, 168u8, 241u8, 21u8, 228u8, 35u8, 104u8, 98u8,
+    105u8, 49u8, 123u8, 53u8, 26u8, 238u8, 88u8, 134u8, 201u8, 15u8, 247u8, 121u8, 132u8,
+    233u8, 43u8, 222u8, 35u8, 41u8, 234u8, 3u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
     fn append(
@@ -79,20 +79,20 @@ impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::QuantityTypeId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::QuantityKindId as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::BasisId,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::ReferenceStateId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <crate::generated::enums::ScaleKind as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
@@ -101,9 +101,9 @@ impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::EntityKindId,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::append_null(
             children[8usize].as_mut(),
         )?;
         <Option<
@@ -122,7 +122,7 @@ impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#quantity_type_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#quantity_type_id: <crate::generated::identities::QuantityTypeId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -132,18 +132,18 @@ impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#quantity_kind_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#quantity_kind_id: <crate::generated::identities::QuantityKindId as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
             r#basis_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::BasisId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
             r#reference_state_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::ReferenceStateId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
@@ -159,12 +159,12 @@ impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
                 index,
             )?,
             r#subject_kind: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::EntityKindId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#canonical_unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#canonical_unit_id: <crate::generated::identities::UnitId as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,

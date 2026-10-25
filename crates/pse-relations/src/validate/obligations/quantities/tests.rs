@@ -44,14 +44,14 @@ fn dimension(power: i16) -> [ExtensionDimensionVectorItem; 8] {
 }
 fn unit(identity: u8, power: i16, reference: Option<u8>) -> units::Row {
     units::Row {
-        unit_id: id(identity),
+        unit_id: id(identity).into(),
         symbol: format!("u{identity}"),
         name: format!("unit{identity}"),
         dimension: Some(dimension(power)),
         scale_to_canonical: Some(if identity == 15 { 0.01 } else { 1.0 }),
         offset_to_canonical: Some(0.0),
         is_affine: Some(false),
-        reference_state_id: reference.map(id),
+        reference_state_id: reference.map(|value| id(value).into()),
         definition: None,
         system: "test".into(),
         doc: "fixture".into(),
@@ -74,14 +74,14 @@ fn defined(identity: u8, factor: u8) -> units::Row {
 fn quantity(identity: u8, canonical: u8, reference: Option<u8>) -> quantity_types::Row {
     quantity_types::Row {
         name: None,
-        quantity_type_id: id(identity),
-        quantity_kind_id: id(if identity == 26 { 51 } else { 50 }),
+        quantity_type_id: id(identity).into(),
+        quantity_kind_id: id(if identity == 26 { 51 } else { 50 }).into(),
         basis_id: None,
-        reference_state_id: reference.map(id),
+        reference_state_id: reference.map(|value| id(value).into()),
         scale_kind: ScaleKind::Point,
         shape: vec![],
         subject_kind: None,
-        canonical_unit_id: id(canonical),
+        canonical_unit_id: id(canonical).into(),
         nominal_magnitude: None,
         doc: "fixture".into(),
     }
@@ -138,7 +138,7 @@ fn definitions(context: &SessionContext) -> Definitions {
     .unwrap();
     for (identity, power) in [(50, 0), (51, 2)] {
         rows.push(quantity_kinds::Row {
-            quantity_kind_id: id(identity),
+            quantity_kind_id: id(identity).into(),
             name: format!("kind{identity}"),
             dimension: Some(dimension(power)),
             extensive: false,
@@ -162,7 +162,7 @@ fn definitions(context: &SessionContext) -> Definitions {
     .unwrap();
     for identity in [60, 61] {
         rows.push(reference_states::Row {
-            reference_state_id: id(identity),
+            reference_state_id: id(identity).into(),
             name: format!("reference{identity}"),
             kind: ReferenceStateKind::Custom,
             temperature: None,
@@ -354,7 +354,7 @@ async fn physical_projection_refuses_bad_composite_identity_missing_factor_and_c
         }
         let mut bad = defined(14, 15);
         match variant {
-            0 => bad.unit_id = id(80),
+            0 => bad.unit_id = id(80).into(),
             1 => bad.definition.as_mut().unwrap()[0].unit_id = id(81),
             _ => bad.definition.as_mut().unwrap()[0].unit_id = id(14),
         }

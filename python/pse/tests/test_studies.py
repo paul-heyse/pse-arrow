@@ -155,15 +155,6 @@ def _package(
     return package, case
 
 
-def _physical_ids(quantity: str, unit: str) -> tuple[str, str]:
-    return physical_ids(
-        Path(__file__).resolve().parents[3]
-        / "tests/fixtures/packages/physical-primitives/materials/physical.yaml",
-        quantity,
-        unit,
-    )
-
-
 def _assert_sixteen_held_native_owners(observation: NativeEntries) -> None:
     assert observation.active == observation.maximum == 16
     assert len(observation.entries) == 16
@@ -584,7 +575,7 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
         intent=NativeSolveIntent.FEASIBLE_POINT,
         presolve=PresolvePolicyKind.OFF,
     )
-    scalar, one = _physical_ids("Scalar", "dimensionless")
+    scalar, one = physical_ids(package.physical_context, "Scalar", "dimensionless")
     definition = package.admit_study(
         study_request(
             point(case, settings, 3, assignments=(assignment("a", -1.0, scalar, one),)),
@@ -634,7 +625,7 @@ def test_study_binding_identity_uses_admitted_member_and_physical_value(
         intent=NativeSolveIntent.FEASIBLE_POINT,
         presolve=PresolvePolicyKind.OFF,
     )
-    scalar, one = _physical_ids("Scalar", "dimensionless")
+    scalar, one = physical_ids(package.physical_context, "Scalar", "dimensionless")
     by_path = package.admit_study(
         study_request(
             point(case, settings, 2, assignments=(assignment("a", 9.0, scalar, one),))
@@ -673,7 +664,7 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
         intent=NativeSolveIntent.FEASIBLE_POINT,
         presolve=PresolvePolicyKind.OFF,
     )
-    length, metre = _physical_ids("Length", "m")
+    length, metre = physical_ids(package.physical_context, "Length", "m")
     with pytest.raises(pse.InspectionError) as raised:
         package.admit_study(
             study_request(
@@ -713,7 +704,7 @@ def test_study_physical_mismatch_preserves_full_boundary_envelope(
     assert isinstance(operands, ObservationContracts)
     assert len(operands.value) == 2
     assert operands.value[0].quantity != operands.value[1].quantity
-    scalar, _ = _physical_ids("Scalar", "dimensionless")
+    scalar, _ = physical_ids(package.physical_context, "Scalar", "dimensionless")
     assert bytes(operands.value[0].quantity).hex() == scalar
     assert bytes(operands.value[1].quantity).hex() == length
     for contract in operands.value:
@@ -877,7 +868,7 @@ def test_durable_study_retains_exact_results(
         intent=NativeSolveIntent.FEASIBLE_POINT,
         presolve=PresolvePolicyKind.OFF,
     )
-    scalar, one = _physical_ids("Scalar", "dimensionless")
+    scalar, one = physical_ids(package.physical_context, "Scalar", "dimensionless")
     definition = package.admit_study(
         study_request(
             point(case, settings, 0),
@@ -962,7 +953,7 @@ def test_durable_study_cancel_and_its_refusals(
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
-    scalar, one = _physical_ids("Scalar", "dimensionless")
+    scalar, one = physical_ids(package.physical_context, "Scalar", "dimensionless")
     definition = package.admit_study(
         study_request(
             point(case, settings, 0),
@@ -1036,7 +1027,7 @@ def test_flash_sweep_prepares_structure_once_per_lane(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
     temperature, kelvin = physical_ids(
-        reference / "physical/materials/physical.yaml", "Temperature", "K"
+        physical, "Temperature", "K"
     )
     definition = package.admit_study(
         study_request(
@@ -1220,7 +1211,7 @@ def test_capped_related_root_study_charges_prediction_and_screening(
             recovery=(NumericalStartOrigin.PREDICTED,),
         ),
     )
-    scalar, one = _physical_ids("Scalar", "dimensionless")
+    scalar, one = physical_ids(package.physical_context, "Scalar", "dimensionless")
     study = runtime.execute_study(
         runtime.record_study(
             package.admit_study(

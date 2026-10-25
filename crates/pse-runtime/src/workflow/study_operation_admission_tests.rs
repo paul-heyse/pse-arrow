@@ -85,15 +85,13 @@ fn quantity(package: &ModelingPackage, magnitude: f64, name: &str, unit: &str) -
             .quantity_types()
             .find(|q| q.name.as_deref() == Some(name))
             .unwrap()
-            .id
-            .as_id(),
+            .id,
         unit: package
             .quantities
             .units()
             .find(|u| u.symbol == unit)
             .unwrap()
-            .id
-            .as_id(),
+            .id,
     }
 }
 async fn control_operation() -> (ModelingPackage, StudyOperation) {

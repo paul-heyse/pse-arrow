@@ -4,8 +4,9 @@
 
 /// Registry-generated typed ids; their Arrow codecs are the base value's.
 pub use pse_model::generated::identities::{
-    AccuracyGoalId, AttemptId, DeclarationId, EngineeringRuleId, EngineeringScaleId,
-    FitId, InstanceId, PackageId, RunId, SolutionId, StudyId,
+    AccuracyGoalId, AttemptId, BasisId, DeclarationId, EngineeringRuleId,
+    EngineeringScaleId, EntityKindId, FitId, InstanceId, PackageId, QuantityKindId,
+    QuantityTypeId, ReferenceStateId, RunId, SolutionId, StudyId, UnitId,
 };
 impl crate::columnar::ArrowValue for AccuracyGoalId {
     fn append(
@@ -28,6 +29,26 @@ impl crate::columnar::ArrowValue for AccuracyGoalId {
     }
 }
 impl crate::columnar::ArrowValue for AttemptId {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::ArrowValue::append(&self.as_id(), output)
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(output)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(input, index)
+            .map(Self::from_id)
+    }
+}
+impl crate::columnar::ArrowValue for BasisId {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -107,6 +128,26 @@ impl crate::columnar::ArrowValue for EngineeringScaleId {
             .map(Self::from_id)
     }
 }
+impl crate::columnar::ArrowValue for EntityKindId {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::ArrowValue::append(&self.as_id(), output)
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(output)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(input, index)
+            .map(Self::from_id)
+    }
+}
 impl crate::columnar::ArrowValue for FitId {
     fn append(
         &self,
@@ -167,6 +208,66 @@ impl crate::columnar::ArrowValue for PackageId {
             .map(Self::from_id)
     }
 }
+impl crate::columnar::ArrowValue for QuantityKindId {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::ArrowValue::append(&self.as_id(), output)
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(output)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(input, index)
+            .map(Self::from_id)
+    }
+}
+impl crate::columnar::ArrowValue for QuantityTypeId {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::ArrowValue::append(&self.as_id(), output)
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(output)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(input, index)
+            .map(Self::from_id)
+    }
+}
+impl crate::columnar::ArrowValue for ReferenceStateId {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::ArrowValue::append(&self.as_id(), output)
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(output)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(input, index)
+            .map(Self::from_id)
+    }
+}
 impl crate::columnar::ArrowValue for RunId {
     fn append(
         &self,
@@ -208,6 +309,26 @@ impl crate::columnar::ArrowValue for SolutionId {
     }
 }
 impl crate::columnar::ArrowValue for StudyId {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::ArrowValue::append(&self.as_id(), output)
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(output)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(input, index)
+            .map(Self::from_id)
+    }
+}
+impl crate::columnar::ArrowValue for UnitId {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

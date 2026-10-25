@@ -13,6 +13,9 @@ AccuracyGoalId = NewType("AccuracyGoalId", v.SemanticId)
 # One actual scientific attempt of a run, with its immutable generation and observations (entity identity `attempt`).
 AttemptId = NewType("AttemptId", v.SemanticId)
 
+# A physical normalization basis (entity identity `basis`).
+BasisId = NewType("BasisId", v.SemanticId)
+
 # One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`).
 DeclarationId = NewType("DeclarationId", v.SemanticId)
 
@@ -21,6 +24,9 @@ EngineeringRuleId = NewType("EngineeringRuleId", v.SemanticId)
 
 # An explicitly declared engineering characteristic magnitude (entity identity `engineering_scale`).
 EngineeringScaleId = NewType("EngineeringScaleId", v.SemanticId)
+
+# A physical subject or index kind (entity identity `entity_kind`).
+EntityKindId = NewType("EntityKindId", v.SemanticId)
 
 # One authored shared-parameter fit over its experiments (entity identity `fit`).
 FitId = NewType("FitId", v.SemanticId)
@@ -31,6 +37,15 @@ InstanceId = NewType("InstanceId", v.SemanticId)
 # One authored package (entity identity `package`).
 PackageId = NewType("PackageId", v.SemanticId)
 
+# A physical quantity kind (entity identity `quantity_kind`).
+QuantityKindId = NewType("QuantityKindId", v.SemanticId)
+
+# A complete physical quantity contract (entity identity `quantity_type`).
+QuantityTypeId = NewType("QuantityTypeId", v.SemanticId)
+
+# A declared physical datum (entity identity `reference_state`).
+ReferenceStateId = NewType("ReferenceStateId", v.SemanticId)
+
 # One immutable problem request, whose actual scientific executions are distinct attempts (entity identity `run`).
 RunId = NewType("RunId", v.SemanticId)
 
@@ -39,3 +54,6 @@ SolutionId = NewType("SolutionId", v.SemanticId)
 
 # One retained study coordinating distinct point occurrences (entity identity `study`).
 StudyId = NewType("StudyId", v.SemanticId)
+
+# A registered representation unit (entity identity `unit`).
+UnitId = NewType("UnitId", v.SemanticId)

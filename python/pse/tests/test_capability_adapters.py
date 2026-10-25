@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
@@ -86,6 +88,45 @@ def test_capability_original_source_admission_and_same_lifetime_preparation(
     assert at(observed, "preparation", "resident") == []
     assert at(observed, "preparation", "residents_truncated") is False
     assert not missing.exists()
+
+
+@pytest.mark.unit
+def test_physical_context_python_mcp_and_cli_use_the_same_native_projection(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    source = source_request()
+    query: dict[str, JsonValue] = {
+        "document_version": 1,
+        "query": {"kind": "quantity_named", "name": "Length"},
+        "offset": 0,
+        "limit": 1,
+    }
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    try:
+        physical = runtime.physical_from_documents(
+            native_worker.source_documents(source["physical"])[0]
+        )
+        page = physical.describe(codec.convert_document(query, documents.PhysicalInspectionRequest))
+        assert isinstance(page, documents.PhysicalInspectionDocumentPage)
+        (length,) = page.quantities
+        assert length.quantity.id == physical.resolve_quantity("Length")
+        assert length.canonical_unit.id == physical.resolve_unit("m")
+        assert length.canonical_unit.symbol == "m"
+        assert page.context == physical.identity
+        expected = json.loads(codec.encode_json(page))
+    finally:
+        runtime.close()
+    arguments = {"physical": source["physical"], "request": query, "resources": source["resources"]}
+    observed = invoke("physical_inspect", arguments)
+    assert observed["outcome"] == "observed", observed
+    assert observed["document"] == expected
+    cli = subprocess.run(
+        [sys.executable, "-m", "scripts.capability_cli", "invoke", "native_physical_inspect", "--input-json", json.dumps(arguments)],
+        cwd=ROOT, capture_output=True, text=True, timeout=180, check=False,
+    )
+    assert cli.returncode == 0, cli.stderr
+    answer = json.loads(cli.stdout)
+    assert answer["structured_content"]["payload"]["document"] == expected
 
 
 @pytest.mark.unit
@@ -334,6 +375,27 @@ def test_capability_stored_result_preserves_native_arrow_window(
         actual = reader.read_all()
     assert actual.schema.equals(expected.schema, check_metadata=True)
     assert actual.equals(expected, check_metadata=True)
+    query = {
+        "document_version": 2, "run": run, "attempt": attempt,
+        "relation": relation, "start": 0, "end": 1,
+        "view": {"kind": "physical", "request": {
+            "query": {"kind": "quantity_named", "name": "Scalar"},
+            "offset": 0, "limit": 1,
+        }},
+    }
+    original = runtime.inspect_result(codec.convert_document(query, documents.ResultInspectionRequest))
+    assert isinstance(original, documents.ResultInspectionDocumentPhysical)
+    assert original.original.governing_permission is True
+    assert original.selection.usability == "unknown"
+    assert isinstance(original.original.physical, documents.ResultPhysicalContextAvailable)
+    assert isinstance(original.page, documents.PhysicalInspectionDocumentBodyPage)
+    assert original.page.context == package.physical_context.identity
+    response = invoke("result_inspect", {
+        "state": canonical_substrate.state, "database": canonical_substrate.database,
+        "request": query,
+    })
+    assert response["outcome"] == "observed", response
+    assert response["document"] == json.loads(codec.encode_json(original))
 
 
 @pytest.mark.unit

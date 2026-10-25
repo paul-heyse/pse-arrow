@@ -68,6 +68,116 @@
         }
       ]
     },
+    "BasisKind": {
+      "enum": [
+        "molar",
+        "mass",
+        "volume",
+        "energy",
+        "standard_volume",
+        "dimensionless"
+      ],
+      "type": "string"
+    },
+    "CompositionBasis": {
+      "enum": [
+        "mole_fraction",
+        "mass_fraction",
+        "volume_fraction",
+        "molality",
+        "molarity"
+      ],
+      "type": "string"
+    },
+    "DimensionVector": {
+      "description": "Rational exponents over the eight base dimensions (blueprint §4.4, §8.1).\n\nThe slots are indexed by [`BaseDimension`] and stored in its ordinal order, which is\nalso the order of the `FixedSizeList<Struct<num, den>, 8>` storage of\n`pse.dimension_vector`.\n\nDimension arithmetic is *not* physical typing: `dimensionless` is the dimension of a\nmole fraction and of a Reynolds number alike, and two quantities with the same\ndimension vector may still be incompatible (§8.1). This type answers only the\ndimensional half; the complete answer is a `QuantityType`.\n\n```\nuse pse_quantity::{BaseDimension, DimensionVector, Ratio};\n\nlet velocity = DimensionVector::base(BaseDimension::Length)\n    .div(&DimensionVector::base(BaseDimension::Time))?;\nassert_eq!(velocity.exponent(BaseDimension::Length), Ratio::ONE);\nassert_eq!(velocity.to_string(), \"L·T^-1\");\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+      "items": {
+        "$ref": "#/$defs/Ratio"
+      },
+      "maxItems": 8,
+      "minItems": 8,
+      "type": "array"
+    },
+    "KindDefinition": {
+      "additionalProperties": false,
+      "description": "What a derived kind is (ADR-0124): a monomial of other kinds, its declared canonical\nunit, and the complete result a multiplicative chain resolving to it takes. Kinds are\ndeclared, never synthesized.",
+      "properties": {
+        "basis": {
+          "description": "Declared result basis. Without one, every basis-carrying chain factor must agree.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "BasisId"
+        },
+        "canonical_unit": {
+          "description": "The canonical unit every quantity type of this kind stores in.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        },
+        "monomial": {
+          "description": "Factors over declared kinds; admission expands derived factors, so the admitted\nmonomial is over base kinds in identity order.",
+          "items": {
+            "$ref": "#/$defs/KindFactor"
+          },
+          "type": "array"
+        },
+        "reference_state": {
+          "description": "Declared result datum.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ReferenceStateId"
+        },
+        "scale_kind": {
+          "$ref": "#/$defs/ScaleKind",
+          "description": "Declared result scale."
+        },
+        "subject_kind": {
+          "description": "Declared result subject.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "EntityKindId"
+        }
+      },
+      "required": [
+        "monomial",
+        "canonical_unit",
+        "basis",
+        "reference_state",
+        "scale_kind",
+        "subject_kind"
+      ],
+      "type": "object"
+    },
+    "KindFactor": {
+      "additionalProperties": false,
+      "description": "One factor of a kind monomial: a kind and its nonzero rational exponent.",
+      "properties": {
+        "exponent": {
+          "$ref": "#/$defs/Ratio",
+          "description": "Its nonzero rational exponent."
+        },
+        "kind": {
+          "description": "The factor kind.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityKindId"
+        }
+      },
+      "required": [
+        "kind",
+        "exponent"
+      ],
+      "type": "object"
+    },
     "PackResultPredicateOutput": {
       "additionalProperties": false,
       "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
@@ -221,6 +331,699 @@
         }
       ]
     },
+    "PhysicalBasis": {
+      "additionalProperties": false,
+      "description": "A declared material or specific-quantity basis.",
+      "properties": {
+        "composition_basis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CompositionBasis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional composition convention."
+        },
+        "id": {
+          "description": "Registry identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "BasisId"
+        },
+        "kind": {
+          "$ref": "#/$defs/BasisKind",
+          "description": "What this quantity is per."
+        },
+        "rate_basis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RateBasis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional rate convention."
+        },
+        "reference_conditions": {
+          "description": "Conditions required for a standard-volume basis.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ReferenceStateId"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "composition_basis",
+        "rate_basis",
+        "reference_conditions"
+      ],
+      "type": "object"
+    },
+    "PhysicalEntityKind": {
+      "additionalProperties": false,
+      "description": "A declared kind used as a physical axis or subject.",
+      "properties": {
+        "id": {
+          "description": "Stable authored identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "EntityKindId"
+        },
+        "name": {
+          "description": "Qualified inspection name; identity comparisons use `id`.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    },
+    "PhysicalInspectionDocumentBody": {
+      "description": "One immutable context page. An extent refusal never returns truncated meaning.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Complete selected declarations with their actual immutable context identity.",
+          "properties": {
+            "context": {
+              "description": "Exact physical context that interpreted every record.",
+              "pattern": "^blake3:[0-9a-fA-F]{64}$",
+              "type": "string",
+              "x-pse-identity": "ContentHash"
+            },
+            "count": {
+              "description": "Complete selected population, independent of the current page.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "page",
+              "type": "string"
+            },
+            "next": {
+              "description": "Next original offset; each call reacquires any canonical protection.",
+              "format": "uint",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "offset": {
+              "description": "Original offset.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "quantities": {
+              "description": "Selected quantity records, in stable identity order.",
+              "items": {
+                "$ref": "#/$defs/PhysicalQuantityDescription"
+              },
+              "type": "array"
+            },
+            "reference_states": {
+              "description": "Selected named reference-state records.",
+              "items": {
+                "$ref": "#/$defs/ReferenceState"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "context",
+            "count",
+            "offset",
+            "quantities",
+            "reference_states",
+            "next"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Required complete records do not fit the fixed document allowance.",
+          "properties": {
+            "context": {
+              "description": "Exact context, retained even when no record can be copied.",
+              "pattern": "^blake3:[0-9a-fA-F]{64}$",
+              "type": "string",
+              "x-pse-identity": "ContentHash"
+            },
+            "kind": {
+              "const": "unavailable",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Explicit reason; narrowing the selection may make it readable.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "context",
+            "reason"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PhysicalInspectionQueryOutput": {
+      "description": "Physical names are package-declared names, never global aliases.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "All quantities in the selected context, paged without cloning its inventory.",
+          "properties": {
+            "kind": {
+              "const": "quantities",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One exact quantity and optionally its admitted representation conversion.",
+          "properties": {
+            "id": {
+              "description": "Complete physical quantity identity.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "QuantityTypeId"
+            },
+            "kind": {
+              "const": "quantity",
+              "type": "string"
+            },
+            "unit": {
+              "description": "Representation unit; absent selects the canonical unit.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": [
+                "string",
+                "null"
+              ],
+              "x-pse-identity": "UnitId"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "unit"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One exact declared quantity name.",
+          "properties": {
+            "kind": {
+              "const": "quantity_named",
+              "type": "string"
+            },
+            "name": {
+              "description": "Declared physical-document name, case sensitive.",
+              "maxLength": 1024,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One exact declared reference-state name.",
+          "properties": {
+            "kind": {
+              "const": "reference_state_named",
+              "type": "string"
+            },
+            "name": {
+              "description": "Declared physical-document name, case sensitive.",
+              "maxLength": 1024,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PhysicalInspectionRequestBodyOutput": {
+      "additionalProperties": false,
+      "description": "A bounded query against one immutable physical context.",
+      "properties": {
+        "limit": {
+          "description": "One through sixteen declarations; encoded output is at most 64 KiB.",
+          "format": "uint",
+          "maximum": 16,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Original declaration offset in semantic identity order.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "query": {
+          "$ref": "#/$defs/PhysicalInspectionQueryOutput",
+          "description": "Exact declared identity/name selection."
+        }
+      },
+      "required": [
+        "query",
+        "offset",
+        "limit"
+      ],
+      "type": "object"
+    },
+    "PhysicalQuantityDescription": {
+      "additionalProperties": false,
+      "description": "Original selected quantity and its complete physical interpretation.",
+      "properties": {
+        "basis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalBasis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Exact original basis and its composition/rate/reference conventions."
+        },
+        "basis_reference_state": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Actual reference conditions required by a standard-volume or similar basis."
+        },
+        "canonical_unit": {
+          "$ref": "#/$defs/Unit",
+          "description": "Original canonical representation."
+        },
+        "offset_to_canonical": {
+          "description": "Admitted conversion offset; difference quantities retain zero here.",
+          "format": "double",
+          "type": "number"
+        },
+        "quantity": {
+          "$ref": "#/$defs/QuantityType",
+          "description": "Exact original type including basis, datum, scale, shape and subject."
+        },
+        "quantity_kind": {
+          "$ref": "#/$defs/QuantityKind",
+          "description": "What is measured, including exact rational dimension and arithmetic convention."
+        },
+        "reference_state": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Exact original datum, including typed reference conditions."
+        },
+        "representation_unit": {
+          "$ref": "#/$defs/Unit",
+          "description": "Selected representation; raw result values are never changed by inspection."
+        },
+        "scale_to_canonical": {
+          "description": "Admitted conversion multiplier to canonical magnitude.",
+          "format": "double",
+          "type": "number"
+        },
+        "shape": {
+          "description": "Declared ordered axis kinds.",
+          "items": {
+            "$ref": "#/$defs/PhysicalEntityKind"
+          },
+          "type": "array"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalEntityKind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Declared subject kind."
+        }
+      },
+      "required": [
+        "quantity",
+        "quantity_kind",
+        "canonical_unit",
+        "representation_unit",
+        "scale_to_canonical",
+        "offset_to_canonical",
+        "basis",
+        "basis_reference_state",
+        "reference_state",
+        "shape",
+        "subject"
+      ],
+      "type": "object"
+    },
+    "QuantityAdditionKind": {
+      "enum": [
+        "additive",
+        "origin_sensitive"
+      ],
+      "type": "string"
+    },
+    "QuantityKind": {
+      "additionalProperties": false,
+      "description": "What is measured, independent of basis and datum.",
+      "properties": {
+        "addition_kind": {
+          "$ref": "#/$defs/QuantityAdditionKind",
+          "description": "Additive or origin-sensitive arithmetic."
+        },
+        "category": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuantityKindCategory"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Discrete category of a dimensionless pure-number kind; `None` for a measured kind."
+        },
+        "definition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KindDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`None` for a base kind; a derived kind's declaration, its monomial expanded to\ncanonical base-kind factors at admission."
+        },
+        "dimension": {
+          "$ref": "#/$defs/DimensionVector",
+          "description": "SI exponents; this alone never resolves a physical type. A derived kind's\ndimension is derived from its monomial at admission."
+        },
+        "extensive": {
+          "description": "Whether values scale with system size.",
+          "type": "boolean"
+        },
+        "id": {
+          "description": "Registry identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityKindId"
+        }
+      },
+      "required": [
+        "id",
+        "dimension",
+        "extensive",
+        "addition_kind",
+        "category",
+        "definition"
+      ],
+      "type": "object"
+    },
+    "QuantityKindCategory": {
+      "enum": [
+        "count",
+        "indicator"
+      ],
+      "type": "string"
+    },
+    "QuantityType": {
+      "additionalProperties": false,
+      "description": "A registered physical type and its canonical storage unit.",
+      "properties": {
+        "canonical_unit": {
+          "description": "Canonical unit of the package.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        },
+        "id": {
+          "description": "Registry identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "key": {
+          "$ref": "#/$defs/QuantityTypeKey",
+          "description": "The complete semantic key."
+        },
+        "name": {
+          "description": "The name packages address it by, declared once in the physical document and unique\nwithin it (ADR-0123 Outcome 6).",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nominal_magnitude": {
+          "description": "Positive finite default scaling magnitude, if declared.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "key",
+        "canonical_unit",
+        "nominal_magnitude"
+      ],
+      "type": "object"
+    },
+    "QuantityTypeKey": {
+      "additionalProperties": false,
+      "description": "Components that determine one registered physical type.",
+      "properties": {
+        "basis": {
+          "description": "Optional material basis.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "BasisId"
+        },
+        "kind": {
+          "description": "The measured quantity kind.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityKindId"
+        },
+        "reference_state": {
+          "description": "Optional datum.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ReferenceStateId"
+        },
+        "scale_kind": {
+          "$ref": "#/$defs/ScaleKind",
+          "description": "Point or difference semantics."
+        },
+        "shape": {
+          "description": "Ordered domain kinds.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "EntityKindId"
+          },
+          "type": "array"
+        },
+        "subject_kind": {
+          "description": "Optional subject obligation; absent and explicit `none` stay distinct.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "EntityKindId"
+        }
+      },
+      "required": [
+        "kind",
+        "basis",
+        "reference_state",
+        "scale_kind",
+        "shape",
+        "subject_kind"
+      ],
+      "type": "object"
+    },
+    "RateBasis": {
+      "enum": [
+        "per_volume",
+        "per_mass",
+        "per_area"
+      ],
+      "type": "string"
+    },
+    "Ratio": {
+      "additionalProperties": false,
+      "description": "A rational exponent in canonical reduced form (blueprint §4.4 `pse.dimension_vector`).\n\nThe invariant is total: `den > 0`, `gcd(|num|, den) == 1`, and zero is exactly `0/1`.\nConstruction goes through [`Ratio::new`] or [`Ratio::from_parts`], both of which reject\nanything else, and deserialization re-validates. Two `Ratio`s are equal exactly when\nthey are the same rational number.\n\n`Ord` is the lexicographic order of the canonical `(num, den)` pair, not numeric order:\nit exists so that a `Ratio` can key a `BTreeMap` deterministically. Compare magnitudes\nwith [`Ratio::checked_sub`] and [`Ratio::is_zero`] rather than with `<`.\n\n```\nuse pse_quantity::Ratio;\n\nassert_eq!(Ratio::new(2, 4)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(-1, -2)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(0, 5)?, Ratio::ZERO);\nassert!(Ratio::new(1, 0).is_err());\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+      "properties": {
+        "den": {
+          "format": "int16",
+          "maximum": 32767,
+          "minimum": -32768,
+          "type": "integer"
+        },
+        "num": {
+          "format": "int16",
+          "maximum": 32767,
+          "minimum": -32768,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "num",
+        "den"
+      ],
+      "type": "object"
+    },
+    "ReferenceCondition": {
+      "additionalProperties": false,
+      "description": "A typed reference condition (ADR-0123 Outcome 6): a value in a declared unit of a\ndeclared quantity type. Admission checks the type's dimension against the condition it\nstates and the unit against the type.",
+      "properties": {
+        "quantity_type": {
+          "description": "The declared quantity type of the condition.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "unit": {
+          "description": "The unit `value` is written in.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        },
+        "value": {
+          "description": "The value in `unit`.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "quantity_type",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "ReferenceState": {
+      "additionalProperties": false,
+      "description": "The datum carried by origin-sensitive quantities.",
+      "properties": {
+        "id": {
+          "description": "Registry identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "ReferenceStateId"
+        },
+        "include_enthalpy_of_formation": {
+          "description": "Whether formation enthalpy is included.",
+          "type": "boolean"
+        },
+        "kind": {
+          "$ref": "#/$defs/ReferenceStateKind",
+          "description": "The reference convention."
+        },
+        "name": {
+          "description": "The name packages address it by, declared once in the physical document\n(ADR-0123 Outcome 6).",
+          "type": "string"
+        },
+        "pressure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Typed reference pressure, when specified."
+        },
+        "subject": {
+          "description": "Optional datum subject; physical source admission requires an authored entity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "SemanticId"
+        },
+        "temperature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceCondition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Typed reference temperature, when specified."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "temperature",
+        "pressure",
+        "include_enthalpy_of_formation",
+        "subject"
+      ],
+      "type": "object"
+    },
+    "ReferenceStateKind": {
+      "enum": [
+        "elemental_at_conditions",
+        "compound_at_conditions",
+        "ideal_gas_at_conditions",
+        "custom"
+      ],
+      "type": "string"
+    },
     "ResultCellUnavailable": {
       "description": "Unavailable readable detail never becomes a null or a normalized scientific value.",
       "oneOf": [
@@ -261,7 +1064,7 @@
         }
       ]
     },
-    "ResultInspectionBasis": {
+    "ResultInspectionBasisOutput": {
       "additionalProperties": false,
       "description": "Immutable request coordinates retained across pages.",
       "properties": {
@@ -290,7 +1093,7 @@
           "type": "integer"
         },
         "view": {
-          "$ref": "#/$defs/ResultInspectionView",
+          "$ref": "#/$defs/ResultInspectionViewOutput",
           "description": "Original view/path/page allowance, unchanged by continuation."
         }
       },
@@ -564,7 +1367,7 @@
       "description": "Store/selection-bound continuation; each call reacquires original protection.",
       "properties": {
         "basis": {
-          "$ref": "#/$defs/ResultInspectionBasis",
+          "$ref": "#/$defs/ResultInspectionBasisOutput",
           "description": "Original request identity."
         },
         "issuing_store": {
@@ -574,6 +1377,10 @@
         "manifest": {
           "description": "Exact closure digest.",
           "type": "string"
+        },
+        "physical": {
+          "$ref": "#/$defs/ResultPhysicalContext",
+          "description": "Original physical context and exact closure availability."
         },
         "position": {
           "description": "Next original row or descriptor/metadata position.",
@@ -596,6 +1403,7 @@
         "manifest",
         "schema_fingerprint",
         "basis",
+        "physical",
         "position"
       ],
       "type": "object"
@@ -671,6 +1479,28 @@
         "metadata_omitted",
         "ancestor_metadata",
         "ancestor_metadata_omitted"
+      ],
+      "type": "object"
+    },
+    "ResultInspectionOriginal": {
+      "additionalProperties": false,
+      "description": "Original governing permission and retained physical interpretation, independent of selected-product usability.",
+      "properties": {
+        "governing_permission": {
+          "description": "Producer-authored governing Assessment usable fact. Missing/error/infrastructure is unknown.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "physical": {
+          "$ref": "#/$defs/ResultPhysicalContext",
+          "description": "Original physical source closure availability, never a current-context substitution."
+        }
+      },
+      "required": [
+        "governing_permission",
+        "physical"
       ],
       "type": "object"
     },
@@ -810,7 +1640,7 @@
         }
       ]
     },
-    "ResultInspectionView": {
+    "ResultInspectionViewOutput": {
       "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
       "oneOf": [
         {
@@ -909,6 +1739,25 @@
         },
         {
           "additionalProperties": false,
+          "description": "Read a finite physical declaration page from the original retained context.",
+          "properties": {
+            "kind": {
+              "const": "physical",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/PhysicalInspectionRequestBodyOutput",
+              "description": "Same physical-owner query used by direct Python and MCP inspection."
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "Read selected original scalar fields together with all declared non-value context.",
           "properties": {
             "fields": {
@@ -956,6 +1805,148 @@
       "required": [
         "key",
         "value_bytes"
+      ],
+      "type": "object"
+    },
+    "ResultPhysicalContext": {
+      "description": "Original-context locator state, also bound into every immutable continuation.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Original rows were protected and admitted through the physical owner.",
+          "properties": {
+            "closure": {
+              "description": "Exact retained revision closure digest.",
+              "type": "string"
+            },
+            "identity": {
+              "description": "Original full physical context identity.",
+              "pattern": "^blake3:[0-9a-fA-F]{64}$",
+              "type": "string",
+              "x-pse-identity": "ContentHash"
+            },
+            "kind": {
+              "const": "available",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "identity",
+            "closure"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original closure cannot supply readable physical meaning; raw result values remain readable.",
+          "properties": {
+            "kind": {
+              "const": "unavailable",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Explicit original-closure failure; no alternate context was consulted.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "reason"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ScaleKind": {
+      "enum": [
+        "point",
+        "difference"
+      ],
+      "type": "string"
+    },
+    "Unit": {
+      "additionalProperties": false,
+      "description": "A unit anchored to the canonical SI dimension basis (blueprint §6.2).",
+      "properties": {
+        "definition": {
+          "description": "`None` for an atomic unit; the canonical atomic factors of a defined or composed\nunit, whose dimension and scale were derived from them.",
+          "items": {
+            "$ref": "#/$defs/UnitFactor"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "dimension": {
+          "$ref": "#/$defs/DimensionVector",
+          "description": "SI exponents."
+        },
+        "id": {
+          "description": "Registry identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        },
+        "is_affine": {
+          "description": "Whether point conversion may apply an offset.",
+          "type": "boolean"
+        },
+        "offset_to_canonical": {
+          "description": "Finite offset to SI; zero for a non-affine unit.",
+          "format": "double",
+          "type": "number"
+        },
+        "reference_state": {
+          "description": "Optional datum restriction of the spelling; representation conversion preserves it.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "ReferenceStateId"
+        },
+        "scale_to_canonical": {
+          "description": "Positive finite multiplier to SI.",
+          "format": "double",
+          "type": "number"
+        },
+        "symbol": {
+          "description": "Unique package-resolved symbol.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "symbol",
+        "dimension",
+        "scale_to_canonical",
+        "offset_to_canonical",
+        "is_affine",
+        "reference_state",
+        "definition"
+      ],
+      "type": "object"
+    },
+    "UnitFactor": {
+      "additionalProperties": false,
+      "description": "One canonical factor of a unit product: an atomic unit and its nonzero rational\nexponent (ADR-0124).",
+      "properties": {
+        "exponent": {
+          "$ref": "#/$defs/Ratio",
+          "description": "The nonzero rational exponent."
+        },
+        "unit": {
+          "description": "The atomic unit, or, in an authored composition, any declared unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        }
+      },
+      "required": [
+        "unit",
+        "exponent"
       ],
       "type": "object"
     }
@@ -1019,6 +2010,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "original": {
+          "$ref": "#/$defs/ResultInspectionOriginal",
+          "description": "Original governing permission and physical closure; selected-product usability is independent."
+        },
         "recorded_rows": {
           "description": "Recorded rows intersecting the selected range; holes are not invented.",
           "format": "uint64",
@@ -1040,6 +2035,7 @@
       "required": [
         "kind",
         "selection",
+        "original",
         "manifest",
         "schema_metadata",
         "field_count",
@@ -1096,6 +2092,10 @@
             "null"
           ]
         },
+        "original": {
+          "$ref": "#/$defs/ResultInspectionOriginal",
+          "description": "Original governing permission and physical closure; selected-product usability is independent."
+        },
         "readable_complete": {
           "description": "Every returned selected and context cell was representable, independent of population/scientific usability.",
           "type": "boolean"
@@ -1135,6 +2135,7 @@
       "required": [
         "kind",
         "selection",
+        "original",
         "manifest",
         "schema_metadata",
         "selected_fields",
@@ -1195,6 +2196,10 @@
           "minimum": 0,
           "type": "integer"
         },
+        "original": {
+          "$ref": "#/$defs/ResultInspectionOriginal",
+          "description": "Original governing permission and physical closure; selected-product usability is independent."
+        },
         "path": {
           "$ref": "#/$defs/ArrowFieldPath",
           "description": "Original selected field."
@@ -1207,11 +2212,71 @@
       "required": [
         "kind",
         "selection",
+        "original",
         "manifest",
         "path",
         "entry_count",
         "offset",
         "entries",
+        "next_cursor",
+        "document_version"
+      ],
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "A bounded physical-owner page tied to this exact protected result.",
+      "properties": {
+        "document_version": {
+          "const": 2,
+          "default": 2,
+          "type": "integer"
+        },
+        "kind": {
+          "const": "physical",
+          "type": "string"
+        },
+        "manifest": {
+          "description": "Exact result closure digest.",
+          "type": "string"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResultInspectionCursorOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original-query-bound next physical declaration page."
+        },
+        "original": {
+          "$ref": "#/$defs/ResultInspectionOriginal",
+          "description": "Original aggregate permission and physical closure locator."
+        },
+        "page": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PhysicalInspectionDocumentBody"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Complete selected physical page; absent only when the original closure is unavailable."
+        },
+        "selection": {
+          "$ref": "#/$defs/PackResultSelectionOutput",
+          "description": "Exact original selected result; selected product usability remains unknown."
+        }
+      },
+      "required": [
+        "kind",
+        "selection",
+        "original",
+        "manifest",
+        "page",
         "next_cursor",
         "document_version"
       ],

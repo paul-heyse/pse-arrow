@@ -403,7 +403,10 @@ class Runtime(ResearchRuntime, StudyWorkbenchMixin):
 
         Schema queries do not pull data batches. Readable value queries retain
         original context and exact floating bits, with explicit null, nonfinite
-        and unsupported values. ``results`` remains the full Arrow IPC route.
+        and unsupported values. Physical queries describe the original retained
+        context through the same owner as ``PhysicalContext.describe``. Original
+        aggregate permission remains separate from selected-product usability.
+        ``results`` remains the full Arrow IPC route.
         """
         return self._handle.inspect_result(request)
 

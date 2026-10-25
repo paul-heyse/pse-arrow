@@ -63,7 +63,7 @@ pub use pse_ids::source_path::ExpressionPathSegmentKind;
 pub use collection::{CollectionContract, CollectionOrder};
 pub use expression::ExpressionGrammar;
 pub use field::FieldContract;
-pub use identity::{IdentityBase, IdentityDecl, IdentityOwner, IdentitySpec};
+pub use identity::{IdentityBase, IdentityDecl, IdentityOwner, IdentitySource, IdentitySpec};
 pub use integer_range::IntegerRange;
 pub use reference::{ReferenceColumn, ReferenceContract, ReferenceNullPolicy};
 pub use result_selection::ResultSelectionRole;

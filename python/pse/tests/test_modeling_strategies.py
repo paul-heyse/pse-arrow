@@ -156,7 +156,7 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     assert (
         coordinate.value.quantity_type_id,
         coordinate.value.unit_id,
-    ) == primitive_quantity("Scalar")
+    ) == primitive_quantity(runtime, "Scalar")
     assert coordinate.coordinate_role.value == "original"
     assert coordinate.value.value == pytest.approx(
         4.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0

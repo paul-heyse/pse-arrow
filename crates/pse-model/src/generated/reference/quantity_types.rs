@@ -11,23 +11,23 @@
 )]
 pub struct ReferenceQuantityTypesRow {
     ///quantity_type_id
-    pub r#quantity_type_id: pse_ids::SemanticId,
+    pub r#quantity_type_id: crate::generated::identities::QuantityTypeId,
     ///name
     pub r#name: Option<String>,
     ///quantity_kind_id
-    pub r#quantity_kind_id: pse_ids::SemanticId,
+    pub r#quantity_kind_id: crate::generated::identities::QuantityKindId,
     ///basis_id
-    pub r#basis_id: Option<pse_ids::SemanticId>,
+    pub r#basis_id: Option<crate::generated::identities::BasisId>,
     ///reference_state_id
-    pub r#reference_state_id: Option<pse_ids::SemanticId>,
+    pub r#reference_state_id: Option<crate::generated::identities::ReferenceStateId>,
     ///scale_kind
     pub r#scale_kind: crate::generated::enums::ScaleKind,
     ///shape
     pub r#shape: Vec<pse_ids::SemanticId>,
     ///subject_kind
-    pub r#subject_kind: Option<pse_ids::SemanticId>,
+    pub r#subject_kind: Option<crate::generated::identities::EntityKindId>,
     ///canonical_unit_id
-    pub r#canonical_unit_id: pse_ids::SemanticId,
+    pub r#canonical_unit_id: crate::generated::identities::UnitId,
     ///nominal_magnitude
     pub r#nominal_magnitude: Option<f64>,
     ///doc

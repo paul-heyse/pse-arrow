@@ -103,6 +103,12 @@ class Result(Deployment):
     maximum_bytes: Annotated[int, Field(ge=4096, le=65536)] = 65536
 
 
+class PhysicalInspection(Contract):
+    physical: JsonValue
+    request: JsonValue
+    resources: Resources = Field(default_factory=Resources)
+
+
 class ResultInspection(Deployment):
     request: JsonValue
 
@@ -186,6 +192,7 @@ EXACT_READS = frozenset(
         "telemetry_profile_capture",
         "result_read",
         "result_inspect",
+        "physical_inspect",
         "model_declarations",
         "model_inspect",
         "model_compare",
@@ -417,6 +424,17 @@ BINDINGS = (
         "Read a bounded original run/attempt/relation row window through the protected native Arrow reader. Returns Arrow IPC stream bytes, preserving IEEE payloads, units and schema metadata. A detail bound asks for a narrower exact window; it never silently substitutes rows or attempts.",
         "projects",
         "Protected read of explicitly selected canonical results; no scientific execution or publication.",
+    ),
+    Binding(
+        "physical_inspect",
+        "Describe an admitted original physical context",
+        PhysicalInspection,
+        {"physical": "project-draft-documents", "request": "physical-inspection-request"},
+        "pse.PhysicalContext.describe",
+        "Admit the supplied physical document closure through the ordinary native owner and describe a bounded quantity or named reference-state page. Names, typed identities, exact dimension, basis, datum, subject and affine point/difference conversion come from that same Rust contract.",
+        "projects",
+        "Native physical admission and bounded observation; no canonical publication or scientific execution.",
+        "physical-inspection-document",
     ),
     Binding(
         "result_inspect",

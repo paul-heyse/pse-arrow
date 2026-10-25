@@ -912,6 +912,7 @@ def inventory(
                 "native_project_bundle_inspect",
                 "native_result_read",
                 "native_result_inspect",
+                "native_physical_inspect",
                 "native_research_read",
                 default=False,
             ),

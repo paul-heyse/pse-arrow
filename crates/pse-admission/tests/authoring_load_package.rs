@@ -59,9 +59,9 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
             .rows()
             .unwrap()
             .into_iter()
-            .find(|entity| entity.entity_id == constant.quantity_kind_id)
+            .find(|entity| entity.entity_id == constant.quantity_kind_id.as_id())
             .unwrap();
-    assert_eq!(entity.entity_id, constant.quantity_kind_id);
+    assert_eq!(entity.entity_id, constant.quantity_kind_id.as_id());
     assert_eq!(entity.qualified_name, "minimal.probe");
     let span = entity.source_span.unwrap();
     let document = explicit

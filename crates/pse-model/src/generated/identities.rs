@@ -12,6 +12,8 @@ pse_ids::semantic_id_newtype! {
     "One actual scientific attempt of a run, with its immutable generation and observations (entity identity `attempt`, ADR-0115)."]
     AttemptId : RegistrySemanticId
 }
+///A physical normalization basis (entity identity `basis`, ADR-0115).
+pub type BasisId = pse_quantity::BasisId;
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`, ADR-0115)."]
@@ -27,6 +29,8 @@ pse_ids::semantic_id_newtype! {
     "An explicitly declared engineering characteristic magnitude (entity identity `engineering_scale`, ADR-0115)."]
     EngineeringScaleId : RegistrySemanticId
 }
+///A physical subject or index kind (entity identity `entity_kind`, ADR-0115).
+pub type EntityKindId = pse_quantity::EntityKindId;
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One authored shared-parameter fit over its experiments (entity identity `fit`, ADR-0115)."]
@@ -41,6 +45,12 @@ pse_ids::semantic_id_newtype! {
     #[doc = "One authored package (entity identity `package`, ADR-0115)."] PackageId :
     RegistrySemanticId
 }
+///A physical quantity kind (entity identity `quantity_kind`, ADR-0115).
+pub type QuantityKindId = pse_quantity::QuantityKindId;
+///A complete physical quantity contract (entity identity `quantity_type`, ADR-0115).
+pub type QuantityTypeId = pse_quantity::QuantityTypeId;
+///A declared physical datum (entity identity `reference_state`, ADR-0115).
+pub type ReferenceStateId = pse_quantity::ReferenceStateId;
 pse_ids::semantic_id_newtype! {
     #[doc =
     "One immutable problem request, whose actual scientific executions are distinct attempts (entity identity `run`, ADR-0115)."]
@@ -56,6 +66,8 @@ pse_ids::semantic_id_newtype! {
     "One retained study coordinating distinct point occurrences (entity identity `study`, ADR-0115)."]
     StudyId : RegistrySemanticId
 }
+///A registered representation unit (entity identity `unit`, ADR-0115).
+pub type UnitId = pse_quantity::UnitId;
 impl crate::SemanticEq for AccuracyGoalId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -82,6 +94,21 @@ impl crate::HeapUsage for AttemptId {
     }
 }
 impl crate::SemanticFrame for AttemptId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for BasisId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for BasisId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for BasisId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
@@ -131,6 +158,21 @@ impl crate::SemanticFrame for EngineeringScaleId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::SemanticEq for EntityKindId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for EntityKindId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for EntityKindId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
 impl crate::SemanticEq for FitId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -172,6 +214,51 @@ impl crate::HeapUsage for PackageId {
     }
 }
 impl crate::SemanticFrame for PackageId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for QuantityKindId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for QuantityKindId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for QuantityKindId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for QuantityTypeId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for QuantityTypeId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for QuantityTypeId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for ReferenceStateId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for ReferenceStateId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ReferenceStateId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
@@ -221,11 +308,28 @@ impl crate::SemanticFrame for StudyId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::SemanticEq for UnitId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for UnitId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for UnitId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
 /// Visit each registry role backed by a semantic identity.
 #[macro_export]
 macro_rules! for_each_semantic_identity {
     ($callback:ident) => {
-        $callback ! (AccuracyGoalId, AttemptId, DeclarationId, EngineeringRuleId,
-        EngineeringScaleId, FitId, InstanceId, PackageId, RunId, SolutionId, StudyId);
+        $callback ! (AccuracyGoalId, AttemptId, BasisId, DeclarationId,
+        EngineeringRuleId, EngineeringScaleId, EntityKindId, FitId, InstanceId,
+        PackageId, QuantityKindId, QuantityTypeId, ReferenceStateId, RunId, SolutionId,
+        StudyId, UnitId);
     };
 }

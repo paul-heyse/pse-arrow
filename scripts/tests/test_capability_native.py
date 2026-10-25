@@ -622,6 +622,17 @@ class NativeSchemaTests(unittest.TestCase):
         Draft202012Validator(output).validate(refusal.model_dump(mode="json"))
         self.assertNotIn("result", output["properties"])
 
+    def test_physical_inspection_registration_is_the_native_physical_owner(self) -> None:
+        tool = self.tools["native_physical_inspect"]
+        facts = object_value(at(tool.meta, "pse.native"))
+        self.assertEqual(facts["receiver"], "pse.PhysicalContext.describe")
+        self.assertEqual(at(facts, "contracts", "request", "slug"), "physical-inspection-request")
+        self.assertEqual(at(facts, "contracts", "output_document", "direction"), "output")
+        self.assertIn("physical_inspect", native_contracts.EXACT_READS)
+        self.assertEqual(native_contracts.PhysicalInspection.model_fields["request"].annotation, JsonValue)
+        Draft202012Validator.check_schema(tool.parameters)
+        self.assertIsNotNone(tool.output_schema)
+
     def test_inspection_generated_request_and_actual_composed_output_contract(
         self,
     ) -> None:

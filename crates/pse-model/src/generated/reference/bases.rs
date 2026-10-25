@@ -11,7 +11,7 @@
 )]
 pub struct ReferenceBasesRow {
     ///basis_id
-    pub r#basis_id: pse_ids::SemanticId,
+    pub r#basis_id: crate::generated::identities::BasisId,
     ///kind
     pub r#kind: crate::generated::enums::BasisKind,
     ///composition_basis
@@ -19,7 +19,9 @@ pub struct ReferenceBasesRow {
     ///rate_basis
     pub r#rate_basis: Option<crate::generated::enums::RateBasis>,
     ///reference_conditions_id
-    pub r#reference_conditions_id: Option<pse_ids::SemanticId>,
+    pub r#reference_conditions_id: Option<
+        crate::generated::identities::ReferenceStateId,
+    >,
 }
 impl crate::SemanticEq for ReferenceBasesRow {
     fn semantic_eq(&self, other: &Self) -> bool {

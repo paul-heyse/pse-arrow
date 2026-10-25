@@ -221,7 +221,126 @@
         }
       ]
     },
-    "ResultInspectionBasis": {
+    "PhysicalInspectionQueryOutput": {
+      "description": "Physical names are package-declared names, never global aliases.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "All quantities in the selected context, paged without cloning its inventory.",
+          "properties": {
+            "kind": {
+              "const": "quantities",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One exact quantity and optionally its admitted representation conversion.",
+          "properties": {
+            "id": {
+              "description": "Complete physical quantity identity.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "QuantityTypeId"
+            },
+            "kind": {
+              "const": "quantity",
+              "type": "string"
+            },
+            "unit": {
+              "description": "Representation unit; absent selects the canonical unit.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": [
+                "string",
+                "null"
+              ],
+              "x-pse-identity": "UnitId"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "unit"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One exact declared quantity name.",
+          "properties": {
+            "kind": {
+              "const": "quantity_named",
+              "type": "string"
+            },
+            "name": {
+              "description": "Declared physical-document name, case sensitive.",
+              "maxLength": 1024,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "One exact declared reference-state name.",
+          "properties": {
+            "kind": {
+              "const": "reference_state_named",
+              "type": "string"
+            },
+            "name": {
+              "description": "Declared physical-document name, case sensitive.",
+              "maxLength": 1024,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PhysicalInspectionRequestBodyOutput": {
+      "additionalProperties": false,
+      "description": "A bounded query against one immutable physical context.",
+      "properties": {
+        "limit": {
+          "description": "One through sixteen declarations; encoded output is at most 64 KiB.",
+          "format": "uint",
+          "maximum": 16,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Original declaration offset in semantic identity order.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "query": {
+          "$ref": "#/$defs/PhysicalInspectionQueryOutput",
+          "description": "Exact declared identity/name selection."
+        }
+      },
+      "required": [
+        "query",
+        "offset",
+        "limit"
+      ],
+      "type": "object"
+    },
+    "ResultInspectionBasisOutput": {
       "additionalProperties": false,
       "description": "Immutable request coordinates retained across pages.",
       "properties": {
@@ -250,7 +369,7 @@
           "type": "integer"
         },
         "view": {
-          "$ref": "#/$defs/ResultInspectionView",
+          "$ref": "#/$defs/ResultInspectionViewOutput",
           "description": "Original view/path/page allowance, unchanged by continuation."
         }
       },
@@ -269,7 +388,7 @@
       "description": "Store/selection-bound continuation; each call reacquires original protection.",
       "properties": {
         "basis": {
-          "$ref": "#/$defs/ResultInspectionBasis",
+          "$ref": "#/$defs/ResultInspectionBasisOutput",
           "description": "Original request identity."
         },
         "issuing_store": {
@@ -279,6 +398,10 @@
         "manifest": {
           "description": "Exact closure digest.",
           "type": "string"
+        },
+        "physical": {
+          "$ref": "#/$defs/ResultPhysicalContext",
+          "description": "Original physical context and exact closure availability."
         },
         "position": {
           "description": "Next original row or descriptor/metadata position.",
@@ -301,11 +424,12 @@
         "manifest",
         "schema_fingerprint",
         "basis",
+        "physical",
         "position"
       ],
       "type": "object"
     },
-    "ResultInspectionView": {
+    "ResultInspectionViewOutput": {
       "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
       "oneOf": [
         {
@@ -404,6 +528,25 @@
         },
         {
           "additionalProperties": false,
+          "description": "Read a finite physical declaration page from the original retained context.",
+          "properties": {
+            "kind": {
+              "const": "physical",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/PhysicalInspectionRequestBodyOutput",
+              "description": "Same physical-owner query used by direct Python and MCP inspection."
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
           "description": "Read selected original scalar fields together with all declared non-value context.",
           "properties": {
             "fields": {
@@ -428,6 +571,56 @@
             "kind",
             "fields",
             "maximum_rows"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ResultPhysicalContext": {
+      "description": "Original-context locator state, also bound into every immutable continuation.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Original rows were protected and admitted through the physical owner.",
+          "properties": {
+            "closure": {
+              "description": "Exact retained revision closure digest.",
+              "type": "string"
+            },
+            "identity": {
+              "description": "Original full physical context identity.",
+              "pattern": "^blake3:[0-9a-fA-F]{64}$",
+              "type": "string",
+              "x-pse-identity": "ContentHash"
+            },
+            "kind": {
+              "const": "available",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "identity",
+            "closure"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original closure cannot supply readable physical meaning; raw result values remain readable.",
+          "properties": {
+            "kind": {
+              "const": "unavailable",
+              "type": "string"
+            },
+            "reason": {
+              "description": "Explicit original-closure failure; no alternate context was consulted.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "reason"
           ],
           "type": "object"
         }
@@ -515,7 +708,7 @@
       "type": "integer"
     },
     "view": {
-      "$ref": "#/$defs/ResultInspectionView",
+      "$ref": "#/$defs/ResultInspectionViewOutput",
       "description": "Bounded schema page or readable scalar selection."
     }
   },

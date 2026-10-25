@@ -44,7 +44,7 @@ pub struct ReferenceQuantityOperationsRow {
     ///input_kind_ids
     pub r#input_kind_ids: Vec<pse_ids::SemanticId>,
     ///result_kind_id
-    pub r#result_kind_id: pse_ids::SemanticId,
+    pub r#result_kind_id: crate::generated::identities::QuantityKindId,
     ///basis_rule
     pub r#basis_rule: crate::generated::enums::BasisRule,
     ///reference_rule

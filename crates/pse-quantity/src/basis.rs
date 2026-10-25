@@ -4,11 +4,13 @@
 //! Basis declarations (blueprint §6.2, §8.4).
 use crate::{BasisId, BasisKind, CompositionBasis, RateBasis, ReferenceStateId};
 /// A declared material or specific-quantity basis.
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 #[expect(
     clippy::struct_field_names,
     reason = "fields retain the reference.bases contract names"
 )]
+#[schemars(rename = "PhysicalBasis")]
+#[schemars(deny_unknown_fields)]
 pub struct Basis {
     /// Registry identity.
     pub id: BasisId,

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    145u8, 28u8, 63u8, 163u8, 21u8, 24u8, 205u8, 195u8, 203u8, 26u8, 210u8, 68u8, 139u8,
-    248u8, 99u8, 151u8, 116u8, 128u8, 247u8, 254u8, 96u8, 249u8, 96u8, 239u8, 17u8, 1u8,
-    117u8, 202u8, 185u8, 206u8, 174u8, 72u8,
+    212u8, 209u8, 238u8, 233u8, 151u8, 99u8, 118u8, 160u8, 43u8, 176u8, 59u8, 181u8,
+    58u8, 24u8, 17u8, 123u8, 86u8, 239u8, 210u8, 52u8, 100u8, 169u8, 232u8, 205u8, 171u8,
+    184u8, 139u8, 18u8, 10u8, 205u8, 197u8, 192u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceBasesRow {
     fn append(
@@ -59,7 +59,7 @@ impl crate::columnar::ArrowValue for ReferenceBasesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::BasisId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <crate::generated::enums::BasisKind as crate::columnar::ArrowValue>::append_null(
@@ -72,7 +72,7 @@ impl crate::columnar::ArrowValue for ReferenceBasesRow {
             crate::generated::enums::RateBasis,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::ReferenceStateId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -84,7 +84,7 @@ impl crate::columnar::ArrowValue for ReferenceBasesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#basis_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#basis_id: <crate::generated::identities::BasisId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -105,7 +105,7 @@ impl crate::columnar::ArrowValue for ReferenceBasesRow {
                 index,
             )?,
             r#reference_conditions_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::ReferenceStateId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,

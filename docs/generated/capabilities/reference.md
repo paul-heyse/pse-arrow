@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `9f1439a52d521191329f5582cb5e902e927bd25c9d98ecfe21baec88c0ab4b1e`.
+Catalogue content revision: `6b5874ddfe48e331c02a2cf99a3b0e9bf1cd296e38372448f5ad2a63ce97af48`.
 
 ## Domains
 
@@ -497,6 +497,7 @@ Catalogue content revision: `9f1439a52d521191329f5582cb5e902e927bd25c9d98ecfe21b
         "native_project_bundle_inspect",
         "native_result_read",
         "native_result_inspect",
+        "native_physical_inspect",
         "native_research_read"
       ],
       "default": false,
@@ -8823,7 +8824,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: knowledge :: KnowledgeExplain",
           "schema_path": "docs/generated/schema/knowledge-explain.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "0cd7a52238a3e1360dae8c5d7132cfb508a6a61edb28b96b7253161c9b73d6d5",
           "slug": "knowledge-explain",
           "version": 1,
@@ -8836,7 +8837,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: knowledge :: KnowledgeQuery",
           "schema_path": "docs/generated/schema/knowledge-query.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "eca060d2aa45dac8c078c526203186b72dd05ada57501a159648e450855bb22a",
           "slug": "knowledge-query",
           "version": 1,
@@ -8951,7 +8952,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:knowledge-query:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:knowledge-query:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
@@ -9117,7 +9118,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
     "description": "Host routing only; the request body is declared and decoded by Rust.",
     "properties": {
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:knowledge-query:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:knowledge-query:input"
       },
       "state": {
         "anyOf": [
@@ -9411,7 +9412,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: knowledge :: KnowledgePage",
           "schema_path": "docs/generated/schema/knowledge-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "b94d8f8443e2bf5d79c77e1c0e0c0b56d83ad03adcdd6ecb84e85d050ca6b96a",
           "slug": "knowledge-page",
           "version": 1,
@@ -9424,7 +9425,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: knowledge :: KnowledgeQuery",
           "schema_path": "docs/generated/schema/knowledge-query.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "eca060d2aa45dac8c078c526203186b72dd05ada57501a159648e450855bb22a",
           "slug": "knowledge-query",
           "version": 1,
@@ -9539,7 +9540,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:knowledge-query:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:knowledge-query:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
@@ -9705,7 +9706,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
     "description": "Host routing only; the request body is declared and decoded by Rust.",
     "properties": {
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:knowledge-query:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:knowledge-query:input"
       },
       "state": {
         "anyOf": [
@@ -11378,7 +11379,7 @@ Exact callable component key: `tool:native_contract_schema@`. The following is t
         "direction": null,
         "slug": "authoring"
       },
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -11534,7 +11535,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: CheckpointIdentity",
           "schema_path": "docs/generated/schema/checkpoint-identity.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "6af9026242d01a555d7fa4f3e196d18d8506831851b2c953c55e886419f58e0d",
           "slug": "checkpoint-identity",
           "version": 1,
@@ -11547,7 +11548,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: ProcessCheckpoint",
           "schema_path": "docs/generated/schema/process-checkpoint.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "a2f6d6708b571a01d5f44c6ca7fd7582c7940bcc7a835284c5d0b7faf30c287a",
           "slug": "process-checkpoint",
           "version": 6,
@@ -11555,7 +11556,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
         }
       },
       "receiver": "pse.diagnostics.read_checkpoint",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -11604,7 +11605,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:checkpoint-identity:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:checkpoint-identity:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact diagnostic association supplied by the registered receiver, never stop authority.",
@@ -11643,7 +11644,7 @@ Exact callable component key: `tool:native_diagnostic_checkpoint@`. The followin
       "expected": {
         "anyOf": [
           {
-            "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:checkpoint-identity:input"
+            "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:checkpoint-identity:input"
           },
           {
             "type": "null"
@@ -13941,7 +13942,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionDocument",
           "schema_path": "docs/generated/schema/inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "0d3dd2835f79a88584e80b3215991c5a3a69606f8adbbcb9ba30e8314453674e",
           "slug": "inspection-document",
           "version": 4,
@@ -13954,7 +13955,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: InspectionRequest",
           "schema_path": "docs/generated/schema/inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "d9b91fb3481af8a0396509f645a33d50752ac2577c6a6b3dc701356dab55d16a",
           "slug": "inspection-request",
           "version": 2,
@@ -13962,7 +13963,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         }
       },
       "receiver": "pse.diagnostics.inspect_checkpoint",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -14096,7 +14097,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:inspection-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Request for copied diagnostics only; it cannot request scientific work or result admission.",
@@ -14161,7 +14162,7 @@ Exact callable component key: `tool:native_diagnostic_inspect@`. The following i
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:inspection-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:inspection-request:input"
       }
     },
     "required": [
@@ -16595,7 +16596,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticProcessPage",
           "schema_path": "docs/generated/schema/diagnostic-process-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "a57461a610f58d030ee3411ff0d4d273e74bd385866dec8ff722062369e23c5a",
           "slug": "diagnostic-process-page",
           "version": 2,
@@ -16608,7 +16609,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: inspection :: DiagnosticListRequest",
           "schema_path": "docs/generated/schema/diagnostic-list-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "e53fe554306a8e3a6e49e8aece0ee18c0d1964913e7bd75735f78cab78cdcda5",
           "slug": "diagnostic-list-request",
           "version": 1,
@@ -16616,7 +16617,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
         }
       },
       "receiver": "pse.diagnostics.list_processes",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -16631,7 +16632,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
       "JsonValue": {},
       "diagnostic-list-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:diagnostic-list-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:diagnostic-list-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Discovery request; only matching page images are decoded, never scientific store members.",
@@ -16680,7 +16681,7 @@ Exact callable component key: `tool:native_diagnostic_processes@`. The following
         "title": "Directory"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:diagnostic-list-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:diagnostic-list-request:input"
       }
     },
     "required": [
@@ -17692,7 +17693,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: evidence_query :: EvidenceComparison",
           "schema_path": "docs/generated/schema/evidence-comparison.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "b899f1ecbabf5957eca7ea2105c23bc3699e60384815f768d4dc807257ca9184",
           "slug": "evidence-comparison",
           "version": 1,
@@ -17705,7 +17706,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: evidence_query :: EvidenceComparisonRequest",
           "schema_path": "docs/generated/schema/evidence-comparison-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "c04e4f836adee3441520f8c73566941e182b5d252aa98de996b4b884754edcfc",
           "slug": "evidence-comparison-request",
           "version": 1,
@@ -17718,7 +17719,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: evidence :: EvidenceSnapshot",
           "schema_path": "docs/generated/schema/evidence-snapshot.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "173b19090caa73b22ce73089931a7d1aae0ec4bc1955cd77e1ee50305271b7ac",
           "slug": "evidence-snapshot",
           "version": null,
@@ -17726,7 +17727,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.compare_evidence",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -17880,7 +17881,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:evidence-comparison-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:evidence-comparison-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Finite native request. Both sides and every mapping remain explicit.",
@@ -18046,7 +18047,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:evidence-snapshot:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:evidence-snapshot:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Frozen owner adapter output. Partial source coverage is not a complete test population.",
@@ -18118,11 +18119,11 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         "type": "array"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:evidence-comparison-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:evidence-comparison-request:input"
       },
       "snapshots": {
         "items": {
-          "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:evidence-snapshot:input"
+          "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:evidence-snapshot:input"
         },
         "maxItems": 64,
         "minItems": 1,
@@ -19431,7 +19432,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionDocument",
           "schema_path": "docs/generated/schema/frozen-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "4070de8de1055badf6b24453186c03c208d2b2006921c83e3d36cb90ea1c2f49",
           "slug": "frozen-inspection-document",
           "version": 1,
@@ -19444,7 +19445,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: frozen_inspection :: FrozenInspectionRequest",
           "schema_path": "docs/generated/schema/frozen-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "a9bdc3183ed66ba9252fe3d4586d8b8b21dfeb0607c99fd7df04ef9a51a3ef68",
           "slug": "frozen-inspection-request",
           "version": 1,
@@ -19452,7 +19453,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         }
       },
       "receiver": "pse.diagnostics.read_evidence + inspect_frozen",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -19701,7 +19702,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
             ]
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:frozen-inspection-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:frozen-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit immutable read request, independent of a checkpoint's original filesystem location.",
@@ -19741,7 +19742,7 @@ Exact callable component key: `tool:native_evidence_inspect@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:frozen-inspection-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:frozen-inspection-request:input"
       }
     },
     "required": [
@@ -19875,7 +19876,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: invocation :: InvocationEvidenceDocument",
           "schema_path": "docs/generated/schema/invocation-evidence.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "513b0d130552259de59f3ab1575423c5b4b56cd3123ee249df6e93aabf2285b8",
           "slug": "invocation-evidence",
           "version": 2,
@@ -19883,7 +19884,7 @@ Exact callable component key: `tool:native_invocation_read@`. The following is t
         }
       },
       "receiver": "pse.diagnostics.read_invocation",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -20033,7 +20034,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -20046,7 +20047,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -20059,7 +20060,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -20072,7 +20073,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ModelingComparisonObservation",
           "schema_path": "docs/generated/schema/modeling-comparison-observation.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "2af7e5da958f28492698dd6ac211914157b2abfbbc8ee404a8f5a3491d1cd6d7",
           "slug": "modeling-comparison-observation",
           "version": 1,
@@ -20085,7 +20086,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -20098,7 +20099,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ModelingComparisonRequest",
           "schema_path": "docs/generated/schema/modeling-comparison-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "a54720697baed211d4ca38795543330e40832f00d11e3e12bd96b70a1b6917a5",
           "slug": "modeling-comparison-request",
           "version": 1,
@@ -20106,7 +20107,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
         }
       },
       "receiver": "pse.ModelingPackage.comparison_observation",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -20147,7 +20148,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
       },
       "modeling-comparison-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:modeling-comparison-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:modeling-comparison-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Finite comparison and selected original details, under explicit physical-context semantics.",
@@ -20202,7 +20203,7 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -20242,19 +20243,19 @@ Exact callable component key: `tool:native_model_compare@`. The following is the
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "other_documents": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "other_physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:modeling-comparison-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:modeling-comparison-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -26869,7 +26870,7 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -26882,7 +26883,7 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ModelingDeclarationPage",
           "schema_path": "docs/generated/schema/modeling-declaration-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "6363d661b0f133c9b819ac598757a974a6c1da479ce5caa39f4418d0137445a3",
           "slug": "modeling-declaration-page",
           "version": 1,
@@ -26895,7 +26896,7 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -26908,7 +26909,7 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ModelingDeclarationRequest",
           "schema_path": "docs/generated/schema/modeling-declaration-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "f3e1f33c9906197803aa11ade693df2aab190f7edebddcb0338a941c4b78f511",
           "slug": "modeling-declaration-request",
           "version": 1,
@@ -26916,7 +26917,7 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
         }
       },
       "receiver": "pse.ModelingPackage.declaration_page",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -26957,7 +26958,7 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
       },
       "modeling-declaration-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:modeling-declaration-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:modeling-declaration-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Finite original declaration inventory selection.",
@@ -26990,7 +26991,7 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -27030,13 +27031,13 @@ Exact callable component key: `tool:native_model_declarations@`. The following i
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:modeling-declaration-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:modeling-declaration-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -33241,7 +33242,7 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -33254,7 +33255,7 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ModelingInspection",
           "schema_path": "docs/generated/schema/modeling-inspection.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "7eb32c5f50ee5c0dbb40c8432a91f72c26119fb179a89760289bddc645e1e5a5",
           "slug": "modeling-inspection",
           "version": 1,
@@ -33267,7 +33268,7 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -33280,7 +33281,7 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ModelingInspectionRequest",
           "schema_path": "docs/generated/schema/modeling-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "b594f0b7365edc6c861c31a2f05fe6f24fb0127ebda52cf939dbec2c47f9ed0b",
           "slug": "modeling-inspection-request",
           "version": 1,
@@ -33288,7 +33289,7 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
         }
       },
       "receiver": "pse.ModelingPackage.inspect",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -36990,7 +36991,7 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:modeling-inspection-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:modeling-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Finite selection of an admitted model observation, with explicit preparation policy.\nThe schema example's declaration identity is illustrative, not a runtime admission claim.",
@@ -37136,7 +37137,7 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -37176,13 +37177,13 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:modeling-inspection-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:modeling-inspection-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -38179,6 +38180,1220 @@ Exact callable component key: `tool:native_model_inspect@`. The following is the
 
 - Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
 
+### `native_physical_inspect` — Describe an admitted original physical context
+
+Exposure: **tool**. Owner: `pse.PhysicalContext.describe`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
+
+```json
+{
+  "description": "Admit the supplied physical document closure through the ordinary native owner and describe a bounded quantity or named reference-state page. Names, typed identities, exact dimension, basis, datum, subject and affine point/difference conversion come from that same Rust contract.",
+  "domain": "projects",
+  "effects": "Native physical admission and bounded observation; no canonical publication or scientific execution.",
+  "exposure": "tool",
+  "family": "projects-revisions",
+  "guides": [
+    "root",
+    "tooling"
+  ],
+  "id": "native_physical_inspect",
+  "invocation_lifetime": "single",
+  "owner": "pse.PhysicalContext.describe",
+  "prerequisites": [
+    "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers."
+  ],
+  "reason": "",
+  "requirements": [
+    {
+      "kind": "python-extension",
+      "mode": "native",
+      "owner": "scripts/python_extension.py",
+      "preparation": [
+        "python_extension_native_stage"
+      ],
+      "provider": null,
+      "validated": true
+    }
+  ],
+  "route": [],
+  "source": "scripts/capabilities/native.py",
+  "title": "Describe an admitted original physical context",
+  "work_owner": null,
+  "worker_calls": [
+    {
+      "lifetime": "detached",
+      "operation": "physical_inspect",
+      "worker": "native"
+    }
+  ],
+  "workflows": [
+    "manage-project"
+  ]
+}
+```
+
+Exact callable component key: `tool:native_physical_inspect@`. The following is the registered MCP definition, including input/output schemas, required fields, defaults, annotations and native contract identities.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "capability:native_physical_inspect",
+        "domain:projects",
+        "family:projects-revisions",
+        "workflow:manage-project"
+      ]
+    },
+    "pse.invocation_lifetime": "single",
+    "pse.native": {
+      "authoring_guidance": {
+        "path": "docs/generated/schema/authoring.schema.json",
+        "scope": "Applicable authored source sections only; native original-byte loaders own admission."
+      },
+      "contracts": {
+        "output_document": {
+          "direction": "output",
+          "exported_name": "PhysicalInspectionDocument",
+          "name": "PhysicalInspectionDocument",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: PhysicalInspectionDocument",
+          "schema_path": "docs/generated/schema/physical-inspection-document.output.schema.json",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "f2ebd7de3478c02806a49ed35e775c9958b4eadddcbdb63ed00b1a59525ac0a8",
+          "slug": "physical-inspection-document",
+          "version": 1,
+          "wire": "FlatV1"
+        },
+        "physical": {
+          "direction": "input",
+          "exported_name": "ProjectDraftDocuments",
+          "name": "ProjectDraftDocuments",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
+          "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
+          "slug": "project-draft-documents",
+          "version": 1,
+          "wire": "Native"
+        },
+        "request": {
+          "direction": "input",
+          "exported_name": "PhysicalInspectionRequest",
+          "name": "PhysicalInspectionRequest",
+          "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+          "rust_type": "pse_runtime :: workflow :: PhysicalInspectionRequest",
+          "schema_path": "docs/generated/schema/physical-inspection-request.input.schema.json",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "597a178daad0615061f50ff79a825e247fddc6651b434e9fe5eaa500f08db55c",
+          "slug": "physical-inspection-request",
+          "version": 1,
+          "wire": "FlatV1"
+        }
+      },
+      "receiver": "pse.PhysicalContext.describe",
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": false,
+    "readOnlyHint": true
+  },
+  "description": "Admit the supplied physical document closure through the ordinary native owner and describe a bounded quantity or named reference-state page. Names, typed identities, exact dimension, basis, datum, subject and affine point/difference conversion come from that same Rust contract.",
+  "inputSchema": {
+    "$defs": {
+      "JsonValue": {},
+      "Resources": {
+        "additionalProperties": false,
+        "properties": {
+          "max_spill_bytes": {
+            "default": 1073741824,
+            "minimum": 1,
+            "title": "Max Spill Bytes",
+            "type": "integer"
+          },
+          "memory_limit_bytes": {
+            "default": 17179869184,
+            "minimum": 1,
+            "title": "Memory Limit Bytes",
+            "type": "integer"
+          },
+          "threads": {
+            "default": 16,
+            "maximum": 16,
+            "minimum": 1,
+            "title": "Threads",
+            "type": "integer"
+          }
+        },
+        "title": "Resources",
+        "type": "object"
+      },
+      "physical-inspection-request": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$defs": {
+          "PhysicalInspectionQuery": {
+            "description": "Physical names are package-declared names, never global aliases.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "All quantities in the selected context, paged without cloning its inventory.",
+                "properties": {
+                  "kind": {
+                    "const": "quantities",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One exact quantity and optionally its admitted representation conversion.",
+                "properties": {
+                  "id": {
+                    "description": "Complete physical quantity identity.",
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "type": "string",
+                    "x-pse-identity": "QuantityTypeId"
+                  },
+                  "kind": {
+                    "const": "quantity",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "description": "Representation unit; absent selects the canonical unit.",
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "x-pse-identity": "UnitId"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One exact declared quantity name.",
+                "properties": {
+                  "kind": {
+                    "const": "quantity_named",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Declared physical-document name, case sensitive.",
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One exact declared reference-state name.",
+                "properties": {
+                  "kind": {
+                    "const": "reference_state_named",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Declared physical-document name, case sensitive.",
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:physical-inspection-request:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "A bounded query against one immutable physical context.",
+        "properties": {
+          "document_version": {
+            "const": 1,
+            "default": 1,
+            "type": "integer"
+          },
+          "limit": {
+            "description": "One through sixteen declarations; encoded output is at most 64 KiB.",
+            "format": "uint",
+            "maximum": 16,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Original declaration offset in semantic identity order.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "query": {
+            "$ref": "#/$defs/PhysicalInspectionQuery",
+            "description": "Exact declared identity/name selection."
+          }
+        },
+        "required": [
+          "query",
+          "offset",
+          "limit",
+          "document_version"
+        ],
+        "title": "PhysicalInspectionRequest",
+        "type": "object"
+      },
+      "project-draft-documents": {
+        "$comment": "@generated by pse-schema; do not edit",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
+        "properties": {
+          "packages": {
+            "description": "Complete packages in original package order, with original relative paths/bytes.",
+            "items": {
+              "additionalProperties": {
+                "items": {
+                  "format": "uint8",
+                  "maximum": 255,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "version": {
+            "const": 1,
+            "default": 1,
+            "description": "This explicit original-byte container's version.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "packages"
+        ],
+        "title": "ProjectDraftDocuments",
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "additionalProperties": false,
+    "properties": {
+      "physical": {
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
+      },
+      "request": {
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:physical-inspection-request:input"
+      },
+      "resources": {
+        "$ref": "#/$defs/Resources"
+      }
+    },
+    "required": [
+      "physical",
+      "request"
+    ],
+    "title": "PhysicalInspection",
+    "type": "object"
+  },
+  "name": "native_physical_inspect",
+  "outputSchema": {
+    "$defs": {
+      "BasisKind": {
+        "enum": [
+          "molar",
+          "mass",
+          "volume",
+          "energy",
+          "standard_volume",
+          "dimensionless"
+        ],
+        "type": "string"
+      },
+      "CompositionBasis": {
+        "enum": [
+          "mole_fraction",
+          "mass_fraction",
+          "volume_fraction",
+          "molality",
+          "molarity"
+        ],
+        "type": "string"
+      },
+      "DimensionVector": {
+        "description": "Rational exponents over the eight base dimensions (blueprint §4.4, §8.1).\n\nThe slots are indexed by [`BaseDimension`] and stored in its ordinal order, which is\nalso the order of the `FixedSizeList<Struct<num, den>, 8>` storage of\n`pse.dimension_vector`.\n\nDimension arithmetic is *not* physical typing: `dimensionless` is the dimension of a\nmole fraction and of a Reynolds number alike, and two quantities with the same\ndimension vector may still be incompatible (§8.1). This type answers only the\ndimensional half; the complete answer is a `QuantityType`.\n\n```\nuse pse_quantity::{BaseDimension, DimensionVector, Ratio};\n\nlet velocity = DimensionVector::base(BaseDimension::Length)\n    .div(&DimensionVector::base(BaseDimension::Time))?;\nassert_eq!(velocity.exponent(BaseDimension::Length), Ratio::ONE);\nassert_eq!(velocity.to_string(), \"L·T^-1\");\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+        "items": {
+          "$ref": "#/$defs/Ratio"
+        },
+        "maxItems": 8,
+        "minItems": 8,
+        "type": "array"
+      },
+      "KindDefinition": {
+        "additionalProperties": false,
+        "description": "What a derived kind is (ADR-0124): a monomial of other kinds, its declared canonical\nunit, and the complete result a multiplicative chain resolving to it takes. Kinds are\ndeclared, never synthesized.",
+        "properties": {
+          "basis": {
+            "description": "Declared result basis. Without one, every basis-carrying chain factor must agree.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "BasisId"
+          },
+          "canonical_unit": {
+            "description": "The canonical unit every quantity type of this kind stores in.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "monomial": {
+            "description": "Factors over declared kinds; admission expands derived factors, so the admitted\nmonomial is over base kinds in identity order.",
+            "items": {
+              "$ref": "#/$defs/KindFactor"
+            },
+            "type": "array"
+          },
+          "reference_state": {
+            "description": "Declared result datum.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "scale_kind": {
+            "$ref": "#/$defs/ScaleKind",
+            "description": "Declared result scale."
+          },
+          "subject_kind": {
+            "description": "Declared result subject.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "EntityKindId"
+          }
+        },
+        "required": [
+          "monomial",
+          "canonical_unit",
+          "basis",
+          "reference_state",
+          "scale_kind",
+          "subject_kind"
+        ],
+        "type": "object"
+      },
+      "KindFactor": {
+        "additionalProperties": false,
+        "description": "One factor of a kind monomial: a kind and its nonzero rational exponent.",
+        "properties": {
+          "exponent": {
+            "$ref": "#/$defs/Ratio",
+            "description": "Its nonzero rational exponent."
+          },
+          "kind": {
+            "description": "The factor kind.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityKindId"
+          }
+        },
+        "required": [
+          "kind",
+          "exponent"
+        ],
+        "type": "object"
+      },
+      "PhysicalBasis": {
+        "additionalProperties": false,
+        "description": "A declared material or specific-quantity basis.",
+        "properties": {
+          "composition_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CompositionBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional composition convention."
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "BasisId"
+          },
+          "kind": {
+            "$ref": "#/$defs/BasisKind",
+            "description": "What this quantity is per."
+          },
+          "rate_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RateBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional rate convention."
+          },
+          "reference_conditions": {
+            "description": "Conditions required for a standard-volume basis.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "composition_basis",
+          "rate_basis",
+          "reference_conditions"
+        ],
+        "type": "object"
+      },
+      "PhysicalEntityKind": {
+        "additionalProperties": false,
+        "description": "A declared kind used as a physical axis or subject.",
+        "properties": {
+          "id": {
+            "description": "Stable authored identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "EntityKindId"
+          },
+          "name": {
+            "description": "Qualified inspection name; identity comparisons use `id`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "PhysicalQuantityDescription": {
+        "additionalProperties": false,
+        "description": "Original selected quantity and its complete physical interpretation.",
+        "properties": {
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PhysicalBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact original basis and its composition/rate/reference conventions."
+          },
+          "basis_reference_state": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual reference conditions required by a standard-volume or similar basis."
+          },
+          "canonical_unit": {
+            "$ref": "#/$defs/Unit",
+            "description": "Original canonical representation."
+          },
+          "offset_to_canonical": {
+            "description": "Admitted conversion offset; difference quantities retain zero here.",
+            "format": "double",
+            "type": "number"
+          },
+          "quantity": {
+            "$ref": "#/$defs/QuantityType",
+            "description": "Exact original type including basis, datum, scale, shape and subject."
+          },
+          "quantity_kind": {
+            "$ref": "#/$defs/QuantityKind",
+            "description": "What is measured, including exact rational dimension and arithmetic convention."
+          },
+          "reference_state": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact original datum, including typed reference conditions."
+          },
+          "representation_unit": {
+            "$ref": "#/$defs/Unit",
+            "description": "Selected representation; raw result values are never changed by inspection."
+          },
+          "scale_to_canonical": {
+            "description": "Admitted conversion multiplier to canonical magnitude.",
+            "format": "double",
+            "type": "number"
+          },
+          "shape": {
+            "description": "Declared ordered axis kinds.",
+            "items": {
+              "$ref": "#/$defs/PhysicalEntityKind"
+            },
+            "type": "array"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PhysicalEntityKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Declared subject kind."
+          }
+        },
+        "required": [
+          "quantity",
+          "quantity_kind",
+          "canonical_unit",
+          "representation_unit",
+          "scale_to_canonical",
+          "offset_to_canonical",
+          "basis",
+          "basis_reference_state",
+          "reference_state",
+          "shape",
+          "subject"
+        ],
+        "type": "object"
+      },
+      "QuantityAdditionKind": {
+        "enum": [
+          "additive",
+          "origin_sensitive"
+        ],
+        "type": "string"
+      },
+      "QuantityKind": {
+        "additionalProperties": false,
+        "description": "What is measured, independent of basis and datum.",
+        "properties": {
+          "addition_kind": {
+            "$ref": "#/$defs/QuantityAdditionKind",
+            "description": "Additive or origin-sensitive arithmetic."
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/QuantityKindCategory"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Discrete category of a dimensionless pure-number kind; `None` for a measured kind."
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KindDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`None` for a base kind; a derived kind's declaration, its monomial expanded to\ncanonical base-kind factors at admission."
+          },
+          "dimension": {
+            "$ref": "#/$defs/DimensionVector",
+            "description": "SI exponents; this alone never resolves a physical type. A derived kind's\ndimension is derived from its monomial at admission."
+          },
+          "extensive": {
+            "description": "Whether values scale with system size.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityKindId"
+          }
+        },
+        "required": [
+          "id",
+          "dimension",
+          "extensive",
+          "addition_kind",
+          "category",
+          "definition"
+        ],
+        "type": "object"
+      },
+      "QuantityKindCategory": {
+        "enum": [
+          "count",
+          "indicator"
+        ],
+        "type": "string"
+      },
+      "QuantityType": {
+        "additionalProperties": false,
+        "description": "A registered physical type and its canonical storage unit.",
+        "properties": {
+          "canonical_unit": {
+            "description": "Canonical unit of the package.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityTypeId"
+          },
+          "key": {
+            "$ref": "#/$defs/QuantityTypeKey",
+            "description": "The complete semantic key."
+          },
+          "name": {
+            "description": "The name packages address it by, declared once in the physical document and unique\nwithin it (ADR-0123 Outcome 6).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nominal_magnitude": {
+            "description": "Positive finite default scaling magnitude, if declared.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "key",
+          "canonical_unit",
+          "nominal_magnitude"
+        ],
+        "type": "object"
+      },
+      "QuantityTypeKey": {
+        "additionalProperties": false,
+        "description": "Components that determine one registered physical type.",
+        "properties": {
+          "basis": {
+            "description": "Optional material basis.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "BasisId"
+          },
+          "kind": {
+            "description": "The measured quantity kind.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityKindId"
+          },
+          "reference_state": {
+            "description": "Optional datum.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "scale_kind": {
+            "$ref": "#/$defs/ScaleKind",
+            "description": "Point or difference semantics."
+          },
+          "shape": {
+            "description": "Ordered domain kinds.",
+            "items": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "EntityKindId"
+            },
+            "type": "array"
+          },
+          "subject_kind": {
+            "description": "Optional subject obligation; absent and explicit `none` stay distinct.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "EntityKindId"
+          }
+        },
+        "required": [
+          "kind",
+          "basis",
+          "reference_state",
+          "scale_kind",
+          "shape",
+          "subject_kind"
+        ],
+        "type": "object"
+      },
+      "RateBasis": {
+        "enum": [
+          "per_volume",
+          "per_mass",
+          "per_area"
+        ],
+        "type": "string"
+      },
+      "Ratio": {
+        "additionalProperties": false,
+        "description": "A rational exponent in canonical reduced form (blueprint §4.4 `pse.dimension_vector`).\n\nThe invariant is total: `den > 0`, `gcd(|num|, den) == 1`, and zero is exactly `0/1`.\nConstruction goes through [`Ratio::new`] or [`Ratio::from_parts`], both of which reject\nanything else, and deserialization re-validates. Two `Ratio`s are equal exactly when\nthey are the same rational number.\n\n`Ord` is the lexicographic order of the canonical `(num, den)` pair, not numeric order:\nit exists so that a `Ratio` can key a `BTreeMap` deterministically. Compare magnitudes\nwith [`Ratio::checked_sub`] and [`Ratio::is_zero`] rather than with `<`.\n\n```\nuse pse_quantity::Ratio;\n\nassert_eq!(Ratio::new(2, 4)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(-1, -2)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(0, 5)?, Ratio::ZERO);\nassert!(Ratio::new(1, 0).is_err());\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+        "properties": {
+          "den": {
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "num": {
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num",
+          "den"
+        ],
+        "type": "object"
+      },
+      "ReferenceCondition": {
+        "additionalProperties": false,
+        "description": "A typed reference condition (ADR-0123 Outcome 6): a value in a declared unit of a\ndeclared quantity type. Admission checks the type's dimension against the condition it\nstates and the unit against the type.",
+        "properties": {
+          "quantity_type": {
+            "description": "The declared quantity type of the condition.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityTypeId"
+          },
+          "unit": {
+            "description": "The unit `value` is written in.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "value": {
+            "description": "The value in `unit`.",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "quantity_type",
+          "unit"
+        ],
+        "type": "object"
+      },
+      "ReferenceState": {
+        "additionalProperties": false,
+        "description": "The datum carried by origin-sensitive quantities.",
+        "properties": {
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "include_enthalpy_of_formation": {
+            "description": "Whether formation enthalpy is included.",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/$defs/ReferenceStateKind",
+            "description": "The reference convention."
+          },
+          "name": {
+            "description": "The name packages address it by, declared once in the physical document\n(ADR-0123 Outcome 6).",
+            "type": "string"
+          },
+          "pressure": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceCondition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Typed reference pressure, when specified."
+          },
+          "subject": {
+            "description": "Optional datum subject; physical source admission requires an authored entity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "SemanticId"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceCondition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Typed reference temperature, when specified."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "temperature",
+          "pressure",
+          "include_enthalpy_of_formation",
+          "subject"
+        ],
+        "type": "object"
+      },
+      "ReferenceStateKind": {
+        "enum": [
+          "elemental_at_conditions",
+          "compound_at_conditions",
+          "ideal_gas_at_conditions",
+          "custom"
+        ],
+        "type": "string"
+      },
+      "ScaleKind": {
+        "enum": [
+          "point",
+          "difference"
+        ],
+        "type": "string"
+      },
+      "Unit": {
+        "additionalProperties": false,
+        "description": "A unit anchored to the canonical SI dimension basis (blueprint §6.2).",
+        "properties": {
+          "definition": {
+            "description": "`None` for an atomic unit; the canonical atomic factors of a defined or composed\nunit, whose dimension and scale were derived from them.",
+            "items": {
+              "$ref": "#/$defs/UnitFactor"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dimension": {
+            "$ref": "#/$defs/DimensionVector",
+            "description": "SI exponents."
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "is_affine": {
+            "description": "Whether point conversion may apply an offset.",
+            "type": "boolean"
+          },
+          "offset_to_canonical": {
+            "description": "Finite offset to SI; zero for a non-affine unit.",
+            "format": "double",
+            "type": "number"
+          },
+          "reference_state": {
+            "description": "Optional datum restriction of the spelling; representation conversion preserves it.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "scale_to_canonical": {
+            "description": "Positive finite multiplier to SI.",
+            "format": "double",
+            "type": "number"
+          },
+          "symbol": {
+            "description": "Unique package-resolved symbol.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "symbol",
+          "dimension",
+          "scale_to_canonical",
+          "offset_to_canonical",
+          "is_affine",
+          "reference_state",
+          "definition"
+        ],
+        "type": "object"
+      },
+      "UnitFactor": {
+        "additionalProperties": false,
+        "description": "One canonical factor of a unit product: an atomic unit and its nonzero rational\nexponent (ADR-0124).",
+        "properties": {
+          "exponent": {
+            "$ref": "#/$defs/Ratio",
+            "description": "The nonzero rational exponent."
+          },
+          "unit": {
+            "description": "The atomic unit, or, in an authored composition, any declared unit.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          }
+        },
+        "required": [
+          "unit",
+          "exponent"
+        ],
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "complete": {
+        "title": "Complete",
+        "type": "boolean"
+      },
+      "omissions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Omissions",
+        "type": "array"
+      },
+      "operation": {
+        "title": "Operation",
+        "type": "string"
+      },
+      "payload": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "$comment": "@generated by pse-schema; do not edit",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "description": "One immutable context page. An extent refusal never returns truncated meaning.",
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "description": "Complete selected declarations with their actual immutable context identity.",
+                    "properties": {
+                      "context": {
+                        "description": "Exact physical context that interpreted every record.",
+                        "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                        "type": "string",
+                        "x-pse-identity": "ContentHash"
+                      },
+                      "count": {
+                        "description": "Complete selected population, independent of the current page.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "document_version": {
+                        "const": 1,
+                        "default": 1,
+                        "type": "integer"
+                      },
+                      "kind": {
+                        "const": "page",
+                        "type": "string"
+                      },
+                      "next": {
+                        "description": "Next original offset; each call reacquires any canonical protection.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "offset": {
+                        "description": "Original offset.",
+                        "format": "uint",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "quantities": {
+                        "description": "Selected quantity records, in stable identity order.",
+                        "items": {
+                          "$ref": "#/$defs/PhysicalQuantityDescription"
+                        },
+                        "type": "array"
+                      },
+                      "reference_states": {
+                        "description": "Selected named reference-state records.",
+                        "items": {
+                          "$ref": "#/$defs/ReferenceState"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "context",
+                      "count",
+                      "offset",
+                      "quantities",
+                      "reference_states",
+                      "next",
+                      "document_version"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "description": "Required complete records do not fit the fixed document allowance.",
+                    "properties": {
+                      "context": {
+                        "description": "Exact context, retained even when no record can be copied.",
+                        "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                        "type": "string",
+                        "x-pse-identity": "ContentHash"
+                      },
+                      "document_version": {
+                        "const": 1,
+                        "default": 1,
+                        "type": "integer"
+                      },
+                      "kind": {
+                        "const": "unavailable",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "description": "Explicit reason; narrowing the selection may make it readable.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "context",
+                      "reason",
+                      "document_version"
+                    ],
+                    "type": "object"
+                  }
+                ],
+                "properties": {
+                  "document_version": {
+                    "const": 1,
+                    "default": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "document_version"
+                ],
+                "title": "PhysicalInspectionDocument"
+              },
+              "outcome": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "outcome",
+              "document"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "outcome": {
+                "not": {
+                  "const": "observed"
+                },
+                "type": "string"
+              }
+            },
+            "required": [
+              "outcome"
+            ],
+            "type": "object"
+          }
+        ]
+      }
+    },
+    "required": [
+      "operation",
+      "complete",
+      "omissions",
+      "payload"
+    ],
+    "title": "ReadResult",
+    "type": "object"
+  },
+  "title": "Native Physical Inspect"
+}
+```
+
+- Native `output_document`: [docs/generated/schema/physical-inspection-document.output.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/physical-inspection-document.output.schema.json).
+
+- Native `physical`: [docs/generated/schema/project-draft-documents.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/project-draft-documents.input.schema.json).
+
+- Native `request`: [docs/generated/schema/physical-inspection-request.input.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/physical-inspection-request.input.schema.json).
+
+- Authoring guidance: [docs/generated/schema/authoring.schema.json](https://github.com/paul-heyse/pse-arrow/blob/main/docs/generated/schema/authoring.schema.json).
+
 ### `native_preparation_discover` — Inspect preparation availability
 
 Exposure: **tool**. Owner: `pse.ModelingPackage.preparation_discovery`. Declaration source: [scripts/capabilities/native.py](https://github.com/paul-heyse/pse-arrow/blob/main/scripts/capabilities/native.py).
@@ -38257,7 +39472,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -38270,7 +39485,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -38283,7 +39498,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -38296,15 +39511,15 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
-          "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "25dfea18b35df60235c6de1e584f78f1b0bad7fd67f8b9a111af7fb32d0459f6",
           "slug": "preparation-discovery-request",
           "version": 1,
           "wire": "FlatV1"
         }
       },
       "receiver": "pse.ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -38574,7 +39789,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
                   "quantity": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "QuantityTypeId"
                   },
                   "value_kind": {
                     "const": "number",
@@ -38604,7 +39819,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
                   "quantity": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "QuantityTypeId"
                   },
                   "value_kind": {
                     "const": "coordinate",
@@ -38833,7 +40048,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
                   "id": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "QuantityTypeId"
                   },
                   "value_kind": {
                     "const": "quantity_type",
@@ -38852,7 +40067,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
                   "id": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "ReferenceStateId"
                   },
                   "value_kind": {
                     "const": "reference_state",
@@ -38906,7 +40121,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -38960,7 +40175,7 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -39000,13 +40215,13 @@ Exact callable component key: `tool:native_preparation_discover@`. The following
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -39148,15 +40363,15 @@ Exact callable component key: `tool:native_project_bundle_inspect@`. The followi
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectManifest",
           "schema_path": "docs/generated/schema/project-manifest.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
-          "schema_sha256": "afcf6d813ebe9d5488cda86d5df827416faf129419c05527ce1aba6d53d9aa78",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "ef7be2dd5104e1ec7edb945303f1a01afd065ca1133895be9aa6aae70ef5fa23",
           "slug": "project-manifest",
           "version": 1,
           "wire": "Native"
         }
       },
       "receiver": "pse.ProjectBundle.manifest + digest",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -39321,7 +40536,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataPage",
           "schema_path": "docs/generated/schema/project-metadata-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "247bcbf54ba1f8787e71f6e84fcd093b719a27f83b18dc7730bf0a9f14119c9c",
           "slug": "project-metadata-page",
           "version": 1,
@@ -39334,7 +40549,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_operations :: canonical_projects :: ProjectMetadataRequest",
           "schema_path": "docs/generated/schema/project-metadata-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "5f252f295e44801126cafb6f147efdade00a0c618978098dbe75d854481614cd",
           "slug": "project-metadata-request",
           "version": 1,
@@ -39342,7 +40557,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         }
       },
       "receiver": "pse.Runtime.project_metadata",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -39420,7 +40635,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-metadata-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-metadata-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact owner and optional continuation for a bounded live metadata listing.",
@@ -39468,7 +40683,7 @@ Exact callable component key: `tool:native_project_metadata@`. The following is 
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-metadata-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-metadata-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -39623,7 +40838,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelection",
           "schema_path": "docs/generated/schema/project-selection.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "94c26dbd186b231b086e6e37d8dd6df5a0d4b00655a6e8f4d95a498e8b3f37d9",
           "slug": "project-selection",
           "version": 1,
@@ -39636,7 +40851,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -39649,7 +40864,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectSelectRequest",
           "schema_path": "docs/generated/schema/project-select-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "393a032a9136db4e6aaa0ae0168ed9aafc244c47bb9207f48d340763164d5284",
           "slug": "project-select-request",
           "version": 1,
@@ -39657,7 +40872,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         }
       },
       "receiver": "pse.Runtime.project_select",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -39698,7 +40913,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -39780,7 +40995,7 @@ Exact callable component key: `tool:native_project_select@`. The following is th
             ]
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-select-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-select-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit navigation command transport.",
@@ -39813,10 +41028,10 @@ Exact callable component key: `tool:native_project_select@`. The following is th
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-select-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-select-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -39973,7 +41188,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadResult",
           "schema_path": "docs/generated/schema/research-read-result.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "edf625447db75b6278030fd28171b9b009aa21cb85ff16c05108e3c33f99e8b4",
           "slug": "research-read-result",
           "version": 1,
@@ -39986,7 +41201,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
           "schema_path": "docs/generated/schema/research-read-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
           "slug": "research-read-request",
           "version": 1,
@@ -39994,7 +41209,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         }
       },
       "receiver": "pse.Runtime.research_read",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -40035,7 +41250,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
       },
       "research-read-request": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:research-read-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:research-read-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "description": "Exact discovery and selected detail commands; metadata does not retain payloads.",
         "oneOf": [
@@ -40149,7 +41364,7 @@ Exact callable component key: `tool:native_research_read@`. The following is the
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:research-read-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:research-read-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -40301,8 +41516,8 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionDocument",
           "schema_path": "docs/generated/schema/result-inspection-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
-          "schema_sha256": "769002f87186178927069cca5d4698bc7a2df5960a28fc4475732fac95ba4c08",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "dbe74ebd0d9809d4983dcdc43b1f75df89a267a5218c636310af0c0f360a192d",
           "slug": "result-inspection-document",
           "version": 2,
           "wire": "FlatV2"
@@ -40314,15 +41529,15 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ResultInspectionRequest",
           "schema_path": "docs/generated/schema/result-inspection-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
-          "schema_sha256": "76f18de590c183d117b027821c0dcb32e9d87786d191722de8478fe4527a01ae",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "ef24c7bef8acd92946614a08a7497108ebb46a4a6f00e359214e2c81a05d3c88",
           "slug": "result-inspection-request",
           "version": 2,
           "wire": "FlatV2"
         }
       },
       "receiver": "pse.Runtime.inspect_result",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -40579,6 +41794,124 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
               }
             ]
           },
+          "PhysicalInspectionQuery": {
+            "description": "Physical names are package-declared names, never global aliases.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "All quantities in the selected context, paged without cloning its inventory.",
+                "properties": {
+                  "kind": {
+                    "const": "quantities",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One exact quantity and optionally its admitted representation conversion.",
+                "properties": {
+                  "id": {
+                    "description": "Complete physical quantity identity.",
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "type": "string",
+                    "x-pse-identity": "QuantityTypeId"
+                  },
+                  "kind": {
+                    "const": "quantity",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "description": "Representation unit; absent selects the canonical unit.",
+                    "pattern": "^[0-9a-fA-F]{32}$",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "x-pse-identity": "UnitId"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "id"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One exact declared quantity name.",
+                "properties": {
+                  "kind": {
+                    "const": "quantity_named",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Declared physical-document name, case sensitive.",
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "One exact declared reference-state name.",
+                "properties": {
+                  "kind": {
+                    "const": "reference_state_named",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Declared physical-document name, case sensitive.",
+                    "maxLength": 1024,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "PhysicalInspectionRequestBody": {
+            "additionalProperties": false,
+            "description": "A bounded query against one immutable physical context.",
+            "properties": {
+              "limit": {
+                "description": "One through sixteen declarations; encoded output is at most 64 KiB.",
+                "format": "uint",
+                "maximum": 16,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "offset": {
+                "description": "Original declaration offset in semantic identity order.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "query": {
+                "$ref": "#/$defs/PhysicalInspectionQuery",
+                "description": "Exact declared identity/name selection."
+              }
+            },
+            "required": [
+              "query",
+              "offset",
+              "limit"
+            ],
+            "type": "object"
+          },
           "ResultInspectionBasis": {
             "additionalProperties": false,
             "description": "Immutable request coordinates retained across pages.",
@@ -40638,6 +41971,10 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                 "description": "Exact closure digest.",
                 "type": "string"
               },
+              "physical": {
+                "$ref": "#/$defs/ResultPhysicalContext",
+                "description": "Original physical context and exact closure availability."
+              },
               "position": {
                 "description": "Next original row or descriptor/metadata position.",
                 "format": "uint64",
@@ -40659,6 +41996,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
               "manifest",
               "schema_fingerprint",
               "basis",
+              "physical",
               "position"
             ],
             "type": "object"
@@ -40762,6 +42100,25 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
               },
               {
                 "additionalProperties": false,
+                "description": "Read a finite physical declaration page from the original retained context.",
+                "properties": {
+                  "kind": {
+                    "const": "physical",
+                    "type": "string"
+                  },
+                  "request": {
+                    "$ref": "#/$defs/PhysicalInspectionRequestBody",
+                    "description": "Same physical-owner query used by direct Python and MCP inspection."
+                  }
+                },
+                "required": [
+                  "kind",
+                  "request"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
                 "description": "Read selected original scalar fields together with all declared non-value context.",
                 "properties": {
                   "fields": {
@@ -40790,9 +42147,59 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                 "type": "object"
               }
             ]
+          },
+          "ResultPhysicalContext": {
+            "description": "Original-context locator state, also bound into every immutable continuation.",
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "description": "Original rows were protected and admitted through the physical owner.",
+                "properties": {
+                  "closure": {
+                    "description": "Exact retained revision closure digest.",
+                    "type": "string"
+                  },
+                  "identity": {
+                    "description": "Original full physical context identity.",
+                    "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                    "type": "string",
+                    "x-pse-identity": "ContentHash"
+                  },
+                  "kind": {
+                    "const": "available",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "identity",
+                  "closure"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "description": "Original closure cannot supply readable physical meaning; raw result values remain readable.",
+                "properties": {
+                  "kind": {
+                    "const": "unavailable",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "description": "Explicit original-closure failure; no alternate context was consulted.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "reason"
+                ],
+                "type": "object"
+              }
+            ]
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:result-inspection-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:result-inspection-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Select one exact immutable result; schema discovery does not read its Arrow rows.\nSchema example identities are illustrative, not live eligible result references.",
@@ -40900,7 +42307,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "type": "string"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:result-inspection-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:result-inspection-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -40988,6 +42395,116 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
             "type": "object"
           }
         ]
+      },
+      "BasisKind": {
+        "enum": [
+          "molar",
+          "mass",
+          "volume",
+          "energy",
+          "standard_volume",
+          "dimensionless"
+        ],
+        "type": "string"
+      },
+      "CompositionBasis": {
+        "enum": [
+          "mole_fraction",
+          "mass_fraction",
+          "volume_fraction",
+          "molality",
+          "molarity"
+        ],
+        "type": "string"
+      },
+      "DimensionVector": {
+        "description": "Rational exponents over the eight base dimensions (blueprint §4.4, §8.1).\n\nThe slots are indexed by [`BaseDimension`] and stored in its ordinal order, which is\nalso the order of the `FixedSizeList<Struct<num, den>, 8>` storage of\n`pse.dimension_vector`.\n\nDimension arithmetic is *not* physical typing: `dimensionless` is the dimension of a\nmole fraction and of a Reynolds number alike, and two quantities with the same\ndimension vector may still be incompatible (§8.1). This type answers only the\ndimensional half; the complete answer is a `QuantityType`.\n\n```\nuse pse_quantity::{BaseDimension, DimensionVector, Ratio};\n\nlet velocity = DimensionVector::base(BaseDimension::Length)\n    .div(&DimensionVector::base(BaseDimension::Time))?;\nassert_eq!(velocity.exponent(BaseDimension::Length), Ratio::ONE);\nassert_eq!(velocity.to_string(), \"L·T^-1\");\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+        "items": {
+          "$ref": "#/$defs/Ratio"
+        },
+        "maxItems": 8,
+        "minItems": 8,
+        "type": "array"
+      },
+      "KindDefinition": {
+        "additionalProperties": false,
+        "description": "What a derived kind is (ADR-0124): a monomial of other kinds, its declared canonical\nunit, and the complete result a multiplicative chain resolving to it takes. Kinds are\ndeclared, never synthesized.",
+        "properties": {
+          "basis": {
+            "description": "Declared result basis. Without one, every basis-carrying chain factor must agree.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "BasisId"
+          },
+          "canonical_unit": {
+            "description": "The canonical unit every quantity type of this kind stores in.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "monomial": {
+            "description": "Factors over declared kinds; admission expands derived factors, so the admitted\nmonomial is over base kinds in identity order.",
+            "items": {
+              "$ref": "#/$defs/KindFactor"
+            },
+            "type": "array"
+          },
+          "reference_state": {
+            "description": "Declared result datum.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "scale_kind": {
+            "$ref": "#/$defs/ScaleKind",
+            "description": "Declared result scale."
+          },
+          "subject_kind": {
+            "description": "Declared result subject.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "EntityKindId"
+          }
+        },
+        "required": [
+          "monomial",
+          "canonical_unit",
+          "basis",
+          "reference_state",
+          "scale_kind",
+          "subject_kind"
+        ],
+        "type": "object"
+      },
+      "KindFactor": {
+        "additionalProperties": false,
+        "description": "One factor of a kind monomial: a kind and its nonzero rational exponent.",
+        "properties": {
+          "exponent": {
+            "$ref": "#/$defs/Ratio",
+            "description": "Its nonzero rational exponent."
+          },
+          "kind": {
+            "description": "The factor kind.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityKindId"
+          }
+        },
+        "required": [
+          "kind",
+          "exponent"
+        ],
+        "type": "object"
       },
       "PackResultPredicateOutput": {
         "additionalProperties": false,
@@ -41142,6 +42659,699 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           }
         ]
       },
+      "PhysicalBasis": {
+        "additionalProperties": false,
+        "description": "A declared material or specific-quantity basis.",
+        "properties": {
+          "composition_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CompositionBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional composition convention."
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "BasisId"
+          },
+          "kind": {
+            "$ref": "#/$defs/BasisKind",
+            "description": "What this quantity is per."
+          },
+          "rate_basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/RateBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional rate convention."
+          },
+          "reference_conditions": {
+            "description": "Conditions required for a standard-volume basis.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "composition_basis",
+          "rate_basis",
+          "reference_conditions"
+        ],
+        "type": "object"
+      },
+      "PhysicalEntityKind": {
+        "additionalProperties": false,
+        "description": "A declared kind used as a physical axis or subject.",
+        "properties": {
+          "id": {
+            "description": "Stable authored identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "EntityKindId"
+          },
+          "name": {
+            "description": "Qualified inspection name; identity comparisons use `id`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "PhysicalInspectionDocumentBody": {
+        "description": "One immutable context page. An extent refusal never returns truncated meaning.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Complete selected declarations with their actual immutable context identity.",
+            "properties": {
+              "context": {
+                "description": "Exact physical context that interpreted every record.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "count": {
+                "description": "Complete selected population, independent of the current page.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "kind": {
+                "const": "page",
+                "type": "string"
+              },
+              "next": {
+                "description": "Next original offset; each call reacquires any canonical protection.",
+                "format": "uint",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "offset": {
+                "description": "Original offset.",
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "quantities": {
+                "description": "Selected quantity records, in stable identity order.",
+                "items": {
+                  "$ref": "#/$defs/PhysicalQuantityDescription"
+                },
+                "type": "array"
+              },
+              "reference_states": {
+                "description": "Selected named reference-state records.",
+                "items": {
+                  "$ref": "#/$defs/ReferenceState"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "context",
+              "count",
+              "offset",
+              "quantities",
+              "reference_states",
+              "next"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Required complete records do not fit the fixed document allowance.",
+            "properties": {
+              "context": {
+                "description": "Exact context, retained even when no record can be copied.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "kind": {
+                "const": "unavailable",
+                "type": "string"
+              },
+              "reason": {
+                "description": "Explicit reason; narrowing the selection may make it readable.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "context",
+              "reason"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PhysicalInspectionQueryOutput": {
+        "description": "Physical names are package-declared names, never global aliases.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "All quantities in the selected context, paged without cloning its inventory.",
+            "properties": {
+              "kind": {
+                "const": "quantities",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "One exact quantity and optionally its admitted representation conversion.",
+            "properties": {
+              "id": {
+                "description": "Complete physical quantity identity.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "QuantityTypeId"
+              },
+              "kind": {
+                "const": "quantity",
+                "type": "string"
+              },
+              "unit": {
+                "description": "Representation unit; absent selects the canonical unit.",
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "x-pse-identity": "UnitId"
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "unit"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "One exact declared quantity name.",
+            "properties": {
+              "kind": {
+                "const": "quantity_named",
+                "type": "string"
+              },
+              "name": {
+                "description": "Declared physical-document name, case sensitive.",
+                "maxLength": 1024,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "One exact declared reference-state name.",
+            "properties": {
+              "kind": {
+                "const": "reference_state_named",
+                "type": "string"
+              },
+              "name": {
+                "description": "Declared physical-document name, case sensitive.",
+                "maxLength": 1024,
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "name"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PhysicalInspectionRequestBodyOutput": {
+        "additionalProperties": false,
+        "description": "A bounded query against one immutable physical context.",
+        "properties": {
+          "limit": {
+            "description": "One through sixteen declarations; encoded output is at most 64 KiB.",
+            "format": "uint",
+            "maximum": 16,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "Original declaration offset in semantic identity order.",
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "query": {
+            "$ref": "#/$defs/PhysicalInspectionQueryOutput",
+            "description": "Exact declared identity/name selection."
+          }
+        },
+        "required": [
+          "query",
+          "offset",
+          "limit"
+        ],
+        "type": "object"
+      },
+      "PhysicalQuantityDescription": {
+        "additionalProperties": false,
+        "description": "Original selected quantity and its complete physical interpretation.",
+        "properties": {
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PhysicalBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact original basis and its composition/rate/reference conventions."
+          },
+          "basis_reference_state": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Actual reference conditions required by a standard-volume or similar basis."
+          },
+          "canonical_unit": {
+            "$ref": "#/$defs/Unit",
+            "description": "Original canonical representation."
+          },
+          "offset_to_canonical": {
+            "description": "Admitted conversion offset; difference quantities retain zero here.",
+            "format": "double",
+            "type": "number"
+          },
+          "quantity": {
+            "$ref": "#/$defs/QuantityType",
+            "description": "Exact original type including basis, datum, scale, shape and subject."
+          },
+          "quantity_kind": {
+            "$ref": "#/$defs/QuantityKind",
+            "description": "What is measured, including exact rational dimension and arithmetic convention."
+          },
+          "reference_state": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact original datum, including typed reference conditions."
+          },
+          "representation_unit": {
+            "$ref": "#/$defs/Unit",
+            "description": "Selected representation; raw result values are never changed by inspection."
+          },
+          "scale_to_canonical": {
+            "description": "Admitted conversion multiplier to canonical magnitude.",
+            "format": "double",
+            "type": "number"
+          },
+          "shape": {
+            "description": "Declared ordered axis kinds.",
+            "items": {
+              "$ref": "#/$defs/PhysicalEntityKind"
+            },
+            "type": "array"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/PhysicalEntityKind"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Declared subject kind."
+          }
+        },
+        "required": [
+          "quantity",
+          "quantity_kind",
+          "canonical_unit",
+          "representation_unit",
+          "scale_to_canonical",
+          "offset_to_canonical",
+          "basis",
+          "basis_reference_state",
+          "reference_state",
+          "shape",
+          "subject"
+        ],
+        "type": "object"
+      },
+      "QuantityAdditionKind": {
+        "enum": [
+          "additive",
+          "origin_sensitive"
+        ],
+        "type": "string"
+      },
+      "QuantityKind": {
+        "additionalProperties": false,
+        "description": "What is measured, independent of basis and datum.",
+        "properties": {
+          "addition_kind": {
+            "$ref": "#/$defs/QuantityAdditionKind",
+            "description": "Additive or origin-sensitive arithmetic."
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/QuantityKindCategory"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Discrete category of a dimensionless pure-number kind; `None` for a measured kind."
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/KindDefinition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`None` for a base kind; a derived kind's declaration, its monomial expanded to\ncanonical base-kind factors at admission."
+          },
+          "dimension": {
+            "$ref": "#/$defs/DimensionVector",
+            "description": "SI exponents; this alone never resolves a physical type. A derived kind's\ndimension is derived from its monomial at admission."
+          },
+          "extensive": {
+            "description": "Whether values scale with system size.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityKindId"
+          }
+        },
+        "required": [
+          "id",
+          "dimension",
+          "extensive",
+          "addition_kind",
+          "category",
+          "definition"
+        ],
+        "type": "object"
+      },
+      "QuantityKindCategory": {
+        "enum": [
+          "count",
+          "indicator"
+        ],
+        "type": "string"
+      },
+      "QuantityType": {
+        "additionalProperties": false,
+        "description": "A registered physical type and its canonical storage unit.",
+        "properties": {
+          "canonical_unit": {
+            "description": "Canonical unit of the package.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityTypeId"
+          },
+          "key": {
+            "$ref": "#/$defs/QuantityTypeKey",
+            "description": "The complete semantic key."
+          },
+          "name": {
+            "description": "The name packages address it by, declared once in the physical document and unique\nwithin it (ADR-0123 Outcome 6).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nominal_magnitude": {
+            "description": "Positive finite default scaling magnitude, if declared.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "key",
+          "canonical_unit",
+          "nominal_magnitude"
+        ],
+        "type": "object"
+      },
+      "QuantityTypeKey": {
+        "additionalProperties": false,
+        "description": "Components that determine one registered physical type.",
+        "properties": {
+          "basis": {
+            "description": "Optional material basis.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "BasisId"
+          },
+          "kind": {
+            "description": "The measured quantity kind.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityKindId"
+          },
+          "reference_state": {
+            "description": "Optional datum.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "scale_kind": {
+            "$ref": "#/$defs/ScaleKind",
+            "description": "Point or difference semantics."
+          },
+          "shape": {
+            "description": "Ordered domain kinds.",
+            "items": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "EntityKindId"
+            },
+            "type": "array"
+          },
+          "subject_kind": {
+            "description": "Optional subject obligation; absent and explicit `none` stay distinct.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "EntityKindId"
+          }
+        },
+        "required": [
+          "kind",
+          "basis",
+          "reference_state",
+          "scale_kind",
+          "shape",
+          "subject_kind"
+        ],
+        "type": "object"
+      },
+      "RateBasis": {
+        "enum": [
+          "per_volume",
+          "per_mass",
+          "per_area"
+        ],
+        "type": "string"
+      },
+      "Ratio": {
+        "additionalProperties": false,
+        "description": "A rational exponent in canonical reduced form (blueprint §4.4 `pse.dimension_vector`).\n\nThe invariant is total: `den > 0`, `gcd(|num|, den) == 1`, and zero is exactly `0/1`.\nConstruction goes through [`Ratio::new`] or [`Ratio::from_parts`], both of which reject\nanything else, and deserialization re-validates. Two `Ratio`s are equal exactly when\nthey are the same rational number.\n\n`Ord` is the lexicographic order of the canonical `(num, den)` pair, not numeric order:\nit exists so that a `Ratio` can key a `BTreeMap` deterministically. Compare magnitudes\nwith [`Ratio::checked_sub`] and [`Ratio::is_zero`] rather than with `<`.\n\n```\nuse pse_quantity::Ratio;\n\nassert_eq!(Ratio::new(2, 4)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(-1, -2)?, Ratio::new(1, 2)?);\nassert_eq!(Ratio::new(0, 5)?, Ratio::ZERO);\nassert!(Ratio::new(1, 0).is_err());\n# Ok::<(), pse_quantity::DimensionError>(())\n```",
+        "properties": {
+          "den": {
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          },
+          "num": {
+            "format": "int16",
+            "maximum": 32767,
+            "minimum": -32768,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num",
+          "den"
+        ],
+        "type": "object"
+      },
+      "ReferenceCondition": {
+        "additionalProperties": false,
+        "description": "A typed reference condition (ADR-0123 Outcome 6): a value in a declared unit of a\ndeclared quantity type. Admission checks the type's dimension against the condition it\nstates and the unit against the type.",
+        "properties": {
+          "quantity_type": {
+            "description": "The declared quantity type of the condition.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "QuantityTypeId"
+          },
+          "unit": {
+            "description": "The unit `value` is written in.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "value": {
+            "description": "The value in `unit`.",
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "quantity_type",
+          "unit"
+        ],
+        "type": "object"
+      },
+      "ReferenceState": {
+        "additionalProperties": false,
+        "description": "The datum carried by origin-sensitive quantities.",
+        "properties": {
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "include_enthalpy_of_formation": {
+            "description": "Whether formation enthalpy is included.",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/$defs/ReferenceStateKind",
+            "description": "The reference convention."
+          },
+          "name": {
+            "description": "The name packages address it by, declared once in the physical document\n(ADR-0123 Outcome 6).",
+            "type": "string"
+          },
+          "pressure": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceCondition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Typed reference pressure, when specified."
+          },
+          "subject": {
+            "description": "Optional datum subject; physical source admission requires an authored entity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "SemanticId"
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ReferenceCondition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Typed reference temperature, when specified."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "temperature",
+          "pressure",
+          "include_enthalpy_of_formation",
+          "subject"
+        ],
+        "type": "object"
+      },
+      "ReferenceStateKind": {
+        "enum": [
+          "elemental_at_conditions",
+          "compound_at_conditions",
+          "ideal_gas_at_conditions",
+          "custom"
+        ],
+        "type": "string"
+      },
       "ResultCellUnavailable": {
         "description": "Unavailable readable detail never becomes a null or a normalized scientific value.",
         "oneOf": [
@@ -41182,7 +43392,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           }
         ]
       },
-      "ResultInspectionBasis": {
+      "ResultInspectionBasisOutput": {
         "additionalProperties": false,
         "description": "Immutable request coordinates retained across pages.",
         "properties": {
@@ -41211,7 +43421,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
             "type": "integer"
           },
           "view": {
-            "$ref": "#/$defs/ResultInspectionView",
+            "$ref": "#/$defs/ResultInspectionViewOutput",
             "description": "Original view/path/page allowance, unchanged by continuation."
           }
         },
@@ -41485,7 +43695,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "description": "Store/selection-bound continuation; each call reacquires original protection.",
         "properties": {
           "basis": {
-            "$ref": "#/$defs/ResultInspectionBasis",
+            "$ref": "#/$defs/ResultInspectionBasisOutput",
             "description": "Original request identity."
           },
           "issuing_store": {
@@ -41495,6 +43705,10 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "manifest": {
             "description": "Exact closure digest.",
             "type": "string"
+          },
+          "physical": {
+            "$ref": "#/$defs/ResultPhysicalContext",
+            "description": "Original physical context and exact closure availability."
           },
           "position": {
             "description": "Next original row or descriptor/metadata position.",
@@ -41517,6 +43731,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "manifest",
           "schema_fingerprint",
           "basis",
+          "physical",
           "position"
         ],
         "type": "object"
@@ -41592,6 +43807,28 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           "metadata_omitted",
           "ancestor_metadata",
           "ancestor_metadata_omitted"
+        ],
+        "type": "object"
+      },
+      "ResultInspectionOriginal": {
+        "additionalProperties": false,
+        "description": "Original governing permission and retained physical interpretation, independent of selected-product usability.",
+        "properties": {
+          "governing_permission": {
+            "description": "Producer-authored governing Assessment usable fact. Missing/error/infrastructure is unknown.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "physical": {
+            "$ref": "#/$defs/ResultPhysicalContext",
+            "description": "Original physical source closure availability, never a current-context substitution."
+          }
+        },
+        "required": [
+          "governing_permission",
+          "physical"
         ],
         "type": "object"
       },
@@ -41731,7 +43968,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           }
         ]
       },
-      "ResultInspectionView": {
+      "ResultInspectionViewOutput": {
         "description": "Physical column selection; this does not reinterpret a scientific output predicate.",
         "oneOf": [
           {
@@ -41830,6 +44067,25 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
           },
           {
             "additionalProperties": false,
+            "description": "Read a finite physical declaration page from the original retained context.",
+            "properties": {
+              "kind": {
+                "const": "physical",
+                "type": "string"
+              },
+              "request": {
+                "$ref": "#/$defs/PhysicalInspectionRequestBodyOutput",
+                "description": "Same physical-owner query used by direct Python and MCP inspection."
+              }
+            },
+            "required": [
+              "kind",
+              "request"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
             "description": "Read selected original scalar fields together with all declared non-value context.",
             "properties": {
               "fields": {
@@ -41877,6 +44133,148 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
         "required": [
           "key",
           "value_bytes"
+        ],
+        "type": "object"
+      },
+      "ResultPhysicalContext": {
+        "description": "Original-context locator state, also bound into every immutable continuation.",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "Original rows were protected and admitted through the physical owner.",
+            "properties": {
+              "closure": {
+                "description": "Exact retained revision closure digest.",
+                "type": "string"
+              },
+              "identity": {
+                "description": "Original full physical context identity.",
+                "pattern": "^blake3:[0-9a-fA-F]{64}$",
+                "type": "string",
+                "x-pse-identity": "ContentHash"
+              },
+              "kind": {
+                "const": "available",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "identity",
+              "closure"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "Original closure cannot supply readable physical meaning; raw result values remain readable.",
+            "properties": {
+              "kind": {
+                "const": "unavailable",
+                "type": "string"
+              },
+              "reason": {
+                "description": "Explicit original-closure failure; no alternate context was consulted.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "reason"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "ScaleKind": {
+        "enum": [
+          "point",
+          "difference"
+        ],
+        "type": "string"
+      },
+      "Unit": {
+        "additionalProperties": false,
+        "description": "A unit anchored to the canonical SI dimension basis (blueprint §6.2).",
+        "properties": {
+          "definition": {
+            "description": "`None` for an atomic unit; the canonical atomic factors of a defined or composed\nunit, whose dimension and scale were derived from them.",
+            "items": {
+              "$ref": "#/$defs/UnitFactor"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "dimension": {
+            "$ref": "#/$defs/DimensionVector",
+            "description": "SI exponents."
+          },
+          "id": {
+            "description": "Registry identity.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          },
+          "is_affine": {
+            "description": "Whether point conversion may apply an offset.",
+            "type": "boolean"
+          },
+          "offset_to_canonical": {
+            "description": "Finite offset to SI; zero for a non-affine unit.",
+            "format": "double",
+            "type": "number"
+          },
+          "reference_state": {
+            "description": "Optional datum restriction of the spelling; representation conversion preserves it.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": [
+              "string",
+              "null"
+            ],
+            "x-pse-identity": "ReferenceStateId"
+          },
+          "scale_to_canonical": {
+            "description": "Positive finite multiplier to SI.",
+            "format": "double",
+            "type": "number"
+          },
+          "symbol": {
+            "description": "Unique package-resolved symbol.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "symbol",
+          "dimension",
+          "scale_to_canonical",
+          "offset_to_canonical",
+          "is_affine",
+          "reference_state",
+          "definition"
+        ],
+        "type": "object"
+      },
+      "UnitFactor": {
+        "additionalProperties": false,
+        "description": "One canonical factor of a unit product: an atomic unit and its nonzero rational\nexponent (ADR-0124).",
+        "properties": {
+          "exponent": {
+            "$ref": "#/$defs/Ratio",
+            "description": "The nonzero rational exponent."
+          },
+          "unit": {
+            "description": "The atomic unit, or, in an authored composition, any declared unit.",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "UnitId"
+          }
+        },
+        "required": [
+          "unit",
+          "exponent"
         ],
         "type": "object"
       }
@@ -41964,6 +44362,10 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                         "minimum": 0,
                         "type": "integer"
                       },
+                      "original": {
+                        "$ref": "#/$defs/ResultInspectionOriginal",
+                        "description": "Original governing permission and physical closure; selected-product usability is independent."
+                      },
                       "recorded_rows": {
                         "description": "Recorded rows intersecting the selected range; holes are not invented.",
                         "format": "uint64",
@@ -41985,6 +44387,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                     "required": [
                       "kind",
                       "selection",
+                      "original",
                       "manifest",
                       "schema_metadata",
                       "field_count",
@@ -42041,6 +44444,10 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                           "null"
                         ]
                       },
+                      "original": {
+                        "$ref": "#/$defs/ResultInspectionOriginal",
+                        "description": "Original governing permission and physical closure; selected-product usability is independent."
+                      },
                       "readable_complete": {
                         "description": "Every returned selected and context cell was representable, independent of population/scientific usability.",
                         "type": "boolean"
@@ -42080,6 +44487,7 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                     "required": [
                       "kind",
                       "selection",
+                      "original",
                       "manifest",
                       "schema_metadata",
                       "selected_fields",
@@ -42140,6 +44548,10 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                         "minimum": 0,
                         "type": "integer"
                       },
+                      "original": {
+                        "$ref": "#/$defs/ResultInspectionOriginal",
+                        "description": "Original governing permission and physical closure; selected-product usability is independent."
+                      },
                       "path": {
                         "$ref": "#/$defs/ArrowFieldPath",
                         "description": "Original selected field."
@@ -42152,11 +44564,71 @@ Exact callable component key: `tool:native_result_inspect@`. The following is th
                     "required": [
                       "kind",
                       "selection",
+                      "original",
                       "manifest",
                       "path",
                       "entry_count",
                       "offset",
                       "entries",
+                      "next_cursor",
+                      "document_version"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "description": "A bounded physical-owner page tied to this exact protected result.",
+                    "properties": {
+                      "document_version": {
+                        "const": 2,
+                        "default": 2,
+                        "type": "integer"
+                      },
+                      "kind": {
+                        "const": "physical",
+                        "type": "string"
+                      },
+                      "manifest": {
+                        "description": "Exact result closure digest.",
+                        "type": "string"
+                      },
+                      "next_cursor": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/ResultInspectionCursorOutput"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Original-query-bound next physical declaration page."
+                      },
+                      "original": {
+                        "$ref": "#/$defs/ResultInspectionOriginal",
+                        "description": "Original aggregate permission and physical closure locator."
+                      },
+                      "page": {
+                        "anyOf": [
+                          {
+                            "$ref": "#/$defs/PhysicalInspectionDocumentBody"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Complete selected physical page; absent only when the original closure is unavailable."
+                      },
+                      "selection": {
+                        "$ref": "#/$defs/PackResultSelectionOutput",
+                        "description": "Exact original selected result; selected product usability remains unknown."
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "selection",
+                      "original",
+                      "manifest",
+                      "page",
                       "next_cursor",
                       "document_version"
                     ],
@@ -42329,7 +44801,7 @@ Exact callable component key: `tool:native_result_read@`. The following is the r
       "authoring_guidance": null,
       "contracts": {},
       "receiver": "pse.Runtime.results",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -42563,7 +45035,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryReport",
           "schema_path": "docs/generated/schema/preparation-discovery-report.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "7b7f492a492e1a4b38d949387da603edd67efdc5fde2da63af9685064e1dc697",
           "slug": "preparation-discovery-report",
           "version": 1,
@@ -42576,7 +45048,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -42589,15 +45061,15 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: PreparationDiscoveryRequest",
           "schema_path": "docs/generated/schema/preparation-discovery-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
-          "schema_sha256": "1e6eec0ae70b7d55f68a086d67aaed3149e242c4313d3a3a241d3ad716dadb6c",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
+          "schema_sha256": "25dfea18b35df60235c6de1e584f78f1b0bad7fd67f8b9a111af7fb32d0459f6",
           "slug": "preparation-discovery-request",
           "version": 1,
           "wire": "FlatV1"
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.preparation_discovery",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -42867,7 +45339,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
                   "quantity": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "QuantityTypeId"
                   },
                   "value_kind": {
                     "const": "number",
@@ -42897,7 +45369,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
                   "quantity": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "QuantityTypeId"
                   },
                   "value_kind": {
                     "const": "coordinate",
@@ -43126,7 +45598,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
                   "id": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "QuantityTypeId"
                   },
                   "value_kind": {
                     "const": "quantity_type",
@@ -43145,7 +45617,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
                   "id": {
                     "pattern": "^[0-9a-fA-F]{32}$",
                     "type": "string",
-                    "x-pse-identity": "SemanticId"
+                    "x-pse-identity": "ReferenceStateId"
                   },
                   "value_kind": {
                     "const": "reference_state",
@@ -43199,7 +45671,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:preparation-discovery-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:preparation-discovery-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact specialization to inspect without preparing it.",
@@ -43253,7 +45725,7 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -43298,10 +45770,10 @@ Exact callable component key: `tool:native_revision_preparation_discover@`. The 
         "type": "string"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:preparation-discovery-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:preparation-discovery-request:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -43467,7 +45939,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -43475,7 +45947,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         }
       },
       "receiver": "pse.Runtime.modeling_revision + ModelingPackage.project_source_detail",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -43516,7 +45988,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -43571,7 +46043,7 @@ Exact callable component key: `tool:native_revision_source@`. The following is t
         "type": "array"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -43722,7 +46194,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -43735,7 +46207,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: workflow :: ProjectDraftDocuments",
           "schema_path": "docs/generated/schema/project-draft-documents.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "55765df1b45e9b80b9ec8fdf633cc9cf9e2e11168c500d0cf8b45a3248d84732",
           "slug": "project-draft-documents",
           "version": 1,
@@ -43743,7 +46215,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
         }
       },
       "receiver": "pse.Runtime.physical_from_documents + modeling_from_documents",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -43784,7 +46256,7 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
       },
       "project-draft-documents": {
         "$comment": "@generated by pse-schema; do not edit",
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;\nonly scientific publication decodes it and invokes the ordinary package loader.",
@@ -43824,10 +46296,10 @@ Exact callable component key: `tool:native_source_admit@`. The following is the 
     "additionalProperties": false,
     "properties": {
       "documents": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "physical": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:project-draft-documents:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:project-draft-documents:input"
       },
       "resources": {
         "$ref": "#/$defs/Resources"
@@ -51561,7 +54033,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: observation :: CheckpointIdentity",
           "schema_path": "docs/generated/schema/checkpoint-identity.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "6af9026242d01a555d7fa4f3e196d18d8506831851b2c953c55e886419f58e0d",
           "slug": "checkpoint-identity",
           "version": 1,
@@ -51574,7 +54046,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: capture :: CaptureDocument",
           "schema_path": "docs/generated/schema/capture-document.output.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "a24d936afaec4c26c1f6844495fc6f2c55dfaf6ac46caeed1d4dcfc5ffd13ed9",
           "slug": "capture-document",
           "version": 2,
@@ -51587,7 +54059,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
           "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
           "rust_type": "pse_runtime :: tooling :: capture :: CaptureRequest",
           "schema_path": "docs/generated/schema/capture-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703",
+          "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea",
           "schema_sha256": "7286d53165bd8a87506ad6defdefb0e92087340c203cc3d73cd95abb223fd182",
           "slug": "capture-request",
           "version": 1,
@@ -51595,7 +54067,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
         }
       },
       "receiver": "pse.diagnostics.read_checkpoint + capture + CaptureSession.wait/stop",
-      "schema_set_fingerprint": "blake3:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703"
+      "schema_set_fingerprint": "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
     }
   },
   "annotations": {
@@ -52103,7 +54575,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:capture-request:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:capture-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Explicit capture request; passive inspection never creates one implicitly.",
@@ -52193,7 +54665,7 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:checkpoint-identity:input",
+        "$id": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:checkpoint-identity:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact diagnostic association supplied by the registered receiver, never stop authority.",
@@ -52226,10 +54698,10 @@ Exact callable component key: `tool:telemetry_profile_capture@`. The following i
     "description": "Host association only; both native documents are decoded by their owner.",
     "properties": {
       "expected": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:checkpoint-identity:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:checkpoint-identity:input"
       },
       "request": {
-        "$ref": "urn:pse:boundary:785663d042143d671d72debc8aa1261f8b595b9be64a760425b0c2a7dfe0d703:capture-request:input"
+        "$ref": "urn:pse:boundary:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea:capture-request:input"
       },
       "suspect": {
         "$ref": "#/$defs/QueryAnswer"

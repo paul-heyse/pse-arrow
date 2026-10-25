@@ -13,9 +13,9 @@ pub struct ReferenceMathContextRow {
     ///package_id
     pub r#package_id: crate::generated::identities::PackageId,
     ///neutral_quantity_type_id
-    pub r#neutral_quantity_type_id: pse_ids::SemanticId,
+    pub r#neutral_quantity_type_id: crate::generated::identities::QuantityTypeId,
     ///boolean_kind_id
-    pub r#boolean_kind_id: pse_ids::SemanticId,
+    pub r#boolean_kind_id: crate::generated::identities::QuantityKindId,
 }
 impl crate::SemanticEq for ReferenceMathContextRow {
     fn semantic_eq(&self, other: &Self) -> bool {

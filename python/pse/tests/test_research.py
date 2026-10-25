@@ -43,7 +43,7 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
     case = next(
         row.declaration_id for row in source.declarations() if row.name == "Measurement"
     )
-    quantity, _unit = primitive_quantity("Length")
+    quantity, _unit = primitive_quantity(runtime, "Length")
     request = codec.decode_json(
         codec.encode_json(
             {
@@ -85,7 +85,7 @@ def test_research_dataset_discovery_exact_selection_and_protected_reopen(
         runtime.research_dataset_open(created.key, selected).canonical_revision
         == revision
     )
-    wrong_quantity, _ = primitive_quantity("Time")
+    wrong_quantity, _ = primitive_quantity(runtime, "Time")
     wrong_payload = codec.decode_json(
         codec.encode_json(request), dict[str, msgspec.Raw]
     )

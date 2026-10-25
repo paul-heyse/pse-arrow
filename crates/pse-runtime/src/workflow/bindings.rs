@@ -28,9 +28,9 @@ pub struct BindingQuantity {
     /// Supplied finite magnitude.
     pub magnitude: FiniteBound,
     /// Complete quantity type, including basis, datum and subject.
-    pub quantity: SemanticId,
+    pub quantity: pse_quantity::QuantityTypeId,
     /// Registered representation unit.
-    pub unit: SemanticId,
+    pub unit: pse_quantity::UnitId,
 }
 /// An assignment before contextual admission.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -58,7 +58,7 @@ pub struct AdmittedBindingEntry {
     /// Stable selected member.
     pub member: SemanticId,
     /// Expected complete physical quantity.
-    pub quantity: SemanticId,
+    pub quantity: pse_quantity::QuantityTypeId,
     /// Finite canonical coordinate.
     pub canonical: FiniteBound,
     /// Whether the target is an authored parameter rather than a variable start/value.
@@ -66,7 +66,7 @@ pub struct AdmittedBindingEntry {
     /// Original input reference, retained only for attribution.
     pub supplied: BindingTarget,
     /// Original unit, retained only for attribution.
-    pub supplied_unit: SemanticId,
+    pub supplied_unit: pse_quantity::UnitId,
 }
 /// Immutable selected-revision binding; attribution is excluded from content identity.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -87,7 +87,7 @@ impl AdmittedBinding {
         h.hash(&self.context).u64(self.entries.len() as u64);
         for (member, entry) in &self.entries {
             h.id(member)
-                .id(&entry.quantity)
+                .id(&entry.quantity.as_id())
                 .bool(entry.parameter)
                 .u64(entry.canonical.into_inner().to_bits());
         }
@@ -458,7 +458,7 @@ impl ModelingPackage {
                 .quantity_type(quantity)
                 .map_err(|cause| super::math(pse_math::MathError::Quantity(cause)))?
                 .canonical_unit;
-            let plan = if assignment.value.unit == canonical_unit.as_id() {
+            let plan = if assignment.value.unit == canonical_unit {
                 // A's already-canonical admission retains exact bits, including signed zero.
                 CanonicalConversionPlan::canonical(&self.quantities, quantity)
             } else {
@@ -476,7 +476,7 @@ impl ModelingPackage {
             })?;
             let entry = AdmittedBindingEntry {
                 member,
-                quantity: quantity.as_id(),
+                quantity,
                 canonical,
                 parameter: symbol.role
                     == pse_model::generated::enums::ModelingDeclarationKind::Parameter,
@@ -655,15 +655,13 @@ mod binding_admission_unit {
                     .quantity_types()
                     .find(|q| q.name.as_deref() == Some(quantity))
                     .unwrap()
-                    .id
-                    .as_id(),
+                    .id,
                 unit: package
                     .quantities
                     .units()
                     .find(|u| u.symbol == unit)
                     .unwrap()
-                    .id
-                    .as_id(),
+                    .id,
             },
         }
     }
@@ -996,7 +994,7 @@ mod binding_admission_unit {
                 "Temperature",
                 "K",
             );
-            supplied.value.quantity = control.id.as_id();
+            supplied.value.quantity = control.id;
             let diagnostic = package
                 .admit_overlay(
                     model.compiled(),

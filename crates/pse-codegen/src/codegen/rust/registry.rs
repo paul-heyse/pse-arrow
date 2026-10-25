@@ -417,10 +417,10 @@ pub(super) fn generate(
         .iter()
         .map(|v| enumeration(&pool, v))
         .collect::<Vec<_>>();
-    let identities=p.identities.iter().map(|v|{let identity=id(v.id);let name=v.name;let doc=v.doc;let base=unit("IdentityBase",v.base)?;
+    let identities=p.identities.iter().map(|v|{let identity=id(v.id);let name=v.name;let doc=v.doc;let base=unit("IdentityBase",v.base)?;let source=option(v.source,|path|quote!(#path));
         let owner=option(v.owner.as_ref(),|o|{let id=id(o.relation_id);let relation=&o.relation;let column=&o.column;
             quote!(IdentityOwner{relation_id:#id,relation:#relation.into(),column:#column.into()})});
-        Ok(quote!(IdentitySpec{id:#identity,name:#name,doc:#doc,base:#base,owner:#owner}))}).collect::<Result<Vec<_>,SchemaError>>()?;
+        Ok(quote!(IdentitySpec::new(#identity,#name,#doc,#base,#owner).with_source(#source)))}).collect::<Result<Vec<_>,SchemaError>>()?;
     let structures = p
         .structures
         .iter()

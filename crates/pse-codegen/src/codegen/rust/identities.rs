@@ -67,7 +67,13 @@ pub(super) fn emit(
                 quote!(pse_ids::ContentHash),
             ),
         };
-        declarations.push(quote!(pse_ids::semantic_id_newtype! { #declaration }));
+        if let Some(source) = identity.source {
+            let path = syn::parse_str::<syn::Path>(source)
+                .map_err(|error| super::error(format!("identity {} source `{source}`: {error}", identity.name)))?;
+            declarations.push(quote!(#[doc = #doc] pub type #name = #path;));
+        } else {
+            declarations.push(quote!(pse_ids::semantic_id_newtype! { #declaration }));
+        }
         model_traits.push(quote! {
             impl crate::SemanticEq for #name {
                 fn semantic_eq(&self, other: &Self) -> bool { self == other }
@@ -305,4 +311,41 @@ mod tests {
         let python = generate(&registry, Language::Python).unwrap();
         assert!(text(&python, "python/pse/contracts/authored.py").contains("seen_at: datetime"));
     }
+    fn physical_identity_fixture(source: Option<&'static str>, base: crate::model::IdentityBase) -> Result<Registry, crate::SchemaError> {
+        let mut builder = RegistryBuilder::new();
+        let declaration = match source {
+            Some(path) => IdentityDecl::sourced("unit", "A physical unit", path, base),
+            None => IdentityDecl::new("unit", "A physical unit"),
+        };
+        builder.declare_identity(declaration).declare_enum(EnumDecl::platform(
+            "BoundKind", vec![EnumMember::new("finite", "finite"), EnumMember::new("unbounded", "unbounded")]
+        )).declare_relation(relation("physical_units", "unit_id", vec![F::key("unit_id", F::id(), "A physical unit").with_owned_identity("unit")]));
+        builder.build()
+    }
+
+    #[test]
+    fn source_owned_identity_preserves_alias_codecs_roles_and_python_domain() {
+        let registry = physical_identity_fixture(Some("pse_quantity::UnitId"), crate::model::IdentityBase::SemanticId).unwrap();
+        let rust = generate(&registry, Language::Rust).unwrap();
+        let ids = text(&rust, "crates/pse-model/src/generated/identities.rs");
+        assert!(ids.contains("pub type UnitId = pse_quantity::UnitId"), "{ids}");
+        assert!(!ids.contains("semantic_id_newtype!"));
+        assert!(ids.contains("impl crate::SemanticFrame for UnitId"));
+        assert!(ids.split_whitespace().collect::<String>().contains("callback!(UnitId)"));
+        let codecs = text(&rust, "crates/pse-relations/src/generated/identities.rs");
+        assert!(codecs.contains("impl crate::columnar::ArrowValue for UnitId"));
+        let restored = text(&rust, "crates/pse-schema/src/generated/standard_registry.rs");
+        assert!(restored.contains("pse_quantity::UnitId"), "{restored}");
+        let python = generate(&registry, Language::Python).unwrap();
+        assert!(text(&python, "python/pse/contracts/identities.py").contains("UnitId = NewType(\"UnitId\", v.SemanticId)"));
+        let unsourced = physical_identity_fixture(None, crate::model::IdentityBase::SemanticId).unwrap();
+        assert_eq!(crate::fingerprint::registry(registry.schema_batches()).unwrap(), crate::fingerprint::registry(unsourced.schema_batches()).unwrap());
+    }
+
+    #[test]
+    fn source_owned_identity_refuses_invalid_path_and_incompatible_base() {
+        assert!(physical_identity_fixture(Some("not a path"), crate::model::IdentityBase::SemanticId).is_err());
+        assert!(physical_identity_fixture(Some("pse_quantity::UnitId"), crate::model::IdentityBase::ContentHash).is_err());
+    }
+
 }

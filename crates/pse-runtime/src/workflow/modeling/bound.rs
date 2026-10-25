@@ -232,8 +232,8 @@ mod tests {
             target,
             value: BindingQuantity {
                 magnitude: FiniteBound::try_new(value).unwrap(),
-                quantity: quantity.id.as_id(),
-                unit: quantity.canonical_unit.as_id(),
+                quantity: quantity.id,
+                unit: quantity.canonical_unit,
             },
         }
     }

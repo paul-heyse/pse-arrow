@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    117u8, 223u8, 170u8, 158u8, 15u8, 159u8, 145u8, 180u8, 1u8, 114u8, 209u8, 138u8,
-    183u8, 97u8, 89u8, 169u8, 92u8, 65u8, 71u8, 185u8, 197u8, 179u8, 150u8, 156u8, 208u8,
-    255u8, 158u8, 237u8, 113u8, 107u8, 153u8, 44u8,
+    101u8, 137u8, 146u8, 51u8, 118u8, 193u8, 245u8, 55u8, 139u8, 177u8, 121u8, 63u8,
+    156u8, 188u8, 102u8, 124u8, 232u8, 51u8, 1u8, 212u8, 189u8, 96u8, 124u8, 13u8, 182u8,
+    1u8, 231u8, 196u8, 50u8, 60u8, 196u8, 252u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityPreconditionsRow {
     fn append(
@@ -75,10 +75,10 @@ impl crate::columnar::ArrowValue for ReferenceQuantityPreconditionsRow {
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::BasisId,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::QuantityTypeId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
             bool,
@@ -108,13 +108,13 @@ impl crate::columnar::ArrowValue for ReferenceQuantityPreconditionsRow {
                 index,
             )?,
             r#required_basis_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::BasisId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
             r#required_quantity_type_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::QuantityTypeId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
