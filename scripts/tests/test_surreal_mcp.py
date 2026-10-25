@@ -917,6 +917,7 @@ class SurrealMcpTests(unittest.TestCase):
         self,
     ) -> None:
         profile = host.select("store-functional", str(server.GIB))
+        logical_cpus = host.cpu_set(profile.cores)
         owner = host.Allocation(
             self.root / "admission", "a" * 32, profile, self.deadline
         )
@@ -943,7 +944,7 @@ class SurrealMcpTests(unittest.TestCase):
             "/sys/fs/cgroup" + group + "/memory.max": str(server.GIB),
             "/sys/fs/cgroup"
             + group
-            + "/cpu.max": f"{len(profile.cores) * 100000} 100000",
+            + "/cpu.max": f"{len(logical_cpus) * 100000} 100000",
             "/proc/net/tcp": "header\n0: 0100007F:4740 remote 0A z z z z z 777",
         }
         descriptor = MagicMock()
@@ -967,7 +968,7 @@ class SurrealMcpTests(unittest.TestCase):
             patch.object(
                 server,
                 "effective_limits",
-                return_value=(server.GIB, len(profile.cores)),
+                return_value=(server.GIB, len(logical_cpus)),
             ),
             patch.object(
                 server, "observed_role_affinity", return_value=True
@@ -982,7 +983,7 @@ class SurrealMcpTests(unittest.TestCase):
                 server.owns_listener(self.state, config, deadline=self.deadline)
             )
             affinity.assert_called_once_with(
-                process["pid"], {"cpu_threads": len(profile.cores)}, list(profile.cores)
+                process["pid"], {"cpu_threads": len(logical_cpus)}, list(logical_cpus)
             )
             affinity.return_value = False
             self.assertFalse(

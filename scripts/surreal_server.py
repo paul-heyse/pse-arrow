@@ -57,6 +57,7 @@ from scripts import (
     pse_env,
     surreal_source,
     surrealism_module,
+    telemetry_service,
     test_resources,
 )
 
@@ -4273,6 +4274,10 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
     observed = service_readiness(state, config)
     is_active = observed.manager.get("ActiveState") == "active"
     listener_owned = observed.listener_owned
+    telemetry_identity = None
+    if listener_owned:
+        process = read_json(state / "server-process.json")
+        telemetry_identity = process.get("telemetry_service_instance_id")
     return {
         "state": str(state),
         "active": is_active,
@@ -4288,6 +4293,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
             "manager": dict(observed.manager),
         },
         "service_generation": config["instance_id"],
+        "telemetry_service_instance_id": telemetry_identity,
         "supervisor_generation": config.get("service_supervisor"),
         "parked": bool(config.get("parked")),
         "tooling_fixture": config.get("tooling_fixture") is True,
@@ -5890,7 +5896,8 @@ def module_runtime_allocation(allocation: dict[str, object]) -> dict[str, int]:
 
 
 def server_environment(
-    config: dict[str, object], credentials: dict[str, object], *, bootstrap: bool = True
+    config: dict[str, object], credentials: dict[str, object], *, bootstrap: bool = True,
+    telemetry_instance_id: str | None = None,
 ) -> dict[str, str]:
     allocation = config["resources"]
     if not isinstance(allocation, dict):
@@ -5919,7 +5926,7 @@ def server_environment(
     environment = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith("SURREAL_")
+        if not key.startswith(("SURREAL_", "OTEL_"))
     }
     environment.update(
         {
@@ -5945,6 +5952,25 @@ def server_environment(
             "RAYON_NUM_THREADS": pool_threads,
         }
     )
+    instance = telemetry_instance_id or uuid.uuid4().hex
+    if not re.fullmatch(r"[a-f0-9]{32}", instance):
+        raise SupervisorError("Invalid server telemetry process incarnation")
+    environment["OTEL_RESOURCE_ATTRIBUTES"] = (
+        f"service.instance.id={instance},pse.configuration.id={config['instance_id']}"
+    )
+    selection = telemetry_service.producer_configuration()
+    if selection is not None:
+        endpoint = selection.get("otlp_grpc_endpoint")
+        if not isinstance(endpoint, str) or not re.fullmatch(r"http://127\.0\.0\.1:[0-9]{1,5}", endpoint):
+            raise SupervisorError("Selected telemetry gRPC ingress must be loopback")
+        environment.update(
+            SURREAL_TELEMETRY_PROVIDER="otlp",
+            SURREAL_TELEMETRY_DISABLE_METRICS="false",
+            SURREAL_TELEMETRY_DISABLE_TRACING="false",
+            OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=endpoint,
+            OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=endpoint,
+            OTEL_METRIC_EXPORT_INTERVAL="10000",
+        )
     telemetry = config.get("diagnostic_telemetry")
     if telemetry is not None:
         selected_telemetry = object_mapping(telemetry)
@@ -5961,15 +5987,14 @@ def server_environment(
             raise SupervisorError(
                 "Temporary diagnostic telemetry must name its owned loopback collector"
             )
-        for key in list(environment):
-            if key.startswith("OTEL_"):
-                environment.pop(key)
         environment.update(
             SURREAL_TELEMETRY_PROVIDER="otlp",
-            SURREAL_TELEMETRY_DISABLE_METRICS="true",
-            OTEL_EXPORTER_OTLP_ENDPOINT=endpoint,
+            SURREAL_TELEMETRY_DISABLE_TRACING="false",
+            OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=endpoint,
             OTEL_BSP_SCHEDULE_DELAY="100",
         )
+        if selection is None:
+            environment["SURREAL_TELEMETRY_DISABLE_METRICS"] = "true"
     if not bootstrap:
         environment.pop("SURREAL_USER", None)
         environment.pop("SURREAL_PASS", None)
@@ -6329,10 +6354,12 @@ def _serve(state: Path) -> int:
             if authority != fresh_root_authority(state, config):
                 raise SupervisorError("Fresh ROOT bootstrap authority changed")
             bootstrap = True
+    telemetry_instance_id = uuid.uuid4().hex
     environment = server_environment(
         config,
         credentials,
         bootstrap=not maintenance or bootstrap,
+        telemetry_instance_id=telemetry_instance_id,
     )
     remaining(_STARTUP.deadline)
     child = subprocess.Popen(
@@ -6346,6 +6373,7 @@ def _serve(state: Path) -> int:
         state / "server-process.json",
         {
             "instance_id": config["instance_id"],
+            "telemetry_service_instance_id": telemetry_instance_id,
             "pid": child.pid,
             "start": native_operation.start_identity(child.pid),
             "allocation": launch["allocation"],
@@ -9957,12 +9985,14 @@ class SelectedService:
     _proof_digest: str = field(repr=False)
     _invocation: str = field(repr=False)
     _password: str = field(repr=False)
+    _telemetry_service_instance_id: str | None = None
 
     @property
     def identity(self) -> dict[str, object]:
         return {
             "state": str(self.state),
             "instance_id": self._config["instance_id"],
+            "telemetry_service_instance_id": self._telemetry_service_instance_id,
             "invocation": self._invocation,
             "port": self.port,
             "binary_sha256": object_mapping(self._config["server"]).get(
@@ -10049,6 +10079,10 @@ def selected_service(state: Path, deadline: float) -> SelectedService:
         or not credentials["selection_password"]
     ):
         raise SupervisorError("MCP VIEWER readiness identity is unavailable")
+    process_path = state / "server-process.json"
+    telemetry_identity = read_json(process_path, deadline=deadline).get("telemetry_service_instance_id") if process_path.is_file() else None
+    if telemetry_identity is not None and (not isinstance(telemetry_identity, str) or not re.fullmatch(r"[a-f0-9]{32}", telemetry_identity)):
+        raise SupervisorError("Invalid native telemetry process association")
     selected = SelectedService(
         state,
         integer(config["port"]),
@@ -10057,6 +10091,7 @@ def selected_service(state: Path, deadline: float) -> SelectedService:
         proof_digest,
         observed.get("InvocationID", ""),
         credentials["selection_password"],
+        telemetry_identity,
     )
     selected.recheck(deadline)
     return selected

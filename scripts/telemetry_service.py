@@ -270,6 +270,7 @@ def collector_configuration(
                 "resource": {
                     "attributes": [
                         {"name": "service.name", "value": "pse-telemetry-collector"},
+                        {"name": "service.instance.id", "value": "${env:INVOCATION_ID}"},
                         *(
                             [
                                 {
@@ -286,6 +287,17 @@ def collector_configuration(
                 "metrics": {
                     "level": "normal",
                     "readers": [
+                        {
+                            "periodic": {
+                                "interval": 10000,
+                                "exporter": {
+                                    "otlp": {
+                                        "protocol": "grpc",
+                                        "endpoint": f"http://127.0.0.1:{ports['otlp_grpc']}",
+                                    }
+                                },
+                            }
+                        },
                         {
                             "pull": {
                                 "exporter": {
@@ -331,7 +343,7 @@ def _unit(name: str, binary: Path, generation: Path, state: Path, owner_id: str)
         # Path directives consume the complete value; literal quotes are a
         # path. ExecStart alone uses the command word parser.
         f"WorkingDirectory={str(state).replace('%', '%%')}\n"
-        f"EnvironmentFile={str(state / 'service.env').replace('%', '%%')}\n"
+        f"EnvironmentFile={str(generation / 'service.env' if (generation / 'service.env').exists() else state / 'service.env').replace('%', '%%')}\n"
         f"ExecStart={command}\n"
         "Restart=on-failure\nRestartSec=2s\n"
         f"TimeoutStopSec={STOP_SECONDS}s\n"
@@ -427,6 +439,7 @@ def setup(
             "ZO_GRPC_PORT": str(selected_ports["backend_grpc"]),
             "ZO_WEB_URL": str(public["backend_http_endpoint"]),
             "ZO_TELEMETRY": "false",
+            "ZO_SSRF_ALLOWED_CIDRS": "127.0.0.1/32",
             "ZO_COMPACT_DATA_RETENTION_DAYS": str(retention_days),
             "ZO_COMPACT_EXTENDED_DATA_RETENTION_DAYS": str(retention_days),
         }
@@ -506,9 +519,12 @@ def setup(
     return inspect(selected, environment=environment)
 
 
-def _configuration(state: Path) -> dict[str, object]:
+def _configuration(
+    state: Path, *, record: dict[str, object] | None = None,
+    public_record: dict[str, object] | None = None,
+) -> dict[str, object]:
     _private_directory(state)
-    config = _read(state / "service.json")
+    config = _read(state / "service.json") if record is None else record
     if (
         config.get("owner") != OWNER
         or config.get("state") != str(state)
@@ -522,6 +538,10 @@ def _configuration(state: Path) -> dict[str, object]:
     ):
         raise TelemetryServiceError("Telemetry generation identity is invalid")
     generation = state / "generations" / str(generation_id)
+    if config.get("environment_file", str(state / "service.env")) not in {
+        str(state / "service.env"), str(generation / "service.env")
+    }:
+        raise TelemetryServiceError("Telemetry environment generation path differs")
     units = {
         name: f"pse-telemetry-{owner_id}-{generation_id}-{name}.service"
         for name in TOOLS
@@ -533,7 +553,7 @@ def _configuration(state: Path) -> dict[str, object]:
         str(path.relative_to(state))
         for path in (
             generation / "collector.yaml",
-            state / "service.env",
+            Path(str(config.get("environment_file", state / "service.env"))),
             *(generation / unit for unit in units.values()),
         )
     }
@@ -563,7 +583,7 @@ def _configuration(state: Path) -> dict[str, object]:
             Path(str(item.get("path")))
         ) != item.get("identity"):
             raise TelemetryServiceError("Telemetry binary changed")
-    public = _read(state / "configuration.json")
+    public = _read(state / "configuration.json") if public_record is None else public_record
     ports = config.get("ports")
     if not isinstance(ports, dict):
         raise TelemetryServiceError("Telemetry port declaration is invalid")
@@ -585,7 +605,7 @@ def backend_access(
     config = _configuration(selected)
     values = dict(
         line.split("=", 1)
-        for line in (selected / "service.env").read_text().splitlines()
+        for line in Path(str(config.get("environment_file", selected / "service.env"))).read_text().splitlines()
         if "=" in line
     )
     authorization = json.loads(values["PSE_TELEMETRY_AUTHORIZATION"])
@@ -596,6 +616,16 @@ def backend_access(
     if not isinstance(endpoint, str):
         raise TelemetryServiceError("Telemetry backend endpoint is invalid")
     return endpoint, {"Authorization": authorization}
+
+
+def producer_configuration(
+    environment: Mapping[str, str] | None = None,
+) -> dict[str, object] | None:
+    """Read an authenticated selected local ingress without requiring a live backend."""
+    selected = state_directory(environment=environment)
+    if not (selected / "configuration.json").exists():
+        return None
+    return _record(_configuration(selected)["public_configuration"], "public configuration")
 
 
 def _systemctl(
@@ -720,6 +750,7 @@ def _checked_process(
         "pid": pid,
         "start_ticks": start_ticks,
         "invocation_id": invocation,
+        "service_instance_id": invocation,
         "control_group": group,
     }
 
@@ -932,6 +963,136 @@ def restart(
         _stop(config, environment)
         _publish_units(config, environment)
         _start(config, environment)
+    return inspect(selected, environment=environment)
+
+
+def reconfigure(
+    state: Path | str | None = None, *, environment: Mapping[str, str] | None = None
+) -> dict[str, object]:
+    """Explicitly replace service configuration, retaining data and a recoverable generation.
+
+    Validate the complete candidate before draining either existing service. Never
+    rewrite a sealed generation or rotate backend credentials as a side effect.
+    A failed activation restores the prior selection and its running/login state.
+    """
+    selected = state_directory(state, environment)
+    with _lock(selected):
+        previous = _configuration(selected)
+        observations = {
+            name: _observe(unit, environment) for name, unit in _units(previous).items()
+        }
+        for name, observation in observations.items():
+            _checked_process(previous, name, observation)
+        running = any(item.get("ActiveState") == "active" for item in observations.values())
+        enabled = [name for name, item in observations.items() if item.get("UnitFileState") == "enabled"]
+        generation_id = uuid.uuid4().hex
+        generation = selected / "generations" / generation_id
+        generation.mkdir(mode=0o700)
+        values = {
+            key: json.loads(value)
+            for key, value in (
+                line.split("=", 1)
+                for line in Path(str(previous.get("environment_file", selected / "service.env"))).read_text().splitlines()
+                if "=" in line
+            )
+        }
+        values["ZO_SSRF_ALLOWED_CIDRS"] = "127.0.0.1/32"
+        env_file = generation / "service.env"
+        _write(env_file, "".join(f"{key}={json.dumps(value)}\n" for key, value in values.items()))
+        public = _record(previous["public_configuration"], "public configuration") | {"configuration_id": generation_id}
+        ports = _ports(_record(previous["ports"], "ports"))
+        streams = _record(public["streams"], "streams")
+        if any(not isinstance(value, str) for value in streams.values()):
+            raise TelemetryServiceError("Invalid telemetry stream declaration")
+        _write_json(generation / "collector.yaml", collector_configuration(
+            selected, ports, str(public["organization"]),
+            {key: str(value) for key, value in streams.items()}, configuration_id=generation_id,
+        ))
+        binaries = _record(previous["binaries"], "binaries")
+        collector = _record(binaries["collector"], "collector")
+        validation = subprocess.run(
+            [str(collector["path"]), "validate", "--config", str(generation / "collector.yaml")],
+            env={**os.environ, **values}, capture_output=True, timeout=30, check=False,
+        )
+        if validation.returncode:
+            raise TelemetryServiceError("Collector rejected candidate; prior generation remains selected")
+        units = {}
+        for name in TOOLS:
+            unit = f"pse-telemetry-{previous['owner_id']}-{generation_id}-{name}.service"
+            _write(generation / unit, _unit(name, Path(str(_record(binaries[name], name)["path"])), generation, selected, str(previous["owner_id"])))
+            units[name] = unit
+        files = [generation / "collector.yaml", env_file, *(generation / unit for unit in units.values())]
+        candidate = previous | {
+            "configuration_id": generation_id, "generation": str(generation),
+            "environment_file": str(env_file), "public_configuration": public, "units": units,
+            "files": {str(path.relative_to(selected)): _digest(path) for path in files},
+            "previous_configuration_id": previous["configuration_id"],
+        }
+        receipt = {"previous": previous, "candidate": candidate, "phase": "validated", "running": running, "enabled": enabled}
+        _write_json(selected / "reconfiguration.json", receipt)
+        _stop(previous, environment)
+        try:
+            for name in enabled:
+                _systemctl("disable", _units(previous)[name], environment=environment)
+            _write_json(selected / "service.json", candidate)
+            _write_json(selected / "configuration.json", public)
+            _configuration(selected)
+            _publish_units(candidate, environment)
+            if running:
+                _start(candidate, environment)
+            for name in enabled:
+                _systemctl("enable", units[name], environment=environment)
+        except (TelemetryServiceError, OSError, subprocess.SubprocessError):
+            # Drain only authenticated candidate children before selecting the prior
+            # generation; if drain fails retain the receipt for explicit recovery.
+            _stop(candidate, environment)
+            _systemctl("disable", *units.values(), environment=environment, check=False)
+            _write_json(selected / "service.json", previous)
+            _write_json(selected / "configuration.json", _record(previous["public_configuration"], "public configuration"))
+            _publish_units(previous, environment)
+            if running:
+                _start(previous, environment)
+            for name in enabled:
+                _systemctl("enable", _units(previous)[name], environment=environment)
+            _write_json(selected / "reconfiguration.json", receipt | {"phase": "rolled_back"})
+            raise
+        _write_json(selected / "reconfiguration.json", receipt | {"phase": "activated"})
+    return inspect(selected, environment=environment)
+
+
+def recover_previous_configuration(
+    state: Path | str | None = None, *, environment: Mapping[str, str] | None = None
+) -> dict[str, object]:
+    """Explicitly restore the authenticated generation retained by reconfiguration.
+
+    This also repairs an interrupted pointer publication. No arbitrary generation
+    path, executable or environment is accepted from the caller.
+    """
+    selected = state_directory(state, environment)
+    with _lock(selected):
+        receipt = _read(selected / "reconfiguration.json")
+        previous = _record(receipt.get("previous"), "previous generation")
+        candidate = _record(receipt.get("candidate"), "candidate generation")
+        enabled = receipt.get("enabled")
+        if not isinstance(enabled, list) or any(name not in TOOLS for name in enabled):
+            raise TelemetryServiceError("Reconfiguration recovery login state is invalid")
+        for config in (previous, candidate):
+            _configuration(selected, record=config, public_record=_record(config.get("public_configuration"), "public configuration"))
+        if previous.get("owner_id") != candidate.get("owner_id") or _read(selected / "service.json") not in (previous, candidate):
+            raise TelemetryServiceError("Reconfiguration recovery selection has changed")
+        # Candidate verification and drain precede restoration; no stale PID or
+        # retained path is sufficient authority for a stop.
+        _stop(candidate, environment)
+        _systemctl("disable", *_units(candidate).values(), environment=environment, check=False)
+        _write_json(selected / "service.json", previous)
+        _write_json(selected / "configuration.json", _record(previous["public_configuration"], "public configuration"))
+        _configuration(selected)
+        _publish_units(previous, environment)
+        if receipt.get("running") is True:
+            _start(previous, environment)
+        for name in enabled:
+            _systemctl("enable", _units(previous)[name], environment=environment)
+        _write_json(selected / "reconfiguration.json", receipt | {"phase": "recovered_previous"})
     return inspect(selected, environment=environment)
 
 
