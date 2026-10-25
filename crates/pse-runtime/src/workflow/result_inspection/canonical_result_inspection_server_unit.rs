@@ -323,7 +323,7 @@ async fn canonical_result_physical_pages_reopen_original_context_bind_cursor_and
     }
     let first_pin_keys = first_pins
         .iter()
-        .map(|pin| pin.key().to_owned())
+        .map(|pin| pin.grant_key().to_owned())
         .collect::<BTreeSet<_>>();
     let sources = store
         .analysis_run_sources("readable-fixture")
@@ -368,7 +368,7 @@ async fn canonical_result_physical_pages_reopen_original_context_bind_cursor_and
     assert!(
         second_pins
             .iter()
-            .all(|pin| !first_pin_keys.contains(pin.key())),
+            .all(|pin| !first_pin_keys.contains(pin.grant_key())),
         "each bounded page reacquires fresh exact source protection"
     );
     for pin in second_pins {

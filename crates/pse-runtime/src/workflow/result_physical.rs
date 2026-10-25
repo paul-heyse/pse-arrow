@@ -7,6 +7,37 @@ use pse_operations::{canonical::Revision, canonical_results::ResultRead};
 use pse_relations::columnar::FieldCheckedBatch;
 use std::{collections::BTreeMap, sync::Arc};
 
+/// Physical publication records the full versioned RelationKey display, not a
+/// latest-version qualified-name selector. Recover the exact declared key before
+/// admitting the original Arrow schema and rows.
+fn retained_physical_relation<'a>(
+    registry: &'a pse_schema::Registry,
+    scope: &str,
+) -> Result<&'a pse_schema::model::RelationSpec, WorkflowError> {
+    let (qualified, version) = scope
+        .rsplit_once('@')
+        .ok_or_else(|| contract("original physical relation locator lacks its version"))?;
+    let family = registry
+        .relation(qualified)
+        .ok_or_else(|| contract("original physical relation unavailable"))?;
+    let version = version
+        .parse::<u32>()
+        .map_err(|_| contract("original physical relation version is invalid"))?;
+    let key = pse_schema::model::RelationKey {
+        version,
+        ..family.key
+    };
+    let relation = registry
+        .relation_by_key(key)
+        .ok_or_else(|| contract("original physical relation version unavailable"))?;
+    if relation.key.to_string() != scope {
+        return Err(contract(
+            "original physical relation locator spelling differs",
+        ));
+    }
+    Ok(relation)
+}
+
 impl Runtime {
     pub(super) async fn original_result_physical(
         &self,
@@ -125,10 +156,7 @@ impl Runtime {
                     if object.kind != "physical:rows:v1" {
                         return Err(contract("original physical row interpretation differs"));
                     }
-                    let spec = self
-                        .registry()
-                        .relation(&member.scope)
-                        .ok_or_else(|| contract("original physical relation unavailable"))?;
+                    let spec = retained_physical_relation(self.registry(), &member.scope)?;
                     let mut stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
                         std::io::Cursor::new(object.payload.as_slice()),
                         None,
@@ -204,5 +232,46 @@ impl Runtime {
         }
         physical._source_owner = Some(protection);
         Ok((physical, closure))
+    }
+}
+
+#[cfg(test)]
+mod physical_relation_locator_unit {
+    use super::*;
+
+    #[test]
+    fn physical_relation_locator_consumes_the_producer_versioned_scope() {
+        let registry = pse_schema::registry().unwrap();
+        for name in [
+            "reference.units",
+            "reference.quantity_types",
+            "reference.unit_sets",
+            "authored.packages",
+        ] {
+            let original = registry.relation(name).unwrap();
+            let published_scope = original.key.to_string();
+            assert!(registry.relation(&published_scope).is_none());
+            let selected = retained_physical_relation(registry, &published_scope).unwrap();
+            assert_eq!(selected.key, original.key);
+            assert_eq!(selected.id, original.id);
+        }
+    }
+
+    #[test]
+    fn physical_relation_locator_refuses_missing_unknown_or_noncanonical_version() {
+        let registry = pse_schema::registry().unwrap();
+        let original = registry.relation("reference.units").unwrap();
+        for scope in [
+            original.key.qualified_name(),
+            "reference.units@invalid".into(),
+            "reference.units@4294967295".into(),
+            format!("reference.units@0{}", original.key.version),
+            format!("reference.absent@{}", original.key.version),
+        ] {
+            assert!(
+                retained_physical_relation(registry, &scope).is_err(),
+                "{scope}"
+            );
+        }
     }
 }

@@ -1788,8 +1788,7 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
                         .values()
                         .map(|entry| {
                             assert_eq!(
-                                entry.quantity,
-                                scalar.as_id(),
+                                entry.quantity, scalar,
                                 "fixture overlay is canonical Scalar"
                             );
                             BindingAssignment {
