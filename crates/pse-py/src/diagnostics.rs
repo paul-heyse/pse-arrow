@@ -916,6 +916,60 @@ pub(crate) fn diagnostic_review_pack(
     .map(DocumentValue)
     .map_err(|error| errors::diagnostic(py, &error))
 }
+
+#[pyfunction]
+pub(crate) fn diagnostic_export_members(
+    py: Python<'_>,
+    destination: PathBuf,
+    selection: crate::documents::RecordedInput<
+        pse_runtime::tooling::review_pack::PackExportRequest,
+    >,
+) -> PyResult<DocumentValue<pse_runtime::tooling::review_pack::PackIndex>> {
+    py.detach(|| {
+        pse_runtime::tooling::review_export::export_supplied_members(
+            &destination,
+            selection.0,
+            pse_columnar::CancellationToken::new(),
+        )
+    })
+    .map(DocumentValue)
+    .map_err(|error| errors::diagnostic(py, &error))
+}
+
+#[pyfunction]
+pub(crate) fn diagnostic_pack_member(
+    py: Python<'_>,
+    directory: PathBuf,
+    member: String,
+    maximum_bytes: usize,
+) -> PyResult<Py<pyo3::types::PyBytes>> {
+    let bytes = py
+        .detach(|| {
+            use std::io::Read;
+            if maximum_bytes == 0
+                || maximum_bytes > pse_runtime::tooling::review_pack::MAXIMUM_PACK_DOCUMENT_BYTES
+            {
+                return Err(pse_runtime::tooling::review_pack::PackError::Contract(
+                    "finite member byte allowance required".into(),
+                ));
+            }
+            let reader = pse_runtime::tooling::review_pack::PackReader::open(
+                &directory,
+                pse_runtime::tooling::review_pack::MAXIMUM_PACK_DOCUMENT_BYTES,
+            )?;
+            let mut selected = reader.open_member(&member)?;
+            if selected.limit() > maximum_bytes as u64 {
+                return Err(pse_runtime::tooling::review_pack::PackError::Contract(
+                    "member exceeds selected byte allowance".into(),
+                ));
+            }
+            let mut bytes = Vec::new();
+            selected.read_to_end(&mut bytes)?;
+            Ok(bytes)
+        })
+        .map_err(|error| errors::diagnostic(py, &error))?;
+    Ok(pyo3::types::PyBytes::new(py, &bytes).unbind())
+}
 #[pyfunction]
 pub(crate) fn diagnostic_pack_evidence(
     py: Python<'_>,

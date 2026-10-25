@@ -1354,6 +1354,7 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        let metrics = crate::tooling::operational_metrics::NativeAttempt::new();
         let AdmissionControl {
             cancel,
             admitted,
@@ -1396,6 +1397,7 @@ impl MathService {
                 if std::time::Instant::now() >= at {
                     return Err(Self::admission_timeout());
                 }
+                metrics.admitted();
                 if let Some(admitted) = admitted {
                     let _ = admitted.send(());
                 }
@@ -1458,20 +1460,27 @@ impl MathService {
                         result
                     })
                     .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+                metrics.dispatched();
                 // Joining witnesses thread-local and native destructor completion.
-                let mut joining = tokio::task::spawn_blocking(move || handle.join());
+                let mut joining = tokio::task::spawn_blocking(move || {
+                    let joined = handle.join();
+                    crate::tooling::operational_metrics::native_joined();
+                    joined
+                });
                 // Inclusive supervisor wait overlaps worker execution; it is not exclusive CPU time.
                 let joining_phase = pse_diagnostics::observation::phase("native.join.wait");
                 let result = match deadline {
                     Some(deadline) => tokio::select! {
                         biased;
                         () = cancel.cancelled() => {
+                            metrics.cancelled();
                             if let Some(context) = pse_diagnostics::observation::current() { context.boolean("native.stop_requested", true); }
                             tracing::info!(target: "pse.telemetry.diagnostic", code = "native.cancel.requested", "native cancellation requested; retaining ownership through join");
                             let _ = joining.await;
                             Err(MathRuntimeError::Cancelled)
                         },
                         () = tokio::time::sleep_until(deadline.into()) => {
+                            metrics.expired();
                             // Signal checkpoints immediately, but retain every native owner
                             // until the actual thread and its foreign destructors have joined.
                             if let Some(context) = pse_diagnostics::observation::current() { context.boolean("native.deadline_expired", true); }

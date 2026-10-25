@@ -771,7 +771,7 @@ impl crate::documents::DocumentType for pse_runtime::observation::ProcessCheckpo
     const INPUT_NAME: &'static str = "ProcessCheckpoint";
     const OUTPUT_NAME: &'static str = "ProcessCheckpointOutput";
     const DISTINCT_DIRECTIONS: bool = true;
-    const VERSION: Option<u32> = Some(5);
+    const VERSION: Option<u32> = Some(6);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::observation::ProcessLocator {

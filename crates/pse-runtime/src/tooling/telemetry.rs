@@ -3,6 +3,7 @@
 //! Explicit process-host telemetry composition. No Runtime installs SDK state.
 //!
 //! Context is diagnostic only: it never participates in native admission or hashes.
+use super::metric_declarations::*;
 use opentelemetry::{
     Context, KeyValue,
     propagation::TextMapPropagator,
@@ -341,7 +342,11 @@ pub(crate) fn diagnostic(error: &dyn pse_diagnostics::TypedDiagnostic, owner: &'
         .take(32)
     {
         if let Some(code) = leaf.diagnostic_code() {
-            tracing::warn!(target: "pse.telemetry.diagnostic", code = %code, owner, native.operation = ?operation, "native owner returned a typed diagnostic");
+            if let Some(operation) = operation {
+                tracing::warn!(target: "pse.telemetry.diagnostic", code = %code, owner, pse.operation.id = %operation, "native owner returned a typed diagnostic");
+            } else {
+                tracing::warn!(target: "pse.telemetry.diagnostic", code = %code, owner, "native owner returned a typed diagnostic");
+            }
         }
     }
 }
@@ -431,37 +436,23 @@ fn client(signal: &SignalSettings) -> Result<ResolvedClient, TelemetryError> {
 
 /// SDK callbacks read the same native sources as passive checkpoints. The SDK owns
 /// collection scheduling; no second sampler, executor or resource owner is installed.
-fn install_runtime_metrics(provider: &SdkMeterProvider) {
+pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
+    super::runtime_metrics::initialize_source_identity();
     use opentelemetry::metrics::MeterProvider as _;
     let meter = provider.meter_with_scope(
         opentelemetry::InstrumentationScope::builder(INSTRUMENTATION_SCOPE)
             .with_version(env!("CARGO_PKG_VERSION"))
             .build(),
     );
-    for (name, description, unit, field) in [
-        (
-            "pse_runtime_executor_workers",
-            "Configured workers of currently registered executors",
-            "{thread}",
-            0,
-        ),
-        (
-            "pse_runtime_executor_alive_tasks",
-            "Approximate alive tasks of currently registered executors; not settlement",
-            "{task}",
-            1,
-        ),
-        (
-            "pse_runtime_executor_global_queue_depth",
-            "Global injection queues only; excludes worker-local queues",
-            "{task}",
-            2,
-        ),
+    for (definition, field) in [
+        (PSE_RUNTIME_EXECUTOR_WORKERS, 0),
+        (PSE_RUNTIME_EXECUTOR_ALIVE_TASKS, 1),
+        (PSE_RUNTIME_EXECUTOR_GLOBAL_QUEUE_DEPTH, 2),
     ] {
         meter
-            .u64_observable_gauge(name)
-            .with_description(description)
-            .with_unit(unit)
+            .u64_observable_gauge(definition.name)
+            .with_description(definition.population)
+            .with_unit(definition.unit)
             .with_callback(move |observer| {
                 let snapshot = super::runtime_metrics::snapshot();
                 if !snapshot.coverage.executor_registry_available {
@@ -486,11 +477,9 @@ fn install_runtime_metrics(provider: &SdkMeterProvider) {
     // This is a gauge over the current executor population. Removing an executor
     // can decrease it; calling it a process-lifetime monotonic counter is incorrect.
     meter
-        .f64_observable_gauge("pse_runtime_executor_worker_busy")
-        .with_description(
-            "Sum of cumulative worker busy time for currently registered executors; not CPU time",
-        )
-        .with_unit("s")
+        .f64_observable_gauge(PSE_RUNTIME_EXECUTOR_WORKER_BUSY.name)
+        .with_description(PSE_RUNTIME_EXECUTOR_WORKER_BUSY.population)
+        .with_unit(PSE_RUNTIME_EXECUTOR_WORKER_BUSY.unit)
         .with_callback(|observer| {
             let snapshot = super::runtime_metrics::snapshot();
             if !snapshot.coverage.executor_registry_available {
@@ -511,30 +500,234 @@ fn install_runtime_metrics(provider: &SdkMeterProvider) {
             }
         })
         .build();
-    meter.u64_observable_counter("pse_runtime_task_events")
-        .with_description("Process-wide selected future wrapper events; dropped wrappers do not establish native settlement")
-        .with_unit("{event}").with_callback(|observer| {
+    meter
+        .u64_observable_counter(PSE_NATIVE_SUPERVISOR_EVENTS.name)
+        .with_description(PSE_NATIVE_SUPERVISOR_EVENTS.population)
+        .with_unit(PSE_NATIVE_SUPERVISOR_EVENTS.unit)
+        .with_callback(|observer| {
+            let sample = super::operational_metrics::snapshot();
+            if sample.source_started_unix_micros.is_none() || sample.saturated {
+                return;
+            }
+            for (event, count) in [
+                ("attempt", sample.native_attempts),
+                ("admitted", sample.native_admitted),
+                ("dispatched", sample.native_dispatched),
+                ("joined", sample.native_joined),
+                ("cancel_requested", sample.native_cancel_requests),
+                ("deadline_requested", sample.native_deadline_requests),
+            ] {
+                observer.observe(count, &[KeyValue::new("event", event)]);
+            }
+        })
+        .build();
+    meter
+        .u64_observable_gauge(PSE_NATIVE_SUPERVISORS.name)
+        .with_description(PSE_NATIVE_SUPERVISORS.population)
+        .with_unit(PSE_NATIVE_SUPERVISORS.unit)
+        .with_callback(|observer| {
+            observer.observe(
+                super::operational_metrics::snapshot().native_supervisors,
+                &[],
+            );
+        })
+        .build();
+    meter
+        .u64_observable_counter(PSE_PREPARATION_FLIGHT_EVENTS.name)
+        .with_description(PSE_PREPARATION_FLIGHT_EVENTS.population)
+        .with_unit(PSE_PREPARATION_FLIGHT_EVENTS.unit)
+        .with_callback(|observer| {
+            let sample = super::operational_metrics::snapshot();
+            if sample.source_started_unix_micros.is_none() || sample.saturated {
+                return;
+            }
+            for stage in sample.preparation {
+                for (event, count) in [
+                    ("acquisition", stage.acquisitions),
+                    ("retained_reuse", stage.retained_reuses),
+                    ("producer", stage.producers),
+                    ("flight_waiter", stage.flight_waiters),
+                ] {
+                    observer.observe(
+                        count,
+                        &[
+                            KeyValue::new("stage", stage.stage.clone()),
+                            KeyValue::new("event", event),
+                        ],
+                    );
+                }
+            }
+        })
+        .build();
+    meter
+        .u64_observable_counter(PSE_PREPARATION_PRODUCTS.name)
+        .with_description(PSE_PREPARATION_PRODUCTS.population)
+        .with_unit(PSE_PREPARATION_PRODUCTS.unit)
+        .with_callback(|observer| {
+            if super::operational_metrics::snapshot()
+                .source_started_unix_micros
+                .is_none()
+            {
+                return;
+            }
+            let sample = crate::math::preparation_metrics();
+            for (product, count) in [
+                ("structural_view", sample.views),
+                ("observation_program", sample.observations),
+                ("value_rebuilt", sample.rebuilt),
+                ("value_shared", sample.shared),
+            ] {
+                observer.observe(count as u64, &[KeyValue::new("product", product)]);
+            }
+        })
+        .build();
+    meter
+        .u64_observable_counter(PSE_CANONICAL_QUERY_EVENTS.name)
+        .with_description(PSE_CANONICAL_QUERY_EVENTS.population)
+        .with_unit(PSE_CANONICAL_QUERY_EVENTS.unit)
+        .with_callback(|observer| {
+            let sample = pse_operations::canonical::query_metrics();
+            if sample.source_started_unix_micros.is_none() || sample.saturated {
+                return;
+            }
+            for (event, count) in [
+                ("builder", sample.builders),
+                ("request_failed", sample.request_failures),
+                ("statement", sample.statements),
+                ("statement_succeeded", sample.statements_succeeded),
+                ("statement_failed", sample.statements_failed),
+                ("statement_timed", sample.statements_timed),
+                ("statement_untimed", sample.statements_untimed),
+            ] {
+                observer.observe(count, &[KeyValue::new("event", event)]);
+            }
+        })
+        .build();
+    meter
+        .f64_observable_counter(PSE_CANONICAL_SERVER_DURATION.name)
+        .with_description(PSE_CANONICAL_SERVER_DURATION.population)
+        .with_unit(PSE_CANONICAL_SERVER_DURATION.unit)
+        .with_callback(|observer| {
+            let sample = pse_operations::canonical::query_metrics();
+            if sample.source_started_unix_micros.is_some()
+                && !sample.saturated
+                && sample.statements_timed > 0
+            {
+                observer.observe(sample.server_duration_nanos as f64 / 1_000_000_000.0, &[]);
+            }
+        })
+        .build();
+    meter
+        .f64_observable_gauge(PSE_OPERATIONAL_SOURCE_START.name)
+        .with_description(PSE_OPERATIONAL_SOURCE_START.population)
+        .with_unit(PSE_OPERATIONAL_SOURCE_START.unit)
+        .with_callback(|observer| {
+            for (owner, start) in [
+                (
+                    "native_preparation",
+                    super::operational_metrics::snapshot().source_started_unix_micros,
+                ),
+                (
+                    "canonical_query",
+                    pse_operations::canonical::query_metrics().source_started_unix_micros,
+                ),
+            ] {
+                if let Some(start) = start {
+                    observer.observe(start as f64 / 1_000_000.0, &[KeyValue::new("owner", owner)]);
+                }
+            }
+        })
+        .build();
+    meter
+        .u64_observable_counter(PSE_RUNTIME_TASK_EVENTS.name)
+        .with_description(PSE_RUNTIME_TASK_EVENTS.population)
+        .with_unit(PSE_RUNTIME_TASK_EVENTS.unit)
+        .with_callback(|observer| {
             for task in super::runtime_metrics::snapshot().task_classes {
                 for (event, count) in [
-                    ("instrumented", task.instrumented_count), ("dropped", task.dropped_count),
-                    ("poll", task.poll_count), ("scheduled", task.scheduled_count), ("idle", task.idle_count),
+                    ("instrumented", task.instrumented_count),
+                    ("dropped", task.dropped_count),
+                    ("poll", task.poll_count),
+                    ("scheduled", task.scheduled_count),
+                    ("idle", task.idle_count),
+                    ("first_poll", task.first_poll_count),
+                    ("slow_poll", task.slow_poll_count),
+                    ("long_delay", task.long_delay_count),
                 ] {
-                    observer.observe(count, &[KeyValue::new("task.class", task.class.as_str()), KeyValue::new("event", event)]);
+                    observer.observe(
+                        count,
+                        &[
+                            KeyValue::new("task.class", task.class.as_str()),
+                            KeyValue::new("event", event),
+                        ],
+                    );
                 }
             }
-        }).build();
-    meter.f64_observable_counter("pse_runtime_task_duration")
-        .with_description("Cumulative selected-future poll, wake-to-poll and pending-to-wake intervals; not CPU time")
-        .with_unit("s").with_callback(|observer| {
-            for task in super::runtime_metrics::snapshot().task_classes {
-                for (phase, nanos) in [("poll", task.poll_nanos), ("scheduled", task.scheduled_nanos), ("idle", task.idle_nanos)] {
-                    observer.observe(nanos as f64 / 1_000_000_000.0, &[KeyValue::new("task.class", task.class.as_str()), KeyValue::new("phase", phase)]);
-                }
-            }
-        }).build();
+        })
+        .build();
     meter
-        .u64_observable_gauge("pse_runtime_executor_registry_available")
-        .with_description("Whether the executor source registry was available at collection")
+        .f64_observable_counter(PSE_RUNTIME_TASK_DURATION.name)
+        .with_description(PSE_RUNTIME_TASK_DURATION.population)
+        .with_unit(PSE_RUNTIME_TASK_DURATION.unit)
+        .with_callback(|observer| {
+            for task in super::runtime_metrics::snapshot().task_classes {
+                for (phase, nanos) in [
+                    ("poll", task.poll_nanos),
+                    ("scheduled", task.scheduled_nanos),
+                    ("idle", task.idle_nanos),
+                    ("first_poll", task.first_poll_delay_nanos),
+                    ("slow_poll", task.slow_poll_nanos),
+                    ("long_delay", task.long_delay_nanos),
+                ] {
+                    observer.observe(
+                        nanos as f64 / 1_000_000_000.0,
+                        &[
+                            KeyValue::new("task.class", task.class.as_str()),
+                            KeyValue::new("phase", phase),
+                        ],
+                    );
+                }
+            }
+        })
+        .build();
+    meter
+        .f64_observable_gauge(PSE_RUNTIME_TASK_THRESHOLD.name)
+        .with_description(PSE_RUNTIME_TASK_THRESHOLD.population)
+        .with_unit(PSE_RUNTIME_TASK_THRESHOLD.unit)
+        .with_callback(|observer| {
+            for task in super::runtime_metrics::snapshot().task_classes {
+                for (threshold, nanos) in [
+                    ("slow_poll", task.slow_poll_threshold_nanos),
+                    ("long_delay", task.long_delay_threshold_nanos),
+                ] {
+                    observer.observe(
+                        nanos as f64 / 1_000_000_000.0,
+                        &[
+                            KeyValue::new("task.class", task.class.as_str()),
+                            KeyValue::new("threshold", threshold),
+                        ],
+                    );
+                }
+            }
+        })
+        .build();
+    meter
+        .f64_observable_gauge(PSE_RUNTIME_TASK_SOURCE_START.name)
+        .with_description(PSE_RUNTIME_TASK_SOURCE_START.population)
+        .with_unit(PSE_RUNTIME_TASK_SOURCE_START.unit)
+        .with_callback(|observer| {
+            for task in super::runtime_metrics::snapshot().task_classes {
+                observer.observe(
+                    task.source_started_unix_micros as f64 / 1_000_000.0,
+                    &[KeyValue::new("task.class", task.class.as_str())],
+                );
+            }
+        })
+        .build();
+    meter
+        .u64_observable_gauge(PSE_RUNTIME_EXECUTOR_REGISTRY_AVAILABLE.name)
+        .with_description(PSE_RUNTIME_EXECUTOR_REGISTRY_AVAILABLE.population)
+        .with_unit(PSE_RUNTIME_EXECUTOR_REGISTRY_AVAILABLE.unit)
         .with_callback(|observer| {
             observer.observe(
                 u64::from(
@@ -547,11 +740,9 @@ fn install_runtime_metrics(provider: &SdkMeterProvider) {
         })
         .build();
     meter
-        .u64_observable_counter("pse_runtime_executor_registration_refused")
-        .with_description(
-            "Process-lifetime executor observation registration refusals; never workload admission",
-        )
-        .with_unit("{registration}")
+        .u64_observable_counter(PSE_RUNTIME_EXECUTOR_REGISTRATION_REFUSED.name)
+        .with_description(PSE_RUNTIME_EXECUTOR_REGISTRATION_REFUSED.population)
+        .with_unit(PSE_RUNTIME_EXECUTOR_REGISTRATION_REFUSED.unit)
         .with_callback(|observer| {
             observer.observe(
                 super::runtime_metrics::snapshot()
@@ -654,6 +845,7 @@ impl Host {
         let metrics = if settings.metrics.enabled && !settings.disabled {
             let signal = &settings.metrics;
             let exporter = opentelemetry_otlp::MetricExporter::builder()
+                .with_temporality(opentelemetry_sdk::metrics::Temporality::Cumulative)
                 .with_http()
                 .with_protocol(opentelemetry_otlp::Protocol::HttpBinary)
                 .with_endpoint(

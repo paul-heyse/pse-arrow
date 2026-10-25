@@ -6,6 +6,8 @@ pub(crate) mod contained_copy;
 pub mod frozen_inspection;
 pub mod inspection;
 pub mod inspection_comparison;
+pub mod metric_declarations;
+pub mod operational_metrics;
 pub mod review_analysis;
 pub mod review_export;
 pub mod review_launch;

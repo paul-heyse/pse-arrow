@@ -68,6 +68,80 @@ fn source(dir: &Path, bytes: &[u8]) -> File {
     std::fs::write(&path, bytes).unwrap();
     File::open(path).unwrap()
 }
+
+#[test]
+fn supplied_members_seal_and_relocate_without_scientific_analysis() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("supplied");
+    let mut member = raw("investigation", true, PackMemberRole::Query);
+    member.format = PackFormat::Json;
+    member.document_version = Some(1);
+    let mut pack = PackSession::create_members(
+        &path,
+        PackSelection {
+            members: vec![member],
+            missing_context: vec!["trace expired; source cuts differ".into()],
+            ..PackSelection::default()
+        },
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let bytes = br#"{"version":1,"records":[{"value":4,"start_time":100}]}"#;
+    pack.copy_prefix(
+        "investigation",
+        source(root.path(), bytes),
+        bytes.len() as u64,
+    )
+    .unwrap();
+    let index = pack.seal().unwrap();
+    assert_eq!(index.publication, PackPublication::Sealed);
+    assert!(!index.self_contained);
+    assert_eq!(index.members.len(), 1);
+    let moved = root.path().join("moved");
+    std::fs::rename(path, &moved).unwrap();
+    let reader = PackReader::open(&moved, 1 << 20).unwrap();
+    let mut retained = Vec::new();
+    reader
+        .open_member("investigation")
+        .unwrap()
+        .read_to_end(&mut retained)
+        .unwrap();
+    assert_eq!(retained, bytes);
+    assert!(reader.open_member("unlisted").is_err());
+    assert!(reader.read_frozen().is_err());
+}
+
+#[test]
+fn supplied_members_preserve_required_and_output_bound_refusals() {
+    let root = tempfile::tempdir().unwrap();
+    let selection = PackSelection {
+        members: vec![raw("detail", true, PackMemberRole::Engine)],
+        maximum_output_bytes: 2,
+        ..PackSelection::default()
+    };
+    let mut pack = PackSession::create_members(
+        &root.path().join("bounded"),
+        selection,
+        CancellationToken::new(),
+    )
+    .unwrap();
+    assert!(
+        pack.copy_prefix("detail", source(root.path(), b"three"), 5)
+            .is_err()
+    );
+    assert!(pack.seal().is_err());
+    assert!(
+        PackSession::create_members(
+            &root.path().join("science"),
+            PackSelection {
+                members: vec![raw("result", true, PackMemberRole::Result)],
+                ..PackSelection::default()
+            },
+            CancellationToken::new()
+        )
+        .is_err()
+    );
+}
 fn patch_index(path: &Path, f: impl FnOnce(&mut serde_json::Value)) {
     let file = path.join(INDEX);
     let mut value: serde_json::Value =

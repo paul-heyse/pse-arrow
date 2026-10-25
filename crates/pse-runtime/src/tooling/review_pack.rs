@@ -493,12 +493,30 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
             return Err(invalid("role and document format mismatch"));
         }
     }
-    if ["frozen", "analysis", "report_markdown", "report_html"]
+    let reserved_count = ["frozen", "analysis", "report_markdown", "report_html"]
         .iter()
-        .any(|id| !identities.iter().any(|member| member.as_str() == *id))
-    {
+        .filter(|id| identities.iter().any(|member| member.as_str() == **id))
+        .count();
+    if reserved_count != 0 && reserved_count != 4 {
         return Err(invalid(
             "pack lacks its reserved typed document/report membership",
+        ));
+    }
+    if reserved_count == 0
+        && selection.members.iter().any(|member| {
+            member.result.is_some()
+                || member.diagnostic_table.is_some()
+                || matches!(
+                    member.role,
+                    PackMemberRole::Result
+                        | PackMemberRole::FrozenEvidence
+                        | PackMemberRole::Analysis
+                        | PackMemberRole::Report
+                )
+        })
+    {
+        return Err(invalid(
+            "supplied-member pack cannot assert scientific result or analysis authority",
         ));
     }
     for member in &selection.members {
@@ -602,8 +620,40 @@ impl PackSession {
     /// Exclusive directory creation refuses any existing destination, including incomplete output.
     pub fn create(
         destination: &Path,
+        selection: PackSelection,
+        cancel: CancellationToken,
+    ) -> Result<Self, PackError> {
+        Self::create_selected(destination, selection, cancel, true)
+    }
+    /// Copy explicitly supplied non-scientific members without inventing a scientific analysis.
+    pub fn create_members(
+        destination: &Path,
+        selection: PackSelection,
+        cancel: CancellationToken,
+    ) -> Result<Self, PackError> {
+        if selection.members.is_empty()
+            || selection.members.iter().any(|member| {
+                !matches!(
+                    member.role,
+                    PackMemberRole::Query
+                        | PackMemberRole::Context
+                        | PackMemberRole::Capture
+                        | PackMemberRole::Detail
+                        | PackMemberRole::Engine
+                )
+            })
+        {
+            return Err(invalid(
+                "supplied-member pack requires explicit non-scientific membership",
+            ));
+        }
+        Self::create_selected(destination, selection, cancel, false)
+    }
+    fn create_selected(
+        destination: &Path,
         mut selection: PackSelection,
         cancel: CancellationToken,
+        scientific: bool,
     ) -> Result<Self, PackError> {
         for reserved in [
             built_in(
@@ -622,7 +672,9 @@ impl PackSession {
             if selection.members.iter().any(|m| m.id == reserved.id) {
                 return Err(invalid("reserved pack member identity"));
             }
-            selection.members.push(reserved);
+            if scientific {
+                selection.members.push(reserved);
+            }
         }
         validate_selection(&selection)?;
         encoded(&selection, selection.maximum_document_bytes)?;
@@ -1197,7 +1249,13 @@ impl PackSession {
                 "unresolved or failed required member prevents sealing",
             ));
         }
-        if let Err(error) = self.finalize_reports() {
+        if self
+            .index
+            .members
+            .iter()
+            .any(|member| member.selection.id == "analysis")
+            && let Err(error) = self.finalize_reports()
+        {
             self.index.errors.push(error.to_string());
             let _ = self.persist();
             return Err(error);

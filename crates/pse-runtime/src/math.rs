@@ -462,6 +462,13 @@ struct Preparations {
     rebuilt: AtomicUsize,
     shared: AtomicUsize,
 }
+static PROCESS_PREPARATIONS: std::sync::OnceLock<Preparations> = std::sync::OnceLock::new();
+/// Performing-owner process totals; operation and service summaries are not additive.
+pub fn preparation_metrics() -> PreparationCounts {
+    PROCESS_PREPARATIONS
+        .get()
+        .map_or_else(PreparationCounts::default, Preparations::snapshot)
+}
 impl Preparations {
     fn snapshot(&self) -> PreparationCounts {
         let read = |n: &AtomicUsize| n.load(std::sync::atomic::Ordering::Relaxed);
@@ -832,6 +839,8 @@ impl MathService {
     /// Count one preparation in this service and in every enclosing [`counted`] operation.
     fn count(&self, counter: impl Fn(&Preparations) -> &AtomicUsize) {
         use std::sync::atomic::Ordering::Relaxed;
+        crate::tooling::operational_metrics::preparation_activity();
+        counter(PROCESS_PREPARATIONS.get_or_init(Preparations::default)).fetch_add(1, Relaxed);
         counter(&self.preparations).fetch_add(1, Relaxed);
         let _ = SCOPES.try_with(|scopes| {
             for scope in scopes {

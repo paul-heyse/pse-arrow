@@ -400,7 +400,9 @@ impl MathService {
         if std::time::Instant::now() >= deadline {
             return Err(waiter_expiry());
         }
+        crate::tooling::operational_metrics::PreparationStage::Frontier.acquire();
         if let Some(frontier) = self.modeling_cache.frontier(&key) {
+            crate::tooling::operational_metrics::PreparationStage::Frontier.reuse();
             return Ok(frontier);
         }
         let service = self.clone();
@@ -414,8 +416,12 @@ impl MathService {
                 telemetry.run(
                     "model.specialization.producer",
                     population.run(async move {
+                        let _interval =
+                            crate::tooling::operational_metrics::PreparationStage::Frontier
+                                .producer();
                         let producer_deadline = producer_deadline?;
                         if let Some(frontier) = service.modeling_cache.frontier(&key) {
+                            crate::tooling::operational_metrics::PreparationStage::Frontier.reuse();
                             return Ok(frontier);
                         }
                         let mut frontier = service
@@ -441,6 +447,10 @@ impl MathService {
                     }),
                 )
             });
+        let operation = async {
+            crate::tooling::operational_metrics::PreparationStage::Frontier.waiter();
+            operation.await
+        };
         tokio::pin!(operation);
         tokio::select! {
             biased;
@@ -542,9 +552,11 @@ impl MathService {
             )
             .into());
         }
+        crate::tooling::operational_metrics::PreparationStage::Basis.acquire();
         if let Some(basis) = self.modeling_cache.basis(&key)
             && basis.source_premises == source_premises
         {
+            crate::tooling::operational_metrics::PreparationStage::Basis.reuse();
             return Ok(basis);
         }
         let service = self.clone();
@@ -558,10 +570,15 @@ impl MathService {
                     telemetry.run(
                         "compiler.materialization.producer",
                         population.run(async move {
+                            let _interval =
+                                crate::tooling::operational_metrics::PreparationStage::Basis
+                                    .producer();
                             let producer_deadline = producer_deadline?;
                             if let Some(basis) = service.modeling_cache.basis(&key)
                                 && basis.source_premises == source_premises
                             {
+                                crate::tooling::operational_metrics::PreparationStage::Basis
+                                    .reuse();
                                 return Ok(basis);
                             }
                             let model = service
@@ -584,6 +601,10 @@ impl MathService {
                         }),
                     )
                 });
+        let operation = async {
+            crate::tooling::operational_metrics::PreparationStage::Basis.waiter();
+            operation.await
+        };
         tokio::pin!(operation);
         tokio::select! {
             biased;

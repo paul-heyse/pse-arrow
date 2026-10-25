@@ -352,7 +352,7 @@ def test_capability_offline_diagnostic_reader_preserves_original_native_outcome(
     )
     assert original.operation is not None
     image = documents.ProcessCheckpoint(
-        version=5,
+        version=6,
         process="0000000000000001-0000000000000002",
         sequence=1,
         published_unix_micros=1,
@@ -385,6 +385,33 @@ def test_capability_offline_diagnostic_reader_preserves_original_native_outcome(
             ),
             executors=(),
             task_classes=(),
+            operational=documents.OperationalMetricsSnapshot(
+                source_started_unix_micros=None,
+                saturated=False,
+                native_attempts=0,
+                native_admitted=0,
+                native_dispatched=0,
+                native_joined=0,
+                native_cancel_requests=0,
+                native_deadline_requests=0,
+                native_supervisors=0,
+                preparation=(),
+            ),
+            preparations=documents.PreparationCountsBody(
+                views=0, observations=0, rebuilt=0, shared=0
+            ),
+            canonical_queries=documents.CanonicalQueryMetrics(
+                source_started_unix_micros=None,
+                builders=0,
+                request_failures=0,
+                statements=0,
+                statements_succeeded=0,
+                statements_failed=0,
+                statements_timed=0,
+                statements_untimed=0,
+                server_duration_nanos=0,
+                saturated=False,
+            ),
         ),
     )
     checkpoint = tmp_path / "retained.json"

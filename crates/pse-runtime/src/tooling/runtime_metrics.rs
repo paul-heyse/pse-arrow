@@ -24,9 +24,17 @@ fn class_index(class: NativeTaskClass) -> usize {
     }
 }
 
+fn monitors_started() -> u128 {
+    static STARTED: OnceLock<u128> = OnceLock::new();
+    *STARTED.get_or_init(unix_micros)
+}
+
 fn monitors() -> &'static [tokio_metrics::TaskMonitor; 3] {
     static MONITORS: OnceLock<[tokio_metrics::TaskMonitor; 3]> = OnceLock::new();
-    MONITORS.get_or_init(|| std::array::from_fn(|_| tokio_metrics::TaskMonitor::new()))
+    MONITORS.get_or_init(|| {
+        let _ = monitors_started();
+        std::array::from_fn(|_| tokio_metrics::TaskMonitor::new())
+    })
 }
 
 /// Measure a selected future with the library's poll/wake instrumentation.
@@ -129,6 +137,24 @@ pub struct ExecutorMetricsSnapshot {
 pub struct TaskClassMetricsSnapshot {
     /// Fixed selected future class.
     pub class: NativeTaskClass,
+    /// Cumulative source generation starts when this process-wide monitor was created.
+    pub source_started_unix_micros: u128,
+    /// Actual monitor threshold classifying slow polls, in nanoseconds.
+    pub slow_poll_threshold_nanos: u128,
+    /// Actual monitor threshold classifying long wake-to-poll delays, in nanoseconds.
+    pub long_delay_threshold_nanos: u128,
+    /// Tasks polled for the first time; excludes wrappers never polled.
+    pub first_poll_count: u64,
+    /// Cumulative instrumentation-to-first-poll delay, in nanoseconds.
+    pub first_poll_delay_nanos: u128,
+    /// Polls meeting the monitor's slow-poll threshold.
+    pub slow_poll_count: u64,
+    /// Cumulative time within slow polls, in nanoseconds; subset of poll time.
+    pub slow_poll_nanos: u128,
+    /// Wake-to-poll delays meeting the long-delay threshold.
+    pub long_delay_count: u64,
+    /// Cumulative long wake-to-poll delays, in nanoseconds; subset of scheduled time.
+    pub long_delay_nanos: u128,
     /// Number of wrappers created, not native jobs admitted.
     pub instrumented_count: u64,
     /// Wrappers dropped, including cancellation; never a native settlement counter.
@@ -161,6 +187,12 @@ pub struct RuntimeMetricsSnapshot {
     pub executors: Vec<ExecutorMetricsSnapshot>,
     /// Exactly three process-wide selected future classes.
     pub task_classes: Vec<TaskClassMetricsSnapshot>,
+    /// Same cumulative native/shared-preparation source read by OTel callbacks.
+    pub operational: super::operational_metrics::OperationalMetricsSnapshot,
+    /// Performing-owner preparation totals; nested operation/service summaries overlap.
+    pub preparations: crate::math::PreparationCounts,
+    /// Selected canonical Query-adapter SDK statistics; excludes other SDK APIs.
+    pub canonical_queries: pse_operations::canonical::CanonicalQueryMetrics,
 }
 
 /// Copy current and cumulative native facts without retaining an executor or native lease.
@@ -201,23 +233,10 @@ pub fn snapshot() -> RuntimeMetricsSnapshot {
     let task_classes = NativeTaskClass::ALL
         .iter()
         .copied()
-        .map(|class| {
-            let metrics = monitors()[class_index(class)].cumulative();
-            TaskClassMetricsSnapshot {
-                class,
-                instrumented_count: metrics.instrumented_count,
-                dropped_count: metrics.dropped_count,
-                poll_count: metrics.total_poll_count,
-                poll_nanos: metrics.total_poll_duration.as_nanos(),
-                scheduled_count: metrics.total_scheduled_count,
-                scheduled_nanos: metrics.total_scheduled_duration.as_nanos(),
-                idle_count: metrics.total_idled_count,
-                idle_nanos: metrics.total_idle_duration.as_nanos(),
-            }
-        })
+        .map(|class| task_snapshot(class, &monitors()[class_index(class)], monitors_started()))
         .collect();
     RuntimeMetricsSnapshot {
-        locator: crate::observation::ProcessLocator::current(),
+        locator: process_locator().clone(),
         sampled_unix_micros,
         coverage: RuntimeMetricsCoverage {
             executor_registry_available: available,
@@ -226,7 +245,48 @@ pub fn snapshot() -> RuntimeMetricsSnapshot {
         },
         executors,
         task_classes,
+        operational: super::operational_metrics::snapshot(),
+        preparations: crate::math::preparation_metrics(),
+        canonical_queries: pse_operations::canonical::query_metrics(),
     }
+}
+
+fn task_snapshot(
+    class: NativeTaskClass,
+    monitor: &tokio_metrics::TaskMonitor,
+    source_started_unix_micros: u128,
+) -> TaskClassMetricsSnapshot {
+    let metrics = monitor.cumulative();
+    TaskClassMetricsSnapshot {
+        class,
+        source_started_unix_micros,
+        slow_poll_threshold_nanos: monitor.slow_poll_threshold().as_nanos(),
+        long_delay_threshold_nanos: monitor.long_delay_threshold().as_nanos(),
+        first_poll_count: metrics.first_poll_count,
+        first_poll_delay_nanos: metrics.total_first_poll_delay.as_nanos(),
+        slow_poll_count: metrics.total_slow_poll_count,
+        slow_poll_nanos: metrics.total_slow_poll_duration.as_nanos(),
+        long_delay_count: metrics.total_long_delay_count,
+        long_delay_nanos: metrics.total_long_delay_duration.as_nanos(),
+        instrumented_count: metrics.instrumented_count,
+        dropped_count: metrics.dropped_count,
+        poll_count: metrics.total_poll_count,
+        poll_nanos: metrics.total_poll_duration.as_nanos(),
+        scheduled_count: metrics.total_scheduled_count,
+        scheduled_nanos: metrics.total_scheduled_duration.as_nanos(),
+        idle_count: metrics.total_idled_count,
+        idle_nanos: metrics.total_idle_duration.as_nanos(),
+    }
+}
+
+fn process_locator() -> &'static crate::observation::ProcessLocator {
+    static LOCATOR: OnceLock<crate::observation::ProcessLocator> = OnceLock::new();
+    LOCATOR.get_or_init(crate::observation::ProcessLocator::current)
+}
+
+/// Publish immutable process identity outside periodic SDK callbacks; later snapshots use memory only.
+pub(crate) fn initialize_source_identity() {
+    let _ = process_locator();
 }
 
 fn unix_micros() -> u128 {
@@ -308,6 +368,53 @@ mod tests {
         assert!(after.poll_count >= before.poll_count + 2);
         assert!(after.idle_count > before.idle_count);
         assert!(after.scheduled_count > before.scheduled_count);
+        assert!(after.first_poll_count > before.first_poll_count);
+        assert_eq!(
+            after.source_started_unix_micros,
+            before.source_started_unix_micros
+        );
+        assert_eq!(
+            after.slow_poll_threshold_nanos,
+            tokio_metrics::TaskMonitor::DEFAULT_SLOW_POLL_THRESHOLD.as_nanos()
+        );
+        assert_eq!(
+            after.long_delay_threshold_nanos,
+            tokio_metrics::TaskMonitor::DEFAULT_LONG_DELAY_THRESHOLD.as_nanos()
+        );
+        assert!(after.slow_poll_count <= after.poll_count);
+        assert!(after.long_delay_count <= after.scheduled_count);
+    }
+
+    #[test]
+    fn runtime_metrics_task_thresholds_match_actual_classified_observations() {
+        let mut builder = tokio_metrics::TaskMonitor::builder();
+        builder
+            .with_slow_poll_threshold(std::time::Duration::ZERO)
+            .with_long_delay_threshold(std::time::Duration::ZERO);
+        let monitor = builder.build();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let (release, pending) = tokio::sync::oneshot::channel::<()>();
+        let mut future = Box::pin(monitor.instrument(async move {
+            pending.await.unwrap();
+        }));
+        runtime.block_on(async {
+            assert!(futures_util::poll!(future.as_mut()).is_pending());
+            release.send(()).unwrap();
+            future.await;
+        });
+        let sample = task_snapshot(NativeTaskClass::MathJob, &monitor, 123);
+        assert_eq!(sample.source_started_unix_micros, 123);
+        assert_eq!(sample.first_poll_count, 1);
+        assert_eq!(sample.poll_count, 2);
+        assert_eq!(sample.slow_poll_count, 2);
+        assert_eq!(sample.scheduled_count, 1);
+        assert_eq!(sample.long_delay_count, 1);
+        assert_eq!(sample.slow_poll_threshold_nanos, 0);
+        assert_eq!(sample.long_delay_threshold_nanos, 0);
+        assert_eq!(sample.slow_poll_nanos, sample.poll_nanos);
+        assert_eq!(sample.long_delay_nanos, sample.scheduled_nanos);
     }
 
     #[cfg(target_has_atomic = "64")]

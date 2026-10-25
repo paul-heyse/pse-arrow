@@ -5375,6 +5375,66 @@ class CanonicalGraphRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
         return (type(self), (v.scalar_key(self.version), v.record_key(self.anchor), v.optional_key(v.record_key)(self.continuation), v.scalar_key(self.limit), v.scalar_key(self.scope),))
 
 
+class CanonicalQueryMetrics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Process-cumulative actual query builder / SDK response populations. Not every SDK
+    select/control API uses this query adapter; no server-wide coverage is claimed.
+    """
+
+    #: Query builders constructed; never interpreted as dispatched requests.
+    builders: Annotated[int, msgspec.Meta(ge=0)]
+    #: SDK observer request failures without statement responses.
+    request_failures: Annotated[int, msgspec.Meta(ge=0)]
+    #: A count or duration saturated; exact increases are unavailable after this point.
+    saturated: bool
+    #: Sum of supplied server statement wall times, in nanoseconds; not CPU time.
+    server_duration_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: First observed query-owner event; absent before any owner activity.
+    source_started_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual statements received before caller consumption, including failures.
+    statements: Annotated[int, msgspec.Meta(ge=0)]
+    #: Failed statement results.
+    statements_failed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Successful statement results.
+    statements_succeeded: Annotated[int, msgspec.Meta(ge=0)]
+    #: Statements carrying server execution time.
+    statements_timed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Statements lacking server execution time; absent is not zero duration.
+    statements_untimed: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.builders), v.scalar_key(self.request_failures), v.scalar_key(self.saturated), v.scalar_key(self.server_duration_nanos), v.optional_key(v.scalar_key)(self.source_started_unix_micros), v.scalar_key(self.statements), v.scalar_key(self.statements_failed), v.scalar_key(self.statements_succeeded), v.scalar_key(self.statements_timed), v.scalar_key(self.statements_untimed),))
+
+
+class CanonicalQueryMetricsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Process-cumulative actual query builder / SDK response populations. Not every SDK
+    select/control API uses this query adapter; no server-wide coverage is claimed.
+    """
+
+    #: Query builders constructed; never interpreted as dispatched requests.
+    builders: Annotated[int, msgspec.Meta(ge=0)]
+    #: SDK observer request failures without statement responses.
+    request_failures: Annotated[int, msgspec.Meta(ge=0)]
+    #: A count or duration saturated; exact increases are unavailable after this point.
+    saturated: bool
+    #: Sum of supplied server statement wall times, in nanoseconds; not CPU time.
+    server_duration_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: First observed query-owner event; absent before any owner activity.
+    source_started_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Actual statements received before caller consumption, including failures.
+    statements: Annotated[int, msgspec.Meta(ge=0)]
+    #: Failed statement results.
+    statements_failed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Successful statement results.
+    statements_succeeded: Annotated[int, msgspec.Meta(ge=0)]
+    #: Statements carrying server execution time.
+    statements_timed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Statements lacking server execution time; absent is not zero duration.
+    statements_untimed: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.builders), v.scalar_key(self.request_failures), v.scalar_key(self.saturated), v.scalar_key(self.server_duration_nanos), v.optional_key(v.scalar_key)(self.source_started_unix_micros), v.scalar_key(self.statements), v.scalar_key(self.statements_failed), v.scalar_key(self.statements_succeeded), v.scalar_key(self.statements_timed), v.scalar_key(self.statements_untimed),))
+
+
 class CaptureBudget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Capture configuration. These defaults configure optional work, never missing facts."""
 
@@ -14599,6 +14659,62 @@ class OperationSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.optional_key(v.record_key)(self.finished_at), v.record_key(self.id), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.outcome), v.record_key(self.started_at), v.optional_key(v.record_key)(self.summary),))
 
 
+class OperationalMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied owner totals. Acquisition callers and shared producers are overlapping populations."""
+
+    #: Actual active CPU/memory admissions in this supervisor route.
+    native_admitted: Annotated[int, msgspec.Meta(ge=0)]
+    #: Attempts entering the native supervisor admission route; not scientific solves.
+    native_attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: User-cancellation branch selections while join was still pending.
+    native_cancel_requests: Annotated[int, msgspec.Meta(ge=0)]
+    #: Deadline branch selections while join was still pending.
+    native_deadline_requests: Annotated[int, msgspec.Meta(ge=0)]
+    #: Worker threads successfully spawned by this route.
+    native_dispatched: Annotated[int, msgspec.Meta(ge=0)]
+    #: Threads witnessed joined, including TLS/foreign destruction.
+    native_joined: Annotated[int, msgspec.Meta(ge=0)]
+    #: Current outstanding supervisor owners; not a physical-release proof.
+    native_supervisors: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exactly frontier and basis shared-preparation populations.
+    preparation: tuple[PreparationMetricsSnapshot, ...]
+    #: A process counter saturated; exact increase queries must decline this source.
+    saturated: bool
+    #: First owner activity in Unix microseconds; SDK collection start is different.
+    source_started_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.native_admitted), v.scalar_key(self.native_attempts), v.scalar_key(self.native_cancel_requests), v.scalar_key(self.native_deadline_requests), v.scalar_key(self.native_dispatched), v.scalar_key(self.native_joined), v.scalar_key(self.native_supervisors), v.sequence_key(v.record_key)(self.preparation), v.scalar_key(self.saturated), v.optional_key(v.scalar_key)(self.source_started_unix_micros),))
+
+
+class OperationalMetricsSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Copied owner totals. Acquisition callers and shared producers are overlapping populations."""
+
+    #: Actual active CPU/memory admissions in this supervisor route.
+    native_admitted: Annotated[int, msgspec.Meta(ge=0)]
+    #: Attempts entering the native supervisor admission route; not scientific solves.
+    native_attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: User-cancellation branch selections while join was still pending.
+    native_cancel_requests: Annotated[int, msgspec.Meta(ge=0)]
+    #: Deadline branch selections while join was still pending.
+    native_deadline_requests: Annotated[int, msgspec.Meta(ge=0)]
+    #: Worker threads successfully spawned by this route.
+    native_dispatched: Annotated[int, msgspec.Meta(ge=0)]
+    #: Threads witnessed joined, including TLS/foreign destruction.
+    native_joined: Annotated[int, msgspec.Meta(ge=0)]
+    #: Current outstanding supervisor owners; not a physical-release proof.
+    native_supervisors: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exactly frontier and basis shared-preparation populations.
+    preparation: tuple[PreparationMetricsSnapshot, ...]
+    #: A process counter saturated; exact increase queries must decline this source.
+    saturated: bool
+    #: First owner activity in Unix microseconds; SDK collection start is different.
+    source_started_unix_micros: Annotated[int, msgspec.Meta(ge=0)] | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.native_admitted), v.scalar_key(self.native_attempts), v.scalar_key(self.native_cancel_requests), v.scalar_key(self.native_deadline_requests), v.scalar_key(self.native_dispatched), v.scalar_key(self.native_joined), v.scalar_key(self.native_supervisors), v.sequence_key(v.record_key)(self.preparation), v.scalar_key(self.saturated), v.optional_key(v.scalar_key)(self.source_started_unix_micros),))
+
+
 class Optimization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The `Optimization` document type."""
 
@@ -16027,6 +16143,24 @@ class PreparationFormulation(msgspec.Struct, frozen=True, forbid_unknown_fields=
         v.unique(v.scalar_key)(self, None, self.omitted)
 
 
+class PreparationMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One shared-product stage, process cumulative; misses supply no inferred invalidation cause."""
+
+    #: Valid acquisition callers, including retained readers and all flight waiters.
+    acquisitions: Annotated[int, msgspec.Meta(ge=0)]
+    #: Polled caller flight attempts after the retained probe missed; includes capacity/retiring refusals. Producer ownership is separate.
+    flight_waiters: Annotated[int, msgspec.Meta(ge=0)]
+    #: Single-flight producer executions, including a retained-product recheck.
+    producers: Annotated[int, msgspec.Meta(ge=0)]
+    #: Retained products reused, including producer cache rechecks.
+    retained_reuses: Annotated[int, msgspec.Meta(ge=0)]
+    #: Fixed stage, frontier or basis.
+    stage: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.acquisitions), v.scalar_key(self.flight_waiters), v.scalar_key(self.producers), v.scalar_key(self.retained_reuses), v.scalar_key(self.stage),))
+
+
 class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Serialization of the existing compiler/expansion controls, with no second defaults."""
 
@@ -16249,10 +16383,10 @@ class PresolveSeedTransformation(msgspec.Struct, frozen=True, forbid_unknown_fie
 class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One immutable process publication, never a scientific result or native restart state."""
 
-    _pse_required_version: ClassVar[int] = 5
+    _pse_required_version: ClassVar[int] = 6
 
     #: Format version of this diagnostic-only representation.
-    version: Literal[5] = 5
+    version: Literal[6] = 6
     #: Mapping to the same-host monotonic clock, with bounded read uncertainty.
     clock: ClockMapping | None = None
     #: Actual operational attachment locator, not build provenance.
@@ -16289,10 +16423,10 @@ class ProcessCheckpoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 class ProcessCheckpointOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One immutable process publication, never a scientific result or native restart state."""
 
-    _pse_required_version: ClassVar[int] = 5
+    _pse_required_version: ClassVar[int] = 6
 
     #: Format version of this diagnostic-only representation.
-    version: Literal[5] = 5
+    version: Literal[6] = 6
     #: Mapping to the same-host monotonic clock, with bounded read uncertainty.
     clock: ClockMapping | None
     #: Actual operational attachment locator, not build provenance.
@@ -24450,37 +24584,49 @@ class RuntimeMetricsCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class RuntimeMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One read of the same typed sources used by checkpoints and optional OTel export."""
 
+    #: Selected canonical Query-adapter SDK statistics; excludes other SDK APIs.
+    canonical_queries: CanonicalQueryMetrics
     #: Explicit registry losses and selected task coverage.
     coverage: RuntimeMetricsCoverage
     #: At most eight actual registered executors.
     executors: tuple[ExecutorMetricsSnapshot, ...]
     #: Actual process/start locator; absence of start ticks limits identity evidence.
     locator: ProcessLocatorBody
+    #: Same cumulative native/shared-preparation source read by OTel callbacks.
+    operational: OperationalMetricsSnapshot
+    #: Performing-owner preparation totals; nested operation/service summaries overlap.
+    preparations: PreparationCountsBody
     #: Wall time immediately before independently sampled source reads.
     sampled_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
     #: Exactly three process-wide selected future classes.
     task_classes: tuple[TaskClassMetricsSnapshot, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.coverage), v.sequence_key(v.record_key)(self.executors), v.record_key(self.locator), v.scalar_key(self.sampled_unix_micros), v.sequence_key(v.record_key)(self.task_classes),))
+        return (type(self), (v.record_key(self.canonical_queries), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.executors), v.record_key(self.locator), v.record_key(self.operational), v.record_key(self.preparations), v.scalar_key(self.sampled_unix_micros), v.sequence_key(v.record_key)(self.task_classes),))
 
 
 class RuntimeMetricsSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One read of the same typed sources used by checkpoints and optional OTel export."""
 
+    #: Selected canonical Query-adapter SDK statistics; excludes other SDK APIs.
+    canonical_queries: CanonicalQueryMetricsOutput
     #: Explicit registry losses and selected task coverage.
     coverage: RuntimeMetricsCoverage
     #: At most eight actual registered executors.
     executors: tuple[ExecutorMetricsSnapshotOutput, ...]
     #: Actual process/start locator; absence of start ticks limits identity evidence.
     locator: ProcessLocatorBodyOutput
+    #: Same cumulative native/shared-preparation source read by OTel callbacks.
+    operational: OperationalMetricsSnapshotOutput
+    #: Performing-owner preparation totals; nested operation/service summaries overlap.
+    preparations: PreparationCountsBody
     #: Wall time immediately before independently sampled source reads.
     sampled_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
     #: Exactly three process-wide selected future classes.
     task_classes: tuple[TaskClassMetricsSnapshot, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.coverage), v.sequence_key(v.record_key)(self.executors), v.record_key(self.locator), v.scalar_key(self.sampled_unix_micros), v.sequence_key(v.record_key)(self.task_classes),))
+        return (type(self), (v.record_key(self.canonical_queries), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.executors), v.record_key(self.locator), v.record_key(self.operational), v.record_key(self.preparations), v.scalar_key(self.sampled_unix_micros), v.sequence_key(v.record_key)(self.task_classes),))
 
 
 class RuntimeRunLineageRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -28017,12 +28163,22 @@ class TaskClassMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_field
     class_: enums.NativeTaskClass = msgspec.field(name="class")
     #: Wrappers dropped, including cancellation; never a native settlement counter.
     dropped_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Tasks polled for the first time; excludes wrappers never polled.
+    first_poll_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cumulative instrumentation-to-first-poll delay, in nanoseconds.
+    first_poll_delay_nanos: Annotated[int, msgspec.Meta(ge=0)]
     #: Recorded pending-to-wake idle intervals.
     idle_count: Annotated[int, msgspec.Meta(ge=0)]
     #: Cumulative pending-to-wake idle time, in nanoseconds.
     idle_nanos: Annotated[int, msgspec.Meta(ge=0)]
     #: Number of wrappers created, not native jobs admitted.
     instrumented_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Wake-to-poll delays meeting the long-delay threshold.
+    long_delay_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cumulative long wake-to-poll delays, in nanoseconds; subset of scheduled time.
+    long_delay_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual monitor threshold classifying long wake-to-poll delays, in nanoseconds.
+    long_delay_threshold_nanos: Annotated[int, msgspec.Meta(ge=0)]
     #: Recorded future polls.
     poll_count: Annotated[int, msgspec.Meta(ge=0)]
     #: Cumulative time within future polls, in nanoseconds; not CPU time.
@@ -28031,9 +28187,17 @@ class TaskClassMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_field
     scheduled_count: Annotated[int, msgspec.Meta(ge=0)]
     #: Cumulative wake-to-poll time, in nanoseconds.
     scheduled_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: Polls meeting the monitor's slow-poll threshold.
+    slow_poll_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cumulative time within slow polls, in nanoseconds; subset of poll time.
+    slow_poll_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual monitor threshold classifying slow polls, in nanoseconds.
+    slow_poll_threshold_nanos: Annotated[int, msgspec.Meta(ge=0)]
+    #: Cumulative source generation starts when this process-wide monitor was created.
+    source_started_unix_micros: Annotated[int, msgspec.Meta(ge=0)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.class_), v.scalar_key(self.dropped_count), v.scalar_key(self.idle_count), v.scalar_key(self.idle_nanos), v.scalar_key(self.instrumented_count), v.scalar_key(self.poll_count), v.scalar_key(self.poll_nanos), v.scalar_key(self.scheduled_count), v.scalar_key(self.scheduled_nanos),))
+        return (type(self), (v.scalar_key(self.class_), v.scalar_key(self.dropped_count), v.scalar_key(self.first_poll_count), v.scalar_key(self.first_poll_delay_nanos), v.scalar_key(self.idle_count), v.scalar_key(self.idle_nanos), v.scalar_key(self.instrumented_count), v.scalar_key(self.long_delay_count), v.scalar_key(self.long_delay_nanos), v.scalar_key(self.long_delay_threshold_nanos), v.scalar_key(self.poll_count), v.scalar_key(self.poll_nanos), v.scalar_key(self.scheduled_count), v.scalar_key(self.scheduled_nanos), v.scalar_key(self.slow_poll_count), v.scalar_key(self.slow_poll_nanos), v.scalar_key(self.slow_poll_threshold_nanos), v.scalar_key(self.source_started_unix_micros),))
 
 
 class TaskDumpDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -29508,6 +29672,8 @@ __all__ = [
     "CanonicalGraphDocumentOutput",
     "CanonicalGraphRequest",
     "CanonicalGraphRequestOutput",
+    "CanonicalQueryMetrics",
+    "CanonicalQueryMetricsOutput",
     "CaptureBudget",
     "CaptureBudgetOutput",
     "CaptureDocument",
@@ -30048,6 +30214,8 @@ __all__ = [
     "OperationSourceOutput",
     "OperationSummary",
     "OperationSummaryOutput",
+    "OperationalMetricsSnapshot",
+    "OperationalMetricsSnapshotOutput",
     "Optimization",
     "OptionValue",
     "PackAvailability",
@@ -30133,6 +30301,7 @@ __all__ = [
     "PreparationFactRoute",
     "PreparationFactStage",
     "PreparationFormulation",
+    "PreparationMetricsSnapshot",
     "PreparationSettings",
     "PreparationSettingsBody",
     "PreparationSettingsBodyOutput",
@@ -30908,4 +31077,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:cc35d2d7652105b6ac65bc7d845058eafc3b1bd7a6f49c38762ad5793b0ee218"
+SCHEMA_SET_FINGERPRINT = "blake3:00179924d0288d0d6c98d3ea0d45ed08e0204dd65e92319da5cf77175b3d5f3f"

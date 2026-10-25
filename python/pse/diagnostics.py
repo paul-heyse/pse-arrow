@@ -34,6 +34,7 @@ from pse._build import (
     _diagnostic_detail_arrow,
     _diagnostic_detail_records,
     _diagnostic_explain_invocation,
+    _diagnostic_export_members,
     _diagnostic_export_pack,
     _diagnostic_extract_reproducer,
     _diagnostic_inspect,
@@ -47,6 +48,7 @@ from pse._build import (
     _diagnostic_operation_text,
     _diagnostic_pack_analysis,
     _diagnostic_pack_evidence,
+    _diagnostic_pack_member,
     _diagnostic_read_checkpoint,
     _diagnostic_read_context,
     _diagnostic_read_detail,
@@ -1050,6 +1052,20 @@ def export_review_pack(
 def review_pack(directory: str | Path) -> PackIndexOutput:
     """Validate an indexed local directory without following original paths."""
     return _diagnostic_review_pack(Path(directory))
+
+
+def export_member_pack(
+    destination: str | Path, request: PackExportRequest
+) -> PackIndexOutput:
+    """Copy supplied non-scientific members through native finite pack custody."""
+    return _diagnostic_export_members(Path(destination), request)
+
+
+def pack_member(
+    directory: str | Path, member: str, *, maximum_bytes: int = 1 << 20
+) -> bytes:
+    """Read only the original indexed acknowledged member under a finite allowance."""
+    return _diagnostic_pack_member(Path(directory), member, maximum_bytes)
 
 
 def review_arrow(

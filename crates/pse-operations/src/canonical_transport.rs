@@ -375,17 +375,17 @@ impl CanonicalClient {
                 "pse_rpc_timeout",
                 surrealdb::types::Duration::from_std(remaining),
             ));
-        let query = match pse_diagnostics::observation::current() {
-            Some(context) => {
-                static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-                context.count("canonical.query.builders", "builders", 1);
-                query.observe_statistics(Arc::new(CanonicalStatistics {
-                    context,
-                    invocation: NEXT.fetch_add(1, Ordering::Relaxed),
-                }))
-            }
-            None => query,
-        };
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let context = pse_diagnostics::observation::current();
+        if let Some(context) = &context {
+            context.count("canonical.query.builders", "builders", 1);
+        }
+        metric_add(0, 1);
+        let query = query.observe_statistics(Arc::new(CanonicalStatistics {
+            context,
+            metrics: &QUERY_METRICS,
+            invocation: NEXT.fetch_add(1, Ordering::Relaxed),
+        }));
         match RESPONSE_OWNER.try_with(Arc::clone) {
             Ok(owner) => query.payload_owner(owner),
             Err(_) => query,
@@ -508,18 +508,22 @@ pub enum CanonicalQuerySample {
 /// Actual-invocation statistics, copied before any caller consumes or checks the response.
 #[derive(Debug)]
 struct CanonicalStatistics {
-    context: pse_diagnostics::observation::ObservationContext,
+    context: Option<pse_diagnostics::observation::ObservationContext>,
+    metrics: &'static CanonicalMetricState,
     invocation: u64,
 }
 impl CanonicalStatistics {
     fn sample(&self, sample: CanonicalQuerySample) {
-        self.context.source_ref(
+        let Some(context) = &self.context else {
+            return;
+        };
+        context.source_ref(
             "canonical.server.statistics",
             "SurrealDB actual response; server wall-clock sample; no local active interval",
         );
         match serde_json::to_string(&sample) {
-            Ok(sample) => self.context.text("canonical.query.latest_sample", &sample),
-            Err(_) => self.context.unavailable(
+            Ok(sample) => context.text("canonical.query.latest_sample", &sample),
+            Err(_) => context.unavailable(
                 "canonical.query.latest_sample",
                 "server sample serialization unavailable",
             ),
@@ -528,33 +532,48 @@ impl CanonicalStatistics {
 }
 impl surrealdb::method::QueryStatisticsObserver for CanonicalStatistics {
     fn request_failed(&self) {
-        self.context
-            .count("canonical.requests.failed", "requests", 1);
+        self.metrics.add(1, 1);
+        if let Some(context) = &self.context {
+            context.count("canonical.requests.failed", "requests", 1);
+        }
         self.sample(CanonicalQuerySample::RequestFailure {
             invocation: self.invocation,
         });
     }
     fn observe(&self, statement: usize, stats: surrealdb::method::Stats, succeeded: bool) {
-        self.context
-            .count("canonical.statements.received", "statements", 1);
-        self.context.count(
-            if succeeded {
-                "canonical.statements.succeeded"
-            } else {
-                "canonical.statements.failed"
-            },
-            "statements",
-            1,
-        );
-        self.context.count(
-            if stats.execution_time.is_some() {
-                "canonical.statements.timed"
-            } else {
-                "canonical.statements.untimed"
-            },
-            "statements",
-            1,
-        );
+        self.metrics.add(2, 1);
+        self.metrics.add(if succeeded { 3 } else { 4 }, 1);
+        self.metrics
+            .add(if stats.execution_time.is_some() { 5 } else { 6 }, 1);
+        if let Some(duration) = stats.execution_time {
+            let nanos = duration.as_nanos();
+            let value = u64::try_from(nanos).unwrap_or(u64::MAX);
+            if nanos > u128::from(u64::MAX) {
+                self.metrics.saturated.store(true, Ordering::Relaxed);
+            }
+            self.metrics.add(7, value);
+        }
+        if let Some(context) = &self.context {
+            context.count("canonical.statements.received", "statements", 1);
+            context.count(
+                if succeeded {
+                    "canonical.statements.succeeded"
+                } else {
+                    "canonical.statements.failed"
+                },
+                "statements",
+                1,
+            );
+            context.count(
+                if stats.execution_time.is_some() {
+                    "canonical.statements.timed"
+                } else {
+                    "canonical.statements.untimed"
+                },
+                "statements",
+                1,
+            );
+        }
         self.sample(CanonicalQuerySample::Statement {
             invocation: self.invocation,
             statement,
@@ -562,4 +581,84 @@ impl surrealdb::method::QueryStatisticsObserver for CanonicalStatistics {
             succeeded,
         });
     }
+}
+
+#[derive(Debug)]
+struct CanonicalMetricState {
+    counts: [std::sync::atomic::AtomicU64; 8],
+    started: std::sync::OnceLock<u128>,
+    saturated: AtomicBool,
+}
+impl CanonicalMetricState {
+    const fn new() -> Self {
+        Self {
+            counts: [const { std::sync::atomic::AtomicU64::new(0) }; 8],
+            started: std::sync::OnceLock::new(),
+            saturated: AtomicBool::new(false),
+        }
+    }
+    fn add(&self, index: usize, value: u64) {
+        self.started.get_or_init(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_micros()
+        });
+        let _ = self.counts[index].try_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+            let next = current.checked_add(value);
+            if next.is_none() {
+                self.saturated.store(true, Ordering::Relaxed);
+            }
+            Some(next.unwrap_or(u64::MAX))
+        });
+    }
+    fn snapshot(&self) -> CanonicalQueryMetrics {
+        let read = |index: usize| self.counts[index].load(Ordering::Relaxed);
+        CanonicalQueryMetrics {
+            source_started_unix_micros: self.started.get().copied(),
+            builders: read(0),
+            request_failures: read(1),
+            statements: read(2),
+            statements_succeeded: read(3),
+            statements_failed: read(4),
+            statements_timed: read(5),
+            statements_untimed: read(6),
+            server_duration_nanos: read(7),
+            saturated: self.saturated.load(Ordering::Relaxed),
+        }
+    }
+}
+static QUERY_METRICS: CanonicalMetricState = CanonicalMetricState::new();
+fn metric_add(index: usize, value: u64) {
+    QUERY_METRICS.add(index, value);
+}
+/// Process-cumulative actual query builder / SDK response populations. Not every SDK
+/// select/control API uses this query adapter; no server-wide coverage is claimed.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CanonicalQueryMetrics {
+    /// First observed query-owner event; absent before any owner activity.
+    pub source_started_unix_micros: Option<u128>,
+    /// Query builders constructed; never interpreted as dispatched requests.
+    pub builders: u64,
+    /// SDK observer request failures without statement responses.
+    pub request_failures: u64,
+    /// Actual statements received before caller consumption, including failures.
+    pub statements: u64,
+    /// Successful statement results.
+    pub statements_succeeded: u64,
+    /// Failed statement results.
+    pub statements_failed: u64,
+    /// Statements carrying server execution time.
+    pub statements_timed: u64,
+    /// Statements lacking server execution time; absent is not zero duration.
+    pub statements_untimed: u64,
+    /// Sum of supplied server statement wall times, in nanoseconds; not CPU time.
+    pub server_duration_nanos: u64,
+    /// A count or duration saturated; exact increases are unavailable after this point.
+    pub saturated: bool,
+}
+/// Cheap copied source state; independent reads are not an atomic response census.
+pub fn query_metrics() -> CanonicalQueryMetrics {
+    QUERY_METRICS.snapshot()
 }

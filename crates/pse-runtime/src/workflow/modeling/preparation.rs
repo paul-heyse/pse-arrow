@@ -92,6 +92,8 @@ impl ModelingPackage {
                 let basis = if let Some(basis) = math.modeling_cache.basis(&key)
                     && basis.source_premises == selected.admission.dependencies
                 {
+                    crate::tooling::operational_metrics::PreparationStage::Basis.acquire();
+                    crate::tooling::operational_metrics::PreparationStage::Basis.reuse();
                     basis
                 } else {
                     let workspace = self.pure_workspace()?;

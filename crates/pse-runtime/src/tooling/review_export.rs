@@ -12,6 +12,23 @@ fn pack_error(error: PackError) -> WorkflowError {
     contract(format!("review pack: {error}"))
 }
 
+/// Publish an explicit finite host investigation through the original member custody owner.
+pub fn export_supplied_members(
+    destination: &Path,
+    request: PackExportRequest,
+    cancel: CancellationToken,
+) -> Result<PackIndex, WorkflowError> {
+    if !request.scientific_results.is_empty() || !request.tables.is_empty() {
+        return Err(contract(
+            "supplied-member export has no scientific result or registry query authority",
+        ));
+    }
+    let mut pack =
+        PackSession::create_members(destination, request.selection, cancel).map_err(pack_error)?;
+    pack.copy_files(&request.files).map_err(pack_error)?;
+    pack.seal().map_err(pack_error)
+}
+
 /// Shared publication preparation. Pure file consumers use this same mechanism without a store.
 pub fn prepare_review_pack(
     destination: &Path,

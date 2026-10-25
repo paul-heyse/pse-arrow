@@ -1708,6 +1708,10 @@ def diagnostic_explain_invocation(
     source: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,
     policy: ComparisonPolicy | None = None,
 ) -> InvocationComparisonDocumentOutput: ...
+def diagnostic_export_members(
+    destination: str | PathLike[str],
+    selection: PackExportRequest | PackExportRequestOutput,
+) -> PackIndexOutput: ...
 def diagnostic_export_pack(
     destination: str | PathLike[str],
     evidence: FrozenEvidenceSet | FrozenEvidenceSetOutput,
@@ -1755,6 +1759,9 @@ def diagnostic_pack_analysis(
 def diagnostic_pack_evidence(
     directory: str | PathLike[str],
 ) -> FrozenEvidenceSetOutput: ...
+def diagnostic_pack_member(
+    directory: str | PathLike[str], member: str, maximum_bytes: int
+) -> bytes: ...
 def diagnostic_query_specification(
     request: ReviewQueryRequest | ReviewQueryRequestOutput,
 ) -> ReviewQuerySpecificationOutput: ...

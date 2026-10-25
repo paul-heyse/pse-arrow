@@ -92,7 +92,7 @@ pse_diagnostics::impl_diagnostic! {
     forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 
-type CheckpointVersion = pse_model::document::Version<5>;
+type CheckpointVersion = pse_model::document::Version<6>;
 
 /// One immutable process publication, never a scientific result or native restart state.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -785,7 +785,14 @@ pub(crate) fn child<F: Future>(kind: &'static str, future: F) -> impl Future<Out
     let operation = pse_diagnostics::observation::current()
         .map(|context| context.child(kind, pse_diagnostics::observation::Relationship::Nested));
     let context = operation.as_ref().map(|operation| operation.context());
-    let span = tracing::info_span!("pse.native.producer", owner = kind, native.operation = ?context.as_ref().map(ObservationContext::id));
+    let span = tracing::info_span!(
+        "pse.native.producer",
+        owner = kind,
+        pse.operation.id = tracing::field::Empty
+    );
+    if let Some(context) = &context {
+        span.record("pse.operation.id", tracing::field::display(context.id()));
+    }
     let future = tracing::Instrument::instrument(future, span);
     let future = futures_util::FutureExt::inspect(future, move |_| {
         // Completed describes this observed scope, not scientific permission of its output.
@@ -858,7 +865,7 @@ mod tests {
         let image = read_checkpoint(&path).unwrap();
         let original: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_eq!(original["version"], 5);
+        assert_eq!(original["version"], 6);
         assert_eq!(
             original["runtime_metrics"]["locator"]["pid"],
             std::process::id()
@@ -883,10 +890,10 @@ mod tests {
             serde_json::from_slice(&ProcessCheckpoint::WIRE.to_vec(&image).unwrap()).unwrap();
         assert_eq!(projected, original);
         let schema = schemars::schema_for!(ProcessCheckpoint).to_value();
-        assert_eq!(schema["properties"]["version"]["const"], 5);
+        assert_eq!(schema["properties"]["version"]["const"], 6);
         for bytes in [
-            br#"{"version":4,"operations":"wrong current shape"}"#.as_slice(),
-            br#"{"version":5,"version":5}"#.as_slice(),
+            br#"{"version":5,"operations":"wrong current shape"}"#.as_slice(),
+            br#"{"version":6,"version":6}"#.as_slice(),
         ] {
             std::fs::write(&path, bytes).unwrap();
             let error = read_checkpoint(&path).unwrap_err().to_string();

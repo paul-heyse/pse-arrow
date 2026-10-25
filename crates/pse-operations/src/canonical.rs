@@ -31,8 +31,8 @@ mod metadata;
 #[path = "canonical_study_module.rs"]
 pub(crate) mod study_module;
 pub use metadata::MetadataResponse;
-pub use transport::CanonicalQuerySample;
 use transport::{CanonicalClient, original_deadline, within_clock};
+pub use transport::{CanonicalQueryMetrics, CanonicalQuerySample, query_metrics};
 
 /// Initial negotiated protocol limit; batches must leave space for their envelope.
 pub const MESSAGE_BYTES: usize = wire::RESULT_MESSAGE_BYTES;

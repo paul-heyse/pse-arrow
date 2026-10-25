@@ -867,7 +867,8 @@ async fn canonical_statistics_keep_server_samples_out_of_local_active_intervals(
     let hub = ObservationHub::new(Policy::default());
     let operation = hub.start("canonical-statistics");
     let observer = super::CanonicalStatistics {
-        context: operation.context(),
+        context: Some(operation.context()),
+        metrics: &super::QUERY_METRICS,
         invocation: 42,
     };
     let mut stats = surrealdb::method::Stats::default();
@@ -904,7 +905,8 @@ fn canonical_statistics_bound_bursts_without_displacing_attempt_identity() {
     let operation = hub.start("canonical-statistics-burst");
     for invocation in 0..1000 {
         let observer = super::CanonicalStatistics {
-            context: operation.context(),
+            context: Some(operation.context()),
+            metrics: &super::QUERY_METRICS,
             invocation,
         };
         let mut stats = surrealdb::method::Stats::default();
@@ -957,7 +959,8 @@ fn canonical_statistics_bound_bursts_without_displacing_attempt_identity() {
         1000
     );
     let observer = super::CanonicalStatistics {
-        context: operation.context(),
+        context: Some(operation.context()),
+        metrics: &super::QUERY_METRICS,
         invocation: 1000,
     };
     observer.request_failed();
@@ -992,5 +995,39 @@ fn canonical_statistics_exact_sample_fits_default_text_bound() {
     assert_eq!(
         serde_json::from_str::<super::CanonicalQuerySample>(&wire).unwrap(),
         sample
+    );
+}
+
+#[test]
+fn canonical_owner_metrics_without_capture_keep_exact_statement_population() {
+    use surrealdb::method::QueryStatisticsObserver;
+    static METRICS: super::CanonicalMetricState = super::CanonicalMetricState::new();
+    let observer = super::CanonicalStatistics {
+        context: None,
+        metrics: &METRICS,
+        invocation: 1,
+    };
+    let before = METRICS.snapshot();
+    assert!(before.source_started_unix_micros.is_none());
+    let mut stats = surrealdb::method::Stats::default();
+    stats.execution_time = Some(Duration::from_nanos(91));
+    observer.observe(0, stats, true);
+    observer.observe(1, surrealdb::method::Stats::default(), false);
+    observer.request_failed();
+    let sample = METRICS.snapshot();
+    assert_eq!(sample.builders, 0);
+    assert_eq!(sample.statements, 2);
+    assert_eq!(sample.statements_succeeded, 1);
+    assert_eq!(sample.statements_failed, 1);
+    assert_eq!(sample.statements_timed, 1);
+    assert_eq!(sample.statements_untimed, 1);
+    assert_eq!(sample.request_failures, 1);
+    assert_eq!(sample.server_duration_nanos, 91);
+    assert!(!sample.saturated);
+    let repeat = METRICS.snapshot();
+    assert_eq!(repeat.statements, 2);
+    assert_eq!(
+        repeat.source_started_unix_micros,
+        sample.source_started_unix_micros
     );
 }

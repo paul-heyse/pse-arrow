@@ -368,6 +368,14 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
             schema: schemars::schema_for!(pse_runtime::tooling::telemetry::Settings).to_value(),
         }],
     )?;
+    let metric_path =
+        Path::new(documents::PRIVATE_PYTHON_ROOT).join("native_metric_declarations.json");
+    private.files.insert(
+        metric_path.clone(),
+        serde_json::to_vec_pretty(
+            pse_runtime::tooling::metric_declarations::metric_declarations(),
+        )?,
+    );
     add_python_manifest(&mut private, Path::new(documents::PRIVATE_PYTHON_ROOT))?;
     check_private_python_candidate(&private)?;
     tree.roots.extend(private.roots);
@@ -383,6 +391,19 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         generator_symbol: "generate_private".into(),
         output_path: format!("{}/telemetry_settings.py", documents::PRIVATE_PYTHON_ROOT),
         direction: Some("input".into()),
+        basis: "declared".into(),
+    });
+    tree.relationships.push(provenance::SourceRelationship {
+        declaration_key: "pse_runtime::tooling::metric_declarations".into(),
+        declaration_kind: "native_metric_declarations".into(),
+        source_path: Some("crates/pse-runtime/src/tooling/metric_declarations.rs".into()),
+        source_symbol: Some("metric_declarations".into()),
+        source_role: "definition".into(),
+        source_identity: None,
+        generator_path: "xtask/src/codegen.rs".into(),
+        generator_symbol: "document_schemas".into(),
+        output_path: metric_path.to_string_lossy().into_owned(),
+        direction: Some("output".into()),
         basis: "declared".into(),
     });
     let fixtures = schemas::boundary_fixtures()?;
