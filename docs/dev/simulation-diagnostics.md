@@ -728,6 +728,54 @@ profiler stack or permanent daemon is installed. Compiler remarks/llvm-mca apply
 arithmetic region, not the whole workflow. Retain conservative current ISA/BLAS/allocator/build
 profiles unless independent scientific qualification supports a concrete change.
 
+### Escalating a selected telemetry observation
+
+`telemetry_profile_capture` is an explicit MCP action. Supply the bounded original
+`telemetry_query` answer as `suspect`, the original native `CaptureRequest` as `request`,
+and the `CheckpointIdentity` from the selected native checkpoint as `expected`. Discovery
+publishes the existing generated native schemas; the host does not copy their scientific
+fields into another model. The telemetry observation identifies a question and retains its
+request, source interval, retrieval clock and backend incarnation. It does not authorize
+attachment or establish that the chosen native operation caused the observed metric.
+
+The native helper validates the checkpoint with `diagnostics.read_checkpoint(expected=...)`,
+then calls the existing `diagnostics.capture(request)` and finite `CaptureSession.wait()`.
+It checks the original capture target against the admitted diagnostic process, PID and start
+ticks before and after waiting. These checks are a preflight and postcheck, not an atomic
+expected-identity argument to `CaptureRequest`; the native operation-selection and CPU
+liveness checks retain their own coverage. The returned `document` is the intact original
+`CaptureDocument`, or a whole-document detail refusal. Additive `telemetry_context` records
+the operator's association and this identity limit. Thread attribution, clock uncertainty,
+overlap, partial symbols, loss and source failures retain their native meanings.
+
+Cancellation uses the existing attached-helper transport. A scoped helper SIGTERM handler
+enters the native interpreter-signal stop/drain path; `CaptureSession.stop()` and context exit
+join capture workers only. The selected scientific process is not the helper's child and is
+never cancelled, restarted or retuned. Capture artifacts remain owned by the original output
+directory. For a new short command that needs sampling before exec, use the existing explicit
+`launch_capture(LaunchCaptureRequest(...))` route above; this telemetry association action
+does not replay a completed operation or recover earlier CPU samples.
+
+### Optional mechanism fit, assessed 2026-10-24
+
+The finite TQ03 assessment selects no additional deployment. Existing Timeline and perf/Samply
+capture remain **adopted** for selected historical owner timelines and prospective CPU stacks.
+Their existing native documents own intervals, useful-frame evidence, failures and loss.
+
+| Mechanism | Disposition and fit | Unmet question and observable revisit trigger |
+| --- | --- | --- |
+| Pyroscope | **Defer.** Its upstream [platform matrix](https://grafana.com/docs/pyroscope/latest/configure-client/supported-platforms/) includes Rust/Python on Linux; the [Rust SDK](https://grafana.com/docs/pyroscope/latest/configure-client/language-sdks/rust/) offers pprof-rs collection, while [Alloy eBPF](https://grafana.com/docs/pyroscope/latest/configure-client/profile-types/) covers native and Python CPU stacks with symbol/unwind requirements. A separate [monolithic or distributed backend](https://grafana.com/docs/pyroscope/latest/reference-pyroscope-architecture/deployment-modes/) provides [profile-type, label and time queries](https://grafana.com/docs/pyroscope/latest/reference-server-api/). Those capabilities do not establish this checkout's Python 3.14/native-extension symbol fidelity, span association or loss behavior. | Which CPU stacks preceded a recurring regression when no explicit capture was active? Revisit when a named recurring case cannot be reconstructed from retained native captures and requires historical profile queries. Then qualify the exact collector/backend versions, Rust/Python frames, process/source clocks, bounded labels, authentication, retention and independently stoppable collection before adoption. |
+| BCC/bpftrace off-CPU | **Defer.** [BCC offcputime](https://github.com/iovisor/bcc/blob/master/tools/offcputime.py) collects scheduler off-CPU intervals with selected PID/TID and user/kernel stacks. That answers a different question from on-CPU perf or aggregate PSI. Installed tools are `bpftrace 0.20.2` and `bpfcc-tools 0.29.1`; installed BCC source supports finite duration and PID/TID selection. No attachment was qualified. The observed caller had no effective capabilities and `kernel.unprivileged_bpf_disabled=2`; tool presence is not collection permission or useful-stack evidence. | Where did an identified native thread wait during a reproducible unexplained off-CPU interval? Revisit with that exact process/start and thread target, then independently qualify kernel tracepoint/BPF access, unwind/symbol fidelity, lost stacks, finite stop/drain and scheduler interpretation. No host permission change is selected. |
+| Tokio Console | **Defer.** Upstream [console-subscriber](https://github.com/tokio-rs/console/blob/main/console-subscriber/README.md) requires Tokio tracing instrumentation and `tokio_unstable`, plus a composed subscriber layer and gRPC server. The [consumer](https://github.com/tokio-rs/console/blob/main/tokio-console/README.md) exposes task/resource, poll, scheduled and idle observations; these are not whole-process CPU or Rayon profiles. This checkout has Tokio 1.53.2, native runtime metrics and the separately selected cooperative taskdump route, but no declared console-subscriber or discovered tokio-console executable. | Which instrumented Tokio task/resource relationship explains a reproducible scheduling or synchronization delay unresolved by current runtime snapshots and explicit taskdump? Revisit that case with an isolated diagnostic build, exact runtime coverage, subscriber composition and bounded collection lifecycle; qualify behavior without changing the ordinary runtime or treating busy-poll duration as CPU time. |
+
+These are source-backed fit decisions and bounded installed-capability observations, not
+collection benchmarks or integration qualification. The assessment inspected the declared
+dependencies, diagnostic build route, installed executable/package versions and caller kernel
+capability facts. It ran no eBPF attachment, Pyroscope deployment or Console server. Generic
+upstream support and current-upstream bpftrace features do not establish the older installed
+tool's capability. Selected native capture, telemetry query and scientific result authority
+remain separate.
+
 ## Recorded analysis, cooperating recording and offline review
 
 ### Explicit active diagnostics

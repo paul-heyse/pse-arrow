@@ -100,8 +100,9 @@ links shared telemetry/service implementation and actual Python/Rust/native-chil
 acceptance with explicit delivery limits. The
 [final cutover](52-agent-effectiveness-and-engineering-workflows.md#52p52q-final-cutover--2026-10-24)
 records TEL01–TEL08 done, main integration, worktree retirement and enabled native telemetry
-services with seven-day retention. General metrics/queries and assembled qualification retain
-their remaining owners.
+services with seven-day retention. The [52r/52s targeted outcome](52-agent-effectiveness-and-engineering-workflows.md#52r52s-targeted-execution-outcome--2026-10-24)
+links owner metrics, typed investigations, native capture/custody and local watches with their
+actual SDK/backend/STDIO acceptance. Assembled qualification retains its G/H owners.
 Plans50–51 remain completed foundations, and Plans28/32/40 retain their independent scope.
 
 [Plan51: Engineering workspaces and evidence](51-engineering-workspaces-and-evidence.md)

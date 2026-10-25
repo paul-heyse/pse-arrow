@@ -1,6 +1,6 @@
 ---
 title: "Plan 52s: Telemetry queries and agent investigations"
-status: draft
+status: done
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -20,8 +20,9 @@ with O10/O18/O20 as cross-cutting requirements. The
 [coordinator](52-agent-effectiveness-and-engineering-workflows.md) owns package state,
 [rule decisions](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-rule-decisions),
 [opportunity dispositions](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-opportunity-dispositions)
-and TQ01–TQ05. RC01/RC02 were accepted for planning on 2026-10-24. This is authoring scope;
-backend queries, capture, deployment and production changes require execution authorization.
+and TQ01–TQ05. RC01/RC02 were accepted for planning on 2026-10-24. The original authoring pass
+ran no services or production changes. Subsequent maintainer-authorized execution and its bounded
+acceptance are recorded in the Outcome below; they do not absorb 52g/52h or F02/I11.
 
 The selected production query backend is native OpenObserve OSS behind one integration owner.
 Agent reads enter the existing FastMCP endpoint with exact domain/workflow selection, typed
@@ -283,8 +284,9 @@ coordinator before adding infrastructure; do not silently close it with a manual
 **Proposed verification:** local tests challenge adapter semantics and actual canonical
 consumers; 52g supplies assembled investigation journeys and 52h H01–H04 owns integrated
 qualification/O20 and selected measurements. F02 owns real database continuity separately.
-Failure baseline is zero. No product tests, backend queries, capture, services or probes were
-run for this plan authoring; existing inquiry evidence retains its original scope and limits.
+Failure baseline is zero. The original authoring pass ran no product tests, backend queries,
+capture, services or probes; subsequent authorized execution is recorded below. Existing inquiry
+evidence retains its original scope and limits.
 
 **Proposed benefit:** backend selection/projection removes repeated full-history hydration;
 progressive reads reduce response/context burden; retained/offline answers let a later session
@@ -296,3 +298,109 @@ through the accepted route and the capability/diagnostic/environment guides. Exi
 native schemas and source owners keep their meaning. The coordinator records actual outcome,
 mistakes corrected, deliberate deviations and retirement after consumers/references move;
 this supporting document maintains no competing status or evidence ledger.
+
+
+<a id="execution-outcome"></a>
+## Outcome — authorized execution, 2026-10-24
+
+**Implemented:** TEL13/TEL14 use one OpenObserve1.1.2 adapter, the shared bounded async transport
+and the existing FastMCP composition. Closed typed requests select original points, rate/increase,
+p95, fraction-below and exemplar reads; signal-specific field normalization preserves source clocks,
+reset epochs, native references and explicit availability. Caller text is not an arbitrary SQL or
+PromQL surface. Live answers remain bounded observations with `complete=false`; sort/count/page
+behavior does not promise a stable continuation through concurrent ingestion. Source-only schema
+and guidance remain separate from an exercised backend read and from effectful capture/control.
+
+**Implemented:** TEL15 reaches the original native `CaptureRequest`/`CaptureSession` and protected
+checkpoint target through the existing endpoint. TEL16 copies finite selected answers into the
+original native member-pack publication/readers, with adapter/request/source identities, separate
+source cuts and missing context. Continuation binds that exact copied member digest, selection and
+page request; it does not requery a live source or upgrade copied-row completeness into live-population
+completeness. There is no second mutable investigation database or profiling service.
+
+**Implemented:** TEL17 uses the actual OpenObserve OSS1.1.2 scheduler and history, an authenticated
+HTTP self-delivery destination into `pse_alerts`, and only the send-side
+`ZO_SSRF_ALLOWED_CIDRS=127.0.0.1/32` exception. No broad SSRF bypass, auxiliary service or MCP polling
+scheduler is selected. The four fixed conditions are queue pressure at80% of the declared request
+capacity, at least one reset-aware metric-export failure increase per exporter/process over five
+minutes, MX poison at1 and asynchronous persistence queue depth at26. Rules use a60-second interval
+and five-minute configured window. Notification matched-row bounds, native evaluation/history and
+freshness-read intervals remain distinct. Missing/stale/disabled/backlogged or history-pending
+states do not imply a healthy zero, and no notification authorizes intervention. An unpublished
+metric family remains missing until an explicit configuration action can install its native rule.
+
+### Acceptance and limits
+
+All results below use a zero failure baseline. Receipt paths are relative to
+`~/.local/state/pse-arrow/telemetry-qualification/` unless an explicit `/tmp` path is given. Package
+progress and inquiry disposition remain solely in the coordinator; this table records bounded
+execution evidence for these retained design/acceptance definitions.
+
+| Evidence | Tested scope and result |
+|---|---|
+| `scripts.tests.telemetry_operational_acceptance`, through `scripts/pse-env -- .venv/bin/python -m`, receipt `plan52rs-operational-20261024-corrected/acceptance.json` | **Tested, passed:** actual host SDK→Collector→OpenObserve→canonical STDIO metric reads under both sampling decisions, including original point/start timestamps and process identities. Original native readers remain the fallback rather than interpreting absent spans as absent work. |
+| `scripts.tests.telemetry_semantics_acceptance`, through `scripts/pse-env -- .venv/bin/python -m`, receipt `plan52rs-semantics-20261024-source-bounded/acceptance.json` | **Tested, passed:** actual original SDK/backend points and estimator/exemplar semantics, canonical STDIO rate/exemplar calls and retained raw backend replies. Four-second interior evaluation windows are bounded by the actual source points; rate/increase are extrapolated estimates, p95 is bucket interpolation and fraction-below is a bucket-population estimate. Python exemplar IDs/value/filtered attributes/source seconds match the original sampled SDK records; pointers remain related examples, with Rust exemplars unsupported. |
+| `scripts.tests.telemetry_investigation_acceptance --output <fresh-output> --native-target <retained-native-target>`, through `scripts/pse-env --native -- .venv/bin/python -m`, receipt `plan52rs-investigation-20261024-corrected/acceptance.json` | **Tested, passed:** supplied five-row/equal-key copied population pages2/2/1, empty selection, distinct source cuts and missing-trace context through native custody. Direct selected tool, fixed invoke-read, resource and projected-resource consumers return the same copied selection. Wrong digest, cross-selection/changed-page cursor, output bound, unlisted/changed/missing required member and incomplete publication are refused by their actual owners. |
+| The same investigation receipt, `canonical_stdio.capture` | **Tested, passed:** a real retained native target returns a Timeline document through canonical STDIO. Completed-target CPU and wrong-identity requests return native refusals. This is not an actual live CPU sampling campaign or proof of a more specific refusal cause than the returned native error. |
+| `scripts.tests.telemetry_alert_acceptance --evidence /tmp/pse-alert-acceptance-20261024-final.json`, through `scripts/pse-env -- python -m` | **Tested, passed:** disposable installed Collector/OpenObserve services, recurring native local delivery and history, reset-aware export-counter increase, process-associated notification rows, explicit missing-data and disable/read cases. The clean final receipt has six deliveries and eight history rows; both services drained, authenticated unit files removed and state retired. Stale/backlogged/history-pending classifications additionally have independent unit fault-state tests. |
+| `scripts.tests.telemetry_database_acceptance`, receipt `plan52rs-database-20261024/current/receipt.json` | **Tested, passed:** actual selected server metrics, distinct restart incarnation,20 finite-capture spans with simultaneous ordinary metric delivery, absent family and stopped-provider reads. Its original fixture/canonical application acceptance is described in [52r's Outcome](52r-operational-metrics-and-diagnostic-integration.md#execution-outcome). |
+
+**Tested with limits:** the offline journey deliberately uses independently constructed supplied
+answers and prohibits backend requests during copied consumption. It does not assert those fixture
+rows came from a live backend, stop the ordinary backend, or claim an atomic multi-signal snapshot.
+This tests offline independence without introducing an unrelated service outage. Native custody
+supplies sealed/incomplete publication and protected membership; a standard interchange file alone
+would not provide those guarantees. Live query/ingress qualification is supplied by the separate
+actual SDK/backend/STDIO journeys above and in 52r, not inferred from the copied fixture.
+
+### Inquiry decisions consumed by this implementation
+
+The live dispositions and their owners remain at the
+[coordinator](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-inquiries).
+The decisions below explain what the implemented consumers selected and their remaining limits;
+they do not maintain another resolved/open progress column.
+
+| Inquiry | Selected realization, limit and revisit condition |
+|---|---|
+| TQ01 | Use the exact-release SQL/PromQL/exemplar adapter with original point/reset provenance and explicit estimate/related-example meaning. Actual SDK/backend and canonical consumers passed the source-bounded receipt above. Stable live pagination, exact extrapolated counts, raw-sample percentiles and strong exemplar membership/causality are not advertised. Revisit stronger claims only for a concrete consumer with independent source/population/clock/retention evidence. |
+| TQ02 | Consume [52q's selected retention/recovery envelope](52q-local-telemetry-pipeline-and-health.md#targeted-execution-outcome--2026-10-24): restart/retry exhaustion, overflow, storage-startup refusal and controlled query expiry. This work does not enlarge that evidence into runtime ENOSPC/corruption, physical erasure, exactly-once delivery or universal crash durability. |
+| TQ03 | Select existing finite Timeline/Perfetto and CPU owners; the actual canonical Timeline/refusal journey is qualified above. Pyroscope remains deferred until a named recurring regression requires historical profiles that retained capture cannot answer; BCC/bpftrace off-CPU until a concrete wait question needs scheduler user/kernel stacks with explicit attach permission; Tokio Console until a reproducible task/resource question remains unresolved by current runtime snapshots/taskdump. Exact versions, symbols, clocks, loss and independently stoppable lifetimes must be qualified before adoption. These are unselected integrations, not capability-absence claims; the [diagnostic guide](../dev/simulation-diagnostics.md) owns their detailed fit and triggers. |
+| TQ04 | Select the four native OSS conditions, local authenticated delivery/history and explicit control/read interfaces described above. Independent local health still explains service loss when the backend cannot evaluate itself. Ordinary configured selection does not manufacture an export-failure stream that has never been emitted. An optional interactive operator view remains with 52g G05/I13; there is no implicit restart/tuning/retry/scientific cancellation. |
+| TQ05 | Retain the existing finite on-demand capture and original evidence custody. As settled in 52q, the selected standard file exporter does not supply the existing activation/restoration, process drain, bounded sink, sealed publication and retained-reader composition. Revisit replacement only when a concrete composition and real caller migration preserve those obligations together, including the independently owned F02 seam. No finite-capture equivalence or second ordinary export path is claimed. |
+
+### Mistakes corrected, deliberate limits and retention
+
+The first offline/profile journey selected a requested solve that was no longer retained and returned
+`investigation.timeline_capture_refused`. The corrected handoff retains the original requested solve
+reference separately and selects an actual terminal owner in the admitted bounded checkpoint; the
+canonical Timeline/refusal journey then passed. Earlier fixture tuple/codec and oversized-checkpoint
+failures are retained with the native producer receipts described in 52r, rather than counted as passes.
+
+The initial semantic receipt left exemplars pending and another run failed a rate estimate at a
+rounded range edge. The final source-bounded receipt compares only the interval backed by the
+original SDK stimuli; it independently validates actual Python exemplar payloads while retaining
+related-example meaning. The adapter preserves these limits rather than inventing historical point
+start times from a later PromQL label or dropping inconvenient boundary observations silently.
+
+Pinned native alert probing rejected the initially assumed schema URL and `SELECT *` alert SQL;
+the implementation uses `/api/{org}/streams/{metric}/schema` and explicit projections. Repeated
+configuration initially retried template creation; it now verifies existing template/destination
+ownership, creates only missing templates, updates destinations through the native API and disables
+rules explicitly. Native history publication is asynchronous and is not an immediate quiet-success
+signal. A preliminary probe was adjusted during its run; the final native alert receipt above is
+from the clean reproducible journey and is the acceptance reference.
+
+**Scope-end verification:** the coordinator's [targeted outcome](52-agent-effectiveness-and-engineering-workflows.md#52r52s-targeted-execution-outcome--2026-10-24)
+records the corrected Python/generated gates, passing default/no-default and full-workspace native
+Clippy, governance and documentation publication. The final concurrency review led to one
+endpoint-lifetime shared HTTP pool with request-local configuration and unchanged source fences;
+the overlapping-selection regression and actual SDK/backend/STDIO semantic rerun passed
+(`plan52rs-semantics-20261024-pool-fixed/acceptance.json`). These results do not close F02/I11's
+SDK request-task/header and actual Rust→database→Surrealism parent continuity, broader G/H
+assembled journeys, or quantified benefit qualification.
+
+The coordinator alone owns TEL13–TEL17 progress, TQ dispositions and any remaining work. This
+supporting plan remains because 52g/52h consume its design, native mechanisms and acceptance limits.
+After those dependencies and enduring contract/reference migration are settled, retire it through
+ADR-0096. Retention does not create another backlog, revive deferred profiling work or promote these
+bounded journeys to full-plan scientific, performance or productivity qualification.

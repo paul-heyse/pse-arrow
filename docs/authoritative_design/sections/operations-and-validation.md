@@ -86,7 +86,9 @@ writer and never cancels science; command cancellation owns its exact child sepa
 
 Offline review publication exclusively creates its destination, publishes an incomplete index,
 finalizes selected members under finite allowances, and seals its index only after required
-copies/reports drain. Membership, explanatory context, capture availability and scientific
+copies and any selected reports drain. Supplied non-scientific member publication uses the same
+index, sealing and bounded readers without fabricating a scientific checkpoint, analysis or report.
+Membership, explanatory context, capture availability and scientific
 outcome are independent. Selected protected results use their actual reader/export owners and
 release each borrower before opening the next reader. A shared composition serves CLI,
 Runtime and single-result export: explicit supplied/live checkpoint and optional original handoff,
@@ -162,21 +164,43 @@ and nested future poll/idle durations are not exclusive execution intervals. Exe
 gauges over the current registered population; selected-future counters are process cumulative.
 Absent or refused observation sources are not zero work or failed scientific admission.
 
-The single FastMCP endpoint provides selected redacted configuration, pipeline health, bounded
-known-trace lookup and original native process/checkpoint/operation readers. Calling-process SDK
-state is distinct from the recorded native target. Native documents are preserved or refused as
-whole excessive detail; telemetry neither reinterprets native outcomes nor grants stop, cancellation
-or resource-release authority. General historical query and metric consumers retain their own
-implementation and qualification scope.
+Native operational, preparation/reuse and canonical-query populations come from their performing
+owners, including attempts/admissions/dispatch/join, shared producers/waiters, retained reuse and
+actual statement outcomes. Version6 process checkpoints and cumulative SDK callbacks consume the
+same sources. Rust-owned metric declarations generate the source-only query descriptors; host
+build/assessment/stage and prepared pressure observations retain their original owners and clocks.
+Dimensions are bounded categories, with invocation/operation identity in selected detail rather
+than metric labels. Histogram boundaries, source epochs, missing observations and collection
+coverage remain explicit. Sampling off does not disable owner metrics.
+
+The single FastMCP endpoint supplies typed bounded trace/log/metric reads, schema guidance,
+configuration/health and original native readers. The backend adapter owns signal-specific field
+mapping, credentials, reusable asynchronous transport and service-generation fences. Cumulative
+SQL points preserve original start/reset timestamps; rate/increase extrapolate, p95 interpolates
+and threshold fractions require an actual declared bucket. Related exemplars establish pointers,
+not exact population membership or causality. Query answers retain source/retrieval intervals,
+lookback, limits, units and unavailable/partial states; live pagination is not a frozen snapshot.
+
+Explicit publication copies finite selected answers and native references into the existing sealed
+member-pack custody. Offline reads use only admitted copied members and digest-bound cursors,
+without live backend queries or current-clock reinterpretation. Selected finite native capture
+verifies target identity before and after capture, drains its own helper and never stops science.
+Calling-process SDK state remains distinct from a recorded native target. Native documents are
+preserved or refused as whole excessive detail; telemetry grants no scientific outcome, resource
+release or cancellation authority.
 
 Telemetry services have independently owned native user-service lifetimes and persistent state,
 separate from scientific store/scratch and workload allocations. Explicit installation/setup/start/
 stop/enablement select exact artifacts and configured generations. The operator selected login
 startup and seven-day ordinary retention; finite exported evidence retains its existing custody.
-Consumer queries preserve source/configuration identity, intervals and partiality; native result
-readers remain authoritative. General FastMCP retrieval, full database continuity and broader
-metric consumers retain their selected Plan52 implementation/qualification owners. Finite capture
-is replaced only after its bounds, restoration and actual evidence consumers qualify. The selected
+Explicit reconfiguration stages and validates immutable generations before replacement, with
+original-generation recovery and existing retention/credentials preserved. Collector internal metrics
+and actual database OTLP metrics share the selected pipeline; database launch identity distinguishes
+restart incarnations. Native OSS scheduled watches observe selected queue/export/storage conditions,
+with local delivery/history and explicit missing/stale/disabled states. Reads neither start services
+nor schedule intervention. Native results remain authoritative. Full Rust→database→Surrealism causal
+continuity remains separate from metric delivery and service identity. Finite capture is retained;
+its bounds, restoration and evidence consumers are not replaced by ordinary export. The selected
 architecture does not claim exactly-once delivery or an atomic cross-signal source cut.
 
 **Spans.** `tracing` spans named `pse.*` wrap the expensive boundaries:

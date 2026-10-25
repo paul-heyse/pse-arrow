@@ -89,8 +89,84 @@ preserves active trace/span IDs when supplied while treating export and end-to-e
 unverified. Native result/admission/drain never follows from a successful span or task response.
 The retained in-memory SDK probe starts no Collector and establishes no Rust or database
 propagation. The [52p/52q execution checkpoint](../plans/52-agent-effectiveness-and-engineering-workflows.md#52p52q-execution-checkpoint--2026-10-24)
-owns subsequent process/pipeline evidence. General query tools, metric populations and actual
-database/header continuity remain with their individual Plan52 packages.
+owns subsequent process/pipeline evidence. The delivered query and investigation routes are
+described below; actual Rust→database→Surrealism/header continuity remains open under
+[F02/I11](../plans/52f-evidence-analysis-and-trace-correlation.md#F02). Focused actual SDK/backend,
+offline custody and capture acceptance does not close the broader assembled
+[52g workflows](../plans/52g-agent-and-operator-workflows.md) or
+[52h qualification](../plans/52h-qualification-and-publication.md).
+
+### Typed telemetry investigations
+
+Describe/select `telemetry_schema` and `telemetry_query` to inspect the actual request/answer
+contracts and metric declarations. `pse://telemetry/schema` publishes the same source-only
+schema resource. It describes supported units, attribute keys, explicit histogram buckets,
+reset/start meaning and original native readers without querying a backend. Native and host
+populations are owner-issued independently of span sampling; a trace count is not an execution
+count, and a duration observation is not scientific success or physical resource release.
+
+`telemetry_query` accepts a typed `request`, plus optional service `state`, with explicit ordered
+microsecond times and bounded filters. Trace/log reads select a trace, operation or service
+incarnation. Metric reads select the metric and optionally its service incarnation:
+
+| Metric kind | `metric` selection | Interpretation |
+|---|---|---|
+| `points` | Exact published stream, such as `pse_build_records` or `pse_build_duration_bucket` | Original selected rows, including available reset/start fields |
+| `rate`, `increase` | Exact counter stream, such as `pse_build_records` | Per-second rate or increase estimate |
+| `p95` | Base histogram name, such as `pse_build_duration` | Bucket-interpolated quantile estimate |
+| `fraction_below` | Base histogram name plus `threshold` equal to a declared explicit boundary | Estimated cumulative bucket/count fraction |
+| `exemplars` | Actual exemplar-bearing stream, such as `pse_build_duration_bucket` | Related examples with their preserved source context |
+
+For estimators, `step_seconds` selects evaluation spacing; the requested interval length supplies
+the lookback, with its extended source interval recorded in the answer. Endpoint extrapolation
+and histogram interpolation are estimates, not exact interval counts. Native source epochs and
+SDK aggregation starts are distinct. Python examples can retain sampled trace/span IDs and filtered
+attributes without putting those IDs in series dimensions; their timestamps retain backend
+precision. Their presence establishes no population coverage or automatic native-target association.
+Rust exemplars are unsupported.
+
+The adapter bounds each backend read to three seconds, 1 MiB and at most 1,000 selected rows.
+It validates backend configuration and process incarnation before/after the read. Available,
+empty, partial, stale, unsupported and unavailable answers remain distinct; an absent stream may
+be a backend refusal rather than an empty population. Live reads preserve their individual source
+cuts and provide no stable continuation or atomic cross-signal snapshot. Credential acquisition,
+SQL and endpoint construction remain internal to the selected owner. Narrow the typed selection
+or use the original native reader when detail is refused.
+
+`telemetry_investigation_export` is an explicit action copying one to sixteen supplied query
+answers into a fresh native member pack, with an output allowance up to 8 MiB. It performs no
+new backend query or scientific analysis and requires the prepared native extension. Its returned
+`SelectionReference` binds the original directory and copied member digest. Native custody retains
+publication/incomplete state, acknowledged readable bounds, required members and missing context;
+sealing copied observations establishes no live population completeness or clock alignment.
+
+`telemetry_selection_read` reads that exact reference offline. Continue with the returned cursor
+and identical reference, selection index and page limit; equal sort keys retain copied row order.
+Digest/member changes, cross-selection cursors and unlisted members refuse. No current backend,
+source path, clock or scientific rerun supplies missing facts. `copied_selection_complete` refers
+to the selected copied rows; `live_population_complete` remains false. The export also returns a
+`pse://telemetry/selection/{reference}/{selection}/{limit}` resource for the same protected read.
+Direct tools, fixed invokers and direct/projected resources retain loaded-source fences; source or
+generated declaration drift requires endpoint restart before owner dispatch.
+
+`telemetry_profile_capture` is a separate explicit action. Supply an available/partial suspect
+`QueryAnswer` with records/source, the original native `CaptureRequest`, and complete original
+`CheckpointIdentity`. The existing native Timeline/CPU owner admits the exact checkpoint and
+`OperationId`, writes fresh bounded output and returns its intact `CaptureDocument` with additive
+telemetry association metadata. Checkpoint identity preflight and capture-target postcheck preserve
+original process/start association; stronger atomic expected-identity admission is unsupported.
+Finished-operation CPU refusal, partial source, symbol status, loss and readable output remain
+independent outcomes. Cancelling the attached helper stops/drains capture only; science keeps its
+original owner. There is no automatic capture, process tuning, profiler deployment or UI startup.
+See the [diagnostic guide](simulation-diagnostics.md) for interpretation and deferred profiler fits.
+
+`telemetry_watch_read` exposes fixed OpenObserve-native conditions, selected evaluation history
+and local delivery in an explicit interval of at most seven days. `telemetry_watch_configure`
+is an action enabling/disabling those fixed rules and local self-delivery; missing metric schemas
+require later explicit configuration. Missing/stale input, disabled evaluation, backlog and unsupported
+history remain visible. Backend-down local diagnosis remains `telemetry_health`. The
+[service guide](agent-environment.md#optional-native-telemetry) describes CLI control and immutable
+reconfiguration/recovery. These controls start no MCP scheduler and authorize no automatic intervention.
 
 ### Selected native overrides
 

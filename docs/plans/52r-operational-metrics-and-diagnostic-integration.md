@@ -1,6 +1,6 @@
 ---
 title: "Plan 52r: Operational metrics and diagnostic integration"
-status: draft
+status: done
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -23,8 +23,9 @@ owns all package progress and opportunity dispositions. There is no second compl
 The maintainer accepted review RC01/RC02 for planning on 2026-10-24; their full decisions and
 routes live at [the coordinator](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-rule-decisions).
 The selected authoring target is native Collector plus OpenObserve OSS and one exact structured
-FastMCP interface, with no Docker requirement. Planning does not authorize installing services,
-changing dependencies or executing production instrumentation. [52p](52p-shared-telemetry-and-native-propagation.md)
+FastMCP interface, with no Docker requirement. The original planning pass did not authorize
+service installation or instrumentation. The subsequent maintainer-authorized implementation
+and its bounded acceptance are recorded in the Outcome below. [52p](52p-shared-telemetry-and-native-propagation.md)
 owns SDK/configuration/identity/propagation; [52q](52q-local-telemetry-pipeline-and-health.md)
 owns collection/deployment/health/retention; [52s](52s-telemetry-queries-and-agent-investigations.md)
 owns typed backend reads, exemplar presentation, profiling/offline/watches. Existing 52g/52h own
@@ -298,8 +299,8 @@ fixtures require no science or backend startup; actual native/backend/canonical 
 necessary for their separate claims. Scope-end integration/component/native/Python journeys and
 `just hygiene`, governance/docs and applicable manual native/powerset checks are coordinated in 52h,
 after all selected functional scope. `just ready` follows dependency/skill-selection changes;
-the coordinator owns `just turn-end` and the shared index. No product tests, new services or
-performance probes were run for this plan-authoring work.
+the coordinator owns `just turn-end` and the shared index. The original authoring pass ran no
+product tests, new services or performance probes; subsequent authorized execution is recorded below.
 
 All commands reported during execution name mode, scope, zero failure baseline and actual result.
 The original test/assessment baseline semantics remain untouched. A useful distribution or trace
@@ -328,3 +329,107 @@ selection with real consumer questions, retaining their one owner. Unsupported s
 strong exemplar attribution and experimental Views/histograms stay visibly unsupported until
 qualified; a material requirement may reopen that affected SDK/backend choice through the
 coordinator. No broad investigation, alternative stack or second query path is pre-authorized.
+
+
+<a id="execution-outcome"></a>
+## Outcome — authorized execution, 2026-10-24
+
+**Implemented baseline:** execution started from main `85638ebed`, preserving unrelated library
+references and concurrent work. The coordinator owns integrated source/checkpoint admission.
+
+**Implemented:** TEL09–TEL12 now project performing-owner populations through the shared providers.
+Native frontier/basis single-flight acquisition, retained reuse, production and waiters remain
+separate; actual native supervisor attempt/admission/dispatch/join/control facts and owner intervals
+are exported without sampled spans being their counter source. Modeling value and structural edits
+retain the original preparation and scientific-result checks. Canonical query statistics use the
+SDK's `QueryStatisticsObserver`; builder/request, statement success/failure and timed/untimed
+populations are not interchangeable. Generated native metric declarations and the host declarations
+supply the query adapter's meanings. Existing native checkpoints/readers remain available.
+
+**Implemented:** `telemetry_metrics.py` applies explicit cumulative export, bounded attribute Views
+and explicit histogram buckets to authentic build, assessment and pressure owners. Exact test,
+invocation, trace and model identifiers are not new metric dimensions. Pressure collection uses
+published source snapshots and omits unavailable/expired fields; periodic SDK callbacks do not run
+host queries or science. Build freshness, process samples, assessment stages and exact qualification
+results retain their original owners and units.
+
+**Implemented:** the custom SurrealDB3.3.4/MX1.0 server exports native metrics over OTLP/gRPC to the
+existing Collector ingress. Its per-launch `service.instance.id` differs from deployment/configuration
+identity and is associated with the owned process/status readers. Collector0.163.2 exports its own
+internal metrics through a periodic OTLP reader into that same pipeline; port8888 remains passive.
+There is no duplicate database scrape. Explicit immutable configuration replacement validates before
+stopping services, preserves credentials/data/seven-day retention and retains recoverable prior
+configuration. Finite trace capture redirects only traces; ordinary metrics keep their selected route.
+
+### Acceptance and limits
+
+All results below use a zero failure baseline. Local receipt paths in this Outcome are relative to
+`~/.local/state/pse-arrow/telemetry-qualification/`; explicit `/tmp` paths are separate retained local
+probe receipts. These are acceptance evidence, not a second package-progress ledger.
+
+| Evidence | Tested scope and result |
+|---|---|
+| `scripts.tests.telemetry_operational_acceptance`, through `scripts/pse-env -- .venv/bin/python -m`, receipt `plan52rs-operational-20261024-corrected/acceptance.json` | **Tested, passed:** actual Python1.45.1 SDK→Collector→OpenObserve1.1.2→canonical STDIO reads under both `always_on` and `always_off`; independently specified three-event counters and histogram count/sum/buckets, original collection/start clocks, process reset/incarnation and filtered dimensions. Sampling changes span availability without changing those metric populations. |
+| `scripts.tests.telemetry_native_operational_acceptance`, through `scripts/pse-env --native -- .venv/bin/python -m`, receipt `plan52rs-native-20261024-final/acceptance.json` | **Tested, passed:** two real KINSOL solves, shared preparation demand, retained reuse, value edit and structural edit; exact retained native checkpoint totals compared with same-incarnation SDK/backend points. Source counts and histogram populations remain distinct; count/sum are not reconstructed duration distributions. |
+| `scripts.tests.telemetry_database_acceptance --telemetry-state ~/.local/state/pse/telemetry --output <fresh-output>`, through `scripts/pse-env --native -- .venv/bin/python -m`, receipt `plan52rs-database-20261024/current/receipt.json` | **Tested, passed:** fresh owned canonical database, actual MX/query/process OTLP populations, independent server snapshots, new server incarnation after an owned restart, and20 captured server spans with a metric point delivered during finite capture. Unknown-family and stopped-provider reads remain unavailable rather than zero. `current/native/acceptance.json` independently validates actual application canonical query statistics against SDK/backend points. `current/retirement/passed.json` records all contexts/kernel scopes drained and fixture retirement. |
+| `scripts.tests.telemetry_semantics_acceptance`, through `scripts/pse-env -- .venv/bin/python -m`, receipt `plan52rs-semantics-20261024-source-bounded/acceptance.json` | **Tested, passed:** original SDK cumulative collections3/6/9, explicit bucket counts/sums, actual `rate`, `increase`, p95 and fraction-below reads, plus canonical STDIO rate/exemplar consumers. The four-second estimator comparison uses interior evaluations after the second original source point and no later than the last. Rate/increase use the independently computed source slope with5% tolerance; p95 is bucket interpolation0.0865 and the fraction at0.01 is2/3, not a raw-sample percentile or exact operation count. |
+| `scripts.tests.telemetry_service` and actual replacement/recovery probe `/tmp/pse-reconfigure-20261024.json` | **Tested, passed:** candidate validation refusal before effects, sealed-generation preservation, failed-activation rollback, interrupted-pointer recovery and actual installed-service replacement/recovery preserving credentials, seven-day retention and previously queryable metrics. Both probe generations were drained and their authenticated unit files removed. |
+| Selected Python component `python/pse/tests/test_capability_adapters.py::test_capability_project_selection_metadata_and_retained_revision` | **Tested, passed:** `.venv/bin/python -m pytest -n0 <selected-test> --basetemp <owned-fixture>/pytest`, with explicit fresh `PSE_SURREAL_STATE`;1 passed in26.91s. `plan52rs-component-20261024/{receipt.json,component.log,retirement/passed.json}` records exit0 and complete fixture retirement. |
+
+**Tested:** the targeted service/alert/native-reader command `scripts/pse-env -- python -m unittest
+scripts.tests.test_telemetry_service scripts.tests.test_telemetry_alerts
+scripts.tests.test_surreal_mcp scripts.tests.test_surreal_diagnostics
+scripts.tests.test_surreal_server.SurrealSupervisorTests.test_native_metrics_keep_selected_route_during_finite_trace_capture`
+passed57 tests, zero failures. Performing-owner tests `operational_metrics_shared_flight_counts_one_producer_two_waiters` and
+`operational_metrics_cumulative_population_and_histogram_ignore_head_sampling`, plus canonical
+transport statistics-observer tests, separately exercise owner sharing, sampling independence and
+statement-statistics classifications. Their complete scope-end
+command accounting belongs to the coordinator, not this supporting document.
+
+**Tested with limits:** Python exemplar retrieval preserves the original sampled SDK trace/span IDs,
+value, filtered attributes and source seconds through backend and canonical reads. Its meaning remains
+`related_examples`: the observed OpenObserve bucket duplication and absent attached native target do
+not establish bucket membership, complete population coverage or causal contribution. Rust0.33.1
+exemplars remain explicitly unsupported. SQL point start/reset provenance is preserved separately
+from PromQL's latest-start labels. No representative speed, cache-effectiveness, overhead, capacity,
+crash-durability or productivity measurement is claimed.
+
+### Mistakes corrected and deliberate boundaries
+
+Initial host acceptance assumed a trace schema existed before sampled stimuli and failed visibility;
+the corrected journey publishes real sampled stimuli before asserting sampling-dependent absence.
+Initial native fixture decoding assumed JSON arrays without the native codec, a retained checkpoint
+exceeded the reader's finite bound, and a requested completed solve was assumed still retained.
+The driver now decodes with the native codec, retains a bounded normalized copy of the same admitted
+checkpoint, and distinguishes the requested solve from the actual retained terminal target. These
+failed receipts remain distinct from the passing native receipt.
+
+The first database setup used the older1GiB fixture budget, which the current module-pool contract
+correctly refused; the fixture then selected the current minimum2GiB server allocation without changing
+host policy. A subsequent initializer failed because the current `xtask` binary lacked `canonical-tools`.
+The exact initializer was built through `scripts.arrow_validation` with explicit force-validation;
+no new Python extension was built. Both failed closed fixtures/receipts remain retained. The ordinary
+scientific provider's stale/absent allocation was not repaired or adopted; fresh owned providers supplied
+both database and component acceptance instead. A physical-versus-logical CPU assumption in the MCP
+fixture was corrected to use the actual `host_admission.cpu_set`, without changing admission policy.
+
+An earlier semantic run exposed rounded range-edge extrapolation in the fixture's constant-slope
+oracle. The final source-bounded receipt records the original SDK clocks and compares only the actual
+interior stimulus interval, rather than weakening the estimator meaning or relabeling extrapolation
+as exact work. Earlier partial/failed semantic receipts remain separate evidence.
+
+**Scope-end verification:** the coordinator's [targeted outcome](52-agent-effectiveness-and-engineering-workflows.md#52r52s-targeted-execution-outcome--2026-10-24)
+records the corrected Python/generated gates, passing default/no-default and full-workspace native
+Clippy, governance and documentation publication. The final concurrency review led to one
+endpoint-lifetime shared HTTP pool with request-local configuration and unchanged source fences;
+the overlapping-selection regression and actual SDK/backend/STDIO semantic rerun passed
+(`plan52rs-semantics-20261024-pool-fixed/acceptance.json`). These results do not close F02/I11's
+SDK request-task/header and actual Rust→database→Surrealism parent continuity, broader G/H
+assembled journeys, or quantified benefit qualification.
+
+The [coordinator](52-agent-effectiveness-and-engineering-workflows.md) alone owns TEL09–TEL12 progress,
+opportunity/inquiry dispositions and remaining work. This supporting plan retains the design and
+acceptance definitions consumed by [52g](52g-agent-and-operator-workflows.md) and
+[52h](52h-qualification-and-publication.md). It remains in the working corpus until those dependencies
+no longer need it and enduring meaning/reference migration is complete under ADR-0096; its retention
+is not another backlog or an assertion that assembled qualification and measured benefits are done.

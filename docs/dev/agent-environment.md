@@ -721,7 +721,17 @@ just telemetry inspect
 just telemetry health
 just telemetry restart
 just telemetry stop
+just telemetry reconfigure
+just telemetry recover-configuration
 ```
+
+`reconfigure` validates a new immutable generation before draining the authenticated old
+services. It retains backend data, queues, credentials and listener selection, then restores
+the prior running/login selection on the replacement. Activation failure attempts rollback;
+`recover-configuration` explicitly restores the authenticated prior generation recorded by
+that operation, including interrupted selection publication. Neither command accepts an
+arbitrary generation or rewrites sealed files. Existing producer processes retain their resolved
+configuration until restarted; service replacement does not mutate their SDK settings.
 
 Installation verifies the selected native archive and executable digests. Setup validates
 Collector configuration before activation. Start, stop and restart authenticate the configured
@@ -764,11 +774,47 @@ backend retention are separate from a healthy service or successful SDK shutdown
 The repository Codex attachment forwards names of supported `OTEL_*`, `PSE_TELEMETRY_STATE`
 and `XDG_STATE_HOME` settings through its checked-in `env_vars` allowlist. It stores no secret
 values. Restart an existing attachment to change its process-owned telemetry selection.
-The canonical FastMCP endpoint exposes `telemetry_configuration`, `telemetry_health` and
-`telemetry_trace_lookup`. Configuration and local producer health belong to the calling MCP
-process; target process observations use the original native diagnostic readers. These selected
-reads start no services. Full database transport continuity and general telemetry query/pagination
-semantics retain their separate Plan52 owners.
+The canonical FastMCP endpoint exposes configuration, health, typed queries, copied offline
+investigations, explicit native capture escalation and native alert controls through the
+[capability guide](capability-interface.md#typed-telemetry-investigations). Configuration and local
+producer health belong to the calling MCP process; target process observations use the original
+native diagnostic readers. Passive reads start no services.
+
+Owner-issued operational metrics remain independent of span sampling. Native checkpoint6
+retains supervisor admission/dispatch/join populations, overlapping frontier/basis acquisition,
+retained reuse, shared producers and waiters, and the original source epoch. Cache populations
+retain their own cache owner. Host instruments project actual Cargo records/artifact freshness,
+child lifetime, assessment execution and engineering stages; a fresh artifact is not a compiler
+cache hit, and selected/reused/unattempted cases are not newly executed cases. Host pressure
+observations retain their original sampling interval and can expire rather than become zero.
+The published metric declarations describe units, bounded attributes, buckets, reset and scope.
+SDK cumulative start times do not replace native source epochs. Exact invocation identities and
+scientific outcomes remain with their native records rather than series dimensions. Database
+client observations and the selected server/MX metric routing do not establish causal
+Rust→database→Surrealism parentage; [F02/I11](../plans/52f-evidence-analysis-and-trace-correlation.md#F02)
+remains open.
+
+Native OpenObserve OSS watches are explicit operations:
+
+```bash
+just telemetry watch-configure
+just telemetry watch-read --start-us START --end-us END
+just telemetry watch-disable
+```
+
+The fixed conditions cover Collector queue pressure/export failures and native MX poison/persistence
+pressure. OpenObserve evaluates them and delivers locally to its own `pse_alerts` stream through
+the narrowly configured loopback destination. Missing source schemas require a later explicit
+configure call. `watch-read` retains the selected interval, evaluation history, source freshness,
+configuration/incarnation and local delivery separately; disabled, missing-data, backlogged and
+unsupported observations are not successful evaluations. Backend-down diagnosis remains with
+`health`. No MCP polling scheduler, external notification or automatic remediation is installed.
+
+Focused actual SDK→Collector→OpenObserve→canonical STDIO acceptance covers selected populations,
+estimators, Python related examples and investigation readers; it does not establish all
+cross-language propagation, assembled agent workflows or whole-series qualification. Those
+remaining obligations retain their [52g](../plans/52g-agent-and-operator-workflows.md) and
+[52h](../plans/52h-qualification-and-publication.md) owners.
 
 ### Project and evidence commands
 
