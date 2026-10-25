@@ -416,10 +416,15 @@ def test_contextual_accuracy_native_solve_admission_refuses_obsolete_request_ver
     runtime = pse.Runtime(inspection_settings, ephemeral=True)
     try:
         old = msgspec.structs.replace(pse.SolveSettings(), version=3)
-        with pytest.raises(pse.InspectionError, match="version"):
+        with pytest.raises(pse.InspectionError) as refused:
             revision(runtime, physical_context(runtime)).prepare_solve(
                 declaration(101), old
             )
+        report = refused.value.report
+        assert report.reported_code == "validation.invariant"
+        location = report.decode_location
+        assert isinstance(location, documents.DecodeLocation)
+        assert (location.stage, location.category) == ("header", "data")
     finally:
         runtime.close()
 
@@ -585,9 +590,11 @@ def test_empty_library_is_admitted_but_missing_case_is_refused(
 
 @pytest.mark.component
 def test_native_capability_discovery_and_hard_cut(
-    local_inspection_settings: pse.EngineSettings, no_canonical_allocation: None
+    inspection_settings: pse.EngineSettings, no_canonical_allocation: None
 ) -> None:
-    runtime = pse.Runtime(local_inspection_settings, ephemeral=True)
+    # Metadata discovery shares the process-owned budget with other handles;
+    # the local-only fixture still refuses every canonical allocation boundary.
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
     try:
         capabilities = runtime.capabilities()
         assert capabilities

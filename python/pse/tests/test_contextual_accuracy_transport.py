@@ -126,13 +126,26 @@ def test_contextual_accuracy_simulation_version_precedes_policy(
     document = settings.document
     assert document.version == 1
     assert pse.SimulationSettings.from_document(runtime, document).document == document
-    for obsolete in (0, 2, 3):
-        historical = msgspec.structs.replace(document, version=obsolete)
-        with pytest.raises(pse.InspectionError, match="version"):
-            pse.SimulationSettings.from_document(runtime, historical)
-    # A current enclosing version cannot launder an obsolete accuracy policy.
     historical_policy = msgspec.structs.replace(document.controls.numerics, version=0)
-    with pytest.raises(pse.InspectionError, match="version"):
+    for obsolete in (0, 2, 3):
+        # Both interpretations are obsolete. The enclosing header must refuse
+        # before the current body can interpret its nested accuracy policy.
+        historical = msgspec.structs.replace(
+            document,
+            version=obsolete,
+            controls=msgspec.structs.replace(
+                document.controls, numerics=historical_policy
+            ),
+        )
+        with pytest.raises(pse.InspectionError) as refused:
+            pse.SimulationSettings.from_document(runtime, historical)
+        report = refused.value.report
+        assert report.reported_code == "validation.invariant"
+        location = report.decode_location
+        assert isinstance(location, documents.DecodeLocation)
+        assert (location.stage, location.category) == ("header", "data")
+    # A current enclosing version cannot launder an obsolete accuracy policy.
+    with pytest.raises(pse.InspectionError) as refused:
         pse.SimulationSettings.from_document(
             runtime,
             msgspec.structs.replace(
@@ -142,6 +155,16 @@ def test_contextual_accuracy_simulation_version_precedes_policy(
                 ),
             ),
         )
+    report = refused.value.report
+    assert report.reported_code == "validation.invariant"
+    location = report.decode_location
+    assert isinstance(location, documents.DecodeLocation)
+    assert (location.stage, location.category) == ("body", "data")
+    assert location.path == (
+        documents.DecodePathSegmentMap(key="controls"),
+        documents.DecodePathSegmentMap(key="numerics"),
+        documents.DecodePathSegmentMap(key="version"),
+    )
 
 
 @pytest.mark.unit

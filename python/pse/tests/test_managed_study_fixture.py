@@ -60,7 +60,24 @@ class ManagedStudyControlTests(unittest.TestCase):
         )
         config.start()
         self.addCleanup(config.stop)
-        self.invocation = self.resources.invocation("python", [{"name": self.id()}])
+        self.selected_identity = (
+            os.environ.get("PYTEST_CURRENT_TEST", "").rsplit(" (", 1)[0] or self.id()
+        )
+        # This private invocation owns mocked control metadata only. Its explicit
+        # canonical demand does not alter pytest's LOCAL requirement or admit
+        # native science, an actual receiver or the canonical substrate.
+        self.invocation = self.resources.invocation(
+            "python",
+            [{"name": self.selected_identity}],
+            requirements={
+                self.selected_identity: {
+                    "effects": ["canonical"],
+                    "fixtures": [],
+                    "capacity": "canonical",
+                    "roles": [],
+                }
+            },
+        )
         environment = patch.dict(
             os.environ,
             {
@@ -70,7 +87,9 @@ class ManagedStudyControlTests(unittest.TestCase):
         )
         environment.start()
         self.addCleanup(environment.stop)
-        self.fixture = FIXTURE.ManagedStudyFixture(str(self.state))
+        self.fixture = FIXTURE.ManagedStudyFixture(
+            str(self.state), test=self.selected_identity
+        )
         self.fixture.database = f"canonical_test_{self.fixture.nonce}"
         self.fixture.controls_resource = self.resources.register(
             {
@@ -78,7 +97,7 @@ class ManagedStudyControlTests(unittest.TestCase):
                 "database": self.fixture.database,
                 "kind": "controls",
                 "directory": str(self.fixture.directory),
-                "test": self.id(),
+                "test": self.selected_identity,
             }
         )
         self.fixture.directory.mkdir(mode=0o700)
@@ -111,7 +130,7 @@ class ManagedStudyControlTests(unittest.TestCase):
         assert self.fixture.directory.exists()
         assert self.resources.finalize(
             self.invocation,
-            {self.id(): "pass"},
+            {self.selected_identity: "pass"},
             complete=True,
             terminal_owner="runner",
         ) == [resource]
@@ -139,6 +158,25 @@ class ManagedStudyControlTests(unittest.TestCase):
             str(self.fixture.directory),
             self.fixture.nonce,
         ]
+
+    def test_control_invocation_refuses_native_and_foreign_test_demand(self) -> None:
+        self.resources.require_effect(
+            {"test": self.selected_identity}, effect="canonical"
+        )
+        with pytest.raises(
+            self.resources.ResourceError, match="Undeclared native demand"
+        ):
+            self.resources.require_effect(
+                {"test": self.selected_identity}, effect="native"
+            )
+        with pytest.raises(
+            self.resources.ResourceError, match="not uniquely collected"
+        ):
+            self.resources.require_effect(
+                {"test": self.selected_identity + "::foreign"}
+            )
+        self.fixture.close()
+        self.retire_controls()
 
     def test_close_preserves_lock_published_by_another_nonce(self) -> None:
         record = FIXTURE._read_object(self.fixture.lock)

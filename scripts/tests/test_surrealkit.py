@@ -291,7 +291,10 @@ class NamespaceTests(unittest.TestCase):
 class DispatchTests(unittest.TestCase):
     def test_tool_sessions_use_the_finite_server_global_capacity(self) -> None:
         config: dict[str, object] = {
-            "resources": server.resources(4 * server.GIB, 2 * server.GIB, 2, server.GIB)
+            "instance_id": "2" * 32,
+            "resources": server.resources(
+                4 * server.GIB, 2 * server.GIB, 2, server.GIB
+            ),
         }
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

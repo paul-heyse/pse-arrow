@@ -29,11 +29,37 @@ class ConfigurationTests(unittest.TestCase):
         self.env = {"PSE_TELEMETRY_STATE": str(self.state)}
 
     def test_no_selection_disables_without_importing_sdk_or_native(self) -> None:
-        settings = resolve_process("test", environment=self.env)
-        self.assertTrue(settings.wire.disabled)
-        self.assertFalse(settings.wire.traces.enabled)
-        self.assertNotIn("pse._native", sys.modules)
-        self.assertEqual(settings.effective()["delivery"], "not_observed")
+        # Other controls legitimately import the installed extension. A fresh
+        # process tests bootstrap imports independently of suite ordering.
+        child = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json,sys; from scripts.telemetry_config import resolve_process; "
+                    "s=resolve_process('test',environment={'PSE_TELEMETRY_STATE':sys.argv[1]}); "
+                    "print(json.dumps({'disabled':s.wire.disabled,'traces':s.wire.traces.enabled,"
+                    "'delivery':s.effective()['delivery'],'native':'pse._native' in sys.modules,"
+                    "'sdk':any(n.startswith('opentelemetry.sdk') for n in sys.modules)}))"
+                ),
+                str(self.state),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=15,
+        )
+        self.assertEqual(child.returncode, 0, child.stderr)
+        self.assertEqual(
+            json.loads(child.stdout),
+            {
+                "disabled": True,
+                "traces": False,
+                "delivery": "not_observed",
+                "native": False,
+                "sdk": False,
+            },
+        )
 
     def test_selection_precedence_none_and_redaction(self) -> None:
         (self.state / "configuration.json").write_text(

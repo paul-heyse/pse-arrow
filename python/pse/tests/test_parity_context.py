@@ -94,6 +94,30 @@ def test_parity_reference_closure_owns_immutable_bytes_and_fresh_model_packages(
 ) -> None:
     source_tree(tmp_path)
     monkeypatch.setattr(support, "ROOT", tmp_path)
+    # This unit owns a supplied family, independently of the controller's real
+    # immutable scientific-input capsule used by other selected tests.
+    family_requests: list[str] = []
+
+    def family_packages(name: str) -> tuple[dict[str, bytes], ...]:
+        assert name == "parity"
+        family_requests.append(name)
+        return tuple(
+            {
+                "package.toml": (
+                    tmp_path / "packages/reference" / path / "package.toml"
+                ).read_bytes()
+            }
+            for path in (
+                "data/references",
+                "process",
+                "thermodynamics",
+                "methods",
+                "domain",
+                "physical",
+            )
+        )
+
+    monkeypatch.setattr(support, "family_packages", family_packages)
     runtime = RuntimeProbe()
     context = support.ParityContext(cast("pse.Runtime", runtime))
     original = context.reference_documents
@@ -104,6 +128,7 @@ def test_parity_reference_closure_owns_immutable_bytes_and_fresh_model_packages(
     second = support.reference_package(context, "second reference model")
     assert first is not second
     assert context.reference_documents is original
+    assert family_requests == ["parity"]
     assert runtime.physical_calls == [dict(original[-1])]
     assert runtime.model_calls[0][1] is runtime.model_calls[1][1]
     for sources, _ in runtime.model_calls:

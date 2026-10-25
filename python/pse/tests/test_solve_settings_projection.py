@@ -261,10 +261,30 @@ def test_idas_current_version_default_omission_and_explicit_step(
     admitted = pse.SimulationSettings.from_document(runtime, document)
     assert codec.encode_json(admitted.idas) == codec.encode_json(settings)
     for version in (0, 2):
-        with pytest.raises(pse.InspectionError, match="version"):
+        with pytest.raises(pse.InspectionError) as refused:
             pse.SimulationSettings.from_document(
                 runtime, msgspec.structs.replace(document, version=version)
             )
+        report = refused.value.report
+        assert report.reported_code == "validation.invariant"
+        location = report.decode_location
+        assert isinstance(location, documents.DecodeLocation)
+        assert (location.stage, location.category) == ("header", "data")
+    with pytest.raises(pse.InspectionError) as refused:
+        pse.SimulationSettings(
+            runtime=runtime,
+            start=0.0,
+            end=1.0,
+            samples=[0.0],
+            atol=coordinate_batch(runtime),
+            parameter_scales=coordinate_batch(runtime),
+            idas=msgspec.structs.replace(settings, version=2),
+        )
+    report = refused.value.report
+    assert report.reported_code == "validation.invariant"
+    location = report.decode_location
+    assert isinstance(location, documents.DecodeLocation)
+    assert (location.stage, location.category) == ("header", "data")
 
 
 @pytest.mark.integration
@@ -325,17 +345,6 @@ def test_solve_settings_backend_projection(
             parameter_scales=coordinate_batch(runtime),
             diffsol=b'{"version": 1}',
         )
-    with pytest.raises(pse.InspectionError, match="version"):
-        pse.SimulationSettings(
-            runtime=runtime,
-            start=0.0,
-            end=1.0,
-            samples=[0.0],
-            atol=coordinate_batch(runtime),
-            parameter_scales=coordinate_batch(runtime),
-            idas=msgspec.structs.replace(idas, version=2),
-        )
-
     # Each variant reaches its backend: the report records the effective settings.
     package, ids = cases
     highs = attempt_of(
