@@ -442,6 +442,17 @@ fallback rebuilds them. *Tested* by
 
 Runtime consumes compiler-owned annotation/view products and pure predicted-start/fallback policy, preserving intentional per-mode differences.
 
+The immutable mode inventory and structural view roles are defined in §14.3; runtime binds
+their observations to current case values and provider outputs before resolving numerical
+policy. Steady starts prefer supplied values to authored hints. Nested residual starts prefer
+the semantic anchor, then supplied values, then authored hints. Dynamic starts prefer the
+isolated initial-condition value, then supplied values, then authored hints. An explicit bound
+endpoint override replaces the authored endpoint, including an explicit absence. Steady outer
+scaling excludes nested-owned rules; a nested residual consumes its own rules, while integrated
+dynamics consumes physical nominal/accuracy budgets rather than steady row conditioning.
+Only originally member-free dynamic bounds supply constant-sign evidence. Frozen accuracy
+expressions cannot depend transitively on a changing solve coordinate; unknown support refuses.
+
 > Decision: ADR-0163 (proposed; authorized implementation).
 
 Engineering scale selection has its own precedence: analysis, case, model, applicable

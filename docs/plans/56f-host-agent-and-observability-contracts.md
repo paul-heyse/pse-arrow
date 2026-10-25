@@ -179,7 +179,7 @@ redundant imports only when their current guarantees are supplied by the retaine
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | planned; RC02 required | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
+| F01 | physical boundary prerequisite implemented in 56a; remaining RC02 scope pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
 | F02 | planned | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
 | F03 | planned | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | planned | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
@@ -191,6 +191,14 @@ but its finite operation declaration can be designed early. F03 consumes B06/C02
 once its local vocabulary exists. F05 is independent of worker retention; F06 requires its working
 currency and E deployment/allocation, not all E scope. No worker reuse substitutes for stale-image
 admission or reopens I10 compiler persistence.
+
+**56a prerequisite — 2026-10-25:** source-owned physical identity declarations emit aliases to
+existing Rust wrappers and preserve typed Python domains. Physical inspection request/output
+documents use the existing directional emitter; record definitions precede dependency-ordered
+evaluated aliases. The actual PyO3 surface, Python facade, MCP binding and derived CLI expose the
+same native physical projection. [56a](56a-model-meaning-and-physical-interpretation.md) owns this
+slice's acceptance. General owner-local enum/key/bound fidelity, responsibility partition and
+generated operation declarations remain F01/F02 work; RC02 and RC06 are not adopted.
 
 ## Library basis and acceptance
 

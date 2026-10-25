@@ -43,6 +43,21 @@ empty-inventory vector).
 > projections still require admission against the exact selected physical context; Python aliases
 > are annotations, not membership or conversion proofs.
 
+The declared quantity-type, unit, basis, reference-state, quantity-kind and entity-kind identity
+domains re-export the existing `pse-quantity` Rust types. Generated Python aliases, Arrow codecs
+and document schema facets preserve those domains and their unchanged underlying identities.
+The physical registry and conversion plan remain the authorities for membership and meaning.
+
+`PhysicalContext::describe` projects that admitted owner into bounded readable records. A quantity
+record retains the exact quantity contract, kind/dimension, canonical and requested representation
+units, conversion scale/offset, optional basis and its reference conditions, datum, ordered shape
+and subject kind. Point and difference conversions remain distinct; an affine point's offset
+cannot become a tolerance width. Inspection leaves recorded values unchanged. Names resolve
+only within this context, and ambiguous unit symbols or wrong identity domains refuse.
+Pages select at most sixteen complete records within 64 KiB; oversized meaning refuses or is
+explicitly unavailable instead of returning a silently truncated record. Protected result readers
+use the original retained context under §19.2, never the latest registry for the same spelling.
+
 > Decision: [ADR-0135](../../adr/0135-physical-expression-contracts.md) (proposed) — internal anonymous contracts retain declared public quantity boundaries.
 
 > Decision: [ADR-0124](../../adr/0124-unit-algebra-and-derived-kinds.md) — a quantity kind

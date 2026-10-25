@@ -530,6 +530,21 @@ encoded-response limits refuse without substituting facts. Original-batch valida
 allocation and cancellation/drain remain native; exact Arrow IPC remains the complete data path.
 Inspection grants no scientific usability or publication authority.
 
+Result inspection carries the producer's governing Assessment permission separately from the
+selected product's usability, which remains Unknown without its own evidence. Missing completion
+or a termination without a governing Assessment supplies unknown permission; corrupt or unreadable
+completion propagates a refusal. This reader projection does not redefine completion policy.
+
+Each durable run retains its original physical rows and a context-identity receipt in its source
+closure. The native reader protects those exact revisions, admits their original typed batches
+through the physical owner and verifies the reconstructed context against the receipt. Missing,
+misplaced, duplicated or mismatched receipts cannot authorize another context. An unavailable
+original closure is reported explicitly while raw result values remain readable; no latest-context
+substitution occurs. Schema, value and physical pages retain the original result/physical custody
+through serialization. Continuations bind the original physical identity and retained closure
+availability as well as the result manifest and query, and each call reacquires protection.
+The physical view uses the same bounded projection as direct physical inspection (§8.1).
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 Exact statistics over admitted batches, bound to payload/schema/interpretation, replace scalar row locators. DataFusion conservative pruning and residual-before-limit preserve full protected decode, original coordinates and scientific bits. Explicit conic/recycle/block-initialization strategies retain their nondurable lifecycle exception.
@@ -1468,7 +1483,14 @@ invent completion, redispatch native work or promise returned physical disk spac
 > declared identity projection to existing physical types, preserving Rust-owned documents and
 > generated Python aliases. Plan56a owns implementation and actual boundary qualification.
 
-`ResultInspectionRequest` and its version-2 schema/children/metadata/values/refusal document are
+Physical identity declarations generate re-exports of the source-owned native types rather than
+second Rust wrappers. Generated document, Arrow and Python projections consume the same domain
+declaration. `PhysicalContext.describe`, `resolve_quantity`, `resolve_unit` and
+`resolve_reference_state` expose the admitted physical owner directly; native result inspection
+and MCP use that same projection and its exact-context rules (§8.1/§19.2). Host callers need no
+independent physical YAML interpretation to obtain named input addresses or readable result meaning.
+
+`ResultInspectionRequest` and its version-2 schema/children/metadata/physical/values/refusal document are
 Rust-owned members of the directional catalogue under proposed ADR-0224. Required version headers
 are checked before body decoding; old inspection documents are not reinterpreted. PyO3 and
 Python's `Runtime.inspect_result` consume generated records; MCP composes original schemas.
@@ -1479,7 +1501,8 @@ Composite logical-type metadata can contain recursive storage descriptions. Shal
 explicitly defer that original entry by key/byte extent, including ancestor attribution, while
 retaining other physical/unit/identity metadata inline; omitted context is never marked complete.
 The exact metadata reader or original IPC retains the detail, with finite intact refusal.
-Schema/context discovery reads no data batches. Value transport still admits original full batches,
+Schema/metadata discovery reads no result data batches; original physical-context admission
+reads retained physical source batches. Value transport still admits original full result batches,
 retains physical context and refuses intact at its finite document allowance. Readability does not
 establish scientific usability, terminal settlement, complete IPC fidelity or measured speed.
 

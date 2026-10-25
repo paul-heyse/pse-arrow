@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 275
+revision: 276
 date: 2026-10-25
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 276 | 2026-10-25 | Publish implemented Plan56a checked occurrence/shared lexical and constant admission (§7.1/§7.7), immutable mode target/support and view-role products with runtime value binding (§14.3/§16.2), source-owned physical identities/readable projection and exact original result-context custody (§8.1/§19.2/§21.1). | Maintainer-authorized A01–A03 and minimal reader prerequisites; PSE_DESIGN_EDIT=1, with the original tracked .design-edit marker restored. ADR-0226 remains proposed; RC01–RC06 are not adopted. Qualification remains with Plan56a and §24.2; no new Tested or Measured claim. |
 | 275 | 2026-10-25 | Clarify existing task-dependent agent coordination through outcomes, readiness, delegated decisions and effect-scoped operating rules (§24.4). | Operator-requested guidance alignment; PSE_DESIGN_EDIT=1. Documentation wording within existing coordination policy; health checks not_run by request. |
 | 274 | 2026-10-25 | Record selected source-owned physical identity alias direction (§4.1/§5.1/§8.1/§21.1). | Maintainer-authorized Plan56a RC07, proposed ADR-0226 and independent Accept design review; implementation and qualification remain with Plan56a. |
 | 273 | 2026-10-25 | Publish selected Plan55 actual developer/native/MCP/CLI qualification, fresh Codex attachment boundary, repaired static evidence, metadata completeness limits and original fixture teardown (§24.2). | Maintainer-authorized Plan55 F03 closeout through existing .design-edit authorization; composed selected results and exclusions remain at Plan55f, proposed ADR-0224 unchanged. |

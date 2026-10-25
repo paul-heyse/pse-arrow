@@ -29,6 +29,11 @@ fallible provider calls and source attribution.
 
 An immutable physically resolved semantic product replaces source/name reconstruction before library algebra. Modeling owns symbols, lexical binders, original guards and occurrence mapping; Symbolica/Numerica retain mathematical authority. Demanded product regions use deterministic preflight and lawful local derivative/chain composition across host barriers, preserving original source checks and actual evaluator ownership.
 
+Selected-source discovery and checked admission consume the same registry-generated expression
+field visitor and modeling-owned lexical rule (§7.7). Source identity is the declaration, field
+role and structural ordinal; equal expression text cannot merge distinct occurrences. Constant
+form arguments use the existing checked static evaluator before library lowering.
+
 | Constraint | Consequence |
 |---|---|
 | Real algebra on an admitted domain | Physical checks and domain obligations precede algebra. Equivalence is real-algebraic on the admitted domain, not ordered floating-point or bitwise identity. There is no approximate or finite-difference fallback. |
@@ -444,6 +449,19 @@ All specialization and body consumers use those checked occurrences. Logic exten
 same quoted-path/count predicate grammar. Synthetic expressions are AST nodes carrying
 the originating operation, rather than formatted text parsed through a second front door.
 
+The generated visitor follows each field's declared grammar. Parsed fields supply both checked
+admission and selected-source dependency extraction, without a parallel expression-text
+inventory. The shared lexical binding owner covers function and scope parameters, coordinate
+maps, responses, reconstructions and reference translations; checked normalized function
+signatures supply their actual argument names. Nearer bindings shadow outer declarations.
+`Lookup::Pending` stops resolution and remains distinct from `Absent` and `Found`.
+
+`realization.argument` is a checked expression occurrence. `derived_big_m` and `hull` evaluate
+their required constant scalar through the existing modeling static owner in an empty runtime
+environment, retaining physical typing, provenance and source attribution. Nonconstant,
+nonfinite, incompatible or malformed arguments refuse; an independent numeric text parser
+does not determine the formulation.
+
 > Supplement: [ADR-0150](../../adr/0150-checked-admission-and-owned-reuse.md)
 > (proposed; authorized implementation).
 
@@ -835,6 +853,30 @@ its unused tracked queries are removed. Checked modeling revisions and immutable
 bindings supply preparation. Complete body inputs include normalized AST, formals,
 physical operations, transitive called functions, provider descriptors and admission limits.
 A/B/A selections coexist; one mutable root slot cannot overwrite their meaning.
+
+`NumericalAnnotations` owns an immutable target inventory for each steady, dynamic and nested
+residual mode. Each target retains its exact identity, source declaration, semantic and numerical
+roles, quantity/unit, location, selection and nested ownership, and resolved support where
+available. Steady rows/variables/observables, dynamic states/algebraic rows, initial and
+differential equations, closure/inventory obligations, integral/terminal observations and ordered
+nested residual positions retain their distinct roles. Optional observation targets remain in
+the inventory even when the base policy does not select them. Annotation admission reports
+Supported, NotApplicable to the outer mode because a nested operation owns it, or Refused;
+unsupported authored meaning cannot disappear during runtime classification.
+
+Annotation observations carry resolved transitive input/member support, including derived
+members. Frozen-support checks consume an issued observation and its exact target crosswalk;
+unknown observations or targets refuse rather than becoming empty support. Modeling owns
+derived-target identities, and the shared identity owner supplies reconstructed original-bound
+requirements. Runtime consumes these products directly instead of reconstructing target sets,
+matching rendered symbol names or minting parallel derivation recipes.
+
+Compiler `ViewPolicy` owns original/effective view choice and structural role admission. Its
+`ViewRoles` identifies hidden nested targets/unknowns, complete nested suppliers, covariance
+parameters, sensitivity parameters and the bound operation's propagation outputs. Runtime
+outer-request filtering and sensitivity/covariance admission consume those roles. Current case
+values, provider observations and admitted profile overlays remain runtime inputs; evaluated
+values never enter Salsa. Mode-specific start, bound and scaling rules are owned by §16.2.
 
 Tracked mathematical preparation is mathematically pure: complete immutable inputs determine
 the admitted mathematics. It constructs no mutable evaluator, runs no solver and writes no

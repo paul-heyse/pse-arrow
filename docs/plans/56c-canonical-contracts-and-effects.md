@@ -136,7 +136,7 @@ compatibility reader or second production path is introduced.
 |---|---|---|---|
 | C01 | planned | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
 | C02 | planned | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
-| C03 | planned; RC01 governs placement | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
+| C03 | original-context reader prerequisite implemented in 56a; RC01 placement pending | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
 | C04 | planned | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
 | C05 | planned | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
 
@@ -144,6 +144,14 @@ C01 and B's early fact/constructor declarations enable C03; they do not require 
 finish. D01 replaces append realization using C03. C04 and E02 share one product-helper boundary;
 the pure file authority can precede relocating its command. C05 is the coordinated activation,
 not permission to postpone necessary consumer migration until qualification.
+
+**56a prerequisite — 2026-10-25:** result inspection locates original physical rows and the
+designated context receipt through existing retained source revisions, validates their admitted
+closure and context identity, binds the cursor to that closure, and retains source protections
+through response construction. Missing or invalid closure yields explicit physical unavailability
+while raw diagnostic values remain readable. [56a](56a-model-meaning-and-physical-interpretation.md)
+owns acceptance. No storage schema, payload placement, replay contract or existing deployment
+interpretation changes in this slice; the remaining C03/C05 target and RC01 stay pending.
 
 ## Acceptance
 
