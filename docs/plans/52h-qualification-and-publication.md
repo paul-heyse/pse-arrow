@@ -343,3 +343,16 @@ science replay or database deletion. This is positive current-native schema reco
 bounded value unavailability, not a passing value-reader journey. The prior52l real wide-result
 acceptance retains its different source and conditions. Current-session attachment must restart
 when its loaded interface is stale; successful fresh-child consumption does not update it in place.
+
+### Current campaign handoff — 2026-10-25
+
+Functional repairs and selected native/Python/actual-Codex consumers are finished at the boundaries
+above. All owned scientific and disposable service consumers have settled. The only active
+qualification is the fresh full `features-powerset` assessment under
+`build/assessment/20261025T055203.278998Z-features-powerset-918911-d6ca14/` (controller918911).
+It runs all505 literal depth-two combinations followed by the separate no-default population;
+no covered Rust/tooling source is being edited. Earlier173-pass interrupted and330-pass historical
+campaigns remain incomplete, and are not silently reused. The current campaign must finish or
+retain its actual terminal interruption/failure before H03 closes. Documentation publication has
+passed658 chapters; final status/retirement reconciliation follows the campaign. Optional production
+selections remain at the coordinator and do not authorize further implementation.
