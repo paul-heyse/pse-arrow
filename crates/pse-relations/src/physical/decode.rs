@@ -11,11 +11,10 @@ use crate::{
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{
-    Basis, ConversionId, ConversionRule, DefinedUnit, DerivedKind, DimensionVector,
-    EntityKind, EntityKindId, InputConversion, InvariantId, KindDefinition, KindFactor,
-    OperationId, QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry,
-    QuantityRegistryBuilder, QuantityType, QuantityTypeKey, Ratio, ReferenceState,
-    Unit, UnitFactor, UnitSet, UnitSetId,
+    Basis, ConversionId, ConversionRule, DefinedUnit, DerivedKind, DimensionVector, EntityKind,
+    EntityKindId, InputConversion, InvariantId, KindDefinition, KindFactor, OperationId,
+    QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry, QuantityRegistryBuilder,
+    QuantityType, QuantityTypeKey, Ratio, ReferenceState, Unit, UnitFactor, UnitSet, UnitSetId,
 };
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::{BTreeMap, BTreeSet};
@@ -75,7 +74,7 @@ pub fn inventory(
     rows!(units, row, {
         // Version two: an atomic unit authors its measure; a defined unit authors only its
         // composition, and admission derives its dimension and scale (ADR-0124).
-        let id = row.unit_id.into();
+        let id = row.unit_id;
         match (
             row.definition,
             row.dimension,
@@ -97,7 +96,7 @@ pub fn inventory(
                     scale_to_canonical,
                     offset_to_canonical,
                     is_affine,
-                    reference_state: row.reference_state_id.map(Into::into),
+                    reference_state: row.reference_state_id,
                     definition: None,
                 });
             }
@@ -136,8 +135,7 @@ pub fn inventory(
                 row.current_unit_id,
                 row.luminous_intensity_unit_id,
                 row.currency_unit_id,
-            ]
-            .map(|id| id.map(Into::into)),
+            ],
         });
     });
     rows!(reference_states, row, {
@@ -158,7 +156,7 @@ pub fn inventory(
             })
         };
         builder.reference_state(ReferenceState {
-            id: row.reference_state_id.into(),
+            id: row.reference_state_id,
             name: row.name,
             kind: row.kind,
             temperature: condition(row.temperature),
@@ -171,7 +169,7 @@ pub fn inventory(
         // Version three: a base kind authors its dimension; a derived kind authors its
         // monomial, canonical unit and result policy, and admission derives its dimension
         // (ADR-0124).
-        let id = row.quantity_kind_id.into();
+        let id = row.quantity_kind_id;
         match (row.definition, row.dimension) {
             (None, Some(value)) => {
                 builder.kind(QuantityKind {
@@ -202,9 +200,7 @@ pub fn inventory(
                             .collect::<Result<_, PhysicalError>>()?,
                         canonical_unit: definition.canonical_unit_id.into(),
                         basis: definition.basis_id.map(Into::into),
-                        reference_state: definition
-                            .reference_state_id
-                            .map(Into::into),
+                        reference_state: definition.reference_state_id.map(Into::into),
                         scale_kind: definition.scale_kind,
                         subject_kind: definition.subject_kind.map(Into::into),
                     },
@@ -219,34 +215,34 @@ pub fn inventory(
     });
     rows!(bases, row, {
         builder.basis(Basis {
-            id: row.basis_id.into(),
+            id: row.basis_id,
             kind: row.kind,
             composition_basis: row.composition_basis,
             rate_basis: row.rate_basis,
-            reference_conditions: row.reference_conditions_id.map(Into::into),
+            reference_conditions: row.reference_conditions_id,
         });
     });
     rows!(quantity_types, row, {
         builder.quantity_type(QuantityType {
-            id: row.quantity_type_id.into(),
+            id: row.quantity_type_id,
             name: row.name,
             key: QuantityTypeKey {
-                kind: row.quantity_kind_id.into(),
-                basis: row.basis_id.map(Into::into),
-                reference_state: row.reference_state_id.map(Into::into),
+                kind: row.quantity_kind_id,
+                basis: row.basis_id,
+                reference_state: row.reference_state_id,
                 scale_kind: row.scale_kind,
                 shape: row.shape.into_iter().map(Into::into).collect(),
-                subject_kind: row.subject_kind.map(Into::into),
+                subject_kind: row.subject_kind,
             },
-            canonical_unit: row.canonical_unit_id.into(),
+            canonical_unit: row.canonical_unit_id,
             nominal_magnitude: row.nominal_magnitude,
         });
     });
     rows!(conversion_rules, row, {
         builder.conversion(ConversionRule {
             id: ConversionId::from_id(row.conversion_id),
-            from: row.from_quantity_type_id.into(),
-            to: row.to_quantity_type_id.into(),
+            from: row.from_quantity_type_id,
+            to: row.to_quantity_type_id,
             kind: row.kind,
             kernel: row.kernel_id,
             required_parameters: row.required_parameters,
@@ -258,12 +254,8 @@ pub fn inventory(
         builder.operation(QuantityOperation {
             id: OperationId::from_id(row.operation_id),
             opcode: row.opcode,
-            input_kinds: row
-                .input_kind_ids
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-            result_kind: row.result_kind_id.into(),
+            input_kinds: row.input_kind_ids.into_iter().map(Into::into).collect(),
+            result_kind: row.result_kind_id,
             basis_rule: row.basis_rule,
             reference_rule: row.reference_rule,
             scale_rule: row.scale_rule,

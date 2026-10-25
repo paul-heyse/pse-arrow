@@ -24,13 +24,26 @@ pub struct IdentityDecl {
 
 impl IdentityDecl {
     /// Reuse an existing native identity with an explicitly declared storage base.
-    pub const fn sourced(name: &'static str, doc: &'static str, path: &'static str, base: IdentityBase) -> Self {
-        Self { name, doc, source: Some(IdentitySource { path, base }) }
+    pub const fn sourced(
+        name: &'static str,
+        doc: &'static str,
+        path: &'static str,
+        base: IdentityBase,
+    ) -> Self {
+        Self {
+            name,
+            doc,
+            source: Some(IdentitySource { path, base }),
+        }
     }
 
     /// Declare the identity `name`.
     pub const fn new(name: &'static str, doc: &'static str) -> Self {
-        Self { name, doc, source: None }
+        Self {
+            name,
+            doc,
+            source: None,
+        }
     }
 }
 
@@ -107,6 +120,13 @@ impl IdentitySpec {
         base: IdentityBase,
         owner: Option<IdentityOwner>,
     ) -> Self {
-        Self { id, name, doc, base, owner, source: None }
+        Self {
+            id,
+            name,
+            doc,
+            base,
+            owner,
+            source: None,
+        }
     }
 }

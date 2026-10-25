@@ -1601,9 +1601,7 @@ mod import_tests {
             .chain(document.reference_states.into_iter().map(|row| {
                 (
                     row.name,
-                    pse_quantity::PhysicalName::ReferenceState(
-                        row.reference_state_id,
-                    ),
+                    pse_quantity::PhysicalName::ReferenceState(row.reference_state_id),
                 )
             }))
             .collect();

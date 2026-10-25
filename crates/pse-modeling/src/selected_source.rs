@@ -143,16 +143,51 @@ pub fn lexical_bindings<'a>(
     row: &'a Declaration,
     checked_function: Option<&'a crate::Function>,
 ) -> impl Iterator<Item = &'a str> {
-    checked_function.into_iter()
+    checked_function
+        .into_iter()
         .flat_map(|function| function.arguments.iter().map(|(name, _)| name.as_str()))
         .chain(
-            row.value.function.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str())
-                .chain(row.value.scope.iter().flat_map(|v| &v.parameters).map(|p| p.name.as_str()))
-                .chain(row.value.coordinate_map.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
-                .chain(row.value.response.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
-                .chain(row.value.reconstruction.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
-                .chain(row.value.reference_translation.iter().flat_map(|v| &v.arguments).map(|p| p.name.as_str()))
-                .filter(move |_| checked_function.is_none())
+            row.value
+                .function
+                .iter()
+                .flat_map(|v| &v.arguments)
+                .map(|p| p.name.as_str())
+                .chain(
+                    row.value
+                        .scope
+                        .iter()
+                        .flat_map(|v| &v.parameters)
+                        .map(|p| p.name.as_str()),
+                )
+                .chain(
+                    row.value
+                        .coordinate_map
+                        .iter()
+                        .flat_map(|v| &v.arguments)
+                        .map(|p| p.name.as_str()),
+                )
+                .chain(
+                    row.value
+                        .response
+                        .iter()
+                        .flat_map(|v| &v.arguments)
+                        .map(|p| p.name.as_str()),
+                )
+                .chain(
+                    row.value
+                        .reconstruction
+                        .iter()
+                        .flat_map(|v| &v.arguments)
+                        .map(|p| p.name.as_str()),
+                )
+                .chain(
+                    row.value
+                        .reference_translation
+                        .iter()
+                        .flat_map(|v| &v.arguments)
+                        .map(|p| p.name.as_str()),
+                )
+                .filter(move |_| checked_function.is_none()),
         )
 }
 
@@ -220,12 +255,19 @@ pub fn resolve_name(
     owner: crate::DeclarationId,
     name: &str,
 ) -> Lookup {
-    let atomic = [dsl::PathSegment { name: name.into(), indices: Vec::new() }];
+    let atomic = [dsl::PathSegment {
+        name: name.into(),
+        indices: Vec::new(),
+    }];
     match resolve_segments(source, owner, &atomic) {
         Lookup::Absent if name.contains('.') => {
-            let segments = name.split('.').map(|name| dsl::PathSegment {
-                name: name.into(), indices: Vec::new(),
-            }).collect::<Vec<_>>();
+            let segments = name
+                .split('.')
+                .map(|name| dsl::PathSegment {
+                    name: name.into(),
+                    indices: Vec::new(),
+                })
+                .collect::<Vec<_>>();
             resolve_segments(source, owner, &segments)
         }
         result => result,
@@ -371,7 +413,9 @@ pub fn declaration_references_parsed(
         prefixes: structural_paths(row),
         names: Vec::new(),
     };
-    result.names.extend(requirements(row).names.into_iter().map(str::to_owned));
+    result
+        .names
+        .extend(requirements(row).names.into_iter().map(str::to_owned));
     for occurrence in occurrences.values() {
         for reference in syntax_references(&occurrence.syntax) {
             match reference {
@@ -391,11 +435,7 @@ pub fn declaration_references_parsed(
     }
     // The occurrence walker already visits index expressions independently. Only
     // decoded names are consumed by lexical resolution; do not retain their ASTs.
-    for path in result
-        .types
-        .iter_mut()
-        .chain(&mut result.prefixes)
-    {
+    for path in result.types.iter_mut().chain(&mut result.prefixes) {
         for segment in &mut path.segments {
             segment.indices = Vec::new();
         }
@@ -432,10 +472,10 @@ pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
     if let Some(v) = &row.value.scope {
         names.extend(v.bases.iter().map(String::as_str));
         paths.extend(v.oracle.iter());
-        if let Some(v) = v.fixture.as_ref().and_then(|f| f.expected_failure.as_ref()) {
-            if let Some(v) = &v.applicability {
-                names.extend([v.claim.as_str(), v.form.as_str()]);
-            }
+        if let Some(v) = v.fixture.as_ref().and_then(|f| f.expected_failure.as_ref())
+            && let Some(v) = &v.applicability
+        {
+            names.extend([v.claim.as_str(), v.form.as_str()]);
         }
         types.extend(v.parameters.iter().map(|p| &p.r#type));
     }
@@ -492,7 +532,11 @@ pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
         names.push(v.kind_name.as_str());
         cells.extend(v.attributes.iter().map(|a| &a.value));
         paths.extend(v.provenance.iter().flat_map(provenance_paths));
-        paths.extend(v.attributes.iter().flat_map(|a| a.provenance.iter().flat_map(provenance_paths)));
+        paths.extend(
+            v.attributes
+                .iter()
+                .flat_map(|a| a.provenance.iter().flat_map(provenance_paths)),
+        );
     }
     if let Some(v) = &row.value.attribute {
         types.extend(v.r#type.as_ref());
@@ -521,7 +565,13 @@ pub fn requirements(row: &Declaration) -> SourceRequirements<'_> {
     if let Some(v) = &row.value.temporal {
         names.extend([v.target.as_str(), v.axis.as_str()]);
     }
-    SourceRequirements { names, types, cells, sets, paths }
+    SourceRequirements {
+        names,
+        types,
+        cells,
+        sets,
+        paths,
+    }
 }
 
 /// An atomic source reference for the existing lexical resolver.
@@ -551,31 +601,62 @@ pub fn syntax_references(value: &crate::expression::occurrences::Syntax) -> Vec<
     fn predicate(value: &dsl::Predicate, out: &mut Vec<SourceReference>) {
         use dsl::PredicateKind as K;
         match &value.kind {
-            K::Compare { lhs, rhs, .. } => { expression(lhs, out); expression(rhs, out); }
-            K::In { expr, domain } => { expression(expr, out); path(domain, out); }
+            K::Compare { lhs, rhs, .. } => {
+                expression(lhs, out);
+                expression(rhs, out);
+            }
+            K::In { expr, domain } => {
+                expression(expr, out);
+                path(domain, out);
+            }
             K::Atom(e) => expression(e, out),
-            K::And(a, b) | K::Or(a, b) => { predicate(a, out); predicate(b, out); }
+            K::And(a, b) | K::Or(a, b) => {
+                predicate(a, out);
+                predicate(b, out);
+            }
             K::Not(p) => predicate(p, out),
             _ => {}
         }
     }
     fn bound(reference: &SourceReference, names: &std::collections::BTreeSet<String>) -> bool {
         match reference {
-            SourceReference::Segments(path) => path.segments.first().is_some_and(|first| names.contains(&first.name)),
-            SourceReference::Name(name) => names.contains(name) || name.split_once('.').is_some_and(|(first, _)| names.contains(first)),
+            SourceReference::Segments(path) => path
+                .segments
+                .first()
+                .is_some_and(|first| names.contains(&first.name)),
+            SourceReference::Name(name) => {
+                names.contains(name)
+                    || name
+                        .split_once('.')
+                        .is_some_and(|(first, _)| names.contains(first))
+            }
         }
     }
-    fn syntax(value: &StaticValue, names: &std::collections::BTreeSet<String>, out: &mut Vec<SourceReference>) {
+    fn syntax(
+        value: &StaticValue,
+        names: &std::collections::BTreeSet<String>,
+        out: &mut Vec<SourceReference>,
+    ) {
         match value {
             StaticValue::Expression(e) => {
                 let mut local = Vec::new();
                 expression(e, &mut local);
-                out.extend(local.into_iter().filter(|reference| !bound(reference, names)));
+                out.extend(
+                    local
+                        .into_iter()
+                        .filter(|reference| !bound(reference, names)),
+                );
             }
             StaticValue::Set(values) | StaticValue::Tuple(values) => {
-                for value in values { syntax(value, names, out); }
+                for value in values {
+                    syntax(value, names, out);
+                }
             }
-            StaticValue::Comprehension { body, bindings, filter } => {
+            StaticValue::Comprehension {
+                body,
+                bindings,
+                filter,
+            } => {
                 let mut local = names.clone();
                 for (name, domain) in bindings {
                     syntax(domain, &local, out);
@@ -584,14 +665,22 @@ pub fn syntax_references(value: &crate::expression::occurrences::Syntax) -> Vec<
                 if let Some(filter) = filter {
                     let mut references = Vec::new();
                     predicate(filter, &mut references);
-                    out.extend(references.into_iter().filter(|reference| !bound(reference, &local)));
+                    out.extend(
+                        references
+                            .into_iter()
+                            .filter(|reference| !bound(reference, &local)),
+                    );
                 }
                 syntax(body, &local, out);
             }
             StaticValue::Apply { name, arguments } => {
                 let reference = SourceReference::Name(name.clone());
-                if !bound(&reference, names) { out.push(reference); }
-                for (_, value) in arguments { syntax(value, names, out); }
+                if !bound(&reference, names) {
+                    out.push(reference);
+                }
+                for (_, value) in arguments {
+                    syntax(value, names, out);
+                }
             }
             StaticValue::Text(_) => {}
         }
@@ -715,7 +804,8 @@ mod tests {
         let variable = rows.iter().find(|row| row.name == "x").unwrap();
         let requirements = requirements(variable);
         assert!(requirements.names.is_empty());
-        let references = declaration_references(variable, spans.get(&variable.declaration_id)).unwrap();
+        let references =
+            declaration_references(variable, spans.get(&variable.declaration_id)).unwrap();
         assert_eq!(references.prefixes[0].ident(), Some("Item"));
         assert_eq!(requirements.types.len(), 1);
         let equation = rows.iter().find(|row| row.name == "e").unwrap();
@@ -863,33 +953,72 @@ mod occurrence_contract_tests {
         assert_eq!(reference.prefixes.len(), 1);
         assert_eq!(reference.prefixes[0].ident(), Some("i"));
         let domain = parsed.expressions().values().next().unwrap();
-        assert!(domain.index_obligations.is_empty(), "domain is evaluated before i is bound");
+        assert!(
+            domain.index_obligations.is_empty(),
+            "domain is evaluated before i is bound"
+        );
     }
 
     #[test]
     fn static_comprehension_and_intrinsic_callees_share_the_checked_reference_walk() {
-        let rows = crate::kernel_types::source("package p {entity kind item {} entity item a {} entity item j {} set items:Set<item>={a}; set selected:Set<item>={j for j in items where j!=a}; param count:Integer=size(items);}");
+        let rows = crate::kernel_types::source(
+            "package p {entity kind item {} entity item a {} entity item j {} set items:Set<item>={a}; set selected:Set<item>={j for j in items where j!=a}; param count:Integer=size(items);}",
+        );
         let selected = rows.iter().find(|row| row.name == "selected").unwrap();
         let references = declaration_references(selected, None).unwrap();
-        let names = references.prefixes.iter().filter_map(dsl::Path::ident).collect::<std::collections::BTreeSet<_>>();
+        let names = references
+            .prefixes
+            .iter()
+            .filter_map(dsl::Path::ident)
+            .collect::<std::collections::BTreeSet<_>>();
         assert_eq!(names, std::collections::BTreeSet::from(["items", "a"]));
         let count = rows.iter().find(|row| row.name == "count").unwrap();
         let references = declaration_references(count, None).unwrap();
-        assert_eq!(references.prefixes.iter().filter_map(dsl::Path::ident).collect::<Vec<_>>(), ["items"]);
+        assert_eq!(
+            references
+                .prefixes
+                .iter()
+                .filter_map(dsl::Path::ident)
+                .collect::<Vec<_>>(),
+            ["items"]
+        );
     }
 
     #[test]
     fn native_dependencies_and_equal_expression_fields_remain_independent() {
-        let rows = crate::kernel_types::source("package p {def Root extends shared {var x:Scalar; annotation bounds x(shared,shared);}}");
+        let rows = crate::kernel_types::source(
+            "package p {def Root extends shared {var x:Scalar; annotation bounds x(shared,shared);}}",
+        );
         let root = rows.iter().find(|row| row.name == "Root").unwrap();
-        let bounds = rows.iter().find(|row| row.value.annotation.is_some()).unwrap();
-        assert_eq!(declaration_references(root, None).unwrap().names, ["shared"]);
+        let bounds = rows
+            .iter()
+            .find(|row| row.value.annotation.is_some())
+            .unwrap();
+        assert_eq!(
+            declaration_references(root, None).unwrap().names,
+            ["shared"]
+        );
         let parsed = crate::expression::occurrences::ParsedFields::parse(bounds, None).unwrap();
         let expressions = parsed.expressions();
-        assert!(expressions.keys().any(|key| key.role == "annotation.arguments" && key.position == 0));
-        assert!(expressions.keys().any(|key| key.role == "annotation.arguments" && key.position == 1));
+        assert!(
+            expressions
+                .keys()
+                .any(|key| key.role == "annotation.arguments" && key.position == 0)
+        );
+        assert!(
+            expressions
+                .keys()
+                .any(|key| key.role == "annotation.arguments" && key.position == 1)
+        );
         assert!(requirements(bounds).names.is_empty());
         let references = declaration_references_parsed(bounds, &parsed).unwrap();
-        assert_eq!(references.prefixes.iter().filter(|path| path.ident() == Some("shared")).count(), 2);
+        assert_eq!(
+            references
+                .prefixes
+                .iter()
+                .filter(|path| path.ident() == Some("shared"))
+                .count(),
+            2
+        );
     }
 }

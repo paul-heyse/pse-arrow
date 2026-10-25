@@ -3423,17 +3423,47 @@ impl NativePhysicalContext {
     fn identity(&self) -> crate::identities::HashValue {
         crate::identities::HashValue(self.inner.identity())
     }
-    fn describe(&self, py: Python<'_>, request: documents::DocumentInput<native::PhysicalInspectionRequest>) -> PyResult<documents::DocumentValue<native::PhysicalInspectionDocument>> {
-        self.inner.describe(&request.0).map(documents::DocumentValue).map_err(|error| errors::diagnostic(py, &error))
+    fn describe(
+        &self,
+        py: Python<'_>,
+        request: documents::DocumentInput<native::PhysicalInspectionRequest>,
+    ) -> PyResult<documents::DocumentValue<native::PhysicalInspectionDocument>> {
+        self.inner
+            .describe(&request.0)
+            .map(documents::DocumentValue)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
-    fn resolve_quantity(&self, py: Python<'_>, name: &str) -> PyResult<crate::identities::Identity<pse_model::generated::identities::QuantityTypeId>> {
-        self.inner.resolve_quantity(name).map(crate::identities::Identity).map_err(|error| errors::diagnostic(py, &error))
+    fn resolve_quantity(
+        &self,
+        py: Python<'_>,
+        name: &str,
+    ) -> PyResult<crate::identities::Identity<pse_model::generated::identities::QuantityTypeId>>
+    {
+        self.inner
+            .resolve_quantity(name)
+            .map(crate::identities::Identity)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
-    fn resolve_unit(&self, py: Python<'_>, symbol: &str) -> PyResult<crate::identities::Identity<pse_model::generated::identities::UnitId>> {
-        self.inner.resolve_unit(symbol).map(crate::identities::Identity).map_err(|error| errors::diagnostic(py, &error))
+    fn resolve_unit(
+        &self,
+        py: Python<'_>,
+        symbol: &str,
+    ) -> PyResult<crate::identities::Identity<pse_model::generated::identities::UnitId>> {
+        self.inner
+            .resolve_unit(symbol)
+            .map(crate::identities::Identity)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
-    fn resolve_reference_state(&self, py: Python<'_>, name: &str) -> PyResult<crate::identities::Identity<pse_model::generated::identities::ReferenceStateId>> {
-        self.inner.resolve_reference_state(name).map(crate::identities::Identity).map_err(|error| errors::diagnostic(py, &error))
+    fn resolve_reference_state(
+        &self,
+        py: Python<'_>,
+        name: &str,
+    ) -> PyResult<crate::identities::Identity<pse_model::generated::identities::ReferenceStateId>>
+    {
+        self.inner
+            .resolve_reference_state(name)
+            .map(crate::identities::Identity)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
 }
 

@@ -305,17 +305,32 @@ impl Engine<'_, '_> {
             ));
         }
         let number = || -> Result<f64> {
-            let occurrence = self.p.expression_occurrence(declaration, "realization.argument", 0)
+            let occurrence = self
+                .p
+                .expression_occurrence(declaration, "realization.argument", 0)
                 .ok_or_else(|| invalid(declaration, "checked realization.argument[0] absent"))?;
             let evaluate = || -> Result<f64> {
-                let quantity = self.c.quantities.neutral_dimensionless()
-                    .ok_or_else(|| invalid(declaration, "realization argument needs a neutral scalar type"))?;
+                let quantity = self.c.quantities.neutral_dimensionless().ok_or_else(|| {
+                    invalid(
+                        declaration,
+                        "realization argument needs a neutral scalar type",
+                    )
+                })?;
                 let expected = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity));
-                let value = self.eval_field(
-                    declaration, &Environment::new(), "realization.argument", 0, Some(&expected),
-                )?.scalar(declaration)?;
+                let value = self
+                    .eval_field(
+                        declaration,
+                        &Environment::new(),
+                        "realization.argument",
+                        0,
+                        Some(&expected),
+                    )?
+                    .scalar(declaration)?;
                 if !value.is_finite() {
-                    return Err(invalid(declaration, "realization.argument[0] must be a finite constant scalar"));
+                    return Err(invalid(
+                        declaration,
+                        "realization.argument[0] must be a finite constant scalar",
+                    ));
                 }
                 Ok(value)
             };
@@ -2717,9 +2732,20 @@ mod occurrence_argument_tests {
 
     struct FieldSpans(BTreeMap<DeclarationId, BTreeMap<String, pse_authoring::SourceSpan>>);
     impl crate::document::Documents for FieldSpans {
-        fn field_spans(&self, at: DeclarationId) -> Option<&BTreeMap<String, pse_authoring::SourceSpan>> { self.0.get(&at) }
-        fn resolve(&self, _: SemanticId, _: &str) -> Option<SemanticId> { None }
-        fn admit(&self, plan: &std::sync::Arc<crate::document::DocumentPlan>, document: SemanticId) -> Result<std::sync::Arc<crate::document::DocumentTable>> {
+        fn field_spans(
+            &self,
+            at: DeclarationId,
+        ) -> Option<&BTreeMap<String, pse_authoring::SourceSpan>> {
+            self.0.get(&at)
+        }
+        fn resolve(&self, _: SemanticId, _: &str) -> Option<SemanticId> {
+            None
+        }
+        fn admit(
+            &self,
+            plan: &std::sync::Arc<crate::document::DocumentPlan>,
+            document: SemanticId,
+        ) -> Result<std::sync::Arc<crate::document::DocumentTable>> {
             crate::document::Documents::admit(&crate::document::NoDocuments, plan, document)
         }
     }
@@ -2734,18 +2760,35 @@ mod occurrence_argument_tests {
         let (quantities, _) = crate::kernel_types::physical();
         let preconditions = pse_quantity::PhysicalPreconditions::new(
             pse_quantity::generated::standard_preconditions(),
-        ).unwrap();
-        let package = crate::check(&rows, &TypeContext {
-            admissions: None, formula_authority: None, quantities: &quantities,
-            preconditions: &preconditions, scope: &crate::PhysicalScope::default(),
-        })?;
-        specialize(&package, package.entry("p.Root").unwrap(), InstanceId::from_bytes([7;16]),
-            &Bindings::default(), Limits::default())
+        )
+        .unwrap();
+        let package = crate::check(
+            &rows,
+            &TypeContext {
+                admissions: None,
+                formula_authority: None,
+                quantities: &quantities,
+                preconditions: &preconditions,
+                scope: &crate::PhysicalScope::default(),
+            },
+        )?;
+        specialize(
+            &package,
+            package.entry("p.Root").unwrap(),
+            InstanceId::from_bytes([7; 16]),
+            &Bindings::default(),
+            Limits::default(),
+        )
     }
     fn margin(model: &SpecializedModel) -> f64 {
-        let margins = model.derived.values().filter_map(|derived| match derived.rule {
-            DerivedRule::Extremum { margin, .. } => Some(margin), _ => None,
-        }).collect::<Vec<_>>();
+        let margins = model
+            .derived
+            .values()
+            .filter_map(|derived| match derived.rule {
+                DerivedRule::Extremum { margin, .. } => Some(margin),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
         assert_eq!(margins.len(), 1);
         margins[0]
     }
@@ -2761,81 +2804,166 @@ mod occurrence_argument_tests {
     }
     #[test]
     fn derived_margin_reads_typed_provenanced_constants_through_the_static_owner() {
-        let extra = format!("{} constant allowance:Scalar=0.125 provenance(s,role.given);", crate::kernel_types::PROVENANCE);
+        let extra = format!(
+            "{} constant allowance:Scalar=0.125 provenance(s,role.given);",
+            crate::kernel_types::PROVENANCE
+        );
         let model = model("bigm(derived, allowance*2)", &extra).unwrap();
         assert_eq!(margin(&model), 0.25);
     }
     #[test]
     fn constant_margin_refuses_dynamic_values_dimensions_nonfinite_and_negative_ranges() {
         for (argument, extra) in [
-            ("x", ""), ("time", "param time:Time=1{s};"),
-            ("1{s}", ""), ("1e308*1e308", ""), ("-0.125", ""),
+            ("x", ""),
+            ("time", "param time:Time=1{s};"),
+            ("1{s}", ""),
+            ("1e308*1e308", ""),
+            ("-0.125", ""),
         ] {
             let error = model(&format!("bigm(derived, {argument})"), extra).unwrap_err();
-            assert!(error.to_string().contains("modeling"), "{argument}: {error}");
+            assert!(
+                error.to_string().contains("modeling"),
+                "{argument}: {error}"
+            );
         }
     }
     #[test]
     fn empty_constant_environment_cannot_bind_an_outer_name_through_a_nearer_parameter() {
         for argument in ["allowance", "alias"] {
-            let source = format!("package p {{param allowance:Scalar=0.125; def Root(allowance:Scalar=0.5) {{let alias:Scalar=allowance; var x:Scalar; var enabled:Indicator in binary; eq cap when enabled:x<=2; realize how on cap using bigm(derived, {argument});}} }}");
+            let source = format!(
+                "package p {{param allowance:Scalar=0.125; def Root(allowance:Scalar=0.5) {{let alias:Scalar=allowance; var x:Scalar; var enabled:Indicator in binary; eq cap when enabled:x<=2; realize how on cap using bigm(derived, {argument});}} }}"
+            );
             let error = source_model(&source).unwrap_err();
-            assert!(matches!(&error, ModelingError::Located {name, ..} if name == "how"), "{argument}: {error:?}");
+            assert!(
+                matches!(&error, ModelingError::Located {name, ..} if name == "how"),
+                "{argument}: {error:?}"
+            );
         }
     }
     #[test]
     fn constant_argument_keeps_production_reader_test_only_refusal() {
         let extra = "entity kind source provenance {} enum role {oracle facets(test_only)} entity source book {} constant allowance:Scalar=0.125 provenance(book,role.oracle);";
         let error = model("bigm(derived, allowance)", extra).unwrap_err();
-        assert!(matches!(error, ModelingError::Located { cause, .. } if matches!(*cause, ModelingError::TestOnly {..})));
+        assert!(
+            matches!(error, ModelingError::Located { cause, .. } if matches!(*cause, ModelingError::TestOnly {..}))
+        );
     }
     #[test]
     fn hull_epsilon_uses_the_same_checked_constant_route() {
         let source = "package p {def Root {var x:Scalar; disjunction route {alternative low {eq cap:x*x<=1;} alternative high {eq floor:x*x>=4;}} realize how on route using POLICY;}}";
-        for (policy, epsilon) in [("hull((1+3)/16)", Some(0.25)), ("hull", None), ("hull(0)", None), ("hull(-1)", None), ("hull(x)", None), ("hull(1{s})", None)] {
+        for (policy, epsilon) in [
+            ("hull((1+3)/16)", Some(0.25)),
+            ("hull", None),
+            ("hull(0)", None),
+            ("hull(-1)", None),
+            ("hull(x)", None),
+            ("hull(1{s})", None),
+        ] {
             let rows = crate::kernel_types::source(&source.replace("POLICY", policy));
             let (quantities, _) = crate::kernel_types::physical();
-            let preconditions = pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap();
-            let package = crate::check(&rows, &TypeContext {
-                admissions: None, formula_authority: None, quantities: &quantities,
-                preconditions: &preconditions, scope: &crate::PhysicalScope::default(),
-            }).unwrap();
-            let result = specialize(&package, package.entry("p.Root").unwrap(), InstanceId::from_bytes([9;16]), &Bindings::default(), Limits::default());
+            let preconditions = pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap();
+            let package = crate::check(
+                &rows,
+                &TypeContext {
+                    admissions: None,
+                    formula_authority: None,
+                    quantities: &quantities,
+                    preconditions: &preconditions,
+                    scope: &crate::PhysicalScope::default(),
+                },
+            )
+            .unwrap();
+            let result = specialize(
+                &package,
+                package.entry("p.Root").unwrap(),
+                InstanceId::from_bytes([9; 16]),
+                &Bindings::default(),
+                Limits::default(),
+            );
             if let Some(epsilon) = epsilon {
                 let result = result.unwrap();
-                assert!(result.lowerings.iter().any(|lowering| lowering.equivalence == Equivalence::Perspective { epsilon }));
-            } else { assert!(result.is_err(), "{policy}"); }
+                assert!(
+                    result.lowerings.iter().any(
+                        |lowering| lowering.equivalence == Equivalence::Perspective { epsilon }
+                    )
+                );
+            } else {
+                assert!(result.is_err(), "{policy}");
+            }
         }
     }
     #[test]
     fn static_argument_refusal_retains_the_exact_original_field_and_typed_cause() {
         for argument in ["x", "1{s}"] {
-            let text = format!("package p {{def Root {{var x:Scalar; var enabled:Indicator in binary; eq cap when enabled:x<=2; realize how on cap using bigm(derived, {argument});}} }}");
-            let (rows, field_spans) = pse_authoring::language::parse_with_spans(&text, SemanticId::from_bytes([17;16]), pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+            let text = format!(
+                "package p {{def Root {{var x:Scalar; var enabled:Indicator in binary; eq cap when enabled:x<=2; realize how on cap using bigm(derived, {argument});}} }}"
+            );
+            let (rows, field_spans) = pse_authoring::language::parse_with_spans(
+                &text,
+                SemanticId::from_bytes([17; 16]),
+                pse_authoring::language::IdentityPolicy::Named,
+                Default::default(),
+            )
+            .unwrap();
             let (quantities, _) = crate::kernel_types::physical();
-            let preconditions = pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap();
+            let preconditions = pse_quantity::PhysicalPreconditions::new(
+                pse_quantity::generated::standard_preconditions(),
+            )
+            .unwrap();
             let documents = FieldSpans(field_spans);
-            let package = crate::check_with(&rows, &TypeContext {
-                admissions: None, formula_authority: None, quantities: &quantities,
-                preconditions: &preconditions, scope: &crate::PhysicalScope::default(),
-            }, &documents).unwrap();
-            let error = specialize(&package, package.entry("p.Root").unwrap(), InstanceId::from_bytes([9;16]), &Bindings::default(), Limits::default()).unwrap_err();
-            let ModelingError::Located { span, name, cause } = error else { panic!("field attribution missing") };
+            let package = crate::check_with(
+                &rows,
+                &TypeContext {
+                    admissions: None,
+                    formula_authority: None,
+                    quantities: &quantities,
+                    preconditions: &preconditions,
+                    scope: &crate::PhysicalScope::default(),
+                },
+                &documents,
+            )
+            .unwrap();
+            let error = specialize(
+                &package,
+                package.entry("p.Root").unwrap(),
+                InstanceId::from_bytes([9; 16]),
+                &Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap_err();
+            let ModelingError::Located { span, name, cause } = error else {
+                panic!("field attribution missing")
+            };
             assert_eq!(name, "how");
             assert_eq!(&text[span.start as usize..span.end as usize], argument);
-            assert!(matches!(*cause, ModelingError::Contract {..}), "{cause:?}");
+            assert!(
+                matches!(*cause, ModelingError::Contract { .. }),
+                "{cause:?}"
+            );
         }
     }
 
     #[test]
     fn affine_hull_keeps_the_no_epsilon_default() {
         let model = source_model("package p {def Root {var x:Scalar; disjunction route {alternative low {eq cap:x<=1;} alternative high {eq floor:x>=4;}} realize how on route using hull;}}").unwrap();
-        assert!(model.lowerings.iter().any(|lowering| lowering.realization == Policy::Hull && lowering.equivalence == Equivalence::Exact));
+        assert!(
+            model
+                .lowerings
+                .iter()
+                .any(|lowering| lowering.realization == Policy::Hull
+                    && lowering.equivalence == Equivalence::Exact)
+        );
     }
 
     #[test]
     fn malformed_constant_argument_is_refused_by_its_declared_expression_grammar() {
         let error = model("bigm(derived, 1+)", "").unwrap_err();
-        assert!(error.to_string().contains("realization.argument[0]"), "{error}");
+        assert!(
+            error.to_string().contains("realization.argument[0]"),
+            "{error}"
+        );
     }
 }

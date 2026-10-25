@@ -434,7 +434,7 @@ impl ModelingPackage {
                     WorkflowError::from(diagnostic)
                 })?;
             let supplied = ResolvedPhysicalContract::named(
-                assignment.value.quantity.into(),
+                assignment.value.quantity,
                 IndexSet::new(),
                 &self.quantities,
             )
@@ -465,7 +465,7 @@ impl ModelingPackage {
                 CanonicalConversionPlan::registered(
                     &self.quantities,
                     quantity,
-                    assignment.value.unit.into(),
+                    assignment.value.unit,
                 )
             };
             let canonical = plan
@@ -537,7 +537,7 @@ impl ModelingPackage {
                                 .ok()
                         })
                         .and_then(|contract| contract.named_id())
-                        == Some(entry.quantity.into())
+                        == Some(entry.quantity)
             });
             if !valid {
                 return Err(pse_model::diagnostic::BoundaryDiagnostic::new(

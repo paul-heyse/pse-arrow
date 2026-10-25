@@ -127,6 +127,7 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     )
     prepared = package.prepare_recycle(case, selection, request, settings)
     assert [route.backend for route in prepared.routes] == ["kinsol"]
+    expected_quantity = primitive_quantity(runtime, "Scalar")
     result = prepared.run()
     del package, runtime, flow, prepared
     assert not result.failures()
@@ -156,7 +157,7 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
     assert (
         coordinate.value.quantity_type_id,
         coordinate.value.unit_id,
-    ) == primitive_quantity(runtime, "Scalar")
+    ) == expected_quantity
     assert coordinate.coordinate_role.value == "original"
     assert coordinate.value.value == pytest.approx(
         4.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0

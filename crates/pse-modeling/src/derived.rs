@@ -322,11 +322,24 @@ impl NumericalRequirement {
     pub fn identity(self) -> SemanticId {
         use pse_ids::named_id;
         match self {
-            Self::StateReconstruction { declaration, row } => named_id(named_id(declaration.as_id(), &row.to_string()), "state-reconstruction-tolerance"),
-            Self::ConservationRow { declaration, closure } => named_id(named_id(declaration.as_id(), &closure.to_string()), "conservation-row-tolerance"),
-            Self::PhysicalClosure { closure, ordinal } => named_id(closure, &format!("physical-closure-requirement:{ordinal}")),
+            Self::StateReconstruction { declaration, row } => named_id(
+                named_id(declaration.as_id(), &row.to_string()),
+                "state-reconstruction-tolerance",
+            ),
+            Self::ConservationRow {
+                declaration,
+                closure,
+            } => named_id(
+                named_id(declaration.as_id(), &closure.to_string()),
+                "conservation-row-tolerance",
+            ),
+            Self::PhysicalClosure { closure, ordinal } => {
+                named_id(closure, &format!("physical-closure-requirement:{ordinal}"))
+            }
             Self::TighterEndpoint { closure } => named_id(closure, "tighter-endpoint-budget"),
-            Self::InventoryClosure { balance } => named_id(balance, "inventory-closure-requirement"),
+            Self::InventoryClosure { balance } => {
+                named_id(balance, "inventory-closure-requirement")
+            }
         }
     }
 }
@@ -381,21 +394,34 @@ mod tests {
     use super::*;
     #[test]
     fn numerical_requirement_recipes_preserve_established_named_bytes() {
-        let id = SemanticId::from_bytes([5;16]);
-        let declaration = DeclarationId::from(SemanticId::from_bytes([6;16]));
+        let id = SemanticId::from_bytes([5; 16]);
+        let declaration = DeclarationId::from(SemanticId::from_bytes([6; 16]));
         for recipe in [
-            NumericalRequirement::StateReconstruction { declaration, row:id },
-            NumericalRequirement::ConservationRow { declaration, closure:id },
-            NumericalRequirement::PhysicalClosure { closure:id, ordinal:2 },
-            NumericalRequirement::TighterEndpoint { closure:id },
-            NumericalRequirement::InventoryClosure { balance:id },
-        ].into_iter().zip([
+            NumericalRequirement::StateReconstruction {
+                declaration,
+                row: id,
+            },
+            NumericalRequirement::ConservationRow {
+                declaration,
+                closure: id,
+            },
+            NumericalRequirement::PhysicalClosure {
+                closure: id,
+                ordinal: 2,
+            },
+            NumericalRequirement::TighterEndpoint { closure: id },
+            NumericalRequirement::InventoryClosure { balance: id },
+        ]
+        .into_iter()
+        .zip([
             "0d7c8d79084e59fea16d33bc180037c3",
             "513551f434ba840103443e10707aca2e",
             "2fd51aa4e5366a36726742e283576056",
             "a65e19bc2725019846ada0505a3186d3",
             "9d3b0f8b1765ed27ab11a68698442ded",
-        ]) { assert_eq!(recipe.0.identity().to_string(), recipe.1); }
+        ]) {
+            assert_eq!(recipe.0.identity().to_string(), recipe.1);
+        }
     }
     #[test]
     fn derived_facts_require_actual_publication_and_keep_semantic_roles_distinct() {

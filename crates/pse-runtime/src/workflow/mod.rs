@@ -59,13 +59,14 @@ pub use review_export::{ReviewExportDeployment, ReviewOutputSelection, ReviewSci
 mod physical_spool;
 pub mod result_blocks;
 pub mod result_files;
-mod result_physical;
 mod result_inspection;
+mod result_physical;
 pub use result_inspection::{
     ArrowFieldPath, ArrowFieldStep, ResultCellUnavailable, ResultFloatClass, ResultInspectionBasis,
     ResultInspectionCell, ResultInspectionCursor, ResultInspectionDocument, ResultInspectionField,
-    ResultInspectionOriginal, ResultPhysicalContext, ResultInspectionRefusal, ResultInspectionRequest, ResultInspectionRow, ResultInspectionStorage,
-    ResultInspectionView, ResultMetadataOmission,
+    ResultInspectionOriginal, ResultInspectionRefusal, ResultInspectionRequest,
+    ResultInspectionRow, ResultInspectionStorage, ResultInspectionView, ResultMetadataOmission,
+    ResultPhysicalContext,
 };
 mod result_snapshot;
 pub use result_snapshot::{ResultSnapshot, SelectedResultSnapshot};
@@ -201,7 +202,10 @@ pub use shooting::{
     ShootingProblem, ShootingProfile, ShootingReport,
 };
 mod physical_inspection;
-pub use physical_inspection::{PhysicalInspectionRequest, PhysicalInspectionQuery, PhysicalInspectionDocument, PhysicalQuantityDescription};
+pub use physical_inspection::{
+    PhysicalInspectionDocument, PhysicalInspectionQuery, PhysicalInspectionRequest,
+    PhysicalQuantityDescription,
+};
 mod physical;
 pub use physical::{PhysicalAdmissionReceipt, PhysicalContext};
 mod physical_values;

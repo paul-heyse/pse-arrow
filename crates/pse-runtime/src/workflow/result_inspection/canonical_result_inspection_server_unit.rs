@@ -18,10 +18,17 @@ use std::time::Duration;
 async fn wide_fixture(nested: bool) -> (Runtime, AttemptFence, RecordBatch) {
     wide_fixture_physical(nested, false).await
 }
-async fn wide_fixture_physical(nested: bool, retained_physical: bool) -> (Runtime, AttemptFence, RecordBatch) {
+async fn wide_fixture_physical(
+    nested: bool,
+    retained_physical: bool,
+) -> (Runtime, AttemptFence, RecordBatch) {
     wide_fixture_receipt(nested, retained_physical, None).await
 }
-async fn wide_fixture_receipt(nested: bool, retained_physical: bool, receipt_fault: Option<&str>) -> (Runtime, AttemptFence, RecordBatch) {
+async fn wide_fixture_receipt(
+    nested: bool,
+    retained_physical: bool,
+    receipt_fault: Option<&str>,
+) -> (Runtime, AttemptFence, RecordBatch) {
     // This fixture exercises canonical storage and protected reads, not a native
     // scientific execution receiver. Keep its isolated store and attestation real.
     let store = pse_operations::testing::canonical_fixture_store().unwrap();
@@ -129,22 +136,57 @@ async fn wide_fixture_receipt(nested: bool, retained_physical: bool, receipt_fau
         .await
         .unwrap();
     let physical_rows = if retained_physical {
-        let (physical, _) = super::super::tests::sources("package p { def Root { param x:Scalar=3; } }");
-        let physical = runtime.physical_from_sources(&physical, &crate::CancelSource::new()).await.unwrap();
-        let mut rows = runtime.operations().unwrap().put_physical_rows(&runtime, &physical).await.unwrap();
+        let (physical, _) =
+            super::super::tests::sources("package p { def Root { param x:Scalar=3; } }");
+        let physical = runtime
+            .physical_from_sources(&physical, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let mut rows = runtime
+            .operations()
+            .unwrap()
+            .put_physical_rows(&runtime, &physical)
+            .await
+            .unwrap();
         if let Some(fault) = receipt_fault {
-            let position = rows.revisions.iter().position(|revision| revision.problem.starts_with("physical:context:")).unwrap();
-            let edits = if fault == "empty" { vec![] } else { vec![super::super::durable::source_edit("physical:context".into(), "physical".into(), "context".into(), "physical:rows:v1", vec![1])] };
-            let bad = store.edit(&rows.revisions[position].problem, None, &format!("bad-context-receipt-{fault}"), &edits).await.unwrap();
+            let position = rows
+                .revisions
+                .iter()
+                .position(|revision| revision.problem.starts_with("physical:context:"))
+                .unwrap();
+            let edits = if fault == "empty" {
+                vec![]
+            } else {
+                vec![super::super::durable::source_edit(
+                    "physical:context".into(),
+                    "physical".into(),
+                    "context".into(),
+                    "physical:rows:v1",
+                    vec![1],
+                )]
+            };
+            let bad = store
+                .edit(
+                    &rows.revisions[position].problem,
+                    None,
+                    &format!("bad-context-receipt-{fault}"),
+                    &edits,
+                )
+                .await
+                .unwrap();
             rows.revisions[position] = bad;
         }
         Some(rows)
-    } else { None };
+    } else {
+        None
+    };
     store
         .begin_run(&RunRequest {
             key: "readable-fixture".into(),
             revision,
-            sources: physical_rows.as_ref().map_or_else(Vec::new, |rows| rows.revisions.clone()),
+            sources: physical_rows
+                .as_ref()
+                .map_or_else(Vec::new, |rows| rows.revisions.clone()),
             request: vec![1],
             source_selection: vec![2],
             attestation: vec![3],
@@ -176,20 +218,25 @@ async fn wide_fixture_receipt(nested: bool, retained_physical: bool, receipt_fau
     .unwrap();
     let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
     let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
-    let completion = super::super::durable::inspection_fixture_completion(super::super::StoredCompletion {
-        version: 2,
-        attempt_id: pse_operations::mint_id(),
-        completion: None,
-        termination: super::super::TerminationDetail {
-            version: pse_model::document::Version,
-            cause: super::super::TerminationCause::Infrastructure { diagnostic: contract("fixture partial results have no scientific assessment").boundary_diagnostic() },
-            point: None,
-            retry_failure: None,
-            effect: pse_model::study::EffectState::Absent,
-        },
-        state: pse_model::generated::enums::AttemptState::Failed,
-        progress: super::super::ProgressCoverage::Unknown {},
-    }).unwrap();
+    let completion =
+        super::super::durable::inspection_fixture_completion(super::super::StoredCompletion {
+            version: 2,
+            attempt_id: pse_operations::mint_id(),
+            completion: None,
+            termination: super::super::TerminationDetail {
+                version: pse_model::document::Version,
+                cause: super::super::TerminationCause::Infrastructure {
+                    diagnostic: contract("fixture partial results have no scientific assessment")
+                        .boundary_diagnostic(),
+                },
+                point: None,
+                retry_failure: None,
+                effect: pse_model::study::EffectState::Absent,
+            },
+            state: pse_model::generated::enums::AttemptState::Failed,
+            progress: super::super::ProgressCoverage::Unknown {},
+        })
+        .unwrap();
     // SAFETY: these generated observations assert only partial result availability.
     unsafe {
         store.seal_attempt(
@@ -219,71 +266,235 @@ fn request(fence: &AttemptFence, view: ResultInspectionView) -> ResultInspection
 }
 
 #[tokio::test]
-async fn canonical_result_physical_pages_reopen_original_context_bind_cursor_and_hold_protections() {
+async fn canonical_result_physical_pages_reopen_original_context_bind_cursor_and_hold_protections()
+{
     let (runtime, fence, _) = wide_fixture_physical(false, true).await;
     let store = runtime.canonical_store().unwrap().clone();
-    let mut query = request(&fence, ResultInspectionView::Physical { request: super::super::PhysicalInspectionRequest {
-        query: super::super::PhysicalInspectionQuery::Quantities, offset: 0, limit: 1,
-    }});
-    let first = runtime.inspect_result(query.clone(), CancellationToken::new()).await.unwrap();
-    let ResultInspectionDocument::Physical { original, page: Some(super::super::PhysicalInspectionDocument::Page { quantities, next, .. }), next_cursor: Some(cursor), selection, .. } = &first else { panic!("original physical owner must reopen: {first:?}") };
+    let mut query = request(
+        &fence,
+        ResultInspectionView::Physical {
+            request: super::super::PhysicalInspectionRequest {
+                query: super::super::PhysicalInspectionQuery::Quantities,
+                offset: 0,
+                limit: 1,
+            },
+        },
+    );
+    let first = runtime
+        .inspect_result(query.clone(), CancellationToken::new())
+        .await
+        .unwrap();
+    let ResultInspectionDocument::Physical {
+        original,
+        page:
+            Some(super::super::PhysicalInspectionDocument::Page {
+                quantities, next, ..
+            }),
+        next_cursor: Some(cursor),
+        selection,
+        ..
+    } = &first
+    else {
+        panic!("original physical owner must reopen: {first:?}")
+    };
     assert_eq!(selection.usability, PackScientificState::Unknown);
     assert_eq!(original.governing_permission, None);
-    assert!(matches!(original.physical, ResultPhysicalContext::Available { .. }));
+    assert!(matches!(
+        original.physical,
+        ResultPhysicalContext::Available { .. }
+    ));
     assert_eq!(quantities.len(), 1);
     assert_eq!(*next, Some(1));
     let original_id = quantities[0].quantity.id;
-    let first_pins = original._custody.as_ref().unwrap()._physical.as_ref().unwrap()._source_owner.as_ref().unwrap().pins();
+    let first_pins = original
+        ._custody
+        .as_ref()
+        .unwrap()
+        ._physical
+        .as_ref()
+        .unwrap()
+        ._source_owner
+        .as_ref()
+        .unwrap()
+        .pins();
     assert!(!first_pins.is_empty());
-    for pin in first_pins { pin.renew(Duration::from_secs(60)).await.unwrap(); }
-    let first_pin_keys = first_pins.iter().map(|pin| pin.key().to_owned()).collect::<BTreeSet<_>>();
-    let sources = store.analysis_run_sources("readable-fixture").await.unwrap();
-    let physical_revision = sources.iter().find(|source| source.problem.starts_with("physical:context:")).unwrap();
-    assert!(store.protect(physical_revision.clone(), Duration::from_secs(60)).await.is_ok());
+    for pin in first_pins {
+        pin.renew(Duration::from_secs(60)).await.unwrap();
+    }
+    let first_pin_keys = first_pins
+        .iter()
+        .map(|pin| pin.key().to_owned())
+        .collect::<BTreeSet<_>>();
+    let sources = store
+        .analysis_run_sources("readable-fixture")
+        .await
+        .unwrap();
+    let physical_revision = sources
+        .iter()
+        .find(|source| source.problem.starts_with("physical:context:"))
+        .unwrap();
+    assert!(
+        store
+            .protect(physical_revision.clone(), Duration::from_secs(60))
+            .await
+            .is_ok()
+    );
     query.cursor = Some(cursor.clone());
-    let second = runtime.inspect_result(query.clone(), CancellationToken::new()).await.unwrap();
-    let ResultInspectionDocument::Physical { page: Some(super::super::PhysicalInspectionDocument::Page { quantities, .. }), original: second_original, .. } = &second else { panic!("second original physical page") };
+    let second = runtime
+        .inspect_result(query.clone(), CancellationToken::new())
+        .await
+        .unwrap();
+    let ResultInspectionDocument::Physical {
+        page: Some(super::super::PhysicalInspectionDocument::Page { quantities, .. }),
+        original: second_original,
+        ..
+    } = &second
+    else {
+        panic!("second original physical page")
+    };
     assert_ne!(quantities[0].quantity.id, original_id);
     assert_eq!(original.physical, second_original.physical);
-    let second_pins = second_original._custody.as_ref().unwrap()._physical.as_ref().unwrap()._source_owner.as_ref().unwrap().pins();
-    assert!(second_pins.iter().all(|pin| !first_pin_keys.contains(pin.key())), "each bounded page reacquires fresh exact source protection");
-    for pin in second_pins { pin.renew(Duration::from_secs(60)).await.unwrap(); }
+    let second_pins = second_original
+        ._custody
+        .as_ref()
+        .unwrap()
+        ._physical
+        .as_ref()
+        .unwrap()
+        ._source_owner
+        .as_ref()
+        .unwrap()
+        .pins();
+    assert!(
+        second_pins
+            .iter()
+            .all(|pin| !first_pin_keys.contains(pin.key())),
+        "each bounded page reacquires fresh exact source protection"
+    );
+    for pin in second_pins {
+        pin.renew(Duration::from_secs(60)).await.unwrap();
+    }
     let mut changed = query.clone();
-    changed.cursor.as_mut().unwrap().physical = ResultPhysicalContext::Unavailable { reason: "different original context".into() };
-    assert!(matches!(runtime.inspect_result(changed, CancellationToken::new()).await.unwrap(), ResultInspectionDocument::Refused { reason: ResultInspectionRefusal::CursorChanged, .. }));
+    changed.cursor.as_mut().unwrap().physical = ResultPhysicalContext::Unavailable {
+        reason: "different original context".into(),
+    };
+    assert!(matches!(
+        runtime
+            .inspect_result(changed, CancellationToken::new())
+            .await
+            .unwrap(),
+        ResultInspectionDocument::Refused {
+            reason: ResultInspectionRefusal::CursorChanged,
+            ..
+        }
+    ));
     drop((first, second));
-    pse_operations::testing::drain_result_releases(&store).await.unwrap();
+    pse_operations::testing::drain_result_releases(&store)
+        .await
+        .unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }
 
 #[tokio::test]
-async fn canonical_result_missing_physical_closure_stays_unavailable_while_raw_values_remain_readable() {
+async fn canonical_result_missing_physical_closure_stays_unavailable_while_raw_values_remain_readable()
+ {
     let (runtime, fence, _) = wide_fixture(false).await;
     let store = runtime.canonical_store().unwrap().clone();
-    let result = runtime.inspect_result(request(&fence, ResultInspectionView::Values { fields: vec!["value".into()], maximum_rows: 1 }), CancellationToken::new()).await.unwrap();
-    let ResultInspectionDocument::Values { original, rows, selection, .. } = &result else { panic!("original raw values") };
+    let result = runtime
+        .inspect_result(
+            request(
+                &fence,
+                ResultInspectionView::Values {
+                    fields: vec!["value".into()],
+                    maximum_rows: 1,
+                },
+            ),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let ResultInspectionDocument::Values {
+        original,
+        rows,
+        selection,
+        ..
+    } = &result
+    else {
+        panic!("original raw values")
+    };
     assert_eq!(rows.len(), 1);
     assert_eq!(original.governing_permission, None);
     assert_eq!(selection.usability, PackScientificState::Unknown);
-    assert!(matches!(original.physical, ResultPhysicalContext::Unavailable { .. }));
+    assert!(matches!(
+        original.physical,
+        ResultPhysicalContext::Unavailable { .. }
+    ));
     drop(result);
-    pse_operations::testing::drain_result_releases(&store).await.unwrap();
+    pse_operations::testing::drain_result_releases(&store)
+        .await
+        .unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }
 
 #[tokio::test]
-async fn canonical_result_physical_context_requires_the_original_receipt_payload_not_just_its_hash() {
+async fn canonical_result_physical_context_requires_the_original_receipt_payload_not_just_its_hash()
+{
     for fault in ["empty", "wrong_kind"] {
         let (runtime, fence, _) = wide_fixture_receipt(false, true, Some(fault)).await;
         let store = runtime.canonical_store().unwrap().clone();
-        let page = runtime.inspect_result(request(&fence, ResultInspectionView::Physical { request: super::super::PhysicalInspectionRequest { query: super::super::PhysicalInspectionQuery::Quantities, offset: 0, limit: 1 } }), CancellationToken::new()).await.unwrap();
-        let ResultInspectionDocument::Physical { original, page: None, .. } = &page else { panic!("bad original receipt must be unavailable despite intact physical rows: {page:?}") };
-        let ResultPhysicalContext::Unavailable { reason } = &original.physical else { panic!("unavailable original context") };
-        assert!(reason.contains("receipt"), "preserve the explicit original receipt failure: {reason}");
-        let values = runtime.inspect_result(request(&fence, ResultInspectionView::Values { fields: vec!["value".into()], maximum_rows: 1 }), CancellationToken::new()).await.unwrap();
-        assert!(matches!(&values, ResultInspectionDocument::Values { rows, .. } if rows.len() == 1));
+        let page = runtime
+            .inspect_result(
+                request(
+                    &fence,
+                    ResultInspectionView::Physical {
+                        request: super::super::PhysicalInspectionRequest {
+                            query: super::super::PhysicalInspectionQuery::Quantities,
+                            offset: 0,
+                            limit: 1,
+                        },
+                    },
+                ),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let ResultInspectionDocument::Physical {
+            original,
+            page: None,
+            ..
+        } = &page
+        else {
+            panic!(
+                "bad original receipt must be unavailable despite intact physical rows: {page:?}"
+            )
+        };
+        let ResultPhysicalContext::Unavailable { reason } = &original.physical else {
+            panic!("unavailable original context")
+        };
+        assert!(
+            reason.contains("receipt"),
+            "preserve the explicit original receipt failure: {reason}"
+        );
+        let values = runtime
+            .inspect_result(
+                request(
+                    &fence,
+                    ResultInspectionView::Values {
+                        fields: vec!["value".into()],
+                        maximum_rows: 1,
+                    },
+                ),
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            matches!(&values, ResultInspectionDocument::Values { rows, .. } if rows.len() == 1)
+        );
         drop((page, values));
-        pse_operations::testing::drain_result_releases(&store).await.unwrap();
+        pse_operations::testing::drain_result_releases(&store)
+            .await
+            .unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 }

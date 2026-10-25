@@ -111,6 +111,9 @@ from pse.contracts.documents import (
     ParameterCovarianceOutput,
     PhysicalFitRequest,
     PhysicalFitRequestOutput,
+    PhysicalInspectionDocument,
+    PhysicalInspectionRequest,
+    PhysicalInspectionRequestOutput,
     PhysicalSimulationRequest,
     PhysicalSimulationRequestOutput,
     PointOutcomeOutput,
@@ -255,7 +258,16 @@ from pse.contracts.enums import (
     TrajectoryTermination,
     TrialPolicy,
 )
-from pse.contracts.identities import DeclarationId, FitId, RunId, SolutionId, StudyId
+from pse.contracts.identities import (
+    DeclarationId,
+    FitId,
+    QuantityTypeId,
+    ReferenceStateId,
+    RunId,
+    SolutionId,
+    StudyId,
+    UnitId,
+)
 from pse.contracts.values import ContentHash, SemanticId
 
 __version__: Final[str]
@@ -957,8 +969,14 @@ class NativeOperationObservations:
 
 @final
 class NativePhysicalContext:
+    def describe(
+        self, /, request: PhysicalInspectionRequest | PhysicalInspectionRequestOutput
+    ) -> PhysicalInspectionDocument: ...
     @property
     def identity(self, /) -> ContentHash: ...
+    def resolve_quantity(self, /, name: str) -> QuantityTypeId: ...
+    def resolve_reference_state(self, /, name: str) -> ReferenceStateId: ...
+    def resolve_unit(self, /, symbol: str) -> UnitId: ...
 
 @final
 class NativePreparedFlow:

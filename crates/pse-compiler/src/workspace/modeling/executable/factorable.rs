@@ -23,7 +23,8 @@ impl AdmittedImplicit {
         let bounds = residual.hints.as_ref().map(|hints| {
             let ordinal = |unknown: &SemanticId, kind: ModelingHint| {
                 residual
-                    .numerical_annotations.hints
+                    .numerical_annotations
+                    .hints
                     .iter()
                     .position(|hint| hint.target == *unknown && hint.kind == kind)
             };

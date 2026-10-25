@@ -1911,7 +1911,12 @@ fn kernel_nested_hints_reject_self_dependencies_and_select_regime_overrides() {
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
     assert_eq!(inner.residuals.len(), 2);
-    assert!(inner.residuals.iter().all(|r| r.numerical_annotations.hints.len() == 1));
+    assert!(
+        inner
+            .residuals
+            .iter()
+            .all(|r| r.numerical_annotations.hints.len() == 1)
+    );
     assert_eq!(admitted.implicit_order_for(None).unwrap().len(), 1);
 }
 #[test]
@@ -7187,16 +7192,38 @@ fn kernel_conservation_scatter_preserves_mixed_contracts_and_homogeneous_control
             )
             .unwrap();
         let a = &prepared.admitted;
-        let coordinate = prepared.model.symbols.values().find(|symbol| symbol.lineage.path.ends_with(".y")).unwrap();
-        let port = &a.case.variables().iter().find(|variable| variable.port.id == coordinate.id).unwrap().port;
-        for mode in [NumericalAnnotationMode::Steady, NumericalAnnotationMode::Implicit, NumericalAnnotationMode::Dynamic] {
+        let coordinate = prepared
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path.ends_with(".y"))
+            .unwrap();
+        let port = &a
+            .case
+            .variables()
+            .iter()
+            .find(|variable| variable.port.id == coordinate.id)
+            .unwrap()
+            .port;
+        for mode in [
+            NumericalAnnotationMode::Steady,
+            NumericalAnnotationMode::Implicit,
+            NumericalAnnotationMode::Dynamic,
+        ] {
             let inventory = prepared.numerical_annotations(mode).unwrap();
             let target = inventory.target(coordinate.id).unwrap();
-            assert_eq!(target.kind, pse_model::generated::enums::NumericalTarget::Variable);
+            assert_eq!(
+                target.kind,
+                pse_model::generated::enums::NumericalTarget::Variable
+            );
             assert_eq!(target.quantity, port.quantity);
             assert_eq!(target.unit, port.unit);
             assert!(target.selected);
-            let nominal = inventory.hints.iter().position(|hint| hint.target == coordinate.id && hint.kind == ModelingHint::Nominal).unwrap();
+            let nominal = inventory
+                .hints
+                .iter()
+                .position(|hint| hint.target == coordinate.id && hint.kind == ModelingHint::Nominal)
+                .unwrap();
             assert_eq!(inventory.admission(nominal), NumericalAdmission::Supported);
             assert!(inventory.require_supported().is_ok());
         }

@@ -1026,9 +1026,7 @@ def test_flash_sweep_prepares_structure_once_per_lane(
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
-    temperature, kelvin = physical_ids(
-        physical, "Temperature", "K"
-    )
+    temperature, kelvin = physical_ids(physical, "Temperature", "K")
     definition = package.admit_study(
         study_request(
             *(

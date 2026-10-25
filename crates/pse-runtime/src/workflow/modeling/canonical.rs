@@ -1348,10 +1348,17 @@ impl SourceIndex {
         }
         for path in references.prefixes {
             for end in (1..=path.segments.len()).rev() {
-                match selected_source::resolve_segments(self, row.declaration_id, &path.segments[..end]) {
+                match selected_source::resolve_segments(
+                    self,
+                    row.declaration_id,
+                    &path.segments[..end],
+                ) {
                     Lookup::Absent => {}
                     Lookup::Pending => break,
-                    Lookup::Found(ids) => { found.extend(ids); break; }
+                    Lookup::Found(ids) => {
+                        found.extend(ids);
+                        break;
+                    }
                 }
             }
         }
@@ -3389,21 +3396,53 @@ mod tests {
             "reconstruction binder for coords(x:Scalar)->Scalar reference ideal=x;",
             "reference translation binder(x:Scalar)->Scalar anchors(source=a,target=b) at(temperature=x,pressure=x) provenance(s,role.given);",
         ] {
-            let mut index = complete_index(&format!("package p {{param x:Scalar=9; {declaration}}}"));
-            let binder = index.rows.values().find(|row| row.name == "binder").unwrap().declaration_id;
+            let mut index =
+                complete_index(&format!("package p {{param x:Scalar=9; {declaration}}}"));
+            let binder = index
+                .rows
+                .values()
+                .find(|row| row.name == "binder")
+                .unwrap()
+                .declaration_id;
             assert!(index.bound(binder, "x"), "{declaration}");
-            assert_eq!(index.resolve_name(binder, "x"), Lookup::Absent, "{declaration}");
+            assert_eq!(
+                index.resolve_name(binder, "x"),
+                Lookup::Absent,
+                "{declaration}"
+            );
             assert!(index.requests.is_empty());
         }
     }
 
     #[test]
     fn source_index_references_keep_equal_text_fields_and_nearer_shadowing() {
-        let mut index = complete_index("package p {param x:Scalar=9; def Outer(x:Scalar) {def Inner {var x:Scalar; annotation bounds x(x,x);}}}");
-        let bounds = index.rows.values().find(|row| row.value.annotation.is_some()).unwrap().clone();
-        let inner = index.rows.values().find(|row| row.name == "Inner").unwrap().declaration_id;
-        let x = index.rows.values().find(|row| row.name == "x" && row.parent_id == Some(inner)).unwrap().declaration_id;
-        index.parsed_fields.insert(bounds.declaration_id, Arc::new(pse_modeling::expression::occurrences::ParsedFields::parse(&bounds, None).unwrap()));
+        let mut index = complete_index(
+            "package p {param x:Scalar=9; def Outer(x:Scalar) {def Inner {var x:Scalar; annotation bounds x(x,x);}}}",
+        );
+        let bounds = index
+            .rows
+            .values()
+            .find(|row| row.value.annotation.is_some())
+            .unwrap()
+            .clone();
+        let inner = index
+            .rows
+            .values()
+            .find(|row| row.name == "Inner")
+            .unwrap()
+            .declaration_id;
+        let x = index
+            .rows
+            .values()
+            .find(|row| row.name == "x" && row.parent_id == Some(inner))
+            .unwrap()
+            .declaration_id;
+        index.parsed_fields.insert(
+            bounds.declaration_id,
+            Arc::new(
+                pse_modeling::expression::occurrences::ParsedFields::parse(&bounds, None).unwrap(),
+            ),
+        );
         assert_eq!(index.references(&bounds).unwrap(), BTreeSet::from([x]));
         assert!(index.requests.is_empty());
     }

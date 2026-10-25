@@ -551,7 +551,10 @@ pub(crate) fn bind_one(
     // Declaration binders are resolved scope by scope by CheckedLexical. Only
     // field-local index obligations bypass that walk; flattening ancestor binders
     // here would wrongly hide a nearer member with the same name.
-    let formals = value.index_obligations.iter().map(|(name, _)| name.clone())
+    let formals = value
+        .index_obligations
+        .iter()
+        .map(|(name, _)| name.clone())
         .collect::<BTreeSet<_>>();
     value.declared_type = p.types.get(&key.declaration).cloned();
     let mut paths = BTreeMap::new();
@@ -582,7 +585,9 @@ pub(crate) fn bind_one(
     for reference in crate::selected_source::syntax_references(&value.syntax) {
         match reference {
             crate::selected_source::SourceReference::Segments(path) => visit(&path),
-            crate::selected_source::SourceReference::Name(name) => { names.insert(name); }
+            crate::selected_source::SourceReference::Name(name) => {
+                names.insert(name);
+            }
         }
     }
     for (path, (resolved, prefixes)) in paths {
@@ -745,22 +750,49 @@ mod tests {
     #[test]
     fn equal_field_text_keeps_distinct_ordinals_and_exact_checked_dependencies() {
         let package = checked("package p {def Root {var x:Scalar; annotation bounds x(x,x);}}");
-        let annotation = package.declarations.values().find(|row| row.value.annotation.is_some()).unwrap().declaration_id;
+        let annotation = package
+            .declarations
+            .values()
+            .find(|row| row.value.annotation.is_some())
+            .unwrap()
+            .declaration_id;
         let x = package.entry("p.Root.x").unwrap();
-        let fields = [0, 1].map(|position| package.expression_occurrence(annotation, "annotation.arguments", position).unwrap());
+        let fields = [0, 1].map(|position| {
+            package
+                .expression_occurrence(annotation, "annotation.arguments", position)
+                .unwrap()
+        });
         assert_eq!(fields[0].text, fields[1].text);
-        for field in fields { assert_eq!(field.dependencies, BTreeSet::from([x])); }
-        assert_eq!(package.expression_occurrences().filter(|(key, _)| key.declaration == annotation && key.role == "annotation.arguments").count(), 2);
+        for field in fields {
+            assert_eq!(field.dependencies, BTreeSet::from([x]));
+        }
+        assert_eq!(
+            package
+                .expression_occurrences()
+                .filter(
+                    |(key, _)| key.declaration == annotation && key.role == "annotation.arguments"
+                )
+                .count(),
+            2
+        );
         let selected = package.select(annotation).unwrap();
         assert!(selected.declarations.contains_key(&x));
-        assert!(selected.expression_occurrence(annotation, "annotation.arguments", 1).is_some());
+        assert!(
+            selected
+                .expression_occurrence(annotation, "annotation.arguments", 1)
+                .is_some()
+        );
     }
 
     #[test]
     fn nearer_member_is_not_hidden_by_an_ancestor_scope_parameter() {
-        let package = checked("package p {def Outer(x:Scalar) {def Inner {param x:Scalar=2; var y:Scalar; eq probe:y==x;}}}");
+        let package = checked(
+            "package p {def Outer(x:Scalar) {def Inner {param x:Scalar=2; var y:Scalar; eq probe:y==x;}}}",
+        );
         let equation = package.entry("p.Outer.Inner.probe").unwrap();
-        let occurrence = package.expression_occurrence(equation, "equation.expression", 0).unwrap();
+        let occurrence = package
+            .expression_occurrence(equation, "equation.expression", 0)
+            .unwrap();
         let local = package.entry("p.Outer.Inner.x").unwrap();
         assert!(occurrence.dependencies.contains(&local));
         assert!(!occurrence.unresolved_references.contains("x"));

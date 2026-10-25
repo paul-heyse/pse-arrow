@@ -51,12 +51,18 @@ pub(super) fn resolve(
                 "identity names are snake-case identifiers",
             ));
         }
-        if let Some(source) = decl.source {
-            if !source.path.split("::").all(|part| {
-                !part.is_empty() && part.chars().enumerate().all(|(i, c)| c == '_' || c.is_ascii_alphabetic() || (i > 0 && c.is_ascii_digit()))
-            }) || !source_owners.insert(source.path) {
-                return Err(crate::checks::invalid(format!("identity {}", decl.name), "source must be a unique absolute Rust type path"));
-            }
+        if let Some(source) = decl.source
+            && (!source.path.split("::").all(|part| {
+                !part.is_empty()
+                    && part.chars().enumerate().all(|(i, c)| {
+                        c == '_' || c.is_ascii_alphabetic() || (i > 0 && c.is_ascii_digit())
+                    })
+            }) || !source_owners.insert(source.path))
+        {
+            return Err(crate::checks::invalid(
+                format!("identity {}", decl.name),
+                "source must be a unique absolute Rust type path",
+            ));
         }
         if declared.insert(decl.name, decl).is_some() {
             return Err(SchemaError::DuplicateDeclaration {
@@ -158,7 +164,10 @@ pub(super) fn resolve(
             )
         })?;
         if decl.source.is_some_and(|source| source.base != *base) {
-            return Err(crate::checks::invalid(format!("identity {name}"), "native source storage base differs from declared carriers"));
+            return Err(crate::checks::invalid(
+                format!("identity {name}"),
+                "native source storage base differs from declared carriers",
+            ));
         }
         out.push(IdentitySpec {
             id: super::registry_id(&format!("identity:{name}")),

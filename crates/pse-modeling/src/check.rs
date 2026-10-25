@@ -905,10 +905,16 @@ impl CheckedPackage {
     }
 
     /// Resolve an occurrence-owned static callee using the shared lexical binder policy.
-    pub(crate) fn resolve_source_name(&self, owner: DeclarationId, name: &str) -> Option<DeclarationId> {
+    pub(crate) fn resolve_source_name(
+        &self,
+        owner: DeclarationId,
+        name: &str,
+    ) -> Option<DeclarationId> {
         match crate::selected_source::resolve_name(&mut CheckedLexical(self), owner, name) {
             crate::selected_source::Lookup::Found(ids) => ids.first().copied(),
-            crate::selected_source::Lookup::Absent | crate::selected_source::Lookup::Pending => None,
+            crate::selected_source::Lookup::Absent | crate::selected_source::Lookup::Pending => {
+                None
+            }
         }
     }
 
@@ -2374,7 +2380,9 @@ pub(crate) fn dependency_syntax(
     crate::selected_source::syntax_references(value)
         .into_iter()
         .filter_map(|reference| match reference {
-            crate::selected_source::SourceReference::Name(name) => p.resolve_source_name(owner, &name),
+            crate::selected_source::SourceReference::Name(name) => {
+                p.resolve_source_name(owner, &name)
+            }
             crate::selected_source::SourceReference::Segments(path) => (1..=path.segments.len())
                 .rev()
                 .find_map(|end| p.resolve_segments(owner, &path.segments[..end])),
@@ -2545,13 +2553,25 @@ mod occurrence_lexical_tests {
     fn checked_lexical_adapter_excludes_each_declared_binder_family() {
         let (quantities, _) = crate::kernel_types::physical();
         let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
-        let mut package = check(&crate::kernel_types::source(
-            "package p {param x:Scalar=9; def Root {var y:Scalar; eq probe:y==x;}}"
-        ), &TypeContext { admissions: None, formula_authority: None, quantities: &quantities,
-            preconditions: &preconditions, scope: &crate::PhysicalScope::default() }).unwrap();
+        let mut package = check(
+            &crate::kernel_types::source(
+                "package p {param x:Scalar=9; def Root {var y:Scalar; eq probe:y==x;}}",
+            ),
+            &TypeContext {
+                admissions: None,
+                formula_authority: None,
+                quantities: &quantities,
+                preconditions: &preconditions,
+                scope: &crate::PhysicalScope::default(),
+            },
+        )
+        .unwrap();
         let probe = package.entry("p.Root.probe").unwrap();
         let outer = package.entry("p.x").unwrap();
-        let path = [dsl::PathSegment { name: "x".into(), indices: vec![] }];
+        let path = [dsl::PathSegment {
+            name: "x".into(),
+            indices: vec![],
+        }];
         assert_eq!(package.resolve_segments(probe, &path), Some(outer));
         // Only lexical adapters are under test. The parser supplies each binder's
         // actual declaration representation without requiring a physical witness.
@@ -2567,8 +2587,16 @@ mod occurrence_lexical_tests {
             let binder = rows.iter().find(|row| row.name == "binder").unwrap();
             package.declarations.get_mut(&probe).unwrap().value = binder.value.clone();
             assert!(CheckedLexical(&package).bound(probe, "x"), "{declaration}");
-            assert_eq!(package.resolve_segments(probe, &path), None, "{declaration}");
-            assert_eq!(package.resolve_source_name(probe, "x"), None, "{declaration}");
+            assert_eq!(
+                package.resolve_segments(probe, &path),
+                None,
+                "{declaration}"
+            );
+            assert_eq!(
+                package.resolve_source_name(probe, "x"),
+                None,
+                "{declaration}"
+            );
         }
     }
 
@@ -2576,14 +2604,26 @@ mod occurrence_lexical_tests {
     fn checked_lexical_binding_uses_normalized_signature_instead_of_authored_names() {
         let (quantities, _) = crate::kernel_types::physical();
         let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
-        let mut package = check(&crate::kernel_types::source(
-            "package p {param x:Scalar=9; fn binder(x:Scalar)->Scalar=x;}"
-        ), &TypeContext { admissions: None, formula_authority: None, quantities: &quantities,
-            preconditions: &preconditions, scope: &crate::PhysicalScope::default() }).unwrap();
+        let mut package = check(
+            &crate::kernel_types::source(
+                "package p {param x:Scalar=9; fn binder(x:Scalar)->Scalar=x;}",
+            ),
+            &TypeContext {
+                admissions: None,
+                formula_authority: None,
+                quantities: &quantities,
+                preconditions: &preconditions,
+                scope: &crate::PhysicalScope::default(),
+            },
+        )
+        .unwrap();
         let binder = package.entry("p.binder").unwrap();
         package.functions.get_mut(&binder).unwrap().arguments[0].0 = "normalized".into();
         assert!(CheckedLexical(&package).bound(binder, "normalized"));
         assert!(!CheckedLexical(&package).bound(binder, "x"));
-        assert_eq!(package.resolve_source_name(binder, "x"), package.entry("p.x"));
+        assert_eq!(
+            package.resolve_source_name(binder, "x"),
+            package.entry("p.x")
+        );
     }
 }

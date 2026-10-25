@@ -261,8 +261,8 @@ def test_typed_bound_solve_preserves_parent_and_returns_exact_admission(
             target=BindingTargetPath(value=path),
             value=BindingQuantity(
                 magnitude=value,
-                quantity=SemanticId.from_hex("1f" * 16),
-                unit=SemanticId.from_hex("0a" * 16),
+                quantity=physical.resolve_quantity("Scalar"),
+                unit=physical.resolve_unit("dimensionless"),
             ),
         )
 

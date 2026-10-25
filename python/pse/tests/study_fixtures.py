@@ -33,9 +33,13 @@ def assignment(
     }
 
 
-def physical_ids(physical: pse.PhysicalContext, quantity: str, unit: str) -> tuple[str, str]:
+def physical_ids(
+    physical: pse.PhysicalContext, quantity: str, unit: str
+) -> tuple[str, str]:
     """Resolve input addresses through the actual selected physical owner."""
-    return physical.resolve_quantity(quantity).to_hex(), physical.resolve_unit(unit).to_hex()
+    return physical.resolve_quantity(quantity).to_hex(), physical.resolve_unit(
+        unit
+    ).to_hex()
 
 
 def point(

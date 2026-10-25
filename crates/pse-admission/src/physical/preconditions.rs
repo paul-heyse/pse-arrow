@@ -5,9 +5,7 @@
 
 use super::{PhysicalError, invalid};
 use pse_columnar::CancellationToken;
-use pse_quantity::{
-    InvariantId, PhysicalPrecondition, PhysicalRequirement, QuantityRegistry,
-};
+use pse_quantity::{InvariantId, PhysicalPrecondition, PhysicalRequirement, QuantityRegistry};
 use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{enums::QuantityPreconditionKind, reference},
@@ -41,10 +39,9 @@ pub(super) fn preconditions(
                 | QuantityPreconditionKind::SameReferenceDifferences
                     if row.required_basis_id.is_none() =>
                 {
-                    let required =
-                        row.required_quantity_type_id.ok_or_else(
-                            || invalid("physical quantity prerequisite has no required type"),
-                        )?;
+                    let required = row.required_quantity_type_id.ok_or_else(|| {
+                        invalid("physical quantity prerequisite has no required type")
+                    })?;
                     let match_shape = row.match_shape.ok_or_else(|| {
                         invalid("physical quantity prerequisite has no shape policy")
                     })?;

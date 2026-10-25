@@ -27,7 +27,9 @@ impl PartialEq for ReferenceCondition {
 }
 impl Eq for ReferenceCondition {}
 /// The datum carried by origin-sensitive quantities.
-#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq,
+)]
 #[schemars(deny_unknown_fields)]
 pub struct ReferenceState {
     /// Registry identity.

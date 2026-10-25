@@ -7,7 +7,17 @@ use crate::{
     BasisId, EntityKindId, QuantityKindId, QuantityTypeId, ReferenceStateId, ScaleKind, UnitId,
 };
 /// Components that determine one registered physical type.
-#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    schemars::JsonSchema,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+)]
 #[schemars(deny_unknown_fields)]
 pub struct QuantityTypeKey {
     /// The measured quantity kind.

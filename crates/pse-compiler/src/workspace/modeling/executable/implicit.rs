@@ -186,8 +186,18 @@ impl Projection {
     pub(super) fn annotation_variables(&self) -> impl Iterator<Item = SemanticId> + '_ {
         self.unknowns.iter().copied()
     }
-    pub(super) fn annotation_rows(&self) -> impl Iterator<Item = (usize, SemanticId, QuantityTypeId, &SelectedRegion)> + '_ {
-        self.residuals.iter().flat_map(|residual| residual.rows.iter().zip(&residual.quantities).zip(&residual.regions).enumerate().map(|(position, ((id, quantity), region))| (position, *id, *quantity, region)))
+    pub(super) fn annotation_rows(
+        &self,
+    ) -> impl Iterator<Item = (usize, SemanticId, QuantityTypeId, &SelectedRegion)> + '_ {
+        self.residuals.iter().flat_map(|residual| {
+            residual
+                .rows
+                .iter()
+                .zip(&residual.quantities)
+                .zip(&residual.regions)
+                .enumerate()
+                .map(|(position, ((id, quantity), region))| (position, *id, *quantity, region))
+        })
     }
     pub(super) fn annotation_inventory(&self) -> impl Iterator<Item = SemanticId> + '_ {
         self.unknowns.iter().copied().chain(
@@ -2311,7 +2321,12 @@ pub(super) fn admit(
         }
         calls.insert(spec.identity(), supplier.descriptor.clone());
     }
-    let row_declarations = p.model.equations.iter().map(|row| (row.id, row.lineage.declaration)).collect::<BTreeMap<_, _>>();
+    let row_declarations = p
+        .model
+        .equations
+        .iter()
+        .map(|row| (row.id, row.lineage.declaration))
+        .collect::<BTreeMap<_, _>>();
     for implicit in &p.implicit {
         checkpoint(db);
         if definitions.contains_key(&implicit.id) {
@@ -2417,21 +2432,56 @@ pub(super) fn admit(
                 .transpose()?;
             let mut numerical_targets = Vec::new();
             for port in &implicit.spec.outputs {
-                let source = p.model.symbols.get(&port.id).ok_or_else(|| CompileError::Missing("nested numerical coordinate source".into()))?;
+                let source = p.model.symbols.get(&port.id).ok_or_else(|| {
+                    CompileError::Missing("nested numerical coordinate source".into())
+                })?;
                 numerical_targets.push(NumericalTargetFact {
-                    id:port.id, kind:pse_model::generated::enums::NumericalTarget::Variable, role:NumericalTargetRole::NestedUnknown,
-                    declaration:source.lineage.declaration, quantity:port.quantity, unit:port.unit, integer:false,
-                    location:NumericalLocation::Nested(None), observation:None, support:Some(BTreeSet::from([port.id])), nested:false, selected:true,
+                    id: port.id,
+                    kind: pse_model::generated::enums::NumericalTarget::Variable,
+                    role: NumericalTargetRole::NestedUnknown,
+                    declaration: source.lineage.declaration,
+                    quantity: port.quantity,
+                    unit: port.unit,
+                    integer: false,
+                    location: NumericalLocation::Nested(None),
+                    observation: None,
+                    support: Some(BTreeSet::from([port.id])),
+                    nested: false,
+                    selected: true,
                 });
             }
             for (position, (id, quantity)) in r.rows.iter().zip(body.quantities()).enumerate() {
-                let declaration = row_declarations.get(id).copied().ok_or_else(|| CompileError::Missing("nested numerical row source".into()))?;
-                let region = r.regions.get(position).ok_or_else(|| CompileError::Missing("nested numerical row support".into()))?;
+                let declaration = row_declarations
+                    .get(id)
+                    .copied()
+                    .ok_or_else(|| CompileError::Missing("nested numerical row source".into()))?;
+                let region = r
+                    .regions
+                    .get(position)
+                    .ok_or_else(|| CompileError::Missing("nested numerical row support".into()))?;
                 numerical_targets.push(NumericalTargetFact {
-                    id:*id, kind:pse_model::generated::enums::NumericalTarget::Row, role:NumericalTargetRole::NestedRow,
-                    declaration, quantity:*quantity, unit:registry.quantity_type(*quantity).map_err(MathError::from)?.canonical_unit,
-                    integer:false, location:NumericalLocation::Nested(Some(position)), observation:Some(AnnotationObservation::Position(position)),
-                    support:Some(region.reads.numeric.union(&region.reads.guards).copied().collect()), nested:false, selected:true,
+                    id: *id,
+                    kind: pse_model::generated::enums::NumericalTarget::Row,
+                    role: NumericalTargetRole::NestedRow,
+                    declaration,
+                    quantity: *quantity,
+                    unit: registry
+                        .quantity_type(*quantity)
+                        .map_err(MathError::from)?
+                        .canonical_unit,
+                    integer: false,
+                    location: NumericalLocation::Nested(Some(position)),
+                    observation: Some(AnnotationObservation::Position(position)),
+                    support: Some(
+                        region
+                            .reads
+                            .numeric
+                            .union(&region.reads.guards)
+                            .copied()
+                            .collect(),
+                    ),
+                    nested: false,
+                    selected: true,
                 });
             }
             let numerical_targets = numerical_targets.into();
@@ -2523,10 +2573,13 @@ pub(super) fn admit(
                 // boxes. Parameter-dependent bounds need their own uniform bound
                 // predicates; resolving them at one input cannot establish a chart.
                 let bounds = residual
-                    .numerical_annotations.hints
+                    .numerical_annotations
+                    .hints
                     .iter()
                     .enumerate()
-                    .filter(|(_, hint)| matches!(hint.kind, ModelingHint::Lower | ModelingHint::Upper))
+                    .filter(|(_, hint)| {
+                        matches!(hint.kind, ModelingHint::Lower | ModelingHint::Upper)
+                    })
                     .map(|(index, _)| index)
                     .collect::<Vec<_>>();
                 if implicit.unknowns.iter().any(|unknown| {
@@ -2534,7 +2587,8 @@ pub(super) fn admit(
                         .into_iter()
                         .any(|kind| {
                             !residual
-                                .numerical_annotations.hints
+                                .numerical_annotations
+                                .hints
                                 .iter()
                                 .any(|hint| hint.target == *unknown && hint.kind == kind)
                         })

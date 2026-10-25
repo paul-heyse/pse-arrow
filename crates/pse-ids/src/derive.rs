@@ -980,9 +980,15 @@ mod consolidation_unit {
 
     #[test]
     fn reconstructed_original_bound_retains_named_frame_and_coordinate() {
-        let expected = derive_id(Frame::NamedV1, &[A.as_bytes(), b"reconstructed-original-bound"]);
+        let expected = derive_id(
+            Frame::NamedV1,
+            &[A.as_bytes(), b"reconstructed-original-bound"],
+        );
         assert_eq!(reconstructed_original_bound(A), expected);
-        assert_ne!(reconstructed_original_bound(A), reconstructed_original_bound(SemanticId::NIL));
+        assert_ne!(
+            reconstructed_original_bound(A),
+            reconstructed_original_bound(SemanticId::NIL)
+        );
     }
 
     #[test]

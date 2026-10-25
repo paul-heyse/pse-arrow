@@ -4,11 +4,11 @@
 //! Exact unit inventory reconciliation is a native relational computation.
 
 use super::{PhysicalError, invalid};
-use datafusion::logical_expr::{LogicalPlanBuilder};
+use datafusion::logical_expr::LogicalPlanBuilder;
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineSession, output::declare_relation_output};
-use pse_relations::columnar::FieldCheckedBatch;
 use pse_ids::SemanticId;
+use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
 

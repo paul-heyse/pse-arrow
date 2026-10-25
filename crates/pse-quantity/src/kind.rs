@@ -8,7 +8,9 @@ use crate::{
     QuantityKindId, Ratio, ReferenceStateId, ScaleKind, UnitId,
 };
 /// What is measured, independent of basis and datum.
-#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq,
+)]
 #[schemars(deny_unknown_fields)]
 pub struct QuantityKind {
     /// Registry identity.
@@ -29,7 +31,17 @@ pub struct QuantityKind {
 
 /// One factor of a kind monomial: a kind and its nonzero rational exponent.
 #[derive(
-    schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+    schemars::JsonSchema,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
 )]
 #[schemars(deny_unknown_fields)]
 pub struct KindFactor {
@@ -42,7 +54,9 @@ pub struct KindFactor {
 /// What a derived kind is (ADR-0124): a monomial of other kinds, its declared canonical
 /// unit, and the complete result a multiplicative chain resolving to it takes. Kinds are
 /// declared, never synthesized.
-#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq,
+)]
 #[schemars(deny_unknown_fields)]
 pub struct KindDefinition {
     /// Factors over declared kinds; admission expands derived factors, so the admitted
@@ -61,7 +75,9 @@ pub struct KindDefinition {
 }
 
 /// A derived kind as authored: no dimension, which admission derives from the monomial.
-#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq,
+)]
 #[schemars(deny_unknown_fields)]
 pub struct DerivedKind {
     /// Registry identity.

@@ -50,7 +50,10 @@ pse_ids::semantic_id_newtype! {
 
 #[cfg(test)]
 mod identity_boundary_tests {
-    #![allow(clippy::unwrap_used, reason = "pure schema and identity contract assertions")]
+    #![allow(
+        clippy::unwrap_used,
+        reason = "pure schema and identity contract assertions"
+    )]
     use super::*;
 
     #[test]
@@ -58,11 +61,17 @@ mod identity_boundary_tests {
         let quantity = QuantityTypeId::from_bytes([0x31; 16]);
         let unit = UnitId::from_bytes([0x31; 16]);
         assert_eq!(quantity.as_bytes(), unit.as_bytes());
-        assert_eq!(serde_json::to_value(quantity).unwrap(), serde_json::to_value(unit).unwrap());
+        assert_eq!(
+            serde_json::to_value(quantity).unwrap(),
+            serde_json::to_value(unit).unwrap()
+        );
         let quantity_schema = serde_json::to_value(schemars::schema_for!(QuantityTypeId)).unwrap();
         let unit_schema = serde_json::to_value(schemars::schema_for!(UnitId)).unwrap();
         assert_eq!(quantity_schema["x-pse-identity"], "QuantityTypeId");
         assert_eq!(unit_schema["x-pse-identity"], "UnitId");
-        assert_ne!(quantity_schema["x-pse-identity"], unit_schema["x-pse-identity"]);
+        assert_ne!(
+            quantity_schema["x-pse-identity"],
+            unit_schema["x-pse-identity"]
+        );
     }
 }

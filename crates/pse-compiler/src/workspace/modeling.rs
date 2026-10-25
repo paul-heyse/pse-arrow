@@ -1214,10 +1214,11 @@ pub use executable::{
     ImplicitMeaning, ImplicitProgramRequest, ImplicitPrograms, ImplicitScale, ImplicitSelection,
     ModelingCaseBindings, ModelingExpectationResult, ModelingHint, ModelingOccurrenceIdentity,
     ModelingOutput, ModelingPointChecks, ModelingPreparationFrontier, ModelingTestValue,
-    ModelingValidityResult, ModelingVariableState, NumericalAdmission, NumericalAnnotation, NumericalAnnotationMode,
-    NumericalAnnotations, NumericalLocation, NumericalTargetFact, NumericalTargetRole, NumericalScale, NumericalStartSource, NumericalStartValues,
+    ModelingValidityResult, ModelingVariableState, NumericalAdmission, NumericalAnnotation,
+    NumericalAnnotationMode, NumericalAnnotations, NumericalLocation, NumericalScale,
+    NumericalStartSource, NumericalStartValues, NumericalTargetFact, NumericalTargetRole,
     ObjectiveBound, PreparedModeling, ScalingObservations, SelectionEquivalence,
-    SelectionNeighborhood, ViewChoice, ViewPolicy, ViewRoles, ViewReason,
+    SelectionNeighborhood, ViewChoice, ViewPolicy, ViewReason, ViewRoles,
 };
 pub use flow::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection, SemanticModeling,

@@ -53,25 +53,43 @@ def inspection_request(
 
 
 def _primitive_context(runtime: pse.Runtime) -> pse.PhysicalContext:
-    root = Path(__file__).resolve().parents[3] / "tests/fixtures/packages/physical-primitives"
-    return runtime.physical_from_documents({
-        str(path.relative_to(root)): path.read_bytes()
-        for path in root.rglob("*") if path.is_file()
-    })
+    root = (
+        Path(__file__).resolve().parents[3]
+        / "tests/fixtures/packages/physical-primitives"
+    )
+    return runtime.physical_from_documents(
+        {
+            str(path.relative_to(root)): path.read_bytes()
+            for path in root.rglob("*")
+            if path.is_file()
+        }
+    )
 
 
-def primitive_quantity(runtime: pse.Runtime, name: str) -> tuple[SemanticId, SemanticId]:
-    """Resolve the fixture through the same admitted physical API as ordinary callers."""
+def primitive_quantity(
+    runtime: pse.Runtime, name: str
+) -> tuple[SemanticId, SemanticId]:
+    """Resolve fixture meaning through the admitted physical API."""
     return _quantity(_primitive_context(runtime), name)
 
 
-def _quantity(physical: pse.PhysicalContext, name: str) -> tuple[SemanticId, SemanticId]:
-    page = physical.describe(codec.convert_document({
-        "document_version": 1,
-        "query": {"kind": "quantity_named", "name": name}, "offset": 0, "limit": 1,
-    }, documents.PhysicalInspectionRequest))
+def _quantity(
+    physical: pse.PhysicalContext, name: str
+) -> tuple[SemanticId, SemanticId]:
+    page = physical.describe(
+        codec.convert_document(
+            {
+                "document_version": 1,
+                "query": {"kind": "quantity_named", "name": name},
+                "offset": 0,
+                "limit": 1,
+            },
+            documents.PhysicalInspectionRequest,
+        )
+    )
     if not isinstance(page, documents.PhysicalInspectionDocumentPage):
-        raise ValueError("physical quantity description unavailable")
+        message = "physical quantity description unavailable"
+        raise TypeError(message)
     (meaning,) = page.quantities
     return meaning.quantity.id, meaning.canonical_unit.id
 
@@ -88,7 +106,9 @@ def member(package: pse.ModelingPackage, case: DeclarationId, name: str) -> Sema
     return selected
 
 
-def _coordinate(meaning: tuple[SemanticId, SemanticId], id_: SemanticId, value: float) -> dict[str, object]:
+def _coordinate(
+    meaning: tuple[SemanticId, SemanticId], id_: SemanticId, value: float
+) -> dict[str, object]:
     quantity_id, unit_id = meaning
     return {
         "coordinate_id": bytes(id_),
@@ -109,7 +129,14 @@ def coordinate_batch(
     """Construct physical coordinate rows using the complete native registry schema."""
     schema = pa.schema(runtime.physical_input_schema(kind))
     physical = _primitive_context(runtime) if coordinates else None
-    meanings = {name: _quantity(physical, name) for name in {coordinate[2] for coordinate in coordinates}} if physical is not None else {}
+    meanings = (
+        {
+            name: _quantity(physical, name)
+            for name in {coordinate[2] for coordinate in coordinates}
+        }
+        if physical is not None
+        else {}
+    )
     rows = [_coordinate(meanings[name], id_, value) for id_, value, name in coordinates]
     if kind is PhysicalInputKind.PRIMAL_VALUES:
         for row in rows:
@@ -128,8 +155,16 @@ def _coordinate_lists(
         raise TypeError(message)
     names = {coordinate[2] for group in groups for coordinate in group}
     physical = _primitive_context(runtime) if names else None
-    meanings = {name: _quantity(physical, name) for name in names} if physical is not None else {}
-    rows = [_coordinate(meanings[name], id_, value) for group in groups for id_, value, name in group]
+    meanings = (
+        {name: _quantity(physical, name) for name in names}
+        if physical is not None
+        else {}
+    )
+    rows = [
+        _coordinate(meanings[name], id_, value)
+        for group in groups
+        for id_, value, name in group
+    ]
     struct = type_.value_type
     values = pa.StructArray.from_arrays(
         [
@@ -177,7 +212,9 @@ def sample_batch(
                 type=schema.field("sample_id").type,
             ),
             _coordinate_lists(
-                runtime, [values for _sample, values in samples], schema.field("values").type
+                runtime,
+                [values for _sample, values in samples],
+                schema.field("values").type,
             ),
         ],
         schema=schema,

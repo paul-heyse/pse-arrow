@@ -196,10 +196,11 @@ pub use modeling::{
     ModelingBodyRetention, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
     ModelingHint, ModelingOccurrenceIdentity, ModelingOutput, ModelingPointChecks,
     ModelingPreparationFrontier, ModelingRevision, ModelingTestValue, ModelingValidityResult,
-    ModelingVariableState, NumericalAdmission, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations, NumericalLocation, NumericalTargetFact, NumericalTargetRole,
-    NumericalScale, NumericalStartSource, NumericalStartValues, ObjectiveBound, PreparedModeling,
-    ScalingObservations, SelectionEquivalence, SelectionNeighborhood, SemanticModeling, ViewChoice,
-    ViewPolicy, ViewRoles, ViewReason,
+    ModelingVariableState, NumericalAdmission, NumericalAnnotation, NumericalAnnotationMode,
+    NumericalAnnotations, NumericalLocation, NumericalScale, NumericalStartSource,
+    NumericalStartValues, NumericalTargetFact, NumericalTargetRole, ObjectiveBound,
+    PreparedModeling, ScalingObservations, SelectionEquivalence, SelectionNeighborhood,
+    SemanticModeling, ViewChoice, ViewPolicy, ViewReason, ViewRoles,
 };
 #[salsa::db]
 trait CompilerDb: Database {

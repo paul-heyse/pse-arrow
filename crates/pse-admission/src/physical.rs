@@ -118,8 +118,8 @@ impl PhysicalInventory {
             })
             .and_then(|size| size.checked_mul(8))
             .ok_or_else(|| invalid("physical inventory allocation extent overflow"))?;
-        let allocation = pse_columnar::MemoryConsumer::new("physical algorithm inventory")
-            .register(pool);
+        let allocation =
+            pse_columnar::MemoryConsumer::new("physical algorithm inventory").register(pool);
         allocation
             .try_grow(extent)
             .map_err(pse_columnar::CanonError::from)?;
@@ -127,11 +127,19 @@ impl PhysicalInventory {
         if let Some(spec) = registry.relation("reference.math_context")
             && let Some(batch) = batches.get(&spec.key)
         {
-            let view = pse_relations::generated::reference::math_context::View::from_checked(batch)?;
+            let view =
+                pse_relations::generated::reference::math_context::View::from_checked(batch)?;
             for index in 0..view.len() {
                 let row = view.row(index)?;
-                let pair = (row.neutral_quantity_type_id.into(), row.boolean_kind_id.into());
-                if context.is_some_and(|existing| existing != pair) { return Err(invalid("conflicting selected physical context declarations")); }
+                let pair = (
+                    row.neutral_quantity_type_id.into(),
+                    row.boolean_kind_id.into(),
+                );
+                if context.is_some_and(|existing| existing != pair) {
+                    return Err(invalid(
+                        "conflicting selected physical context declarations",
+                    ));
+                }
                 context = Some(pair);
             }
         }
@@ -150,7 +158,9 @@ impl PhysicalInventory {
     }
 
     /// Shared allocation owner used by bounded projections of these declarations.
-    pub fn pool(&self) -> &Arc<dyn pse_columnar::MemoryPool> { &self.pool }
+    pub fn pool(&self) -> &Arc<dyn pse_columnar::MemoryPool> {
+        &self.pool
+    }
 
     /// Actual immutable quantity declarations used by exact physical algorithms.
     pub const fn quantities(&self) -> &QuantityRegistry {

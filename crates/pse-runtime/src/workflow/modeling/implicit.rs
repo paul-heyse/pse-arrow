@@ -339,7 +339,9 @@ impl ModelingPackage {
                         let belongs = |id: &SemanticId| {
                             inner.unknowns.contains(id) || residual.rows.contains(id)
                         };
-                        let targets = residual.numerical_annotations.selected_targets()
+                        let targets = residual
+                            .numerical_annotations
+                            .selected_targets()
                             .map(pse_compiler::workspace::NumericalTargetFact::specification)
                             .collect::<Vec<_>>();
                         let mut policy = policy.clone();

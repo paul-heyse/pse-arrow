@@ -7,9 +7,12 @@ from typing import Protocol, TypeAlias
 import attrs
 
 from pse._build import _NativePhysicalContext
-from pse.contracts.values import ContentHash
-from pse.contracts.documents import PhysicalInspectionRequest, PhysicalInspectionDocument
+from pse.contracts.documents import (
+    PhysicalInspectionDocument,
+    PhysicalInspectionRequest,
+)
 from pse.contracts.identities import QuantityTypeId, ReferenceStateId, UnitId
+from pse.contracts.values import ContentHash
 
 
 class ArrowArrayInput(Protocol):
@@ -52,7 +55,9 @@ class PhysicalContext:
         """Complete native compiler context identity."""
         return self._handle.identity
 
-    def describe(self, request: PhysicalInspectionRequest) -> PhysicalInspectionDocument:
+    def describe(
+        self, request: PhysicalInspectionRequest
+    ) -> PhysicalInspectionDocument:
         """Read a bounded page of this exact admitted physical context."""
         return self._handle.describe(request)
 

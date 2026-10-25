@@ -61,7 +61,6 @@ def measure(output: Path, selected: str) -> None:
     )
     from pse.contracts import (  # noqa: PLC0415 -- load only inside placed observer
         documents,
-        values,
     )
     from pse.contracts.enums import (  # noqa: PLC0415 -- load only inside placed observer
         ModelingAnalysisRoute,
@@ -95,12 +94,15 @@ def measure(output: Path, selected: str) -> None:
             ),
         )
         runtime = pse.Runtime(engine, substrate=os.environ["PSE_SURREAL_STATE"])
+        physical = runtime.physical_from_documents(
+            authored_documents(base / spec.physical)
+        )
         package = runtime.modeling_from_documents(
             [
                 authored_documents(base / spec.package),
                 *(authored_documents(base / name) for name in spec.dependencies),
             ],
-            runtime.physical_from_documents(authored_documents(base / spec.physical)),
+            physical,
         ).with_limits(pse.ModelingLimits(items=1000000, body_occurrences=65536))
         cases = {
             row.name: row.declaration_id
@@ -138,40 +140,16 @@ def measure(output: Path, selected: str) -> None:
                 depth=64, items=1_000_000, members=1_000_000, body_occurrences=65536
             ),
         )
-        physical_text = authored_documents(base / spec.physical)[
-            "materials/physical.yaml"
-        ].decode("utf-8")
-        physical_document = msgspec.json.decode(
-            "\n".join(
-                line for line in physical_text.splitlines() if not line.startswith("#")
-            ),
-            type=dict[str, object],
-        )
-        quantities = msgspec.convert(
-            physical_document["quantity_types"], type=list[dict[str, object]]
-        )
-        units = msgspec.convert(
-            physical_document["units"], type=list[dict[str, object]]
-        )
 
         def assignment(
             target: str, magnitude: float, quantity: str, symbol: str
         ) -> documents.BindingAssignment:
-            quantity_id = next(
-                row["quantity_type_id"]
-                for row in quantities
-                if row.get("name") == quantity
-            )
-            unit_id = next(row["unit_id"] for row in units if row["symbol"] == symbol)
-            if not isinstance(quantity_id, str) or not isinstance(unit_id, str):
-                message = "reference physical identities must be declared strings"
-                raise TypeError(message)
             return documents.BindingAssignment(
                 target=documents.BindingTargetPath(value=target),
                 value=documents.BindingQuantity(
                     magnitude=magnitude,
-                    quantity=values.SemanticId.from_hex(quantity_id),
-                    unit=values.SemanticId.from_hex(unit_id),
+                    quantity=physical.resolve_quantity(quantity),
+                    unit=physical.resolve_unit(symbol),
                 ),
             )
 

@@ -1644,12 +1644,7 @@ mod parameter_point_tests {
         profile.solver.selection = native::solve::SolverSelection::Auto;
         let cancel = crate::CancelSource::new();
         let canonical_binding = package
-            .admit_fit_overlay(
-                fit,
-                &overlay(2., 3., canonical),
-                Limits::default(),
-                &cancel,
-            )
+            .admit_fit_overlay(fit, &overlay(2., 3., canonical), Limits::default(), &cancel)
             .await
             .unwrap();
         let operation = crate::workflow::StudyOperation {
@@ -1735,12 +1730,7 @@ mod parameter_point_tests {
             serde_json::to_value(fresh.declaration()).unwrap()
         );
         let next_binding = package
-            .admit_fit_overlay(
-                fit,
-                &overlay(4., 5., canonical),
-                Limits::default(),
-                &cancel,
-            )
+            .admit_fit_overlay(fit, &overlay(4., 5., canonical), Limits::default(), &cancel)
             .await
             .unwrap();
         let next = package

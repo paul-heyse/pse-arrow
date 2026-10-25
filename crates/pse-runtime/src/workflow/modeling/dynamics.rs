@@ -1405,13 +1405,41 @@ pub(super) fn dynamic_ports(
             Ok((id, s.fixed))
         })
         .collect::<Result<BTreeMap<_, _>, WorkflowError>>()?;
-    let inventory = product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic).map_err(crate::math::MathRuntimeError::from)?;
-    let state = product.admitted.case().variables().iter()
-        .filter(|variable| !fixed.get(&variable.port.id).copied().flatten().unwrap_or(variable.fixed))
-        .map(|variable| inventory.target(variable.port.id).ok_or_else(|| contract("dynamic coordinate absent from compiler inventory")))
-        .collect::<Result<Vec<_>, _>>()?.into_iter()
-        .filter(|target| matches!(target.role, pse_compiler::workspace::NumericalTargetRole::DifferentialState | pse_compiler::workspace::NumericalTargetRole::AlgebraicState))
-        .map(|target| pse_kernels::Port { id: target.id, quantity: target.quantity, unit: target.unit }).collect::<Vec<_>>();
+    let inventory = product
+        .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic)
+        .map_err(crate::math::MathRuntimeError::from)?;
+    let state = product
+        .admitted
+        .case()
+        .variables()
+        .iter()
+        .filter(|variable| {
+            !fixed
+                .get(&variable.port.id)
+                .copied()
+                .flatten()
+                .unwrap_or(variable.fixed)
+        })
+        .map(|variable| {
+            inventory
+                .target(variable.port.id)
+                .ok_or_else(|| contract("dynamic coordinate absent from compiler inventory"))
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|target| {
+            matches!(
+                target.role,
+                pse_compiler::workspace::NumericalTargetRole::DifferentialState
+                    | pse_compiler::workspace::NumericalTargetRole::AlgebraicState
+            )
+        })
+        .map(|target| pse_kernels::Port {
+            id: target.id,
+            quantity: target.quantity,
+            unit: target.unit,
+        })
+        .collect::<Vec<_>>();
     let states = state.iter().map(|p| p.id).collect::<Vec<_>>();
     // ADR-0103 item 6: integration holds discrete variables fixed per segment.
     product
@@ -2031,7 +2059,9 @@ impl ModelingPackage {
         let annotations = product
             .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic)
             .map_err(crate::math::MathRuntimeError::from)?;
-        annotations.require_supported().map_err(crate::math::MathRuntimeError::from)?;
+        annotations
+            .require_supported()
+            .map_err(crate::math::MathRuntimeError::from)?;
         for (state, _, row) in &initial_outputs {
             let (value, _) = annotations
                 .select_start(pse_compiler::workspace::NumericalStartValues {
@@ -2212,7 +2242,9 @@ impl ModelingPackage {
         let annotations = product
             .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic)
             .map_err(crate::math::MathRuntimeError::from)?;
-        annotations.require_supported().map_err(crate::math::MathRuntimeError::from)?;
+        annotations
+            .require_supported()
+            .map_err(crate::math::MathRuntimeError::from)?;
         let nominal_rows = annotations
             .outer_hints()
             .filter(|hint| hint.kind == ModelingHint::Nominal)
@@ -2234,11 +2266,25 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        let mut targets = annotations.selected_targets().map(pse_compiler::workspace::NumericalTargetFact::specification).collect::<Vec<_>>();
+        let mut targets = annotations
+            .selected_targets()
+            .map(pse_compiler::workspace::NumericalTargetFact::specification)
+            .collect::<Vec<_>>();
         for goal in &profile.numerics.goals {
-            if targets.iter().any(|target| target.id == goal.target_id && target.kind == goal.target_kind) { continue; }
-            let target = annotations.target(goal.target_id).ok_or_else(|| contract("dynamic requested target absent from compiler inventory"))?;
-            if target.kind != goal.target_kind { return Err(contract("dynamic requested target role differs from compiler inventory")); }
+            if targets
+                .iter()
+                .any(|target| target.id == goal.target_id && target.kind == goal.target_kind)
+            {
+                continue;
+            }
+            let target = annotations.target(goal.target_id).ok_or_else(|| {
+                contract("dynamic requested target absent from compiler inventory")
+            })?;
+            if target.kind != goal.target_kind {
+                return Err(contract(
+                    "dynamic requested target role differs from compiler inventory",
+                ));
+            }
             targets.push(target.specification());
         }
         let mut declarations = Vec::new();
@@ -2246,7 +2292,9 @@ impl ModelingPackage {
             .outer_hints()
             .filter(|hint| hint.kind == ModelingHint::Nominal)
         {
-            let target = annotations.target(hint.target).ok_or_else(|| contract("dynamic nominal target absent from compiler inventory"))?;
+            let target = annotations
+                .target(hint.target)
+                .ok_or_else(|| contract("dynamic nominal target absent from compiler inventory"))?;
             let pse_compiler::workspace::AnnotationObservation::Row(row) = hint.observation else {
                 return Err(contract("dynamic numerical observation requires a row"));
             };
@@ -2272,9 +2320,19 @@ impl ModelingPackage {
                     .filter_map(|s| parameters.get(s.parameter).copied()),
             )
             .collect::<BTreeSet<_>>();
-        for (index, _) in annotations.hints.iter().enumerate().filter(|(_, hint)| matches!(hint.kind,
-            ModelingHint::AccuracyGoalTime | ModelingHint::AccuracyGoalResolution | ModelingHint::AccuracyGoalLower | ModelingHint::AccuracyGoalUpper | ModelingHint::EngineeringScaleValue)) {
-            annotations.require_frozen(index, &frozen).map_err(crate::math::MathRuntimeError::from)?;
+        for (index, _) in annotations.hints.iter().enumerate().filter(|(_, hint)| {
+            matches!(
+                hint.kind,
+                ModelingHint::AccuracyGoalTime
+                    | ModelingHint::AccuracyGoalResolution
+                    | ModelingHint::AccuracyGoalLower
+                    | ModelingHint::AccuracyGoalUpper
+                    | ModelingHint::EngineeringScaleValue
+            )
+        }) {
+            annotations
+                .require_frozen(index, &frozen)
+                .map_err(crate::math::MathRuntimeError::from)?;
         }
         let accuracy_rows = product
             .admitted
@@ -3330,7 +3388,9 @@ impl ModelingPackage {
         let annotations = product
             .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic)
             .map_err(crate::math::MathRuntimeError::from)?;
-        annotations.require_supported().map_err(crate::math::MathRuntimeError::from)?;
+        annotations
+            .require_supported()
+            .map_err(crate::math::MathRuntimeError::from)?;
         for hint in annotations.constant_sign_bounds() {
             let Some(i) = states.iter().position(|id| *id == hint.target) else {
                 continue;
@@ -3836,14 +3896,48 @@ mod tests {
         let rows = pse_authoring::language::parse(
             "package p {def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; let view[i in t]:Time=2*x[i]; annotation nominal view(4{s});}}",
             SemanticId::from_bytes([175;16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
-        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
         let package = runtime.modeling_package(rows, physical()).await.unwrap();
-        let prepared = package.prepare_simulation(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), ModelingCaseBindings::default(),
-            super::super::super::tests::compiler_profile(), native::Profile { method:native::Method::Diffsol, samples:vec![0.,1.], rtol:1e-6, atol:vec![1e-8], ..Default::default() },
-            DerivativeOrder::First, &crate::CancelSource::new()).await.unwrap();
-        let inventory = prepared.modes[0].model.compiled().numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic).unwrap();
-        let nominal = inventory.hints.iter().find(|hint| hint.kind == ModelingHint::Nominal).unwrap();
-        let resolved = prepared.numerics().targets.iter().find(|target| target.id == nominal.target).unwrap();
+        let prepared = package
+            .prepare_simulation(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                super::super::super::tests::compiler_profile(),
+                native::Profile {
+                    method: native::Method::Diffsol,
+                    samples: vec![0., 1.],
+                    rtol: 1e-6,
+                    atol: vec![1e-8],
+                    ..Default::default()
+                },
+                DerivativeOrder::First,
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let inventory = prepared.modes[0]
+            .model
+            .compiled()
+            .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Dynamic)
+            .unwrap();
+        let nominal = inventory
+            .hints
+            .iter()
+            .find(|hint| hint.kind == ModelingHint::Nominal)
+            .unwrap();
+        let resolved = prepared
+            .numerics()
+            .targets
+            .iter()
+            .find(|target| target.id == nominal.target)
+            .unwrap();
         assert_eq!(resolved.kind, NumericalTarget::Observable);
         assert_eq!(resolved.nominal, 4.0);
     }
@@ -7983,22 +8077,12 @@ mod diagnostic_admission_tests {
             admitted_horizon: None,
         };
         let (converted, seed_need) = package
-            .admit_operation_overlay(
-                &operation,
-                &overlay(300., percent_id),
-                &mut None,
-                &cancel,
-            )
+            .admit_operation_overlay(&operation, &overlay(300., percent_id), &mut None, &cancel)
             .await
             .unwrap();
         assert_eq!(seed_need, pse_model::study::SeedNeed::NotNeeded);
         let (canonical_binding, _) = package
-            .admit_operation_overlay(
-                &operation,
-                &overlay(3., canonical),
-                &mut None,
-                &cancel,
-            )
+            .admit_operation_overlay(&operation, &overlay(3., canonical), &mut None, &cancel)
             .await
             .unwrap();
         assert_eq!(converted.identity(), canonical_binding.identity());
@@ -8032,12 +8116,7 @@ mod diagnostic_admission_tests {
             assert!((bound.state[0] - reference.state[0]).abs() < 1e-9);
         }
         let (next_binding, _) = package
-            .admit_operation_overlay(
-                &operation,
-                &overlay(5., canonical),
-                &mut None,
-                &cancel,
-            )
+            .admit_operation_overlay(&operation, &overlay(5., canonical), &mut None, &cancel)
             .await
             .unwrap();
         let next = package

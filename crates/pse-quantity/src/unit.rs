@@ -21,7 +21,17 @@ use std::hash::{Hash, Hasher};
 /// One canonical factor of a unit product: an atomic unit and its nonzero rational
 /// exponent (ADR-0124).
 #[derive(
-    schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash,
+    schemars::JsonSchema,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
 )]
 #[schemars(deny_unknown_fields)]
 pub struct UnitFactor {
@@ -33,7 +43,9 @@ pub struct UnitFactor {
 
 /// A defined unit as authored: its composition only. Its dimension and scale are
 /// derived when the registry admits it, so they have one authority (ADR-0124).
-#[derive(schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    schemars::JsonSchema, serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq,
+)]
 #[schemars(deny_unknown_fields)]
 pub struct DefinedUnit {
     /// Registry identity; it must equal [`unit_product_id`] over the canonical factors.

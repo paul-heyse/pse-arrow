@@ -10,14 +10,43 @@ use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 /// Declares the §6.2 physical type contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
     for (name, path, doc) in [
-        ("unit", "pse_quantity::UnitId", "A registered representation unit"),
-        ("quantity_type", "pse_quantity::QuantityTypeId", "A complete physical quantity contract"),
-        ("basis", "pse_quantity::BasisId", "A physical normalization basis"),
-        ("reference_state", "pse_quantity::ReferenceStateId", "A declared physical datum"),
-        ("quantity_kind", "pse_quantity::QuantityKindId", "A physical quantity kind"),
-        ("entity_kind", "pse_quantity::EntityKindId", "A physical subject or index kind"),
+        (
+            "unit",
+            "pse_quantity::UnitId",
+            "A registered representation unit",
+        ),
+        (
+            "quantity_type",
+            "pse_quantity::QuantityTypeId",
+            "A complete physical quantity contract",
+        ),
+        (
+            "basis",
+            "pse_quantity::BasisId",
+            "A physical normalization basis",
+        ),
+        (
+            "reference_state",
+            "pse_quantity::ReferenceStateId",
+            "A declared physical datum",
+        ),
+        (
+            "quantity_kind",
+            "pse_quantity::QuantityKindId",
+            "A physical quantity kind",
+        ),
+        (
+            "entity_kind",
+            "pse_quantity::EntityKindId",
+            "A physical subject or index kind",
+        ),
     ] {
-        builder.declare_identity(crate::model::IdentityDecl::sourced(name, doc, path, crate::model::IdentityBase::SemanticId));
+        builder.declare_identity(crate::model::IdentityDecl::sourced(
+            name,
+            doc,
+            path,
+            crate::model::IdentityBase::SemanticId,
+        ));
     }
     declare_reference_dimensions(builder);
     declare_reference_units(builder);
@@ -76,7 +105,8 @@ fn declare_reference_units(builder: &mut RegistryBuilder) {
             )
             .optional(),
             column("is_affine", T::native(arrow_schema::DataType::Boolean)).optional(),
-            column("reference_state_id", T::id()).with_identity("reference_state")
+            column("reference_state_id", T::id())
+                .with_identity("reference_state")
                 .optional()
                 .with_fk("reference.reference_states", "reference_state_id"),
             column(
@@ -234,17 +264,22 @@ fn declare_reference_quantity_types(builder: &mut RegistryBuilder) {
         vec![
             column("quantity_type_id", T::id()).with_identity("quantity_type"),
             column("name", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("quantity_kind_id", T::id()).with_identity("quantity_kind")
+            column("quantity_kind_id", T::id())
+                .with_identity("quantity_kind")
                 .with_fk("reference.quantity_kinds", "quantity_kind_id"),
-            column("basis_id", T::id()).with_identity("basis")
+            column("basis_id", T::id())
+                .with_identity("basis")
                 .optional()
                 .with_fk("reference.bases", "basis_id"),
-            column("reference_state_id", T::id()).with_identity("reference_state")
+            column("reference_state_id", T::id())
+                .with_identity("reference_state")
                 .optional()
                 .with_fk("reference.reference_states", "reference_state_id"),
             column("scale_kind", T::enumeration("ScaleKind")),
             column("shape", T::list(T::id())),
-            column("subject_kind", T::id()).with_identity("entity_kind").optional(),
+            column("subject_kind", T::id())
+                .with_identity("entity_kind")
+                .optional(),
             column("canonical_unit_id", T::id()).with_fk("reference.units", "unit_id"),
             column(
                 "nominal_magnitude",

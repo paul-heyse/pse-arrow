@@ -408,7 +408,9 @@ impl ModelingPackage {
         activity
             .scope(async {
                 let product = model.compiled();
-                let inner_unknowns = pse_compiler::workspace::ViewPolicy::default().roles(&product.admitted, None).inner_unknowns;
+                let inner_unknowns = pse_compiler::workspace::ViewPolicy::default()
+                    .roles(&product.admitted, None)
+                    .inner_unknowns;
                 let mut values = CaseValues {
                     scalars: BTreeMap::new(),
                 };
@@ -516,7 +518,9 @@ impl ModelingPackage {
                     let ready = pending
                         .iter()
                         .filter(|hint| {
-                            let Ok(row) = observation_row(hint) else { return false; };
+                            let Ok(row) = observation_row(hint) else {
+                                return false;
+                            };
                             product
                                 .admitted
                                 .case()
@@ -543,7 +547,10 @@ impl ModelingPackage {
                     let observed = self
                         .observe(
                             model.clone(),
-                            ready.iter().map(observation_row).collect::<Result<_, _>>()?,
+                            ready
+                                .iter()
+                                .map(observation_row)
+                                .collect::<Result<_, _>>()?,
                             values.clone(),
                             compiler,
                             cancel,
@@ -1338,9 +1345,17 @@ impl ModelingPackage {
             let target = &hint.target;
             let declaration = &hint.declaration;
             let kind = &hint.kind;
-            if !matches!(kind, ModelingHint::Lower | ModelingHint::Upper | ModelingHint::Nominal) { continue; }
+            if !matches!(
+                kind,
+                ModelingHint::Lower | ModelingHint::Upper | ModelingHint::Nominal
+            ) {
+                continue;
+            }
             let row = observation_row(hint)?;
-            let value = observed.get(&row).copied().ok_or_else(|| contract("numerical annotation observation absent"))?;
+            let value = observed
+                .get(&row)
+                .copied()
+                .ok_or_else(|| contract("numerical annotation observation absent"))?;
             if !hint_keys.insert((*target, *kind)) {
                 return Err(contract("ambiguous numerical annotations for a coordinate"));
             }
@@ -1441,15 +1456,39 @@ impl ModelingPackage {
             .collect::<BTreeSet<_>>();
         frozen.extend(inner.inner_unknowns.iter().copied());
         let annotation_plan = annotations(product)?;
-        annotation_plan.require_supported().map_err(crate::math::MathRuntimeError::from)?;
-        for (index, hint) in annotation_plan.hints.iter().enumerate().filter(|(_, hint)| matches!(hint.kind,
-            ModelingHint::AccuracyGoalTime | ModelingHint::AccuracyGoalResolution | ModelingHint::AccuracyGoalLower | ModelingHint::AccuracyGoalUpper | ModelingHint::EngineeringScaleValue)) {
-            if hint.nested { return Err(contract("authored accuracy targets inside a nested realization are not bound by the outer solve")); }
-            annotation_plan.require_frozen(index, &frozen).map_err(crate::math::MathRuntimeError::from)?;
+        annotation_plan
+            .require_supported()
+            .map_err(crate::math::MathRuntimeError::from)?;
+        for (index, hint) in annotation_plan
+            .hints
+            .iter()
+            .enumerate()
+            .filter(|(_, hint)| {
+                matches!(
+                    hint.kind,
+                    ModelingHint::AccuracyGoalTime
+                        | ModelingHint::AccuracyGoalResolution
+                        | ModelingHint::AccuracyGoalLower
+                        | ModelingHint::AccuracyGoalUpper
+                        | ModelingHint::EngineeringScaleValue
+                )
+            })
+        {
+            if hint.nested {
+                return Err(contract(
+                    "authored accuracy targets inside a nested realization are not bound by the outer solve",
+                ));
+            }
+            annotation_plan
+                .require_frozen(index, &frozen)
+                .map_err(crate::math::MathRuntimeError::from)?;
         }
         let mut authored_values = BTreeMap::new();
         if !authored.is_empty() {
-            let rows = authored.iter().map(observation_row).collect::<Result<_, _>>()?;
+            let rows = authored
+                .iter()
+                .map(observation_row)
+                .collect::<Result<_, _>>()?;
             let observed = self
                 .observe_registered(
                     model.clone(),
@@ -1466,20 +1505,50 @@ impl ModelingPackage {
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
         let preconditions = prepared.case.compiled().preconditions.clone();
-        let mut targets = annotation_plan.selected_targets().map(pse_compiler::workspace::NumericalTargetFact::specification).collect::<Vec<_>>();
+        let mut targets = annotation_plan
+            .selected_targets()
+            .map(pse_compiler::workspace::NumericalTargetFact::specification)
+            .collect::<Vec<_>>();
         targets.extend_from_slice(operation_targets);
         // Requested observations select a compiler-issued source or operation target.
         for goal in &solver.numerics.goals {
-            if targets.iter().any(|target| target.id == goal.target_id && target.kind == goal.target_kind) { continue; }
-            let target = annotation_plan.target(goal.target_id).ok_or_else(|| contract("requested numerical target is not in the compiler inventory"))?;
-            if target.kind != goal.target_kind { return Err(contract("requested numerical target role differs from the compiler inventory")); }
+            if targets
+                .iter()
+                .any(|target| target.id == goal.target_id && target.kind == goal.target_kind)
+            {
+                continue;
+            }
+            let target = annotation_plan.target(goal.target_id).ok_or_else(|| {
+                contract("requested numerical target is not in the compiler inventory")
+            })?;
+            if target.kind != goal.target_kind {
+                return Err(contract(
+                    "requested numerical target role differs from the compiler inventory",
+                ));
+            }
             numerical.targets.push(target.specification());
         }
-        for target in annotation_plan.selected_targets().filter(|target| matches!(target.kind, NumericalTarget::Observable | NumericalTarget::Closure)) {
-            if !numerical.targets.iter().any(|known| known.id == target.id && known.kind == target.kind) { numerical.targets.push(target.specification()); }
+        for target in annotation_plan.selected_targets().filter(|target| {
+            matches!(
+                target.kind,
+                NumericalTarget::Observable | NumericalTarget::Closure
+            )
+        }) {
+            if !numerical
+                .targets
+                .iter()
+                .any(|known| known.id == target.id && known.kind == target.kind)
+            {
+                numerical.targets.push(target.specification());
+            }
         }
         for extra in &numerical.targets {
-            if !targets.iter().any(|known| known.id == extra.id && known.kind == extra.kind) { targets.push(extra.clone()); }
+            if !targets
+                .iter()
+                .any(|known| known.id == extra.id && known.kind == extra.kind)
+            {
+                targets.push(extra.clone());
+            }
         }
         lower_authored_accuracy(
             product,
@@ -1498,18 +1567,18 @@ impl ModelingPackage {
                 (0..closure.requirements.len())
                     .map(|index| closure_requirement_id(closure.id, index))
                     .chain([
-                        pse_modeling::derived::NumericalRequirement::TighterEndpoint { closure: closure.id }.identity(),
+                        pse_modeling::derived::NumericalRequirement::TighterEndpoint {
+                            closure: closure.id,
+                        }
+                        .identity(),
                         conservation_requirement_id(closure),
                     ])
             })
             .collect::<BTreeSet<_>>();
-        producer_ids.extend(
-            product
-                .model
-                .inventory_balances
-                .keys()
-                .map(|id| pse_modeling::derived::NumericalRequirement::InventoryClosure { balance: *id }.identity()),
-        );
+        producer_ids.extend(product.model.inventory_balances.keys().map(|id| {
+            pse_modeling::derived::NumericalRequirement::InventoryClosure { balance: *id }
+                .identity()
+        }));
         producer_ids.extend(
             product
                 .model
@@ -1745,8 +1814,11 @@ pub(in crate::workflow) fn lower_authored_accuracy(
      -> Result<f64, WorkflowError> {
         let row = outer_annotations(product)?
             .into_iter()
-            .find(|hint| hint.target == target && hint.declaration == declaration && hint.kind == kind)
-            .map(|hint| observation_row(&hint)).transpose()?
+            .find(|hint| {
+                hint.target == target && hint.declaration == declaration && hint.kind == kind
+            })
+            .map(|hint| observation_row(&hint))
+            .transpose()?
             .ok_or_else(|| contract("authored accuracy expression has no typed program output"))?;
         let value = values
             .get(&row)
@@ -2034,15 +2106,25 @@ fn authored_target_semantics(
         return Ok((target.kind, target.quantity));
     }
     let _ = registry;
-    let target = annotations(product)?.target(id).ok_or_else(|| contract("authored accuracy target has no compiler numerical owner"))?;
+    let target = annotations(product)?
+        .target(id)
+        .ok_or_else(|| contract("authored accuracy target has no compiler numerical owner"))?;
     Ok((target.kind, target.quantity))
 }
 
 fn state_reconstruction_requirement_id(row: &pse_modeling::specialize::Row) -> SemanticId {
-    pse_modeling::derived::NumericalRequirement::StateReconstruction { declaration: row.lineage.declaration, row: row.id }.identity()
+    pse_modeling::derived::NumericalRequirement::StateReconstruction {
+        declaration: row.lineage.declaration,
+        row: row.id,
+    }
+    .identity()
 }
 fn conservation_requirement_id(closure: &pse_modeling::specialize::Closure) -> SemanticId {
-    pse_modeling::derived::NumericalRequirement::ConservationRow { declaration: closure.lineage.declaration, closure: closure.id }.identity()
+    pse_modeling::derived::NumericalRequirement::ConservationRow {
+        declaration: closure.lineage.declaration,
+        closure: closure.id,
+    }
+    .identity()
 }
 /// Lower an already specialized physical tolerance through the existing numerical owner.
 fn physical_row_requirement(
@@ -2179,7 +2261,11 @@ fn contextual_scales(
     Ok(())
 }
 fn closure_requirement_id(id: SemanticId, index: usize) -> SemanticId {
-    pse_modeling::derived::NumericalRequirement::PhysicalClosure { closure: id, ordinal: index }.identity()
+    pse_modeling::derived::NumericalRequirement::PhysicalClosure {
+        closure: id,
+        ordinal: index,
+    }
+    .identity()
 }
 fn physical_target(
     id: SemanticId,
@@ -2385,7 +2471,10 @@ pub(in crate::workflow) fn lower_closure_requirements(
                 None,
             );
             combined.declaration.requirement_id =
-                pse_modeling::derived::NumericalRequirement::TighterEndpoint { closure: closure.id }.identity();
+                pse_modeling::derived::NumericalRequirement::TighterEndpoint {
+                    closure: closure.id,
+                }
+                .identity();
             combined.declaration.absolute_tolerance = Some(budget);
             combined.declaration.unit_id = Some(target.unit.as_id());
             combined.declaration.provenance = format!(
@@ -2457,7 +2546,10 @@ pub(in crate::workflow) fn lower_closure_requirements(
             registry,
         )?;
         source.declaration.requirement_id =
-            pse_modeling::derived::NumericalRequirement::InventoryClosure { balance: balance.id }.identity();
+            pse_modeling::derived::NumericalRequirement::InventoryClosure {
+                balance: balance.id,
+            }
+            .identity();
         sources.push(source);
     }
     for closure in product
@@ -2607,15 +2699,25 @@ fn inner_roles(product: &pse_compiler::workspace::PreparedModeling) -> Inner {
     pse_compiler::workspace::ViewPolicy::default().roles(&product.admitted, None)
 }
 /// Compiler-issued observations retain target roles, physical contracts and support.
-fn annotations(product: &pse_compiler::workspace::PreparedModeling) -> Result<&pse_compiler::workspace::NumericalAnnotations, WorkflowError> {
-    product.numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
-        .map_err(crate::math::MathRuntimeError::from).map_err(Into::into)
+fn annotations(
+    product: &pse_compiler::workspace::PreparedModeling,
+) -> Result<&pse_compiler::workspace::NumericalAnnotations, WorkflowError> {
+    product
+        .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
+        .map_err(crate::math::MathRuntimeError::from)
+        .map_err(Into::into)
 }
-fn outer_annotations(product: &pse_compiler::workspace::PreparedModeling) -> Result<Vec<pse_compiler::workspace::NumericalAnnotation>, WorkflowError> {
+fn outer_annotations(
+    product: &pse_compiler::workspace::PreparedModeling,
+) -> Result<Vec<pse_compiler::workspace::NumericalAnnotation>, WorkflowError> {
     Ok(annotations(product)?.outer_hints().cloned().collect())
 }
-fn observation_row(hint: &pse_compiler::workspace::NumericalAnnotation) -> Result<SemanticId, WorkflowError> {
-    hint.row().map_err(crate::math::MathRuntimeError::from).map_err(Into::into)
+fn observation_row(
+    hint: &pse_compiler::workspace::NumericalAnnotation,
+) -> Result<SemanticId, WorkflowError> {
+    hint.row()
+        .map_err(crate::math::MathRuntimeError::from)
+        .map_err(Into::into)
 }
 
 /// Every independent input needs a case value or a resolvable start, except the derived
@@ -4386,31 +4488,107 @@ mod tests {
     #[tokio::test]
     async fn sensitivity_parameter_variable_goal_uses_the_compiler_operation_role() {
         use super::super::super::tests as fixture;
-        use pse_model::generated::enums::{AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation, NumericalAccuracyClass};
-        let rows = pse_authoring::language::parse("package p {def Root {param p:Scalar=2;var x:Scalar;eq e:x==p;annotation start x(2);}}", SemanticId::from_bytes([175;16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
-        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let package = fixture::runtime().modeling_package(rows, fixture::physical()).await.unwrap();
+        use pse_model::generated::enums::{
+            AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation, NumericalAccuracyClass,
+        };
+        let rows = pse_authoring::language::parse(
+            "package p {def Root {param p:Scalar=2;var x:Scalar;eq e:x==p;annotation start x(2);}}",
+            SemanticId::from_bytes([175; 16]),
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
         let instance = pse_modeling::specialize::root_instance(root);
-        let bindings = Bindings { demand:vec!["p".into()], ..Default::default() };
+        let bindings = Bindings {
+            demand: vec!["p".into()],
+            ..Default::default()
+        };
         let cancel = crate::CancelSource::new();
-        let source = package.prepare(root, instance, bindings.clone(), Limits::default(), &cancel).await.unwrap();
+        let source = package
+            .prepare(root, instance, bindings.clone(), Limits::default(), &cancel)
+            .await
+            .unwrap();
         let parameter = source.compiled().model.paths["p"];
-        let inventory = source.compiled().numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady).unwrap();
+        let inventory = source
+            .compiled()
+            .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
+            .unwrap();
         let fact = inventory.target(parameter).unwrap();
-        assert_eq!(fact.kind, NumericalTarget::Observable, "the base view observes a fixed parameter");
+        assert_eq!(
+            fact.kind,
+            NumericalTarget::Observable,
+            "the base view observes a fixed parameter"
+        );
         let mut solver = fixture::profile();
         solver.intent = pse_backend_native::solve::SolveIntent::Root;
-        solver.sensitivity = Some(crate::math::settings::SensitivityRequest { parameters:vec![parameter], reduced_hessian:false, propagation:None });
-        solver.numerics.goals.push(pse_model::numerics::AccuracyGoal {
-            goal_id:pse_ids::named_id(parameter, "sensitivity-coordinate-goal").into(), model_id:None, case_id:None, instance_id:None, fit_id:None,
-            target_id:parameter, target_kind:NumericalTarget::Variable, quantity_id:fact.quantity.as_id(), unit_id:fact.unit.as_id(),
-            subject:AccuracyGoalSubject::SelectedOutput, observation:AccuracyObservation::Steady, time:None,
-            resolution:Some(1.0), criterion_lower:None, criterion_upper:Some(4.0), required_class:NumericalAccuracyClass::Estimated,
-            use_policy:AccuracyGoalUse::Assess, refine:false, source:NumericalSource::Analysis, priority:0, provenance:"independent sensitivity coordinate role".into(),
+        solver.sensitivity = Some(crate::math::settings::SensitivityRequest {
+            parameters: vec![parameter],
+            reduced_hessian: false,
+            propagation: None,
         });
-        let resolved = package.resolve_case(root, instance, bindings, Limits::default(), ModelingCaseBindings::default(), DerivativeOrder::First, fixture::compiler_profile(), solver, NumericalInputs::default(), CaseOverrides::default(), false, &cancel).await.unwrap();
-        assert!(matches!(resolved.parametric, Some(ParametricPreparation::Available(_))));
-        assert!(resolved.numerics.targets.iter().any(|target| target.id == parameter && target.kind == NumericalTarget::Variable));
+        solver
+            .numerics
+            .goals
+            .push(pse_model::numerics::AccuracyGoal {
+                goal_id: pse_ids::named_id(parameter, "sensitivity-coordinate-goal").into(),
+                model_id: None,
+                case_id: None,
+                instance_id: None,
+                fit_id: None,
+                target_id: parameter,
+                target_kind: NumericalTarget::Variable,
+                quantity_id: fact.quantity.as_id(),
+                unit_id: fact.unit.as_id(),
+                subject: AccuracyGoalSubject::SelectedOutput,
+                observation: AccuracyObservation::Steady,
+                time: None,
+                resolution: Some(1.0),
+                criterion_lower: None,
+                criterion_upper: Some(4.0),
+                required_class: NumericalAccuracyClass::Estimated,
+                use_policy: AccuracyGoalUse::Assess,
+                refine: false,
+                source: NumericalSource::Analysis,
+                priority: 0,
+                provenance: "independent sensitivity coordinate role".into(),
+            });
+        let resolved = package
+            .resolve_case(
+                root,
+                instance,
+                bindings,
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                solver,
+                NumericalInputs::default(),
+                CaseOverrides::default(),
+                false,
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            resolved.parametric,
+            Some(ParametricPreparation::Available(_))
+        ));
+        assert!(
+            resolved
+                .numerics
+                .targets
+                .iter()
+                .any(|target| target.id == parameter && target.kind == NumericalTarget::Variable)
+        );
     }
     #[tokio::test]
     async fn nominal_row_characterization_preserves_equality_bound_coordinates() {
@@ -5479,8 +5657,17 @@ mod root_unavailable_tests {
             .find(|annotation| matches!(annotation.value, AnnotationValue::EngineeringScale(_)))
             .unwrap();
         let plan = annotations(model.compiled()).unwrap();
-        let index = plan.hints.iter().position(|hint| hint.target == annotation.target && hint.kind == ModelingHint::EngineeringScaleValue).unwrap();
-        assert!(plan.require_frozen(index, &BTreeSet::from([annotation.target])).is_err());
+        let index = plan
+            .hints
+            .iter()
+            .position(|hint| {
+                hint.target == annotation.target && hint.kind == ModelingHint::EngineeringScaleValue
+            })
+            .unwrap();
+        assert!(
+            plan.require_frozen(index, &BTreeSet::from([annotation.target]))
+                .is_err()
+        );
     }
     #[tokio::test]
     async fn contextual_closure_conservation_and_reconstruction_keep_inherited_row_requirements() {

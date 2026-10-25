@@ -1395,18 +1395,30 @@ fn annotation_names(annotation: &str) -> BTreeSet<String> {
     while let Some(character) = chars.next() {
         if character == '\'' || character == '"' {
             while let Some(next) = chars.next() {
-                if next == '\\' { chars.next(); }
-                else if next == character { break; }
+                if next == '\\' {
+                    chars.next();
+                } else if next == character {
+                    break;
+                }
             }
             previous = Some(character);
         } else if character == '_' || character.is_ascii_alphabetic() {
             let mut name = String::from(character);
-            while chars.peek().is_some_and(|next| *next == '_' || next.is_ascii_alphanumeric()) {
-                if let Some(next) = chars.next() { name.push(next); }
+            while chars
+                .peek()
+                .is_some_and(|next| *next == '_' || next.is_ascii_alphanumeric())
+            {
+                if let Some(next) = chars.next() {
+                    name.push(next);
+                }
             }
-            if previous != Some('.') { names.insert(name); }
+            if previous != Some('.') {
+                names.insert(name);
+            }
             previous = Some('a');
-        } else if !character.is_whitespace() { previous = Some(character); }
+        } else if !character.is_whitespace() {
+            previous = Some(character);
+        }
     }
     names
 }
@@ -1455,29 +1467,48 @@ fn python_module(
     for class in emitter.classes.values() {
         let _ = write!(source, "\n{class}\n");
     }
-    let mut bindings = emitter.aliases.iter().chain(emitter.unions.iter())
+    let mut bindings = emitter
+        .aliases
+        .iter()
+        .chain(emitter.unions.iter())
         .map(|(name, value)| (python_type_name(name), value.clone()))
         .collect::<BTreeMap<_, _>>();
     let mut dependencies = BTreeMap::new();
     let mut dependents: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut ready = BTreeSet::new();
     for (name, annotation) in &bindings {
-        let names = annotation_names(annotation).into_iter().filter(|dependency| bindings.contains_key(dependency)).collect::<Vec<_>>();
+        let names = annotation_names(annotation)
+            .into_iter()
+            .filter(|dependency| bindings.contains_key(dependency))
+            .collect::<Vec<_>>();
         dependencies.insert(name.clone(), names.len());
-        if names.is_empty() { ready.insert(name.clone()); }
-        for dependency in names { dependents.entry(dependency).or_default().push(name.clone()); }
+        if names.is_empty() {
+            ready.insert(name.clone());
+        }
+        for dependency in names {
+            dependents.entry(dependency).or_default().push(name.clone());
+        }
     }
     while let Some(name) = ready.pop_first() {
-        let annotation = bindings.remove(&name).ok_or_else(|| error("ordered document alias absent"))?;
+        let annotation = bindings
+            .remove(&name)
+            .ok_or_else(|| error("ordered document alias absent"))?;
         let _ = writeln!(source, "\n{name} = {annotation}");
         for dependent in dependents.remove(&name).unwrap_or_default() {
-            let remaining = dependencies.get_mut(&dependent).ok_or_else(|| error("document alias dependency absent"))?;
+            let remaining = dependencies
+                .get_mut(&dependent)
+                .ok_or_else(|| error("document alias dependency absent"))?;
             *remaining -= 1;
-            if *remaining == 0 { ready.insert(dependent); }
+            if *remaining == 0 {
+                ready.insert(dependent);
+            }
         }
     }
     if !bindings.is_empty() {
-        return Err(error(format!("cyclic evaluated document aliases: {}", bindings.keys().cloned().collect::<Vec<_>>().join(", "))));
+        return Err(error(format!(
+            "cyclic evaluated document aliases: {}",
+            bindings.keys().cloned().collect::<Vec<_>>().join(", ")
+        )));
     }
     let names = emitter
         .aliases
@@ -2146,11 +2177,17 @@ mod tests {
                 "required":["numerator","denominator"]}}
         });
         let registry = crate::catalog::assemble().unwrap();
-        let rendered = python(&registry, &[Document { name:"ratio-vector".into(), schema }]).unwrap();
+        let rendered = python(
+            &registry,
+            &[Document {
+                name: "ratio-vector".into(),
+                schema,
+            }],
+        )
+        .unwrap();
         assert!(rendered.find("class Ratio(").unwrap() < rendered.find("RatioVector =").unwrap());
         assert!(rendered.contains("tuple[Ratio, ...]"));
         let names = annotation_names("Annotated[v.Ratio, msgspec.Meta(pattern='RatioVector')]");
         assert!(!names.contains("Ratio") && !names.contains("RatioVector"));
     }
-
 }

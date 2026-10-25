@@ -165,7 +165,19 @@ struct RatioRepr {
 /// assert!(Ratio::new(1, 0).is_err());
 /// # Ok::<(), pse_quantity::DimensionError>(())
 /// ```
-#[derive(schemars::JsonSchema, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[derive(
+    schemars::JsonSchema,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    Serialize,
+    Deserialize,
+)]
 #[serde(into = "RatioRepr", try_from = "RatioRepr")]
 pub struct Ratio {
     num: i16,
@@ -346,7 +358,19 @@ fn reduce(num: i64, den: i64) -> Result<Ratio, DimensionError> {
 /// assert_eq!(velocity.to_string(), "L·T^-1");
 /// # Ok::<(), pse_quantity::DimensionError>(())
 /// ```
-#[derive(schemars::JsonSchema, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[derive(
+    schemars::JsonSchema,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
+    Serialize,
+    Deserialize,
+)]
 pub struct DimensionVector([Ratio; BaseDimension::COUNT]);
 
 impl DimensionVector {

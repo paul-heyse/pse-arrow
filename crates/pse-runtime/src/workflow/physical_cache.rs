@@ -33,7 +33,9 @@ pub(super) struct PhysicalOwner {
     pin_metadata_bytes: usize,
 }
 impl PhysicalOwner {
-    pub(super) fn pins(&self) -> &[ProtectedSelection] { &self.pins }
+    pub(super) fn pins(&self) -> &[ProtectedSelection] {
+        &self.pins
+    }
     fn allocation_bytes(&self) -> usize {
         self._allocation
             .size()

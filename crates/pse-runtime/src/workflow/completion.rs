@@ -35,7 +35,9 @@ pub(super) fn governing_permission(
     original_report_succeeded: bool,
     assessments: &[pse_model::generated::runtime::candidate_assessments::Row],
 ) -> bool {
-    original_report_succeeded && !assessments.is_empty() && assessments.iter().all(|a| a.permits_result)
+    original_report_succeeded
+        && !assessments.is_empty()
+        && assessments.iter().all(|a| a.permits_result)
 }
 
 impl RunResult {

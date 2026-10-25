@@ -429,7 +429,10 @@ BINDINGS = (
         "physical_inspect",
         "Describe an admitted original physical context",
         PhysicalInspection,
-        {"physical": "project-draft-documents", "request": "physical-inspection-request"},
+        {
+            "physical": "project-draft-documents",
+            "request": "physical-inspection-request",
+        },
         "pse.PhysicalContext.describe",
         "Admit the supplied physical document closure through the ordinary native owner and describe a bounded quantity or named reference-state page. Names, typed identities, exact dimension, basis, datum, subject and affine point/difference conversion come from that same Rust contract.",
         "projects",

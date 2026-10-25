@@ -894,7 +894,9 @@ fn preflight(
             })
     };
     match &request.view {
-        ResultInspectionView::Physical { request } => (!request.valid_bounds()).then_some(ResultInspectionRefusal::Selection),
+        ResultInspectionView::Physical { request } => {
+            (!request.valid_bounds()).then_some(ResultInspectionRefusal::Selection)
+        }
         ResultInspectionView::Schema { offset, limit } => {
             (*limit == 0 || *limit > 16 || *offset > schema.fields().len())
                 .then_some(ResultInspectionRefusal::Selection)
@@ -1319,10 +1321,19 @@ mod result_inspection_unit {
     #[test]
     fn physical_query_names_are_bounded_before_result_basis_or_protection() {
         let mut request = result_request_example();
-        request.view = ResultInspectionView::Physical { request: super::super::PhysicalInspectionRequest {
-            query: super::super::PhysicalInspectionQuery::QuantityNamed { name: "x".repeat(1025) }, offset: 0, limit: 1,
-        }};
-        assert_eq!(preflight(&request, &Schema::empty()), Some(ResultInspectionRefusal::Selection));
+        request.view = ResultInspectionView::Physical {
+            request: super::super::PhysicalInspectionRequest {
+                query: super::super::PhysicalInspectionQuery::QuantityNamed {
+                    name: "x".repeat(1025),
+                },
+                offset: 0,
+                limit: 1,
+            },
+        };
+        assert_eq!(
+            preflight(&request, &Schema::empty()),
+            Some(ResultInspectionRefusal::Selection)
+        );
     }
 
     #[test]
