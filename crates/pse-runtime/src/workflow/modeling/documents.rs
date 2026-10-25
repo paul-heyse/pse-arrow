@@ -117,7 +117,7 @@ impl super::ModelingPackage {
         if request.limit == 0 || request.limit > 128 { return Err(super::super::contract("declaration page limit must be between one and128")); }
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
-            let (total, declarations) = self.selected_declarations(request.offset, request.limit)?;
+            let (total, declarations) = self.declaration_window(request.offset, request.limit)?;
             let next = request.offset.saturating_add(request.limit);
             bound_observation(ModelingDeclarationPage {
                 source: super::super::OperationSource::of(self), total, offset: request.offset,

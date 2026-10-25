@@ -1788,7 +1788,7 @@ impl ModelingPackage {
     /// Select the authenticated ingress order before copying any declaration body.
     /// Full delta products, document/physical hydration and dependency indexes are
     /// independently useful for edits, but are not prerequisites for this read.
-    pub(super) fn selected_declarations(
+    pub(super) fn declaration_window(
         &self,
         offset: usize,
         limit: usize,
