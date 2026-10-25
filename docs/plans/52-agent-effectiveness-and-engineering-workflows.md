@@ -312,7 +312,7 @@ an explicit supported decision and fallback, not silence under a completed-serie
 | O27 | resolved | [G03](52g-agent-and-operator-workflows.md#G03) | Progressive instruction access and representative agent evaluations |
 | O28 | resolved | [B02](52b-local-knowledge-and-research.md#B02) | Activity-based session discovery, attribution and logical deduplication |
 | O29 | resolved | [G04](52g-agent-and-operator-workflows.md#G04) | Ownership-aware integration and reviewable commit selection |
-| O30 | scheduled | [G05](52g-agent-and-operator-workflows.md#G05) | Bounded interactive investigation decision; headless reports always usable |
+| O30 | resolved | [G05](52g-agent-and-operator-workflows.md#G05) | Completed headless/inquiry delivery; maintainer retained ordinary baseline and deferred interactive additions with R-55 consumer trigger |
 
 ## Inquiry outcomes and remaining questions
 
@@ -334,7 +334,7 @@ Tool compatibility is separate from functional delivery and measured benefit.
 | I10 | resolved | [E04 outcome](52e-reproducible-experiments-and-isolation.md#targeted-execution-outcome--2026-10-24) | Private directories default; optional Bubblewrap for a concrete permission-isolation consumer. Podman unselected until a different-userspace/dependency requirement recurs |
 | I11 | resolved | [F02](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual request-local SDK/server/module parentage passed in continuous and finite modes with independent sibling parents and original-owner restoration/drain; 52f Outcome owns conditions and limits |
 | I12 | resolved | [G02](52g-agent-and-operator-workflows.md#G02) | Operator selected one canonical FastMCP endpoint on 2026-10-24; optional direct-versus-MCP adoption inquiry superseded. Actual host, schema and lifecycle questions remain Q01–Q06 below; no delivery claim |
-| I13 | open | [G05](52g-agent-and-operator-workflows.md#G05) | Interactive evidence use versus standalone report/plot; no product frontend |
+| I13 | resolved | [G05](52g-agent-and-operator-workflows.md#G05) | Maintainer selected ordinary native/headless delivery on2026-10-25; interactive Apps/UI deferred until a concrete operator decision needs them; R-55 retains the revisit trigger |
 | I14 | resolved | [Endpoint lifecycle inquiry](#endpoint-shutdown-inquiry) | Actual exception controls reproduced lost teardown errors and skipped sibling cleanup. Maintainer selected the bounded repair; independent owners now settle, errors remain visible and cancellation repropagates after settlement. Targeted controls below; no Plan53/MCP01 completion dependency. |
 
 <a id="endpoint-shutdown-inquiry"></a>
@@ -441,8 +441,8 @@ authoring and favorable feasibility evidence do not independently authorize eith
 | Decision | Disposition | Work owner | Accepted consequence and route |
 |---|---|---|---|
 | RC01 | implemented | [FND00](#FND00), [52l](52l-typed-requests-results-and-diagnostics.md), [52m](52m-progressive-guidance-and-operation-availability.md) | Accepted for planning on 2026-10-24: evolve request/result/error/instruction contracts with actual callers and derived reference. Preserve Rust scientific authority. Internal tooling uses ordinary changes; actual protected public boundary/diagnostic changes use the existing ADR/design route before dependent implementation. 52l/52m Outcomes record delivered contracts and actual consumers; broader protected changes retain their original decision route. |
-| RC02 | inquiry complete; production selection pending | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Selected inquiry completed: real Monty/public CodeMode, three-way readers and fresh actual-Codex F01 comparison passed with original provenance. Ordinary typed native answers are recommended; no production CodeMode selection is implied. See the 52o resumed Outcome. |
-| RC03 | inquiry complete; production selection pending | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Selected inquiry completed: original native uncertainty/cancellation controls passed, the outer task claim failed middleware result-shape handling and current Codex advertised no modern task support. Original native readers remain supported; production tasks/queues are unselected. See the 52o resumed Outcome. |
+| RC02 | resolved | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Selected inquiry completed: real Monty/public CodeMode, three-way readers and fresh actual-Codex F01 comparison passed with original provenance. Maintainer selected ordinary typed native answers on2026-10-25 and deferred production CodeMode until a concrete unmet branching consumer; R-55 owns revisit. See the 52o resumed Outcome. |
+| RC03 | resolved | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Selected inquiry completed: original native uncertainty/cancellation controls passed, the outer task claim failed middleware result-shape handling and current Codex advertised no modern task support. Maintainer retained original native readers and deferred production tasks/queues on2026-10-25 until an unmet detach/reconnect consumer and compatible host; R-55 owns revisit. See the 52o resumed Outcome. |
 
 ## Usability opportunity dispositions
 
@@ -467,9 +467,9 @@ supported alternatives or conditional non-adoption; they cannot erase required o
 | O12 | resolved | [G01](52g-agent-and-operator-workflows.md#G01) | Meaningful recurring typed compositions using F01/native kernels; G02 actual workflow consumer. F03 remains separately selectable. |
 | O13 | resolved | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Coherent supporting skill resources and U02 exact completion/provider decision for a real consumer, with visibility and lazy source contracts. |
 | O14 | resolved | [G03](52g-agent-and-operator-workflows.md#G03) | Independent schema/example/error/completeness tests and representative actual-agent evaluation; H02 owns assembled host/native qualification. |
-| O15 | scheduled | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Completed bounded real-Monty, typed/small-read and fresh actual-Codex F01 inquiries; 52o Outcome recommends ordinary typed readers. Production adoption/deferral selection remains separate. |
-| O16 | scheduled | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Native queued/lost-ACK and original-owner cancellation controls passed; outer protocol task middleware failed its result-shape assumption and current Codex did not negotiate modern task support. Production tasks remain unselected; 52o retains supported native readers and recommendation. |
-| O17 | scheduled | [G05](52g-agent-and-operator-workflows.md#G05) | Extend I13 to typed headless resources versus prompts/elicitation/Apps for a concrete operator decision, retaining ordinary access and native interpretation. |
+| O15 | deferred | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Completed bounded real-Monty, typed/small-read and fresh actual-Codex F01 inquiries; 52o Outcome recommends ordinary typed readers. Maintainer selected ordinary delivery and deferred production CodeMode on2026-10-25; R-55 owns the concrete-consumer revisit. |
+| O16 | deferred | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Native queued/lost-ACK and original-owner cancellation controls passed; outer protocol task middleware failed its result-shape assumption and current Codex did not negotiate modern task support. Maintainer deferred production tasks on2026-10-25; supported native readers remain and R-55 owns the concrete-consumer revisit. |
+| O17 | deferred | [G05](52g-agent-and-operator-workflows.md#G05) | Completed headless/inquiry assessment; maintainer deferred Apps/UI on2026-10-25 until a concrete operator decision needs them (R-55). |
 
 ## Usability inquiries
 
@@ -481,8 +481,8 @@ after its actual selection; non-adoption must identify the supported route and o
 |---|---|---|---|
 | U01 | resolved | [CON04](52l-typed-requests-results-and-diagnostics.md#CON04) | Selected bounded native schema/physical-value inspection alongside exact IPC under proposed ADR-0224, published before implementation. Real registered nineteen-column storage/read/IPC/lifetime assertions passed; schema inquiry does not itself validate stored IPC or scientific eligibility. |
 | U02 | resolved | [NAV04](52m-progressive-guidance-and-operation-availability.md#NAV04) | Captured bounded explicit skill resources delivered and exercised by actual Codex. Retain the lazy coherent owner; no eager/live Skills provider or unused completion for argument-free prompts. Revisit native Skills for an actual negotiation consumer compatible with capture, or completion for a useful parameter and real consuming host. See the 52m Outcome. |
-| U03 | open | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Three-way and fresh actual-Codex F01 comparisons passed with original source/provenance oracles. CodeMode retained larger provenance payloads; no speed claim. Completed inquiry recommends ordinary typed operations; RC02 production disposition awaits operator selection. |
-| U04 | open | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Native queued/lost-start-ACK controls preserve original uncertainty and cancellation/drain. Actual outer task claim fails CreateTaskResult metadata handling; current Codex negotiated MCP2025-06-18. Production tasks remain unselected; RC03 disposition awaits operator. Independently delivered telemetry is recorded at 52p–52s and F02. |
+| U03 | resolved | [OPT01](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Three-way and fresh actual-Codex F01 comparisons passed with original source/provenance oracles. CodeMode retained larger provenance payloads; no speed claim. Maintainer selected the ordinary typed baseline and deferred CodeMode on2026-10-25; R-55 retains the concrete unmet consumer trigger. |
+| U04 | resolved | [OPT02](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Native queued/lost-start-ACK controls preserve original uncertainty and cancellation/drain. Actual outer task claim fails CreateTaskResult metadata handling; current Codex negotiated MCP2025-06-18. Maintainer retained ordinary native handles/readers and deferred production tasks on2026-10-25; R-55 retains the unmet consumer/compatible-host trigger. Independently delivered telemetry is recorded at 52p–52s and F02. |
 
 ## OpenTelemetry target and foundation assessment — 2026-10-24
 
@@ -674,12 +674,12 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | E04 | done | [52e](52e-reproducible-experiments-and-isolation.md#E04) | Optional Bubblewrap witnesses and actual CLI/library parser consumers; Surrealism grammar uses existing pinned parser |
 | F01 | done | [52f](52f-evidence-analysis-and-trace-correlation.md#F01) | Exact paired comparisons, selective answer sections/completeness and protected same-cut native/canonical readers |
 | F02 | done | [52f](52f-evidence-analysis-and-trace-correlation.md#F02) | Actual SDK task/header and application/server/module continuity, finite capture plus selected continuous pipeline, and I11 |
-| F03 | in-progress | [52f](52f-evidence-analysis-and-trace-correlation.md#F03) | Maintainer selected bounded value/feasibility inquiry; production multi-question delivery still requires explicit selection. |
+| F03 | done | [52f](52f-evidence-analysis-and-trace-correlation.md#F03) | Bounded inquiry complete; maintainer retained single-question analysis and deferred production batching until a concrete same-cut multi-question consumer (R-55). |
 | G01 | done | [52g](52g-agent-and-operator-workflows.md#G01) | Shared interaction vocabulary and first real consumers |
 | G02 | done | [52g](52g-agent-and-operator-workflows.md#G02) | Actual unified agent workflows consuming CAP/ADP/MCP delivery; I12 selection settled |
 | G03 | done | [52g](52g-agent-and-operator-workflows.md#G03) | Task-focused instruction/evaluation consumer |
 | G04 | done | [52g](52g-agent-and-operator-workflows.md#G04) | Safe integration/closeout proposal |
-| G05 | in-progress | [52g](52g-agent-and-operator-workflows.md#G05) | Headless delivery/inquiry evidence complete; optional operator-view disposition I13 remains open |
+| G05 | done | [52g](52g-agent-and-operator-workflows.md#G05) | Headless delivery/inquiry complete; I13 resolved by maintainer-selected ordinary baseline and concrete-consumer UI deferral (R-55) |
 | H01 | in-progress | [52h](52h-qualification-and-publication.md#H01) | Scope and actual consumers reconciled |
 | H02 | in-progress | [52h](52h-qualification-and-publication.md#H02) | Assembled functional journeys |
 | H03 | in-progress | [52h](52h-qualification-and-publication.md#H03) | Scope-end static/manual checks |
@@ -712,8 +712,8 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | LIFE02 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE02) | Authentic progress/early handles with attached cancellation/drain and reader fallback |
 | LIFE03 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE03) | Preview status/release with admitted-work retention and sibling preservation |
 | LIFE04 | done | [52n](52n-readiness-progress-and-edit-lifecycles.md#LIFE04) | Current native artifact readiness/admission from existing preparation and source owners |
-| OPT01 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Inquiry and fresh actual-Codex comparison complete; ordinary typed baseline recommended, optional production disposition remains open |
-| OPT02 | in-progress | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Inquiry complete with native uncertainty controls and actual host/middleware limits; optional production disposition remains open |
+| OPT01 | done | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT01) | Inquiry and fresh actual-Codex comparison complete; maintainer selected ordinary typed baseline and deferred CodeMode (R-55) |
+| OPT02 | done | [52o](52o-conditional-composition-and-protocol-tasks.md#OPT02) | Inquiry complete with original native uncertainty controls and actual host/middleware limits; maintainer deferred production tasks (R-55) |
 | TEL01 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL01) | Shared identities, effective configuration and process composition contract |
 | TEL02 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL02) | Python/FastMCP providers, helper carriers and logging lifecycle |
 | TEL03 | done | [52p](52p-shared-telemetry-and-native-propagation.md#TEL03) | Rust/embedded/native-child providers, context and qualified export/shutdown |
@@ -1277,3 +1277,13 @@ ADR indexing repairs its two failed documentation leaves. Full host qualificatio
 fixtures and actual optional-telemetry/profile-route/health-identity defects now being repaired.
 Frozen native/Python qualification and the complete feature campaign follow those repairs.
 Joined qualification and final publication remain open; existing Outcomes retain their exact scope.
+
+### Maintainer-selected conditional dispositions — 2026-10-25
+
+The maintainer selected the ordinary typed-operation, original native-reader and headless-report
+baseline, with production CodeMode, protocol tasks, Apps and F03 batching deferred until a concrete
+consumer needs them. This settles I13, U03/U04 and usability RC02/RC03; completed inquiries do not
+claim those mechanisms deployed. [R-55](../adr/register.md) retains the observable revisit and owner.
+Future positive adoption needs explicit selection plus its integration/acceptance; framework
+availability or a date alone does not fire that trigger. H03's full feature campaign remains active,
+so this selection does not yet claim assembled scope-end completion.

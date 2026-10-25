@@ -1,6 +1,6 @@
 ---
 title: "Plan 52f: Evidence analysis and trace correlation"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -290,3 +290,13 @@ The original bounded capture/restoration owner was reused. No arbitrary SQL, gen
 executor, durable analysis handle or replacement sink was added. Representative studies expose
 the required distinctions without a production-width scientific campaign. Scope-end/manual and
 assembled reporting remains with 52h; Plan40e/Plan53 retain their separate acceptance.
+
+## Selected conditional disposition — 2026-10-25
+
+The maintainer accepted the ordinary typed-operation, original native-reader and headless-report
+baseline and deferred production CodeMode, protocol tasks, Apps and F03 batching until a concrete
+consumer needs them. The selected inquiry/delivery scope is complete; this does not deploy those
+optional mechanisms or turn failed/unqualified probe cases into successes. Existing source-specific
+Outcomes retain their conditions. [R-55](../adr/register.md) owns the concrete-consumer revisit;
+any later adoption needs explicit selection and its original integration/acceptance. Assembled
+qualification and the ongoing full feature campaign remain with52h.

@@ -243,9 +243,9 @@ series was authored or because another plan's number is lower.
 and I14's selected independent-cleanup repair have actual native/host consumers. C04 is closed
 through the accepted structured fallback; denied instrumentation remains unqualified. CAP/ADP/MCP,
 CON/NAV/LIFE and TEL01–TEL17 retain their independent Outcomes. Completed conditional inquiries
-recommend ordinary typed/native readers and headless reports; production CodeMode/tasks/Apps/F03
-batching remain unselected, and proposed deferral is not operator acceptance. The coordinator
-owns that remaining selection state. The checkpoint below preserves its then-current evidence;
+supported ordinary typed/native readers and headless reports; the maintainer selected that
+baseline on2026-10-25 and deferred production CodeMode/tasks/Apps/F03 batching with R-55's
+concrete-consumer trigger. The coordinator owns the settled selection state. The checkpoint below preserves its then-current evidence;
 the final Outcome records repaired assembled qualification and its exclusions. Document publication
 alone establishes no product behavior, scientific result or performance benefit.
 
@@ -309,7 +309,7 @@ Broad Python qualification also exposed an undersized2GiB disposable receiver: i
 
 **Implemented; Tested at the named scopes:** C04 uses the maintainer-accepted structured fallback. Coverage-guided fuzzing, sanitizer feedback and the earlier intermittent decoder-crash cause remain unqualified; no reproduction loop or unsupported safety claim follows. Thread-owned bounded decoder reuse passed its normal controls without proving that historical crash eliminated.
 
-**Proposed, not operator acceptance:** completed CodeMode/task/operator-view/F03 inquiries recommend typed original readers, acknowledged native work handles, headless reports and the existing single-question analysis. Production CodeMode, protocol tasks/Docket, Apps/interactive UI and multi-question batching remain unselected. Their original alternatives and concrete-consumer revisit triggers remain in52f/52g/52o and the coordinator; no deployment was added merely to close an inquiry. Actual task outer-claim/middleware failure and missing host negotiation stay failed/unqualified independently of passing native uncertainty controls.
+**Implemented baseline; maintainer-selected deferral:** on2026-10-25 the maintainer retained typed original readers, acknowledged native work handles, headless reports and existing single-question analysis. Production CodeMode, protocol tasks/Docket, Apps/interactive UI and multi-question batching are deferred until a concrete unmet consumer; R-55 owns that revisit. No deployment was added merely to close an inquiry. Actual task outer-claim/middleware failure and missing host negotiation stay failed/unqualified independently of passing native uncertainty controls.
 
 No fresh full solver-fleet, broad scientific model, IDAES parity, performance/overhead, distribution/wheel, other-platform or whole-product qualification is claimed. Telemetry delivery/query visibility, native outcomes, capture/restoration and physical cleanup remain distinct. Earlier incomplete feature attempts and failed Python/host/consumer observations retain their original results; they are not rewritten as clean runs. Formal proposed ADR status and independent Plan28/32/40/53/54 obligations are unchanged.
 
@@ -354,5 +354,6 @@ It runs all505 literal depth-two combinations followed by the separate no-defaul
 no covered Rust/tooling source is being edited. Earlier173-pass interrupted and330-pass historical
 campaigns remain incomplete, and are not silently reused. The current campaign must finish or
 retain its actual terminal interruption/failure before H03 closes. Documentation publication has
-passed658 chapters; final status/retirement reconciliation follows the campaign. Optional production
-selections remain at the coordinator and do not authorize further implementation.
+passed658 chapters; final status/retirement reconciliation follows the campaign. The maintainer has settled optional production
+selection through the ordinary baseline and concrete-consumer deferrals recorded by the coordinator;
+no additional implementation is authorized.

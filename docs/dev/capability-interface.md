@@ -471,8 +471,13 @@ native help defines exact input and discovery selections. Offline comparison doe
 service. `scripts/evidence_comparison_report.py SOURCE DESTINATION` validates an original comparison
 against the generated schema and writes a headless HTML report plus standalone plots. It preserves
 original JSON and links; it does not fetch protected detail links or infer causality from samples.
-Ordinary typed comparisons and native result readers remain available without CodeMode, protocol
-task projections or an interactive App. Those optional production routes remain unselected.
+The maintainer selected ordinary typed comparisons, original native result readers and headless
+reports on2026-10-25. Production CodeMode, protocol task projections/Docket, interactive Apps and
+multi-question batching are deferred. Revisit only for a concrete unmet branching, detach/reconnect,
+operator-interaction or same-cut multi-question consumer; task integration also needs a compatible
+actual host. [R-55](../adr/register.md) owns that revisit. Any positive adoption preserves original
+provenance, native outcomes, cancellation/drain and single-endpoint authority and needs explicit
+selection with its integration/acceptance.
 
 Read cancellation detaches the observer; its protected native operation finishes under its owner.
 Action cancellation signals only the owned helper and waits for its native drain. Diagnostic

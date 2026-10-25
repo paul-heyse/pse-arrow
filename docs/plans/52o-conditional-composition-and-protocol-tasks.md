@@ -1,6 +1,6 @@
 ---
 title: "Plan 52o: Conditional composition and protocol tasks"
-status: in-progress
+status: complete
 date: 2026-10-24
 adrs: []
 review_sources: [docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -427,3 +427,13 @@ starts first needs an original request-identity lookup; Docket's at-least-once r
 substitute for it. No Docket service, Apps interface, new CLI route, queue or production CodeMode/task
 binding is adopted. These are the recommended dispositions for the coordinator's pending operator
 question, not settled adoption decisions or authorization for further infrastructure.
+
+## Selected conditional disposition — 2026-10-25
+
+The maintainer accepted the ordinary typed-operation, original native-reader and headless-report
+baseline and deferred production CodeMode, protocol tasks, Apps and F03 batching until a concrete
+consumer needs them. The selected inquiry/delivery scope is complete; this does not deploy those
+optional mechanisms or turn failed/unqualified probe cases into successes. Existing source-specific
+Outcomes retain their conditions. [R-55](../adr/register.md) owns the concrete-consumer revisit;
+any later adoption needs explicit selection and its original integration/acceptance. Assembled
+qualification and the ongoing full feature campaign remain with52h.

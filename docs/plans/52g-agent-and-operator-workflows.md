@@ -1,6 +1,6 @@
 ---
 title: "Plan 52g: Agent and operator workflows"
-status: in-progress
+status: complete
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -355,5 +355,15 @@ rendering, elicitation/Apps and any production UI remain unselected pending that
 CodeMode/protocol tasks remain with [52o](52o-conditional-composition-and-protocol-tasks.md), and
 production F03 multi-question delivery remains separately unselected. No productivity benefit,
 statistical/causal inference, general agent reliability, full H02 journey qualification or H03
-scope-end campaign is established by these observations. This plan remains active for its remaining
-consumer and operator decisions; the coordinator owns their aggregate disposition.
+scope-end campaign is established by these observations. At that original cutoff, consumer/operator decisions remained open. The selected disposition below
+closes those inquiries without changing their actual evidence; the coordinator owns aggregate state.
+
+## Selected conditional disposition — 2026-10-25
+
+The maintainer accepted the ordinary typed-operation, original native-reader and headless-report
+baseline and deferred production CodeMode, protocol tasks, Apps and F03 batching until a concrete
+consumer needs them. The selected inquiry/delivery scope is complete; this does not deploy those
+optional mechanisms or turn failed/unqualified probe cases into successes. Existing source-specific
+Outcomes retain their conditions. [R-55](../adr/register.md) owns the concrete-consumer revisit;
+any later adoption needs explicit selection and its original integration/acceptance. Assembled
+qualification and the ongoing full feature campaign remain with52h.

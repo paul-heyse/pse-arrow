@@ -86,7 +86,8 @@ rendering limits. The
 records bounded real-Monty composition, task/native-owner and STDIO-loss inquiries, plus an OTel SDK
 baseline probe. The [resumed inquiry Outcome](52o-conditional-composition-and-protocol-tasks.md#resumed-inquiry-verification-and-outcome--2026-10-24)
 records actual Codex comparison, host/middleware task limits and original native uncertainty controls.
-Production CodeMode/task adoption remains unselected; the later telemetry cutover is recorded below. The separate
+The maintainer selected ordinary typed/native/headless delivery on2026-10-25 and deferred optional
+CodeMode/tasks/Apps/batching under R-55; the later telemetry cutover is recorded below. The separate
 [OpenTelemetry amendment](52-agent-effectiveness-and-engineering-workflows.md#opentelemetry-opportunity-dispositions)
 now schedules all twenty review opportunities through new
 [52p](52p-shared-telemetry-and-native-propagation.md),
