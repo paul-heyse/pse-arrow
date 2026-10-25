@@ -1204,6 +1204,11 @@ class HostAdmissionTests(unittest.TestCase):
     def test_parked_reference_service_survives_two_refusals_then_admitted_resume(
         self,
     ) -> None:
+        # This scenario requires an ordinary lane too small for its reference
+        # store. Supply that premise explicitly; the real functional lane fits
+        # 16 GiB and has independent positive admission controls.
+        policy = host.policy()
+        policy["functional"]["store_gib"] = 8
         service = self.directory / "service"
         self.directory.mkdir(mode=0o700)
         service.mkdir(mode=0o700, parents=True)
@@ -1258,6 +1263,7 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertTrue((state / "service-launch.json").is_file())
 
         with (
+            patch.object(host, "policy", return_value=policy),
             patch.object(host, "root_path", return_value=self.directory),
             patch.object(host, "inherit", side_effect=inherit) as inherited,
             patch.object(host, "enforce_parent"),
@@ -2137,13 +2143,14 @@ class HostAdmissionTests(unittest.TestCase):
     ) -> None:
         profile = host.select("store-functional")
         slots = host.settings("functional")["store_slots"]
-        self.assertEqual(profile.memory, 8 * host.GIB)
+        self.assertEqual(profile.memory, 16 * host.GIB)
+        self.assertEqual(host.select("store-functional", "16G"), profile)
         owners = [host.acquire(profile, directory=self.directory) for _ in range(slots)]
         with host.allocation_metadata(self.directory) as ledger:
             self.assertEqual(len(ledger["owners"]), slots)
             self.assertEqual(
                 sum(owner["memory"] for owner in ledger["owners"].values()),
-                slots * 8 * host.GIB,
+                slots * 16 * host.GIB,
             )
         begun = time.monotonic()
         with self.assertRaisesRegex(
@@ -2160,7 +2167,46 @@ class HostAdmissionTests(unittest.TestCase):
         for owner in owners:
             self.assertTrue(owner.release())
         with self.assertRaisesRegex(host.AdmissionError, "declared lane"):
-            host.select("store-functional", "9G")
+            host.select("store-functional", "16385M")
+
+    def test_exclusive_store_charge_reaches_both_finite_memory_ancestors(self) -> None:
+        profile = host.select("exclusive")
+        self.assertEqual(profile.memory, 144 * host.GIB)
+        self.assertEqual(host.settings("exclusive")["store_gib"], 16)
+        self.assertEqual(host.aggregate(profile), 168 * host.GIB)
+        owner = host.Allocation(self.directory, "a" * 32, profile, time.monotonic() + 1)
+        host.protected(self.directory)
+        group = self.directory / "cgroup"
+        group.mkdir(mode=0o700)
+        (group / "memory.max").write_text(str(168 * host.GIB))
+        with (
+            patch.object(host, "root_path", return_value=self.directory),
+            patch.object(
+                host.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
+            ) as run,
+            patch(
+                "scripts.pse_env.limits",
+                return_value=[("pse.slice", str(168 * host.GIB))],
+            ),
+            patch("scripts.pse_env.slice_group", return_value=group),
+        ):
+            host.enforce_parent(profile, {})
+            host.enforce_allocation(owner, {})
+        commands = [call.args[0] for call in run.call_args_list]
+        self.assertIn(f"MemoryMax={168 * host.GIB}", commands[0])
+        self.assertIn(f"MemoryMax={168 * host.GIB}", commands[2])
+        with (
+            patch.object(host, "root_path", return_value=self.directory),
+            patch.object(
+                host.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
+            ),
+            patch(
+                "scripts.pse_env.limits",
+                return_value=[("pse.slice", str(160 * host.GIB))],
+            ),
+            self.assertRaisesRegex(host.AdmissionError, "ancestor is below"),
+        ):
+            host.enforce_parent(profile, {})
 
     def test_unknown_store_owner_still_occupies_its_declared_slot(self) -> None:
         first = host.acquire(host.select("store-functional"), directory=self.directory)

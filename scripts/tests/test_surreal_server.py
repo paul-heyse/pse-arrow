@@ -2452,6 +2452,75 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.integer(allocation["server_memory_bytes"]),
         )
 
+    def test_ordinary_setup_server_default_follows_functional_store_policy(
+        self,
+    ) -> None:
+        declared = host.settings
+        for store_gib, override_mib, expected_gib in (
+            (16, None, 16),
+            (12, None, 12),
+            (12, 10240, 10),
+        ):
+            with self.subTest(store_gib=store_gib, override_mib=override_mib):
+                args = server.parser().parse_args(["setup", "--state", str(self.state)])
+                args.server_memory_mib = override_mib
+                with (
+                    patch.object(
+                        host,
+                        "settings",
+                        side_effect=lambda name, selected=store_gib: {
+                            **declared(name),
+                            **({"store_gib": selected} if name == "functional" else {}),
+                        },
+                    ),
+                    patch.object(
+                        server, "resources", wraps=server.resources
+                    ) as resources,
+                    patch.object(
+                        server,
+                        "install",
+                        side_effect=server.SupervisorError(
+                            "fixture installation boundary"
+                        ),
+                    ),
+                    self.assertRaisesRegex(
+                        server.SupervisorError, "fixture installation boundary"
+                    ),
+                ):
+                    server.setup(args)
+                resources.assert_called_once_with(
+                    48 * server.GIB, expected_gib * server.GIB, 1, 32 * server.GIB
+                )
+                self.assertFalse(self.state.exists())
+
+    def test_functional_and_borrowed_exclusive_store_accept_sixteen_gib_only(
+        self,
+    ) -> None:
+        resources = server.resources(
+            48 * server.GIB, 16 * server.GIB, 1, 32 * server.GIB
+        )
+        config: dict[str, object] = {"resources": resources}
+        for profile in (
+            host.select("store-functional", "16G"),
+            host.select("exclusive"),
+        ):
+            with self.subTest(profile=profile.name):
+                owner = host.Allocation(
+                    self.root, "a" * 32, profile, time.monotonic() + 1
+                )
+                self.assertEqual(
+                    server.storage_placement(config, owner)["memory_bytes"],
+                    16 * server.GIB,
+                )
+                oversized: dict[str, object] = {
+                    "resources": {
+                        **resources,
+                        "server_memory_bytes": 16 * server.GIB + server.MIB,
+                    }
+                }
+                with self.assertRaises((host.AdmissionError, server.SupervisorError)):
+                    server.storage_placement(oversized, owner)
+
     def current_observer_registration(
         self, *, pid: int | None = None
     ) -> dict[str, object]:

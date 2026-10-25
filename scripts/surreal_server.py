@@ -1518,7 +1518,9 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
     # Download first so network failure leaves no half-initialized application state.
     allocation = resources(
         (49152 if args.memory_mib is None else args.memory_mib) * MIB,
-        (8192 if args.server_memory_mib is None else args.server_memory_mib) * MIB,
+        host_admission.settings("functional")["store_gib"] * GIB
+        if args.server_memory_mib is None
+        else args.server_memory_mib * MIB,
         1 if args.native_workers is None else args.native_workers,
         (
             32768

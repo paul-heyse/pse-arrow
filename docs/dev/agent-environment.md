@@ -150,6 +150,13 @@ lane's existing `store_gib` in `.config/agent-capacity.toml`. Each admitted stor
 its complete finite charge. An unknown prior owner still occupies its slot; admitting
 another deployment never settles or frees the first deployment's effects.
 
+Ordinary server setup derives its default server allowance from the functional
+store declaration. Its default joint envelope is 48 GiB with one 32 GiB native
+worker; explicit server overrides still consume that same envelope. Exclusive
+admission includes its declared store and light-role allowances alongside the
+controller budget, and enforces the resulting aggregate at both finite memory
+ancestors. Timing and reference execution use their own declared capacities.
+
 Compile-heavy aggregate recipes (`clippy`, `hygiene`, `quality`, `governance` and
 `features-powerset`) select the compile default at their entry. Their nested commands
 retain that admitted owner, so an ordinary functional parent does not restrict a later
@@ -305,7 +312,7 @@ That setting does not establish safe concurrency for overlapping dirty graphs. U
 [Cargo #17508](https://github.com/rust-lang/cargo/issues/17508) reports a permanent deadlock
 between concurrent checks sharing dirty units; no fix is verified in the pinned nightly.
 Keep an overlapping same-target feature matrix or Clippy graph under one Cargo driver.
-Compiler jobs remain at the configured 16, and independent non-Cargo work can run concurrently.
+Compiler jobs remain at the configured 32, and independent non-Cargo work can run concurrently.
 Work that genuinely needs isolated concurrent builds uses its own checkout and target; do not
 create cold build copies merely to parallelize a matrix when storage/cold cost defeats the gain.
 Cargo-hack's native partitions are disjoint command groups, but their dependencies still share
