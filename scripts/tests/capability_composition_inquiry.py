@@ -121,10 +121,11 @@ class ReadGuard(Middleware):
         if policy is None:
             return await call_next(context)
         name = context.message.name
+        arguments = JSON.validate_python(context.message.arguments)
         policy.attempts += 1
         if name not in policy.eligible or policy.attempts > policy.max_calls:
             policy.incomplete = True
-            policy.records.append({"capability": name, "outcome": "dispatch-refused"})
+            policy.records.append({"capability": name, "arguments": arguments, "outcome": "dispatch-refused"})
             raise ToolError("opt01.execution_eligibility_or_call_bound")
         if policy.before_dispatch is not None:
             policy.before_dispatch()
@@ -132,19 +133,20 @@ class ReadGuard(Middleware):
             result = await call_next(context)
         except Exception:
             policy.incomplete = True
-            policy.records.append({"capability": name, "outcome": "reader-failed"})
+            policy.records.append({"capability": name, "arguments": arguments, "outcome": "reader-failed"})
             raise
         structured = JSON.validate_python(result.structured_content)
         size = len(encoded(structured))
         policy.transferred += size
         if policy.transferred > policy.max_bytes:
             policy.incomplete = True
-            policy.records.append({"capability": name, "outcome": "bytes-refused"})
+            policy.records.append({"capability": name, "arguments": arguments, "outcome": "bytes-refused"})
             raise ToolError("opt01.cumulative_callback_bytes")
         policy.incomplete |= result.is_error
         policy.records.append(
             {
                 "capability": name,
+                "arguments": arguments,
                 "outcome": "error" if result.is_error else "observed",
                 "structured": structured,
                 "meta": JSON.validate_python(result.meta),
@@ -163,13 +165,29 @@ class ReadGuard(Middleware):
 
 
 class BoundedMonty(MontySandboxProvider):
-    """Use the real framework sandbox; add the full callback-inclusive deadline."""
+    """Use the real sandbox with callback-inclusive cancellation, then join cleanup.
 
-    def __init__(self) -> None:
+    Cooperative cleanup may exceed the cancellation deadline. A detached native
+    reader retains its own lifetime; this wrapper cannot certify its drain.
+    """
+
+    def __init__(self, eligible: frozenset[str] = ELIGIBLE) -> None:
         super().__init__(
             limits={"max_memory": 100_000_000, "max_feed_duration_secs": 2}
         )
-        self.next_policy: Policy | None = None
+        self._request_policy: ContextVar[Policy | None] = ContextVar(
+            "opt01-next-policy", default=None
+        )
+        self.eligible = eligible
+
+    @property
+    def next_policy(self) -> Policy | None:
+        """A test-selected policy belongs to its calling request, never its peers."""
+        return self._request_policy.get()
+
+    @next_policy.setter
+    def next_policy(self, value: Policy | None) -> None:
+        self._request_policy.set(value)
 
     async def run(
         self,
@@ -178,7 +196,7 @@ class BoundedMonty(MontySandboxProvider):
         inputs: dict[str, JsonValue] | None = None,
         external_functions: dict[str, Callable[..., Awaitable[object]]] | None = None,
     ) -> dict[str, JsonValue]:
-        policy = self.next_policy or Policy()
+        policy = self.next_policy or Policy(eligible=self.eligible)
         token = ACTIVE.set(policy)
         wrapped = {}
         for name, callback in (external_functions or {}).items():
@@ -217,25 +235,33 @@ class BoundedMonty(MontySandboxProvider):
             ACTIVE.reset(token)
 
 
-def exact_factory(factory: DiscoveryToolFactory) -> DiscoveryToolFactory:
+def exact_factory(
+    factory: DiscoveryToolFactory, eligible: frozenset[str] = ELIGIBLE,
+) -> DiscoveryToolFactory:
     def make(get_catalog: GetToolCatalog) -> Tool:
         async def exact(ctx: Context) -> Sequence[Tool]:
-            return [tool for tool in await get_catalog(ctx) if tool.name in ELIGIBLE]
+            return [tool for tool in await get_catalog(ctx) if tool.name in eligible]
 
-        return factory(exact)
+        tool = factory(exact)
+        tool.annotations = ToolAnnotations(
+            readOnlyHint=True, destructiveHint=False, idempotentHint=True,
+        )
+        return tool
 
     return make
 
 
-async def inquiry_server() -> tuple[canonical.Runtime, BoundedMonty]:
+async def inquiry_server(
+    *, eligible: frozenset[str] = ELIGIBLE, additional_tools: tuple[Tool, ...] = (),
+) -> tuple[canonical.Runtime, BoundedMonty]:
     """Register public CodeMode-produced tools through the canonical binding seam."""
-    sandbox = BoundedMonty()
+    sandbox = BoundedMonty(eligible)
     transform = CodeMode(
         sandbox_provider=sandbox,
         discovery_tools=[
-            exact_factory(ListTools(name=LIST)),
-            exact_factory(GetSchemas(name=SCHEMAS)),
-            exact_factory(GetTags(name=TAGS)),
+            exact_factory(ListTools(name=LIST), eligible),
+            exact_factory(GetSchemas(name=SCHEMAS), eligible),
+            exact_factory(GetTags(name=TAGS), eligible),
         ],
         execute_tool_name="inquiry_kernel",
         max_tool_calls=8,
@@ -256,6 +282,7 @@ async def inquiry_server() -> tuple[canonical.Runtime, BoundedMonty]:
             annotations=ToolAnnotations(readOnlyHint=True, destructiveHint=False),
         )
     )
+    generated.extend(additional_tools)
 
     def inquiry_selected_results(
         outputs: Annotated[list[str], Field(min_length=1, max_length=3)],
