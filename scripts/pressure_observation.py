@@ -299,6 +299,8 @@ def sample(
 
 
 def capture(group: str | None) -> Capture:
+    from scripts.telemetry_metrics import host_metrics  # noqa: PLC0415 -- only explicit observation publishes metrics
+
     selected = (
         sample(group)
         if group is not None
@@ -312,7 +314,9 @@ def capture(group: str | None) -> Capture:
             reason="no selected cgroup",
         )
     )
-    return Capture(sample(), selected)
+    captured = Capture(sample(), selected)
+    host_metrics().publish_pressure(captured)
+    return captured
 
 
 def delta(previous: Sample, current: Sample) -> dict:

@@ -35,7 +35,7 @@ if TYPE_CHECKING:
         Mapping,
     )
 
-from scripts import build_environment, producer_deployment, validation_receipts
+from scripts import build_environment, producer_deployment, telemetry_metrics, validation_receipts
 from scripts.validation_scope import (
     EXCLUSIONS,
     FUNCTIONAL_SCOPES,
@@ -537,109 +537,116 @@ def tail(path: Path, lines: int = FAILURE_TAIL_LINES) -> list[str]:
 
 
 def execute(
-    root: Path, output: Path, name: str, command: list[str], env: dict[str, str]
+    root: Path, output: Path, name: str, command: list[str], env: dict[str, str],
 ) -> dict:
-    started = time.time()
-    path = output / f"{name}.log"
-    print(f"validation: {name}: {shlex.join(command)}; log {path}", flush=True)
-    with path.open("wb") as log:
-        follower = _Follower(path) if LIVE else None
-        if follower is not None:
-            follower.start()
-        try:
-            process = subprocess.Popen(
-                command,
-                cwd=root,
-                env=env,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-            try:
-                code = process.wait()
-            except KeyboardInterrupt:
-                # The child has its own session; terminate its whole group and wait,
-                # so no owned descendant outlives the retained "interrupted" record.
-                os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(process.pid, signal.SIGKILL)
-                code = -signal.SIGINT
-            error = None
-        except OSError as failure:
-            code = None
-            error = str(failure)
-            log.write((error + "\n").encode())
-        finally:
+    # Names are supplied by this command owner, never proc or trace inference.
+    stage = "discovery" if name.endswith("-enumeration") else "setup" if name in {"py-sync-native-correctness", "producer-deployment"} else "execution"
+    with telemetry_metrics.host_metrics().stage(stage) as stage_result:
+        started = time.time()
+        path = output / f"{name}.log"
+        print(f"validation: {name}: {shlex.join(command)}; log {path}", flush=True)
+        with path.open("wb") as log:
+            follower = _Follower(path) if LIVE else None
             if follower is not None:
-                log.flush()
-                follower.finished.set()
-                follower.join(timeout=5)
-    return {
-        "gate": name,
-        "command": command,
-        "exit_code": code,
-        "status": "passed"
-        if code == 0
-        else "interrupted"
-        if code is not None and code < 0
-        else "failed",
-        "spawn_error": error,
-        "started": started,
-        "ended": time.time(),
-        "elapsed_seconds": time.time() - started,
-        "log": f"{name}.log",
-        "results": [],
-        "report_errors": [],
-    }
+                follower.start()
+            try:
+                process = subprocess.Popen(
+                    command,
+                    cwd=root,
+                    env=env,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+                try:
+                    code = process.wait()
+                except KeyboardInterrupt:
+                    # The child has its own session; terminate its whole group and wait,
+                    # so no owned descendant outlives the retained "interrupted" record.
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.wait()
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(process.pid, signal.SIGKILL)
+                    code = -signal.SIGINT
+                error = None
+            except OSError as failure:
+                code = None
+                error = str(failure)
+                log.write((error + "\n").encode())
+            finally:
+                if follower is not None:
+                    log.flush()
+                    follower.finished.set()
+                    follower.join(timeout=5)
+        result = {
+            "gate": name,
+            "command": command,
+            "exit_code": code,
+            "status": "passed"
+            if code == 0
+            else "interrupted"
+            if code is not None and code < 0
+            else "failed",
+            "spawn_error": error,
+            "started": started,
+            "ended": time.time(),
+            "elapsed_seconds": time.time() - started,
+            "log": f"{name}.log",
+            "results": [],
+            "report_errors": [],
+        }
+
+        stage_result.update(status=result["status"], failure_class=telemetry_metrics.failure_class(result))
+        return result
 
 
 def checkpoint(output: Path, receipt: dict) -> None:
-    from scripts import assessment_store  # noqa: PLC0415
+    with telemetry_metrics.host_metrics().stage("publication"):
+        from scripts import assessment_store  # noqa: PLC0415
 
-    assessment_store.publish(output, receipt)
-    failures = [
-        {"gate": check["gate"], **result}
-        for check in receipt["checks"]
-        for result in check["results"]
-        if result["status"] != "passed"
-    ]
-    write_json(output / "test-findings.json", failures)
-    unsuccessful = [c for c in receipt["checks"] if c["status"] != "passed"]
-    write_json(output / "failures.json", unsuccessful)
-    lines = [
-        "# Validation assessment",
-        "",
-        f"Baseline: zero failures. Mode: {receipt['mode']}; command results do not constitute architecture review.",
-        "",
-        f"Attempted {len(receipt['checks'])}/{len(receipt['scope'])} checks; {len(unsuccessful)} unsuccessful checks.",
-        f"All checks attempted: {receipt['complete']}. Source unchanged: {receipt['source_unchanged']}.",
-        "",
-        "| Check | Status | Exit | Seconds | Log |",
-        "| --- | --- | --- | --- | --- |",
-    ]
-    for check in receipt["checks"]:
-        log = (
-            str(Path(check["origin"]) / check["log"])
-            if check.get("origin")
-            else check["log"]
-        )
-        lines.append(
-            f"| {check['gate']} | {check['status']} | {check['exit_code']} | {check['elapsed_seconds']:.1f} | [{check['log']}]({log}) |"
-        )
-    lines.extend(
-        (
+        assessment_store.publish(output, receipt)
+        failures = [
+            {"gate": check["gate"], **result}
+            for check in receipt["checks"]
+            for result in check["results"]
+            if result["status"] != "passed"
+        ]
+        write_json(output / "test-findings.json", failures)
+        unsuccessful = [c for c in receipt["checks"] if c["status"] != "passed"]
+        write_json(output / "failures.json", unsuccessful)
+        lines = [
+            "# Validation assessment",
             "",
-            "Native failures, errors and skips: [test-findings.json](test-findings.json).",
-            "Command/report failures: [failures.json](failures.json). Full commands and source drift: [checks.json](checks.json).",
+            f"Baseline: zero failures. Mode: {receipt['mode']}; command results do not constitute architecture review.",
             "",
+            f"Attempted {len(receipt['checks'])}/{len(receipt['scope'])} checks; {len(unsuccessful)} unsuccessful checks.",
+            f"All checks attempted: {receipt['complete']}. Source unchanged: {receipt['source_unchanged']}.",
+            "",
+            "| Check | Status | Exit | Seconds | Log |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for check in receipt["checks"]:
+            log = (
+                str(Path(check["origin"]) / check["log"])
+                if check.get("origin")
+                else check["log"]
+            )
+            lines.append(
+                f"| {check['gate']} | {check['status']} | {check['exit_code']} | {check['elapsed_seconds']:.1f} | [{check['log']}]({log}) |"
+            )
+        lines.extend(
+            (
+                "",
+                "Native failures, errors and skips: [test-findings.json](test-findings.json).",
+                "Command/report failures: [failures.json](failures.json). Full commands and source drift: [checks.json](checks.json).",
+                "",
+            )
         )
-    )
-    (output / "summary.md").write_text("\n".join(lines))
+        (output / "summary.md").write_text("\n".join(lines))
 
 
 REQUIRED_PROVENANCE = (
@@ -1205,12 +1212,14 @@ def run_gates(
         and all(validation_receipts.qualified(c) for c in receipt["checks"])
     )
     checkpoint(output, receipt)
-    test_resources.finish_report(
-        report_resource,
-        receipt,
-        roles=artifact_roles(output, receipt),
-        required_provenance=REQUIRED_PROVENANCE,
-    )
+    with telemetry_metrics.host_metrics().stage("teardown"):
+        test_resources.finish_report(
+            report_resource,
+            receipt,
+            roles=artifact_roles(output, receipt),
+            required_provenance=REQUIRED_PROVENANCE,
+        )
+    telemetry_metrics.host_metrics().assessment_finished(receipt)
     return int(not receipt["required_checks_covered"])
 
 

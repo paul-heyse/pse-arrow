@@ -434,6 +434,10 @@ def _compose(owner: ProcessLifetime) -> None:
         logging.getLogger().addHandler(handler)
         owner.handler = handler
     if wire.metrics.enabled:
+        from scripts.telemetry_metrics import (  # noqa: PLC0415
+            cumulative_temporality,
+            sdk_views,
+        )
         from opentelemetry.exporter.otlp.proto.http.metric_exporter import (  # noqa: PLC0415 -- SDK loaded only for selected signal
             OTLPMetricExporter,
         )
@@ -449,12 +453,14 @@ def _compose(owner: ProcessLifetime) -> None:
                 timeout=wire.metrics.timeout_ms / 1000,
                 compression=Compression.NoCompression,
                 session=_export_session(dict(wire.metrics.headers)),
+                preferred_temporality=cumulative_temporality(),
             ),
             export_interval_millis=wire.metric_export_interval_ms,
             export_timeout_millis=wire.metrics.timeout_ms,
         )
         meter_provider = MeterProvider(
-            resource=resource, metric_readers=[reader], shutdown_on_exit=False
+            resource=resource, metric_readers=[reader], shutdown_on_exit=False,
+            views=sdk_views(),
         )
         owner.providers.append(meter_provider)
         metrics.set_meter_provider(meter_provider)

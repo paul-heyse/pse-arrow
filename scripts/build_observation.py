@@ -13,7 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
-from scripts import host_admission, native_operation, resource_store
+from scripts import host_admission, native_operation, resource_store, telemetry_metrics
 
 
 def processes(pid: int, start: str) -> list[dict]:
@@ -90,6 +90,7 @@ class BuildObservation:
             },
         }
         self.last = 0.0
+        self.metric_stage: str | None = None
 
     def message(self, line: bytes, stream: str) -> None:
         if stream == "stderr" and b"Blocking waiting for file lock" in line:
@@ -115,6 +116,7 @@ class BuildObservation:
         }:
             return
         self.value["cargo_records"] += 1
+        telemetry_metrics.host_metrics().build_record(reason, value.get("fresh"))
         self.value["last_cargo_record"] = {
             key: value[key]
             for key in ("reason", "package_id", "target", "fresh", "success")
@@ -157,6 +159,9 @@ class BuildObservation:
             native_operation.write_json(
                 self.path, {**self.value, "observed_at": time.time()}
             )
+            if self.metric_stage != self.value["stage"]:
+                telemetry_metrics.host_metrics().build_stage(self.value["stage"])
+                self.metric_stage = self.value["stage"]
             self.last = now
         except (OSError, ValueError):
             pass  # Diagnostics cannot change Cargo's exit or compilation policy.
@@ -164,46 +169,56 @@ class BuildObservation:
 
 def run_command(command: list[str], *, env: dict[str, str]) -> int:
     """Preserve both byte streams and the command's exit while observing records."""
-    with subprocess.Popen(
+    child = subprocess.Popen(
         command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    ) as child:
-        try:
-            observation = BuildObservation(child.pid, env)
-        except (OSError, ValueError):
-            observation = None
-        with selectors.DefaultSelector() as selected:
-            buffers = {"stdout": b"", "stderr": b""}
-            for stream, name in ((child.stdout, "stdout"), (child.stderr, "stderr")):
-                if stream is None:
-                    raise RuntimeError("Cargo output stream was not created")
-                selected.register(stream, selectors.EVENT_READ, name)
-            while selected.get_map():
-                for key, _event in selected.select(0.2):
-                    name = key.data
-                    data = os.read(key.fd, 65536)
-                    if not data:
-                        selected.unregister(key.fileobj)
-                        continue
-                    destination = sys.stdout if name == "stdout" else sys.stderr
-                    if hasattr(destination, "buffer"):
-                        destination.buffer.write(data)
-                    else:
-                        destination.write(data.decode(errors="replace"))
-                    destination.flush()
-                    buffers[name] += data
-                    while b"\n" in buffers[name]:
-                        line, buffers[name] = buffers[name].split(b"\n", 1)
-                        if observation is not None:
-                            observation.message(line, name)
-                    buffers[name] = buffers[name][-1024 * 1024 :]
-                if observation is not None:
-                    observation.publish()
-        code = child.wait()
-        if observation is not None:
-            observation.value["exit_code"] = code
-            observation.value["status"] = "returned"
-            observation.publish(force=True)
-        return code
+    )
+    started = time.monotonic()
+    telemetry_metrics.host_metrics().build_started()
+    try:
+        with child:
+            try:
+                observation = BuildObservation(child.pid, env)
+            except (OSError, ValueError):
+                observation = None
+            with selectors.DefaultSelector() as selected:
+                buffers = {"stdout": b"", "stderr": b""}
+                for stream, name in ((child.stdout, "stdout"), (child.stderr, "stderr")):
+                    if stream is None:
+                        raise RuntimeError("Cargo output stream was not created")
+                    selected.register(stream, selectors.EVENT_READ, name)
+                while selected.get_map():
+                    for key, _event in selected.select(0.2):
+                        name = key.data
+                        data = os.read(key.fd, 65536)
+                        if not data:
+                            selected.unregister(key.fileobj)
+                            continue
+                        destination = sys.stdout if name == "stdout" else sys.stderr
+                        if hasattr(destination, "buffer"):
+                            destination.buffer.write(data)
+                        else:
+                            destination.write(data.decode(errors="replace"))
+                        destination.flush()
+                        buffers[name] += data
+                        while b"\n" in buffers[name]:
+                            line, buffers[name] = buffers[name].split(b"\n", 1)
+                            if observation is not None:
+                                observation.message(line, name)
+                        buffers[name] = buffers[name][-1024 * 1024 :]
+                    if observation is not None:
+                        observation.publish()
+            code = child.wait()
+            if observation is not None:
+                observation.value["exit_code"] = code
+                observation.value["status"] = "returned"
+                observation.publish(force=True)
+            return code
+    finally:
+        # Popen owns child settlement. An exceptional exit can leave a live child;
+        # never claim completion or a terminal duration without a settled exit.
+        code = child.poll()
+        if code is not None:
+            telemetry_metrics.host_metrics().build_finished(time.monotonic() - started, code)
 
 
 def observations(directory: Path) -> list[dict]:
