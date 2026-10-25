@@ -274,3 +274,53 @@ No dependency or new scientific boundary was added. Enduring operation is docume
 This completed companion stays for active coordinator/G/H consumers; Plan53, I14, F02 and 52o retain
 their independent obligations. Full solver-fleet, performance and assembled Plan52 qualification
 were not run or claimed.
+
+## LIFE04 verification and outcome — 2026-10-24
+
+**Implemented:** selected native readiness now distinguishes historical preparation/import evidence
+from a current installed artifact for the admitted checkout, interpreter, mode, profile and validated
+features. Passive discovery stays source-only. The executing native worker checks installed currency
+before importing the extension, binds the selected file witness, and checks the imported path/file
+again before entering the receiver. A changed or already unbound loaded artifact refuses rather than
+borrowing currency from a different subprocess import. Original preparation remains explicit and
+retains its actual publication/receipt result; no new builder, universal readiness bit or replay
+permission was added. MCP06 owns attachment, launch and private route/source agreement.
+
+**Tested — zero failure target, actual current native consumer:**
+`scripts/pse-env -- .venv/bin/python -m scripts.tests.plan52_conditional_acceptance --host build/capabilities-52o/current-native-consumer-20261024 --fixture build/capabilities-52o/conditional-f01-authentic-inputs-20261024 --prepare-native --timeout 900`
+passed 30 real Codex calls. The outer launcher used the ordinary environment; the explicit endpoint
+wrapper owned its complete native allocation. The original comparison first reported
+`pse.native.artifact_not_current` with an `inputs-changed` basis. Exactly one separately authorized
+`python_extension_native_stage` request selected `stage=prepare`, `profile=dev`, `validated=true`.
+Its original owner returned exit zero and publication of a native artifact with
+`force-validate`, `native-solvers` and `solver-highs`, SHA256
+`03d64563c90eeb89f78ceebb2eff680fcac2f72f68ef013f956e3ba643b5995c`.
+The subsequent fresh native worker returned the independently expected F01 document and exact cut
+`62dc140dacb87de90786b44f078d83dc27f052c6d2d75aec7f49c668ec2bfd58`.
+Original source coverage, imported-cut-only freshness, three/four test denominators and unexecuted
+membership survived the actual serialized response. The original preparation result, before/after
+answers and callback provenance remain in that host directory's `outcome.json`, raw JSONL and wire
+capture. No database service or scientific workload was started for this consumer.
+
+**Tested:** the inquiry guard retained one exact setup outside the read-only composition closure.
+Eleven controls in
+`scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_plan52_conditional_acceptance`
+passed with zero failures, including actual-current and exact stale before-bases and refusal to treat
+an unrelated native error as repairable currency. The actual run observed stale inputs; the
+actual-current branch is controlled-test evidence. Setup was not replayed. The additional successful
+CodeMode read in this disposable inquiry establishes no production adoption or productivity benefit.
+
+**Implemented; Tested — mistake corrected:** checking a fresh import in one subprocess could
+previously approve a different artifact from the executor's already loaded extension. Currency now
+precedes native import and is bound to the executor's observed file. Earlier preparation/readiness
+and source-change refusals retain their original outcomes. An explicit setup updates its selected
+artifact; it does not mutate an existing attachment's inherited environment or certify science.
+
+**Proposed — evidence limit:** this actual native proof was recorded after admission review baseline
+`3e99a220f74b31a063d3678534ff445d38ad8b7f` and before the ongoing study-result writer repair.
+The retained artifact/source basis is the proof boundary; subsequent Rust changes require fresh
+current-artifact admission and affected evidence. Earlier LIFE01–LIFE03 observations remain at their
+recorded scope, including unobserved drain and Codex progress-rendering limits. Production F03,
+CodeMode/tasks, interactive UI and human operator use remain unselected or unestablished at their
+existing owners. H02/H03 retain assembled and scope-end qualification; no full campaign, scientific
+adequacy or measured productivity claim follows from this read/admission delivery.

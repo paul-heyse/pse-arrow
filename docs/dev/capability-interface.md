@@ -346,6 +346,14 @@ Capture precedes composition and is verified afterward. Local imports remain con
 including package initializers and absent candidate paths whose later appearance changes resolution.
 Restart obtains a coherent endpoint; it never replays a prior action or hot-reloads a running handler.
 
+The operation revision includes its complete exposed MCP contract: schemas, annotations, metadata
+and descriptions. Fixed helpers receive a private request-local handoff binding the selected
+checkout, operation, worker route, source bytes and exact request. They verify those selected bytes
+before entering the owner. This verification does not compose or parse unrelated operations.
+Attachment reveal remains separate from operation identity. `environment_explain` shows the
+checkout/interpreter and distinguishes refreshed derived compiler widths from explicit overrides;
+its unevaluated-local-configuration result remains provisional.
+
 Guidance bodies load only when selected, with a bounded complete UTF-8 read and an identity check
 against startup. A changed captured guide retains its complete compatible snapshot and reports
 restart; a changed uncaptured guide refuses new content. The change affects that guide rather than
@@ -367,11 +375,25 @@ becoming a universal ready/not-ready answer. Browsing and passive checks do not 
 extension, start a service or publish files.
 
 `capability_readiness_check(request)` explicitly checks selected `import-compatible`,
-`selected-service` or `language-provider` prerequisites through their original owners. Language checks
+`native-currency`, `selected-service` or `language-provider` prerequisites through their original owners. Language checks
 need a language and file path. Import checks use the selected interpreter, binary origin/digest and
 required features; they do not build a missing extension. A toolkit service check does not establish
 availability of a request-specific canonical deployment. Checking prerequisites never qualifies the
 operation itself.
+
+`native-currency` selects a mode, profile and validation requirement. It compares current supported
+build inputs and the actual imported artifact against the existing preparation owner. Its outcomes
+are current, stale, unknown or unsupported; schema compatibility alone cannot establish currency.
+Native modes require already admitted providers and otherwise report unsupported rather than
+preparing them. Unknown inputs remain conservative build inputs; shell bookkeeping, endpoint
+selectors and explicit telemetry carriers retain their runtime meanings.
+
+Admitted native workers check currency before loading the extension. The binary's device, inode,
+size and nanosecond modification/change witnesses must remain unchanged through import, and the
+loaded path must match. An already loaded, unbound image refuses admission. Native telemetry then
+activates under the helper's existing shutdown owner. This binds the imported image at admission;
+it does not promise an immutable checkout for the entire operation. Explicit preparation may be
+necessary in the actual attachment environment even when another shell prepared the same checkout.
 
 `python_extension_dev_stage` and `python_extension_native_stage` accept a chosen `stage`, `profile`
 and `validated` selection. `environment` ensures locked dependencies, `prepare` builds/installs or
@@ -424,12 +446,33 @@ manifests and finite response/context limits refuse explicitly. The native prote
 validates original batches before selected-cell transport; this is not a projected-storage decode
 or a measured speed claim. Exact Arrow IPC remains the complete scientific data path.
 
+`native_evidence_compare` consumes original supplied snapshots through the native evidence owner.
+Describe its request and generated input/output documents rather than inventing snapshot fields.
+Select explicit baseline/candidate generations and supply correspondence when owner identities
+differ. Full denominators, ambiguity, missing execution and measurement incompatibility remain
+mandatory; optional member/context/sample sections have independent bounds. Continue only on the
+returned cut. Imported snapshots describe their supplied cut unless an original observer supplies
+freshness evidence. A comparison does not alter or qualify its source outcomes.
+
+The same owner serves `scripts/evidence_store.py compare-offline` and `compare-indexed`; their
+native help defines exact input and discovery selections. Offline comparison does not open a
+service. `scripts/evidence_comparison_report.py SOURCE DESTINATION` validates an original comparison
+against the generated schema and writes a headless HTML report plus standalone plots. It preserves
+original JSON and links; it does not fetch protected detail links or infer causality from samples.
+Ordinary typed comparisons and native result readers remain available without CodeMode, protocol
+task projections or an interactive App. Those optional production routes remain unselected.
+
 Read cancellation detaches the observer; its protected native operation finishes under its owner.
 Action cancellation signals only the owned helper and waits for its native drain. Diagnostic
 attachment never makes the observed subject a cancellation target. An interrupted or lost response
 does not prove rollback or terminal settlement: inspect the returned native output/invocation and
 its independent terminal report before retrying. Borrowed invocations retain their original
 outer terminal owner. No background task scheduler or implicit retry is introduced.
+
+Endpoint teardown attempts every independent telemetry and specialist owner. A failed connection
+exit remains visible after sibling settlement. Observer cancellation is repropagated after selected
+cleanup settles, with cleanup failures retained; an exception is not silently treated as successful
+drain. Native workloads retain their separate terminal/drain owners.
 
 Attached fixed workers publish bounded owner-issued stage/reference snapshots. A caller supplying a
 progress token can receive foreground `Context.report_progress` notifications with an increasing

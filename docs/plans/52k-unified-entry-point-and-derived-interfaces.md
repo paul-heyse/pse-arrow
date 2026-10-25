@@ -461,3 +461,48 @@ revealed 24 operations with about 80 KB of response content. The exact single-pa
 about 12 KB. These are observed response sizes, not measured productivity claims. CAP/ADP's
 existing definition owners and G03's remaining task-effectiveness work are the appropriate routes;
 this assessment does not authorize or claim those additional implementation changes.
+
+## MCP06 verification and outcome — 2026-10-24
+
+**Implemented:** the existing attachment and environment owners now disclose checkout/interpreter
+identity and distinguish intentional caller selections from derived defaults. Request-private
+admission carries the original complete tool contract, selected source basis, fixed worker route
+and request bytes to the executing owner. Child verification checks the admitted source set
+without parsing unrelated imported implementations. Fixed native read routes derive from their
+original bindings. The shared qualification module retains distinct `qualification` and
+`rust-tests` admission routes; revealing or resetting tools does not replace native admission.
+
+**Tested — zero failure target, source-only attachment conditions:**
+`scripts/pse-env -- .venv/bin/python -m scripts.tests.plan52_execution_identity_acceptance --worktree /home/paul/pse-arrow-wt/plan52-attachment-acceptance --output build/plan52-execution-identity-20261024.json`
+passed two real STDIO attachments. The main checkout retained its explicit compiler-width value
+16; the independent checkout resolved its default 32 and its own checkout-relative wrapper. These
+are selected precedence controls, not host resource recommendations. Reveal/reset state stayed
+independent. A changed serving source refused in the affected attachment, the other attachment
+remained usable, restored source was checked, and fresh reattachment passed. The receipt records
+both original checkout/interpreter identities. This source-only experiment compiled no native
+artifact and establishes no cross-checkout artifact equivalence or scientific outcome.
+
+**Tested:** the fresh G01 actual-Codex action/result journey passed after the route correction;
+its exact command, original invocation and independent result are owned by
+[52g's bounded workflow Outcome](52g-agent-and-operator-workflows.md#verification-and-outcome--bounded-workflow-consumers-2026-10-24).
+The current-artifact F01 consumer used the same canonical native read binding after explicit
+selected-environment preparation; [LIFE04's Outcome](52n-readiness-progress-and-edit-lifecycles.md#life04-verification-and-outcome--2026-10-24)
+records its source cut, artifact and original owner evidence. These positive consumers complement
+route/source/wire controls; they do not turn a declared route into proof that every native read
+was exercised through the actual host.
+
+**Implemented; Tested — mistake corrected:** current-checkout execution exposed a valid Rust
+request being checked against the shared module's wrong worker route. The narrow route selection
+and real private-handoff regressions preserve wrong-route refusal while allowing the actual
+original Rust owner. Independent review also corrected an incomplete native-operation allowlist,
+unrelated-source expansion during child verification and an import-currency race. The import and
+file-witness contract belongs to LIFE04. Earlier refused host turns remain attributed rather than
+being recast as completed actions.
+
+**Proposed — remaining boundaries:** ordinary approval policy and the original native effect,
+handle, drain and scientific authorities remain unchanged. Optional production CodeMode/tasks and
+the operator UI are unselected pending their existing operator decisions. The native consumer
+recorded after review baseline `3e99a220f74b31a063d3678534ff445d38ad8b7f` precedes the study-result
+writer repair; a later Rust artifact requires its own current basis. Full H02/H03 and trace-continuity
+claims remain with their owning plans. This update records MCP06's bounded delivery and consumers,
+without reopening or strengthening the historical MCP01–MCP05 qualification.

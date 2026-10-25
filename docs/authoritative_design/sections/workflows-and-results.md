@@ -467,6 +467,12 @@ intent without repeating science or inventing durable success. Native study work
 `workflow/staged`, `workflow/run`, `workflow/completion`, `workflow/modeling_results` and
 fitting preparation.
 
+Independent native study work calls retain distinct claim request identities even when they share
+one Runtime worker label and candidate revision. Each call reuses only its own identity through
+protected retries and acknowledgment settlement. A replayed receipt cannot grant another caller
+custody of a winning attempt or permission to close its result ingestion. Dispatch, ingestion,
+manifest publication and original outcome guards remain independent.
+
 Declared benchmark and diagnostic consumers keep the exact retained prepared model instead
 of detaching its analysis and resolving the same structure again. Diagnostic resolution keeps
 its missing-free-value policy independently of the authored execution procedure; legitimate

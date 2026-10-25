@@ -327,3 +327,103 @@ review/deployment remains unstarted. Actual-Codex acceptance was not started bef
 owned source changes are integrated directly on main; no owned worktree requires merge or removal.
 Preserve unrelated concurrent review edits. Resume from the remaining OPT01/OPT02 obligations above
 after the maintainer selects the next work; do not implicitly enable these experimental paths.
+
+## Resumed inquiry Verification and Outcome — 2026-10-24
+
+**Tested:** the authorized OPT01/OPT02 inquiry now includes actual fresh Codex execution and
+original durable Study observations. This section supersedes the pause checkpoint's outstanding
+inquiry list and preliminary mechanism recommendations; it does not close production adoption.
+The [coordinator](52-agent-effectiveness-and-engineering-workflows.md#usability-rule-decisions)
+owns the pending RC02/RC03 operator question. All inquiry-owned processes and disposable services
+are stopped; failed fixture state and original receipts are retained. These observations establish
+neither F02 trace continuity nor whole-Plan52 qualification.
+
+### Verification
+
+The explicit driver is
+[`plan52_conditional_acceptance.py`](../../scripts/tests/plan52_conditional_acceptance.py), alongside
+the original composition/task inquiry drivers. Commands below describe the captured modes;
+`<fresh-output>` must be new and native cases require their explicitly owned, initialized fixture.
+Failure baseline is zero. A failed integrated task claim remains failed despite separately passing
+direct-method and native-owner controls.
+
+| Command or existing case | Evidence and exact result |
+|---|---|
+| `scripts/pse-env -- .venv/bin/python -m scripts.tests.plan52_conditional_acceptance --controls <fresh-output>` | **Tested, passed:** seven in-process groups in `build/capabilities-52o/conditional-controls-20261024-4/result.json`: `concurrent_request_policy_isolation`, `changed_callback_source`, `caught_callback_failure`, `deadline_cleanup_failure`, `deadline_is_cancellation_not_hard_return_bound`, `live_intermediate_memory_bound` and `sandbox_compute_bound`. The changed-source case mutates a copied real callback source and reaches the original canonical restart fence; shared serving sources remain untouched. |
+| `scripts/pse-env -- .venv/bin/python -m scripts.tests.plan52_conditional_acceptance --host <fresh-output> --fixture <reader-fixture>`; retained evidence reassessed with `--assess-host <captured-output> --fixture <reader-fixture>` | **Tested, passed:** actual frozen-reader Codex comparison, 22 MCP calls, in `conditional-codex-controls-20261024-2/reassessed-outcome.json` under the same artifact root. Reassessment accepts identical repeated focused reads while retaining every raw response and rejecting conflicting facts; it is not another model execution. Reader fixtures alone establish no scientific execution or host task support. |
+| `scripts/pse-env -- .venv/bin/python -m scripts.tests.plan52_conditional_acceptance --host <fresh-output> --fixture <authentic-F01-inputs> --prepare-native` | **Tested, passed:** 30 actual MCP calls in `conditional-codex-f01-20261024-third/outcome.json`; raw host events, wire requests/responses and `negotiation.json` are adjacent. Six original retained managed invocations feed the actual native typed comparison and model-authored CodeMode; the independent expected answer is kept outside model-visible input custody. |
+| `scripts/pse-env --native -- .venv/bin/python -m scripts.tests.plan52_conditional_acceptance --native-fixture <fresh-output>` and original-owner recovery sessions | **Tested, mixed:** acknowledged queued/pre-native state, reopen, cancellation and terminal recovery were observed through public Runtime owners. `conditional-native-20261024-second/owned-study-cleanup.json` retains the original identity across service restart and finalization. The integrated task-claim journey in `conditional-native-20261024-fourth/acceptance.json` failed; its separate `public-task-methods-check.json` passed direct public `tasks/get` against the exact original terminal native snapshot. This is not a passing integrated task journey. |
+| Existing `authentic_lost_start_ack` subprobe, disposable `--serve-lost-start` endpoint and original-owner cleanup on the already owned fixture | **Tested, passed as an uncertainty control:** `conditional-native-lost-ack-20261024/result.json` records exactly one genuine native start, endpoint exit before acknowledgement, client connection loss with no native identity, no automatic retry and client effect `unknown`. The independent oracle alone inspected/cancelled/finalized the original study; its hidden identity was never supplied to client recovery. |
+| `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_plan52_conditional_acceptance` | **Tested, passed:** the inquiry's eight original focused oracle/setup controls reject altered summaries, digests, partiality, missing provenance, unfinished/noncanonical execution and shared expected/input custody; they accept consistent repeated focused reads and enforce exact once-only preparation outside composition. Synthetic event controls are not evidence of actual Codex behavior. |
+
+**Measured, bounded serialized-result sizes:** the authentic F01 host capture returned 91,083 bytes
+for six small reads, 11,019 bytes for the typed native answer and 82,657 bytes for CodeMode with full
+recoverable callback provenance. These are serialized MCP result bytes for that captured population,
+excluding discovery and preparation; paths, envelopes and selected detail affect them. No latency,
+token, productivity or general context-saving benefit is established. Native comparison and CodeMode retain the original
+cut `62dc140dacb87de90786b44f078d83dc27f052c6d2d75aec7f49c668ec2bfd58`:
+baseline 3/candidate 4 tests, 3 pairs, 1 resolved failure, 1 persistent failure, 1 unexecuted and 1 unmatched
+candidate, with a changed denominator. Original partial coverage remains partial; no scientific
+regression, causal or flakiness verdict follows.
+
+**Tested:** the actual Codex 0.164.0 client requested and negotiated MCP `2025-06-18`; its captured
+initialization advertised no task support and issued no modern task methods. A separate modern
+test client reaching a public extension does not establish compatibility in this actual host.
+The actual F01 setup retained the original `artifact_not_current` refusal, then exactly one explicitly
+authorized `python_extension_native_stage` preparation with `stage=prepare`, `profile=dev` and
+`validated=true`, followed by the original successful comparison. Preparation ran outside the pure
+read-only CodeMode callbacks. The test endpoint's linked attachment belongs to
+`scripts/pse-env --native`; the outer host driver uses ordinary `scripts/pse-env --`. These setup
+effects grant no scientific execution or automatic replay authority and change no ordinary
+production endpoint registration.
+
+**Tested:** callback eligibility and limits remain request-local and independent of catalogue
+visibility, annotations and wrapper dispatch. Caught callback/source refusals preserve incomplete
+observations; cleanup failure cannot become successful completion. The cancellation control requested
+0.03 seconds and returned after 0.1105 seconds while joining cooperative cleanup. Thus a callback-inclusive
+deadline initiates cancellation rather than guaranteeing hard return time or native drain. Detached
+native reader lifetimes retain their original owner; cancelling a composition cannot promise rollback.
+
+### Outcome and pending disposition
+
+**Implemented, inquiry only:** public `ServerExtension` task methods can project an acknowledged
+native StudyId and its original terminal result without another scheduler or result authority.
+**Tested, failed:** the captured outer task claim encountered the canonical observer's ordinary
+ToolResult assumption (`CreateTaskResult` has no `.meta`). Public task serialization availability
+does not fix that middleware contract. No production middleware adaptation is selected here. The
+passing direct `tasks/get` case reports a native cancellation as protocol `completed` and explicitly
+does not certify scientific success or physical drain.
+
+**Tested:** acknowledged native queued metadata survived reopen and the original owners cancelled
+and finalized pre-native work. Genuine lost-start acknowledgement remains unresolved for the client:
+the inspected public `record_study`/`start_study`/`study`/`work` sequence provides no request-key lookup
+for reconciling an unknown admission without its returned identity. Exactly one observed start and
+independent cleanup do not establish client recovery or exactly-once effects. Native-entry/running
+reopen, queued protocol cancellation, successful canonical outer task initiation and full task
+conformance remain **not_run or unqualified**. Protocol acknowledgements remain separate from native
+terminal/result and physical drain.
+
+**Mistakes corrected:** fixed reader and native-tool responses have distinct original envelope
+shapes; the assessor now checks each owner shape. The test discovery metadata now truthfully marks
+read-only tools for the actual host. An outer native launch lost its verified allocation environment
+at the stripped host boundary; the corrected test endpoint obtains authentic admission from its own
+environment owner instead of forwarding partial allocation tokens. The original failures are retained.
+Native identity construction, projection context access and child transport environment were repaired
+within the driver; they do not conceal the remaining outer-claim incompatibility.
+
+**Proposed, awaiting operator selection:** defer production CodeMode for RC02 and retain typed native
+F01 comparison plus exact original small reads. Actual branching over immutable readers works, but
+the recurring comparison already has a substantially smaller typed answer under full provenance.
+Revisit when a concrete valuable ad hoc branching investigation is unmet by typed owners. Any selected
+adoption must fix the immutable execution closure independently of discovery, preserve original
+cuts/arguments/responses/completeness, isolate per-request policies and explicitly choose callback,
+output, cancellation and detached-native lifetime bounds.
+
+**Proposed, awaiting operator selection:** defer production task infrastructure/projection for RC03
+and retain acknowledged native StudyId status/cancel/result/reopen routes. Revisit when an actual
+compatible modern host and an unmet detach/reconnect consumer justify deliberate wrapper/observer,
+retention, cancellation and native reconciliation integration. A promise to recover unknown native
+starts first needs an original request-identity lookup; Docket's at-least-once redelivery cannot
+substitute for it. No Docket service, Apps interface, new CLI route, queue or production CodeMode/task
+binding is adopted. These are the recommended dispositions for the coordinator's pending operator
+question, not settled adoption decisions or authorization for further infrastructure.

@@ -219,3 +219,73 @@ Plan40 qualification. Actual transport and database behavior need real bounded c
 addition to pure interpretation fixtures. Force-validation accompanies Arrow-consuming checks.
 53e E05 owns the assessment reader/custody migration and F01 migrates its actual comparison consumers with it; F03 can wait independently. 52h and 53g can share an authentic same-cut journey while retaining distinct assertions. 52h qualifies composed investigations; neither a complete trace nor a passing comparison engine
 establishes a scientifically valid result or a measured performance improvement.
+
+## Outcome — 2026-10-25
+
+### What was built
+
+**Implemented:** F01 is a Rust-owned version1 comparison request/result over the unchanged
+version2 source snapshot. Exact generations and correspondence preserve original identities,
+ambiguity, unexecuted/unmatched populations, measurement conditions and full denominators.
+Mandatory compact facts precede independently selected/paged detail; continuations bind the
+same cut. Python, offline/indexed CLI, canonical FastMCP and headless HTML/SVG/PNG consumers
+share this contract. ADR-0225 remains formally proposed.
+
+**Tested, baseline zero:** the current operations selection passed 57 tests, zero failures:
+`just unit-package pse-operations 'test(evidence_query::) | test(evidence::tests::) | test(canonical::transport::tests::) | test(canonical::lifetime::tests::)'`,
+invocation `ee0bba9bf8b044fb83ecbcda3b4db8f0`. Independent native oracles cover pairs, hidden
+large-cut ambiguity, mappings, repeated mixed outcomes, incompatible/noisy measurements and
+strict codecs. Authentic source/native/offline equivalence is retained under
+`build/plan52-f01-authentic-20261024`: the tiny selection has 3 baseline/4 candidate subjects,
+3 pairs, 1 resolved, 1 persistent, 1 unexecuted and 1 unmatched candidate; the larger original
+selection retains 14 resolved/17 persistent/218 unchanged pairs. This is typed equivalence,
+not byte equality between omitted optional fields and materialized nulls. Indexed same-cut,
+duplicate-import/cursor/custody and headless-renderer controls passed separately. G03/52o
+Outcomes own actual Codex reads; no operator UI use or productivity benefit is claimed.
+
+**Implemented and Tested:** F02 extends the pinned SDK task/header seam and narrow native-host
+span filter. The real original-owner continuation
+`scripts/pse-env --native -- .venv/bin/python /tmp/pse-f02-owned-journey.py retry7`
+passed against the explicitly initialized F02 endpoint and existing telemetry pipeline.
+The retained driver is `scripts/tests/plan52_f02_acceptance.py`; the temporary wrapper selects
+the original fixture and settles prior subjects through their owners. Under
+`~/.local/state/pse-arrow/telemetry-qualification/plan52-f02-20261024-first/retry7`,
+`acceptance.json` verifies two independent 11-edge parent chains in each of continuous and
+finite modes: FastMCP/Python→native helper/sibling→Rust operation→SDK→server→executor→module.
+Span IDs establish sibling parents and process incarnations. Continuous retrieval supplied
+2,968 rows; finite joined retrieval supplied 3,584 rows. Both explicitly retain bounded
+retrieval rather than claiming complete backend populations.
+
+Finite capture retained 2,389 spans/1,404,032 bytes with zero omissions/capture errors,
+workload exit0 and restoration `restored`. Native cancellation/missing-branch refusal remain
+independent in each producer document. `lifecycle.json` and `owned-study-cleanup.json` retain
+successful original-owner settlement of the four exact subjects and stopped/drained endpoint.
+Separate real HTTP/2 SDK controls cover absent context, stream completion, errors/cancellation
+and dispatch uncertainty; operations controls cover connection/reconnect lifetime. Selected
+functional continuity proves neither exact-once/durable telemetry nor whole-product behavior.
+
+**Interface-checked and Tested, inquiry only:** F03 used one native analysis for sequential
+existing questions and authentic comparison consumers. 52o retains actual CodeMode/small-read
+comparison evidence. Ordinary typed comparison/original readers remain delivered. Production
+multi-question, CodeMode, task and Apps adoption remain unselected; recommended deferral is
+not operator acceptance. A concrete repeated same-cut question is the revisit condition.
+
+### A mistake made and corrected
+
+The concurrent scientific producer exposed shared claim custody: rejected duplicate-dispatch
+cleanup could close the winning publisher's ingestion. Each actual claim now retains its own
+UUIDv7 through retries/acknowledgement settlement, preserving the writer guard. The two-study
+native regression passed with distinct attempts/manifests, one attempt per point, objectives
+near 0.5 and summary publication; the refreshed extension then passed the trace journey.
+Earlier failures retain their original conditions.
+
+An earlier intermittent decoder failure was not attributed conclusively. Bounded per-thread
+decoder ownership and ordinary version/value/concurrency controls passed; this is neither
+a proved crash cause nor sanitizer/fuzz qualification. C04 retains its accepted fallback.
+
+### Deviations from the plan, deliberate
+
+The original bounded capture/restoration owner was reused. No arbitrary SQL, generic batch
+executor, durable analysis handle or replacement sink was added. Representative studies expose
+the required distinctions without a production-width scientific campaign. Scope-end/manual and
+assembled reporting remains with 52h; Plan40e/Plan53 retain their separate acceptance.

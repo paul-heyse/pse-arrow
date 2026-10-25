@@ -1,6 +1,6 @@
 ---
 title: "Plan 52g: Agent and operator workflows"
-status: draft
+status: in-progress
 date: 2026-10-23
 adrs: []
 review_sources: [docs/functional_reviews/agent-effectiveness-opportunities-2026-10-23.md, docs/functional_reviews/unified-fastmcp-capability-interface-2026-10-24.md, docs/plan_improvement_reviews/test-architecture-remaining-2026-10-24.md, docs/functional_reviews/fastmcp-usability-and-tooling-evolution-2026-10-24.md, docs/functional_reviews/opentelemetry-and-agent-observability-2026-10-24.md]
@@ -271,3 +271,89 @@ observations; G04 consumes declared ownership and source relationships. Targeted
 composition fixtures accompany changed behavior, while 52h and 53g coordinate applicable describe→prepare→execute→watch/read, relevant schema/restart, interrupted protected-read and explicit-comparison executions without duplicating acceptance authority. Share runs only when source/inputs/population/mode/guarantees agree; host attachment, native outcome, scientific adequacy, custody and cleanup retain separate assertions. 52h owns assembled agent/operator journeys
 and scope-end checks. No tool transport or dashboard changes native terminal, scientific, scope
 or authorization truth.
+
+## Verification and Outcome — bounded workflow consumers, 2026-10-24
+
+### Delivered scope and verification
+
+**Implemented:** G01/G02 consume the canonical discovery, preparation, native action, original
+handle and result readers. F01 correspondence remains native-owned; workflow adapters and the
+headless view do not pair subjects or rewrite scientific outcomes. G03 has a deliberately invoked
+actual-Codex driver, G04 exposes the read-only ownership/integration view, and G05 renders the
+original typed comparison as HTML plus standalone SVG/PNG. These are selected workflow deliveries;
+the coordinator retains overall completion and qualification state.
+
+**Tested — zero failure target, local pinned environment:**
+
+- `scripts/pse-env -- .venv/bin/python -m scripts.tests.capability_codex_check --output build/capabilities-52k/g01-remaining-20261024-final --timeout 900`
+  passed all nine journey stages and 22 canonical calls. The independently read original invocation
+  `e824f97fecd54b3aba9b74e0b114208e` selected one
+  `pse-ids::float::tests::f32_nan_variants_collapse_too` unit: one pass, zero failures and complete
+  owned drain. Guidance/package digests, exact concept identity, resets and the original result
+  reader were checked. This does not establish Codex progress rendering or broader scientific scope.
+- `scripts/pse-env -- .venv/bin/python -m scripts.tests.plan52_agent_workflows_acceptance --output build/capabilities-52g/workflows-readonly-20261024 --case stale --case partial --case planning --timeout 600`
+  produced three actual source-only turns. Their retained `verified-outcome.json` records seven,
+  seven and eight canonical calls, respectively, with zero actions. The obsolete-codec case refused
+  v2 interpretation of an original v3 invocation without substituting another basis. The partial
+  case preserved original `d79c6bfcbbd248a38388c09b0b225827`'s `not_run`, incomplete terminal and
+  absent workload exit. The planning case retrieved the complete planning skill, stayed proposed-only
+  and disclosed that its document query supplied metadata rather than the owning plan body. It is
+  phase-preservation evidence, not a complete implementation plan or generic stale-content proof.
+- The generated-contract case invoked `contracts_generate` exactly once through the actual host,
+  with output `build/capabilities-52g/workflows-generated-20261024/generated/generation`. The
+  original `codegen-contracts` gate passed and its assessment was read. An initially unselected
+  generated-guide read remained refused. The subsequent command
+  `scripts/pse-env -- .venv/bin/python -m scripts.tests.plan52_agent_workflows_acceptance --output build/capabilities-52g/workflows-generated-recovery-20261024-final --case generated-recovery --timeout 600`
+  passed seven calls with zero actions: it selected `change-generated-contract`, read the complete
+  guide with its original digest, and read the same original assessment. The composed case retains
+  the first turn's partial outcome and the intervening source-change refusal; generation was not
+  replayed. `composed-outcome.json` in the final recovery directory links the separate original proofs.
+- `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_capability_integration_view`
+  passed 12 controls, zero failures, covering explicit/disjoint/overlapping ownership, stale witnesses,
+  generated consumers, unrelated dirt, conflicts, retirement limits and serialized bounds. The real
+  canonical `workspace_integration_view` read retained in
+  `build/plan52-integration-canonical-20261024.json` returned the advertised complete read. With no
+  caller ownership claims, its eleven changed paths stayed unknown and excluded from commit
+  selection. The read performed no staging, merging, deletion or completion certification.
+- The explicit `scripts.tests.plan52_evidence_inquiry.run(..., plots=True)` inquiry used six authentic
+  original-owner snapshots and independent expected fields, comparing detailed and compact native
+  answers on cut `62dc140dacb87de90786b44f078d83dc27f052c6d2d75aec7f49c668ec2bfd58`.
+  Retained inputs, inquiry and report are under `build/plan52-f01-authentic-20261024/`; the headless
+  view is `g05-inquiry/report/comparison.html`, with `outcomes.svg` and `outcomes.png`.
+  Matplotlib 3.11.2 rendered the plots; the PNG was inspected for readable labels, counts, cut
+  attribution and overlapping-axis qualification. The report preserves three baseline/four candidate
+  subjects, one resolved failure, one persistent failure, one unexecuted pair and one unmatched
+  candidate. These historical infrastructure/test outcomes do not establish current scientific quality.
+
+**Tested:** G02's two independent source-only attachments and current native preparation/read
+consumer are recorded at their mechanism owners: [MCP06](52k-unified-entry-point-and-derived-interfaces.md#mcp06-verification-and-outcome--2026-10-24)
+and [LIFE04](52n-readiness-progress-and-edit-lifecycles.md#life04-verification-and-outcome--2026-10-24).
+The post-review native F01 consumer predates the ongoing study-result writer repair; its artifact
+proof does not qualify subsequently changed Rust code.
+
+### A mistake made and corrected
+
+**Implemented; Tested:** the shared qualification worker initially verified a valid `rust-test`
+request against the `qualification` route rather than its admitted `rust-tests` route. The worker
+now selects the original closed route before verification. Three private-handoff controls passed,
+including wrong-route refusal before effects, and the final G01 journey exercised the corrected
+boundary. Earlier admission refusals remain in their original evidence. G03 also exposed the need
+to reveal the generated guide through its workflow; recovery acquired that read without repeating
+the successful generator action. The stale-case verifier's initial guessed adapter-status spelling
+was corrected against the original owner's explicit codec-mismatch result and the same captured
+trace; no native or model replay supplied that correction.
+
+### Deliberate limits and next selection
+
+**Implemented:** G04 remains explanatory and read-only; source witnesses and caller claims support
+proposals without granting hunk ownership or authorizing integration. Headless G05 remains usable
+through ordinary typed parameters and original source/result links. The bounded inspection found
+no need to add a mandatory interactive surface.
+
+**Proposed:** I13's operator decision remains open. Actual human operator use, interactive host
+rendering, elicitation/Apps and any production UI remain unselected pending that decision. Production
+CodeMode/protocol tasks remain with [52o](52o-conditional-composition-and-protocol-tasks.md), and
+production F03 multi-question delivery remains separately unselected. No productivity benefit,
+statistical/causal inference, general agent reliability, full H02 journey qualification or H03
+scope-end campaign is established by these observations. This plan remains active for its remaining
+consumer and operator decisions; the coordinator owns their aggregate disposition.

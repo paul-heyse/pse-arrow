@@ -455,9 +455,14 @@ are excluded. `trace-capture --state STATE --output FRESH -- COMMAND ARGUMENTS` 
 starts a finite loopback telemetry sink, restarts the owned service with temporary export,
 runs literal argv, restores baseline logging/export and drains the sink. These are service
 mutations, not passive polling. Capture, workload, restoration and cleanup outcomes remain
-separate. Actual server executor→Surrealism parentage is available; application-originating
-Rust trace context is not established. No permanent telemetry deployment or additional
-operations MCP is required.
+separate. The pinned SDK carries request-local W3C context across dispatcher/transport task
+handoffs into authenticated gRPC metadata. With the shared providers and selected pipeline,
+actual Python/FastMCP→native Rust→SDK→server executor→Surrealism parent chains are available;
+concurrent siblings retain their own parents. SDK response/decode spans retain stream lifetime
+and dispatch uncertainty. Missing context and retrieval gaps remain explicit. The continuous
+Collector/OpenObserve pipeline has its own service lifecycle; finite capture temporarily selects
+its bounded sink and restores the original configuration. Neither path changes native scientific
+outcomes, proves durable delivery, or adds another operations MCP.
 
 Schema/query alternatives use disposable SurrealKit contexts under their existing resource
 owner. Actor-specific rehearsal checks independently read back state: a restricted empty

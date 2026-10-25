@@ -131,12 +131,14 @@ not exclusive CPU cost. Uno accepted and termination-trial checkpoint ordinals r
 distinct from generic iteration numbers. Optional capture failure changes no numerical outcome.
 
 
-**Paired evidence target.** Proposed ADR-0225 places finite baseline/candidate comparison in the
-existing native evidence-analysis owner. Exact compatible owner identity or supplied mapping governs
-pairing; unmatched, ambiguous, missing execution and changed selection remain explicit. Original
-source cuts, full denominators and per-section completeness survive selected canonical/offline reads.
-Measurement incompatibility is not repaired by statistical aggregation, and comparison never changes
-original scientific or qualification outcomes. Implementation and qualification remain Plan52 F01/H02.
+**Paired evidence.** Finite baseline/candidate comparison is implemented in the existing native
+evidence-analysis owner (ADR-0225 remains a proposed decision record). Exact compatible owner
+identity or supplied mapping governs correspondence; unmatched, ambiguous, mixed and unexecuted
+subjects remain explicit. Source cuts, full denominators and independently selected sections
+survive native, indexed, offline and canonical consumers. Measurement context incompatibility and
+missing associations remain inconclusive rather than being repaired by aggregation. The headless
+report consumes the same original document and never changes scientific or qualification outcomes.
+
 
 **Shared diagnostic telemetry.** Maintainer-selected Plan52 OpenTelemetry RC01/RC02 add a
 persistent native Collector and local OpenObserve projection alongside finite capture. The process
@@ -205,8 +207,12 @@ original-generation recovery and existing retention/credentials preserved. Colle
 and actual database OTLP metrics share the selected pipeline; database launch identity distinguishes
 restart incarnations. Native OSS scheduled watches observe selected queue/export/storage conditions,
 with local delivery/history and explicit missing/stale/disabled states. Reads neither start services
-nor schedule intervention. Native results remain authoritative. Full Rust→database→Surrealism causal
-continuity remains separate from metric delivery and service identity. Finite capture is retained;
+nor schedule intervention. Native results remain authoritative. The pinned SDK carries request-local
+W3C context across its dispatcher and transport tasks into authenticated gRPC metadata. Its narrow
+native-host span selection includes the SDK lifecycle target; response/decode lifetime and dispatch
+uncertainty retain their original owners. Actual Python/FastMCP→Rust→SDK→server→Surrealism parentage
+is supported for selected operations, including concurrent siblings with independent parents.
+This continuity remains separate from metric delivery and service identity. Finite capture is retained;
 its bounds, restoration and evidence consumers are not replaced by ordinary export. The selected
 architecture does not claim exactly-once delivery or an atomic cross-signal source cut.
 
@@ -602,6 +608,18 @@ construction where supported. The final encoded-size safeguard refuses intact in
 required fields. Generated MCP reference and actual callers consume the same declarations; no
 semantic search, duplicate query authority or retry service is introduced. See the
 [capability interface guide](../../dev/capability-interface.md) for the actual transport wrappers.
+
+Each attachment names its checkout and interpreter. Selected launch defaults refresh through the
+existing environment owner while intentional overrides and disclosed process-owned settings retain
+their meanings. The complete exposed tool contract and selected source/route/request basis travel
+through private helper admission; unrelated source interpretation is not expanded in the child.
+Native schema compatibility is distinct from artifact currency. Existing preparation evidence,
+current supported inputs and the witnessed image loaded by a fresh worker must agree before a
+native receiver runs. Explicit preparation and reattachment do not replay work or promise an
+immutable checkout throughout execution. Source-only discovery never prepares native prerequisites.
+Native observation activates only after the helper admits its image and retains the same process
+shutdown owner. Independent endpoint resource owners settle despite sibling teardown failures;
+retained failures and cancellation remain visible after settlement.
 
 > Decision: [ADR-0219](../../adr/0219-selected-development-evidence.md) (proposed; maintainer-authorized Plan51d target).
 
