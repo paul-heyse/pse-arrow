@@ -609,6 +609,13 @@ required fields. Generated MCP reference and actual callers consume the same dec
 semantic search, duplicate query authority or retry service is introduced. See the
 [capability interface guide](../../dev/capability-interface.md) for the actual transport wrappers.
 
+The maintainer selected ordinary typed operations, original native readers and headless reports.
+Production CodeMode, protocol tasks/Docket, Apps/UI and multi-question evidence batching are
+deferred under [R-55](../../adr/register.md). Revisit requires a concrete consumer that existing
+owners cannot adequately serve; task integration also needs a compatible actual host. A future
+positive selection preserves original provenance, native outcome and cancellation/drain authority
+and requires its own integration/acceptance. Framework availability alone is insufficient.
+
 Each attachment names its checkout and interpreter. Selected launch defaults refresh through the
 existing environment owner while intentional overrides and disclosed process-owned settings retain
 their meanings. The complete exposed tool contract and selected source/route/request basis travel
@@ -1270,8 +1277,8 @@ remain distinct. Telemetry query visibility and capture/restoration do not prove
 complete delivery, causality or physical drain. Owned original services/contexts settled separately.
 C04 uses the accepted ordinary structured fallback; coverage-guided/sanitizer acceptance and the
 historical intermittent decoder-crash cause remain unqualified. Conditional production CodeMode,
-protocol tasks, Apps/UI and batching remain unselected; completed inquiries and recommendations
-are not operator adoption. No new whole-product, full solver-fleet, parity, overhead/performance,
+protocol tasks, Apps/UI and batching remain unselected for delivery; the maintainer retained the
+ordinary baseline and deferred those additions under R-55. Inquiries do not deploy them. No new whole-product, full solver-fleet, parity, overhead/performance,
 distribution or other-platform qualification is inferred. Other plans and proposed ADR decisions
 retain their independent authority.
 

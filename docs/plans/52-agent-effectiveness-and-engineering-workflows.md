@@ -598,7 +598,7 @@ where the mechanism is conditional. Historical isolated probes remain evidence, 
 | O17 | resolved | [TEL17](52s-telemetry-queries-and-agent-investigations.md#TEL17) | TQ04 resolves concrete watches/OSS alerts versus headless reads; G05 owns any separately selected interactive view. |
 | O18 | resolved | [TEL03](52p-shared-telemetry-and-native-propagation.md#TEL03) | Qualified export/runtime/shutdown behavior, no synchronous native hot-path network work, and preserved native outcomes. |
 | O19 | resolved | [TEL12](52r-operational-metrics-and-diagnostic-integration.md#TEL12) | Owner metrics independent of trace sampling; selected detail and evidence-based sampling mechanisms fit scientific lifetimes. |
-| O20 | scheduled | [H02](52h-qualification-and-publication.md#H02) | Independent local contracts plus actual assembled SDK/Collector/backend/FastMCP/native qualification, with H01/H03/H04 reconciliation and publication. |
+| O20 | resolved | [H02](52h-qualification-and-publication.md#verification-and-outcome--remaining-mcp-scope-2026-10-25) | Selected assembled SDK/Collector/backend/FastMCP/native consumers and composite repaired functional/static checks; original failures and bounded value unavailability retained. H03 full feature campaign remains independently active. |
 
 ## OpenTelemetry inquiries
 
@@ -680,10 +680,10 @@ acceptance; agreement on a design alone does not establish a working prerequisit
 | G03 | done | [52g](52g-agent-and-operator-workflows.md#G03) | Task-focused instruction/evaluation consumer |
 | G04 | done | [52g](52g-agent-and-operator-workflows.md#G04) | Safe integration/closeout proposal |
 | G05 | done | [52g](52g-agent-and-operator-workflows.md#G05) | Headless delivery/inquiry complete; I13 resolved by maintainer-selected ordinary baseline and concrete-consumer UI deferral (R-55) |
-| H01 | in-progress | [52h](52h-qualification-and-publication.md#H01) | Scope and actual consumers reconciled |
-| H02 | in-progress | [52h](52h-qualification-and-publication.md#H02) | Assembled functional journeys |
+| H01 | done | [52h](52h-qualification-and-publication.md#H01) | Scope and actual consumers reconciled |
+| H02 | done | [52h](52h-qualification-and-publication.md#H02) | Assembled functional journeys |
 | H03 | in-progress | [52h](52h-qualification-and-publication.md#H03) | Scope-end static/manual checks |
-| H04 | in-progress | [52h](52h-qualification-and-publication.md#H04) | Enduring contracts, actual Outcome and retirement readiness |
+| H04 | done | [52h](52h-qualification-and-publication.md#H04) | Enduring contracts, actual Outcome and retirement readiness |
 | CAP01 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP01) | Canonical exposure and five actual source-only bindings; 52i Outcome owns evidence |
 | CAP02 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP02) | Exact catalogue, actual schemas and bounded preparation |
 | CAP03 | done | [52i](52i-canonical-capabilities-and-progressive-reveal.md#CAP03) | Atomic replacement/reset and actual Codex exact-read route |
@@ -1287,3 +1287,35 @@ claim those mechanisms deployed. [R-55](../adr/register.md) retains the observab
 Future positive adoption needs explicit selection plus its integration/acceptance; framework
 availability or a date alone does not fire that trigger. H03's full feature campaign remains active,
 so this selection does not yet claim assembled scope-end completion.
+
+## Outcome and background handoff — 2026-10-25
+
+**Implemented; Tested at the named scopes:** the remaining required MCP functionality, selected
+conditional inquiries, scope reconciliation and enduring publication are recorded in
+[52h's Outcome](52h-qualification-and-publication.md#verification-and-outcome--remaining-mcp-scope-2026-10-25).
+F01/F02, current native/full-wire admission, independent cleanup, actual workflows and headless
+reports are delivered. Host/Python qualification is composed from original full selections and
+successful affected repairs; original failures are retained, not presented as initially clean runs.
+The actual Codex native reader recovered protected schema paging after one explicit preparation;
+selected values remained unavailable under the existing context-descriptor bound.
+
+**A mistake corrected:** broad qualification exposed stale preparation inputs, a missing native
+profile declaration/backedge and an undersized disposable store. Repairs preserve original compiler,
+fixture, scientific and cleanup authority; their actual controls and the prior study claim-custody
+correction remain at52h/52f.
+
+**Deliberate dispositions:** the maintainer retained the ordinary typed/native/headless baseline
+and deferred CodeMode, protocol tasks, Apps and F03 batching under R-55's concrete-consumer trigger.
+No optional framework is deployed, and no whole-product, scientific-fleet or performance claim is made.
+Proposed ADRs remain proposed. Enduring meanings live in blueprint §19.2/§23.1/§24.1/§24.2 and
+the capability, substrate and environment guides.
+
+The maintainer explicitly requested that the full feature campaign continue unattended while this
+session finishes with its handoff. H03 remains in progress until the actual505-combination and
+separate no-default results are assessed; neither this commit nor completed functional scope
+closes it. [52h's current campaign handoff](52h-qualification-and-publication.md#current-campaign-handoff--2026-10-25)
+owns the exact active controller/output and continuation. No duplicate campaign, stop or rerun is
+authorized by that handoff. All owned scientific/disposable service consumers have settled. No task
+worktrees remain; the three maintainer-supplied untracked library references are preserved.
+Consumed companions/reviews remain needed by H03, native status, Plan53/54 and proposed-ADR readers.
+Retirement cannot release their evidence or another plan's ownership; no push accompanies closeout.

@@ -357,3 +357,22 @@ retain its actual terminal interruption/failure before H03 closes. Documentation
 passed658 chapters; final status/retirement reconciliation follows the campaign. The maintainer has settled optional production
 selection through the ordinary baseline and concrete-consumer deferrals recorded by the coordinator;
 no additional implementation is authorized.
+
+The maintainer explicitly selected unattended continuation with session handoff. H01/H02/H04
+are complete at the selected boundaries above; H03 and overall Plan52 closure remain open for
+the actual full feature/no-default result. Leave controller918911 running; do not launch a
+duplicate or terminate it merely because this conversation turn ends. Read its retained
+`feature-campaign.json`, enclosing `summary.md`/assessment and original invocation terminal when
+it finishes, preserving required-check coverage, source-unchanged and drain/report results.
+A failure requires its actual target-aligned repair and affected checks; an incomplete, interrupted
+or unsealed receipt is not reusable passing coverage. Reconcile the same owners and retire only
+when their live dependencies release them.
+
+**Tested, handoff snapshot at2026-10-25T06:15:45Z, baseline zero:** the live controller had
+200 passed configurations, one running and304 not run; zero failures were recorded. The campaign
+correctly reported `complete=false` and `required_checks_covered=false`. The no-default population
+had not begun. This snapshot is not its eventual terminal result. Final `just docs` published658
+chapters, document lifecycle validation checked1,359 scope items, capability-reference comparison
+and register lint passed, and `just turn-end` passed ADR indexing and formatting. Retirement
+preflight retained all20 series documents for unreleased owners/live readers; no source/evidence
+was deleted. Documentation-only closeout did not repeat passing product Clippy/type checks.
