@@ -436,6 +436,7 @@ class ValidationTests(unittest.TestCase):
                 "python-contracts-check",
                 "python-stubs-check",
                 "codegen-capabilities-check",
+                "codegen-capability-cli-check",
             ],
         )
         for independent in (

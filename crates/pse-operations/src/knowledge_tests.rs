@@ -267,7 +267,7 @@ fn knowledge_query_checks_version_before_body_and_preserves_predicate() {
     value["version"] = serde_json::json!(2);
     value["mode"] = serde_json::json!({"malformed":"current body"});
     let error = KnowledgeQuery::decode_json(&serde_json::to_vec(&value).unwrap()).unwrap_err();
-    assert!(error.to_string().contains("version"));
+    assert_eq!(error.location().stage, pse_model::document::DecodeStage::Header);
     assert!(KnowledgeQuery::decode_json(br#"{"mode":"subjects"}"#).is_err());
     assert!(KnowledgeQuery::decode_json(br#"{"version":1,"version":1}"#).is_err());
 }

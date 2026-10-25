@@ -75,6 +75,10 @@ class CodegenBuildTests(unittest.TestCase):
                     "from pathlib import Path\n"
                     "Path('reference-published').write_text('published')\n"
                 )
+                (capabilities / "cli_codegen.py").write_text(
+                    "from pathlib import Path\n"
+                    "Path('cli-published').write_text('published')\n"
+                )
                 (scripts / "pse-env").write_text(
                     'printf "%s\\n" "$@" >> environment-arguments.txt\n'
                     'while [[ "$1" != -- ]]; do shift; done\nshift\nexec "$@"\n'
@@ -97,6 +101,10 @@ class CodegenBuildTests(unittest.TestCase):
                 self.assertEqual(child.returncode, 0, child.stderr)
                 self.assertEqual(
                     (root / "reference-published").exists(),
+                    recipe in {"codegen", "codegen-contracts"},
+                )
+                self.assertEqual(
+                    (root / "cli-published").exists(),
                     recipe in {"codegen", "codegen-contracts"},
                 )
                 if recipe == "codegen-all-check":

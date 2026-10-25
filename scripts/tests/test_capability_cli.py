@@ -46,6 +46,29 @@ def echo(
 
 
 class GeneratedClientTests(unittest.TestCase):
+    def test_connection_retains_original_selected_environment_without_logging(
+        self,
+    ) -> None:
+        selected = {
+            "PSE_CAPABILITIES_DATABASE_STATE": "/selected/state",
+            "LD_LIBRARY_PATH": "/selected/native/lib",
+            "OTEL_SDK_DISABLED": "true",
+        }
+        with (
+            patch.dict(os.environ, selected),
+            patch("fastmcp.Client") as client,
+            patch("fastmcp.client.transports.StdioTransport") as transport,
+        ):
+            runtime.connection(Path("/selected/checkout"))
+        assert client.call_count == 1
+        assert transport.call_args is not None
+        configuration = transport.call_args.kwargs
+        assert configuration["cwd"] == "/selected/checkout"
+        assert configuration["command"] == "/selected/checkout/.venv/bin/python"
+        assert all(
+            configuration["env"][key] == value for key, value in selected.items()
+        )
+
     def test_lifetime_is_authoritative_wire_metadata(self) -> None:
         tool = Tool.from_function(echo)
         spec = Capability(
@@ -91,7 +114,9 @@ class GeneratedClientTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         source = Path(directory.name) / "generated_client_fixture.py"
         source.write_text(content, encoding="utf-8")
-        spec = importlib.util.spec_from_file_location("generated_client_fixture", source)
+        spec = importlib.util.spec_from_file_location(
+            "generated_client_fixture", source
+        )
         assert spec is not None
         assert spec.loader is not None
         module = importlib.util.module_from_spec(spec)
@@ -120,7 +145,9 @@ class GeneratedClientTests(unittest.TestCase):
                 ["echo", "--no-flag"], exit_on_error=False, result_action="return_value"
             )
         assert (calls[0]) == (("echo", {}))
-        assert (calls[1]) == (("echo", {"value": None, "items": [], "flag": True, "count": 0}))
+        assert (calls[1]) == (
+            ("echo", {"value": None, "items": [], "flag": True, "count": 0})
+        )
         assert (calls[2]) == (("echo", {"flag": False}))
 
     def test_exact_generator_inventory_and_nonmutating_comparison(self) -> None:
@@ -128,7 +155,7 @@ class GeneratedClientTests(unittest.TestCase):
         assert (str(Path.cwd())) not in (content)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "output"
-            assert (check(content, root))
+            assert check(content, root)
             assert not (root.exists())
             publish(content, root)
             assert not (check(content, root))
@@ -138,7 +165,9 @@ class GeneratedClientTests(unittest.TestCase):
             assert ((root / "unexpected.py").read_text()) == ("not owned")
 
     def test_raw_request_preserves_presence_and_rejects_nonobjects(self) -> None:
-        assert (runtime.parse_request('{"value":null,"items":[],"flag":false,"count":0}')) == ({"value": None, "items": [], "flag": False, "count": 0})
+        assert (
+            runtime.parse_request('{"value":null,"items":[],"flag":false,"count":0}')
+        ) == ({"value": None, "items": [], "flag": False, "count": 0})
         with pytest.raises(ValidationError, match="dictionary"):
             runtime.parse_request("[]")
         with pytest.raises(runtime.ClientRefusedError):
@@ -231,7 +260,7 @@ class ConnectionTests(unittest.IsolatedAsyncioTestCase):
             {},
             {"wire_revision": "wire", "lifetime": "single", "read_only": True},
         )
-        assert (result["is_error"])
+        assert result["is_error"]
         assert (result["meta"]) == ({"owner": "original"})
         assert (client.calls) == (["capabilities_describe"])
 
@@ -282,11 +311,13 @@ class ConnectionTests(unittest.IsolatedAsyncioTestCase):
             {},
             {"wire_revision": "wire", "lifetime": "single", "read_only": True},
         )
-        assert (client.calls) == ([
+        assert (client.calls) == (
+            [
                 "capabilities_describe",
                 "capabilities_select",
                 "capabilities_invoke_read",
-            ])
+            ]
+        )
         assert (result["structured_content"]) == ({"reference": "original-owner"})
         assert (result["meta"]) == ({"observation": "original"})
         content = result["content"]

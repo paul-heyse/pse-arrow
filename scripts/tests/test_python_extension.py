@@ -938,6 +938,33 @@ class PreparationCurrencyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "artifact changed"):
             native_tests.rust_fixture_bindings(provenance, first)
 
+    def test_runtime_observation_controls_do_not_invalidate_compiled_inputs(
+        self,
+    ) -> None:
+        original = {**self.environment, "LD_LIBRARY_PATH": "/original/provider"}
+        changed = {
+            **original,
+            "PSE_ACCEPTANCE_OUTPUT": "/different/report",
+            "PSE_TELEMETRY_CONFIGURATION_STATUS": "disabled",
+            "OTEL_SDK_DISABLED": "true",
+        }
+        self.assertEqual(
+            native_tests.rust_environment_identity(original),
+            native_tests.rust_environment_identity(changed),
+        )
+        self.assertEqual(
+            python_extension.preparation_environment_identity(original),
+            python_extension.preparation_environment_identity(changed),
+        )
+        for key in ("RUSTFLAGS", "LD_LIBRARY_PATH", "CUSTOM_COMPILER_SELECTOR"):
+            with self.subTest(key=key):
+                self.assertNotEqual(
+                    native_tests.rust_environment_identity(original),
+                    native_tests.rust_environment_identity(
+                        {**original, key: "different"}
+                    ),
+                )
+
     def test_session_transport_changes_reuse_preparation_but_unknown_build_inputs_invalidate(
         self,
     ) -> None:

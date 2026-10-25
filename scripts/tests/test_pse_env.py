@@ -1510,17 +1510,20 @@ class StoreReadinessTests(unittest.TestCase):
             with pse_env.host.allocation_metadata(directory) as ledger:
                 (storage,) = ledger["owners"].values()
                 self.assertEqual(storage["class"], "store-functional")
-                self.assertEqual(storage["memory"], 8 * pse_env.host.GIB)
+                self.assertEqual(storage["memory"], 16 * pse_env.host.GIB)
                 self.assertEqual(storage["service"], str(state))
 
-    def test_functional_store_demand_cannot_resume_reference_partition(self) -> None:
+    def test_functional_store_demand_cannot_resume_oversized_service(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             state = Path(temporary)
             config: dict[str, object] = {
                 "parked": True,
                 "admission": "quiesced",
                 "accepting_writes": False,
-                "resources": surreal_server.reference_resources(),
+                "resources": {
+                    **surreal_server.reference_resources(),
+                    "server_memory_bytes": 17 * pse_env.host.GIB,
+                },
             }
             surreal_server.write_json(state / "config.json", config)
             original = (state / "config.json").read_bytes()

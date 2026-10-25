@@ -252,6 +252,11 @@ def rust_configuration_identity(paths: list[str]) -> dict[str, str]:
 RUST_EXECUTION_ENVIRONMENT = frozenset(
     {
         "PSE_NATIVE_PROVENANCE",
+        # Output placement and process SDK selection are runtime observations,
+        # not compiler inputs. Unknown environment keys remain bound below.
+        "PSE_ACCEPTANCE_OUTPUT",
+        "PSE_TELEMETRY_CONFIGURATION_STATUS",
+        "OTEL_SDK_DISABLED",
         "PSE_NATIVE_SELECTION",
         # Pytest/xdist and original observer-selected result metadata never
         # choose Rust compiler inputs; package/tool identities remain separate.

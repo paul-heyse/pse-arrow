@@ -104,6 +104,9 @@ class AdmissionTests(unittest.TestCase):
             frozenset(
                 {
                     "source_admit",
+                    "model_declarations",
+                    "model_inspect",
+                    "model_compare",
                     "preparation_discover",
                     "project_select",
                     "project_metadata",

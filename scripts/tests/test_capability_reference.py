@@ -86,6 +86,8 @@ class ReferenceTests(unittest.TestCase):
                 "environment_explain",
                 "storage_observe",
                 "knowledge_source_corpus",
+                "knowledge_query",
+                "knowledge_explain",
                 "library_source_packet",
                 "document_scope_query",
                 "product_run_read",
@@ -148,6 +150,14 @@ class ReferenceTests(unittest.TestCase):
                             {"directory": "/explicit-copy", "sha256": "not-a-digest"}
                         )
                     )
+                    continue
+                if identity in {"knowledge_query", "knowledge_explain"}:
+                    self.assertEqual(
+                        schema["required"],
+                        ["operation", "complete", "omissions", "payload"],
+                    )
+                    self.assertFalse(schema["additionalProperties"])
+                    self.assertIn("payload", schema["properties"])
                     continue
                 self.assertEqual(schema["required"], ["result"])
                 self.assertIn("anyOf", schema["properties"]["result"])

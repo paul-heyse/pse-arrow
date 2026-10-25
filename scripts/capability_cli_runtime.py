@@ -69,6 +69,7 @@ def connection(root: Path) -> Client:
             command=str(root / ".venv/bin/python"),
             args=["-m", "scripts.capabilities"],
             cwd=str(root),
+            env=os.environ.copy(),
         ),
         timeout=1800,
     )
