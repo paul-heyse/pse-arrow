@@ -1248,6 +1248,33 @@ depth-two feature combinations of the changed operations/tooling roots pass with
 validation; this is a scoped matrix, not the entire workspace powerset. Exact commands and
 historical failures remain at the final Outcome.
 
+Selected remaining Plan52 MCP/observability acceptance of 2026-10-25 belongs to
+[52h's Outcome](../../plans/52h-qualification-and-publication.md#verification-and-outcome--remaining-mcp-scope-2026-10-25).
+**Implemented; Tested at the named scopes:** exact same-cut native evidence comparison and
+selected sections, actual continuous/finite Python/FastMCP→Rust→SDK→server→Surrealism sibling
+parentage, per-call study claim custody, current-artifact/full-wire admission, independent
+endpoint cleanup and representative actual-agent workflows have their native/host consumers.
+The linked sixteen-case lifecycle/claim/evidence/child-drain selection passed with explicit
+validation. Host and Python functional qualification is composed from the original full
+selections and successful affected repairs; it is not an initially clean monolithic rerun.
+Default/no-default and linked-native/all-target Clippy, repaired hygiene leaves, Ruff/Pyrefly,
+generated equivalence and governance passed at the conditions in that Outcome. Full feature
+and publication state belongs to that owner, separately from scientific testing.
+
+Actual Codex recovered current native schema paging and protected manifest continuation after
+exactly one explicit selected-endpoint preparation. The deeply nested study relation's mandatory
+context descriptors exceeded the readable inspector's 64 KiB bound before values were acquired;
+its selected row cells remain unknown. The unsuccessful enclosing values assessor remains failed.
+Typed refusal, bounded positive schema recovery and prior different-source wide-result acceptance
+remain distinct. Telemetry query visibility and capture/restoration do not prove native success,
+complete delivery, causality or physical drain. Owned original services/contexts settled separately.
+C04 uses the accepted ordinary structured fallback; coverage-guided/sanitizer acceptance and the
+historical intermittent decoder-crash cause remain unqualified. Conditional production CodeMode,
+protocol tasks, Apps/UI and batching remain unselected; completed inquiries and recommendations
+are not operator adoption. No new whole-product, full solver-fleet, parity, overhead/performance,
+distribution or other-platform qualification is inferred. Other plans and proposed ADR decisions
+retain their independent authority.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

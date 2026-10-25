@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 268
+revision: 269
 date: 2026-10-25
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 269 | 2026-10-25 | Publish selected remaining MCP/observability qualification and native readable-context limits (§24.2). | Maintainer-authorized Plan52 H04 publication via explicit `PSE_DESIGN_EDIT=1`; composite repaired functional evidence, current-native schema recovery and unqualified boundaries remain separate. Proposed ADR status unchanged. |
 | 268 | 2026-10-25 | Publish implemented native paired-evidence comparison, selected capability/import admission, independent endpoint cleanup and actual SDK/server/module trace continuity (§23.1/§24.1), plus per-call study claim custody (§19.2). | Maintainer-authorized remaining Plan52 execution and selected I14 repair; `.design-edit` authorizes enduring publication. ADR-0225 remains proposed; functional/component evidence and remaining assembled qualification retain their owning Outcomes. |
 | 267 | 2026-10-24 | Propose native finite paired-evidence comparison with exact correspondence, source custody and independent section completeness (§23.1/§24.1). | Maintainer-authorized remaining Plan52 execution; ADR-0225 proposed before implementation and temporary `.design-edit` authorization. Acceptance remains at F01/H02. |
 | 266 | 2026-10-24 | Publish owner-defined operational metrics, bounded typed telemetry investigations, supplied-member custody and native local watches (§23.1). | Maintainer-authorized Plan52r/52s execution; `.design-edit` authorizes publication within existing diagnostic/scientific contracts. Scoped qualification remains at the coordinator; F02/I11 and assembled G/H stay separate. |
