@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [MCP development-effectiveness review](mcp-development-effectiveness-2026-10-25.md)
+assesses the completed interface as a foundation for further Codex-driven development. Its
+sixteen opportunities cover faithful Cyclopts-derived recovery access, connection/lifetime
+diagnosis, affected validation, native model/result inspection, structured knowledge relationships
+and focused execution/telemetry investigations. Fresh-client and disposable generator probes
+retain their actual scope and failures; proposals change neither accepted plans nor runtime
+configuration.
+
 The [OpenTelemetry and agent-observability review](opentelemetry-and-agent-observability-2026-10-24.md)
 assesses shared Python/Rust/database telemetry and structured access through the single FastMCP
 endpoint. It develops twenty opportunities, a proposed Collector/OpenObserve architecture,
