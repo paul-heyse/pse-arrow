@@ -101,6 +101,8 @@ RUST_OWNERS = {
     },
     "pse-runtime": {
         "workflow::result_inspection::canonical_result_inspection_server_unit::": CANONICAL,
+        "workflow::projects::deadline_tests::": LOCAL,
+        "workflow::fitting::profile::worker_tests::": LOCAL,
         **dict.fromkeys(
             (
                 "workflow::modeling::service_tests::immutable_source_uses_explicit_receiver_after_original_caller_closes",
