@@ -2425,7 +2425,7 @@ def primary_environment(
     """Carry role-specific inputs to the actual service; the worker validates them."""
     environment = worker_environment(state, 0, allocation, handoff)
     inputs = receiver_environment.read(Path(receiver["supervisor_script"]).parents[1] / "native-environment.json")
-    environment.update(inputs.values)
+    environment = receiver_environment.selection(inputs, WORKER_CAPABILITIES, environment)
     selected = environment.get("PSE_WORKER_BINARY")
     if selected is not None:
         try:
@@ -4579,6 +4579,8 @@ def _ensure_primary(
                 allocation,
                 [
                     receiver["supervisor_executable"],
+                    "-I",
+                    "-B",
                     str(Path(receiver["supervisor_script"]).with_name("native_operation.py")),
                     "--capabilities",
                     ",".join(WORKER_CAPABILITIES),
@@ -5232,8 +5234,14 @@ def storage_placement(
             raise SupervisorError(
                 "Storage owner differs from the selected service lane"
             )
-    elif memory > host_admission.settings(owner.profile.name)["store_gib"] * GIB:
-        raise SupervisorError("Storage exceeds its borrowed exclusive partition")
+    else:
+        storage_memory = (
+            integer(execution_profiles.profile("reference")["server_memory_bytes"])
+            if owner.profile.name == "reference"
+            else host_admission.settings(owner.profile.name)["store_gib"] * GIB
+        )
+        if memory > storage_memory:
+            raise SupervisorError("Storage exceeds its borrowed exclusive partition")
     logical_cpus = host_admission.cpu_set(owner.profile.cores)
     return {
         "memory_bytes": memory,
@@ -5579,6 +5587,8 @@ def materialize_service(
         argument(value)
         for value in (
             supervisor["supervisor_executable"],
+            "-I",
+            "-B",
             supervisor["supervisor_script"],
             "_serve",
             "--state",

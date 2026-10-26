@@ -67,7 +67,8 @@ DEFINE FUNCTION fn::pse_workbench_v1::commit_capture($rpc_expiry:int,$key:string
         LET $run=SELECT problem,revision FROM ONLY type::record('canonical_runs',$fact.run);
         RETURN {id:type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$fact.study,$fact.attempt)),key:fn::pse_workbench_v1::protection_key($key,$fact.study,$fact.attempt),capture:$key,study:$fact.study,run:$fact.run,attempt:$fact.attempt,manifest:$fact.manifest,problem:$run.problem,revision:$run.revision};
     });
-    LET $protections=array::distinct(array::concat($member_protections,$selected_headers.protection.filter(|$protection|$protection!=NONE)));
+    LET $header_protections=$selected_headers.map(|$header| $header.protection).filter(|$protection| $protection!=NONE);
+    LET $protections=array::distinct(array::concat($member_protections,$header_protections));
     IF array::len($headers)!=0 { INSERT INTO canonical_study_capture_headers $headers RETURN NONE; };
     IF array::len($facts)!=0 { INSERT INTO canonical_study_capture_members $facts RETURN NONE; };
     IF array::len($protections)!=0 { INSERT INTO canonical_study_capture_protections $protections RETURN NONE; };

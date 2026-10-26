@@ -53,9 +53,9 @@ def _prefixes(capabilities: Sequence[str], values: Mapping[str, str]) -> dict[Pa
             raise ReceiverEnvironmentError("Prepared solver paths select different prefixes")
         include(prefix, cache.SOLVER_FILES)
     if "klu" in capabilities:
-        include, library = selected("SUITESPARSE_INCLUDE_DIR"), selected("SUITESPARSE_LIBRARY_DIR")
-        prefix = include.parent.parent
-        if include != prefix / "include/suitesparse" or library != prefix / "lib":
+        include_directory, library_directory = selected("SUITESPARSE_INCLUDE_DIR"), selected("SUITESPARSE_LIBRARY_DIR")
+        prefix = include_directory.parent.parent
+        if include_directory != prefix / "include/suitesparse" or library_directory != prefix / "lib":
             raise ReceiverEnvironmentError("Prepared KLU paths select different prefixes")
         include(prefix, cache.KLU_FILES)
     if "isolation" in capabilities:
@@ -111,13 +111,23 @@ def read(path: Path) -> deployment.PreparedReceiverEnvironment:
     return msgspec.json.decode(raw, type=deployment.PreparedReceiverEnvironment)
 
 
-def restore(path: Path, capabilities: Sequence[str], environment: Mapping[str, str]) -> dict[str, str]:
-    selected = read(path)
-    if tuple(capabilities) != selected.capabilities or set(selected.values) - set(variable_names(capabilities)):
+def selection(selected: deployment.PreparedReceiverEnvironment, capabilities: Sequence[str],
+              environment: Mapping[str, str]) -> dict[str, str]:
+    """Apply the exact published selection, including names absent at publication."""
+    names = variable_names(capabilities)
+    if tuple(capabilities) != selected.capabilities or set(selected.values) - set(names):
         raise ReceiverEnvironmentError("Receiver inputs differ from their selected capability owner")
-    result = operation.runtime_selection(list(capabilities), environment)
+    result = dict(environment)
+    for name in names:
+        result.pop(name, None)
     # Snapshot values exclude licenses, credentials and allocation/thread budgets.
     result.update(selected.values)
+    return result
+
+
+def restore(path: Path, capabilities: Sequence[str], environment: Mapping[str, str]) -> dict[str, str]:
+    selected = read(path)
+    result = selection(selected, capabilities, operation.runtime_selection(list(capabilities), environment))
     if _receipts(capabilities, result) != selected.provider_receipts:
         raise ReceiverEnvironmentError("Prepared native generation differs; explicitly readmit the receiver")
     return result

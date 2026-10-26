@@ -199,6 +199,7 @@ fn cohort(physical: &flow::PhysicalSource) -> StudyCohortRequest {
     }
 }
 #[tokio::test]
+#[allow(clippy::print_stderr, reason = "selected native population qualification records phase timing and accounted pool usage without performance thresholds")]
 async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provider() {
     use datafusion::arrow::array::{Array,Float64Array,Int64Array};
     use pse_operations::canonical::{CanonicalError,RefusalCode};
@@ -223,14 +224,19 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
     assert_eq!(summary.point_count,10000);assert!(summary.active&&!summary.terminal);
     let request=StudyCohortRequest{filter:StudyWorkbenchFilter{study:Some(study.clone()),..Default::default()},maximum_studies:1,maximum_members:10000};
     assert!(runtime.freeze_study_cohort(request.clone()).await.is_err(),"ordinary128 admission stays until qualification is accepted");
+    let pool_limit=runtime.shared.budget().memory_limit_bytes.get();
+    let capture_start_live=runtime.shared.pool().reserved();
+    runtime.shared.reset_observation_peak();
     let capture_started=std::time::Instant::now();
     let frozen=runtime.freeze_study_cohort_qualification(request).await.unwrap();
     let captured=capture_started.elapsed();
+    let capture_peak=runtime.shared.observation_peak_bytes();
+    let capture_end_live=runtime.shared.pool().reserved();
     assert_eq!((frozen.receipt().header_count,frozen.receipt().member_count),(1,10000));
     let original=frozen.member_page(StudyCohortPageRequest{maximum:1,cursor:Some(StudyCohortCursor{issuing_store:frozen.receipt().issuing_store.clone(),capture:frozen.receipt().capture.clone(),after:4095})}).await.unwrap();
     assert!(original.members[0].value.attempt.is_some());assert!(original.members[0].value.manifest.is_none());
-    let mut cursor=None;let mut count=0;let mut pages=0;let mut peak_retained=0;let mut mutation=None;let mut active=Some(active);
-    let baseline=runtime.shared.pool().reserved();
+    let mut cursor=None;let mut count=0;let mut pages=0;let mut peak_retained=0;let mut active=Some(active);
+    let mut baseline=runtime.shared.pool().reserved();
     loop {
         let page=frozen.member_page(StudyCohortPageRequest{maximum:256,cursor}).await.unwrap();
         assert!(page.members.len()<=256);
@@ -245,20 +251,26 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
         cursor=page.next.clone();drop(page);
         if pages==1 {
             let writer=runtime.clone();let selected=study.clone();let claim=active.take().unwrap();
-            mutation=Some(tokio::spawn(async move {finish_claimed(&writer,&selected,4096,quantity,unit,owner,Some(100000.0),1,claim).await;}));
+            tokio::spawn(async move {finish_claimed(&writer,&selected,4096,quantity,unit,owner,Some(100000.0),1,claim).await;}).await.unwrap();
+            // Mutation still occurs between captured pages. Its independent
+            // permission reservations cannot contaminate subsequent page grants.
+            baseline=runtime.shared.pool().reserved();
         }
         if cursor.is_none(){break;}
     }
-    mutation.unwrap().await.unwrap();
     assert_eq!((count,pages),(10000,40));
     assert!(peak_retained<2*1024*1024,"this fixture retains only its actual bounded member page");
     tokio::time::timeout(Duration::from_secs(10),async {
         while runtime.shared.pool().reserved().saturating_sub(baseline)>=2*1024*1024 {tokio::task::yield_now().await;}
     }).await.expect("physical response drain leaves no accumulated cohort page grants");
     let kpi=StudyKpiRequest{relation:"runtime.simulation_samples".into(),owner,field:"value".into(),partition:"0".into(),start:0,end:195};
+    let aggregate_start_live=runtime.shared.pool().reserved();
+    runtime.shared.reset_observation_peak();
     let aggregate_started=std::time::Instant::now();
     let analysis=frozen.aggregate(&kpi,CancellationToken::new()).await.unwrap();
     let aggregated=aggregate_started.elapsed();
+    let aggregate_peak=runtime.shared.observation_peak_bytes();
+    let aggregate_end_live=runtime.shared.pool().reserved();
     assert_eq!((analysis.included,analysis.unavailable),(9,9991));
     assert_eq!(analysis.progress().state,StudyCohortScanState::Complete);
     let batch=analysis.batches.iter().find(|batch|batch.num_rows()>0).unwrap();
@@ -299,6 +311,7 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
     let selected=read.sets().iter().find(|set|set.name==pse_relations::generated::runtime::study_outcomes::RELATION_ID.to_string()).unwrap();
     assert_eq!(selected.row_count,10000);
     assert!(selected.batch_count<=16,"summary publication packs useful rows rather than page/four-row files");
+    let summary_batches=selected.batch_count;
     let summarized=summary_started.elapsed();drop(read);
     let mut summary_reader=runtime.results(&parent.key,parent.terminal_attempt.as_deref().unwrap(),"runtime.study_outcomes",0,10000,CancellationToken::new()).await.unwrap();
     let mut summary_rows=0;let mut summary_usable=0;
@@ -315,7 +328,7 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
     store.recover_study_capture(&key).await.unwrap();
     store.forget_run_results(&format!("{study}-point-0")).await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
-    eprintln!("actual10000 mixed qualification: captured usable9 failed2 active1 unattempted9988; payload rows219 with65-block source; pages40; creation={created:?} capture={captured:?} aggregate={aggregated:?} cancellation_settlement={settled:?} compact_finalization={summarized:?} total={:?}",started.elapsed());
+    eprintln!("actual10000 mixed qualification: captured usable9 failed2 active1 unattempted9988; payload rows219 with65-block source; pages40 summary_batches={summary_batches}; accounted_pool_limit_bytes={pool_limit} capture_accounted_start_live_bytes={capture_start_live} capture_accounted_phase_peak_bytes={capture_peak} capture_accounted_end_live_bytes={capture_end_live} page_retained_peak_bytes={peak_retained} aggregate_accounted_start_live_bytes={aggregate_start_live} aggregate_accounted_phase_peak_bytes={aggregate_peak} aggregate_accounted_end_live_bytes={aggregate_end_live}; creation={created:?} capture={captured:?} aggregate={aggregated:?} cancellation_settlement={settled:?} compact_finalization={summarized:?} total={:?}",started.elapsed());
 }
 #[tokio::test]
 async fn workbench_public_cohort_retains_population_compares_value_variants_and_refuses_incompatible_quantity()

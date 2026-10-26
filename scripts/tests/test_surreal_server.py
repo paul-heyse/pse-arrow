@@ -2790,7 +2790,12 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.checked_primary(config)
 
     def test_primary_environment_selects_worker_receipt_and_native_inputs(self) -> None:
-        config = self.reference_fixture()
+        with patch.object(server.receiver_environment, "capture", return_value=json.dumps({
+            "version": 1, "capabilities": list(server.WORKER_CAPABILITIES),
+            "values": {"IPOPT_DIR": "/admitted/solver", "CXXFLAGS": "-fno-fast-math"},
+            "provider_receipts": {},
+        }).encode()):
+            config = self.reference_fixture()
         allocation = config["resources"]
         if not isinstance(allocation, dict):
             self.fail("reference resources are not an object")
@@ -2805,6 +2810,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                 "PSE_WORKER_BINARY": str(self.root / "pse-worker"),
                 "PSE_NATIVE_PROVIDER_RECEIPT": "/provider.json",
                 "IPOPT_DIR": "/admitted/solver",
+                "CXXFLAGS": "-unadmitted",
+                "LIBCLANG_PATH": "/unadmitted",
+                "CPLUS_INCLUDE_PATH": "/unadmitted",
+                "BINDGEN_EXTRA_CLANG_ARGS": "-unadmitted",
                 "SYMBOLICA_LICENSE": "private-test-value",
                 "PSE_NATIVE_OPERATION": "/caller-operation.json",
             },
@@ -2816,6 +2825,10 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(environment["PSE_PRODUCER_RECEIPT"], str(receipt))
         self.assertEqual(environment["PSE_NATIVE_PROVIDER_RECEIPT"], "/provider.json")
         self.assertEqual(environment["IPOPT_DIR"], "/admitted/solver")
+        self.assertEqual(environment["CXXFLAGS"], "-fno-fast-math")
+        self.assertEqual(environment["SYMBOLICA_LICENSE"], "private-test-value")
+        for name in ("LIBCLANG_PATH", "CPLUS_INCLUDE_PATH", "BINDGEN_EXTRA_CLANG_ARGS"):
+            self.assertNotIn(name, environment)
         self.assertNotIn("PSE_NATIVE_OPERATION", environment)
         arguments = server.primary_service_environment(environment, names)
         for name in (
@@ -2834,6 +2847,16 @@ class SurrealSupervisorTests(unittest.TestCase):
             if argument.startswith("--property=UnsetEnvironment=")
         )
         self.assertIn("PSE_NATIVE_OPERATION", removed)
+        self.assertIn("LIBCLANG_PATH", removed)
+
+    def test_frozen_service_materialization_uses_isolated_python(self) -> None:
+        config = self.initialized()
+        with patch.dict(os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}):
+            server.materialize_service(self.state, config, self.allocation)
+        declaration = self.root / "user-config/systemd/user" / server.unit_name(self.state)
+        supervisor = server.object_mapping(config["service_supervisor"])
+        self.assertIn(f'ExecStart="{supervisor["supervisor_executable"]}" "-I" "-B" '
+                      f'"{supervisor["supervisor_script"]}" "_serve"', declaration.read_text())
 
     def test_primary_environment_without_worker_role_removes_generic_receipt(
         self,
@@ -3218,6 +3241,11 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(receipt["canonical_database"], "isolated-study")
         self.assertEqual(readiness.call_args.args[-1], "isolated-study")
         command = launch.call_args.args[0]
+        receiver = server.recorded_primary(config)
+        python_index = command.index(receiver["supervisor_executable"])
+        self.assertEqual(command[python_index:python_index + 4],
+                         [receiver["supervisor_executable"], "-I", "-B",
+                          str(Path(receiver["supervisor_script"]).with_name("native_operation.py"))])
         self.assertIn(f"--slice={server.execution_slice(self.state)}", command)
         self.assertIn(f"--property=MemoryMax={140 * server.GIB}", command)
         self.assertEqual(

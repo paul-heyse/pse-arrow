@@ -972,6 +972,10 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
 
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
+#[allow(
+    clippy::print_stderr,
+    reason = "focused D06 evidence reports phase time and accounted pool observations without performance thresholds or private RSS claims"
+)]
 async fn project_portability_selected_multi_revision_exchange_reuses_original_scientific_admission() {
     let runtime = workflow::durable_tests::durable_runtime();
     let cancel = crate::CancelSource::new();
@@ -1034,15 +1038,49 @@ async fn project_portability_selected_multi_revision_exchange_reuses_original_sc
         descriptive_only: false, omissions: vec![], maximum_output_bytes: 16 << 20,
         maximum_document_bytes: 16 << 20,
     };
-    let explanation = Box::pin(runtime.project_closure(&request, physical.clone(), &cancel))
-        .await.unwrap();
+    let explanation_scope = runtime.observations().hub().start("inquiry.project-exchange.explanation");
+    let explanation_start_live = runtime.shared.pool().reserved();
+    runtime.shared.reset_observation_peak();
+    let explanation_started = std::time::Instant::now();
+    let explanation = pse_diagnostics::observation::scope(
+        Some(explanation_scope.context()),
+        Box::pin(runtime.project_closure(&request, physical.clone(), &cancel)),
+    ).await.unwrap();
+    let explanation_elapsed = explanation_started.elapsed();
+    let explanation_peak = runtime.shared.observation_peak_bytes();
+    explanation_scope.finish(pse_diagnostics::observation::Outcome::Completed);
+    let explanation_report = runtime.shared.report().unwrap();
+    eprintln!(
+        "d06 phase=explanation elapsed_us={} accounted_start_live_bytes={} accounted_phase_peak_bytes={} source_bytes={} source_members={} selected_revisions={} process_lifetime_peak_rss_bytes={:?}",
+        explanation_elapsed.as_micros(), explanation_start_live, explanation_peak,
+        explanation.known_source_bytes,
+        explanation.manifest.members.iter().filter(|m| m.artifact.is_none()).count(),
+        explanation.manifest.sources.len(), explanation_report.process_peak_rss_bytes,
+    );
     assert!(!explanation.result_bytes_known);
     assert_eq!(explanation.manifest.sources.iter().map(|s| &s.revision).collect::<Vec<_>>(),
         expected.keys().collect::<Vec<_>>(), "unselected project forks cannot broaden exact closure");
     let output = tempfile::tempdir().unwrap();
     let first = output.path().join("first");
-    let manifest = Box::pin(runtime.project_export(&first, &request, physical.clone(), &cancel))
-        .await.unwrap();
+    let export_scope = runtime.observations().hub().start("inquiry.project-exchange.export");
+    let export_start_live = runtime.shared.pool().reserved();
+    runtime.shared.reset_observation_peak();
+    let export_started = std::time::Instant::now();
+    let manifest = pse_diagnostics::observation::scope(
+        Some(export_scope.context()),
+        Box::pin(runtime.project_export(&first, &request, physical.clone(), &cancel)),
+    ).await.unwrap();
+    let export_elapsed = export_started.elapsed();
+    let export_peak = runtime.shared.observation_peak_bytes();
+    export_scope.finish(pse_diagnostics::observation::Outcome::Completed);
+    let export_report = runtime.shared.report().unwrap();
+    eprintln!(
+        "d06 phase=export elapsed_us={} accounted_start_live_bytes={} accounted_phase_peak_bytes={} source_bytes={} source_members={} selected_revisions={} process_lifetime_peak_rss_bytes={:?}",
+        export_elapsed.as_micros(), export_start_live, export_peak,
+        manifest.members.iter().filter(|m| m.artifact.is_none()).map(|m| m.copied_bytes).sum::<u64>(),
+        manifest.members.iter().filter(|m| m.artifact.is_none()).count(),
+        manifest.sources.len(), export_report.process_peak_rss_bytes,
+    );
     assert!(manifest.executable_complete && manifest.offline_complete);
     assert!(manifest.providers.is_empty(), "this fixture has no external execution premises");
     assert_eq!(explanation.known_source_bytes, manifest.members.iter()

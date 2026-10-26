@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -93,6 +94,19 @@ class ReceiverClosureTests(unittest.TestCase):
         runtime = closure.probe(frozen, files, Path(sys.executable))
         self.assertIn(str(Path(sys.executable).absolute()), runtime)
         self.assertTrue(any("msgspec" in name for name in runtime))
+        injected = Path(self.directory) / "unadmitted-python"
+        (injected / "scripts").mkdir(parents=True)
+        for name in ("scripts/__init__.py", "msgspec.py", "sitecustomize.py"):
+            (injected / name).write_text("raise RuntimeError('unadmitted Python provider selected')\n")
+        environment = {**os.environ, "PYTHONPATH": str(injected), "PYTHONHOME": str(injected),
+                       "PYTHONUSERBASE": str(injected), "PYTHONDONTWRITEBYTECODE": "0"}
+        for entry in ("surreal_server.py", "native_operation.py"):
+            with self.subTest(entry=entry):
+                child = subprocess.run([sys.executable, "-I", "-B", str(frozen / "scripts" / entry), "--help"],
+                                       cwd=injected, env=environment, capture_output=True, timeout=20, check=False)
+                self.assertEqual(child.returncode, 0, child.stderr.decode(errors="replace"))
+                self.assertIn(b"usage:", child.stdout)
+        self.assertFalse(list(frozen.rglob("__pycache__")))
 
     def test_runtime_inputs_invalidate_generation_and_v1_remains_observation_only(self) -> None:
         from scripts import surreal_server as server

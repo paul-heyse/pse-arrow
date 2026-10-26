@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -56,6 +58,56 @@ class ReceiverEnvironmentTests(unittest.TestCase):
         self.assertEqual(restored["CLANG_PATH"], self.environment["CLANG_PATH"])
         self.assertEqual(restored["CXXFLAGS"], "-fno-fast-math")
         self.assertTrue(list((self.base / ".operations").glob("*.json")))
+
+    def test_absent_compiler_inputs_stay_absent_in_actual_child_environment(self) -> None:
+        self.capture()
+        absent = ("LIBCLANG_PATH", "CPLUS_INCLUDE_PATH", "BINDGEN_EXTRA_CLANG_ARGS", "LD_LIBRARY_PATH")
+        caller = {**os.environ, **dict.fromkeys(absent, "/unadmitted"),
+                  "CLANG_PATH": "/unadmitted/compiler", "CXXFLAGS": "-unadmitted",
+                  "OMP_NUM_THREADS": "7", "SYMBOLICA_LICENSE": "invocation-secret"}
+        restored = receiver.restore(self.path, ["isolation"], caller)
+        child = subprocess.run([sys.executable, "-I", "-B", "-c",
+                                "import json,os; print(json.dumps(dict(os.environ)))"],
+                               env=restored, capture_output=True, check=True, timeout=10)
+        actual = json.loads(child.stdout)
+        for name in absent:
+            self.assertNotIn(name, actual)
+        self.assertEqual(actual["CLANG_PATH"], self.environment["CLANG_PATH"])
+        self.assertEqual(actual["CXXFLAGS"], self.environment["CXXFLAGS"])
+        self.assertEqual(actual["OMP_NUM_THREADS"], "7")
+        self.assertEqual(actual["SYMBOLICA_LICENSE"], "invocation-secret")
+
+    def test_complete_worker_capabilities_verify_all_managed_generations_without_preparation(self) -> None:
+        from scripts.surreal_server import WORKER_CAPABILITIES
+
+        environment = dict(self.environment)
+        interfaces = {"solver": cache.SOLVER_FILES, "klu": cache.KLU_FILES,
+                      "uno": cache.pipeline_files("uno"), "petsc": cache.pipeline_files("petsc")}
+        prefixes = {}
+        for kind, required in interfaces.items():
+            identity = {"fixture": kind}
+            prefix = cache.identity_location(self.base, kind, identity) / "generations/selected"
+            for name in required:
+                path = prefix / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("native artifact " + name)
+            (prefix / ".complete.json").write_text(json.dumps({
+                "version": cache.RECEIPT_VERSION, "identity": identity,
+                "files": cache.installation_files(prefix),
+            }))
+            prefixes[kind] = prefix
+        environment.update({"IPOPT_DIR": str(prefixes["solver"]), "SCIPOPTDIR": str(prefixes["solver"]),
+                            "SUITESPARSE_INCLUDE_DIR": str(prefixes["klu"] / "include/suitesparse"),
+                            "SUITESPARSE_LIBRARY_DIR": str(prefixes["klu"] / "lib"),
+                            "UNO_DIR": str(prefixes["uno"]), "PETSC_DIR": str(prefixes["petsc"])})
+        with (patch.object(operation, "environment", side_effect=AssertionError("setup entered")),
+              patch.object(cache, "compiler_env", side_effect=AssertionError("compiler discovery entered")),
+              patch.object(cache, "prepare", side_effect=AssertionError("provider builder entered"))):
+            self.path.write_bytes(receiver.capture(WORKER_CAPABILITIES, environment))
+            self.path.chmod(0o600)
+            restored = receiver.restore(self.path, WORKER_CAPABILITIES, environment)
+        self.assertEqual(len(receiver.read(self.path).provider_receipts), 5)
+        self.assertEqual(restored["SUITESPARSE_INCLUDE_DIR"], environment["SUITESPARSE_INCLUDE_DIR"])
 
     def test_original_receipt_hash_is_not_a_substitute_for_actual_generation_verification(self) -> None:
         self.capture()
