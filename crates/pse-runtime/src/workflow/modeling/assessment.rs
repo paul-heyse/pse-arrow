@@ -140,6 +140,7 @@ impl ModelingPackage {
         obligations: Obligations,
         cancel: &crate::CancelSource,
     ) -> Result<Assessment, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

@@ -29,6 +29,7 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -70,6 +71,7 @@ impl ModelingPackage {
         exact_parameters: &BTreeSet<SemanticId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -121,6 +123,7 @@ impl ModelingPackage {
         pending: Option<&crate::workflow::PhysicalSimulationRequest>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;

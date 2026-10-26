@@ -138,6 +138,7 @@ impl ModelingPackage {
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<(AdmittedBinding, pse_model::study::SeedNeed), WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -248,6 +249,7 @@ impl ModelingPackage {
         binding: &AdmittedBinding,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -267,6 +269,7 @@ impl ModelingPackage {
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.prepare_bound_operation_with_current_view(
             services, operation, binding, admission, None, cancel,
         )
@@ -282,6 +285,7 @@ impl ModelingPackage {
         current_view: Option<&mut super::study_operations::CurrentNumericalView>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;

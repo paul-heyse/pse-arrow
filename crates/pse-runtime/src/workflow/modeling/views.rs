@@ -26,6 +26,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.bound_case_with_current_view(
             services, model, values, states, order, compiler, None, cancel,
         )
@@ -46,6 +47,7 @@ impl ModelingPackage {
         current_view: Option<&mut crate::workflow::study_operations::CurrentNumericalView>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.bound_case_with_lookup_reservation(
             services,
             model,
@@ -204,6 +206,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -253,6 +256,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;

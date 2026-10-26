@@ -1059,6 +1059,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {

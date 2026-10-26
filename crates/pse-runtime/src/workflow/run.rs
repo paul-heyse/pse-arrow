@@ -1138,6 +1138,7 @@ impl super::ModelingSimulation {
         parent: Option<crate::CancelSource>,
         live: Option<super::LiveSimulationOptions>,
     ) -> Result<(RunHandle, Option<super::LiveSimulationCursor>), WorkflowError> {
+        self.source.check_service_bindings(services.preparation())?;
         if let Some(options) = live {
             options.admit(self.profile())?;
         }
@@ -1291,6 +1292,9 @@ impl super::ShootingProblem {
         initial: Option<Vec<f64>>,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
+        self.simulation
+            .source
+            .check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
             let deadline = std::time::Instant::now()
@@ -1413,6 +1417,7 @@ impl super::PreparedFit {
         deadline: std::time::Instant,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
+        self.source.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
             let supervisor = RunSupervisor::new(
@@ -1649,6 +1654,7 @@ impl ExecutionServices {
         }
         let mut declarations = BTreeMap::new();
         for step in steps {
+            step.source.check_service_bindings(self.preparation())?;
             if step.source.physical.identity() != steps[0].source.physical.identity() {
                 return Err(contract("sequence needs one admitted physical context"));
             }
@@ -1680,6 +1686,7 @@ impl ExecutionServices {
         attempt: Option<DurableAttempt>,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
+        self.check_sequence(&steps)?;
         let activity = self.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
         let history = steps

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 278
+revision: 279
 date: 2026-10-25
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 279 | 2026-10-25 | Publish Plan56b completion/product permission, strict tagged replay and stored completion, explicit scientific service/binding/issuer boundaries, typed admission effects and adapter-owned public capabilities (§19.2/§19.3/§19.8/§21.1). | Maintainer-authorized B01–B06 and minimal C/F adoption under proposed ADR-0227; PSE_DESIGN_EDIT=1. Execution and qualification status remain in 56b; no broader Plan56 closure inferred. |
 | 278 | 2026-10-25 | Record selected Plan56b completion/operation-fact and explicit service contract amendment (§19.2/§19.4/§19.8/§21.1). | Maintainer-authorized implementation; PSE_DESIGN_EDIT=1; proposed ADR-0227, implementation and qualification remain with 56b. |
 | 277 | 2026-10-25 | Reconcile resolved typed-product lowering wording (§7.1) and publish selected Plan56a model/physical acceptance and original-context reader limits (§24.2). | Maintainer-authorized 56a closeout; PSE_DESIGN_EDIT=1. Exact source/native/public results and affected repairs remain in 56a Outcome; proposed ADR-0226 unchanged, no other-plan completion inferred. |
 | 276 | 2026-10-25 | Publish implemented Plan56a checked occurrence/shared lexical and constant admission (§7.1/§7.7), immutable mode target/support and view-role products with runtime value binding (§14.3/§16.2), source-owned physical identities/readable projection and exact original result-context custody (§8.1/§19.2/§21.1). | Maintainer-authorized A01–A03 and minimal reader prerequisites; PSE_DESIGN_EDIT=1, with the original tracked .design-edit marker restored. ADR-0226 remains proposed; RC01–RC06 are not adopted. Qualification remains with Plan56a and §24.2; no new Tested or Measured claim. |

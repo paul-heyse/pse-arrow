@@ -2009,9 +2009,8 @@ pub(crate) const fn boundary_failure(class: pse_model::diagnostic::BoundaryClass
         B::TrialRejected | B::Numerical => Observation::NumericalFailure,
         B::Cancelled => Observation::Cancelled,
         B::ResourceLimit => Observation::ResourceExhausted,
-        B::Infrastructure => Observation::OperationalFailure,
+        B::Infrastructure | B::Internal => Observation::OperationalFailure,
         B::Unsupported => Observation::CapabilityRefusal,
-        B::Internal => Observation::ContractFailure,
         B::InvalidModel | B::Nonfinite | B::Inconclusive | B::Conflict | B::Incompatible => {
             Observation::ContractFailure
         }

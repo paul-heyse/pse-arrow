@@ -149,6 +149,7 @@ impl ModelingPackage {
         binding: Option<&AdmittedBinding>,
         cancel: &CancelSource,
     ) -> Result<PreparedOperation, WorkflowError> {
+        self.check_service_bindings(services)?;
         source.check(self)?;
         let driver = services.math().preparation_driver(cancel)?;
         match request {
@@ -218,6 +219,7 @@ impl ModelingPackage {
         binding: Option<&AdmittedBinding>,
         cancel: &CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         #[cfg(test)]
         super::study_operations::count_declared_admission();
         let execution = self
@@ -249,6 +251,7 @@ impl ModelingPackage {
         current_view: Option<&mut super::study_operations::CurrentNumericalView>,
         cancel: &CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let Some(binding) = binding else {
             return self.prepare_declared(services, &execution, cancel).await;
         };

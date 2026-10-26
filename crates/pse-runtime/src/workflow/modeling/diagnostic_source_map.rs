@@ -400,6 +400,7 @@ impl ModelingPackage {
         time_limit: std::time::Duration,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSourceMap, WorkflowError> {
+        self.check_service_bindings(services)?;
         services
             .modeling_diagnostic_source_map(prepared, maximum_bytes, time_limit, cancel)
             .await

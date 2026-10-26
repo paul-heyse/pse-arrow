@@ -348,6 +348,7 @@ impl ModelingPackage {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         if !self.same_replay_source(&local.package) {
             return Err(super::contract(
                 "local study belongs to a different immutable model owner",

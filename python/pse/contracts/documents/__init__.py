@@ -18310,13 +18310,15 @@ class ProductPermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     #: The completed scientific product decision.
     decision: enums.CandidateUse
+    #: Governing original and accepted derived-work limitations, without strengthening.
+    qualifiers: tuple[enums.CandidateQualifier, ...]
     #: Existing registry-owned derived scientific quantity.
     quantity: enums.DerivedQuantity
-    #: The independent mathematical assessment, with its original qualifiers.
+    #: The independent mathematical assessment.
     validity: LocalValidity
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.decision), v.scalar_key(self.quantity), v.record_key(self.validity),))
+        return (type(self), (v.scalar_key(self.decision), v.sequence_key(v.scalar_key)(self.qualifiers), v.scalar_key(self.quantity), v.record_key(self.validity),))
 
 
 class ProductPermissionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18324,13 +18326,15 @@ class ProductPermissionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 
     #: The completed scientific product decision.
     decision: enums.CandidateUse
+    #: Governing original and accepted derived-work limitations, without strengthening.
+    qualifiers: tuple[enums.CandidateQualifier, ...]
     #: Existing registry-owned derived scientific quantity.
     quantity: enums.DerivedQuantity
-    #: The independent mathematical assessment, with its original qualifiers.
+    #: The independent mathematical assessment.
     validity: LocalValidityOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.decision), v.scalar_key(self.quantity), v.record_key(self.validity),))
+        return (type(self), (v.scalar_key(self.decision), v.sequence_key(v.scalar_key)(self.qualifiers), v.scalar_key(self.quantity), v.record_key(self.validity),))
 
 
 class ProductionDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -33596,4 +33600,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:f87d518034ebfe00547f6b32a106482848453ec8145b40691ca8e2cfb9bf0a44"
+SCHEMA_SET_FINGERPRINT = "blake3:59957dfdbb23f5799ad9020593af2b0f92e896cb0bc0c6dec10c0faf33eba23a"

@@ -291,6 +291,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         demand: ProviderDemand<'_>,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

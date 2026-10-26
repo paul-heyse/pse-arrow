@@ -150,12 +150,12 @@ ordinary observation events do not masquerade as registered diagnostic codes.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | implementation in progress; consumer integration pending | 56b | Completion/product facts govern every local, persisted and public consumer; diagnostic bytes retained |
-| B02 | implemented source; integration and execution pending | 56b | Shared evidence policy and explicit pure composite decisions; qualifiers survive |
-| B03 | implemented projections/tagged replay; integration pending | 56b | Each kind supplies lifecycle facts once; tagged replay and exhaustive consumers replace old projections |
-| B04 | owner and caller migration in progress | 56b | Selected owner slices have narrow inputs/visibility and no reverse declaration cycle |
-| B05 | native seam implemented; runtime/public qualification pending | 56b | Default/configured capability agrees with admission and exact backend attribution |
-| B06 | typed source and host remedies implemented; integration pending | 56b | Meaning-based failures drive scientific persistence, safe recovery and host diagnostics |
+| B01 | implemented; review corrections and acceptance pending | 56b | Completion/product facts govern every local, persisted and public consumer; diagnostic bytes retained |
+| B02 | implemented; profile endpoint acceptance pending | 56b | Shared evidence policy and explicit pure composite decisions; qualifiers survive |
+| B03 | implemented projections/tagged replay; focused acceptance pending | 56b | Each kind supplies lifecycle facts once; tagged replay and exhaustive consumers replace old projections |
+| B04 | implemented; binding/issuer guard qualification pending | 56b | Selected owner slices have narrow inputs/visibility and no reverse declaration cycle |
+| B05 | focused native controls tested; public qualification pending | 56b | Default/configured capability agrees with admission and exact backend attribution |
+| B06 | implemented; classification repair and composed qualification pending | 56b | Meaning-based failures drive scientific persistence, safe recovery and host diagnostics |
 
 B01's pure decision can precede the canonical cutover; persisted completion requires C03/C05.
 B03 provides early constructor/fact declarations to C before all lifecycle migrations finish.
@@ -218,3 +218,14 @@ Python effectful facades carry the explicit services supplied during preparation
 consumer/fixture migration, full generation, focused scientific execution and the selected composed
 qualification against the fresh owned deployment. Earlier source-drift refusals executed no tests;
 they provide no scientific acceptance evidence.
+
+
+Independent implementation review of `8943cf557` identified two corrections before acceptance:
+profile products must require actual complete endpoints rather than an outer successful diagnostic
+collection, and explicit receiver services must authenticate retained source bindings and durable
+issuer before effects. Both are being integrated with focused controls; no completion is inferred
+from the original compile. The first focused runtime selection executed 29 tests (28 passed,
+one internal-cause classification mismatch); the typed wrapper projection is being corrected.
+The five focused native backend controls passed, including KINSOL execution. Final generation,
+correctness extension, fresh owned canonical/Python journeys and scope-end checks follow the
+corrected source baseline. Earlier qualification keeps its exact original scope.

@@ -87,6 +87,7 @@ impl ModelingPackage {
         policy: ModelingNonlinearPolicy,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingNonlinearExplanation, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         if policy.maximum_attempts == 0
@@ -362,6 +363,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInfeasibilityCertificate, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {

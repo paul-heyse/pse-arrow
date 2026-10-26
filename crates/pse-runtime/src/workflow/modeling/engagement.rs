@@ -419,6 +419,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

@@ -19,6 +19,7 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<crate::math::solves::paths::PathCurvature, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity.scope(async {
         scope

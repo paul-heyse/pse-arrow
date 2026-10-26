@@ -226,6 +226,7 @@ impl super::ModelingPackage {
         services: &super::PreparationServices,
         batches: impl RecordBatchReader,
     ) -> Result<DiagnosticSamples, WorkflowError> {
+        self.check_service_bindings(services)?;
         services.snapshot_diagnostic_samples(batches)
     }
     /// Own initialization scalar custody before asynchronous source preparation begins.
@@ -234,6 +235,7 @@ impl super::ModelingPackage {
         services: &super::PreparationServices,
         batches: impl RecordBatchReader,
     ) -> Result<InitializationStages, WorkflowError> {
+        self.check_service_bindings(services)?;
         services.snapshot_initialization_stages(batches)
     }
 }
@@ -618,6 +620,7 @@ impl super::ModelingPackage {
         services: &super::PreparationServices,
         ids: &[SemanticId],
     ) -> Result<PrimalCoordinates, WorkflowError> {
+        self.check_service_bindings(services)?;
         PrimalCoordinates::auxiliary(services, self.physical.quantities(), ids)
     }
 }

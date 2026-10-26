@@ -317,6 +317,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -354,6 +355,7 @@ impl ModelingPackage {
         demand: Vec<String>,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -470,6 +472,7 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -505,6 +508,7 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         match &execution.procedure {
@@ -553,6 +557,7 @@ impl ModelingPackage {
         overrides: InitializationOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -577,6 +582,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(Bindings, ModelingCaseBindings), WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

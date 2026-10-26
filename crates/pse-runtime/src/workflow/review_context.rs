@@ -1121,6 +1121,7 @@ impl ModelingPackage {
         operation: Option<OperationId>,
         error: &WorkflowError,
     ) -> Result<ReviewContext, WorkflowError> {
+        self.check_service_bindings(services)?;
         request.validate()?;
         select_single(request)?;
         let owner = services

@@ -101,6 +101,26 @@ RUST_OWNERS = {
     },
     "pse-runtime": {
         "workflow::result_inspection::canonical_result_inspection_server_unit::": CANONICAL,
+        **dict.fromkeys(
+            (
+                "workflow::modeling::service_tests::immutable_source_uses_explicit_receiver_after_original_caller_closes",
+                "workflow::modeling::service_tests::unrelated_services_refuse_source_preparation_and_single_step_start_before_effects",
+            ),
+            LOCAL,
+        ),
+        "workflow::replay::tests::plan38b_": NATIVE,
+        "workflow::shooting::tests::": NATIVE,
+        "workflow::horizon::tests::": NATIVE,
+        **dict.fromkeys(
+            (
+                "workflow::fitting::oracle::tests::persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells",
+                "workflow::horizon::tests::horizon_records_one_durable_attempt",
+                "workflow::horizon::tests::compact_horizon_post_science_pressure_moves_original_completion_on_refusal",
+                "workflow::horizon::tests::compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership",
+                "workflow::horizon::tests::compact_multi_step_horizon_seals_one_original_completion_and_seed_inventory",
+            ),
+            CANONICAL_NATIVE,
+        ),
         **{
             f"workflow::{owner}::": CANONICAL_NATIVE
             for owner in (

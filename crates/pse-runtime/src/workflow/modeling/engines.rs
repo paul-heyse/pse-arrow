@@ -269,6 +269,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -287,6 +288,7 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -323,6 +325,7 @@ impl ModelingPackage {
         order: Option<usize>,
         cancel: &crate::CancelSource,
     ) -> Result<pse_backend_native::execution::sos::SosBound, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -348,6 +351,7 @@ impl ModelingPackage {
         policy: ModelingInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -365,6 +369,7 @@ impl ModelingPackage {
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         policy.validate()?;

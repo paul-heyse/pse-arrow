@@ -75,6 +75,7 @@ impl ModelingPackage {
         request: &PreparationDiscoveryRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparationDiscoveryReport, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {

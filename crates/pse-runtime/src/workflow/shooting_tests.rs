@@ -634,6 +634,28 @@ async fn host_shooting_study_projection_refuses_without_native_or_durable_effect
             )
             .unwrap(),
     );
+    let unrelated = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let foreign_services = unrelated.execution_services();
+    let foreign_baseline = unrelated.native().test_admission_snapshot();
+    let foreign_reserved = unrelated.shared.pool().reserved();
+    assert!(simulation.start(&foreign_services).is_err());
+    assert!(
+        simulation
+            .start_live(
+                &foreign_services,
+                crate::workflow::LiveSimulationOptions {
+                    capacity: 1,
+                    retention: native::dynamics::SampleRetention::Full,
+                }
+            )
+            .is_err()
+    );
+    assert!(problem.start(&foreign_services).is_err());
+    assert_eq!(
+        unrelated.native().test_admission_snapshot(),
+        foreign_baseline
+    );
+    assert_eq!(unrelated.shared.pool().reserved(), foreign_reserved);
     let baseline = services.preparation().math().test_admission_snapshot();
     let host = RuntimeOperationRequest::Shooting {
         problem: problem.clone(),

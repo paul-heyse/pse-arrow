@@ -297,6 +297,7 @@ impl ModelingSimulation {
         scope: ExecutionScope,
         cancellation: Cancellation,
     ) -> Result<ConsistentInitializationResult, WorkflowError> {
+        self.source.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         let math = services.preparation().math();
         activity

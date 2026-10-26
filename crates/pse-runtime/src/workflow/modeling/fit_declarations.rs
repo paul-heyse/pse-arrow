@@ -55,6 +55,7 @@ impl ModelingPackage {
         services: &crate::workflow::SourceServices,
         data: FitDeclarations,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let unique = |ids: Vec<SemanticId>| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
         if !unique(data.fits.iter().map(|r| r.fit_id.as_id()).collect()) {
             return Err(contract("duplicate fit declaration identity"));

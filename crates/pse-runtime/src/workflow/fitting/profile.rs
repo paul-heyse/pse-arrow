@@ -160,6 +160,63 @@ pub struct ProfileChain {
     /// Every pinned fit, in solve order.
     pub points: Vec<ProfilePoint>,
 }
+
+/// A profile product requires every requested parameter end, rather than merely
+/// a successfully returned diagnostic collection of chains.
+fn interval_validity(
+    expected: impl IntoIterator<Item = SemanticId>,
+    chains: &[ProfileChain],
+) -> Result<(), (pse_model::generated::enums::WithheldReason, String)> {
+    use pse_model::generated::enums::WithheldReason;
+    use std::collections::BTreeSet;
+    let expected = expected.into_iter().collect::<BTreeSet<_>>();
+    let unavailable = |detail: &str| Err((WithheldReason::AnalysisUnavailable, detail.into()));
+    if expected.is_empty() || expected.len().checked_mul(2) != Some(chains.len()) {
+        return unavailable(
+            "profile intervals lack the complete requested parameter-end inventory",
+        );
+    }
+    let mut observed = BTreeSet::new();
+    for chain in chains {
+        let end = match chain.end {
+            IntervalEnd::Lower => 0_u8,
+            IntervalEnd::Upper => 1_u8,
+        };
+        if !expected.contains(&chain.parameter) || !observed.insert((chain.parameter, end)) {
+            return unavailable(
+                "profile intervals contain an unexpected or duplicate parameter end",
+            );
+        }
+        if chain.worker_failure.is_some() {
+            return unavailable("a requested profile chain has a worker failure");
+        }
+        if !matches!(
+            chain.bound.outcome,
+            IntervalOutcome::Bound | IntervalOutcome::Threshold
+        ) || !chain.bound.value.is_some_and(f64::is_finite)
+        {
+            return unavailable(
+                "a requested profile chain stopped without a finite interval endpoint",
+            );
+        }
+    }
+    Ok(())
+}
+
+impl PreparedFit {
+    pub(in crate::workflow) fn profile_interval_validity(
+        &self,
+        chains: &[ProfileChain],
+    ) -> Result<(), (pse_model::generated::enums::WithheldReason, String)> {
+        interval_validity(
+            self.problem
+                .free()
+                .map(|(index, _)| self.problem.declaration.parameters[index].symbol_id),
+            chains,
+        )
+    }
+}
+
 fn chain_worker<T>(run: impl FnOnce() -> T) -> Result<T, ProfileWorkerFailure> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(run))
         .map_err(|_| ProfileWorkerFailure::Panic)
@@ -1258,6 +1315,74 @@ impl PreparedFit {
 #[cfg(test)]
 mod worker_tests {
     use super::*;
+    #[test]
+    fn interval_product_requires_complete_unique_finite_ends_without_worker_failure() {
+        let first = SemanticId::from_bytes([1; 16]);
+        let second = SemanticId::from_bytes([2; 16]);
+        let endpoint = |parameter, end| ProfileChain {
+            parameter,
+            end,
+            estimate: 0.0,
+            bound: IntervalBound {
+                value: Some(if end == IntervalEnd::Lower { -1.0 } else { 1.0 }),
+                outcome: if end == IntervalEnd::Lower {
+                    IntervalOutcome::Bound
+                } else {
+                    IntervalOutcome::Threshold
+                },
+            },
+            qualifiers: Vec::new(),
+            worker_failure: None,
+            scheduling_failures: Vec::new(),
+            actual_parallelism: 1,
+            detail: None,
+            points: Vec::new(),
+        };
+        let complete = [first, second]
+            .into_iter()
+            .flat_map(|parameter| {
+                [IntervalEnd::Lower, IntervalEnd::Upper].map(|end| endpoint(parameter, end))
+            })
+            .collect::<Vec<_>>();
+        assert!(interval_validity([first, second], &complete).is_ok());
+        assert!(interval_validity([first, second], &complete[..3]).is_err());
+        assert!(interval_validity([], &[]).is_err());
+        for value in [
+            None,
+            Some(f64::INFINITY),
+            Some(f64::NEG_INFINITY),
+            Some(f64::NAN),
+        ] {
+            let mut invalid = complete.clone();
+            invalid[0].bound.value = value;
+            assert!(interval_validity([first, second], &invalid).is_err());
+        }
+        let mut stopped = complete.clone();
+        stopped[0].bound.outcome = IntervalOutcome::Stopped;
+        assert!(interval_validity([first, second], &stopped).is_err());
+        let mut duplicate = complete.clone();
+        duplicate[3] = duplicate[2].clone();
+        assert!(interval_validity([first, second], &duplicate).is_err());
+        let mut unexpected = complete.clone();
+        unexpected[3].parameter = SemanticId::NIL;
+        assert!(interval_validity([first, second], &unexpected).is_err());
+        for failure in [
+            ProfileWorkerFailure::Panic,
+            ProfileWorkerFailure::Scheduling("refused".into()),
+        ] {
+            let mut failed = complete.clone();
+            failed[0].worker_failure = Some(failure);
+            assert!(interval_validity([first, second], &failed).is_err());
+        }
+        let mut recovered_scheduling = complete;
+        recovered_scheduling[0]
+            .scheduling_failures
+            .push(ProfileWorkerFailure::Scheduling(
+                "one worker refused; another completed its chains".into(),
+            ));
+        assert!(interval_validity([first, second], &recovered_scheduling).is_ok());
+    }
+
     fn policy(execution: &Execution) -> ChainPolicy<'_> {
         ChainPolicy {
             parameter: SemanticId::NIL,

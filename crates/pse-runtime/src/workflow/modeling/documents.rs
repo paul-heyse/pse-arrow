@@ -131,6 +131,7 @@ impl super::ModelingPackage {
         services: &crate::workflow::PreparationServices,
         request: &ModelingDeclarationRequest,
     ) -> Result<ModelingDeclarationPage, super::super::WorkflowError> {
+        self.check_service_bindings(services)?;
         if request.limit == 0 || request.limit > 128 {
             return Err(super::super::contract(
                 "declaration page limit must be between one and128",

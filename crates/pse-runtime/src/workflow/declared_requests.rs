@@ -24,6 +24,7 @@ impl ModelingPackage {
         controls: ConformanceControls,
         cancel: &CancelSource,
     ) -> Result<ModelingConformanceReport, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let fixtures = controls.selection()?;
         let ConformanceControls {
             maximum_fixtures,
@@ -66,6 +67,7 @@ impl ModelingPackage {
         settings: SolveSettings,
         cancel: &CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.declared_execution(
             services,
             case,
@@ -88,6 +90,7 @@ impl ModelingPackage {
         request: PhysicalSimulationRequest,
         cancel: &CancelSource,
     ) -> Result<ModelingTrajectory, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let prepared = self
             .prepare_operation(
                 services.preparation(),
@@ -122,6 +125,7 @@ impl ModelingPackage {
         settings: SolveSettings,
         cancel: &CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let execution = self
             .admit_declared_request(services.preparation(), case, preparation, settings, cancel)
             .await?;
@@ -139,6 +143,7 @@ impl ModelingPackage {
         settings: SolveSettings,
         cancel: &CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         self.solve_bound(
             services,
             case,
@@ -160,6 +165,7 @@ impl ModelingPackage {
         request: &ModelingInspectionRequest,
         cancel: &CancelSource,
     ) -> Result<ModelingInspection, WorkflowError> {
+        self.check_service_bindings(services)?;
         if request.limit == 0 || request.limit > 128 {
             return Err(contract("inspection page limit must be between one and128"));
         }
@@ -192,6 +198,7 @@ impl ModelingPackage {
         selection: crate::math::flows::ModelingFlowSelection,
         cancel: &CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
+        self.check_service_bindings(services)?;
         let execution = self
             .admit_declared_request(services, case, preparation, settings, cancel)
             .await?;
@@ -212,6 +219,7 @@ impl ModelingPackage {
         request: RecycleRequest,
         cancel: &CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
+        self.check_service_bindings(services)?;
         let execution = self
             .admit_declared_request(services, case, preparation, settings, cancel)
             .await?;
@@ -231,6 +239,7 @@ impl ModelingPackage {
         stages: InitializationStages,
         cancel: &CancelSource,
     ) -> Result<PreparedInitializationStrategy, WorkflowError> {
+        self.check_service_bindings(services)?;
         let execution = self
             .admit_declared_request(services, case, preparation, settings, cancel)
             .await?;
@@ -249,6 +258,7 @@ impl ModelingPackage {
         overrides: InitializationOverrides,
         cancel: &CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let execution = self
             .admit_declared_request(services.preparation(), case, preparation, settings, cancel)
             .await?;
@@ -267,6 +277,7 @@ impl ModelingPackage {
         policy: ModelingNonlinearPolicy,
         cancel: &CancelSource,
     ) -> Result<ModelingNonlinearExplanation, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let execution = self
             .admit_declared_request(services.preparation(), case, preparation, settings, cancel)
             .await?;
@@ -316,6 +327,7 @@ impl ModelingPackage {
         origin: Option<DiagnosticOrigin>,
         cancel: &CancelSource,
     ) -> Result<ModelingDiagnostics, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let profile = settings.profile()?;
         let operation = DiagnosticOperation::new(cancel, profile.controls.time_limit, origin)?;
         let (prepared, compiler) = self
@@ -350,6 +362,7 @@ impl ModelingPackage {
         origin: Option<DiagnosticOrigin>,
         cancel: &CancelSource,
     ) -> Result<ModelingDiagnosticSamples, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let profile = settings.profile()?;
         let allowance = Duration::try_from_secs_f64(controls.time_limit)
             .map_err(|_| contract("diagnostic time limit must be finite and positive"))?;
@@ -405,6 +418,7 @@ impl ModelingPackage {
         origin: Option<DiagnosticOrigin>,
         cancel: &CancelSource,
     ) -> Result<ModelingNativeAnalysis, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let profile = settings.profile()?;
         let operation = DiagnosticOperation::new(cancel, profile.controls.time_limit, origin)?;
         let native_controls = profile.controls.clone();
@@ -454,6 +468,7 @@ impl ModelingPackage {
         origin: Option<DiagnosticOrigin>,
         cancel: &CancelSource,
     ) -> Result<ModelingNativeAnalysis, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let profile = settings.profile()?;
         let operation = DiagnosticOperation::new(cancel, profile.controls.time_limit, origin)?;
         let native_controls = profile.controls.clone();
@@ -494,6 +509,7 @@ impl ModelingPackage {
         time_limit: f64,
         cancel: &CancelSource,
     ) -> Result<ModelingSourceMap, WorkflowError> {
+        self.check_service_bindings(services)?;
         let time_limit = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| contract("source map time limit must be finite and positive"))?;
         if maximum_bytes == 0 || time_limit.is_zero() {

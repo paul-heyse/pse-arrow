@@ -1549,18 +1549,26 @@
           "$ref": "#/$defs/CandidateUse",
           "description": "The completed scientific product decision."
         },
+        "qualifiers": {
+          "description": "Governing original and accepted derived-work limitations, without strengthening.",
+          "items": {
+            "$ref": "#/$defs/CandidateQualifier"
+          },
+          "type": "array"
+        },
         "quantity": {
           "$ref": "#/$defs/DerivedQuantity",
           "description": "Existing registry-owned derived scientific quantity."
         },
         "validity": {
           "$ref": "#/$defs/LocalValidityOutput",
-          "description": "The independent mathematical assessment, with its original qualifiers."
+          "description": "The independent mathematical assessment."
         }
       },
       "required": [
         "quantity",
         "validity",
+        "qualifiers",
         "decision"
       ],
       "type": "object"

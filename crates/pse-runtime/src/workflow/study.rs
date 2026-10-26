@@ -2727,6 +2727,7 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<LocalStudy, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -2764,6 +2765,7 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<StudyPointDefinition, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.admit_one_study_point_reusing(services, point, output, &mut None, cancel)
             .await
     }
@@ -2823,6 +2825,7 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<AdmittedStudy, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

@@ -1612,6 +1612,9 @@ impl ShootingProblem {
         solver: &SolverProfile,
         storage: Option<Arc<pse_columnar::AllocationLease>>,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
+        self.simulation
+            .source
+            .check_service_bindings(services.preparation())?;
         let operation = pse_diagnostics::observation::current().map(|parent| {
             parent.child(
                 "shooting.execution",

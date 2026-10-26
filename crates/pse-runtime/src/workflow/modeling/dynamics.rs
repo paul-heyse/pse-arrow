@@ -1166,6 +1166,7 @@ impl ModelingSimulation {
         retention: native::SampleRetention,
         observer: Option<Box<dyn SimulationSampleObserver>>,
     ) -> Result<DynamicsHandle, WorkflowError> {
+        self.source.check_service_bindings(services.preparation())?;
         let local = std::time::Instant::now()
             .checked_add(self.profile.time_limit)
             .ok_or_else(|| {
@@ -1669,6 +1670,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.declared_simulation_bound(services, root, compiler, profile, limits, None, cancel)
             .await
     }
@@ -1683,6 +1685,7 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         match request {
             Some(request) => {
                 let request = request.clone().retain(&services)?;
@@ -1710,6 +1713,7 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -1762,6 +1766,7 @@ impl ModelingPackage {
         profile: Option<native::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.simulation_for_declared_bound(services, execution, profile, None, cancel)
             .await
     }
@@ -1773,6 +1778,7 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.simulation_for_declared_input(services, execution, profile, None, binding, cancel)
             .await
     }
@@ -1787,6 +1793,7 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let mut execution = self
             .declared_execution(
                 services,

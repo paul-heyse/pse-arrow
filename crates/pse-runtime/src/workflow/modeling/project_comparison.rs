@@ -260,6 +260,7 @@ impl ModelingPackage {
         request: &ModelingComparisonRequest,
         cancel: &CancelSource,
     ) -> Result<ModelingComparisonObservation, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         if request.limit == 0
             || request.limit > 128
             || request.logical.len() > 32
@@ -406,6 +407,7 @@ impl ModelingPackage {
         other: &Self,
         cancel: &CancelSource,
     ) -> Result<ProjectComparison, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         services.preparation().scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
             if self.physical.key != other.physical.key { return Err(contract("semantic comparison physical contexts differ; request source-only comparison explicitly")); }
             self.project_compare_mode(services, other, true, cancel).await
@@ -418,6 +420,7 @@ impl ModelingPackage {
         other: &Self,
         cancel: &CancelSource,
     ) -> Result<ProjectComparison, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         services
             .preparation()
             .scope_activity(pse_operations::canonical::operation_scope(
@@ -455,6 +458,7 @@ impl ModelingPackage {
         logical: &[String],
         cancel: &CancelSource,
     ) -> Result<Vec<ProjectSourceDetail>, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         services
             .preparation()
             .scope_activity(pse_operations::canonical::operation_scope(

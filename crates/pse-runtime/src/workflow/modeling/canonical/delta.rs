@@ -238,6 +238,7 @@ impl ModelingPackage {
         services: &crate::workflow::PreparationServices,
         cancel: &crate::CancelSource,
     ) -> Result<Parent, WorkflowError> {
+        self.check_service_bindings(services)?;
         checkpoint(cancel)?;
         if let Some(products) = self.revision.delta_products.get() {
             return products.copy_parent(&services);
@@ -397,6 +398,7 @@ impl ModelingPackage {
         delta: SourceDelta,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -428,6 +430,7 @@ impl ModelingPackage {
         ),
         WorkflowError,
     > {
+        self.check_service_bindings(services.preparation())?;
         if delta.parent != self.revision_id() {
             return Err(contract("composed delta names another exact parent"));
         }
@@ -688,6 +691,7 @@ impl ModelingPackage {
         composition: AdmittedDocumentComposition,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         if delta.parent != self.revision_id() {
             return Err(contract("composed delta names another exact parent"));
         }
@@ -713,6 +717,7 @@ impl ModelingPackage {
         delta: &SourceDelta,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         if delta.parent != self.revision_id() {
             return Err(contract("project delta names a different exact parent"));
         }
@@ -738,6 +743,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         parsed: Option<reload::ParsedEdit>,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         self.apply_delta_parent_ordered(services, delta, parent, cancel, parsed, None)
             .await
     }
@@ -748,6 +754,7 @@ impl ModelingPackage {
         mut delta: SourceDelta,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         source.check(self)?;
         // The descriptor already checked its original local parent token. Reconstruction
         // rebinds only after the complete immutable source/context identity agrees.
@@ -770,6 +777,7 @@ impl ModelingPackage {
         parsed: Option<reload::ParsedEdit>,
         order: Option<Vec<DeclarationId>>,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         self.apply_delta_parent_ordered_mode(
             services, delta, parent, cancel, parsed, order, true, None,
         )
@@ -1756,7 +1764,16 @@ mod tests {
         );
         let receiver =
             Runtime::from_shared_local(small.shared.clone(), small.model.clone()).unwrap();
-        let confined = package.clone();
+        let confined = package
+            .replay_source()
+            .unwrap()
+            .reconstruct(
+                &receiver.source_services(),
+                package.physical.clone(),
+                (*package.providers).clone(),
+                &crate::CancelSource::new(),
+            )
+            .unwrap();
         assert!(
             confined
                 .all_revision(&receiver.preparation_services())
@@ -1768,7 +1785,7 @@ mod tests {
             .with_delta(
                 &receiver.source_services(),
                 SourceDelta {
-                    parent: package.revision_id().into(),
+                    parent: confined.revision_id().into(),
                     documents: SourceDocumentDelta {
                         additions: vec![document],
                         ..Default::default()
@@ -1779,7 +1796,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let after = parent_metadata(&runtime.preparation_services(), &changed).await;
+        let after = parent_metadata(&receiver.preparation_services(), &changed).await;
         let retained = before
             .members
             .iter()

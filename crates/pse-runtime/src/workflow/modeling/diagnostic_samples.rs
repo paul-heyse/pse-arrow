@@ -39,6 +39,7 @@ impl ModelingPackage {
         maximum_samples: usize,
         operation: &super::super::super::DiagnosticOperation,
     ) -> Result<ModelingDiagnosticSamples, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {

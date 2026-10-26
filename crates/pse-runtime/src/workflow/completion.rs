@@ -121,12 +121,21 @@ impl ScientificPermission {
 pub struct ProductPermission {
     /// Existing registry-owned derived scientific quantity.
     pub quantity: DerivedQuantity,
-    /// The independent mathematical assessment, with its original qualifiers.
+    /// The independent mathematical assessment.
     pub validity: pse_model::generated::structures::LocalValidity,
+    /// Governing original and accepted derived-work limitations, without strengthening.
+    pub qualifiers: Vec<CandidateQualifier>,
     /// The completed scientific product decision.
     pub decision: CandidateUse,
 }
 impl ProductPermission {
+    fn retain_qualifiers(&mut self, qualifiers: impl IntoIterator<Item = CandidateQualifier>) {
+        for qualifier in qualifiers {
+            if !self.qualifiers.contains(&qualifier) {
+                self.qualifiers.push(qualifier);
+            }
+        }
+    }
     /// Both the original governing request and local mathematics permit this product.
     pub fn permits_result(&self) -> bool {
         matches!(
@@ -179,6 +188,10 @@ impl Completion {
         ProductPermission {
             quantity,
             validity,
+            qualifiers: self
+                .permission
+                .as_ref()
+                .map_or_else(Vec::new, |permission| permission.qualifiers.clone()),
             decision,
         }
     }
@@ -187,7 +200,8 @@ impl Completion {
 impl RunResult {
     fn capture_product_permissions(&self, completion: &mut Completion) {
         let super::RunOutcome::Fit {
-            result: Ok(report), ..
+            request,
+            result: Ok(report),
         } = &self.outcome
         else {
             return;
@@ -197,13 +211,17 @@ impl RunResult {
             .as_ref()
             .and_then(|s| s.evidence.local.as_ref())
             .and_then(|p| p.as_ref().ok());
-        let mut add = |quantity, outcome: Result<(), (WithheldReason, String)>, point| {
+        let mut add = |quantity,
+                       outcome: Result<(), (WithheldReason, String)>,
+                       point,
+                       qualifiers: &[CandidateQualifier]| {
             let validity = super::local_analysis::record(
                 outcome.as_ref().map_err(|(r, s)| (*r, s.clone())),
                 point,
                 false,
             );
-            let fact = completion.derive_permission(quantity, validity);
+            let mut fact = completion.derive_permission(quantity, validity);
+            fact.retain_qualifiers(qualifiers.iter().copied());
             completion.products.push(fact);
         };
         if let Some(covariance) = &report.covariance {
@@ -217,6 +235,7 @@ impl RunResult {
                 (covariance.approximation == CovarianceApproximation::Exact)
                     .then_some(point)
                     .flatten(),
+                &[],
             );
         }
         if let Some(wald) = &report.wald {
@@ -226,16 +245,27 @@ impl RunResult {
                     .map(|_| ())
                     .map_err(|e| (e.reason(), e.to_string())),
                 None,
+                &[],
             );
         }
         if let Some(profiles) = &report.profiles {
+            let qualifiers = profiles.as_ref().map_or_else(
+                |_| Vec::new(),
+                |chains| {
+                    chains
+                        .iter()
+                        .flat_map(|chain| chain.qualifiers.iter().copied())
+                        .collect::<Vec<_>>()
+                },
+            );
             add(
                 DerivedQuantity::ProfileInterval,
                 profiles
                     .as_ref()
-                    .map(|_| ())
-                    .map_err(|e| (e.reason(), e.to_string())),
+                    .map_err(|e| (e.reason(), e.to_string()))
+                    .and_then(|chains| request.profile_interval_validity(chains)),
                 None,
+                &qualifiers,
             );
         }
     }
@@ -975,6 +1005,48 @@ mod tests {
         );
         assert!(product.permits_result());
         assert_eq!(product.decision, CandidateUse::QualifiedUnclosed);
+    }
+
+    #[test]
+    fn product_permission_retains_original_and_accepted_pin_qualifiers() {
+        let completion = Completion {
+            permission: Some(ScientificPermission::assess(
+                None,
+                true,
+                1,
+                1,
+                &[assessment(true)],
+            )),
+            ..Default::default()
+        };
+        let mut product = completion.derive_permission(
+            DerivedQuantity::ProfileInterval,
+            super::super::local_analysis::record(Ok(&()), None, false),
+        );
+        product.retain_qualifiers([
+            CandidateQualifier::ApplicabilityUnknownAllowed,
+            CandidateQualifier::ClosureAllowed,
+            CandidateQualifier::ApplicabilityUnknownAllowed,
+        ]);
+        assert!(product.permits_result());
+        assert_eq!(product.decision, CandidateUse::Usable);
+        assert_eq!(
+            product.qualifiers,
+            [
+                CandidateQualifier::ApplicabilityExtrapolationAllowed,
+                CandidateQualifier::ApplicabilityUnknownAllowed,
+                CandidateQualifier::ClosureAllowed,
+            ]
+        );
+        let mut encoded = serde_json::to_value(&product).unwrap();
+        assert_eq!(
+            serde_json::from_value::<ProductPermission>(encoded.clone())
+                .unwrap()
+                .qualifiers,
+            product.qualifiers
+        );
+        encoded.as_object_mut().unwrap().remove("qualifiers");
+        assert!(serde_json::from_value::<ProductPermission>(encoded).is_err());
     }
 
     #[test]

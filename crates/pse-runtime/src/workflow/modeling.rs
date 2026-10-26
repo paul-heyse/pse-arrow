@@ -234,6 +234,27 @@ impl PackageAdmission {
     }
 }
 impl ModelingPackage {
+    /// Receiving services must retain the actual registry/native validation bindings
+    /// that admitted this source. Independent caller scopes over those bindings are valid.
+    pub(in crate::workflow) fn check_service_bindings(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<(), crate::math::MathRuntimeError> {
+        if !self
+            .revision
+            .admitted
+            .validation_context()
+            .same_bindings(&services.admission_context())
+        {
+            return Err(pse_backend_native::ProblemError::Contract(
+                "scientific source requires its original registry and native validation bindings"
+                    .into(),
+            )
+            .into());
+        }
+        Ok(())
+    }
+
     /// Original admitted physical meaning, reusable by ordinary draft and study operations.
     pub fn physical_context(&self) -> &PhysicalContext {
         &self.physical
@@ -243,6 +264,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<PackageAdmission, WorkflowError> {
+        self.check_service_bindings(services)?;
         Ok(PackageAdmission {
             revision: self.revision.clone(),
             accelerators: self.accelerators.clone(),
@@ -793,6 +815,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<Workspace, crate::math::MathRuntimeError> {
+        self.check_service_bindings(services)?;
         services.math().workspace(
             compiler_context(&self.physical, &self.providers),
             WorkspaceLimits::default(),
@@ -804,6 +827,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<OwnedDeclarations, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -843,6 +867,7 @@ impl ModelingPackage {
         services: &crate::workflow::PreparationServices,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -967,6 +992,7 @@ impl ModelingPackage {
         stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.prepare_initialization_stages(
             services,
             a,
@@ -984,6 +1010,7 @@ impl ModelingPackage {
         stages: &super::InitializationStages,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        self.check_service_bindings(services)?;
         let mut prepared = self
             .prepare_initialization_stages(
                 services,
@@ -1076,6 +1103,7 @@ impl ModelingPackage {
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -1120,6 +1148,7 @@ impl ModelingPackage {
         services: &crate::workflow::SourceServices,
         rows: Vec<Declaration>,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -1179,6 +1208,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

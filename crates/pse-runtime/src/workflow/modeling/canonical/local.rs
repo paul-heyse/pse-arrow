@@ -331,7 +331,9 @@ impl Hash for InventoryBucket {
     }
 }
 impl AdmittedModelRevision {
-    pub(super) fn validation_context(&self) -> &Arc<pse_relations::validate::ValidationContext> {
+    pub(in crate::workflow::modeling) fn validation_context(
+        &self,
+    ) -> &Arc<pse_relations::validate::ValidationContext> {
         &self._validation_context
     }
     /// Caller has established receiver-specific source admission. Shared maps and

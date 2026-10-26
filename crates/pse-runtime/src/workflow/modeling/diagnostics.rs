@@ -552,6 +552,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -584,6 +585,7 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -664,6 +666,7 @@ impl ModelingPackage {
         compiler: pse_compiler::workspace::Profile,
         operation: &super::super::DiagnosticOperation,
     ) -> Result<ModelingDiagnostics, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         operation.check()?;
@@ -2138,6 +2141,7 @@ impl ModelingPackage {
         controls: pse_backend_native::solve::Controls,
         operation: &super::super::DiagnosticOperation,
     ) -> Result<ModelingJacobianOptimization, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {

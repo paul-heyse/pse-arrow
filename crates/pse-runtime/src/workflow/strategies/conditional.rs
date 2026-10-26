@@ -1091,6 +1091,7 @@ impl ModelingPackage {
         request: RecycleRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity.scope(async {
         let profile = analysis.solver.clone();

@@ -378,6 +378,7 @@ impl ModelingPackage {
         services: &crate::workflow::SourceServices,
         cancel: &crate::CancelSource,
     ) -> Result<Option<pse_columnar::Leased<Vec<BTreeMap<String, Vec<u8>>>>>, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let parent = self.delta_parent(services.preparation(), cancel).await?;
         if parent.documents.is_empty()
             || parent.documents.values().any(|document| {
@@ -649,6 +650,7 @@ impl ModelingPackage {
         sources: &[BTreeMap<String, Vec<u8>>],
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -1117,7 +1119,16 @@ mod tests {
         );
         let receiver =
             Runtime::from_shared_local(small.shared.clone(), small.model.clone()).unwrap();
-        let confined = package.clone();
+        let confined = package
+            .replay_source()
+            .unwrap()
+            .reconstruct(
+                &receiver.source_services(),
+                package.physical.clone(),
+                (*package.providers).clone(),
+                &crate::CancelSource::new(),
+            )
+            .unwrap();
         assert!(
             confined
                 .all_revision(&receiver.preparation_services())
@@ -1133,7 +1144,7 @@ mod tests {
             .reload_from_parent(&receiver.source_services(), &[inventory], &cancel)
             .await
             .unwrap();
-        let after = parent(&runtime.preparation_services(), &changed).await;
+        let after = parent(&receiver.preparation_services(), &changed).await;
         assert_eq!(before.frame.data, after.frame.data);
         for (logical, member) in before
             .members

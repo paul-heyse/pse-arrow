@@ -394,3 +394,94 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
         .await
         .unwrap();
 }
+
+#[tokio::test]
+async fn canonical_registration_refuses_foreign_source_issuer_before_physical_or_run_effects() {
+    let origin = durable_runtime();
+    let independent =
+        Runtime::from_shared_local(origin.shared.clone(), origin.model.clone()).unwrap();
+    let target = durable_runtime_on(independent);
+    let (package, analysis) = package_on(
+        &origin,
+        "package p { def Root { param a:Scalar=2; annotation check a(a>0); } }",
+    )
+    .await;
+    // Native compatibility does not authorize transferring canonical source authority.
+    package
+        .check_service_bindings(&target.preparation_services())
+        .unwrap();
+    assert_ne!(
+        package.source_issuer(),
+        Some(target.canonical_store().unwrap().issuing_store().unwrap())
+    );
+    assert!(package.physical.sources.is_empty());
+    let physical_problem = format!("physical:context:{}", package.physical.identity());
+    assert!(
+        pse_operations::testing::source_problem_head(
+            target.canonical_store().unwrap(),
+            &physical_problem
+        )
+        .await
+        .unwrap()
+        .is_none()
+    );
+    let prepared = package
+        .prepare_analysis(
+            &origin.preparation_services(),
+            &analysis,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let steps = vec![prepared];
+    let attempt = durable::DurableAttempt::new(target.operations().unwrap()).unwrap();
+    let run_id = pse_operations::mint_id();
+    let (run, _) = attempt.canonical_keys(run_id);
+    let refused = attempt
+        .register(
+            &target.source_services(),
+            run_id,
+            &RunRequest::Modeling(&steps),
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(refused, WorkflowError::Input(_)), "{refused}");
+    assert!(refused.to_string().contains("issuer"));
+    assert!(attempt.claimed_run().is_none());
+    assert!(
+        target
+            .canonical_store()
+            .unwrap()
+            .canonical_run(&run)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        pse_operations::testing::source_problem_head(
+            target.canonical_store().unwrap(),
+            &physical_problem
+        )
+        .await
+        .unwrap()
+        .is_none()
+    );
+    assert!(
+        target
+            .canonical_store()
+            .unwrap()
+            .revision(&package.canonical_revision().unwrap().key)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        origin
+            .canonical_store()
+            .unwrap()
+            .revision(&package.canonical_revision().unwrap().key)
+            .await
+            .unwrap()
+            .is_some()
+    );
+}

@@ -499,9 +499,7 @@ impl Operations {
                 )
             }
         };
-        if completion.version != 3 {
-            return Err(contract("stored completion interpretation"));
-        }
+        let completion = current_stored_completion(completion)?;
         Ok(Arc::new(pse_columnar::Leased::new(
             Arc::new(completion),
             owner,
@@ -839,6 +837,15 @@ pub struct StoredCompletion {
     /// Original sampled telemetry coverage; absence never means complete coverage.
     pub progress: super::ProgressCoverage,
 }
+fn current_stored_completion(
+    completion: StoredCompletion,
+) -> Result<StoredCompletion, WorkflowError> {
+    if completion.version != 3 {
+        return Err(contract("stored completion interpretation"));
+    }
+    Ok(completion)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CompletionReceipt {
@@ -1226,12 +1233,36 @@ impl DurableAttempt {
             .step
             .store(i32::try_from(step).unwrap_or(i32::MAX), Ordering::Release);
     }
+    fn check_registration_sources<'a>(
+        &self,
+        services: &super::SourceServices,
+        sources: impl IntoIterator<Item = &'a super::ModelingPackage>,
+    ) -> Result<(), WorkflowError> {
+        let issuer = self.operations.store.issuing_store()?;
+        if services.canonical_store()?.issuing_store()? != issuer {
+            return Err(contract(
+                "registration services differ from the attempt's canonical issuer",
+            ));
+        }
+        for source in sources {
+            source.check_service_bindings(services.preparation())?;
+            if source.source_issuer() != Some(issuer) {
+                return Err(contract(
+                    "durable source issuer differs from its original admitted source",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub(super) async fn register(
         &self,
         services: &super::SourceServices,
         run_id: RunId,
         request: &RunRequest<'_>,
     ) -> Result<(), WorkflowError> {
+        let facts = request.facts();
+        self.check_registration_sources(services, facts.sources.iter().copied())?;
         if let Some(fence) = self.fence.get() {
             let row = self
                 .operations
@@ -1243,7 +1274,6 @@ impl DurableAttempt {
             self.stream.ready.notify_one();
             return Ok(());
         }
-        let facts = request.facts();
         let inputs = facts.inputs()?;
         let physical = facts.context()?;
         let sources = facts.source_selections();
@@ -1294,6 +1324,7 @@ impl DurableAttempt {
         identity: ContentHash,
         provenance: &[u8],
     ) -> Result<(), WorkflowError> {
+        self.check_registration_sources(services, packages.iter())?;
         if self.fence.get().is_some() {
             let row = self
                 .operations
@@ -6605,7 +6636,18 @@ mod ordinary_progress_tests {
             state: AttemptState::Failed,
             progress: ProgressCoverage::Unknown {},
         };
-        let mut historical = serde_json::to_value(stored).unwrap();
+        let current = serde_json::to_value(stored).unwrap();
+        assert!(
+            current_stored_completion(serde_json::from_value(current.clone()).unwrap()).is_ok()
+        );
+        for version in [1, 2] {
+            let mut historical = current.clone();
+            historical["version"] = serde_json::json!(version);
+            assert!(
+                current_stored_completion(serde_json::from_value(historical).unwrap()).is_err()
+            );
+        }
+        let mut historical = current;
         historical.as_object_mut().unwrap().remove("progress");
         assert!(serde_json::from_value::<StoredCompletion>(historical).is_err());
     }

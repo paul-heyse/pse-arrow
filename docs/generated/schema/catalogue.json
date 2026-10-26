@@ -456,7 +456,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: Completion",
       "schema_path": "docs/generated/schema/completion.input.schema.json",
-      "schema_sha256": "7a5db24d2056910d7aff2d31412c1f6c5cde726c201cd00edc09047b855d3250",
+      "schema_sha256": "132e5de96b6f6a47790587eb2468b916196d31d2a00e03b6071adedd9687cab6",
       "slug": "completion",
       "version": 2,
       "wire": "Native"
@@ -468,7 +468,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: Completion",
       "schema_path": "docs/generated/schema/completion.output.schema.json",
-      "schema_sha256": "e86372ae413cf8459df61be1495807b9d8efe004675f9d84668449f2b6439f32",
+      "schema_sha256": "c9e292e60b27d3fcb255ae7d3a26c8e28168e8a45205d32aa9233fb04514faea",
       "slug": "completion",
       "version": 2,
       "wire": "Native"
@@ -5550,6 +5550,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:f87d518034ebfe00547f6b32a106482848453ec8145b40691ca8e2cfb9bf0a44",
+  "schema_set_fingerprint": "blake3:59957dfdbb23f5799ad9020593af2b0f92e896cb0bc0c6dec10c0faf33eba23a",
   "version": 1
 }

@@ -285,6 +285,7 @@ impl ModelingPackage {
         profile: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -319,6 +320,7 @@ impl ModelingPackage {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let scope = pse_kernels::ExecutionScope::new(
@@ -408,6 +410,7 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<(CaseValues, BTreeMap<SemanticId, StartSource>), WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -602,6 +605,7 @@ impl ModelingPackage {
         policy: &DiscreteInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<BTreeMap<SemanticId, f64>, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity.scope(async {
         use DiscreteInitialization as Policy;
@@ -734,6 +738,7 @@ impl ModelingPackage {
         numerical: NumericalInputs,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -776,6 +781,7 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -797,6 +803,7 @@ impl ModelingPackage {
         resolution: ModelingCaseResolution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -988,6 +995,7 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
@@ -1039,6 +1047,7 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.resolve_prepared_case_with_current_view(
             services,
             model,
@@ -1073,6 +1082,7 @@ impl ModelingPackage {
         current_view: Option<&mut crate::workflow::study_operations::CurrentNumericalView>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let original_inputs = crate::workflow::replay::OriginalCaseInputs::capture(

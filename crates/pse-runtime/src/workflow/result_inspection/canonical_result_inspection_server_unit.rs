@@ -1149,6 +1149,7 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
             quantity: DerivedQuantity::ParameterCovariance,
             validity,
             decision: CandidateUse::Unusable,
+            qualifiers: vec![],
         }],
         ..Default::default()
     };

@@ -532,10 +532,11 @@ encoded-response limits refuse without substituting facts. Original-batch valida
 allocation and cancellation/drain remain native; exact Arrow IPC remains the complete data path.
 Inspection grants no scientific usability or publication authority.
 
-Result inspection carries the producer's governing Assessment permission separately from the
-selected product's usability, which remains Unknown without its own evidence. Missing completion
-or a termination without a governing Assessment supplies unknown permission; corrupt or unreadable
-completion propagates a refusal. This reader projection does not redefine completion policy.
+Result inspection copies the exact producer Completion's governing scientific permission and,
+for statistical products, its recorded product permission. Product-local mathematical validity
+remains independent of original permission. Missing permission supplies an explicit unavailable
+or unknown fact; corrupt or unreadable completion propagates a refusal. Retained diagnostic rows
+cannot authorize qualified product reuse. Reading never reconstructs a more permissive decision.
 
 Each durable run retains its original physical rows and a context-identity receipt in its source
 closure. The native reader protects those exact revisions, admits their original typed batches
@@ -578,6 +579,13 @@ the midpoint. Native terminal/refusal obligations retain precedence.
 `RunResult` retains the authored outcome and the typed report, the original request (including unattempted steps)
 and a `Completion` computed once at join: candidate assessments, source-attributed
 diagnostics, algebraic step records, the dynamic or fitting outcome and full lineage.
+Completion v2 records the governing requested/observed coverage, original report outcome,
+nonempty required assessments and resulting decision, refusals and applicability qualifiers.
+Each independent algebraic step retains its own scope. A product permission composes that
+original fact with its independently recorded mathematical validity and retained qualifiers;
+failed original checks cannot be repaired by a locally valid covariance or interval. Incomplete
+profile endpoints remain diagnostic chains rather than permitted intervals. A horizon publication
+failure retains its authentic prefix without promoting the requested whole operation.
 Lineage records model revision, case, request, preparation, profile, numerical policy,
 physical context and actual environment identities, separately from the unique run ID.
 Arrow tables, retained IPC and Python consumers preserve this product; reading it never
@@ -602,10 +610,25 @@ Owned in-process replay reconstruction supports an independent receiver over the
 
 Actual supplied documents retain their independent complete import checks under a receiving activity. Temporary logical/document/package lookups remove repeated searches without weakening trust. Same-format export converts an exact retained source once per operation but emits and accounts for every positional body and unchanged constructor index. No Python receiver parameter or replay version change follows from this internal correction.
 
-Replay transport schemas retain optional constructor fields independently of linked execution
-features; an absent method does not change the document type or grant execution capability.
+Replay v5 has one closed tagged constructor for modeling, simulation, fitting, horizon or
+shooting. Kind-owned request/completed projections provide lifecycle facts to replay, durable
+registration, diagnostics and public consumers. Missing, unknown or mixed constructor shapes
+refuse; host-only shooting remains outside the persisted study subset. Stored completion v3
+requires current Completion and explicit progress coverage; unsupported older interpretations
+refuse without inferring permission from diagnostic bytes. Receipt framing remains unchanged.
 A full-output horizon retains its original horizon input separately from the materialized
 solve prefix, so cancellation before the first step still permits faithful reconstruction.
+
+Immutable modeling, fitting and prepared scientific values retain source, physical and native
+input owners and necessary protection leases. Effectful Rust operations receive explicit
+PreparationServices, SourceServices or ExecutionServices from the existing Runtime composition
+root. These capabilities carry actual caller admission, allocation, validation, mathematics and
+selected publication policy; they are not a second Runtime. A receiver must have compatible
+original registry/native bindings, and durable publication authenticates the source's immutable
+original issuer before effects. A separate caller over the same bindings remains lawful after
+the original caller closes. Ephemeral execution suppresses automatic publication while retaining
+configured canonical read capabilities. Python facades supply these services without exposing
+the Rust plumbing to their callers.
 
 `ModelingTrajectory` is a clone-shared immutable completion snapshot. Read-only accessors
 expose the native outcome and retained checks; `accepted()` derives the composed permission.
@@ -878,6 +901,16 @@ they do not rewrite an original start policy to Explicit.
 > Supplement: [ADR-0152](../../adr/0152-demand-driven-compilation-and-contextual-routing.md) (proposed; Plan 25l functional implementation complete).
 
 Completion keeps candidate presence, evaluated original-space quality, unavailable assessment and native termination distinct. Only evaluated violations justify an infeasibility refusal. One shared exhaustive projection retains detailed causes and native limit categories without weakening result/seed/incumbent policy; generated and recorded consumers preserve those meanings.
+
+Residual LM and NLP supply actual native evidence to the same candidate policy; residual
+termination does not manufacture a KKT report or prove stationarity. Profile pins additionally
+require the original checks and retain applicability qualifiers at interval ends. Internal
+invariants, resource/time limits, cancellation, scientific refusal and integrity/infrastructure
+failures retain typed causes through admission and presentation. Only explicit deterministic
+scientific refusal may become permanent lazy rejection. Publication effects separately state
+no publication, an acknowledged original revision or unresolved publication; class and exception
+prose cannot establish safe retry. Host remedies consume these facts with redacted observations.
+
 
 > Supplement: [ADR-0148](../../adr/0148-studies-diagnostics-and-admitted-bindings.md)
 > (proposed; maintainer-authorized Plan 25f implementation). The shared occurrence contract
@@ -1349,7 +1382,7 @@ commitment (M2c), both in [§6.8](schema-and-relations.md#section-6-8).
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
-Qualified fit covariance requires complete authoritative content/validity hydration or reconciliation; external origin stays explicit. Dimensionless scale-aware faer PSD admission accepts singular inputs, refuses indefinite inputs and withholds negative propagated variance without clamping.
+Qualified fit covariance additionally requires the exact producer Completion product permission. Local covariance validity, estimate qualification and original aggregate permission remain distinct. Local and protected canonical constructors copy that permission; own-prediction propagation requires it too. Original-fit refusal retains inspectable covariance, Wald and profile diagnostics without granting statistical reuse. Qualified fit covariance requires complete authoritative content/validity hydration or reconciliation; external origin stays explicit. Dimensionless scale-aware faer PSD admission accepts singular inputs, refuses indefinite inputs and withholds negative propagated variance without clamping.
 
 Public preparation reconciles the ordered matrix, parameter identities, quantities, units and
 scales against the genuine retained fit. An in-process decoded fit reference needs its actual
@@ -1480,6 +1513,17 @@ unknown/audit obligations retain the protection specified in §20.4; release doe
 invent completion, redispatch native work or promise returned physical disk space.
 
 ### 21.1 Extension module, canonical operations and Arrow streams
+
+> Amendment: [ADR-0227](../../adr/0227-completion-permission-and-operation-facts.md)
+> (proposed; maintainer-authorized Plan56b).
+
+Default capability inventory describes each adapter's actually admitted default settings;
+configured capability queries resolve through that same adapter. Dynamics attribution requires
+a concrete selected method. Recovery profiles and replacement starts come from the adapter seam.
+Direct Python PETSc settings expose executable Newton root controls; composed pseudo-transient
+and nonlinear Schwarz controls remain explicit internal scientific composition settings and
+participate in the complete composition identity. KINSOL's configured fixed-point role and
+settings-sensitive Clarabel/SCIP thread capabilities remain available.
 
 > Decision: [ADR-0226](../../adr/0226-source-owned-physical-identities.md) (proposed) extends
 > declared identity projection to existing physical types, preserving Rust-owned documents and

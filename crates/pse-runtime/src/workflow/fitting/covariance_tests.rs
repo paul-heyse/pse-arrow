@@ -380,6 +380,130 @@ async fn covariance_withheld_without_responses() {
     );
 }
 
+/// Exhausting one pin per chain retains genuine likelihood diagnostics while
+/// withholding only the incomplete profile product.
+#[cfg_attr(
+    not(feature = "native-solvers"),
+    ignore = "needs the linked native solvers"
+)]
+#[tokio::test]
+async fn stopped_profile_budget_withholds_product_but_keeps_fit_wald_and_covariance() {
+    use crate::invocation::ProductAvailability;
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let result = fit(
+        &services,
+        &package(&runtime, declared(), [1.0; 4]).await,
+        profile(
+            HessianMode::Exact,
+            Some(FitUncertainty {
+                level: scalar!(Fraction(0.9)),
+                profile: Some(ProfileControls {
+                    points: scalar!(PositiveCount(1)),
+                    ..Default::default()
+                }),
+                predictions: false,
+            }),
+        ),
+    )
+    .await;
+    let report = report(&result);
+    assert!(result.usable() && report.estimate_qualified(), "{report:?}");
+    assert!(report.covariance.as_ref().unwrap().values.is_ok());
+    assert!(report.wald.as_ref().unwrap().is_ok());
+    assert!(result.parameter_covariance().unwrap().is_ok());
+    let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
+    assert_eq!(chains.len(), 4);
+    for chain in chains {
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Stopped, "{chain:?}");
+        assert_eq!(chain.bound.value, None);
+        assert!(chain.worker_failure.is_none());
+        assert_eq!(chain.points.len(), 1);
+        assert!(chain.points[0].accepted);
+    }
+    let completion = result.completion().unwrap();
+    let profile = completion
+        .product_permission(DerivedQuantity::ProfileInterval)
+        .unwrap();
+    assert!(!profile.permits_result() && !profile.validity.certified);
+    assert_eq!(
+        profile.validity.reason,
+        Some(WithheldReason::AnalysisUnavailable)
+    );
+    for quantity in [
+        DerivedQuantity::ParameterCovariance,
+        DerivedQuantity::WaldInterval,
+    ] {
+        assert!(
+            completion
+                .product_permission(quantity)
+                .unwrap()
+                .permits_result()
+        );
+    }
+    let evidence = result.invocation_evidence().unwrap();
+    for (role, availability) in [
+        ("original_scientific_result", ProductAvailability::Available),
+        ("parameter_covariance", ProductAvailability::Available),
+        ("wald_intervals", ProductAvailability::Available),
+        ("profile_intervals", ProductAvailability::Unavailable),
+    ] {
+        assert!(
+            evidence
+                .products
+                .iter()
+                .any(|product| product.role == role && product.availability == availability),
+            "{role}"
+        );
+    }
+    let local = validity(&result);
+    let published = local
+        .iter()
+        .find(|row| row.quantity == DerivedQuantity::ProfileInterval)
+        .unwrap();
+    assert!(!published.validity.certified);
+    assert_eq!(published.validity.reason, profile.validity.reason);
+    let intervals =
+        parameter_intervals::Row::rows(&result.table("runtime.parameter_intervals").unwrap())
+            .unwrap();
+    let stopped = intervals
+        .iter()
+        .filter(|row| row.method == IntervalMethod::ProfileLikelihood)
+        .collect::<Vec<_>>();
+    assert_eq!(stopped.len(), 4);
+    assert!(
+        stopped
+            .iter()
+            .all(|row| row.outcome == IntervalOutcome::Stopped && row.value.is_none())
+    );
+    assert_eq!(
+        intervals
+            .iter()
+            .filter(|row| row.method == IntervalMethod::Wald && row.value.is_some())
+            .count(),
+        4
+    );
+    assert_eq!(
+        profile_points::Row::rows(&result.table("runtime.profile_points").unwrap())
+            .unwrap()
+            .len(),
+        4
+    );
+    let public = serde_json::to_value(completion).unwrap();
+    let public_profile = public["products"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|product| product["quantity"] == DerivedQuantity::ProfileInterval.as_str())
+        .unwrap();
+    assert_eq!(public_profile["decision"], "unusable");
+    assert_eq!(public_profile["validity"]["certified"], false);
+    assert_eq!(
+        public_profile["qualifiers"],
+        serde_json::to_value(&profile.qualifiers).unwrap()
+    );
+}
+
 /// On a linear model independent minimized weighted likelihoods establish the
 /// profile/Wald endpoint agreement at production accuracy. The interval root uses
 /// its default statistic control; serial and four-worker chains must agree.
@@ -625,6 +749,25 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             .unwrap();
     assert_eq!(rows.len(), 8);
     assert!(rows.iter().all(|r| r.level == 0.9 && r.value.is_some()));
+    assert!(
+        result
+            .completion()
+            .unwrap()
+            .product_permission(DerivedQuantity::ProfileInterval)
+            .unwrap()
+            .permits_result()
+    );
+    assert!(
+        result
+            .invocation_evidence()
+            .unwrap()
+            .products
+            .iter()
+            .any(|product| {
+                product.role == "profile_intervals"
+                    && product.availability == crate::invocation::ProductAvailability::Available
+            })
+    );
     assert_eq!(
         rows.iter()
             .filter(|r| r.method == IntervalMethod::ProfileLikelihood)

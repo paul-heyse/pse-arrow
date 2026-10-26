@@ -23,6 +23,7 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetscSource, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity.scope(async {
         if self.revision.identity() != original.source.revision.identity()
@@ -65,6 +66,7 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetsc, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

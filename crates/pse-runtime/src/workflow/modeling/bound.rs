@@ -27,6 +27,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
@@ -53,6 +54,7 @@ impl ModelingPackage {
         services: &crate::workflow::PreparationServices,
         binding: &AdmittedBinding,
     ) -> Result<Arc<pse_columnar::Leased<AdmittedBinding>>, WorkflowError> {
+        self.check_service_bindings(services)?;
         let extent = binding
             .entries
             .values()
@@ -97,6 +99,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {

@@ -213,7 +213,7 @@ mod tests {
         )
         .unwrap();
         let next = rebound
-            .with_declarations(&runtime.source_services(), changed)
+            .with_declarations(&receiver.source_services(), changed)
             .await
             .unwrap();
         assert_eq!(source.revision.head.lock().unwrap().revision, original_head);

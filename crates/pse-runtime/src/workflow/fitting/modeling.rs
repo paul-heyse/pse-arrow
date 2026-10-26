@@ -75,6 +75,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<super::super::AdmittedBinding, WorkflowError> {
+        self.check_service_bindings(services)?;
         let declaration = self.fit_declaration(services, id).await?;
         let (sources, _) = self
             .fit_sources(services, &declaration, limits, cancel)
@@ -129,6 +130,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
+        self.check_service_bindings(services)?;
         let declaration = self.fit_declaration(services, id).await?;
         let (sources, _) = self
             .fit_sources(services, &declaration, limits, cancel)
@@ -273,6 +275,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.prepare_fit_bound(services, id, profile, compiler, limits, None, cancel)
             .await
     }
@@ -287,6 +290,7 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
+        self.check_service_bindings(services)?;
         self.prepare_fit_input(
             services,
             id,
@@ -312,6 +316,7 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
+        self.check_service_bindings(services)?;
         let request = request.retain(services)?;
         let pending = request.settings.simulations.clone();
         let profiles = pending
@@ -351,6 +356,7 @@ impl ModelingPackage {
         input: FitPreparationInput<'_>,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
+        self.check_service_bindings(services)?;
         let FitPreparationInput { binding, pending } = input;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
@@ -464,6 +470,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(FitProblem, Vec<Assessment>), WorkflowError> {
+        self.check_service_bindings(services)?;
         self.prepare_fit_problem_bound(
             services,
             id,
@@ -1391,6 +1398,7 @@ impl PreparedFit {
         workers: usize,
         storage: Option<Arc<pse_columnar::AllocationLease>>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
+        self.source.check_service_bindings(services.preparation())?;
         let problem = &self.problem;
         let (mut report, trace) = crate::math::strategy::target::callable(
             crate::math::strategy::target::CallContext {

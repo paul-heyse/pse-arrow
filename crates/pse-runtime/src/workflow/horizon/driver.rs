@@ -701,6 +701,13 @@ impl Admitted {
         mut horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        horizon.plant.source.check_service_bindings(services)?;
+        if let Some(estimator) = &horizon.estimator {
+            estimator.package.check_service_bindings(services)?;
+        }
+        if let Some(controller) = &horizon.controller {
+            controller.package.check_service_bindings(services)?;
+        }
         let owner = services.math().reserve(
             "horizon:held-source-owners",
             3 * (size_of::<HorizonSourceEngagement>() + 128),

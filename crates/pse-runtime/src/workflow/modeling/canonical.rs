@@ -996,6 +996,7 @@ impl ModelingPackage {
         intent: &pse_operations::canonical_project_imports::ProjectImportIntent,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         intent.validate()?;
         checkpoint(cancel)?;
         let edits = self
@@ -1675,6 +1676,7 @@ impl ModelingPackage {
         services: &crate::workflow::PreparationServices,
         object: &LocalSourceObject,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+        self.check_service_bindings(services)?;
         let extent = object
             .payload
             .len()
@@ -1697,6 +1699,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
+        self.check_service_bindings(services)?;
         let parent = self
             .delta_parent(services, &crate::CancelSource::new())
             .await?;
@@ -1714,6 +1717,7 @@ impl ModelingPackage {
         offset: usize,
         limit: usize,
     ) -> Result<(usize, super::OwnedDeclarations), WorkflowError> {
+        self.check_service_bindings(services)?;
         let (frame, frame_lease) = self
             .source_decode::<IngressFrame>(services, self.local_object(INGRESS_FRAME)?.as_ref())?;
         let total = frame.order.len();
@@ -1749,6 +1753,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<super::FitDeclarations, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -1774,6 +1779,7 @@ impl ModelingPackage {
         services: &crate::workflow::PreparationServices,
         id: pse_model::generated::identities::FitId,
     ) -> Result<pse_model::generated::authored::fit_cases::Row, WorkflowError> {
+        self.check_service_bindings(services)?;
         let object = self.local_object(&format!("fit:{id}"))?;
         Ok(self.source_decode(services, &object)?.0)
     }
@@ -1782,6 +1788,7 @@ impl ModelingPackage {
         services: &crate::workflow::SourceServices,
         fits: &[pse_model::generated::authored::fit_cases::Row],
     ) -> Result<SourceRevision, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let existing = self.fit_declarations(services.preparation()).await?;
         let old = existing
             .fits
@@ -1831,6 +1838,7 @@ impl ModelingPackage {
         ),
         WorkflowError,
     > {
+        self.check_service_bindings(services)?;
         use pse_relations::generated::authored::{documents, fit_cases, packages};
         let parent = self
             .delta_parent(services, &crate::CancelSource::new())
@@ -1931,6 +1939,7 @@ impl ModelingPackage {
         selected: &BTreeSet<DeclarationId>,
         cancel: &crate::CancelSource,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
+        self.check_service_bindings(services)?;
         if selected.is_empty() {
             return Err(contract("a fixture selection names at least one test"));
         }
@@ -1996,6 +2005,7 @@ impl ModelingPackage {
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<CheckedSelection, WorkflowError> {
+        self.check_service_bindings(services)?;
         checkpoint(cancel)?;
         let math = services.math();
         let request = self.selection_request(services, roots);
@@ -2127,6 +2137,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<crate::math::Workspace, WorkflowError> {
+        self.check_service_bindings(services)?;
         Ok(services.math().compiler_lane(
             self.compiler_lineage(services)?,
             super::compiler_context(&self.physical, &self.providers),
@@ -2138,6 +2149,7 @@ impl ModelingPackage {
         root: DeclarationId,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
+        self.check_service_bindings(services)?;
         Ok(self
             .checked_selection(services, &[root], cancel)
             .await?
@@ -2151,6 +2163,7 @@ impl ModelingPackage {
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
+        self.check_service_bindings(services)?;
         Ok(self
             .checked_selection(services, roots, cancel)
             .await?
@@ -2162,6 +2175,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::PreparationServices,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
+        self.check_service_bindings(services)?;
         let parent = self
             .delta_parent(services, &crate::CancelSource::new())
             .await?;
@@ -2736,6 +2750,7 @@ impl ModelingPackage {
         authority: &pse_operations::canonical_studies::StudyAdmissionAuthority,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         let point = authority.point_key();
         if point.is_empty() {
             return Err(contract("variant publication requires its occurrence"));
@@ -2859,6 +2874,7 @@ impl ModelingPackage {
         &self,
         services: &crate::workflow::SourceServices,
     ) -> Result<ModelingPackage, WorkflowError> {
+        self.check_service_bindings(services.preparation())?;
         rebind::rebind(self, services.preparation())
     }
     /// Candidate only; all owners stay borrowed and exact premises are checked after lookup.

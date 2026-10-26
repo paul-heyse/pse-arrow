@@ -47,6 +47,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<canonical::CheckedSelection, WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
@@ -75,6 +76,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<(ModelingPreparation, Arc<PreparedBasis>), WorkflowError> {
+        self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
             .scope(async {
