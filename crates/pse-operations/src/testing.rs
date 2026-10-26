@@ -362,7 +362,7 @@ pub(crate) fn resource_bridge_until(
         return Err(crate::canonical::CanonicalError::Timeout);
     }
     let mut input = input.clone();
-    if matches!(action, "drain" | "record-drain") {
+    if matches!(action, "register" | "drain" | "record-drain") {
         input["deadline_monotonic_ns"] = deadline.monotonic_ns.into();
     }
     let input = serde_json::to_vec(&input)

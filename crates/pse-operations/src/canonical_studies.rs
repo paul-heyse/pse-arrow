@@ -5128,7 +5128,11 @@ mod canonical_studies_server_unit {
                     Err(CanonicalError::Timeout)
                 )
                 .await,
-            Err(CanonicalError::Timeout)
+            Err(CanonicalError::SettlementUnresolved {
+                owner: "study-claim", operation: original_operation, request: original_request,
+                source, readback: None,
+            }) if original_operation == "not-committed" && original_request == request
+                && matches!(*source, CanonicalError::Timeout)
         ));
 
         // Independently replay the same admitted claim before either dispatch.
@@ -5147,12 +5151,18 @@ mod canonical_studies_server_unit {
                 .await
                 .is_err()
         );
+        let duplicate_operation = duplicate_admission.operation.clone();
+        let duplicate_request = duplicate_admission.request.clone();
         assert!(
             matches!(
                 store
                     .finish_study_started(duplicate_admission, Err(CanonicalError::Timeout))
                     .await,
-                Err(CanonicalError::Timeout)
+                Err(CanonicalError::SettlementUnresolved {
+                    owner: "study-start", operation: original_operation, request: original_request,
+                    source, readback: None,
+                }) if original_operation == duplicate_operation && original_request == duplicate_request
+                    && matches!(*source, CanonicalError::Timeout)
             ),
             "losing the second rejection cannot settle the first committed start"
         );
@@ -5162,11 +5172,17 @@ mod canonical_studies_server_unit {
         false_refresh.point.revision = started.revision;
         let false_admission = false_refresh.begin_dispatch().unwrap();
         assert!(store.send_study_started(&false_admission).await.is_err());
+        let false_operation = false_admission.operation.clone();
+        let false_request = false_admission.request.clone();
         assert!(matches!(
             store
                 .finish_study_started(false_admission, Err(CanonicalError::Timeout))
                 .await,
-            Err(CanonicalError::Timeout)
+            Err(CanonicalError::SettlementUnresolved {
+                owner: "study-start", operation: original_operation, request: original_request,
+                source, readback: None,
+            }) if original_operation == false_operation && original_request == false_request
+                && matches!(*source, CanonicalError::Timeout)
         ));
         assert_eq!(
             store

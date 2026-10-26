@@ -315,6 +315,7 @@ def rust(binary: str, name: str) -> Requirement:
     if package == "pse-operations" and name in {
         "canonical::maintenance::tests::generated_maintenance_pages_fence_generations_and_replay_exact_effects",
         "canonical::maintenance::tests::native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events",
+        "canonical_research::canonical_research_server_unit::research_lost_ack_settles_original_requests_and_reuse_is_explicit",
     }:
         base = CANONICAL
     managed = (

@@ -783,6 +783,7 @@ def observe_cleanup(payload: Mapping[str, object], failures: Sequence[str]) -> N
 
 def register(payload: Mapping[str, object], *, deadline: float | None = None) -> str:
     deadline = resource_store.clock(deadline)
+    host.remaining(deadline, 1)
     if os.environ.get("PSE_TEST_EXECUTION_EFFECTS") == "native-local":
         raise ResourceError("Canonical fixture requires --execution-effects canonical")
     marker = os.environ.get(MARKER)
@@ -2995,7 +2996,14 @@ def main() -> int:
     elif args.action in {"register", "drain", "record-drain", "setup-failure"}:
         payload = json.load(sys.stdin)
         if args.action == "register":
-            print(json.dumps({"resource": register(payload)}))
+            deadline = None
+            if "deadline_monotonic_ns" in payload:
+                expires = payload["deadline_monotonic_ns"]
+                if type(expires) is not int or expires <= 0:
+                    raise ResourceError("Registration requires its original monotonic deadline")
+                deadline = expires / 1_000_000_000
+                host.remaining(deadline, 1)
+            print(json.dumps({"resource": register(payload, deadline=deadline)}))
         elif args.action == "setup-failure":
             observe_setup_failure(payload)
             print(json.dumps({"observed": True}))

@@ -2431,6 +2431,7 @@ mod canonical_execution_server_unit {
         assert!(matches!(error, CanonicalError::Driver(_)));
         for sql in [
             "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='succeeded';",
+            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='failed',completion=NONE;",
             "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='closed_awaiting_manifest';",
             "UPDATE ONLY type::record('canonical_attempts',$attempt) SET outcome='invented';",
             "UPDATE ONLY type::record('canonical_attempts',$attempt) SET key='different';",
@@ -2652,19 +2653,33 @@ mod canonical_execution_server_unit {
             eligible_compacted.seed_manifest, eligible_terminal.seed_manifest,
             "legal payload compaction retains the immutable seed pointer"
         );
-        let admission_key = "phase-expired-admission";
-        let mut admission = original;
-        admission.key = admission_key.into();
-        admission.run = "study-admission:phase-expired".into();
-        bounded_query(
-            store
-                .db
-                .query("CREATE ONLY type::record('canonical_attempts',$key) CONTENT $row;")
-                .bind(("key", admission_key))
-                .bind(("row", wire::encode_canonical_attempts(&admission).unwrap())),
-        )
-        .await
-        .unwrap();
+        // The phase exception belongs to an actual declared admission run and
+        // occurrence. Producer/key spelling is not an admission capability.
+        let source_request=|key:&str| RunRequest {
+            key:key.into(),purpose:pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study:None,admission_point:None,revision:revision.clone(),sources:vec![],
+            request:vec![1],source_selection:vec![2],attestation:vec![3],
+        };
+        let study="phase-expired-admission-study";
+        let occurrence=pse_model::study::OccurrenceKey(0);
+        let point=crate::canonical_studies::NewOccurrence {
+            policy:pse_model::study::PointPolicy {
+                key:occurrence,dependencies:vec![],start:pse_model::study::StartPolicy::Fresh,
+                seed_need:pse_model::study::SeedNeed::Pending,attempt_limit:1,
+            },
+            descriptor:vec![42],run:source_request("phase-expired-point-run"),
+        };
+        store.create_study(study,&source_request("phase-expired-parent-run"),b"phase assertion fixture",&[point],&||false).await.unwrap();
+        let point_key=crate::canonical_studies::point_key(study,occurrence);
+        let scope=store.study_scope(&point_key).await.unwrap();
+        let admission=store.claim_study_admission(&scope,"phase-admission-worker",Duration::from_secs(60)).await.unwrap().unwrap();
+        let owner=store.canonical_run(admission.run()).await.unwrap().unwrap();
+        assert_eq!(owner.purpose,pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission);
+        assert_eq!(owner.admission_study.as_deref(),Some(study));
+        assert_eq!(owner.admission_point.as_deref(),Some(point_key.as_str()));
+        assert_eq!(scope.point().admission_run.as_deref(),Some(admission.run()));
+        let admission_key=admission.attempt();
+        bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$key) SET expires_at=0;").bind(("key",admission_key))).await.unwrap();
         bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$key) SET phase='terminal',outcome='failed';").bind(("key",admission_key))).await.unwrap();
         let error=bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$key) SET completion=$completion;").bind(("key",admission_key)).bind(("completion",Bytes::from(vec![9_u8])))).await.unwrap_err();
         assert!(

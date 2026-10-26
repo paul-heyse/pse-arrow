@@ -2679,14 +2679,14 @@ DEFINE FUNCTION fn::pse_study_v1::activate($rpc_expiry: int, $study: string) -> 
 DEFINE FUNCTION fn::pse_study_v1::scope($rpc_expiry: int, $point: string) -> object {
     fn::pse_history_v1::point($rpc_expiry,$point);
     fn::pse_execution_v1::deadline($rpc_expiry);
-    LET $p = SELECT key, study, ordinal, occurrence, policy, facts, outcome, run, revision, assigned, settled, attempt, start FROM ONLY type::record('canonical_study_points', $point);
+    LET $p = SELECT key, study, ordinal, occurrence, policy, facts, outcome, run, admission_run, variant_problem, variant_operation, revision, assigned, settled, attempt, start FROM ONLY type::record('canonical_study_points', $point);
     IF $p = NONE { THROW 'PSE_REFUSAL:study_candidate_unavailable'; };
     LET $s = SELECT key, generation, cancelled, active, terminal FROM ONLY type::record('canonical_studies', $p.study);
     IF $s = NONE OR $s.active = false { THROW 'PSE_REFUSAL:study_not_active'; };
     LET $edges = type::record('canonical_study_points',$point)->(SELECT predecessor FROM canonical_study_dependencies LIMIT 193);
     IF array::len(array::distinct($edges.predecessor)) > 64 { THROW 'PSE_REFUSAL:study_candidate_immediate_dependency_bound'; };
     LET $keys = array::distinct($edges.predecessor);
-    LET $predecessors = $keys.map(|$key| SELECT key, study, ordinal, occurrence, policy, facts, outcome, revision, assigned, settled, attempt, run, start FROM ONLY type::record('canonical_study_points', $key));
+    LET $predecessors = $keys.map(|$key| SELECT key, study, ordinal, occurrence, policy, facts, outcome, revision, assigned, settled, attempt, run, admission_run, variant_problem, variant_operation, start FROM ONLY type::record('canonical_study_points', $key));
     LET $rpc_result = {study:$s, point:$p, predecessors:$predecessors};
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
