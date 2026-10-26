@@ -1414,7 +1414,7 @@ impl NativeSession {
         let waiting = observation
             .as_ref()
             .map(|context| context.phase("native.session.admission.wait"));
-        let admission_span = tracing::info_span!("pse.native.session.admission.wait");
+        let admission_span = tracing::info_span!("pse.native.session.admission.wait", pse.owner.stage = true);
         if cores == 0 || cores > self.service.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -1540,7 +1540,7 @@ impl NativeSession {
                 let _trace_dispatch = tracing::dispatcher::set_default(&trace_dispatch);
                 let _trace_span = trace_span.enter();
                 let phase = pse_diagnostics::observation::phase("native.session.work");
-                let _work_span = tracing::info_span!("pse.native.session.execute").entered();
+                let _work_span = tracing::info_span!("pse.native.session.execute", pse.owner.stage = true).entered();
                 let mut context = OperationContext {
                     #[cfg(any(test, feature = "solver-kinsol"))]
                     lane,
@@ -1615,7 +1615,7 @@ impl NativeSession {
         let mut drain_span = None;
         let outcome = cancel
             .join_native(native, result, || {
-                drain_span = Some(tracing::info_span!("pse.native.session.drain.wait"));
+                drain_span = Some(tracing::info_span!("pse.native.session.drain.wait", pse.owner.stage = true));
                 tracing::info!(target: "pse.telemetry.diagnostic", code = "native.cancel.requested", "native session cancellation requested; retaining owner through drain");
                 if let Some(context) = stop.1.as_ref().filter(|context| context.is_active()) {
                     context.boolean("native.session.stop_requested", true);
@@ -1947,7 +1947,7 @@ impl NativeSession {
         Ok(())
     }
     /// Close the session and wait until its thread has joined.
-    #[tracing::instrument(name = "pse.native.session.join.wait", skip_all)]
+    #[tracing::instrument(name = "pse.native.session.join.wait", skip_all, fields(pse.owner.stage = true))]
     pub(crate) async fn close(mut self) {
         let observation = pse_diagnostics::observation::current();
         let phase = observation

@@ -1360,6 +1360,11 @@ fn deployment_association(
 /// Snapshots only actual Cargo-selected build-script log/output namespaces.
 /// The finite text inventory is for source review association, not input proof:
 /// dep-info alone does not discharge native include-search or executor obligations.
+fn build_script_stdout_paths(out: &Path) -> Result<[PathBuf; 2]> {
+    let parent = out.parent().context("actual build script output parent missing")?;
+    Ok([parent.join("run/stdout"), parent.join("output")])
+}
+
 fn selected_build_output_observations(
     messages: &[serde_json::Value],
     root: &Path,
@@ -1381,12 +1386,10 @@ fn selected_build_output_observations(
         let parent = out
             .parent()
             .context("actual build script output parent missing")?;
-        for log in [
-            parent.join("run/stdout"),
+        for log in build_script_stdout_paths(&out)?.into_iter().chain([
             parent.join("run/stderr"),
-            parent.join("output"),
             parent.join("stderr"),
-        ] {
+        ]) {
             if log.is_file() {
                 paths.insert(log);
             }

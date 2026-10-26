@@ -24,7 +24,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from jsonschema import Draft202012Validator
-from pydantic import JsonValue
+from pydantic import JsonValue, ValidationError
 
 from scripts.capabilities import native, native_contracts, native_worker
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
@@ -73,14 +73,7 @@ def fingerprint() -> str:
 
 
 def schema_fixture(root: Path) -> None:
-    """A miniature producer fixture; not a production fallback catalogue."""
-    directory = root / "docs/generated/schema"
-    directory.mkdir(parents=True)
-    shutil.copyfile(
-        ROOT / "docs/generated/schema/authoring.schema.json",
-        directory / "authoring.schema.json",
-    )
-    rows = []
+    """Copy selected published contracts from their actual responsibility owners."""
     requested = {
         (slug, "input")
         for binding in native.BINDINGS
@@ -91,40 +84,26 @@ def schema_fixture(root: Path) -> None:
         for binding in native.BINDINGS
         if binding.output_document
     }
-    for slug, direction in sorted(requested):
-        filename = f"{slug}.{direction}.schema.json"
-        source = ROOT / "docs/generated/schema" / filename
-        shutil.copyfile(source, directory / filename)
-        schema = json.loads(source.read_text())
-        rows.append(
-            {
-                "slug": slug,
-                "direction": direction,
-                "name": schema["title"].removesuffix("Output"),
-                "exported_name": schema["title"],
-                "wire": "Native",
-                "rust_type": "fixture::Owner",
-                "registration_source": "fixture",
-                "version": 1,
-                "schema_path": f"docs/generated/schema/{filename}",
-                "schema_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
-            }
-        )
-    (directory / "catalogue.json").write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "schema_set_fingerprint": fingerprint(),
-                "documents": rows,
-                "authoring": {
-                    "schema_path": "docs/generated/schema/authoring.schema.json",
-                    "sha256": hashlib.sha256(
-                        (directory / "authoring.schema.json").read_bytes()
-                    ).hexdigest(),
-                },
-            }
-        )
-    )
+    copied: set[tuple[str, str]] = set()
+    for relative in ("docs/generated/schema", "scripts/generated/evidence_schema"):
+        source_root = ROOT / relative
+        directory = root / relative
+        directory.mkdir(parents=True)
+        manifest = json.loads((source_root / "catalogue.json").read_bytes())
+        rows = []
+        for row in manifest["documents"]:
+            key = (row["slug"], row["direction"])
+            if key in requested:
+                shutil.copyfile(ROOT / row["schema_path"], root / row["schema_path"])
+                rows.append(row)
+                copied.add(key)
+        manifest["documents"] = rows
+        if manifest.get("authoring") is not None:
+            path = manifest["authoring"]["schema_path"]
+            shutil.copyfile(ROOT / path, root / path)
+        (directory / "catalogue.json").write_text(json.dumps(manifest))
+    if copied != requested:
+        raise AssertionError(f"published contract fixture is incomplete: {requested - copied}")
 
 
 def source_request() -> dict[str, JsonValue]:
@@ -259,6 +238,73 @@ class IntactNativeResultTests(unittest.TestCase):
         self.assertEqual(response.omissions, value["omissions"])
 
 
+class GeneratedOperationTests(unittest.TestCase):
+    def test_finite_original_surface_and_selected_capability_consumer(self) -> None:
+        expected = {
+            "model_declarations", "model_inspect", "model_compare", "evidence_compare",
+            "source_admit", "preparation_discover", "project_select", "project_metadata",
+            "revision_source", "revision_preparation_discover", "project_bundle_inspect", "research_read",
+            "diagnostic_processes", "diagnostic_checkpoint", "diagnostic_inspect", "evidence_inspect",
+            "invocation_read", "result_read", "physical_inspect", "result_inspect", "configured_capabilities",
+        }
+        self.assertEqual({binding.operation for binding in native_contracts.BINDINGS}, expected)
+        self.assertEqual({binding.operation for binding in native_contracts.worker_bindings()}, expected | {"telemetry_profile_capture"})
+        evidence = native_contracts.binding_for("evidence_compare")
+        self.assertEqual(evidence.worker.worker, "evidence")
+        self.assertEqual([requirement.kind for requirement in evidence.requirements], ["executable"])
+        capability = native_contracts.binding_for("configured_capabilities")
+        self.assertEqual(capability.document_types, {"settings": "BackendSettings"})
+        self.assertEqual(capability.output_document, "solver-capability")
+        self.assertEqual([requirement.kind for requirement in capability.requirements], ["python-extension"])
+        self.assertTrue(capability.output_many)
+        with self.assertRaises(ValueError):
+            native_contracts.binding_for("arbitrary_new_operation")
+
+    def test_context_eligibility_is_independent_of_whole_document_preservation(self) -> None:
+        capture = native_contracts.PROFILE_BINDING
+        self.assertTrue(capture.preserve_document)
+        self.assertEqual(capture.read_eligibility, "dedicated")
+        capability = native_contracts.binding_for("configured_capabilities")
+        self.assertFalse(capability.preserve_document)
+        self.assertEqual(capability.read_eligibility, "exact_context")
+        self.assertEqual(capability.context_fields, ("resources",))
+        page = native_contracts.binding_for("model_declarations")
+        self.assertEqual(page.cursor_inputs, (("request", "offset"),))
+        self.assertEqual(page.cursor_outputs, (("document", "next_offset"),))
+        self.assertEqual(page.continuations[0].kind, "offset")
+        canonical = native_contracts.binding_for("project_metadata")
+        self.assertEqual(canonical.cursor_inputs, (("request", "cursor"),))
+        self.assertEqual(canonical.cursor_outputs, (("document", "next"),))
+        self.assertEqual(canonical.continuations[0].kind, "opaque")
+
+    def test_headers_keep_owned_bounds_unknown_fields_and_original_scientific_body(self) -> None:
+        body = {"foreign_original_field": [None, 0, "unchanged"]}
+        selected = native_contracts.validate_arguments("configured_capabilities", {"backend": "ipopt", "settings": body})
+        self.assertEqual(selected.model_dump(mode="json")["settings"], body)
+        for request in [
+            {"path": "bundle", "maximum_document_bytes": 0},
+            {"path": "bundle", "maximum_document_bytes": (16 << 20) + 1},
+            {"path": "bundle", "foreign": "secret"},
+        ]:
+            with self.assertRaises(ValidationError):
+                native_contracts.validate_arguments("project_bundle_inspect", request)
+        for resources in [{"memory_limit_bytes": 0, "threads": 1, "max_spill_bytes": 1}, {"memory_limit_bytes": 1, "threads": 17, "max_spill_bytes": 1}]:
+            with self.assertRaises(ValidationError):
+                native_contracts.Resources.model_validate(resources, strict=True)
+
+    def test_original_row_window_preserves_full_u64_boundary(self) -> None:
+        request = {
+            "state": "existing", "database": "db", "run": "run", "attempt": "attempt",
+            "relation": "runtime.rows", "start": (1 << 64) - 1, "end": (1 << 64) - 1,
+            "resources": {"memory_limit_bytes": 1 << 28, "threads": 1, "max_spill_bytes": 1 << 20},
+        }
+        accepted = native_contracts.Result.model_validate(request, strict=True)
+        self.assertEqual(accepted.start, (1 << 64) - 1)
+        for changed in [{"start": 1 << 64}, {"end": 1 << 64}, {"start": -1}, {"end": True}]:
+            with self.subTest(changed=changed), self.assertRaises(ValidationError):
+                native_contracts.Result.model_validate({**request, **changed}, strict=True)
+
+
 class DirectDiagnosticReaderTests(unittest.TestCase):
     def setUp(self) -> None:
         self.pse = Mock(name="pse-reader-fixture")
@@ -382,6 +428,36 @@ class DirectDiagnosticReaderTests(unittest.TestCase):
                 scratch=Path("/not-created-by-read"),
             )
         self.pse.Runtime.assert_not_called()
+
+    def test_configured_capability_body_refuses_before_runtime_receiver_construction(self) -> None:
+        self.documents.BackendSettings = object()
+        with patch.object(native_worker, "decoded", side_effect=ValueError("foreign backend settings")):
+            with self.assertRaisesRegex(ValueError, "foreign backend settings"):
+                native_worker.execute(
+                    "configured_capabilities",
+                    {"schema_set_fingerprint": "reader-fixture", "backend": "ipopt", "settings": {}, "resources": {"memory_limit_bytes": 1 << 28, "threads": 1, "max_spill_bytes": 1 << 20}},
+                    scratch=Path("/not-created-by-refusal"),
+                )
+        self.pse.Runtime.assert_not_called()
+        self.pse.EngineSettings.assert_not_called()
+
+    def test_linked_capability_consumer_calls_existing_receiver_without_service(self) -> None:
+        self.pse.Runtime.side_effect = None
+        self.pse.EngineSettings.side_effect = None
+        runtime = self.pse.Runtime.return_value
+        runtime.capabilities.return_value = ({"backend": "ipopt", "linked": True},)
+        with tempfile.TemporaryDirectory() as directory:
+            result = native_worker.execute(
+                "configured_capabilities",
+                {"schema_set_fingerprint": "reader-fixture", "resources": {"memory_limit_bytes": 1 << 28, "threads": 1, "max_spill_bytes": 1 << 20}},
+                scratch=Path(directory),
+            )
+        self.assertEqual(result, {"outcome": "observed", "document": [{"backend": "ipopt", "linked": True}]})
+        runtime.capabilities.assert_called_once_with()
+        runtime.capability_for.assert_not_called()
+        runtime.close.assert_called_once_with()
+        self.assertTrue(self.pse.Runtime.call_args.kwargs["ephemeral"])
+        self.assertIsNone(self.pse.Runtime.call_args.kwargs["substrate"])
 
     def test_checkpoint_worker_and_host_preserve_all_target_records_or_refuse_whole_detail(
         self,
@@ -578,6 +654,21 @@ class NativeSchemaTests(unittest.TestCase):
             self.assertEqual(preserved.payload, document)
             self.assertTrue(preserved.complete)
 
+    def test_configured_capability_host_retains_original_optional_settings_and_row_schema(self) -> None:
+        tool = self.tools["native_configured_capabilities"]
+        settings = object_value(at(tool.parameters, "properties", "settings"))
+        self.assertIn({"type": "null"}, list_value(settings["anyOf"]))
+        self.assertEqual(settings["default"], None)
+        output = tool.output_schema
+        assert output is not None
+        rows = object_value(at(output, "properties", "payload", "oneOf", 0, "properties", "document"))
+        self.assertEqual(rows["type"], "array")
+        original = self.schemas.document("solver-capability", "output")
+        original.pop("$defs", None)
+        self.assertEqual(rows["items"], original)
+        Draft202012Validator.check_schema(tool.parameters)
+        Draft202012Validator.check_schema(output)
+
     def test_result_inspection_registration_uses_original_directional_rust_contracts(
         self,
     ) -> None:
@@ -690,10 +781,18 @@ class NativeSchemaTests(unittest.TestCase):
                 await client.call_tool(
                     "capabilities_select", {"capabilities": ["native_result_inspect"]}
                 )
-                with patch.object(native, "run_child", return_value=observed) as child:
+                with (
+                    patch.object(
+                        native.ReadSessions, "run", autospec=True, return_value=observed
+                    ) as read,
+                    patch.object(
+                        native, "run_child", side_effect=AssertionError("foreground read must retain its owner")
+                    ),
+                ):
                     result = await client.call_tool("native_result_inspect", arguments)
-                self.assertEqual(child.call_args.args[:2], (ROOT, "result_inspect"))
-                self.assertEqual(child.call_args.args[2]["request"], request)
+                self.assertEqual(read.call_args.args[0].root, ROOT)
+                self.assertEqual(read.call_args.args[1].operation, "result_inspect")
+                self.assertEqual(read.call_args.args[2]["request"], request)
                 Draft202012Validator(schema).validate(result.structured_content)
                 self.assertEqual(at(result.structured_content, "payload"), observed)
                 self.assertEqual(
@@ -1013,11 +1112,7 @@ class NativeSchemaTests(unittest.TestCase):
                 await release.wait()
                 return {"outcome": "observed"}
 
-            pending: set[asyncio.Task[dict[str, JsonValue]]] = set()
-            with (
-                patch.object(native.asyncio, "to_thread", side_effect=actual),
-                patch.object(native, "_PENDING", pending),
-            ):
+            with patch.object(native.asyncio, "to_thread", side_effect=actual):
                 task = asyncio.create_task(
                     self.tools["native_invocation_read"].run({"path": "selected"})
                 )
@@ -1025,13 +1120,13 @@ class NativeSchemaTests(unittest.TestCase):
                 task.cancel()
                 with self.assertRaises(asyncio.CancelledError):
                     await task
-                self.assertEqual(len(pending), 1)
-                child = next(iter(pending))
-                self.assertFalse(child.cancelled())
-                release.set()
-                await child
+                tool = self.tools["native_invocation_read"]
+                assert isinstance(tool, native.NativeTool)
+                closing = asyncio.create_task(tool.read_lifetime().close())
                 await asyncio.sleep(0)
-                self.assertFalse(pending)
+                self.assertFalse(closing.done())
+                release.set()
+                await closing
 
         asyncio.run(exercise())
 

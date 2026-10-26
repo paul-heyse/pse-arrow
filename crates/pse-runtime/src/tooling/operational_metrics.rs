@@ -12,8 +12,85 @@ use std::{
 
 static SATURATED: AtomicBool = AtomicBool::new(false);
 static START: OnceLock<u128> = OnceLock::new();
-static NATIVE: [AtomicU64; 7] = [const { AtomicU64::new(0) }; 7];
-static PREPARATION: [[AtomicU64; 4]; 2] = [const { [const { AtomicU64::new(0) }; 4] }; 2];
+static NATIVE: [AtomicU64; NativeEvent::ALL.len()] = [const { AtomicU64::new(0) }; NativeEvent::ALL.len()];
+static SUPERVISORS: AtomicU64 = AtomicU64::new(0);
+static PREPARATION: [[AtomicU64; PreparationEvent::ALL.len()]; PreparationStage::ALL.len()] = [const { [const { AtomicU64::new(0) }; PreparationEvent::ALL.len()] }; PreparationStage::ALL.len()];
+/// Closed identities issued by the performing metric owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NativeEvent {
+    /// `attempt` population.
+    Attempt,
+    /// `admitted` population.
+    Admitted,
+    /// `dispatched` population.
+    Dispatched,
+    /// `joined` population.
+    Joined,
+    /// `cancel_requested` population.
+    CancelRequested,
+    /// `deadline_requested` population.
+    DeadlineRequested,
+}
+impl NativeEvent {
+    pub(crate) const ALL: [Self; 6] = [Self::Attempt, Self::Admitted, Self::Dispatched, Self::Joined, Self::CancelRequested, Self::DeadlineRequested];
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Attempt => "attempt",
+            Self::Admitted => "admitted",
+            Self::Dispatched => "dispatched",
+            Self::Joined => "joined",
+            Self::CancelRequested => "cancel_requested",
+            Self::DeadlineRequested => "deadline_requested",
+        }
+    }
+}
+impl NativeEvent {
+    fn increment(self) { increment(&NATIVE[self as usize]); }
+    pub(crate) fn count(self, sample: &OperationalMetricsSnapshot) -> u64 {
+        match self {
+            Self::Attempt => sample.native_attempts,
+            Self::Admitted => sample.native_admitted,
+            Self::Dispatched => sample.native_dispatched,
+            Self::Joined => sample.native_joined,
+            Self::CancelRequested => sample.native_cancel_requests,
+            Self::DeadlineRequested => sample.native_deadline_requests,
+        }
+    }
+}
+/// Closed identities issued by the performing metric owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PreparationEvent {
+    /// `acquisition` population.
+    Acquisition,
+    /// `retained_reuse` population.
+    RetainedReuse,
+    /// `producer` population.
+    Producer,
+    /// `flight_waiter` population.
+    FlightWaiter,
+}
+impl PreparationEvent {
+    pub(crate) const ALL: [Self; 4] = [Self::Acquisition, Self::RetainedReuse, Self::Producer, Self::FlightWaiter];
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Acquisition => "acquisition",
+            Self::RetainedReuse => "retained_reuse",
+            Self::Producer => "producer",
+            Self::FlightWaiter => "flight_waiter",
+        }
+    }
+}
+impl PreparationEvent {
+    pub(crate) fn count(self, sample: &PreparationMetricsSnapshot) -> u64 {
+        match self {
+            Self::Acquisition => sample.acquisitions,
+            Self::RetainedReuse => sample.retained_reuses,
+            Self::Producer => sample.producers,
+            Self::FlightWaiter => sample.flight_waiters,
+        }
+    }
+}
+
 fn start() -> u128 {
     *START.get_or_init(|| {
         SystemTime::now()
@@ -36,13 +113,16 @@ pub(crate) fn preparation_activity() {
     let _ = start();
 }
 pub(crate) fn native_joined() {
-    increment(&NATIVE[3]);
+    NativeEvent::Joined.increment();
 }
 
 /// Bounded actual shared immutable-product owner.
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum PreparationStage {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PreparationStage {
+    /// Shared modeling frontier.
     Frontier,
+    /// Shared prepared basis.
     Basis,
 }
 impl PreparationStage {
@@ -61,21 +141,21 @@ impl PreparationStage {
     }
     /// A caller entered a valid acquisition; this includes retained reads and flight waiters.
     pub(crate) fn acquire(self) {
-        increment(&PREPARATION[self.index()][0]);
+        increment(&PREPARATION[self.index()][PreparationEvent::Acquisition as usize]);
     }
     /// An actual valid retained product was returned, including a producer's cache recheck.
     pub(crate) fn reuse(self) {
-        increment(&PREPARATION[self.index()][1]);
+        increment(&PREPARATION[self.index()][PreparationEvent::RetainedReuse as usize]);
     }
     /// A caller attached to a shared flight after the retained-product probe missed.
     pub(crate) fn waiter(self) {
-        increment(&PREPARATION[self.index()][3]);
+        increment(&PREPARATION[self.index()][PreparationEvent::FlightWaiter as usize]);
     }
     /// Called only inside the single-flight producer future, never once per waiter.
     pub(crate) fn producer(self) -> OwnerInterval {
-        increment(&PREPARATION[self.index()][2]);
+        increment(&PREPARATION[self.index()][PreparationEvent::Producer as usize]);
         OwnerInterval::new(
-            super::metric_declarations::INTERVAL_FAMILIES[1],
+            OwnerIntervalFamily::Preparation,
             self.name(),
         )
     }
@@ -110,7 +190,7 @@ pub struct OperationalMetricsSnapshot {
 #[serde(deny_unknown_fields)]
 pub struct PreparationMetricsSnapshot {
     /// Fixed stage, frontier or basis.
-    pub stage: String,
+    pub stage: PreparationStage,
     /// Valid acquisition callers, including retained readers and all flight waiters.
     pub acquisitions: u64,
     /// Retained products reused, including producer cache rechecks.
@@ -122,27 +202,27 @@ pub struct PreparationMetricsSnapshot {
 }
 /// Passive reads never initialize an executor or perform scientific work.
 pub fn snapshot() -> OperationalMetricsSnapshot {
-    let read = |index: usize| NATIVE[index].load(Ordering::Relaxed);
+    let read = |event: NativeEvent| NATIVE[event as usize].load(Ordering::Relaxed);
     OperationalMetricsSnapshot {
         source_started_unix_micros: START.get().copied(),
         saturated: SATURATED.load(Ordering::Relaxed),
-        native_attempts: read(0),
-        native_admitted: read(1),
-        native_dispatched: read(2),
-        native_joined: read(3),
-        native_cancel_requests: read(4),
-        native_deadline_requests: read(5),
-        native_supervisors: read(6),
-        preparation: [PreparationStage::Frontier, PreparationStage::Basis]
+        native_attempts: read(NativeEvent::Attempt),
+        native_admitted: read(NativeEvent::Admitted),
+        native_dispatched: read(NativeEvent::Dispatched),
+        native_joined: read(NativeEvent::Joined),
+        native_cancel_requests: read(NativeEvent::CancelRequested),
+        native_deadline_requests: read(NativeEvent::DeadlineRequested),
+        native_supervisors: SUPERVISORS.load(Ordering::Relaxed),
+        preparation: PreparationStage::ALL
             .into_iter()
             .map(|stage| {
-                let read = |index: usize| PREPARATION[stage.index()][index].load(Ordering::Relaxed);
+                let read = |event: PreparationEvent| PREPARATION[stage.index()][event as usize].load(Ordering::Relaxed);
                 PreparationMetricsSnapshot {
-                    stage: stage.name().into(),
-                    acquisitions: read(0),
-                    retained_reuses: read(1),
-                    producers: read(2),
-                    flight_waiters: read(3),
+                    stage,
+                    acquisitions: read(PreparationEvent::Acquisition),
+                    retained_reuses: read(PreparationEvent::RetainedReuse),
+                    producers: read(PreparationEvent::Producer),
+                    flight_waiters: read(PreparationEvent::FlightWaiter),
                 }
             })
             .collect(),
@@ -154,31 +234,42 @@ pub(crate) struct NativeAttempt {
 }
 impl NativeAttempt {
     pub(crate) fn new() -> Self {
-        increment(&NATIVE[0]);
-        increment(&NATIVE[6]);
+        NativeEvent::Attempt.increment();
+        increment(&SUPERVISORS);
         Self {
             _interval: OwnerInterval::new(
-                super::metric_declarations::INTERVAL_FAMILIES[0],
-                super::metric_declarations::SUPERVISOR_STAGE,
+                OwnerIntervalFamily::Native,
+                SUPERVISOR_STAGE,
             ),
         }
     }
     pub(crate) fn admitted(&self) {
-        increment(&NATIVE[1]);
+        NativeEvent::Admitted.increment();
     }
     pub(crate) fn dispatched(&self) {
-        increment(&NATIVE[2]);
+        NativeEvent::Dispatched.increment();
     }
     pub(crate) fn cancelled(&self) {
-        increment(&NATIVE[4]);
+        NativeEvent::CancelRequested.increment();
     }
     pub(crate) fn expired(&self) {
-        increment(&NATIVE[5]);
+        NativeEvent::DeadlineRequested.increment();
     }
 }
 impl Drop for NativeAttempt {
     fn drop(&mut self) {
-        NATIVE[6].fetch_sub(1, Ordering::Relaxed);
+        SUPERVISORS.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+pub(crate) const SUPERVISOR_STAGE: &str = "supervisor";
+/// Families of actual inclusive owner intervals.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum OwnerIntervalFamily { Native, Preparation }
+impl OwnerIntervalFamily {
+    pub(crate) const ALL: [Self; 2] = [Self::Native, Self::Preparation];
+    pub(crate) fn as_str(self) -> &'static str {
+        match self { Self::Native => "native", Self::Preparation => "preparation" }
     }
 }
 
@@ -190,14 +281,14 @@ pub(crate) struct OwnerInterval {
     attributes: [opentelemetry::KeyValue; 2],
 }
 impl OwnerInterval {
-    fn new(family: &'static str, stage: &'static str) -> Self {
+    fn new(family: OwnerIntervalFamily, stage: &'static str) -> Self {
         let meter = opentelemetry::global::meter(super::telemetry::INSTRUMENTATION_SCOPE);
         let histogram = owner_histogram(&meter);
         Self {
             started: Instant::now(),
             histogram,
             attributes: [
-                opentelemetry::KeyValue::new("owner.family", family),
+                opentelemetry::KeyValue::new("owner.family", family.as_str()),
                 opentelemetry::KeyValue::new("stage", stage),
             ],
         }
@@ -306,6 +397,34 @@ mod tests {
         fn temporality(&self) -> Temporality {
             Temporality::Cumulative
         }
+    }
+    #[test]
+    fn operational_metrics_keys_preserve_populations_when_enumeration_reorders() {
+        let sample = OperationalMetricsSnapshot {
+            source_started_unix_micros: Some(1), saturated: false,
+            native_attempts: 11, native_admitted: 13, native_dispatched: 17,
+            native_joined: 19, native_cancel_requests: 23, native_deadline_requests: 29,
+            native_supervisors: 31, preparation: vec![],
+        };
+        let native = NativeEvent::ALL.into_iter().rev()
+            .map(|key| (key.as_str(), key.count(&sample)))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(native, [
+            ("attempt", 11), ("admitted", 13), ("dispatched", 17),
+            ("joined", 19), ("cancel_requested", 23), ("deadline_requested", 29),
+        ].into());
+        let sample = PreparationMetricsSnapshot {
+            stage: PreparationStage::Basis, acquisitions: 37, retained_reuses: 41,
+            flight_waiters: 43, producers: 47,
+        };
+        let preparation = PreparationEvent::ALL.into_iter().rev()
+            .map(|key| (key.as_str(), key.count(&sample)))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(preparation, [
+            ("acquisition", 37), ("retained_reuse", 41), ("flight_waiter", 43), ("producer", 47),
+        ].into());
+        assert_eq!(serde_json::to_value(sample).unwrap()["stage"], "basis");
+        assert!(serde_json::from_str::<PreparationStage>("\"unknown_stage\"").is_err());
     }
     #[tokio::test]
     async fn operational_metrics_shared_flight_counts_one_producer_two_waiters() {

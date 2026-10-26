@@ -10,7 +10,20 @@ use super::{UnitGraph, absolute, artifact_dep_info, artifact_matches, parse_carg
 use anyhow::{Context, Result, ensure};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+fn build_script_directives(out_dir: &Path) -> Result<(Vec<PathBuf>, String)> {
+    let paths = super::build_script_stdout_paths(out_dir)?.into_iter()
+        .filter(|path| path.is_file()).collect::<Vec<_>>();
+    ensure!(!paths.is_empty(), "actual Cargo build-script directives unavailable for {}", out_dir.display());
+    let text = fs::read_to_string(&paths[0])
+        .with_context(|| format!("actual Cargo build-script directives {}", paths[0].display()))?;
+    for path in paths.iter().skip(1) {
+        ensure!(fs::read_to_string(path)? == text,
+            "conflicting actual Cargo build-script directive locations for {}", out_dir.display());
+    }
+    Ok((paths, text))
+}
 
 pub(crate) fn graph(root: &Path, arguments: &Path, output: &Path) -> Result<()> {
     let arguments: Vec<String> = serde_json::from_slice(&fs::read(arguments)?)?;
@@ -79,10 +92,9 @@ pub(crate) fn extract(
         let outputs = messages.iter().filter(|message| message["reason"] == "build-script-executed" && message["package_id"] == unit.pkg_id).collect::<Vec<_>>();
         ensure!(!outputs.is_empty(), "selected build script lacks actual Cargo execution record");
         for message in outputs {
-            let out_dir = Path::new(message["out_dir"].as_str().context("build script output directory")?);
-            let output_path = out_dir.parent().context("build script output parent")?.join("output");
-            let text = fs::read_to_string(&output_path).context("actual Cargo build-script directives")?;
-            files.insert(output_path);
+            let out_dir = absolute(root, Path::new(message["out_dir"].as_str().context("build script output directory")?));
+            let (output_paths, text) = build_script_directives(&out_dir)?;
+            files.extend(output_paths);
             let mut declared = false;
             for line in text.lines() {
                 let Some(directive) = line.strip_prefix("cargo::").or_else(|| line.strip_prefix("cargo:")) else { continue; };
@@ -112,4 +124,31 @@ pub(crate) fn extract(
     });
     fs::write(output, serde_json::to_vec(&value)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn producing_directives_use_actual_run_stdout_and_refuse_ambiguous_locations() {
+        let directory = tempfile::tempdir().unwrap();
+        let parent = directory.path().join("selected-unit");
+        let out = parent.join("out");
+        fs::create_dir_all(parent.join("run")).unwrap();
+        let current = parent.join("run/stdout");
+        fs::write(&current, "cargo::rerun-if-env-changed=ACTUAL_SELECTOR\n").unwrap();
+        let (paths, text) = build_script_directives(&out).unwrap();
+        assert_eq!(paths, vec![current.clone()]);
+        assert!(text.contains("ACTUAL_SELECTOR"));
+        let legacy = parent.join("output");
+        fs::write(&legacy, &text).unwrap();
+        assert_eq!(build_script_directives(&out).unwrap().0.len(), 2);
+        fs::write(&legacy, "cargo:rerun-if-changed=another-input\n").unwrap();
+        assert!(build_script_directives(&out).is_err());
+        fs::remove_file(&current).unwrap();
+        assert_eq!(build_script_directives(&out).unwrap().0, vec![legacy.clone()]);
+        fs::remove_file(legacy).unwrap();
+        assert!(build_script_directives(&out).is_err());
+    }
 }

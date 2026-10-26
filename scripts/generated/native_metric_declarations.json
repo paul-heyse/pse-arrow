@@ -2,6 +2,8 @@
   {
     "name": "pse_runtime_executor_workers",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "{thread}",
     "population": "Configured workers of currently registered executors",
     "attributes": [
@@ -23,6 +25,8 @@
   {
     "name": "pse_runtime_executor_alive_tasks",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "{task}",
     "population": "Approximate alive tasks of currently registered executors; not settlement",
     "attributes": [
@@ -44,6 +48,8 @@
   {
     "name": "pse_runtime_executor_global_queue_depth",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "{task}",
     "population": "Global injection queues only; excludes worker-local queues",
     "attributes": [
@@ -65,6 +71,8 @@
   {
     "name": "pse_runtime_executor_worker_busy",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "s",
     "population": "Sum of cumulative worker busy time for currently registered executors; not CPU time",
     "attributes": [
@@ -86,6 +94,8 @@
   {
     "name": "pse_native_supervisor_events",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "{event}",
     "population": "Process cumulative actual native supervisor route events; join witnesses native/TLS destruction, attempts are not scientific solves",
     "attributes": [
@@ -110,6 +120,8 @@
   {
     "name": "pse_native_supervisors",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "{owner}",
     "population": "Outstanding actual supervisor owners; caller completion does not prove physical release",
     "attributes": [],
@@ -123,6 +135,8 @@
   {
     "name": "pse_preparation_flight_events",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "{event}",
     "population": "Process cumulative frontier/basis acquisition callers, retained reads and single-flight producers; overlapping populations, not additive work",
     "attributes": [
@@ -150,6 +164,8 @@
   {
     "name": "pse_preparation_products",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "{product}",
     "population": "Process cumulative performing-owner preparations; nested operation/service summaries overlap and are not re-added",
     "attributes": [
@@ -172,6 +188,8 @@
   {
     "name": "pse_canonical_query_events",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "{event}",
     "population": "Process cumulative selected canonical query adapter builders and SDK response events; builders are not dispatched requests, select/control APIs are partial coverage",
     "attributes": [
@@ -197,6 +215,8 @@
   {
     "name": "pse_canonical_server_duration",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "s",
     "population": "Process cumulative supplied statement server wall times for the selected query adapter; untimed statements omitted, not CPU time or a complete database population",
     "attributes": [],
@@ -210,6 +230,8 @@
   {
     "name": "pse_operational_source_start",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "s",
     "population": "Actual cumulative source generation origin in Unix seconds; streams reset only on process incarnation change, distinct from SDK activation",
     "attributes": [
@@ -230,6 +252,8 @@
   {
     "name": "pse_runtime_task_events",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "{event}",
     "population": "Process-wide selected future wrapper events; dropped wrappers do not establish native settlement",
     "attributes": [
@@ -262,6 +286,8 @@
   {
     "name": "pse_runtime_task_duration",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "s",
     "population": "Cumulative selected-future poll, wake-to-poll and pending-to-wake intervals; not CPU time",
     "attributes": [
@@ -292,6 +318,8 @@
   {
     "name": "pse_runtime_task_threshold",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "s",
     "population": "Actual selected monitor thresholds; slow polls and long delays are subsets, not additional work",
     "attributes": [
@@ -318,6 +346,8 @@
   {
     "name": "pse_runtime_task_source_start",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "s",
     "population": "Monitor source generation start in Unix seconds; SDK stream start is collection activation, not this origin",
     "attributes": [
@@ -339,6 +369,8 @@
   {
     "name": "pse_runtime_executor_registry_available",
     "kind": "observable_gauge",
+    "monotonic": false,
+    "exemplars": false,
     "unit": "1",
     "population": "Whether the executor source registry was available at collection",
     "attributes": [],
@@ -352,6 +384,8 @@
   {
     "name": "pse_runtime_executor_registration_refused",
     "kind": "observable_counter",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "{registration}",
     "population": "Process-lifetime executor observation registration refusals; never workload admission",
     "attributes": [],
@@ -365,6 +399,8 @@
   {
     "name": "pse_owner_interval",
     "kind": "histogram",
+    "monotonic": true,
+    "exemplars": false,
     "unit": "s",
     "population": "Completed inclusive owner wall intervals starting after SDK activation; includes failed or cancelled owners, not CPU time",
     "attributes": [

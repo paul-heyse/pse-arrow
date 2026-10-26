@@ -142,10 +142,11 @@ def build(root: Path = ROOT) -> Runtime:
 
     @asynccontextmanager
     async def lifetime(_server: FastMCP) -> AsyncGenerator[dict[str, JsonValue]]:
+        native.open_bound(tools)
         try:
             yield {}
         finally:
-            await settle(telemetry.close(), owner.close())
+            await settle(telemetry.close(), owner.close(), native.close_bound(tools))
 
     server = FastMCP(
         "pse-capabilities",

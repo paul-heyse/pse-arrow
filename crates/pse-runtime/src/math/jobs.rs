@@ -1099,7 +1099,7 @@ impl MathService {
         .await
         .map(|(value, _)| value)
     }
-    #[tracing::instrument(name = "pse.compiler.admission.wait", skip_all)]
+    #[tracing::instrument(name = "pse.compiler.admission.wait", skip_all, fields(pse.owner.stage = true))]
     async fn compiler_authority(
         workspace: super::Workspace,
         cancel: &Cancellation,
@@ -1387,7 +1387,7 @@ impl MathService {
                     let result = async {
                 let (lease, active) = {
                     let _waiting = pse_diagnostics::observation::phase("math.admission.wait");
-                    tracing::Instrument::instrument(service.reserve_active("math:native-job", cores as u32, bytes, &cancel, at), tracing::info_span!("pse.math.admission.wait")).await?
+                    tracing::Instrument::instrument(service.reserve_active("math:native-job", cores as u32, bytes, &cancel, at), tracing::info_span!("pse.math.admission.wait", pse.owner.stage = true)).await?
                 };
                 if cancel.flag().load(Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
@@ -1439,7 +1439,7 @@ impl MathService {
                         let _dispatch = tracing::dispatcher::set_default(&dispatch);
                         let _span = span.enter();
                         let _phase = pse_diagnostics::observation::phase("native.worker");
-                        let _native_span = tracing::info_span!("pse.native.worker.execute").entered();
+                        let _native_span = tracing::info_span!("pse.native.worker.execute", pse.owner.stage = true).entered();
                         #[cfg(feature = "solver-kinsol")]
                         pse_backend_native::implicit::budget_sessions(sessions);
                         #[cfg(not(feature = "solver-kinsol"))]

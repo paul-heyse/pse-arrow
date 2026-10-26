@@ -155,6 +155,49 @@ class TelemetryReadTests(unittest.TestCase):
         with patch.object(telemetry_service, "inspect", return_value=self.inspected):
             return telemetry.health(self.state)
 
+    def test_health_host_projection_preserves_local_sdk_loss_without_native_import(self) -> None:
+        from scripts.capabilities import telemetry_contracts  # noqa: PLC0415 -- selected projection test
+
+        class Native:
+            activation: dict[str, str | None] = {"status": "initialized"}
+
+            def shutdown(self) -> None:
+                pass
+
+            def loss_health(self) -> dict[str, object]:
+                return {
+                    "process_incarnation": "exact-native-incarnation",
+                    "signal": "traces",
+                    "processor": "BatchSpanProcessor",
+                    "first_drop_observed": True,
+                    "sdk_reported_dropped_span_count": 11,
+                    "shutdown": "failed",
+                    "delivery": "not_observed",
+                    "abrupt_exit_loss": "unknown",
+                }
+
+        lifetime = telemetry_process.ProcessLifetime(None, "initialized", native=Native())
+        with (
+            patch("scripts.telemetry_process._STATE.active", lifetime),
+            patch.object(telemetry_service, "inspect", return_value={"status": "unavailable"}),
+            patch.object(telemetry_process.importlib, "import_module", side_effect=AssertionError("passive health cannot import native")),
+            patch.object(telemetry_process, "bootstrap", side_effect=AssertionError("passive health cannot bootstrap")),
+        ):
+            answer = telemetry.health(self.state)
+            projected = telemetry_contracts.health(answer).model_dump(mode="json")
+        payload = mapping(projected["payload"])
+        producer = mapping(payload["producer"])
+        loss = mapping(producer["dropped_records"])
+        native = mapping(loss["native_rust"])
+        self.assertEqual(native["process_incarnation"], "exact-native-incarnation")
+        self.assertEqual(native["sdk_reported_dropped_span_count"], 11)
+        self.assertEqual(native["shutdown"], "failed")
+        self.assertEqual(native["delivery"], "not_observed")
+        self.assertEqual(native["abrupt_exit_loss"], "unknown")
+        self.assertEqual(mapping(loss["python"])["status"], "unavailable")
+        self.assertFalse(projected["complete"])
+        self.assertEqual(self.requests, [])
+
     def test_failed_service_inspection_preserves_local_reader(self) -> None:
         with (
             patch.object(

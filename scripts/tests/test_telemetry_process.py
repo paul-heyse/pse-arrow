@@ -596,6 +596,7 @@ asyncio.run(main())
     def test_local_status_is_passive_and_unknown_is_not_zero(self) -> None:
         with (
             patch("scripts.telemetry_process._STATE.active", None),
+            patch.object(telemetry_process.importlib, "import_module", side_effect=AssertionError("cold read cannot import native")),
             patch.object(
                 telemetry_process,
                 "resolve_process",
@@ -617,6 +618,104 @@ asyncio.run(main())
             )
             owner.shutdown()
             self.assertTrue(telemetry_process.local_status()["closed"])
+
+    def test_native_loss_snapshot_survives_shutdown_without_claiming_python_or_delivery(self) -> None:
+        class Native:
+            activation: dict[str, str | None] = {"status": "initialized"}
+            closed = False
+
+            def shutdown(self) -> None:
+                self.closed = True
+
+            def loss_health(self) -> dict[str, object]:
+                return {
+                    "process_incarnation": "fixture-native-incarnation",
+                    "signal": "traces",
+                    "processor": "BatchSpanProcessor",
+                    "first_drop_observed_at_unix_ns": 123,
+                    "sdk_reported_dropped_span_count": 7 if self.closed else None,
+                    "shutdown": "failed" if self.closed else "not_attempted",
+                    "delivery": "not_observed",
+                    "abrupt_exit_loss": "unknown",
+                }
+
+        native = Native()
+        owner = telemetry_process.ProcessLifetime(None, "initialized", native=native)
+        with patch("scripts.telemetry_process._STATE.active", owner):
+            live = telemetry_process.local_status()
+            owner.shutdown()
+            final = telemetry_process.local_status()
+        live_loss = live["dropped_records"]
+        final_loss = final["dropped_records"]
+        assert isinstance(live_loss, dict) and isinstance(final_loss, dict)
+        live_native = live_loss["native_rust"]
+        final_native = final_loss["native_rust"]
+        assert isinstance(live_native, dict) and isinstance(final_native, dict)
+        self.assertIsNone(live_native["sdk_reported_dropped_span_count"])
+        self.assertEqual(final_native["sdk_reported_dropped_span_count"], 7)
+        self.assertEqual(final_native["shutdown"], "failed")
+        self.assertEqual(final_native["abrupt_exit_loss"], "unknown")
+        self.assertEqual(final["delivery"], "not_observed")
+        self.assertEqual(final["queue_occupancy"], "unavailable")
+        python = final_loss["python"]
+        assert isinstance(python, dict)
+        self.assertEqual(python["status"], "unavailable")
+
+    def test_native_loss_read_failure_is_passive_unavailable(self) -> None:
+        class Native:
+            activation: dict[str, str | None] = {"status": "initialized"}
+
+            def shutdown(self) -> None:
+                pass
+
+            def loss_health(self) -> dict[str, object] | None:
+                raise RuntimeError("private-failure-must-not-render")
+
+        owner = telemetry_process.ProcessLifetime(None, "initialized", native=Native())
+        with (
+            patch("scripts.telemetry_process._STATE.active", owner),
+            patch.object(telemetry_process.importlib, "import_module", side_effect=AssertionError("passive read cannot import native")),
+        ):
+            value = telemetry_process.local_status()
+        self.assertNotIn("private-failure", repr(value))
+        loss = value["dropped_records"]
+        assert isinstance(loss, dict)
+        self.assertEqual(loss["native_rust"], {"status": "unavailable", "reason": "native_trace_observer_read_failed"})
+
+    def test_actual_disabled_native_bridge_retains_typed_passive_health(self) -> None:
+        result = self.child(
+            """import json
+from scripts.telemetry_config import resolve_process
+from pse._telemetry import initialize
+from pse._build import _telemetry_status
+assert _telemetry_status() == "null"
+settings = resolve_process("disabled-native-bridge")
+owner = initialize(settings.native_json(), lambda: {})
+assert owner.activation["status"] == "disabled"
+live = owner.loss_health()
+assert live is not None
+assert live["process_incarnation"] == settings.wire.process_incarnation
+assert live["scope"] == "pse-runtime"
+assert live["signal"] == "traces"
+assert live["processor"] == "BatchSpanProcessor"
+assert live["shutdown"] == "unselected"
+assert live["first_drop_observed"] is False
+assert live["sdk_reported_dropped_span_count"] is None
+owner.shutdown()
+retained = owner.loss_health()
+assert retained is not None
+assert retained["process_incarnation"] == live["process_incarnation"]
+assert retained["sdk_reported_dropped_span_count"] is None
+assert retained["delivery"] == "not_observed"
+assert retained["abrupt_exit_loss"] == "unknown"
+assert json.loads(_telemetry_status())["process_incarnation"] == live["process_incarnation"]
+owner.shutdown()
+print("native-health-retained")
+""",
+            environment={**self.environment, "OTEL_SDK_DISABLED": "true"},
+        )
+        self.assertEqual(result.stdout, "native-health-retained\n")
+        self.assertEqual(self.records, [])
 
     def test_preexisting_provider_is_preserved(self) -> None:
         result = self.child("""from opentelemetry import trace

@@ -38,7 +38,7 @@ pub(crate) use crate::transport::{
 use crate::transport::{original_deadline, within_clock};
 pub use metadata::MetadataResponse;
 use transport::CanonicalClient;
-pub use transport::{CanonicalQueryMetrics, CanonicalQuerySample, query_metrics};
+pub use transport::{CanonicalQueryEvent, CanonicalQueryMetrics, CanonicalQuerySample, query_metrics};
 
 /// Initial negotiated protocol limit; batches must leave space for their envelope.
 pub const MESSAGE_BYTES: usize = wire::RESULT_MESSAGE_BYTES;

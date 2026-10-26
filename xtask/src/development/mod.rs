@@ -21,3 +21,6 @@ pub fn registry() -> Result<&'static pse_schema::Registry, pse_schema::SchemaErr
         Err(error) => Err(error.clone()),
     }
 }
+
+/// Finite supplied-only tooling host operation contribution.
+pub mod host_operations;

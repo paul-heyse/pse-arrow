@@ -33,16 +33,18 @@ CURRENCY_CAPTURE = "PSE_ORDINARY_CARGO_CAPTURE"
 OBSERVER_SOURCE_INPUTS = (
     "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "xtask/Cargo.toml",
     "xtask/src/main.rs", "xtask/src/producer_identity.rs", "xtask/src/producing_inputs.rs",
+    "scripts/workspace.rs",
 )
 
 
 def configure_currency(
-    root: Path, directory: Path, environment: Mapping[str, str]
+    root: Path, directory: Path, environment: Mapping[str, str], *, observer: Mapping[str, object]
 ) -> dict[str, str]:
     """Observe the actual installer Cargo child without replacing its compiler."""
     path = directory / "ordinary-cargo.json"
     write_new(path, {"version": 1, "workspace_root": str(root.resolve()),
-                     "cargo": cargo_executable(environment), "capture_options": []})
+                     "cargo": cargo_executable(environment), "capture_options": [],
+                     "observer_preparation": dict(observer)})
     return {**environment, CURRENCY_CAPTURE: str(path), PYTHON: sys.executable,
             "CARGO": str(root / "scripts/producer-cargo")}
 
@@ -78,12 +80,17 @@ def observe_currency(arguments: list[str], environment: Mapping[str, str]) -> in
     extractor = root / "target/debug/xtask"
     observer_witness = producing_currency.Witness()
     observer_artifact = observer_witness.file(extractor)
+    observer_stamp = producing_currency.stamp(extractor) if extractor.is_file() else None
     observer_sources = {str(root / name): observer_witness.file(root / name)
                         for name in OBSERVER_SOURCE_INPUTS}
+    prepared = configuration.get("observer_preparation")
+    prepared_current = (observer_stamp is not None and isinstance(prepared, dict)
+                        and prepared.get("source_basis") == producing_currency.basis(observer_sources)
+                        and prepared.get("artifact_stamp") == list(observer_stamp))
     code = subprocess.call([str(extractor), "producing-graph", "--arguments",
                             str(arguments_path), "--output", str(graph)], env=child_environment)
     observed_graph = code == 0
-    observed_graph = observed_graph and observer_artifact["sha256"] is not None and all(
+    observed_graph = observed_graph and prepared_current and observer_artifact["sha256"] is not None and all(
         value["sha256"] is not None for value in observer_sources.values())
     if observed_graph:
         metadata.write_bytes(subprocess.check_output(
@@ -118,7 +125,8 @@ def observe_currency(arguments: list[str], environment: Mapping[str, str]) -> in
     if code:
         return code
     if not observed_graph:
-        write_new(path.with_suffix(".status.json"), {"supported": False, "cause": "graph-unavailable"})
+        write_new(path.with_suffix(".status.json"), {"supported": False,
+            "cause": "observer-preparation-changed" if not prepared_current else "graph-unavailable"})
         return 0
     if package_witness is None or package_selection is None or before_packages != package_witness.inputs(package_selection, child_environment):
         write_new(path.with_suffix(".status.json"), {"supported": False, "cause": "package-inputs-raced"})
@@ -127,6 +135,7 @@ def observe_currency(arguments: list[str], environment: Mapping[str, str]) -> in
                             "--messages", str(records), "--metadata", str(metadata),
                             "--output", str(path.with_suffix(".inputs.json"))], env=child_environment)
     if (observer_witness.file(extractor) != observer_artifact
+            or producing_currency.stamp(extractor) != observer_stamp
             or observer_sources != {name: observer_witness.file(Path(name)) for name in observer_sources}):
         write_new(path.with_suffix(".status.json"), {"supported": False, "cause": "observer-changed"})
         return 0
@@ -145,6 +154,8 @@ def observe_currency(arguments: list[str], environment: Mapping[str, str]) -> in
             "effective_environment": effective_environment(child_environment),
             "artifacts": artifacts,
             "observer": {"artifact": observer_artifact,
+                         "artifact_stamp": observer_stamp,
+                         "preparation_command": prepared.get("command") if isinstance(prepared, dict) else None,
                          "source_basis": producing_currency.basis(observer_sources)},
         })
     write_new(path.with_suffix(".status.json"), {"supported": code == 0,

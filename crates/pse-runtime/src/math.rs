@@ -488,6 +488,62 @@ struct Preparations {
     rebuilt: AtomicUsize,
     shared: AtomicUsize,
 }
+/// Finite performing-owner preparation populations; summaries may overlap.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PreparationProduct {
+    StructuralView,
+    ObservationProgram,
+    ValueRebuilt,
+    ValueShared,
+}
+impl PreparationProduct {
+    pub(crate) const ALL: [Self; 4] = [Self::StructuralView, Self::ObservationProgram, Self::ValueRebuilt, Self::ValueShared];
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::StructuralView => "structural_view",
+            Self::ObservationProgram => "observation_program",
+            Self::ValueRebuilt => "value_rebuilt",
+            Self::ValueShared => "value_shared",
+        }
+    }
+    fn counter(self, owner: &Preparations) -> &AtomicUsize {
+        match self {
+            Self::StructuralView => &owner.views,
+            Self::ObservationProgram => &owner.observations,
+            Self::ValueRebuilt => &owner.rebuilt,
+            Self::ValueShared => &owner.shared,
+        }
+    }
+    pub(crate) fn count(self, sample: &PreparationCounts) -> usize {
+        match self {
+            Self::StructuralView => sample.views,
+            Self::ObservationProgram => sample.observations,
+            Self::ValueRebuilt => sample.rebuilt,
+            Self::ValueShared => sample.shared,
+        }
+    }
+}
+
+#[cfg(test)]
+mod preparation_metric_tests {
+    use super::*;
+    #[test]
+    fn preparation_metric_keys_select_actual_owner_counters_after_reordering() {
+        let owner = Preparations::default();
+        for (product, count) in [
+            (PreparationProduct::ValueShared, 11),
+            (PreparationProduct::ObservationProgram, 5),
+            (PreparationProduct::StructuralView, 3),
+            (PreparationProduct::ValueRebuilt, 7),
+        ] { product.counter(&owner).fetch_add(count, std::sync::atomic::Ordering::Relaxed); }
+        let sample = owner.snapshot();
+        assert_eq!((sample.views, sample.observations, sample.rebuilt, sample.shared), (3, 5, 7, 11));
+        let selected = PreparationProduct::ALL.into_iter().rev().map(|key| (key.as_str(), key.count(&sample)))
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(selected, [("structural_view", 3), ("observation_program", 5),
+            ("value_rebuilt", 7), ("value_shared", 11)].into());
+    }
+}
 static PROCESS_PREPARATIONS: std::sync::OnceLock<Preparations> = std::sync::OnceLock::new();
 /// Performing-owner process totals; operation and service summaries are not additive.
 pub fn preparation_metrics() -> PreparationCounts {
@@ -497,12 +553,12 @@ pub fn preparation_metrics() -> PreparationCounts {
 }
 impl Preparations {
     fn snapshot(&self) -> PreparationCounts {
-        let read = |n: &AtomicUsize| n.load(std::sync::atomic::Ordering::Relaxed);
+        let read = |product: PreparationProduct| product.counter(self).load(std::sync::atomic::Ordering::Relaxed);
         PreparationCounts {
-            views: read(&self.views),
-            observations: read(&self.observations),
-            rebuilt: read(&self.rebuilt),
-            shared: read(&self.shared),
+            views: read(PreparationProduct::StructuralView),
+            observations: read(PreparationProduct::ObservationProgram),
+            rebuilt: read(PreparationProduct::ValueRebuilt),
+            shared: read(PreparationProduct::ValueShared),
         }
     }
 }
@@ -880,14 +936,14 @@ impl MathService {
         self.preparations.snapshot()
     }
     /// Count one preparation in this service and in every enclosing [`counted`] operation.
-    fn count(&self, counter: impl Fn(&Preparations) -> &AtomicUsize) {
+    fn count(&self, product: PreparationProduct) {
         use std::sync::atomic::Ordering::Relaxed;
         crate::tooling::operational_metrics::preparation_activity();
-        counter(PROCESS_PREPARATIONS.get_or_init(Preparations::default)).fetch_add(1, Relaxed);
-        counter(&self.preparations).fetch_add(1, Relaxed);
+        product.counter(PROCESS_PREPARATIONS.get_or_init(Preparations::default)).fetch_add(1, Relaxed);
+        product.counter(&self.preparations).fetch_add(1, Relaxed);
         let _ = SCOPES.try_with(|scopes| {
             for scope in scopes {
-                counter(scope).fetch_add(1, Relaxed);
+                product.counter(scope).fetch_add(1, Relaxed);
             }
         });
     }
@@ -926,7 +982,7 @@ impl MathService {
         let artifacts = self
             .prepare_artifacts(prepared.prepared.artifacts.iter(), driver)
             .await?;
-        let _span = tracing::info_span!("pse.case.program_assembly").entered();
+        let _span = tracing::info_span!("pse.case.program_assembly", pse.owner.stage = true).entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
         let _ = self.preparation_driver(driver)?;

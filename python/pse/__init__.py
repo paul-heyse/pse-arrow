@@ -73,6 +73,7 @@ from pse._runs import (
 from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult
 from pse._study_workbench import FrozenStudyCohort, StudyKpiAnalysis, StudyObserver
 from pse._transfer import FieldTransfer
+from pse._host_operations import host_operation_catalogue
 from pse._workflow import (
     PhysicalContext,
     ProjectBundle,
@@ -288,6 +289,7 @@ __all__ = [
     "WarmStartSnapshot",
     "__version__",
     "build_info",
+    "host_operation_catalogue",
     "registry_table",
 ]
 

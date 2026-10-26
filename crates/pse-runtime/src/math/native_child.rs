@@ -487,7 +487,7 @@ fn launch(
     scope: &ExecutionScope,
 ) -> Result<PortableRootResult, MathRuntimeError> {
     let _telemetry =
-        tracing::info_span!("pse.native.child.launch", owner = "native.child.launch").entered();
+        tracing::info_span!("pse.native.child.launch", pse.owner.stage = true, owner = "native.child.launch").entered();
     checkpoint(scope)?;
     let observed = pse_buildinfo::FileObservation::capture_scoped(&child.executable, &|| {
         scope.check().map_err(|e| io::Error::other(e.to_string()))
@@ -920,7 +920,7 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     }
     context.source_ref("native.attempt", attempt.to_string().as_bytes());
     let _entered = context.enter();
-    let solve_span = tracing::info_span!("pse.native.child.execute", native.attempt = %attempt, native.operation = %context.id());
+    let solve_span = tracing::info_span!("pse.native.child.execute", pse.owner.stage = true, native.attempt = %attempt, native.operation = %context.id());
     let result = solve_span
         .in_scope(|| reconstruct_and_solve(&request, &scope))
         .map_err(|error| error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native));
@@ -928,7 +928,7 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     context.boolean("native.solve.return.success", solve_success);
     let sending = context.phase("native.response.send");
     let _response_span =
-        tracing::info_span!("pse.native.child.response", native.attempt = %attempt).entered();
+        tracing::info_span!("pse.native.child.response", pse.owner.stage = true, native.attempt = %attempt).entered();
     let sent = send(
         &mut channel,
         &Response {

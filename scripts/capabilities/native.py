@@ -20,14 +20,14 @@ from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.model import Capability
 from scripts.capabilities.native_contracts import (
     BINDINGS,
-    EXACT_READS,
     Binding,
 )
+from scripts.capabilities.workers import WorkerCall
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.process import run_worker
+from scripts.capabilities.native_read_sessions import ReadSessions
+from scripts.capabilities.cleanup import settle
 from scripts.capabilities.responses import ReadResult, bounded
-
-_PENDING: set[asyncio.Task[dict[str, JsonValue]]] = set()
 
 
 def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
@@ -61,10 +61,12 @@ def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
     )
 
 
-def document_output_schema(schemas: SchemaSet, slug: str) -> dict[str, JsonValue]:
+def document_output_schema(schemas: SchemaSet, slug: str, *, many: bool = False) -> dict[str, JsonValue]:
     """Compose the transport with its original directional Rust document schema."""
     document = schemas.document(slug, "output")
     definitions = document.pop("$defs", {})
+    if many:
+        document = {"type": "array", "items": document}
     observed = {
         "type": "object",
         "additionalProperties": False,
@@ -162,11 +164,20 @@ class NativeTool(Tool):
     _root: Path = PrivateAttr()
     _binding: Binding = PrivateAttr()
     _schemas: SchemaSet = PrivateAttr()
+    _reads: ReadSessions = PrivateAttr()
 
-    def bind_context(self, root: Path, binding: Binding, schemas: SchemaSet) -> None:
+    def bind_context(self, root: Path, binding: Binding, schemas: SchemaSet, reads: ReadSessions | None = None) -> None:
         self._root = root
         self._binding = binding
         self._schemas = schemas
+        self._reads = reads if reads is not None else ReadSessions(root)
+
+    def read_lifetime(self) -> ReadSessions:
+        """The endpoint owns this lifetime across both registered dispatch routes."""
+        return self._reads
+
+    def select_read_lifetime(self, owner: ReadSessions) -> None:
+        self._reads = owner
 
     async def run(self, arguments: dict[str, object]) -> ToolResult:
         value: dict[str, JsonValue]
@@ -198,30 +209,49 @@ class NativeTool(Tool):
                 }
             else:
                 data["schema_set_fingerprint"] = self._schemas.fingerprint
-                if self._binding.prepare_import:
+                if self._binding.read_eligibility == "exact_context" and self._reads.foreground_selected:
+                    value = await self._reads.run(self._binding, data)
+                elif self._binding.prepare_import:
                     # Actions use the shared settled transport: cancellation
                     # signals only this admitted helper and joins native drain.
                     value = await run_worker(self._root, self._binding.worker, data)
                 else:
-                    task = asyncio.create_task(
-                        asyncio.to_thread(
-                            run_child, self._root, self._binding.operation, data
-                        )
-                    )
-                    _PENDING.add(task)
-                    task.add_done_callback(_PENDING.discard)
+                    task = self._reads.observe(asyncio.to_thread(
+                        run_child, self._root, self._binding.operation, data
+                    ))
                     # Cancelling a read detaches this observer. Its native read
                     # and source protection finish under their existing owner.
                     value = await asyncio.shield(task)
         response = (
             intact_result(value, self.name)
-            if self._binding.operation in EXACT_READS
+            if self._binding.preserve_document
             else bounded(value, self.name)
         )
         return ToolResult(structured_content=response.model_dump(mode="json"))
 
 
+def open_bound(tools: dict[str, Tool]) -> None:
+    """Select retention only under an actual foreground endpoint lifetime."""
+    replacements: dict[ReadSessions, ReadSessions] = {}
+    for tool in tools.values():
+        if isinstance(tool, NativeTool):
+            owner = tool.read_lifetime()
+            if owner.closed:
+                if owner not in replacements:
+                    replacements[owner] = owner.successor()
+                owner = replacements[owner]
+                tool.select_read_lifetime(owner)
+            owner.foreground_selected = True
+
+
+async def close_bound(tools: dict[str, Tool]) -> None:
+    """Settle every distinct native read owner after endpoint EOF, including dedicated reads."""
+    owners = {tool.read_lifetime() for tool in tools.values() if isinstance(tool, NativeTool)}
+    await settle(*(owner.close() for owner in owners))
+
+
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
+    reads = ReadSessions(root)
     product_schemas = SchemaSet(root)
     evidence_schemas = SchemaSet(root, family="evidence")
     specs: list[Capability] = []
@@ -229,7 +259,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     for binding in BINDINGS:
         schemas = (
             evidence_schemas
-            if binding.operation == "evidence_compare"
+            if binding.declaration.worker == "evidence"
             else product_schemas
         )
         host_schema = binding.request.model_json_schema()
@@ -259,13 +289,16 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             exposure="tool",
             invocation_lifetime="single",
             effects=binding.effects,
-            worker_calls=(binding.worker,),
+            worker_calls=(WorkerCall(
+                "native-read-prepared" if binding.prepare_import else "native-read",
+                binding.operation, "detached",
+            ),) if binding.read_eligibility == "exact_context" else (binding.worker,),
             requirements=binding.requirements,
             prerequisites=(
                 (
                     "Existing explicitly built pse-evidence executable; no scientific extension or service is used.",
                 )
-                if binding.operation == "evidence_compare"
+                if binding.declaration.worker == "evidence"
                 else (
                     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner.",
                 )
@@ -281,9 +314,8 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             description=binding.description,
             parameters=parameters,
             output_schema=(
-                document_output_schema(schemas, binding.output_document)
-                if binding.operation in EXACT_READS
-                and binding.output_document is not None
+                document_output_schema(schemas, binding.output_document, many=binding.output_many)
+                if binding.output_document is not None
                 else ReadResult.model_json_schema(mode="serialization")
             ),
             tags=spec.tags,
@@ -292,6 +324,8 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                     "receiver": binding.receiver,
                     "contracts": contracts,
                     "schema_set_fingerprint": schemas.fingerprint,
+                    "read_eligibility": binding.read_eligibility,
+                    "preserve_document": binding.preserve_document,
                     "authoring_guidance": (
                         {
                             "path": "docs/generated/schema/authoring.schema.json",
@@ -309,7 +343,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 open_world_hint=False,
             ),
         )
-        tool.bind_context(root, binding, schemas)
+        tool.bind_context(root, binding, schemas, reads)
         specs.append(spec)
         tools[name] = tool
 

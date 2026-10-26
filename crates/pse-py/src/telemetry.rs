@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Private opt-in process-host composition. Importing the extension has no SDK effects.
-use pse_runtime::tooling::telemetry::{Carrier, Host, Settings};
+use pse_runtime::tooling::telemetry::{Carrier, Host, LossObserver, Settings};
 use pyo3::{
     prelude::*,
     types::{PyDict, PyString},
@@ -14,8 +14,9 @@ use std::{
     },
 };
 struct Registration {
-    host: Host,
-    injector: Py<PyAny>,
+    host: Option<Host>,
+    loss: LossObserver,
+    injector: Option<Py<PyAny>>,
     incarnation: String,
     active: bool,
 }
@@ -82,7 +83,7 @@ pub(crate) fn _telemetry_initialize(
             ));
         }
         return Ok(activation(
-            "already_initialized",
+            if existing.host.is_some() { "already_initialized" } else { "initialization_refused_shutdown" },
             Some(&existing.incarnation),
         ));
     }
@@ -119,8 +120,9 @@ pub(crate) fn _telemetry_initialize(
     *state()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(Registration {
-        host,
-        injector,
+        loss: host.loss_observer(),
+        host: Some(host),
+        injector: Some(injector),
         incarnation: incarnation.clone(),
         active: !disabled,
     });
@@ -132,15 +134,20 @@ pub(crate) fn _telemetry_initialize(
 /// The process host calls this only after native ownership and result publication settle.
 #[pyfunction]
 pub(crate) fn _telemetry_shutdown(py: Python<'_>) -> PyResult<String> {
-    let registration = state()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .take();
-    let Some(registration) = registration else {
+    let mut guard = state().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let Some(registration) = guard.as_mut() else {
         return Ok(activation("not_initialized", None));
     };
-    let incarnation = registration.incarnation;
-    let result = py.detach(move || host_thread(move || registration.host.shutdown()));
+    let incarnation = registration.incarnation.clone();
+    let Some(host) = registration.host.take() else {
+        return Ok(activation("already_shutdown", Some(&incarnation)));
+    };
+    registration.active = false;
+    // Only the compact Rust observer survives; do not retain an arbitrary Python
+    // callback/context after its process telemetry lifetime has closed.
+    drop(registration.injector.take());
+    drop(guard);
+    let result = py.detach(move || host_thread(move || host.shutdown()));
     let status = match result {
         Ok(Ok(())) => "shutdown",
         _ => {
@@ -150,6 +157,13 @@ pub(crate) fn _telemetry_shutdown(py: Python<'_>) -> PyResult<String> {
     };
     Ok(activation(status, Some(&incarnation)))
 }
+/// Read retained local SDK loss observations without constructing or flushing a host.
+#[pyfunction]
+pub(crate) fn _telemetry_status() -> PyResult<String> {
+    let snapshot = state().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        .as_ref().map(|registration| registration.loss.snapshot());
+    serde_json::to_string(&snapshot).map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("native telemetry status encoding failed"))
+}
 /// Resolve CURRENT Python context before detach, never cached during initialization.
 /// Invalid/missing diagnostic context cannot reject native scientific work.
 pub(crate) fn ingress(py: Python<'_>, owner: &'static str) -> tracing::Span {
@@ -158,7 +172,7 @@ pub(crate) fn ingress(py: Python<'_>, owner: &'static str) -> tracing::Span {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
         .filter(|registration| registration.active)
-        .map(|registration| registration.injector.clone_ref(py));
+        .and_then(|registration| registration.injector.as_ref().map(|injector| injector.clone_ref(py)));
     let Some(injector) = injector else {
         return tracing::Span::current();
     };

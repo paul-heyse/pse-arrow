@@ -15,7 +15,48 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import producing_currency, python_extension
+from scripts import producer_cargo, producing_currency, python_extension
+
+
+class ObserverPreparationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.enterContext(patch.object(python_extension, "ROOT", self.root))
+        for name in (*producer_cargo.OBSERVER_SOURCE_INPUTS, "target/debug/xtask"):
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("original observer source or binary")
+        (self.root / "pyproject.toml").write_text('[tool.maturin]\nbindings="pyo3"\n')
+        self.environment = {"UV_PROJECT_ENVIRONMENT": str(self.root / ".venv"), "VIRTUAL_ENV": str(self.root / ".venv"), "PATH": os.environ["PATH"]}
+
+    def test_supported_installation_explicitly_builds_current_observer_before_maturin(self) -> None:
+        calls = []
+        def run(command: list[str], **kwargs: object) -> int:
+            calls.append(command)
+            if "scripts.arrow_validation" in command:
+                (self.root / "target/debug/xtask").write_text("rebuilt current observer")
+            else:
+                self.assertEqual((self.root / "target/debug/xtask").read_text(), "rebuilt current observer")
+                environment = kwargs["env"]
+                configuration = json.loads(Path(environment[producer_cargo.CURRENCY_CAPTURE]).read_text())
+                self.assertIn("source_basis", configuration["observer_preparation"])
+                self.assertEqual(configuration["observer_preparation"]["artifact_stamp"], list(producing_currency.stamp(self.root / "target/debug/xtask")))
+            return 0
+        with patch.object(python_extension.subprocess, "call", side_effect=run):
+            self.assertEqual(python_extension.observed_installation(["maturin", "develop"], self.environment), (0, None))
+        self.assertEqual(calls[0], [str(self.root / ".venv/bin/python"), "-m", "scripts.arrow_validation", "build", "-p", "xtask", "--bin", "xtask", "--no-default-features", "--locked"])
+        self.assertEqual(calls[1], ["maturin", "develop"])
+
+    def test_failed_or_raced_helper_build_never_enters_maturin(self) -> None:
+        with patch.object(python_extension.subprocess, "call", return_value=19) as run:
+            self.assertEqual(python_extension.observed_installation(["maturin", "develop"], self.environment), (19, None))
+        self.assertEqual(run.call_count, 1)
+        def raced(_command: list[str], **_kwargs: object) -> int:
+            (self.root / "xtask/src/producing_inputs.rs").write_text("source changed during helper compilation")
+            return 0
+        with patch.object(python_extension.subprocess, "call", side_effect=raced) as run, self.assertRaisesRegex(ValueError, "source changed"):
+            python_extension.observed_installation(["maturin", "develop"], self.environment)
+        self.assertEqual(run.call_count, 1)
 
 
 class ProducingCurrencyTests(unittest.TestCase):

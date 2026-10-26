@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from pathlib import Path
@@ -225,6 +226,8 @@ def metric_declarations() -> list[dict[str, JsonValue]]:
         {
             "name": item.name,
             "kind": item.kind,
+            "monotonic": item.monotonic,
+            "exemplars": item.exemplars,
             "unit": item.unit,
             "population": item.population,
             "attributes": list[JsonValue](item.attributes),
@@ -246,21 +249,93 @@ def metric_declarations() -> list[dict[str, JsonValue]]:
 
 
 def metric_declaration(stream: str | None) -> dict[str, JsonValue] | None:
-    """Resolve histogram suffixes without introducing another metric authority."""
+    """Resolve actual names and declared histogram suffixes for dimension selection."""
     return next(
         (
             item
             for item in metric_declarations()
             if stream
-            in {
-                item["backend_name"],
-                str(item["backend_name"]) + "_bucket",
-                str(item["backend_name"]) + "_count",
-                str(item["backend_name"]) + "_sum",
-            }
+            in (
+                {item["backend_name"]}
+                | {
+                    str(item["backend_name"]) + suffix
+                    for suffix in ("_bucket", "_count", "_sum")
+                    if item.get("kind") == "histogram"
+                }
+            )
         ),
         None,
     )
+
+
+MetricRefusalReason = Literal[
+    "metric_instrument_not_declared",
+    "metric_unit_not_declared",
+    "metric_temporality_not_cumulative",
+    "metric_requires_monotonic_counter",
+    "metric_requires_monotonic_histogram",
+    "metric_histogram_buckets_invalid",
+    "metric_exemplars_not_supported",
+    "selected_histogram_boundary_not_declared",
+]
+
+
+class MetricQueryRefusal(ValueError):
+    """A declared instrument cannot support the selected estimator."""
+
+    def __init__(self, reason: MetricRefusalReason) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
+def admit_metric_query(request: QueryRequest) -> dict[str, JsonValue] | None:
+    """PromQL estimators require known cumulative instrument semantics.
+
+    Raw point observations may name an unknown stream. Histogram derivative
+    stream names do not acquire the parent instrument's estimator semantics.
+    """
+    if request.signal != "metrics":
+        return None
+    declaration = next(
+        (item for item in metric_declarations() if item["backend_name"] == request.metric),
+        None,
+    )
+    if request.kind == "points":
+        return declaration
+    if declaration is None:
+        raise MetricQueryRefusal("metric_instrument_not_declared")
+    unit = declaration.get("unit")
+    if not isinstance(unit, str) or not unit.strip():
+        raise MetricQueryRefusal("metric_unit_not_declared")
+    if request.kind == "exemplars":
+        if declaration.get("exemplars") is not True:
+            raise MetricQueryRefusal("metric_exemplars_not_supported")
+        return declaration
+    if declaration.get("temporality") != "cumulative":
+        raise MetricQueryRefusal("metric_temporality_not_cumulative")
+    if request.kind in {"rate", "increase"}:
+        if declaration.get("kind") not in {"counter", "observable_counter"} or declaration.get("monotonic") is not True:
+            raise MetricQueryRefusal("metric_requires_monotonic_counter")
+    else:
+        if declaration.get("kind") != "histogram" or declaration.get("monotonic") is not True:
+            raise MetricQueryRefusal("metric_requires_monotonic_histogram")
+        raw_boundaries = declaration.get("buckets")
+        if not isinstance(raw_boundaries, list) or not raw_boundaries:
+            raise MetricQueryRefusal("metric_histogram_buckets_invalid")
+        boundaries: list[float] = []
+        for bound in raw_boundaries:
+            if isinstance(bound, bool) or not isinstance(bound, (int, float)):
+                raise MetricQueryRefusal("metric_histogram_buckets_invalid")
+            try:
+                numeric = float(bound)
+            except OverflowError as error:
+                raise MetricQueryRefusal("metric_histogram_buckets_invalid") from error
+            if not math.isfinite(numeric) or (boundaries and numeric <= boundaries[-1]):
+                raise MetricQueryRefusal("metric_histogram_buckets_invalid")
+            boundaries.append(numeric)
+        if request.kind == "fraction_below" and request.threshold not in boundaries:
+            raise MetricQueryRefusal("selected_histogram_boundary_not_declared")
+    return declaration
 
 
 class BackendClient:
@@ -335,6 +410,15 @@ class BackendClient:
     ) -> QueryAnswer:
         import anyio  # noqa: PLC0415 -- native service inspection is blocking
 
+        try:
+            declaration = admit_metric_query(selected)
+        except MetricQueryRefusal as refusal:
+            return QueryAnswer(
+                request=selected,
+                status="unsupported",
+                reason=refusal.reason,
+                meaning=INTERPRETATIONS[selected.kind],
+            )
         inspected = await anyio.to_thread.run_sync(
             lambda: telemetry_service.inspect(state, environment=environment)
         )
@@ -398,27 +482,7 @@ class BackendClient:
                 "source_interval_end_us": selected.end_time_us,
             }
         )
-        try:
-            path, body = backend_request(organization, stream, selected)
-        except ValueError:
-            return QueryAnswer(
-                request=selected,
-                status="unsupported",
-                source=source,
-                reason="selected_histogram_boundary_not_declared",
-            )
-        declaration = (
-            next(
-                (
-                    item
-                    for item in metric_declarations()
-                    if item["backend_name"] == stream
-                ),
-                None,
-            )
-            if selected.signal == "metrics"
-            else None
-        )
+        path, body = _backend_request(organization, stream, selected)
         unit = declaration.get("unit") if declaration else None
         unit = unit if isinstance(unit, str) else None
         if selected.kind == "fraction_below":
@@ -523,6 +587,16 @@ def backend_request(
     organization: str, stream: str, request: QueryRequest
 ) -> tuple[str, dict[str, object] | None]:
     """Closed request vocabulary; caller strings never become executable query text."""
+    admit_metric_query(request)
+    return _backend_request(organization, stream, request)
+
+
+def _backend_request(
+    organization: str, stream: str, request: QueryRequest
+) -> tuple[str, dict[str, object] | None]:
+    """Lower a semantically admitted question to the selected backend vocabulary."""
+    if request.signal == "metrics" and stream != request.metric:
+        raise MetricQueryRefusal("metric_instrument_not_declared")
     predicates = []
     fields = {
         "trace_id": request.trace_id,
@@ -587,17 +661,6 @@ def backend_request(
     elif request.kind == "p95":
         expression = f"histogram_quantile(0.95,{summed(f'rate({stream}_bucket{labels}[{window}s])', histogram=True)})"
     elif request.kind == "fraction_below":
-        declaration = next(
-            (item for item in metric_declarations() if item["backend_name"] == stream),
-            None,
-        )
-        boundaries = declaration.get("buckets") if declaration else None
-        if (
-            not isinstance(boundaries, list)
-            or request.threshold is None
-            or request.threshold not in boundaries
-        ):
-            raise ValueError("Select an actual declared explicit histogram boundary")
         bound = format(request.threshold, ".15g")
         bucket_values = {**label_values, "le": bound}
         bucket_labels = (

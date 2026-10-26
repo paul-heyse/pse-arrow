@@ -183,12 +183,12 @@ redundant imports only when their current guarantees are supplied by the retaine
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | partially implemented; selected 56a–56e boundary and E01 catalogue/enum/constraint slice delivered; metric adoption remains | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
-| F02 | planned | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
-| F03 | planned; selected 56b remedies and 56c settlement causes delivered | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
-| F04 | planned | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
-| F05 | planned | 56f | Supported producing receipt and actual image witness replace per-read supersets/deny-lists without lost inputs |
-| F06 | planned; RC06 governs retention | 56f | Admitted read/page lifetime amortizes preparation while source/image, protections and physical drain remain exact |
+| F01 | implemented boundary and keyed metric adoption; composed acceptance remains | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
+| F02 | in-progress; native agent projections delivered, existing project-operation migration remains | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
+| F03 | implemented typed remedies and instrument-query admission; composed acceptance remains | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
+| F04 | implemented; local Rust SDK/filter controls passed, installed bridge acceptance remains | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
+| F05 | in-progress; actual Cargo extraction controls passed, actual installed/executable receipts remain | 56f | Supported producing receipt and actual image witness replace per-read supersets/deny-lists without lost inputs |
+| F06 | implemented foreground read ownership; actual installed/endpoint/CLI acceptance remains | 56f | Admitted read/page lifetime amortizes preparation while source/image, protections and physical drain remain exact |
 
 F01/E01 share the declaration/codegen owner. F02 consumes actual A03/B01/B05 and E02 contracts,
 but its finite operation declaration can be designed early. F03 consumes B06/C02/F01. F04 proceeds
@@ -277,3 +277,24 @@ worker retention or full F acceptance follows from the D/E prerequisites.
 ## Remaining-scope execution — 2026-10-26
 
 The maintainer authorized the remaining 56e/56f/56g scope and selected RC06 retained foreground native read workers, authenticated drain of the exact blocking legacy service with its data/receipts preserved, and the single `RDER` typo correction while preserving other history edits. Rust SDK span-processor loss observations are selected; Python SDK queues remain explicitly unknown. Proposed ADR-0231 precedes dependent retention changes. Root owns shared contracts, generation, integration, Cargo and status; independent producer-metric/query, SDK-health and currency slices are underway. Current source implementation and targeted controls do not establish assembled G acceptance.
+
+## Integrated execution checkpoint — 2026-10-26
+
+Keyed producer metrics, declared span export and Rust SDK loss observations are implemented.
+The finite native-agent headers and metadata project from their Rust/tooling owners; bootstrap
+contracts retain a source-only leaf base and responsibility-scoped schema imports. Foreground
+read sessions retain actual immutable native objects, original source/image witnesses and
+owner-declared continuation meaning. Mutable diagnostics and supplied-file headers stay dedicated.
+Standalone callers retain their own per-call lifetime. Installed native, endpoint and foreground
+CLI acceptance remains pending.
+
+Producing extraction has exercised actual pinned Cargo graph/artifact/dep-info records, transitive
+path and macro inputs, declared/default build-script inputs, membership and environment changes,
+with an unselected workspace member remaining current. The current-helper build and installed
+Maturin/executable association must still pass their actual supported routes before F05 closes.
+The original failed directives-path probe and repaired actual extraction remain separate evidence.
+
+F02 still includes the existing project/research/study operation surface. Its private product
+command envelope and repeated host adapters/defaults remain to be migrated; the native-agent
+projection alone does not close DA-015. This is Plan56 work on existing functionality; Plan51
+stays closed and has no remaining work. Root retains generation, Cargo, integration and status.

@@ -30,6 +30,9 @@ class Worker:
     environment: tuple[str, ...] = ()
     sources: tuple[str, ...] = ()
     launch: Literal["environment", "inherited"] = "environment"
+    binding_family: str | None = None
+    read_eligibility: str | None = None
+    prepare_import: bool | None = None
 
     @property
     def operations(self) -> frozenset[str]:
@@ -44,8 +47,13 @@ class Worker:
         return frozenset(
             binding.operation
             for binding in worker_bindings()
-            if binding.worker.worker == "native"
+            if binding.worker.worker == self.binding_family
+            and (self.read_eligibility is None or binding.read_eligibility == self.read_eligibility)
+            and (self.prepare_import is None or binding.prepare_import is self.prepare_import)
         )
+
+
+_NATIVE_ENVIRONMENT = ("--native=solver,klu,isolation,uno,petsc",)
 
 
 WORKERS = {
@@ -96,12 +104,29 @@ WORKERS = {
     ),
     "evidence": Worker(
         "scripts.capabilities.evidence_worker",
-        frozenset({"evidence_compare"}),
+        None,
         sources=("xtask/src/bin/pse-evidence.rs",),
+        binding_family="evidence",
     ),
     "native": Worker(
         "scripts.capabilities.native_worker",
         None,
-        ("--native=solver,klu,isolation,uno,petsc",),
+        _NATIVE_ENVIRONMENT,
+        binding_family="native",
+    ),
+    "native-read": Worker(
+        "scripts.capabilities.native_read_worker",
+        None,
+        binding_family="native",
+        read_eligibility="exact_context",
+        prepare_import=False,
+    ),
+    "native-read-prepared": Worker(
+        "scripts.capabilities.native_read_worker",
+        None,
+        _NATIVE_ENVIRONMENT,
+        binding_family="native",
+        read_eligibility="exact_context",
+        prepare_import=True,
     ),
 }

@@ -1022,7 +1022,7 @@ impl MathService {
         );
         tokio::pin!(operation);
         let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.count(|p| &p.observations);
+        self.count(super::PreparationProduct::ObservationProgram);
         self.assemble_functions(product, lease, &driver).await
     }
     /// Prepare the solver view of a bound structure and bind its first values: one
@@ -1064,7 +1064,7 @@ impl MathService {
         );
         tokio::pin!(operation);
         let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.count(|p| &p.views);
+        self.count(super::PreparationProduct::StructuralView);
         self.own_preparation(owned)
     }
     /// Value-only rebind of a prepared view (A6). No value-dependent product is rebuilt
@@ -1117,11 +1117,11 @@ impl MathService {
         let (comparison, lease) = tokio::select! {result=&mut comparison=>result?,()=driver.cancelled()=>{control.cancel();let _=comparison.await;return Err(MathRuntimeError::Cancelled);}};
         let values = match comparison {
             RebindComparison::Unchanged => {
-                self.count(|p| &p.shared);
+                self.count(super::PreparationProduct::ValueShared);
                 return Ok(prepared.clone());
             }
             RebindComparison::Sharing(rebound) => {
-                self.count(|p| &p.shared);
+                self.count(super::PreparationProduct::ValueShared);
                 // Release the temporary box before own_rebind allocates its two
                 // retained PreparedCase owners under the same binding lease.
                 let rebound = {
@@ -1154,7 +1154,7 @@ impl MathService {
             });
         tokio::pin!(operation);
         let (rebound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.count(|p| &p.rebuilt);
+        self.count(super::PreparationProduct::ValueRebuilt);
         self.own_rebind(prepared, rebound, lease)
     }
     /// Rebind on an enclosing serial owner after its complete constructor envelope
@@ -1171,15 +1171,15 @@ impl MathService {
         let (comparison, _) = compare_rebind(compiled, values, flag)?;
         let rebound = match comparison {
             RebindComparison::Unchanged => {
-                self.count(|p| &p.shared);
+                self.count(super::PreparationProduct::ValueShared);
                 return Ok(prepared.clone());
             }
             RebindComparison::Sharing(rebound) => {
-                self.count(|p| &p.shared);
+                self.count(super::PreparationProduct::ValueShared);
                 *rebound
             }
             RebindComparison::Rebuild(values) => {
-                self.count(|p| &p.rebuilt);
+                self.count(super::PreparationProduct::ValueRebuilt);
                 compiled.rebind(&values, flag)?
             }
         };

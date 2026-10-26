@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from scripts.capabilities.model import Contract
 from scripts.capabilities.source_basis import Sources
 from scripts.capabilities.workers import WORKERS
+from scripts.producing_currency import Witness
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -139,6 +140,18 @@ def verify(root: Path, worker: str, operation: str, request: bytes) -> None:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > MAXIMUM_BYTES:
         raise AdmissionRefusedError("Invalid admitted definition handoff")
     received = Handoff.model_validate_json(path.read_bytes())
+    verify_handoff(root, worker, operation, request, received)
+
+
+def verify_handoff(
+    root: Path, worker: str, operation: str, request: bytes, received: Handoff,
+    *, witness: Witness | None = None,
+) -> None:
+    """Verify one independent request, including inside an admitted foreground session.
+
+    A session-owned witness rehashes only changed selected source files. One-shot
+    callers keep their original source capture; neither route adopts a new definition.
+    """
     expected = received.definition
     if operation not in WORKERS[worker].operations:
         raise AdmissionRefusedError(
@@ -154,8 +167,27 @@ def verify(root: Path, worker: str, operation: str, request: bytes) -> None:
         raise AdmissionRefusedError(
             "Admitted operation contract changed; reattach before further effects"
         )
+    actual: dict[str, str | None]
     try:
-        observed = Sources(root, expected.sources, follow_imports=False)
+        if witness is None:
+            observed = Sources(root, expected.sources, follow_imports=False)
+            actual = {name: observed.sources[name].digest for name in expected.sources}
+        else:
+            actual = {}
+            selected_root = root.resolve(strict=True)
+            for name in expected.sources:
+                path = selected_root / name
+                if path.is_symlink() or not path.resolve().is_relative_to(selected_root):
+                    raise ValueError("admitted source is outside the selected checkout")
+                if path.exists() and path.stat().st_size > 4 << 20:
+                    raise ValueError("admitted source exceeds its original extent")
+                value = witness.file(path)
+                if value.get("link") is not None or not Path(str(value["resolved"])).is_relative_to(selected_root):
+                    raise ValueError("admitted source changed its link selection")
+                digest = value.get("sha256")
+                if digest is not None and not isinstance(digest, str):
+                    raise ValueError("admitted source witness is malformed")
+                actual[name] = digest
     except (OSError, ValueError, SyntaxError):
         raise AdmissionRefusedError(
             "Admitted source changed or became unreadable; reattach before further effects"
@@ -163,9 +195,7 @@ def verify(root: Path, worker: str, operation: str, request: bytes) -> None:
     # Sources follows local imports to read safely. Shared serving modules may
     # import unrelated operations: only the admitted operation's selected basis
     # is authoritative here, exactly as in the parent's restart fence.
-    if {
-        name: observed.sources[name].digest for name in expected.sources
-    } != expected.sources:
+    if actual != expected.sources:
         raise AdmissionRefusedError(
             "Admitted source changed; reattach before further effects"
         )

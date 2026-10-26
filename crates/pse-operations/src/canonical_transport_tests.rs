@@ -1031,3 +1031,29 @@ fn canonical_owner_metrics_without_capture_keep_exact_statement_population() {
         sample.source_started_unix_micros
     );
 }
+
+#[test]
+fn canonical_metric_keys_bind_producer_and_copied_populations_without_position() {
+    use super::CanonicalQueryEvent as Event;
+    let state = super::CanonicalMetricState::new();
+    for (event, count) in [
+        (Event::StatementUntimed, 19), (Event::StatementTimed, 17),
+        (Event::StatementFailed, 13), (Event::StatementSucceeded, 11),
+        (Event::Statement, 7), (Event::RequestFailed, 5), (Event::Builder, 3),
+    ] { state.add(event, count); }
+    state.add_duration(23);
+    let sample = state.snapshot();
+    assert_eq!((sample.builders, sample.request_failures, sample.statements), (3, 5, 7));
+    assert_eq!((sample.statements_succeeded, sample.statements_failed), (11, 13));
+    assert_eq!((sample.statements_timed, sample.statements_untimed, sample.server_duration_nanos), (17, 19, 23));
+    let events = Event::ALL.into_iter().rev().map(|key| (key.as_str(), key.count(&sample)))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(events, [("builder", 3), ("request_failed", 5), ("statement", 7),
+        ("statement_succeeded", 11), ("statement_failed", 13),
+        ("statement_timed", 17), ("statement_untimed", 19)].into());
+    state.add(Event::Builder, u64::MAX);
+    let saturated = state.snapshot();
+    assert!(saturated.saturated);
+    assert_eq!(saturated.builders, u64::MAX);
+    assert_eq!(saturated.server_duration_nanos, 23);
+}

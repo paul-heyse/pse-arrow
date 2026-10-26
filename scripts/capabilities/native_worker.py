@@ -21,6 +21,7 @@ from pydantic import JsonValue
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.execution_basis import AdmissionRefusedError
 from scripts.capabilities.native_schema import JSON_OBJECT
+from scripts.capabilities.native_read_context import NativeReadContext
 from scripts.capabilities.responses import bounded
 from scripts.capabilities.telemetry_profile_worker import capture
 from scripts.capabilities.worker_progress import ProgressReporter
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 
     from jsonschema.exceptions import ValidationError as SchemaValidationError
 
-    from pse import DiagnosticReport, Runtime
+    from pse import DiagnosticReport, Runtime, PhysicalContext, ModelingPackage
     from scripts.capabilities.native_contracts import Result
 
 T = TypeVar("T")
@@ -339,8 +340,23 @@ def scientific_error(
     return value
 
 
+def _source_identity(packages: list[dict[str, bytes]]) -> str:
+    """Hash bounded original bytes; package order and document names retain meaning."""
+    digest = hashlib.sha256()
+    for package in packages:
+        digest.update(len(package).to_bytes(8, "big"))
+        for name, content in sorted(package.items()):
+            encoded = name.encode()
+            digest.update(len(encoded).to_bytes(8, "big"))
+            digest.update(encoded)
+            digest.update(len(content).to_bytes(8, "big"))
+            digest.update(content)
+    return digest.hexdigest()
+
+
 def execute(
-    operation: str, arguments: Mapping[str, object], *, scratch: Path
+    operation: str, arguments: Mapping[str, object], *, scratch: Path,
+    context: NativeReadContext | None = None,
 ) -> dict[str, object]:
     from scripts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
         python_extension,
@@ -353,6 +369,9 @@ def execute(
     fingerprint = supplied.pop("schema_set_fingerprint", None)
     if not isinstance(fingerprint, str):
         raise TypeError("fixed native request requires its loaded schema fingerprint")
+    header = host.validate_arguments(operation, supplied)
+    if context is not None and host.binding_for(operation).read_eligibility != "exact_context":
+        raise ValueError("operation does not declare retained read eligibility")
     current = None
     if os.environ.get("PSE_CAPABILITY_ADMISSION"):
         binding = next(
@@ -432,10 +451,18 @@ def execute(
         activate_native,
     )
 
+    if (os.environ.get("PSE_CAPABILITY_ADMISSION") or context is not None) and codec.document_builtins(pse.host_operation_catalogue()) != host.native_catalogue():
+        return {
+            "outcome": "stale_interface",
+            "code": "pse.native.operation_catalogue_mismatch",
+            "remedy": "Prepare the compatible native extension and reattach the endpoint; no receiver was entered.",
+        }
     activate_native()
     physical_packages: list[dict[str, bytes]] = []
     packages: list[dict[str, bytes]] = []
-    resources = host.Resources()
+    resources: host.Resources | None = None
+    configured: host.ConfiguredCapabilities | None = None
+    capability_settings: contracts.BackendSettings | None = None
     deployment: host.Deployment | None = None
     discovery: contracts.PreparationDiscoveryRequest | None = None
     selection: contracts.ProjectSelectRequest | None = None
@@ -452,19 +479,11 @@ def execute(
     if operation == "telemetry_profile_capture":
         return capture(supplied)
     if operation in {"model_declarations", "model_inspect", "model_compare"}:
-        source = (
-            host.ModelingComparison
-            if operation == "model_compare"
-            else host.Preparation
-        ).model_validate(supplied, strict=True)
+        source = cast("host.ModelingComparison | host.Preparation", header)
         physical_packages = source_documents(source.physical)
         packages = source_documents(source.documents)
         resources = source.resources
-        request_type = {
-            "model_declarations": contracts.ModelingDeclarationRequest,
-            "model_inspect": contracts.ModelingInspectionRequest,
-            "model_compare": contracts.ModelingComparisonRequest,
-        }[operation]
+        request_type = host.selected_document_type(operation, "request")
         model_request = decoded(source.request, request_type)
         if isinstance(source, host.ModelingComparison):
             other_physical_packages = source_documents(source.other_physical)
@@ -474,33 +493,25 @@ def execute(
                     "comparison physical source requires one complete package"
                 )
     elif operation in {"source_admit", "preparation_discover"}:
-        source = (
-            host.Preparation.model_validate(supplied, strict=True)
-            if operation == "preparation_discover"
-            else host.Source.model_validate(supplied, strict=True)
-        )
+        source = cast("host.Preparation | host.Source", header)
         physical_packages = source_documents(source.physical)
         packages = source_documents(source.documents)
         resources = source.resources
         if isinstance(source, host.Preparation):
-            discovery = decoded(source.request, contracts.PreparationDiscoveryRequest)
+            discovery = decoded(source.request, host.document_type(operation, "request", contracts.PreparationDiscoveryRequest))
     elif operation == "project_select":
-        selected = host.Select.model_validate(supplied, strict=True)
-        selection = decoded(selected.request, contracts.ProjectSelectRequest)
+        selected = cast("host.Select", header)
+        selection = decoded(selected.request, host.document_type(operation, "request", contracts.ProjectSelectRequest))
         physical_packages = source_documents(selected.physical)
         deployment = selected
     elif operation in {"revision_source", "revision_preparation_discover"}:
-        revision = (
-            host.RevisionPreparation.model_validate(supplied, strict=True)
-            if operation == "revision_preparation_discover"
-            else host.Revision.model_validate(supplied, strict=True)
-        )
+        revision = cast("host.RevisionPreparation | host.Revision", header)
         physical_packages = source_documents(revision.physical)
         deployment = revision
         if isinstance(revision, host.RevisionPreparation):
-            discovery = decoded(revision.request, contracts.PreparationDiscoveryRequest)
+            discovery = decoded(revision.request, host.document_type(operation, "request", contracts.PreparationDiscoveryRequest))
     elif operation == "project_bundle_inspect":
-        bundle_request = host.Bundle.model_validate(supplied, strict=True)
+        bundle_request = cast("host.Bundle", header)
         bundle = pse.ProjectBundle(
             Path(bundle_request.path),
             maximum_document_bytes=bundle_request.maximum_document_bytes,
@@ -511,15 +522,15 @@ def execute(
             "document": codec.document_builtins(bundle.manifest),
         }
     elif operation in {"research_read", "project_metadata"}:
-        page = host.Metadata.model_validate(supplied, strict=True)
+        page = cast("host.Metadata", header)
         deployment = page
         if operation == "research_read":
-            research = decoded(page.request, contracts.ResearchReadRequest)
+            research = decoded(page.request, host.document_type(operation, "request", contracts.ResearchReadRequest))
         else:
-            metadata = decoded(page.request, contracts.ProjectMetadataRequest)
+            metadata = decoded(page.request, host.document_type(operation, "request", contracts.ProjectMetadataRequest))
     elif operation == "diagnostic_processes":
-        processes = host.DiagnosticProcesses.model_validate(supplied, strict=True)
-        listing = decoded(processes.request, contracts.DiagnosticListRequest)
+        processes = cast("host.DiagnosticProcesses", header)
+        listing = decoded(processes.request, host.document_type(operation, "request", contracts.DiagnosticListRequest))
         return {
             "outcome": "observed",
             "document": codec.document_builtins(
@@ -527,11 +538,11 @@ def execute(
             ),
         }
     elif operation == "diagnostic_checkpoint":
-        checkpoint = host.DiagnosticCheckpoint.model_validate(supplied, strict=True)
+        checkpoint = cast("host.DiagnosticCheckpoint", header)
         expected = (
             None
             if checkpoint.expected is None
-            else decoded(checkpoint.expected, contracts.CheckpointIdentity)
+            else decoded(checkpoint.expected, host.document_type(operation, "expected", contracts.CheckpointIdentity))
         )
         return {
             "outcome": "observed",
@@ -542,8 +553,8 @@ def execute(
             ),
         }
     elif operation == "diagnostic_inspect":
-        diagnostic = host.Diagnostic.model_validate(supplied, strict=True)
-        inspection = decoded(diagnostic.request, contracts.InspectionRequest)
+        diagnostic = cast("host.Diagnostic", header)
+        inspection = decoded(diagnostic.request, host.document_type(operation, "request", contracts.InspectionRequest))
         return {
             "outcome": "observed",
             "document": codec.document_builtins(
@@ -551,8 +562,8 @@ def execute(
             ),
         }
     elif operation == "evidence_inspect":
-        frozen = host.Evidence.model_validate(supplied, strict=True)
-        frozen_inspection = decoded(frozen.request, contracts.FrozenInspectionRequest)
+        frozen = cast("host.Evidence", header)
+        frozen_inspection = decoded(frozen.request, host.document_type(operation, "request", contracts.FrozenInspectionRequest))
         evidence = diagnostics.read_evidence(Path(frozen.path))
         return {
             "outcome": "observed",
@@ -561,7 +572,7 @@ def execute(
             ),
         }
     elif operation == "invocation_read":
-        invocation = host.Invocation.model_validate(supplied, strict=True)
+        invocation = cast("host.Invocation", header)
         return {
             "outcome": "observed",
             "document": codec.document_builtins(
@@ -569,22 +580,29 @@ def execute(
             ),
         }
     elif operation == "physical_inspect":
-        selected_physical = host.PhysicalInspection.model_validate(
-            supplied, strict=True
-        )
+        selected_physical = cast("host.PhysicalInspection", header)
         physical_packages = source_documents(selected_physical.physical)
         physical_inspection = decoded(
-            selected_physical.request, contracts.PhysicalInspectionRequest
+            selected_physical.request, host.document_type(operation, "request", contracts.PhysicalInspectionRequest)
         )
         resources = selected_physical.resources
     elif operation == "result_inspect":
-        selected_result = host.ResultInspection.model_validate(supplied, strict=True)
+        selected_result = cast("host.ResultInspection", header)
         result_inspection = decoded(
-            selected_result.request, contracts.ResultInspectionRequest
+            selected_result.request, host.document_type(operation, "request", contracts.ResultInspectionRequest)
         )
         deployment = selected_result
+    elif operation == "configured_capabilities":
+        configured = cast("host.ConfiguredCapabilities", header)
+        resources = configured.resources
+        if configured.settings is not None:
+            if configured.backend is None:
+                raise ValueError("configured settings require an explicitly selected backend")
+            capability_settings = decoded(
+                configured.settings, host.document_type(operation, "settings", contracts.BackendSettings)
+            )
     elif operation == "result_read":
-        result = host.Result.model_validate(supplied, strict=True)
+        result = cast("host.Result", header)
         if result.end < result.start:
             raise ValueError("reversed original result window")
         deployment = result
@@ -608,8 +626,10 @@ def execute(
         raise ValueError("physical source requires one complete package")
     if deployment is not None:
         resources = deployment.resources
+    if resources is None:
+        raise TypeError("runtime receiver requires its declared resource header")
     spill = scratch / "spill"
-    spill.mkdir()
+    spill.mkdir(exist_ok=context is not None)
     settings = pse.EngineSettings(
         memory_limit_bytes=resources.memory_limit_bytes,
         threads=resources.threads,
@@ -617,15 +637,41 @@ def execute(
         max_spill_bytes=resources.max_spill_bytes,
         batch_size=8192,
     )
-    runtime = pse.Runtime(
-        settings,
-        ephemeral=deployment is None,
-        substrate=deployment.state if deployment is not None else None,
-        database=deployment.database if deployment is not None else None,
-    )
+    def create_runtime() -> Runtime:
+        return pse.Runtime(
+            settings,
+            ephemeral=deployment is None,
+            substrate=deployment.state if deployment is not None else None,
+            database=deployment.database if deployment is not None else None,
+        )
+
+    runtime_identity = hashlib.sha256(json.dumps({
+        "resources": resources.model_dump(mode="json"),
+        "state": deployment.state if deployment is not None else None,
+        "database": deployment.database if deployment is not None else None,
+    }, sort_keys=True, allow_nan=False).encode()).hexdigest()
+    runtime = (create_runtime() if context is None else
+               context.runtime(runtime_identity, create_runtime, lambda owned: owned.close()))
+
+    def retained_physical(document: dict[str, bytes]) -> PhysicalContext:
+        create = lambda: runtime.physical_from_documents(document)
+        return create() if context is None else context.physical(_source_identity([document]), create)
+
+    def modeling(documents: list[dict[str, bytes]], original_physical: dict[str, bytes], admitted_physical: PhysicalContext) -> ModelingPackage:
+        create = lambda: runtime.modeling_from_documents(documents, admitted_physical)
+        identity = _source_identity([original_physical]) + ":" + _source_identity(documents)
+        return create() if context is None else context.modeling(identity, create)
+
     try:
+        if configured is not None:
+            if configured.backend is None:
+                rows = runtime.capabilities()
+            else:
+                from pse.contracts.enums import NativeBackend  # noqa: PLC0415 -- actual native backend identity owner
+                rows = (runtime.capability_for(NativeBackend(configured.backend), settings=capability_settings),)
+            return {"outcome": "observed", "document": [codec.document_builtins(row) for row in rows]}
         if physical_inspection is not None:
-            physical = runtime.physical_from_documents(physical_packages[0])
+            physical = retained_physical(physical_packages[0])
             return {
                 "outcome": "observed",
                 "document": codec.document_builtins(
@@ -633,8 +679,8 @@ def execute(
                 ),
             }
         if operation in {"model_declarations", "model_inspect", "model_compare"}:
-            physical = runtime.physical_from_documents(physical_packages[0])
-            package = runtime.modeling_from_documents(packages, physical)
+            physical = retained_physical(physical_packages[0])
+            package = modeling(packages, physical_packages[0], physical)
             if operation == "model_declarations":
                 observed = package.declaration_page(
                     cast("contracts.ModelingDeclarationRequest", model_request)
@@ -644,10 +690,8 @@ def execute(
                     cast("contracts.ModelingInspectionRequest", model_request)
                 )
             else:
-                other_physical = runtime.physical_from_documents(
-                    other_physical_packages[0]
-                )
-                other = runtime.modeling_from_documents(other_packages, other_physical)
+                other_physical = retained_physical(other_physical_packages[0])
+                other = modeling(other_packages, other_physical_packages[0], other_physical)
                 observed = package.comparison_observation(
                     other, cast("contracts.ModelingComparisonRequest", model_request)
                 )
@@ -656,13 +700,13 @@ def execute(
                 "document": codec.document_builtins(observed),
             }
         if operation in {"source_admit", "preparation_discover"}:
-            physical = runtime.physical_from_documents(physical_packages[0])
-            package = runtime.modeling_from_documents(packages, physical)
+            physical = retained_physical(physical_packages[0])
+            package = modeling(packages, physical_packages[0], physical)
             response: dict[str, object] = {
                 "outcome": "admitted",
                 "revision": {
                     "identity": package.revision_id,
-                    "lifetime": "completed_child",
+                    "lifetime": "completed_child" if context is None else "foreground_session",
                     "reopenable": False,
                 },
                 "durable": False,
@@ -674,7 +718,7 @@ def execute(
                 )
             return response
         if selection is not None:
-            physical = runtime.physical_from_documents(physical_packages[0])
+            physical = retained_physical(physical_packages[0])
             return {
                 "outcome": "selected",
                 "document": codec.document_builtins(
@@ -682,8 +726,12 @@ def execute(
                 ),
             }
         if revision is not None:
-            physical = runtime.physical_from_documents(physical_packages[0])
-            package = runtime.modeling_revision(revision.revision, physical)
+            physical = retained_physical(physical_packages[0])
+            revision_id = revision.revision
+            def create_revision() -> ModelingPackage:
+                return runtime.modeling_revision(revision_id, physical)
+            package = (create_revision() if context is None else context.modeling(
+                "revision:" + revision_id + ":" + _source_identity(physical_packages), create_revision))
             if discovery is not None:
                 return {
                     "outcome": "observed",
@@ -720,7 +768,8 @@ def execute(
         if result is not None:
             return read_result(runtime, result)
     finally:
-        runtime.close()
+        if context is None:
+            runtime.close()
     raise ValueError("native operation did not return an outcome")
 
 
@@ -821,9 +870,39 @@ def worker_request(selected: list[str]) -> tuple[str, dict[str, JsonValue]]:
     return operation, arguments
 
 
-def main(argv: list[str] | None = None) -> int:
-    from scripts.capabilities.native_contracts import EXACT_READS  # noqa: PLC0415
+def project_result(operation: str, value: object) -> dict[str, JsonValue]:
+    """One strict original-document/detail projection shared by both transports."""
+    try:
+        encoded = json.dumps(value, allow_nan=False)
+    except (TypeError, ValueError):
+        encoded = json.dumps(
+            {
+                "outcome": "schema_failure",
+                "code": "pse.native.non_json_producer_output",
+                "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied.",
+            }
+        )
+    from scripts.capabilities.native_contracts import binding_for  # noqa: PLC0415 -- selected original output owner
+    try:
+        preserve = binding_for(operation).preserve_document
+    except ValueError:
+        preserve = False
+    if preserve:
+        from scripts.capabilities.native import intact_result  # noqa: PLC0415
 
+        value = intact_result(
+            JSON_OBJECT.validate_json(encoded), "native_" + operation
+        ).payload
+    else:
+        projection = bounded(json.loads(encoded), "native_" + operation)
+        value = projection.payload
+        if projection.omissions:
+            value["complete"] = False
+            value["omissions"] = list[JsonValue](projection.omissions)
+    return JSON_OBJECT.validate_python(value)
+
+
+def main(argv: list[str] | None = None) -> int:
     selected = sys.argv[1:] if argv is None else argv
     operation = "unknown"
     destination = (
@@ -868,28 +947,7 @@ def main(argv: list[str] | None = None) -> int:
             "outcome": outcome,
             "error": scientific_error(error, operation=operation),
         }
-    try:
-        encoded = json.dumps(value, allow_nan=False)
-    except (TypeError, ValueError):
-        encoded = json.dumps(
-            {
-                "outcome": "schema_failure",
-                "code": "pse.native.non_json_producer_output",
-                "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied.",
-            }
-        )
-    if operation in EXACT_READS:
-        from scripts.capabilities.native import intact_result  # noqa: PLC0415
-
-        value = intact_result(
-            JSON_OBJECT.validate_json(encoded), "native_" + operation
-        ).payload
-    else:
-        projection = bounded(json.loads(encoded), "native_" + operation)
-        value = projection.payload
-        if projection.omissions:
-            value["complete"] = False
-            value["omissions"] = list[JsonValue](projection.omissions)
+    value = project_result(operation, value)
     if destination is None:
         print(json.dumps(value, allow_nan=False))
     else:

@@ -15,6 +15,8 @@ mod private_documents;
 pub(super) mod python_stubs;
 #[cfg(feature = "product-schemas")]
 mod schemas;
+#[cfg(feature = "product-schemas")]
+mod host_operations;
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -413,6 +415,7 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
             pse_runtime::tooling::metric_declarations::metric_declarations(),
         )?,
     );
+    host_operations::append(&mut private, &private_documents::documents())?;
     add_python_manifest(&mut private, Path::new(documents::PRIVATE_PYTHON_ROOT))?;
     check_private_python_candidate(&private)?;
     tree.roots.extend(private.roots);

@@ -1158,8 +1158,8 @@
           "type": "integer"
         },
         "stage": {
-          "description": "Fixed stage, frontier or basis.",
-          "type": "string"
+          "$ref": "#/$defs/PreparationStage",
+          "description": "Fixed stage, frontier or basis."
         }
       },
       "required": [
@@ -1170,6 +1170,21 @@
         "producers"
       ],
       "type": "object"
+    },
+    "PreparationStage": {
+      "description": "Bounded actual shared immutable-product owner.",
+      "oneOf": [
+        {
+          "const": "frontier",
+          "description": "Shared modeling frontier.",
+          "type": "string"
+        },
+        {
+          "const": "basis",
+          "description": "Shared prepared basis.",
+          "type": "string"
+        }
+      ]
     },
     "ProcessLocatorBody": {
       "additionalProperties": false,

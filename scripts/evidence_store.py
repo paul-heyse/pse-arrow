@@ -71,10 +71,11 @@ def build() -> int:
 
     environment = python_extension.bind_interpreter(os.environ)
     # The extractor is a preparation tool. Reads never enter this build route.
-    code = subprocess.call([sys.executable, "-m", "scripts.arrow_validation", "build", "-p", "xtask",
-                            "--bin", "xtask", "--no-default-features", "--locked"], cwd=ROOT, env=environment)
+    code, observer = python_extension.prepare_extractor(environment)
     if code:
         return code
+    if observer is None:
+        raise ExecutableCurrencyError("Evidence producing observer was not prepared")
     command = ["cargo", "build", "-p", "xtask", "--bin", "pse-evidence", "--no-default-features",
                "--features", "evidence-tools", "--locked"]
     resolution = arrow_validation.resolve(command, run=lambda selected: python_extension.capture_build_graph(selected, environment))
@@ -83,7 +84,7 @@ def build() -> int:
     paths = compiler_paths(environment)
     before = {str(path): witness.file(path) for path in paths}
     with tempfile.TemporaryDirectory(prefix="pse-evidence-producing-") as temporary:
-        selected = producer_cargo.configure_currency(ROOT, Path(temporary), environment)
+        selected = producer_cargo.configure_currency(ROOT, Path(temporary), environment, observer=observer)
         code = subprocess.call([str(ROOT / "scripts/producer-cargo"), *arguments], cwd=ROOT, env=selected)
         if code:
             return code

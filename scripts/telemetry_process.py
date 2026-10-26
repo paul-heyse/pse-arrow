@@ -38,6 +38,8 @@ class Provider(Protocol):
 class NativeProvider(Provider, Protocol):
     activation: dict[str, str | None]
 
+    def loss_health(self) -> dict[str, object] | None: ...
+
 
 def _diagnostic(code: str) -> None:
     # Never render settings, exception messages, endpoints or HTTP credentials.
@@ -563,6 +565,35 @@ def run_helper(
         return main()
 
 
+def _loss_status(owner: ProcessLifetime) -> dict[str, object]:
+    """Copy only an already activated native observer; never import the extension."""
+    native: dict[str, object] = {
+        "status": "unavailable",
+        "reason": "native_trace_observer_not_initialized",
+    }
+    if owner.native is not None:
+        try:
+            snapshot = owner.native.loss_health()
+        except Exception:
+            native = {"status": "unavailable", "reason": "native_trace_observer_read_failed"}
+        else:
+            if snapshot is not None:
+                native = snapshot
+    return {
+        "native_rust": native,
+        "python": {
+            "status": "unavailable",
+            "reason": "Python SDK queue loss has no selected structured observation adapter",
+            "process_incarnation": owner.settings.wire.process_incarnation
+            if owner.settings is not None
+            else None,
+            "signals": ["traces", "logs"],
+            "abrupt_exit_loss": "unknown",
+        },
+        "interpretation": "SDK cumulative drop observations are not live counters, drain or backend ingestion proof",
+    }
+
+
 def local_status() -> dict[str, object]:
     """Passive current-process state; configured endpoints never imply delivery."""
     owner = _STATE.active
@@ -592,5 +623,5 @@ def local_status() -> dict[str, object]:
         },
         "delivery": "not_observed",
         "queue_occupancy": "unavailable",
-        "dropped_records": "unavailable",
+        "dropped_records": _loss_status(owner),
     }

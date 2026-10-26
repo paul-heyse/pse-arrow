@@ -1,0 +1,2185 @@
+[
+  [
+    "Resources",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "memory_limit_bytes": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+          "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+        },
+        "threads": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "description": "Scientific CPU permits; default is production.capabilities.threads.",
+          "maximum": 16,
+          "x-pse-host-default": "production.capabilities.threads"
+        },
+        "max_spill_bytes": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+          "x-pse-host-default": "production.capabilities.max_spill_bytes"
+        }
+      },
+      "required": [
+        "memory_limit_bytes",
+        "threads",
+        "max_spill_bytes"
+      ],
+      "description": "Resource defaults are references to the existing production capability declaration.",
+      "title": "Resources",
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  ],
+  [
+    "Source",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "physical": {
+          "description": "Original `physical` transport field."
+        },
+        "documents": {
+          "description": "Original `documents` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        }
+      },
+      "required": [
+        "physical",
+        "documents",
+        "resources"
+      ],
+      "description": "Finite `Source` host transport header.",
+      "title": "Source",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "Preparation",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Finite `Preparation` host transport header.",
+      "properties": {
+        "physical": {
+          "description": "Original `physical` transport field."
+        },
+        "documents": {
+          "description": "Original `documents` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        }
+      },
+      "required": [
+        "physical",
+        "documents",
+        "resources",
+        "request"
+      ],
+      "x-pse-host-base": "Source",
+      "title": "Preparation",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "ModelingComparison",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "x-pse-host-base": "Preparation",
+      "description": "Finite `ModelingComparison` host transport header.",
+      "properties": {
+        "physical": {
+          "description": "Original `physical` transport field."
+        },
+        "documents": {
+          "description": "Original `documents` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        },
+        "other_physical": {
+          "description": "Original `other_physical` transport field."
+        },
+        "other_documents": {
+          "description": "Original `other_documents` transport field."
+        }
+      },
+      "required": [
+        "physical",
+        "documents",
+        "resources",
+        "request",
+        "other_physical",
+        "other_documents"
+      ],
+      "title": "ModelingComparison",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "Deployment",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `state` transport field."
+        },
+        "database": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `database` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        }
+      },
+      "required": [
+        "state",
+        "database",
+        "resources"
+      ],
+      "description": "Finite `Deployment` host transport header.",
+      "title": "Deployment",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "Metadata",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Finite `Metadata` host transport header.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `state` transport field."
+        },
+        "database": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `database` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        }
+      },
+      "required": [
+        "state",
+        "database",
+        "resources",
+        "request"
+      ],
+      "x-pse-host-base": "Deployment",
+      "title": "Metadata",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "Select",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "x-pse-host-base": "Metadata",
+      "description": "Finite `Select` host transport header.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `state` transport field."
+        },
+        "database": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `database` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        },
+        "physical": {
+          "description": "Original `physical` transport field."
+        }
+      },
+      "required": [
+        "state",
+        "database",
+        "resources",
+        "request",
+        "physical"
+      ],
+      "title": "Select",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "Revision",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Finite `Revision` host transport header.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `state` transport field."
+        },
+        "database": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `database` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "physical": {
+          "description": "Original `physical` transport field."
+        },
+        "revision": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `revision` transport field."
+        },
+        "logical": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NonemptyText"
+          },
+          "description": "Original `logical` transport field.",
+          "minItems": 1,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "state",
+        "database",
+        "resources",
+        "physical",
+        "revision",
+        "logical"
+      ],
+      "x-pse-host-base": "Deployment",
+      "title": "Revision",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "RevisionPreparation",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Finite `RevisionPreparation` host transport header.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `state` transport field."
+        },
+        "database": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `database` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "physical": {
+          "description": "Original `physical` transport field."
+        },
+        "revision": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `revision` transport field."
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        }
+      },
+      "required": [
+        "state",
+        "database",
+        "resources",
+        "physical",
+        "revision",
+        "request"
+      ],
+      "x-pse-host-base": "Deployment",
+      "title": "RevisionPreparation",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "Bundle",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `path` transport field."
+        },
+        "maximum_document_bytes": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 1,
+          "description": "Original `maximum_document_bytes` transport field.",
+          "maximum": 16777216,
+          "default": 16777216
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "description": "Finite `Bundle` host transport header.",
+      "title": "Bundle",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        }
+      }
+    }
+  ],
+  [
+    "Diagnostic",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `checkpoint` transport field."
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        }
+      },
+      "required": [
+        "checkpoint",
+        "request"
+      ],
+      "description": "Finite `Diagnostic` host transport header.",
+      "title": "Diagnostic",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        }
+      }
+    }
+  ],
+  [
+    "DiagnosticProcesses",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request": {
+          "description": "Original `request` transport field."
+        },
+        "directory": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NonemptyText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original `directory` transport field.",
+          "default": null
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "description": "Finite `DiagnosticProcesses` host transport header.",
+      "title": "DiagnosticProcesses",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        }
+      }
+    }
+  ],
+  [
+    "DiagnosticCheckpoint",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `checkpoint` transport field."
+        },
+        "expected": {
+          "description": "Original `expected` transport field.",
+          "default": null
+        }
+      },
+      "required": [
+        "checkpoint"
+      ],
+      "description": "Finite `DiagnosticCheckpoint` host transport header.",
+      "title": "DiagnosticCheckpoint",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        }
+      }
+    }
+  ],
+  [
+    "Evidence",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `path` transport field."
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        }
+      },
+      "required": [
+        "path",
+        "request"
+      ],
+      "description": "Finite `Evidence` host transport header.",
+      "title": "Evidence",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        }
+      }
+    }
+  ],
+  [
+    "Invocation",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `path` transport field."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "description": "Finite `Invocation` host transport header.",
+      "title": "Invocation",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        }
+      }
+    }
+  ],
+  [
+    "Result",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Finite `Result` host transport header.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `state` transport field."
+        },
+        "database": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `database` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "run": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `run` transport field."
+        },
+        "attempt": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `attempt` transport field."
+        },
+        "relation": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `relation` transport field."
+        },
+        "start": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Original `start` transport field.",
+          "maximum": 18446744073709551615
+        },
+        "end": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "description": "Original `end` transport field.",
+          "maximum": 18446744073709551615
+        },
+        "maximum_bytes": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 4096,
+          "description": "Original `maximum_bytes` transport field.",
+          "maximum": 65536,
+          "default": 65536
+        }
+      },
+      "required": [
+        "state",
+        "database",
+        "resources",
+        "run",
+        "attempt",
+        "relation",
+        "start",
+        "end"
+      ],
+      "x-pse-host-base": "Deployment",
+      "title": "Result",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "PhysicalInspection",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "physical": {
+          "description": "Original `physical` transport field."
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        }
+      },
+      "required": [
+        "physical",
+        "request",
+        "resources"
+      ],
+      "description": "Finite `PhysicalInspection` host transport header.",
+      "title": "PhysicalInspection",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "ResultInspection",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Finite `ResultInspection` host transport header.",
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `state` transport field."
+        },
+        "database": {
+          "$ref": "#/$defs/NonemptyText",
+          "description": "Original `database` transport field."
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        },
+        "request": {
+          "description": "Original `request` transport field."
+        }
+      },
+      "required": [
+        "state",
+        "database",
+        "resources",
+        "request"
+      ],
+      "x-pse-host-base": "Deployment",
+      "title": "ResultInspection",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NonemptyText": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Nonempty host selection text."
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "EvidenceCompare",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request": {
+          "description": "Original `request` transport field."
+        },
+        "snapshots": {
+          "type": "array",
+          "items": true,
+          "description": "Original `snapshots` transport field.",
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "observations": {
+          "type": "array",
+          "items": true,
+          "description": "Original `observations` transport field.",
+          "maxItems": 64,
+          "default": []
+        }
+      },
+      "required": [
+        "request",
+        "snapshots"
+      ],
+      "description": "Finite `EvidenceCompare` host transport header.",
+      "title": "EvidenceCompare",
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  ],
+  [
+    "ProfileCaptureRequest",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request": {
+          "description": "Original `request` transport field."
+        },
+        "expected": {
+          "description": "Original `expected` transport field."
+        },
+        "suspect": {
+          "description": "Original `suspect` transport field."
+        }
+      },
+      "required": [
+        "request",
+        "expected",
+        "suspect"
+      ],
+      "description": "Finite `ProfileCaptureRequest` host transport header.",
+      "title": "ProfileCaptureRequest",
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  ],
+  [
+    "ConfiguredCapabilities",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NativeBackend"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original `backend` transport field.",
+          "default": null
+        },
+        "settings": {
+          "description": "Original `settings` transport field.",
+          "default": null
+        },
+        "resources": {
+          "$ref": "#/$defs/Resources",
+          "description": "Original `resources` transport field.",
+          "x-pse-host-default": "Resources"
+        }
+      },
+      "required": [
+        "resources"
+      ],
+      "description": "Finite `ConfiguredCapabilities` host transport header.",
+      "title": "ConfiguredCapabilities",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "NativeBackend": {
+          "type": "string",
+          "enum": [
+            "ipopt",
+            "pounce",
+            "kinsol",
+            "highs",
+            "clarabel",
+            "diffsol",
+            "idas",
+            "scip",
+            "pounce_convex",
+            "uno",
+            "petsc"
+          ]
+        },
+        "Resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "memory_limit_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Accounted pool allowance; default is production.capabilities.memory_limit_bytes.",
+              "x-pse-host-default": "production.capabilities.memory_limit_bytes"
+            },
+            "threads": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Scientific CPU permits; default is production.capabilities.threads.",
+              "maximum": 16,
+              "x-pse-host-default": "production.capabilities.threads"
+            },
+            "max_spill_bytes": {
+              "type": "integer",
+              "format": "uint",
+              "minimum": 1,
+              "description": "Bounded spill allowance; default is production.capabilities.max_spill_bytes.",
+              "x-pse-host-default": "production.capabilities.max_spill_bytes"
+            }
+          },
+          "required": [
+            "memory_limit_bytes",
+            "threads",
+            "max_spill_bytes"
+          ],
+          "description": "Resource defaults are references to the existing production capability declaration."
+        }
+      }
+    }
+  ],
+  [
+    "DocumentReference",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "type": "string",
+          "description": "Existing published schema slug."
+        },
+        "name": {
+          "type": "string",
+          "description": "Existing generated input type name."
+        },
+        "input": {
+          "type": "boolean",
+          "description": "Whether its owning catalogue admits input."
+        },
+        "output": {
+          "type": "boolean",
+          "description": "Whether its owning catalogue admits output."
+        }
+      },
+      "required": [
+        "slug",
+        "name",
+        "input",
+        "output"
+      ],
+      "description": "A responsibility-local reference to an existing Rust-owned document.",
+      "title": "DocumentReference",
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  ],
+  [
+    "DocumentField",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "Field of the generated host envelope."
+        },
+        "document": {
+          "$ref": "#/$defs/DocumentReference",
+          "description": "Original directional owner reference."
+        }
+      },
+      "required": [
+        "field",
+        "document"
+      ],
+      "description": "One scientific field in a host header, never a replacement scientific definition.",
+      "title": "DocumentField",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "DocumentReference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "slug": {
+              "type": "string",
+              "description": "Existing published schema slug."
+            },
+            "name": {
+              "type": "string",
+              "description": "Existing generated input type name."
+            },
+            "input": {
+              "type": "boolean",
+              "description": "Whether its owning catalogue admits input."
+            },
+            "output": {
+              "type": "boolean",
+              "description": "Whether its owning catalogue admits output."
+            }
+          },
+          "required": [
+            "slug",
+            "name",
+            "input",
+            "output"
+          ],
+          "description": "A responsibility-local reference to an existing Rust-owned document."
+        }
+      }
+    }
+  ],
+  [
+    "ContinuationField",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Exact path within the host request arguments."
+        },
+        "output": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Exact path within the original worker response."
+        },
+        "kind": {
+          "$ref": "#/$defs/ContinuationKind",
+          "description": "Original field's semantics."
+        }
+      },
+      "required": [
+        "input",
+        "output",
+        "kind"
+      ],
+      "description": "An explicitly paired original request/result paging field, never a JSON scan.",
+      "title": "ContinuationField",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "ContinuationKind": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "offset",
+              "description": "Native offset/seek selector, preserving the original selected basis."
+            },
+            {
+              "type": "string",
+              "const": "opaque",
+              "description": "Native opaque issuer-bound cursor."
+            }
+          ],
+          "description": "Kind of an original paging field; an offset is not an opaque ownership token."
+        }
+      }
+    }
+  ],
+  [
+    "OperationDeclaration",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "type": "string",
+          "description": "Stable selected operation identity."
+        },
+        "title": {
+          "type": "string",
+          "description": "Public host title."
+        },
+        "envelope": {
+          "$ref": "#/$defs/EnvelopeKind",
+          "description": "Owned host header shape."
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentField"
+          },
+          "description": "Original typed document fields."
+        },
+        "receiver": {
+          "type": "string",
+          "description": "Actual receiver entry point, including necessary small typed glue."
+        },
+        "description": {
+          "type": "string",
+          "description": "Public behavior and limits."
+        },
+        "domain": {
+          "type": "string",
+          "description": "Existing capability domain."
+        },
+        "effects": {
+          "type": "string",
+          "description": "Actual effects, independently of observation wording."
+        },
+        "output_document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original result document when one exists; Arrow IPC has no fake JSON document."
+        },
+        "output_many": {
+          "type": "boolean",
+          "description": "Whether the original result is a bounded array of the declared document."
+        },
+        "worker": {
+          "$ref": "#/$defs/WorkerFamily",
+          "description": "Actual native or supplied-only executable owner."
+        },
+        "prerequisites": {
+          "$ref": "#/$defs/Prerequisites",
+          "description": "Actual prerequisite class."
+        },
+        "prepare_import": {
+          "type": "boolean",
+          "description": "Existing explicit provider preparation selection."
+        },
+        "invocation_lifetime": {
+          "$ref": "#/$defs/InvocationLifetime",
+          "description": "Existing attached/detached cancellation selection."
+        },
+        "preserve_document": {
+          "type": "boolean",
+          "description": "Keep the entire original selected native document or refuse its extent."
+        },
+        "read_eligibility": {
+          "$ref": "#/$defs/ReadEligibility",
+          "description": "Explicit read-context eligibility; never inferred from preservation."
+        },
+        "public_binding": {
+          "type": "boolean",
+          "description": "Whether normal native bindings publish this operation (capture has its own composition)."
+        },
+        "context_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Complete immutable receiver-construction fields, independent of paging selectors."
+        },
+        "continuations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ContinuationField"
+          },
+          "description": "Original explicitly paired continuation fields, if any."
+        }
+      },
+      "required": [
+        "operation",
+        "title",
+        "envelope",
+        "documents",
+        "receiver",
+        "description",
+        "domain",
+        "effects",
+        "output_many",
+        "worker",
+        "prerequisites",
+        "prepare_import",
+        "invocation_lifetime",
+        "preserve_document",
+        "read_eligibility",
+        "public_binding",
+        "context_fields",
+        "continuations"
+      ],
+      "description": "One finite supported host operation, linked to actual typed receiver inputs/results.",
+      "title": "OperationDeclaration",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "EnvelopeKind": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "Source",
+              "description": "Original source bytes plus production-profile resource allowances."
+            },
+            {
+              "type": "string",
+              "const": "Preparation",
+              "description": "Source plus one original request document."
+            },
+            {
+              "type": "string",
+              "const": "ModelingComparison",
+              "description": "Original source pairs and comparison request."
+            },
+            {
+              "type": "string",
+              "const": "Deployment",
+              "description": "Existing canonical service selection."
+            },
+            {
+              "type": "string",
+              "const": "Metadata",
+              "description": "Existing service plus one request."
+            },
+            {
+              "type": "string",
+              "const": "Select",
+              "description": "Existing service, physical source and selection request."
+            },
+            {
+              "type": "string",
+              "const": "Revision",
+              "description": "Existing retained revision and bounded logical names."
+            },
+            {
+              "type": "string",
+              "const": "RevisionPreparation",
+              "description": "Existing retained revision and preparation request."
+            },
+            {
+              "type": "string",
+              "const": "Bundle",
+              "description": "Supplied project bundle."
+            },
+            {
+              "type": "string",
+              "const": "Diagnostic",
+              "description": "Supplied diagnostic checkpoint and request."
+            },
+            {
+              "type": "string",
+              "const": "DiagnosticProcesses",
+              "description": "Bounded process discovery selection."
+            },
+            {
+              "type": "string",
+              "const": "DiagnosticCheckpoint",
+              "description": "Exact checkpoint and optional identity."
+            },
+            {
+              "type": "string",
+              "const": "Evidence",
+              "description": "Supplied frozen evidence and request."
+            },
+            {
+              "type": "string",
+              "const": "Invocation",
+              "description": "Supplied invocation evidence."
+            },
+            {
+              "type": "string",
+              "const": "Result",
+              "description": "Exact canonical result window."
+            },
+            {
+              "type": "string",
+              "const": "PhysicalInspection",
+              "description": "Physical source and inspection request."
+            },
+            {
+              "type": "string",
+              "const": "ResultInspection",
+              "description": "Canonical result inspection request."
+            },
+            {
+              "type": "string",
+              "const": "EvidenceCompare",
+              "description": "Supplied evidence comparison; contributed only by tooling."
+            },
+            {
+              "type": "string",
+              "const": "ProfileCaptureRequest",
+              "description": "Explicit finite capture and telemetry association."
+            },
+            {
+              "type": "string",
+              "const": "ConfiguredCapabilities",
+              "description": "Linked capabilities or one backend's selected settings."
+            }
+          ],
+          "description": "Closed host header shapes; their schemas below are the sole field/bound declaration."
+        },
+        "DocumentField": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "type": "string",
+              "description": "Field of the generated host envelope."
+            },
+            "document": {
+              "$ref": "#/$defs/DocumentReference",
+              "description": "Original directional owner reference."
+            }
+          },
+          "required": [
+            "field",
+            "document"
+          ],
+          "description": "One scientific field in a host header, never a replacement scientific definition."
+        },
+        "DocumentReference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "slug": {
+              "type": "string",
+              "description": "Existing published schema slug."
+            },
+            "name": {
+              "type": "string",
+              "description": "Existing generated input type name."
+            },
+            "input": {
+              "type": "boolean",
+              "description": "Whether its owning catalogue admits input."
+            },
+            "output": {
+              "type": "boolean",
+              "description": "Whether its owning catalogue admits output."
+            }
+          },
+          "required": [
+            "slug",
+            "name",
+            "input",
+            "output"
+          ],
+          "description": "A responsibility-local reference to an existing Rust-owned document."
+        },
+        "WorkerFamily": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "native",
+              "description": "Actual scientific extension with native environment/admission."
+            },
+            {
+              "type": "string",
+              "const": "evidence",
+              "description": "Independently built supplied-only tooling executable."
+            }
+          ],
+          "description": "Responsibility providing the native receiver."
+        },
+        "Prerequisites": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "extension",
+              "description": "Compatible prebuilt scientific extension; no service required."
+            },
+            {
+              "type": "string",
+              "const": "extension_and_canonical",
+              "description": "Extension and explicitly selected existing canonical service."
+            },
+            {
+              "type": "string",
+              "const": "evidence_executable",
+              "description": "Tooling executable, with no extension or canonical service."
+            }
+          ],
+          "description": "Actual prerequisites, independently selected from header shape and descriptions."
+        },
+        "InvocationLifetime": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "attached",
+              "description": "Cancellation signals and actually drains the helper owner."
+            },
+            {
+              "type": "string",
+              "const": "detached",
+              "description": "A cancelled observer leaves the admitted exact read to settle."
+            }
+          ],
+          "description": "Existing helper cancellation behavior, separate from original-document preservation."
+        },
+        "ReadEligibility": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "dedicated",
+              "description": "Dedicated effect/capture lifetime."
+            },
+            {
+              "type": "string",
+              "const": "exact_context",
+              "description": "Eligible for exact immutable source/receiver/image context reuse."
+            },
+            {
+              "type": "string",
+              "const": "supplied_tooling",
+              "description": "Tooling-supplied inputs, never a native extension read worker."
+            }
+          ],
+          "description": "Eligibility only; retained reuse still requires complete current context admission."
+        },
+        "ContinuationField": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Exact path within the host request arguments."
+            },
+            "output": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Exact path within the original worker response."
+            },
+            "kind": {
+              "$ref": "#/$defs/ContinuationKind",
+              "description": "Original field's semantics."
+            }
+          },
+          "required": [
+            "input",
+            "output",
+            "kind"
+          ],
+          "description": "An explicitly paired original request/result paging field, never a JSON scan."
+        },
+        "ContinuationKind": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "offset",
+              "description": "Native offset/seek selector, preserving the original selected basis."
+            },
+            {
+              "type": "string",
+              "const": "opaque",
+              "description": "Native opaque issuer-bound cursor."
+            }
+          ],
+          "description": "Kind of an original paging field; an offset is not an opaque ownership token."
+        }
+      }
+    }
+  ],
+  [
+    "OperationCatalogue",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OperationDeclaration"
+          },
+          "description": "Original product-owned operation declarations, in declaration order."
+        }
+      },
+      "required": [
+        "operations"
+      ],
+      "description": "Compiled operation metadata; tooling adds only its independent contribution at generation.",
+      "title": "OperationCatalogue",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "OperationDeclaration": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "operation": {
+              "type": "string",
+              "description": "Stable selected operation identity."
+            },
+            "title": {
+              "type": "string",
+              "description": "Public host title."
+            },
+            "envelope": {
+              "$ref": "#/$defs/EnvelopeKind",
+              "description": "Owned host header shape."
+            },
+            "documents": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/DocumentField"
+              },
+              "description": "Original typed document fields."
+            },
+            "receiver": {
+              "type": "string",
+              "description": "Actual receiver entry point, including necessary small typed glue."
+            },
+            "description": {
+              "type": "string",
+              "description": "Public behavior and limits."
+            },
+            "domain": {
+              "type": "string",
+              "description": "Existing capability domain."
+            },
+            "effects": {
+              "type": "string",
+              "description": "Actual effects, independently of observation wording."
+            },
+            "output_document": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/DocumentReference"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Original result document when one exists; Arrow IPC has no fake JSON document."
+            },
+            "output_many": {
+              "type": "boolean",
+              "description": "Whether the original result is a bounded array of the declared document."
+            },
+            "worker": {
+              "$ref": "#/$defs/WorkerFamily",
+              "description": "Actual native or supplied-only executable owner."
+            },
+            "prerequisites": {
+              "$ref": "#/$defs/Prerequisites",
+              "description": "Actual prerequisite class."
+            },
+            "prepare_import": {
+              "type": "boolean",
+              "description": "Existing explicit provider preparation selection."
+            },
+            "invocation_lifetime": {
+              "$ref": "#/$defs/InvocationLifetime",
+              "description": "Existing attached/detached cancellation selection."
+            },
+            "preserve_document": {
+              "type": "boolean",
+              "description": "Keep the entire original selected native document or refuse its extent."
+            },
+            "read_eligibility": {
+              "$ref": "#/$defs/ReadEligibility",
+              "description": "Explicit read-context eligibility; never inferred from preservation."
+            },
+            "public_binding": {
+              "type": "boolean",
+              "description": "Whether normal native bindings publish this operation (capture has its own composition)."
+            },
+            "context_fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Complete immutable receiver-construction fields, independent of paging selectors."
+            },
+            "continuations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ContinuationField"
+              },
+              "description": "Original explicitly paired continuation fields, if any."
+            }
+          },
+          "required": [
+            "operation",
+            "title",
+            "envelope",
+            "documents",
+            "receiver",
+            "description",
+            "domain",
+            "effects",
+            "output_many",
+            "worker",
+            "prerequisites",
+            "prepare_import",
+            "invocation_lifetime",
+            "preserve_document",
+            "read_eligibility",
+            "public_binding",
+            "context_fields",
+            "continuations"
+          ],
+          "description": "One finite supported host operation, linked to actual typed receiver inputs/results."
+        },
+        "EnvelopeKind": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "Source",
+              "description": "Original source bytes plus production-profile resource allowances."
+            },
+            {
+              "type": "string",
+              "const": "Preparation",
+              "description": "Source plus one original request document."
+            },
+            {
+              "type": "string",
+              "const": "ModelingComparison",
+              "description": "Original source pairs and comparison request."
+            },
+            {
+              "type": "string",
+              "const": "Deployment",
+              "description": "Existing canonical service selection."
+            },
+            {
+              "type": "string",
+              "const": "Metadata",
+              "description": "Existing service plus one request."
+            },
+            {
+              "type": "string",
+              "const": "Select",
+              "description": "Existing service, physical source and selection request."
+            },
+            {
+              "type": "string",
+              "const": "Revision",
+              "description": "Existing retained revision and bounded logical names."
+            },
+            {
+              "type": "string",
+              "const": "RevisionPreparation",
+              "description": "Existing retained revision and preparation request."
+            },
+            {
+              "type": "string",
+              "const": "Bundle",
+              "description": "Supplied project bundle."
+            },
+            {
+              "type": "string",
+              "const": "Diagnostic",
+              "description": "Supplied diagnostic checkpoint and request."
+            },
+            {
+              "type": "string",
+              "const": "DiagnosticProcesses",
+              "description": "Bounded process discovery selection."
+            },
+            {
+              "type": "string",
+              "const": "DiagnosticCheckpoint",
+              "description": "Exact checkpoint and optional identity."
+            },
+            {
+              "type": "string",
+              "const": "Evidence",
+              "description": "Supplied frozen evidence and request."
+            },
+            {
+              "type": "string",
+              "const": "Invocation",
+              "description": "Supplied invocation evidence."
+            },
+            {
+              "type": "string",
+              "const": "Result",
+              "description": "Exact canonical result window."
+            },
+            {
+              "type": "string",
+              "const": "PhysicalInspection",
+              "description": "Physical source and inspection request."
+            },
+            {
+              "type": "string",
+              "const": "ResultInspection",
+              "description": "Canonical result inspection request."
+            },
+            {
+              "type": "string",
+              "const": "EvidenceCompare",
+              "description": "Supplied evidence comparison; contributed only by tooling."
+            },
+            {
+              "type": "string",
+              "const": "ProfileCaptureRequest",
+              "description": "Explicit finite capture and telemetry association."
+            },
+            {
+              "type": "string",
+              "const": "ConfiguredCapabilities",
+              "description": "Linked capabilities or one backend's selected settings."
+            }
+          ],
+          "description": "Closed host header shapes; their schemas below are the sole field/bound declaration."
+        },
+        "DocumentField": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "field": {
+              "type": "string",
+              "description": "Field of the generated host envelope."
+            },
+            "document": {
+              "$ref": "#/$defs/DocumentReference",
+              "description": "Original directional owner reference."
+            }
+          },
+          "required": [
+            "field",
+            "document"
+          ],
+          "description": "One scientific field in a host header, never a replacement scientific definition."
+        },
+        "DocumentReference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "slug": {
+              "type": "string",
+              "description": "Existing published schema slug."
+            },
+            "name": {
+              "type": "string",
+              "description": "Existing generated input type name."
+            },
+            "input": {
+              "type": "boolean",
+              "description": "Whether its owning catalogue admits input."
+            },
+            "output": {
+              "type": "boolean",
+              "description": "Whether its owning catalogue admits output."
+            }
+          },
+          "required": [
+            "slug",
+            "name",
+            "input",
+            "output"
+          ],
+          "description": "A responsibility-local reference to an existing Rust-owned document."
+        },
+        "WorkerFamily": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "native",
+              "description": "Actual scientific extension with native environment/admission."
+            },
+            {
+              "type": "string",
+              "const": "evidence",
+              "description": "Independently built supplied-only tooling executable."
+            }
+          ],
+          "description": "Responsibility providing the native receiver."
+        },
+        "Prerequisites": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "extension",
+              "description": "Compatible prebuilt scientific extension; no service required."
+            },
+            {
+              "type": "string",
+              "const": "extension_and_canonical",
+              "description": "Extension and explicitly selected existing canonical service."
+            },
+            {
+              "type": "string",
+              "const": "evidence_executable",
+              "description": "Tooling executable, with no extension or canonical service."
+            }
+          ],
+          "description": "Actual prerequisites, independently selected from header shape and descriptions."
+        },
+        "InvocationLifetime": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "attached",
+              "description": "Cancellation signals and actually drains the helper owner."
+            },
+            {
+              "type": "string",
+              "const": "detached",
+              "description": "A cancelled observer leaves the admitted exact read to settle."
+            }
+          ],
+          "description": "Existing helper cancellation behavior, separate from original-document preservation."
+        },
+        "ReadEligibility": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "dedicated",
+              "description": "Dedicated effect/capture lifetime."
+            },
+            {
+              "type": "string",
+              "const": "exact_context",
+              "description": "Eligible for exact immutable source/receiver/image context reuse."
+            },
+            {
+              "type": "string",
+              "const": "supplied_tooling",
+              "description": "Tooling-supplied inputs, never a native extension read worker."
+            }
+          ],
+          "description": "Eligibility only; retained reuse still requires complete current context admission."
+        },
+        "ContinuationField": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Exact path within the host request arguments."
+            },
+            "output": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Exact path within the original worker response."
+            },
+            "kind": {
+              "$ref": "#/$defs/ContinuationKind",
+              "description": "Original field's semantics."
+            }
+          },
+          "required": [
+            "input",
+            "output",
+            "kind"
+          ],
+          "description": "An explicitly paired original request/result paging field, never a JSON scan."
+        },
+        "ContinuationKind": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "offset",
+              "description": "Native offset/seek selector, preserving the original selected basis."
+            },
+            {
+              "type": "string",
+              "const": "opaque",
+              "description": "Native opaque issuer-bound cursor."
+            }
+          ],
+          "description": "Kind of an original paging field; an offset is not an opaque ownership token."
+        }
+      }
+    }
+  ]
+]

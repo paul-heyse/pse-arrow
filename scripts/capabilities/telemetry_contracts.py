@@ -57,7 +57,7 @@ class LocalProducer(OwnerRecord):
     export_attempts: OwnerRecord
     delivery: str
     queue_occupancy: str
-    dropped_records: str
+    dropped_records: str | OwnerRecord
 
 
 class ServiceObservation(OwnerRecord):

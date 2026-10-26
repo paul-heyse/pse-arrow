@@ -64,6 +64,11 @@ class AttemptOriginalConclusion(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class ContinuationKind(StrEnum):
+    OFFSET = "offset"
+    OPAQUE = "opaque"
+
+
 class CopiedExecutionStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
@@ -138,6 +143,29 @@ class DetailRequirement(StrEnum):
     COMPLETE = "complete"
 
 
+class EnvelopeKind(StrEnum):
+    SOURCE = "Source"
+    PREPARATION = "Preparation"
+    MODELINGCOMPARISON = "ModelingComparison"
+    DEPLOYMENT = "Deployment"
+    METADATA = "Metadata"
+    SELECT = "Select"
+    REVISION = "Revision"
+    REVISIONPREPARATION = "RevisionPreparation"
+    BUNDLE = "Bundle"
+    DIAGNOSTIC = "Diagnostic"
+    DIAGNOSTICPROCESSES = "DiagnosticProcesses"
+    DIAGNOSTICCHECKPOINT = "DiagnosticCheckpoint"
+    EVIDENCE = "Evidence"
+    INVOCATION = "Invocation"
+    RESULT = "Result"
+    PHYSICALINSPECTION = "PhysicalInspection"
+    RESULTINSPECTION = "ResultInspection"
+    EVIDENCECOMPARE = "EvidenceCompare"
+    PROFILECAPTUREREQUEST = "ProfileCaptureRequest"
+    CONFIGUREDCAPABILITIES = "ConfiguredCapabilities"
+
+
 class EvaluationDemand(StrEnum):
     OBJECTIVE = "objective"
     CONSTRAINTS = "constraints"
@@ -167,6 +195,11 @@ class HistoryPurposeBody(StrEnum):
 class IdasInitialStep(StrEnum):
     CONFIGURED = "configured"
     AUTOMATIC = "automatic"
+
+
+class InvocationLifetime(StrEnum):
+    ATTACHED = "attached"
+    DETACHED = "detached"
 
 
 class InvocationOutcome(StrEnum):
@@ -264,6 +297,17 @@ class PackScientificState(StrEnum):
     UNUSABLE = "unusable"
 
 
+class PreparationStage(StrEnum):
+    FRONTIER = "frontier"
+    BASIS = "basis"
+
+
+class Prerequisites(StrEnum):
+    EXTENSION = "extension"
+    EXTENSION_AND_CANONICAL = "extension_and_canonical"
+    EVIDENCE_EXECUTABLE = "evidence_executable"
+
+
 class ProducerRole(StrEnum):
     NATIVE_CALLBACK = "native_callback"
     COORDINATE_TRANSPORT = "coordinate_transport"
@@ -317,6 +361,12 @@ class RawMapRole(StrEnum):
     ORIGINALASSESSMENT = "OriginalAssessment"
     UNKNOWN = "Unknown"
     RESTARTSCREENING = "RestartScreening"
+
+
+class ReadEligibility(StrEnum):
+    DEDICATED = "dedicated"
+    EXACT_CONTEXT = "exact_context"
+    SUPPLIED_TOOLING = "supplied_tooling"
 
 
 class RecordAvailability(StrEnum):
@@ -445,6 +495,26 @@ class ReviewTableKind(StrEnum):
     QUERY = "query"
 
 
+class SdkAbruptLoss(StrEnum):
+    UNKNOWN = "unknown"
+
+
+class SdkLossDelivery(StrEnum):
+    NOT_OBSERVED = "not_observed"
+
+
+class SdkLossProcessor(StrEnum):
+    BATCHSPANPROCESSOR = "BatchSpanProcessor"
+
+
+class SdkLossScope(StrEnum):
+    PSE_RUNTIME = "pse-runtime"
+
+
+class SdkLossSignal(StrEnum):
+    TRACES = "traces"
+
+
 class SourceMapScope(StrEnum):
     STATIC_ELIGIBLE_ALTERNATIVES = "static_eligible_alternatives"
 
@@ -473,6 +543,19 @@ class StudyObservationContinuity(StrEnum):
     GAP_CURRENT_RESYNC = "gap_current_resync"
     LIVE_NUMERICS_UNAVAILABLE = "live_numerics_unavailable"
     HISTORY_UNAVAILABLE = "history_unavailable"
+
+
+class TraceShutdown(StrEnum):
+    UNSELECTED = "unselected"
+    NOT_ATTEMPTED = "not_attempted"
+    ATTEMPTED = "attempted"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class WorkerFamily(StrEnum):
+    NATIVE = "native"
+    EVIDENCE = "evidence"
 
 
 class AccuracyDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7299,6 +7382,20 @@ class ContextSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.record_key(self.cut), v.scalar_key(self.effective_at_us),))
 
 
+class ContinuationField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicitly paired original request/result paging field, never a JSON scan."""
+
+    #: Exact path within the host request arguments.
+    input: tuple[str, ...]
+    #: Original field's semantics.
+    kind: ContinuationKind
+    #: Exact path within the original worker response.
+    output: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.input), v.scalar_key(self.kind), v.sequence_key(v.scalar_key)(self.output),))
+
+
 class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Serializable controller inputs; package/prepared analysis handles are reconstructed."""
 
@@ -8935,6 +9032,34 @@ class DiscreteInitializationRefuse(msgspec.Struct, frozen=True, forbid_unknown_f
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), ())
+
+
+class DocumentField(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One scientific field in a host header, never a replacement scientific definition."""
+
+    #: Original directional owner reference.
+    document: DocumentReference
+    #: Field of the generated host envelope.
+    field: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.document), v.scalar_key(self.field),))
+
+
+class DocumentReference(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A responsibility-local reference to an existing Rust-owned document."""
+
+    #: Whether its owning catalogue admits input.
+    input: bool
+    #: Existing generated input type name.
+    name: str
+    #: Whether its owning catalogue admits output.
+    output: bool
+    #: Existing published schema slug.
+    slug: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.input), v.scalar_key(self.name), v.scalar_key(self.output), v.scalar_key(self.slug),))
 
 
 class DurationSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -15120,6 +15245,16 @@ class OperandContract(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.sequence_key(v.sequence_key(v.sequence_key(v.scalar_key)))(self.indices), v.sequence_key(v.scalar_key)(self.quantity),))
 
 
+class OperationCatalogue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compiled operation metadata; tooling adds only its independent contribution at generation."""
+
+    #: Original product-owned operation declarations, in declaration order.
+    operations: tuple[OperationDeclaration, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.operations),))
+
+
 class OperationContract(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Input requirements are consumed before use; output contracts grant bounded production,
     never possession of the future output's certificate.
@@ -15146,6 +15281,52 @@ class OperationContractOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.inputs), v.sequence_key(v.record_key)(self.outputs),))
+
+
+class OperationDeclaration(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One finite supported host operation, linked to actual typed receiver inputs/results."""
+
+    #: Complete immutable receiver-construction fields, independent of paging selectors.
+    context_fields: tuple[str, ...]
+    #: Original explicitly paired continuation fields, if any.
+    continuations: tuple[ContinuationField, ...]
+    #: Public behavior and limits.
+    description: str
+    #: Original typed document fields.
+    documents: tuple[DocumentField, ...]
+    #: Existing capability domain.
+    domain: str
+    #: Actual effects, independently of observation wording.
+    effects: str
+    #: Owned host header shape.
+    envelope: EnvelopeKind
+    #: Existing attached/detached cancellation selection.
+    invocation_lifetime: InvocationLifetime
+    #: Stable selected operation identity.
+    operation: str
+    #: Original result document when one exists; Arrow IPC has no fake JSON document.
+    output_document: DocumentReference | None
+    #: Whether the original result is a bounded array of the declared document.
+    output_many: bool
+    #: Existing explicit provider preparation selection.
+    prepare_import: bool
+    #: Actual prerequisite class.
+    prerequisites: Prerequisites
+    #: Keep the entire original selected native document or refuse its extent.
+    preserve_document: bool
+    #: Whether normal native bindings publish this operation (capture has its own composition).
+    public_binding: bool
+    #: Explicit read-context eligibility; never inferred from preservation.
+    read_eligibility: ReadEligibility
+    #: Actual receiver entry point, including necessary small typed glue.
+    receiver: str
+    #: Public host title.
+    title: str
+    #: Actual native or supplied-only executable owner.
+    worker: WorkerFamily
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.context_fields), v.sequence_key(v.record_key)(self.continuations), v.scalar_key(self.description), v.sequence_key(v.record_key)(self.documents), v.scalar_key(self.domain), v.scalar_key(self.effects), v.scalar_key(self.envelope), v.scalar_key(self.invocation_lifetime), v.scalar_key(self.operation), v.optional_key(v.record_key)(self.output_document), v.scalar_key(self.output_many), v.scalar_key(self.prepare_import), v.scalar_key(self.prerequisites), v.scalar_key(self.preserve_document), v.scalar_key(self.public_binding), v.scalar_key(self.read_eligibility), v.scalar_key(self.receiver), v.scalar_key(self.title), v.scalar_key(self.worker),))
 
 
 class OperationId(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17362,7 +17543,7 @@ class PreparationMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Retained products reused, including producer cache rechecks.
     retained_reuses: Annotated[int, msgspec.Meta(ge=0)]
     #: Fixed stage, frontier or basis.
-    stage: str
+    stage: PreparationStage
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.acquisitions), v.scalar_key(self.flight_waiters), v.scalar_key(self.producers), v.scalar_key(self.retained_reuses), v.scalar_key(self.stage),))
@@ -26955,6 +27136,42 @@ class ScipSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.scalar_key(self.exact), v.scalar_key(self.iis), v.scalar_key(self.nlp_linear_solver), v.optional_key(v.scalar_key)(self.nodes), v.scalar_key(self.pool), v.scalar_key(self.reoptimize), v.scalar_key(self.seed),))
 
 
+class SdkLossHealth(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact, passive observations for exactly one owned SDK trace processor.
+    No missing diagnostic is interpreted as zero and no count proves delivery.
+    """
+
+    #: Abrupt exit loss cannot be inferred from these two SDK diagnostics.
+    abrupt_exit_loss: SdkAbruptLoss
+    #: Time of that diagnostic; the SDK emits it before sending shutdown control.
+    cumulative_count_observed_at_unix_ns: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Export, drain and backend ingestion are not established by a drop diagnostic.
+    delivery: SdkLossDelivery
+    #: Whether the SDK's first full-queue diagnostic was observed, independently of clock availability.
+    first_drop_observed: bool
+    #: Time of that first diagnostic, if the Unix clock was available.
+    first_drop_observed_at_unix_ns: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: SDK queue capacity, not current occupancy.
+    max_queue_size: Annotated[int, msgspec.Meta(ge=0)]
+    #: Time this passive snapshot was copied.
+    observed_at_unix_ns: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Exact host incarnation; observations cannot be combined across incarnations.
+    process_incarnation: str
+    #: SDK processor class; Python/log/metric queues are outside this observation.
+    processor: SdkLossProcessor
+    #: Native instrumentation scope.
+    scope: SdkLossScope
+    #: SDK-reported cumulative count at its shutdown diagnostic, not a live counter.
+    sdk_reported_dropped_span_count: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Independent completion of the shutdown attempt.
+    shutdown: TraceShutdown
+    #: Signal observed by this finite adapter.
+    signal: SdkLossSignal
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.abrupt_exit_loss), v.optional_key(v.scalar_key)(self.cumulative_count_observed_at_unix_ns), v.scalar_key(self.delivery), v.scalar_key(self.first_drop_observed), v.optional_key(v.scalar_key)(self.first_drop_observed_at_unix_ns), v.scalar_key(self.max_queue_size), v.optional_key(v.scalar_key)(self.observed_at_unix_ns), v.scalar_key(self.process_incarnation), v.scalar_key(self.processor), v.scalar_key(self.scope), v.optional_key(v.scalar_key)(self.sdk_reported_dropped_span_count), v.scalar_key(self.shutdown), v.scalar_key(self.signal),))
+
+
 class SeedAvailabilityAbsent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="absent"):
     """No seed exists for the selected role."""
 
@@ -31953,6 +32170,8 @@ __all__ = [
     "ContextSelectionBody",
     "ContextSelectionBodyOutput",
     "ContextSelectionOutput",
+    "ContinuationField",
+    "ContinuationKind",
     "ControllerOperation",
     "ControllerOperationOutput",
     "CopiedExecutionObservations",
@@ -32061,6 +32280,8 @@ __all__ = [
     "DiscreteInitializationFixAt",
     "DiscreteInitializationFixAtStart",
     "DiscreteInitializationRefuse",
+    "DocumentField",
+    "DocumentReference",
     "DurationSummary",
     "DurationSummaryOutput",
     "EffortPolicy",
@@ -32069,6 +32290,7 @@ __all__ = [
     "EligibilityDocumentOutput",
     "EndpointRequirement",
     "EndpointRequirementOutput",
+    "EnvelopeKind",
     "EstimatorInput",
     "EstimatorOperation",
     "EstimatorOperationOutput",
@@ -32248,6 +32470,7 @@ __all__ = [
     "InvocationEvidenceReferenceOutput",
     "InvocationInterval",
     "InvocationIntervalOutput",
+    "InvocationLifetime",
     "InvocationOutcome",
     "InvocationProduct",
     "InvocationProductOutput",
@@ -32426,8 +32649,10 @@ __all__ = [
     "ObservedPhysicalNode",
     "OccurrenceKey",
     "OperandContract",
+    "OperationCatalogue",
     "OperationContract",
     "OperationContractOutput",
+    "OperationDeclaration",
     "OperationId",
     "OperationIdBody",
     "OperationKey",
@@ -32568,6 +32793,7 @@ __all__ = [
     "PreparationSettingsBody",
     "PreparationSettingsBodyOutput",
     "PreparationSettingsOutput",
+    "PreparationStage",
     "PreparationStructuralValue",
     "PreparationStructuralValueBoolean",
     "PreparationStructuralValueCoordinate",
@@ -32585,6 +32811,7 @@ __all__ = [
     "PreparationStructuralValueSet",
     "PreparationStructuralValueText",
     "PreparationStructuralValueTuple",
+    "Prerequisites",
     "PresolveSeedTransformation",
     "ProblemKey",
     "ProcessCheckpoint",
@@ -32796,6 +33023,7 @@ __all__ = [
     "RawMapRole",
     "RawMapSample",
     "RawMapSampleOutput",
+    "ReadEligibility",
     "ReceiverCheckpoint",
     "ReceiverCheckpointOutput",
     "ReconstructionAccuracy",
@@ -33131,6 +33359,12 @@ __all__ = [
     "ScipSettingsDocument",
     "ScipSettingsDocumentOutput",
     "ScipSettingsOutput",
+    "SdkAbruptLoss",
+    "SdkLossDelivery",
+    "SdkLossHealth",
+    "SdkLossProcessor",
+    "SdkLossScope",
+    "SdkLossSignal",
     "SeedAvailability",
     "SeedAvailabilityAbsent",
     "SeedAvailabilityCompatible",
@@ -33357,6 +33591,7 @@ __all__ = [
     "ThreadExecution",
     "ThreadExecutionOutput",
     "Tolerance",
+    "TraceShutdown",
     "TrustRegion",
     "TrustRegionOutput",
     "Unit",
@@ -33408,9 +33643,10 @@ __all__ = [
     "WorkLimitsOutput",
     "WorkObservation",
     "WorkObservationOutput",
+    "WorkerFamily",
     "WorkingSetSnapshot",
     "WorkingSetSnapshotOutput",
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:7b0f4b79dcc652e3b5f03362d4ed9f6b2e4834193f5c3abe6c1ed5efa7014d2a"
+SCHEMA_SET_FINGERPRINT = "blake3:5802c38ec6dd8bbc45c5095c591b2da6a5a7ea38547131c37853eef845fc37b0"

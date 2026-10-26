@@ -6,19 +6,15 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from scripts.host_contracts import Contract as Contract
 
 from scripts.capabilities.workers import (
     WorkerCall,
 )
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,95}$")]
-
-
-class Contract(BaseModel):
-    model_config = ConfigDict(
-        extra="forbid", strict=True, frozen=True, validate_default=True
-    )
 
 
 class Guide(Contract):

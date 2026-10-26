@@ -916,6 +916,27 @@ def publish_receipt(path: Path, value: dict[str, object]) -> None:
     validation.write_json(path, value)
 
 
+def prepare_extractor(environment: Mapping[str, str]) -> tuple[int, dict[str, object] | None]:
+    """Explicit preparation of the finite observer, never a read-time action."""
+    from scripts import producer_cargo  # noqa: PLC0415
+
+    witness = producing_currency.Witness()
+    sources = {str(ROOT / name): witness.file(ROOT / name) for name in producer_cargo.OBSERVER_SOURCE_INPUTS}
+    command = [str(interpreter(environment)), "-m", "scripts.arrow_validation", "build", "-p", "xtask",
+               "--bin", "xtask", "--no-default-features", "--locked"]
+    code = subprocess.call(command, cwd=ROOT, env=environment)
+    if code:
+        return code, None
+    if (any(value["sha256"] is None for value in sources.values())
+            or sources != {name: witness.file(Path(name)) for name in sources}):
+        raise ValueError("Producing observer source changed during explicit preparation")
+    extractor = ROOT / "target/debug/xtask"
+    if not extractor.is_file():
+        raise ValueError("Explicit producing observer build did not supply its fixed executable")
+    return 0, {"source_basis": producing_currency.basis(sources),
+               "artifact_stamp": list(producing_currency.stamp(extractor)), "command": command}
+
+
 def observed_installation(
     command: Sequence[str], environment: Mapping[str, str]
 ) -> tuple[int, dict[str, object] | None]:
@@ -924,11 +945,16 @@ def observed_installation(
 
     extractor = ROOT / "target/debug/xtask"
     config = tomllib.loads((ROOT / "pyproject.toml").read_text()).get("tool", {}).get("maturin", {})
-    if (not extractor.is_file() or config.get("strip") or config.get("pgo-command")
+    if (config.get("strip") or config.get("pgo-command")
             or any(name.startswith(("PYO3_CROSS", "MATURIN_")) for name in environment)):
         return subprocess.call(command, cwd=ROOT, env=environment), None
+    code, observer = prepare_extractor(environment)
+    if code:
+        return code, None
+    if observer is None or not extractor.is_file():
+        return subprocess.call(command, cwd=ROOT, env=environment), None
     with tempfile.TemporaryDirectory(prefix="pse-ordinary-installation-") as temporary:
-        selected = producer_cargo.configure_currency(ROOT, Path(temporary), environment)
+        selected = producer_cargo.configure_currency(ROOT, Path(temporary), environment, observer=observer)
         code = subprocess.call(command, cwd=ROOT, env=selected)
         if code:
             return code, None

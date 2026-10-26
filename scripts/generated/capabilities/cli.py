@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from pydantic import JsonValue
 
 
-OPERATIONS = {'assessment_read': {'wire_revision': '05510691206baa229c4c83defbfc9f49e346d54e88a35343a1f428003268765e', 'lifetime': 'single', 'read_only': True}, 'assessment_run': {'wire_revision': '30550da983781556960718c84a3167d5007ed7cbb24123305663d14b147c05dc', 'lifetime': 'single', 'read_only': False}, 'assessment_select': {'wire_revision': 'dd540aa59db507fdd0f5a38221f546d37b55eb0800280b4d43b7f093aacc8146', 'lifetime': 'single', 'read_only': True}, 'capability_explain': {'wire_revision': '29d64cd29e32f2a840e9ade3ac6de18eb2c31e3f6485cfe85c1c17ed0d30c19b', 'lifetime': 'single', 'read_only': True}, 'capability_readiness': {'wire_revision': '22b2157dff0170a1b8eee8b8b594cbad8e4250aa4ff7fcc0e72b3e9ceff38466', 'lifetime': 'single', 'read_only': True}, 'capability_readiness_check': {'wire_revision': '8deeee1ecbd477ceec89d4c95ad35c578a243b450b7b3d4a6fa83e9268d38446', 'lifetime': 'single', 'read_only': False}, 'compilation_check': {'wire_revision': '476c1f5447148eee3bfc8ea450590decfdbfee8406f3277d5ce08b1379a47030', 'lifetime': 'single', 'read_only': False}, 'contracts_check': {'wire_revision': '126f1e64fd6c06d02c23686c6edbd324b9fd1ab961741d954477b613bbfa4805', 'lifetime': 'single', 'read_only': False}, 'contracts_generate': {'wire_revision': 'a7524d20c5a4a214faefbb1a55dad797b92299634f70736ce47a5c2de4221738', 'lifetime': 'single', 'read_only': False}, 'coverage_correspondence_read': {'wire_revision': 'b929e991ea614ccb7ca9e3f275b8b06406cbff0a830620564bd1c08d988fbc3a', 'lifetime': 'single', 'read_only': True}, 'database_info': {'wire_revision': '85807f1e219995ebb64c1093189c12f59283c8bc17d24a4d3a5f4227d0f25f43', 'lifetime': 'endpoint', 'read_only': True}, 'database_list': {'wire_revision': 'a00850dc5d912cf244b970a70f4197798e5aef713ddeeb062781e4669333e2b8', 'lifetime': 'endpoint', 'read_only': True}, 'database_query': {'wire_revision': '8112f0bbd3abe214c6e18097c4e25c5c7f7a165b48ce0d63361ffbc453e42583', 'lifetime': 'endpoint', 'read_only': False}, 'database_select': {'wire_revision': 'eb8adeb96d8d4c2875d8f83731cdf838b399953a77d0a2b844ee835f7b41a8c0', 'lifetime': 'endpoint', 'read_only': True}, 'diagnostic_action': {'wire_revision': '20b3b798b1ea1cc30b35d6f53bb12c9ee16fe9a3f72b8a2de61bb175ed529412', 'lifetime': 'single', 'read_only': False}, 'diagnostic_action_read': {'wire_revision': '74414fc2499d633cb748c991a24a0e3481dc8419be51d59a360e2684a6794b7a', 'lifetime': 'single', 'read_only': True}, 'document_scope_query': {'wire_revision': 'c59696a610264d5e01b4a3ffcf81f2a80b697413eff836c12dd3129a1a849ccc', 'lifetime': 'single', 'read_only': True}, 'documentation_build': {'wire_revision': '83fe6f35a2966ea6cf06f4b0fd667e8856f8e2e81278b167809f8e56a1865504', 'lifetime': 'single', 'read_only': False}, 'edit_preview_apply': {'wire_revision': 'e84e76ca9af1af67fc1e1ae8b0bdb33c25772da86142a1411158f344400ccc1c', 'lifetime': 'endpoint', 'read_only': False}, 'edit_preview_read': {'wire_revision': 'b7107a78e1c34882133a7625f2e0fd0c89ffa759979fea3d949b529047d9f906', 'lifetime': 'endpoint', 'read_only': True}, 'edit_preview_reconcile': {'wire_revision': '408d92c4f3b22da952cc440384ef97fc4016dd6ce177004efc7cab7000d53f45', 'lifetime': 'endpoint', 'read_only': True}, 'edit_preview_release': {'wire_revision': 'da4d01fbf85e62691c14bd8dea9db5ffd9e054c02f092595e2629e2d46c82c4f', 'lifetime': 'endpoint', 'read_only': False}, 'edit_preview_status': {'wire_revision': '122c1acbc7a3b4706ead2a8f6c29d225ac2dc1bc1c0390563c2547e3646d608a', 'lifetime': 'endpoint', 'read_only': True}, 'environment_explain': {'wire_revision': '03c826e5392e1f6ed364f245d0d76fc384216eca91c0eb8cf5d4213abbf2f89e', 'lifetime': 'single', 'read_only': True}, 'experiment_archive': {'wire_revision': '15dea26276826953abf7766684425ce038f3ebbb824deb8fe5903d1f95bfe910', 'lifetime': 'single', 'read_only': False}, 'experiment_inspect': {'wire_revision': 'e5d5b074f4dc1df26a2a67181c61890b453a2455e4dc1f4ebc40c4d9c0862e65', 'lifetime': 'single', 'read_only': True}, 'experiment_replay': {'wire_revision': 'badd2169775f56483c4ba95b8f282932f2c7807d2b6e797e4fbdbb123bfcf2b8', 'lifetime': 'single', 'read_only': False}, 'knowledge_explain': {'wire_revision': 'b876a709d88ec9d7f4cca1d62f722a57ffddf20353bf209fe3da4441bc6814a4', 'lifetime': 'single', 'read_only': True}, 'knowledge_query': {'wire_revision': 'b638b72289b4e2a045c01e6ba14f62f43a0258db3fc249ac8afda04c1e1850c4', 'lifetime': 'single', 'read_only': True}, 'knowledge_source_corpus': {'wire_revision': 'b40ae38e5f2780cb5fd1644fd585b2b004ce01318be9a467588415c5cd16a2d6', 'lifetime': 'single', 'read_only': True}, 'library_source_packet': {'wire_revision': '58e1ad14d531c9f550b5cb00a43d0621bcae99ad673ee903a0408277068f0f00', 'lifetime': 'single', 'read_only': True}, 'native_contract_schema': {'wire_revision': 'de5bb2ef065861cba20bcec7256f7a2dcc36c6fd9809d9f9cd874c8569d21be5', 'lifetime': 'single', 'read_only': True}, 'native_diagnostic_checkpoint': {'wire_revision': 'a4d23df753d4b274dfa9e61f17da51032dc0dcb91f4553cd62e9ea3f4d3d4e16', 'lifetime': 'single', 'read_only': True}, 'native_diagnostic_inspect': {'wire_revision': '71aba444974a07268ef1db51da67f714deaa1f94cd49b77a9c6af574a5ec633b', 'lifetime': 'single', 'read_only': True}, 'native_diagnostic_processes': {'wire_revision': 'bfa83abfc2f1906821f1600fff37416a9fd15e39dacd65c7a7cf9d42e9c0c3a8', 'lifetime': 'single', 'read_only': True}, 'native_evidence_compare': {'wire_revision': '35c250c1241c3dd4128bbf4c964c5ac71e4d74762f6949d3eb367c00bfee862e', 'lifetime': 'single', 'read_only': True}, 'native_evidence_inspect': {'wire_revision': '338025b0c4f4923de0545b2c6427c38cb8a9f960cd3098393bc8a4ccfa9236c7', 'lifetime': 'single', 'read_only': True}, 'native_invocation_read': {'wire_revision': '23afb94670b4fa042ac011a317ca08575a3f8a2ac94c82e09d4ae22fbb6132b4', 'lifetime': 'single', 'read_only': True}, 'native_model_compare': {'wire_revision': '0a49fdeaf557266196f13a7c958ed6c9b8c04663cc4e4020d826205a1fa9c791', 'lifetime': 'single', 'read_only': False}, 'native_model_declarations': {'wire_revision': 'cd9f5d2080e0b6fea09680b8107e3321b8cb1fb7828edc71222cdb94ec19f015', 'lifetime': 'single', 'read_only': False}, 'native_model_inspect': {'wire_revision': '53c47fed98b22e0b89d5ee129ca7a860c25e39ee94d70c28a7304efca455e271', 'lifetime': 'single', 'read_only': False}, 'native_physical_inspect': {'wire_revision': '4e167756915b598e2c08921eb87f8a8522cfdb76c2b027a948269bdc7a5a2767', 'lifetime': 'single', 'read_only': True}, 'native_preparation_discover': {'wire_revision': 'bde176f9e38ea74eb3ff2198656324a3d35ee66ea4c6a6e55ecfd67ee72f394a', 'lifetime': 'single', 'read_only': False}, 'native_project_bundle_inspect': {'wire_revision': 'bdb2f6cb4f13a04c2d9228f67326db90f7fc67802a4e4a8e214336135a9f3a13', 'lifetime': 'single', 'read_only': True}, 'native_project_metadata': {'wire_revision': '35a7112a464552ca138fa19662809ca8f8ea146ddc90f7b1680f8e97218465b2', 'lifetime': 'single', 'read_only': True}, 'native_project_select': {'wire_revision': '31bc64a26ba6ce1c26efdef33a5aed834dc1a3b87ab2b7356d77849ed2876da8', 'lifetime': 'single', 'read_only': True}, 'native_research_read': {'wire_revision': 'ed54887900e5309c6861b5babe2ae5d44f3f90b2b037bd8bc00e9c047c96975e', 'lifetime': 'single', 'read_only': True}, 'native_result_inspect': {'wire_revision': 'cd10178b9a4913f70b4f7a7037ff90e6878a8965b48cf13d47e4a40a9ba52c76', 'lifetime': 'single', 'read_only': True}, 'native_result_read': {'wire_revision': '26bef4d9f4488bbc1154027f69ec07551603f8c6a829f82823311acb9e9ab97c', 'lifetime': 'single', 'read_only': True}, 'native_revision_preparation_discover': {'wire_revision': '8ce01072c4e9db844478c5011189d789d1f1cdaa355ce37d94186dd603468656', 'lifetime': 'single', 'read_only': True}, 'native_revision_source': {'wire_revision': '81c53bb1c57ada34044d0b7428826a59ca3f1343b2c48dfd4f714c19e87ab0f6', 'lifetime': 'single', 'read_only': True}, 'native_source_admit': {'wire_revision': 'a5b20b4c52b9a8db0e3b123a98200bedc24343c79641779be2ef810f4a350207', 'lifetime': 'single', 'read_only': False}, 'navigation_action_preview': {'wire_revision': '840ab549b3b318c69d8fc12c81f5eda6a138780960d2bd3022b04417c4848b2a', 'lifetime': 'endpoint', 'read_only': True}, 'navigation_call_hierarchy': {'wire_revision': '8b22756d241cc2dc40eddfc246295385d691cdc8f09f281a7fc143e88b1783e5', 'lifetime': 'single', 'read_only': True}, 'navigation_code_actions': {'wire_revision': 'a2eab7a5f578b496e18cee6c2389a1d8d069f4f290de36486496fbf4e997dc7e', 'lifetime': 'single', 'read_only': True}, 'navigation_completions': {'wire_revision': '67f394966de7b50503d713813f5760626381ec94cfa27091206b31f391f1c822', 'lifetime': 'single', 'read_only': True}, 'navigation_declaration': {'wire_revision': '5d99ca82d6fc86454b18d92f4c16ecf73151fa5cca8266f92ffa32b3d1ad61e2', 'lifetime': 'single', 'read_only': True}, 'navigation_definition': {'wire_revision': 'c3799892998c53500c9a09f36ac6dbe6df081f0ce6d3cba8a7fad7a8048e3886', 'lifetime': 'single', 'read_only': True}, 'navigation_diagnostics': {'wire_revision': '9282df1021d334b53286f2b5c22d713144d917451bfd6aa5fe8a578d3e93c6f7', 'lifetime': 'single', 'read_only': True}, 'navigation_hover': {'wire_revision': '1ff58960816c34d538e977a16ee1aaeba1675ebabc608951a145d2f658af9215', 'lifetime': 'single', 'read_only': True}, 'navigation_implementations': {'wire_revision': '93c8b12dbdbd049559deabecf021d21ad94ad671bee23e6e93ba688b2f6cbdec', 'lifetime': 'single', 'read_only': True}, 'navigation_incoming_calls': {'wire_revision': '1b86f4f24b8b1fa9f22f8be91e95415e15c0292ab6778e1eed6772b9316500d0', 'lifetime': 'single', 'read_only': True}, 'navigation_outgoing_calls': {'wire_revision': 'd1eea6db46b3ecc8303256d7c825ab9a56eb8e949f554adcd695f518cf44745f', 'lifetime': 'single', 'read_only': True}, 'navigation_references': {'wire_revision': '012e9eb4ba2674a934d7cd085142c46dce0c5b5adf48d067fabb6624469d0451', 'lifetime': 'single', 'read_only': True}, 'navigation_rename_preview': {'wire_revision': '6ad42c73bbf192a25aa95d9dd1e397cfb05eb117d3cadb98478e502799931e1d', 'lifetime': 'endpoint', 'read_only': True}, 'navigation_signature': {'wire_revision': 'c5ce2dd5dfe72f3ebb0a66f20e0ee4b55b03a65e64c65b2ce7d220511bd1e901', 'lifetime': 'single', 'read_only': True}, 'navigation_symbols': {'wire_revision': '42a2c34bc50a161e986cf2a7727df87af185db7f3d964a9b54b2c113332f8036', 'lifetime': 'single', 'read_only': True}, 'navigation_tool_support': {'wire_revision': 'f8a59948a3fc4895590d58fefae897ce2686b4a6b375358ec7029322f58b6efc', 'lifetime': 'single', 'read_only': True}, 'navigation_type_definition': {'wire_revision': 'b4f75b80e44a4e589e9272ef04b8f917df2fdaa6a93daf078a7dcb95b2d7c2fa', 'lifetime': 'single', 'read_only': True}, 'navigation_workspace_symbols': {'wire_revision': 'e8cf975b7cc772b5b72eb123a1c74e4f8bde9ac1ee5e51f7a54309d6a9f35aea', 'lifetime': 'single', 'read_only': True}, 'product_run_read': {'wire_revision': 'b39c83ac693d64e024e93f19c736f22b19a9fb640c9e2480c1adb6f420fa1f1b', 'lifetime': 'single', 'read_only': True}, 'python_extension_dev_stage': {'wire_revision': '938891761961a280973c1bf499521b12fcd11552d9e7f9e515ccdc2636b05bee', 'lifetime': 'single', 'read_only': False}, 'python_extension_native_stage': {'wire_revision': 'fc46bbf4ae34150330251453ee241dc3dcdfebdc2d0a2da8aa20e07cdb44765a', 'lifetime': 'single', 'read_only': False}, 'rust_test_describe': {'wire_revision': '401d81b85321523b125f2c32c175b4daee586563cdd747add2e8321a4f6958d7', 'lifetime': 'single', 'read_only': True}, 'rust_test_reference_read': {'wire_revision': 'ad318d8fc2d77f445c8bf0b1fd2c55df5522f80a8210a2ba56a9069f608c44b9', 'lifetime': 'single', 'read_only': True}, 'rust_test_run': {'wire_revision': '1ddbb2256edd6998c3a94401a49a21313113dec643d7fad3dad2b98692277366', 'lifetime': 'single', 'read_only': False}, 'storage_observe': {'wire_revision': '8cdca246413a8ea9dc9415e228ef07043bc39d4ae4ab3640c5341cb25f197885', 'lifetime': 'single', 'read_only': True}, 'structural_json_source_bytes_preview': {'wire_revision': 'c6ac7c8f31a5e34d0ca8c8aedb1f2e0a3d486a1a216af4ae98d9701c465c65ed', 'lifetime': 'endpoint', 'read_only': True}, 'telemetry_configuration': {'wire_revision': '8304a57fb66e28f61c660d4cc7e3d90a48bf17df2ba3038afe74050e352e5158', 'lifetime': 'single', 'read_only': True}, 'telemetry_health': {'wire_revision': '495961a78ba5b2b7431eba5f8118eb11fa16d31b67b219dc9239d6446e6c652b', 'lifetime': 'single', 'read_only': True}, 'telemetry_investigation_export': {'wire_revision': '9ea0fb53c9591d4077e7ac1e13cbea461b9f25783007e6790ee5bca0be345048', 'lifetime': 'single', 'read_only': False}, 'telemetry_profile_capture': {'wire_revision': '5b0b48570111e5b9fb4d8af87a3d46d65f9f326e80fa5d7eda5f0eb73a93acd0', 'lifetime': 'single', 'read_only': False}, 'telemetry_query': {'wire_revision': '316762fded9ec7fb8e4b7c9b7eec4c0b8a55e67d69ea42e1b29643d72762a2e2', 'lifetime': 'single', 'read_only': True}, 'telemetry_schema': {'wire_revision': '093e92ca0d7f8087c74662c51d50f98eb784a5f989f88d6b9a0f9b9faf09c3c0', 'lifetime': 'single', 'read_only': True}, 'telemetry_selection_read': {'wire_revision': '275c5443ed40418fe1d7038d6bdd15d9059d020e98a0d09bb23d4c0eb3cbf91c', 'lifetime': 'single', 'read_only': True}, 'telemetry_trace_lookup': {'wire_revision': '0a5b4aee497b456d630ee520c08ca42554e3e43a3a7907c3434d9ac96a54cd03', 'lifetime': 'single', 'read_only': True}, 'telemetry_watch_configure': {'wire_revision': 'ac5d7ba0b94d2e57ced976f0b0098ac769d943c4d965e9290d05af0c13c962b4', 'lifetime': 'single', 'read_only': False}, 'telemetry_watch_read': {'wire_revision': '20a05710029b3d540862d93e27a7f14865c044fab8f669718fbd52b7deea97a1', 'lifetime': 'single', 'read_only': True}, 'workload_watch': {'wire_revision': '2c5ec64c64dc2437a3e63b1172d200f1add0f03468a156286d199511f6aaa5a2', 'lifetime': 'single', 'read_only': True}, 'workspace_concepts_query': {'wire_revision': 'b06e5901f0578160c9adbf5ae9e24783815727089e267ff5ed33fcdd87aaa56e', 'lifetime': 'single', 'read_only': True}, 'workspace_integration_view': {'wire_revision': '7fff87edc099ec63b93f855dfba896f1604e9a574be6c326cbf1b10b7a09a6ea', 'lifetime': 'single', 'read_only': True}, 'workspace_inventory': {'wire_revision': 'e4c9aa1d7a13b3a37645a206b21f596ecb3f45f40e0ccd77703bad3cda3e29ba', 'lifetime': 'single', 'read_only': True}, 'workspace_producer_relationships': {'wire_revision': 'aef05b9eba43a18c065e60c8fd82ea884735ad61f02a33e1e4cc55f7c9452a82', 'lifetime': 'single', 'read_only': True}, 'workspace_recipe_describe': {'wire_revision': '05f261c77e5ac5d2ae52f19f3d85a7e8b9fb5238062d327c8e6ca6d4374efdd0', 'lifetime': 'single', 'read_only': True}, 'workspace_task_context': {'wire_revision': '3cd579ead1ea89ab99481c59dd8d6d4d9bd524372393f494f44e3fea42c6fabc', 'lifetime': 'single', 'read_only': True}}
+OPERATIONS = {'assessment_read': {'wire_revision': '05510691206baa229c4c83defbfc9f49e346d54e88a35343a1f428003268765e', 'lifetime': 'single', 'read_only': True}, 'assessment_run': {'wire_revision': '30550da983781556960718c84a3167d5007ed7cbb24123305663d14b147c05dc', 'lifetime': 'single', 'read_only': False}, 'assessment_select': {'wire_revision': 'dd540aa59db507fdd0f5a38221f546d37b55eb0800280b4d43b7f093aacc8146', 'lifetime': 'single', 'read_only': True}, 'capability_explain': {'wire_revision': '29d64cd29e32f2a840e9ade3ac6de18eb2c31e3f6485cfe85c1c17ed0d30c19b', 'lifetime': 'single', 'read_only': True}, 'capability_readiness': {'wire_revision': '22b2157dff0170a1b8eee8b8b594cbad8e4250aa4ff7fcc0e72b3e9ceff38466', 'lifetime': 'single', 'read_only': True}, 'capability_readiness_check': {'wire_revision': '8deeee1ecbd477ceec89d4c95ad35c578a243b450b7b3d4a6fa83e9268d38446', 'lifetime': 'single', 'read_only': False}, 'compilation_check': {'wire_revision': '476c1f5447148eee3bfc8ea450590decfdbfee8406f3277d5ce08b1379a47030', 'lifetime': 'single', 'read_only': False}, 'contracts_check': {'wire_revision': '126f1e64fd6c06d02c23686c6edbd324b9fd1ab961741d954477b613bbfa4805', 'lifetime': 'single', 'read_only': False}, 'contracts_generate': {'wire_revision': 'a7524d20c5a4a214faefbb1a55dad797b92299634f70736ce47a5c2de4221738', 'lifetime': 'single', 'read_only': False}, 'coverage_correspondence_read': {'wire_revision': 'b929e991ea614ccb7ca9e3f275b8b06406cbff0a830620564bd1c08d988fbc3a', 'lifetime': 'single', 'read_only': True}, 'database_info': {'wire_revision': '85807f1e219995ebb64c1093189c12f59283c8bc17d24a4d3a5f4227d0f25f43', 'lifetime': 'endpoint', 'read_only': True}, 'database_list': {'wire_revision': 'a00850dc5d912cf244b970a70f4197798e5aef713ddeeb062781e4669333e2b8', 'lifetime': 'endpoint', 'read_only': True}, 'database_query': {'wire_revision': '8112f0bbd3abe214c6e18097c4e25c5c7f7a165b48ce0d63361ffbc453e42583', 'lifetime': 'endpoint', 'read_only': False}, 'database_select': {'wire_revision': 'eb8adeb96d8d4c2875d8f83731cdf838b399953a77d0a2b844ee835f7b41a8c0', 'lifetime': 'endpoint', 'read_only': True}, 'diagnostic_action': {'wire_revision': '20b3b798b1ea1cc30b35d6f53bb12c9ee16fe9a3f72b8a2de61bb175ed529412', 'lifetime': 'single', 'read_only': False}, 'diagnostic_action_read': {'wire_revision': '74414fc2499d633cb748c991a24a0e3481dc8419be51d59a360e2684a6794b7a', 'lifetime': 'single', 'read_only': True}, 'document_scope_query': {'wire_revision': 'c59696a610264d5e01b4a3ffcf81f2a80b697413eff836c12dd3129a1a849ccc', 'lifetime': 'single', 'read_only': True}, 'documentation_build': {'wire_revision': '83fe6f35a2966ea6cf06f4b0fd667e8856f8e2e81278b167809f8e56a1865504', 'lifetime': 'single', 'read_only': False}, 'edit_preview_apply': {'wire_revision': 'e84e76ca9af1af67fc1e1ae8b0bdb33c25772da86142a1411158f344400ccc1c', 'lifetime': 'endpoint', 'read_only': False}, 'edit_preview_read': {'wire_revision': 'b7107a78e1c34882133a7625f2e0fd0c89ffa759979fea3d949b529047d9f906', 'lifetime': 'endpoint', 'read_only': True}, 'edit_preview_reconcile': {'wire_revision': '408d92c4f3b22da952cc440384ef97fc4016dd6ce177004efc7cab7000d53f45', 'lifetime': 'endpoint', 'read_only': True}, 'edit_preview_release': {'wire_revision': 'da4d01fbf85e62691c14bd8dea9db5ffd9e054c02f092595e2629e2d46c82c4f', 'lifetime': 'endpoint', 'read_only': False}, 'edit_preview_status': {'wire_revision': '122c1acbc7a3b4706ead2a8f6c29d225ac2dc1bc1c0390563c2547e3646d608a', 'lifetime': 'endpoint', 'read_only': True}, 'environment_explain': {'wire_revision': '03c826e5392e1f6ed364f245d0d76fc384216eca91c0eb8cf5d4213abbf2f89e', 'lifetime': 'single', 'read_only': True}, 'experiment_archive': {'wire_revision': '15dea26276826953abf7766684425ce038f3ebbb824deb8fe5903d1f95bfe910', 'lifetime': 'single', 'read_only': False}, 'experiment_inspect': {'wire_revision': 'e5d5b074f4dc1df26a2a67181c61890b453a2455e4dc1f4ebc40c4d9c0862e65', 'lifetime': 'single', 'read_only': True}, 'experiment_replay': {'wire_revision': 'badd2169775f56483c4ba95b8f282932f2c7807d2b6e797e4fbdbb123bfcf2b8', 'lifetime': 'single', 'read_only': False}, 'knowledge_explain': {'wire_revision': 'b876a709d88ec9d7f4cca1d62f722a57ffddf20353bf209fe3da4441bc6814a4', 'lifetime': 'single', 'read_only': True}, 'knowledge_query': {'wire_revision': 'b638b72289b4e2a045c01e6ba14f62f43a0258db3fc249ac8afda04c1e1850c4', 'lifetime': 'single', 'read_only': True}, 'knowledge_source_corpus': {'wire_revision': 'b40ae38e5f2780cb5fd1644fd585b2b004ce01318be9a467588415c5cd16a2d6', 'lifetime': 'single', 'read_only': True}, 'library_source_packet': {'wire_revision': '58e1ad14d531c9f550b5cb00a43d0621bcae99ad673ee903a0408277068f0f00', 'lifetime': 'single', 'read_only': True}, 'native_configured_capabilities': {'wire_revision': '8690ed88f31d473011afcaa9d2fcd443d30f9687cc8958f5337bd886dcf0a8ce', 'lifetime': 'single', 'read_only': True}, 'native_contract_schema': {'wire_revision': '89d716ff9433024e57a06140939ce169455d0979d58324c4550f0c021cf0de6d', 'lifetime': 'single', 'read_only': True}, 'native_diagnostic_checkpoint': {'wire_revision': '85d92f95700fb773bbeaa41b0cd4dc65afab82c1168c76be0e222028c1980e8e', 'lifetime': 'single', 'read_only': True}, 'native_diagnostic_inspect': {'wire_revision': '080bb55f42f542dd364d315aa932b643697972946e7355383f920ac0aed6242d', 'lifetime': 'single', 'read_only': True}, 'native_diagnostic_processes': {'wire_revision': 'c0fb77a954b1967d3ada55943ec8a3845449de1c84ca0fc1edfd16935d1b50d2', 'lifetime': 'single', 'read_only': True}, 'native_evidence_compare': {'wire_revision': '0ea1f5787692299de26cd5ccf756d167533e92eb10c528e3c1919fe5dd1c18b5', 'lifetime': 'single', 'read_only': True}, 'native_evidence_inspect': {'wire_revision': '572277ff89d87e2a49d65f9072e0bdd7cbdb47b67e80f1063ce7f64f360f740f', 'lifetime': 'single', 'read_only': True}, 'native_invocation_read': {'wire_revision': 'cb3fe696d4f12418b6b53387bc8b0603216f299db0597f0cca2fd91435e70b00', 'lifetime': 'single', 'read_only': True}, 'native_model_compare': {'wire_revision': 'a109adc9d9c73540b68aa891b53c6003f2d7f5e083605eecfd3eaace37daa940', 'lifetime': 'single', 'read_only': False}, 'native_model_declarations': {'wire_revision': '5e3a638a081c5c8b867f0ef80dabc867fd94af84df9039e87656ea6a43ebee52', 'lifetime': 'single', 'read_only': False}, 'native_model_inspect': {'wire_revision': '5f42b19a4f6c22a31a34fe3bceac549e336438d7390f8121bc63683c004333bd', 'lifetime': 'single', 'read_only': False}, 'native_physical_inspect': {'wire_revision': 'd85462a48700ee7278174ce4f70191d812b8121de6dae859e27cd5576e70ed14', 'lifetime': 'single', 'read_only': True}, 'native_preparation_discover': {'wire_revision': '475a6ffc134dc604226ab101c132c74fa2adeff3ce780143521b8b7cbf37e13c', 'lifetime': 'single', 'read_only': False}, 'native_project_bundle_inspect': {'wire_revision': '4e4c897472e699fb60fb1e0d1d1b6d09c7eb6e691dc387a1161dca680f63990c', 'lifetime': 'single', 'read_only': True}, 'native_project_metadata': {'wire_revision': '9a3dbb04c6ba2f8c6fe276b08b0d1a730bdc07960adfc56271180bab4c201dfe', 'lifetime': 'single', 'read_only': True}, 'native_project_select': {'wire_revision': 'cc19fb73ec34a0573a8efca59e6fd8d84651beea9fecd91c092189b8f402f37c', 'lifetime': 'single', 'read_only': True}, 'native_research_read': {'wire_revision': '684d239e09de1e50e50744bbfdeafff96c631791fef3698f8923f61621f5ba55', 'lifetime': 'single', 'read_only': True}, 'native_result_inspect': {'wire_revision': '3cb54e6c069d21da3027e8bf0ae57e1948db8cdf922abde197c0ad83cae49fc1', 'lifetime': 'single', 'read_only': True}, 'native_result_read': {'wire_revision': '5d9ed9f6d9d2132983e2548e506e5dd43ea6833162e0b9bcf8e22e58ac7002d7', 'lifetime': 'single', 'read_only': True}, 'native_revision_preparation_discover': {'wire_revision': '0286471cb271259f16a4875557af365df9e34148b97a38dde0d4e35125f5416d', 'lifetime': 'single', 'read_only': True}, 'native_revision_source': {'wire_revision': '55cc462510fc3605a6e777619d58eb7d9369ebec9af4da426be90f064f9711de', 'lifetime': 'single', 'read_only': True}, 'native_source_admit': {'wire_revision': '8f3bacb3fe46652a7759673f74a0e8283dea300d992929cb2cd18029424f4b28', 'lifetime': 'single', 'read_only': False}, 'navigation_action_preview': {'wire_revision': '840ab549b3b318c69d8fc12c81f5eda6a138780960d2bd3022b04417c4848b2a', 'lifetime': 'endpoint', 'read_only': True}, 'navigation_call_hierarchy': {'wire_revision': '8b22756d241cc2dc40eddfc246295385d691cdc8f09f281a7fc143e88b1783e5', 'lifetime': 'single', 'read_only': True}, 'navigation_code_actions': {'wire_revision': 'a2eab7a5f578b496e18cee6c2389a1d8d069f4f290de36486496fbf4e997dc7e', 'lifetime': 'single', 'read_only': True}, 'navigation_completions': {'wire_revision': '67f394966de7b50503d713813f5760626381ec94cfa27091206b31f391f1c822', 'lifetime': 'single', 'read_only': True}, 'navigation_declaration': {'wire_revision': '5d99ca82d6fc86454b18d92f4c16ecf73151fa5cca8266f92ffa32b3d1ad61e2', 'lifetime': 'single', 'read_only': True}, 'navigation_definition': {'wire_revision': 'c3799892998c53500c9a09f36ac6dbe6df081f0ce6d3cba8a7fad7a8048e3886', 'lifetime': 'single', 'read_only': True}, 'navigation_diagnostics': {'wire_revision': '9282df1021d334b53286f2b5c22d713144d917451bfd6aa5fe8a578d3e93c6f7', 'lifetime': 'single', 'read_only': True}, 'navigation_hover': {'wire_revision': '1ff58960816c34d538e977a16ee1aaeba1675ebabc608951a145d2f658af9215', 'lifetime': 'single', 'read_only': True}, 'navigation_implementations': {'wire_revision': '93c8b12dbdbd049559deabecf021d21ad94ad671bee23e6e93ba688b2f6cbdec', 'lifetime': 'single', 'read_only': True}, 'navigation_incoming_calls': {'wire_revision': '1b86f4f24b8b1fa9f22f8be91e95415e15c0292ab6778e1eed6772b9316500d0', 'lifetime': 'single', 'read_only': True}, 'navigation_outgoing_calls': {'wire_revision': 'd1eea6db46b3ecc8303256d7c825ab9a56eb8e949f554adcd695f518cf44745f', 'lifetime': 'single', 'read_only': True}, 'navigation_references': {'wire_revision': '012e9eb4ba2674a934d7cd085142c46dce0c5b5adf48d067fabb6624469d0451', 'lifetime': 'single', 'read_only': True}, 'navigation_rename_preview': {'wire_revision': '6ad42c73bbf192a25aa95d9dd1e397cfb05eb117d3cadb98478e502799931e1d', 'lifetime': 'endpoint', 'read_only': True}, 'navigation_signature': {'wire_revision': 'c5ce2dd5dfe72f3ebb0a66f20e0ee4b55b03a65e64c65b2ce7d220511bd1e901', 'lifetime': 'single', 'read_only': True}, 'navigation_symbols': {'wire_revision': '42a2c34bc50a161e986cf2a7727df87af185db7f3d964a9b54b2c113332f8036', 'lifetime': 'single', 'read_only': True}, 'navigation_tool_support': {'wire_revision': 'f8a59948a3fc4895590d58fefae897ce2686b4a6b375358ec7029322f58b6efc', 'lifetime': 'single', 'read_only': True}, 'navigation_type_definition': {'wire_revision': 'b4f75b80e44a4e589e9272ef04b8f917df2fdaa6a93daf078a7dcb95b2d7c2fa', 'lifetime': 'single', 'read_only': True}, 'navigation_workspace_symbols': {'wire_revision': 'e8cf975b7cc772b5b72eb123a1c74e4f8bde9ac1ee5e51f7a54309d6a9f35aea', 'lifetime': 'single', 'read_only': True}, 'product_run_read': {'wire_revision': 'b39c83ac693d64e024e93f19c736f22b19a9fb640c9e2480c1adb6f420fa1f1b', 'lifetime': 'single', 'read_only': True}, 'python_extension_dev_stage': {'wire_revision': '938891761961a280973c1bf499521b12fcd11552d9e7f9e515ccdc2636b05bee', 'lifetime': 'single', 'read_only': False}, 'python_extension_native_stage': {'wire_revision': 'fc46bbf4ae34150330251453ee241dc3dcdfebdc2d0a2da8aa20e07cdb44765a', 'lifetime': 'single', 'read_only': False}, 'rust_test_describe': {'wire_revision': '401d81b85321523b125f2c32c175b4daee586563cdd747add2e8321a4f6958d7', 'lifetime': 'single', 'read_only': True}, 'rust_test_reference_read': {'wire_revision': 'ad318d8fc2d77f445c8bf0b1fd2c55df5522f80a8210a2ba56a9069f608c44b9', 'lifetime': 'single', 'read_only': True}, 'rust_test_run': {'wire_revision': '1ddbb2256edd6998c3a94401a49a21313113dec643d7fad3dad2b98692277366', 'lifetime': 'single', 'read_only': False}, 'storage_observe': {'wire_revision': '8cdca246413a8ea9dc9415e228ef07043bc39d4ae4ab3640c5341cb25f197885', 'lifetime': 'single', 'read_only': True}, 'structural_json_source_bytes_preview': {'wire_revision': 'c6ac7c8f31a5e34d0ca8c8aedb1f2e0a3d486a1a216af4ae98d9701c465c65ed', 'lifetime': 'endpoint', 'read_only': True}, 'telemetry_configuration': {'wire_revision': '8304a57fb66e28f61c660d4cc7e3d90a48bf17df2ba3038afe74050e352e5158', 'lifetime': 'single', 'read_only': True}, 'telemetry_health': {'wire_revision': '1f29476199d8c307d90c29560236e21af933160667891bd9873763caad4558c7', 'lifetime': 'single', 'read_only': True}, 'telemetry_investigation_export': {'wire_revision': '9ea0fb53c9591d4077e7ac1e13cbea461b9f25783007e6790ee5bca0be345048', 'lifetime': 'single', 'read_only': False}, 'telemetry_profile_capture': {'wire_revision': '57f55e3867d3ac43032b567eb47af5eb08e70e3da02922b817634ecffc3e676a', 'lifetime': 'single', 'read_only': False}, 'telemetry_query': {'wire_revision': '316762fded9ec7fb8e4b7c9b7eec4c0b8a55e67d69ea42e1b29643d72762a2e2', 'lifetime': 'single', 'read_only': True}, 'telemetry_schema': {'wire_revision': '093e92ca0d7f8087c74662c51d50f98eb784a5f989f88d6b9a0f9b9faf09c3c0', 'lifetime': 'single', 'read_only': True}, 'telemetry_selection_read': {'wire_revision': '275c5443ed40418fe1d7038d6bdd15d9059d020e98a0d09bb23d4c0eb3cbf91c', 'lifetime': 'single', 'read_only': True}, 'telemetry_trace_lookup': {'wire_revision': '0a5b4aee497b456d630ee520c08ca42554e3e43a3a7907c3434d9ac96a54cd03', 'lifetime': 'single', 'read_only': True}, 'telemetry_watch_configure': {'wire_revision': 'ac5d7ba0b94d2e57ced976f0b0098ac769d943c4d965e9290d05af0c13c962b4', 'lifetime': 'single', 'read_only': False}, 'telemetry_watch_read': {'wire_revision': '20a05710029b3d540862d93e27a7f14865c044fab8f669718fbd52b7deea97a1', 'lifetime': 'single', 'read_only': True}, 'workload_watch': {'wire_revision': '2c5ec64c64dc2437a3e63b1172d200f1add0f03468a156286d199511f6aaa5a2', 'lifetime': 'single', 'read_only': True}, 'workspace_concepts_query': {'wire_revision': 'b06e5901f0578160c9adbf5ae9e24783815727089e267ff5ed33fcdd87aaa56e', 'lifetime': 'single', 'read_only': True}, 'workspace_integration_view': {'wire_revision': '7fff87edc099ec63b93f855dfba896f1604e9a574be6c326cbf1b10b7a09a6ea', 'lifetime': 'single', 'read_only': True}, 'workspace_inventory': {'wire_revision': 'e4c9aa1d7a13b3a37645a206b21f596ecb3f45f40e0ccd77703bad3cda3e29ba', 'lifetime': 'single', 'read_only': True}, 'workspace_producer_relationships': {'wire_revision': 'aef05b9eba43a18c065e60c8fd82ea884735ad61f02a33e1e4cc55f7c9452a82', 'lifetime': 'single', 'read_only': True}, 'workspace_recipe_describe': {'wire_revision': '05f261c77e5ac5d2ae52f19f3d85a7e8b9fb5238062d327c8e6ca6d4374efdd0', 'lifetime': 'single', 'read_only': True}, 'workspace_task_context': {'wire_revision': '3cd579ead1ea89ab99481c59dd8d6d4d9bd524372393f494f44e3fea42c6fabc', 'lifetime': 'single', 'read_only': True}}
 def register() -> App:
     app = App(name='call', help='Exact canonical operations; complex fields accept JSON values.')
     @app.command(name='assessment_read', help='Read a selected assessment while borrowing its original report and reused origins. Qualification, incomplete scope and native causes survive; no printed-path scraping.')
@@ -349,8 +349,22 @@ def register() -> App:
             arguments['rustdoc'] = parse_value(arg_5_rustdoc)
         call('library_source_packet', arguments, OPERATIONS['library_source_packet'])
 
-    @app.command(name='native_contract_schema', help='Read an exact generated native schema or authoring guidance with no native import, provider setup or service. Native schemas require their input/output direction; the exact authoring selector has no direction. Large roots report omissions: select an original JSON Pointer to inspect detail. Local references always retain their original root_ref scope. Authoring guidance describes applicable logical source sections; raw TOML/.pse/Parquet use native original-byte loaders.')
+    @app.command(name='native_configured_capabilities', help='Read actual linked native adapter rows, or select one backend with its original typed BackendSettings to inspect that configured adapter. This creates no scientific model, prepares no numerical product and opens no canonical store. A capability row does not establish model eligibility or solve outcome.')
     def operation_31(*,
+        arg_0_backend: Annotated[str | None, Parameter(name='--backend', help=' JSON value.')] = None,
+        arg_1_settings: Annotated[str | None, Parameter(name='--settings', help=' JSON value.')] = None,
+        arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,) -> None:
+        arguments: dict[str, JsonValue] = {}
+        if arg_0_backend is not None:
+            arguments['backend'] = parse_value(arg_0_backend)
+        if arg_1_settings is not None:
+            arguments['settings'] = parse_value(arg_1_settings)
+        if arg_2_resources is not None:
+            arguments['resources'] = parse_value(arg_2_resources)
+        call('native_configured_capabilities', arguments, OPERATIONS['native_configured_capabilities'])
+
+    @app.command(name='native_contract_schema', help='Read an exact generated native schema or authoring guidance with no native import, provider setup or service. Native schemas require their input/output direction; the exact authoring selector has no direction. Large roots report omissions: select an original JSON Pointer to inspect detail. Local references always retain their original root_ref scope. Authoring guidance describes applicable logical source sections; raw TOML/.pse/Parquet use native original-byte loaders.')
+    def operation_32(*,
         arg_0_slug: Annotated[str, Parameter(name='--slug', help='')],
         arg_1_direction: Annotated[str | None, Parameter(name='--direction', help=' JSON value.')] = None,
         arg_2_pointer: Annotated[str | None, Parameter(name='--pointer', help='')] = None,) -> None:
@@ -363,7 +377,7 @@ def register() -> App:
         call('native_contract_schema', arguments, OPERATIONS['native_contract_schema'])
 
     @app.command(name='native_diagnostic_checkpoint', help="Decode one exact bounded published native checkpoint, including target runtime_metrics and registration coverage, without requiring an operation ID. Optional expected identity validates the same decoded image's original diagnostic process/start association. Recorded observations do not prove current liveness or grant attachment, cancellation or settlement authority. No Runtime construction, service startup or capture.")
-    def operation_32(*,
+    def operation_33(*,
         arg_0_checkpoint: Annotated[str, Parameter(name='--checkpoint', help='')],
         arg_1_expected: Annotated[str | None, Parameter(name='--expected', help=' JSON value.')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -373,7 +387,7 @@ def register() -> App:
         call('native_diagnostic_checkpoint', arguments, OPERATIONS['native_diagnostic_checkpoint'])
 
     @app.command(name='native_diagnostic_inspect', help='Inspect an exact published checkpoint through native decoding and interpretation, including target runtime_metrics with original target locator, executor role and registration coverage when present. These are recorded target observations, not calling/helper-process metrics. Does not construct a Runtime, start a service, or cancel the observed subject.')
-    def operation_33(*,
+    def operation_34(*,
         arg_0_checkpoint: Annotated[str, Parameter(name='--checkpoint', help='')],
         arg_1_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -382,7 +396,7 @@ def register() -> App:
         call('native_diagnostic_inspect', arguments, OPERATIONS['native_diagnostic_inspect'])
 
     @app.command(name='native_diagnostic_processes', help='Read one bounded page of native process checkpoint summaries from the selected diagnostic directory through the original native reader. Retains process/start locators, recorded target runtime_metrics and operation IDs when available. Directory discovery is not an atomic snapshot or live-process/attachment authority; no Runtime construction, service startup or capture.')
-    def operation_34(*,
+    def operation_35(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],
         arg_1_directory: Annotated[str | None, Parameter(name='--directory', help=' JSON value.')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -392,7 +406,7 @@ def register() -> App:
         call('native_diagnostic_processes', arguments, OPERATIONS['native_diagnostic_processes'])
 
     @app.command(name='native_evidence_compare', help='Compare supplied original evidence snapshots through the native finite owner. Select exact baseline/candidate generations and explicit correspondence where owner identities differ. Preserve full denominators, ambiguity, unsupported measurement associations and separately bounded sections. Opens no store and performs no scientific execution. Continue only on the exact returned cut.')
-    def operation_35(*,
+    def operation_36(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],
         arg_1_snapshots: Annotated[str, Parameter(name='--snapshots', help=' JSON value.')],
         arg_2_observations: Annotated[str | None, Parameter(name='--observations', help=' JSON value.')] = None,) -> None:
@@ -404,7 +418,7 @@ def register() -> App:
         call('native_evidence_compare', arguments, OPERATIONS['native_evidence_compare'])
 
     @app.command(name='native_evidence_inspect', help='Read a supplied bounded saved evidence set and interpret its immutable members at recorded source time. Embedded paths do not authorize lookup; canonical storage is not acquired.')
-    def operation_36(*,
+    def operation_37(*,
         arg_0_path: Annotated[str, Parameter(name='--path', help='')],
         arg_1_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -413,14 +427,14 @@ def register() -> App:
         call('native_evidence_inspect', arguments, OPERATIONS['native_evidence_inspect'])
 
     @app.command(name='native_invocation_read', help='Decode descriptive invocation facts through the native saved-evidence reader. This grants no live result handle and does not replay the invocation.')
-    def operation_37(*,
+    def operation_38(*,
         arg_0_path: Annotated[str, Parameter(name='--path', help='')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['path'] = arg_0_path
         call('native_invocation_read', arguments, OPERATIONS['native_invocation_read'])
 
     @app.command(name='native_model_compare', help='Admit two finite sources in one Runtime and compare selected native changes/details; source-only mode preserves unknown scientific impact across physical contexts.')
-    def operation_38(*,
+    def operation_39(*,
         arg_0_physical: Annotated[str, Parameter(name='--physical', help=' JSON value.')],
         arg_1_documents: Annotated[str, Parameter(name='--documents', help=' JSON value.')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -438,7 +452,7 @@ def register() -> App:
         call('native_model_compare', arguments, OPERATIONS['native_model_compare'])
 
     @app.command(name='native_model_declarations', help='Admit finite supplied scientific source and read an exact selected declaration page; local revision handles expire with the child.')
-    def operation_39(*,
+    def operation_40(*,
         arg_0_physical: Annotated[str, Parameter(name='--physical', help=' JSON value.')],
         arg_1_documents: Annotated[str, Parameter(name='--documents', help=' JSON value.')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -452,7 +466,7 @@ def register() -> App:
         call('native_model_declarations', arguments, OPERATIONS['native_model_declarations'])
 
     @app.command(name='native_model_inspect', help='Inspect selected instantiated lineage under an explicit native preparation policy; contextual admission can prepare providers, but no procedure is dispatched.')
-    def operation_40(*,
+    def operation_41(*,
         arg_0_physical: Annotated[str, Parameter(name='--physical', help=' JSON value.')],
         arg_1_documents: Annotated[str, Parameter(name='--documents', help=' JSON value.')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -466,7 +480,7 @@ def register() -> App:
         call('native_model_inspect', arguments, OPERATIONS['native_model_inspect'])
 
     @app.command(name='native_physical_inspect', help='Admit the supplied physical document closure through the ordinary native owner and describe a bounded quantity or named reference-state page. Names, typed identities, exact dimension, basis, datum, subject and affine point/difference conversion come from that same Rust contract.')
-    def operation_41(*,
+    def operation_42(*,
         arg_0_physical: Annotated[str, Parameter(name='--physical', help=' JSON value.')],
         arg_1_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,) -> None:
@@ -478,7 +492,7 @@ def register() -> App:
         call('native_physical_inspect', arguments, OPERATIONS['native_physical_inspect'])
 
     @app.command(name='native_preparation_discover', help='Admit original supplied source and inspect exact preparation availability within the same Runtime lifetime. This passively observes availability without preparing mathematics or opening canonical storage.')
-    def operation_42(*,
+    def operation_43(*,
         arg_0_physical: Annotated[str, Parameter(name='--physical', help=' JSON value.')],
         arg_1_documents: Annotated[str, Parameter(name='--documents', help=' JSON value.')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -492,7 +506,7 @@ def register() -> App:
         call('native_preparation_discover', arguments, OPERATIONS['native_preparation_discover'])
 
     @app.command(name='native_project_bundle_inspect', help='Verify and inspect a supplied copied project closure through the ordinary native bundle owner. Reads its original manifest and digest without opening a canonical database or provisioning storage.')
-    def operation_43(*,
+    def operation_44(*,
         arg_0_path: Annotated[str, Parameter(name='--path', help='')],
         arg_1_maximum_document_bytes: Annotated[int | None, Parameter(name='--maximum-document-bytes', help='')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -502,7 +516,7 @@ def register() -> App:
         call('native_project_bundle_inspect', arguments, OPERATIONS['native_project_bundle_inspect'])
 
     @app.command(name='native_project_metadata', help='Read the original bounded project/draft/bookmark/savepoint/diagnostic metadata page, preserving the issuing store and owner-bound continuation.')
-    def operation_44(*,
+    def operation_45(*,
         arg_0_state: Annotated[str, Parameter(name='--state', help='')],
         arg_1_database: Annotated[str, Parameter(name='--database', help='')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -516,7 +530,7 @@ def register() -> App:
         call('native_project_metadata', arguments, OPERATIONS['native_project_metadata'])
 
     @app.command(name='native_project_select', help='Select a branch or bookmark through its actual native receiver, freezing source and physical identities. Uses the explicitly selected existing canonical database and original physical source bytes.')
-    def operation_45(*,
+    def operation_46(*,
         arg_0_state: Annotated[str, Parameter(name='--state', help='')],
         arg_1_database: Annotated[str, Parameter(name='--database', help='')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -532,7 +546,7 @@ def register() -> App:
         call('native_project_select', arguments, OPERATIONS['native_project_select'])
 
     @app.command(name='native_research_read', help='Read bounded immutable scientific research dataset, selection or publication metadata through the original native owner. Metadata grants no measurement or result lifetime.')
-    def operation_46(*,
+    def operation_47(*,
         arg_0_state: Annotated[str, Parameter(name='--state', help='')],
         arg_1_database: Annotated[str, Parameter(name='--database', help='')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -546,7 +560,7 @@ def register() -> App:
         call('native_research_read', arguments, OPERATIONS['native_research_read'])
 
     @app.command(name='native_result_inspect', help='Inspect an exact protected run/attempt/relation. Schema view does not acquire data batches. Values view selects bounded fields and rows natively, retains original identity, units, basis and quality context, and represents null/nonfinite/unsupported cells explicitly. Exact original Arrow IPC remains native_result_read. No scientific usability is inferred.')
-    def operation_47(*,
+    def operation_48(*,
         arg_0_state: Annotated[str, Parameter(name='--state', help='')],
         arg_1_database: Annotated[str, Parameter(name='--database', help='')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -560,7 +574,7 @@ def register() -> App:
         call('native_result_inspect', arguments, OPERATIONS['native_result_inspect'])
 
     @app.command(name='native_result_read', help='Read a bounded original run/attempt/relation row window through the protected native Arrow reader. Returns Arrow IPC stream bytes, preserving IEEE payloads, units and schema metadata. A detail bound asks for a narrower exact window; it never silently substitutes rows or attempts.')
-    def operation_48(*,
+    def operation_49(*,
         arg_0_state: Annotated[str, Parameter(name='--state', help='')],
         arg_1_database: Annotated[str, Parameter(name='--database', help='')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -585,7 +599,7 @@ def register() -> App:
         call('native_result_read', arguments, OPERATIONS['native_result_read'])
 
     @app.command(name='native_revision_preparation_discover', help='Reopen an exact retained canonical revision and passively inspect its preparation/publication headers. Durable presence preserves unchecked receiving eligibility; no numerical preparation is requested.')
-    def operation_49(*,
+    def operation_50(*,
         arg_0_state: Annotated[str, Parameter(name='--state', help='')],
         arg_1_database: Annotated[str, Parameter(name='--database', help='')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -603,7 +617,7 @@ def register() -> App:
         call('native_revision_preparation_discover', arguments, OPERATIONS['native_revision_preparation_discover'])
 
     @app.command(name='native_revision_source', help='Reopen the explicitly retained canonical revision with its original physical closure and read selected logical source detail. Source and binary identities remain native; a local revision token from an earlier ephemeral call cannot be used here.')
-    def operation_50(*,
+    def operation_51(*,
         arg_0_state: Annotated[str, Parameter(name='--state', help='')],
         arg_1_database: Annotated[str, Parameter(name='--database', help='')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,
@@ -621,7 +635,7 @@ def register() -> App:
         call('native_revision_source', arguments, OPERATIONS['native_revision_source'])
 
     @app.command(name='native_source_admit', help='Admit original raw package bytes through the native physical and modeling source loaders. JSON schemas describe the byte container; authoring.schema is guidance for applicable authored TOML sections, not a parser for TOML/.pse/Parquet. The returned local revision is an observation and cannot be reopened after this call.')
-    def operation_51(*,
+    def operation_52(*,
         arg_0_physical: Annotated[str, Parameter(name='--physical', help=' JSON value.')],
         arg_1_documents: Annotated[str, Parameter(name='--documents', help=' JSON value.')],
         arg_2_resources: Annotated[str | None, Parameter(name='--resources', help=' JSON value.')] = None,) -> None:
@@ -633,7 +647,7 @@ def register() -> App:
         call('native_source_admit', arguments, OPERATIONS['native_source_admit'])
 
     @app.command(name='navigation_action_preview', help='Retain one complete code-action preview and return its endpoint-owned digest plus summary. Use edit_preview_read for lossless source text. Refuse command actions, partial edits, stale versions, protected paths and unknown coordinate encodings.')
-    def operation_52(*,
+    def operation_53(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_start_line: Annotated[int, Parameter(name='--start-line', help='')],
@@ -660,7 +674,7 @@ def register() -> App:
         call('navigation_action_preview', arguments, OPERATIONS['navigation_action_preview'])
 
     @app.command(name='navigation_call_hierarchy', help='Prepare actual call hierarchy items with native opaque data and one-based UTF-16 ranges.')
-    def operation_53(*,
+    def operation_54(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -676,7 +690,7 @@ def register() -> App:
         call('navigation_call_hierarchy', arguments, OPERATIONS['navigation_call_hierarchy'])
 
     @app.command(name='navigation_code_actions', help='Inspect native code actions before selecting an action preview. Commands and edits are returned as data and never executed.')
-    def operation_54(*,
+    def operation_55(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_start_line: Annotated[int, Parameter(name='--start-line', help='')],
@@ -699,7 +713,7 @@ def register() -> App:
         call('navigation_code_actions', arguments, OPERATIONS['navigation_code_actions'])
 
     @app.command(name='navigation_completions', help='Inspect real native completion candidates without applying their edits or executing commands.')
-    def operation_55(*,
+    def operation_56(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -718,7 +732,7 @@ def register() -> App:
         call('navigation_completions', arguments, OPERATIONS['navigation_completions'])
 
     @app.command(name='navigation_declaration', help='Resolve the native declaration; unsupported server operations retain their native refusal.')
-    def operation_56(*,
+    def operation_57(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -734,7 +748,7 @@ def register() -> App:
         call('navigation_declaration', arguments, OPERATIONS['navigation_declaration'])
 
     @app.command(name='navigation_definition', help='Resolve a definition through the selected language server at one-based UTF-16 coordinates.')
-    def operation_57(*,
+    def operation_58(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -750,7 +764,7 @@ def register() -> App:
         call('navigation_definition', arguments, OPERATIONS['navigation_definition'])
 
     @app.command(name='navigation_diagnostics', help='Request native diagnostics; an unavailable/indexing server is not a clean result.')
-    def operation_58(*,
+    def operation_59(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_source_sha256: Annotated[str | None, Parameter(name='--source-sha256', help=' JSON value.')] = None,) -> None:
@@ -762,7 +776,7 @@ def register() -> App:
         call('navigation_diagnostics', arguments, OPERATIONS['navigation_diagnostics'])
 
     @app.command(name='navigation_hover', help='Inspect real semantic hover at one-based UTF-16 coordinates; source versions and backend readiness/errors remain explicit.')
-    def operation_59(*,
+    def operation_60(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -778,7 +792,7 @@ def register() -> App:
         call('navigation_hover', arguments, OPERATIONS['navigation_hover'])
 
     @app.command(name='navigation_implementations', help='Resolve native implementations through the selected language server; retain unsupported-operation refusals.')
-    def operation_60(*,
+    def operation_61(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -794,7 +808,7 @@ def register() -> App:
         call('navigation_implementations', arguments, OPERATIONS['navigation_implementations'])
 
     @app.command(name='navigation_incoming_calls', help='Read incoming calls from an exact prepared native hierarchy item; no arbitrary method dispatch.')
-    def operation_61(*,
+    def operation_62(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_item: Annotated[str, Parameter(name='--item', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -803,7 +817,7 @@ def register() -> App:
         call('navigation_incoming_calls', arguments, OPERATIONS['navigation_incoming_calls'])
 
     @app.command(name='navigation_outgoing_calls', help='Read outgoing calls from an exact prepared native hierarchy item, retaining native errors and opaque server data.')
-    def operation_62(*,
+    def operation_63(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_item: Annotated[str, Parameter(name='--item', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -812,7 +826,7 @@ def register() -> App:
         call('navigation_outgoing_calls', arguments, OPERATIONS['navigation_outgoing_calls'])
 
     @app.command(name='navigation_references', help='Find native references at one-based UTF-16 coordinates. Native index coverage and truncation remain explicit; an empty result is not proof of absence.')
-    def operation_63(*,
+    def operation_64(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -831,7 +845,7 @@ def register() -> App:
         call('navigation_references', arguments, OPERATIONS['navigation_references'])
 
     @app.command(name='navigation_rename_preview', help='Retain a protected exact rename preview and return its digest plus summary; never applies. Handles live until explicit release or this endpoint closes. Use edit_preview_read for lossless source text. Capture every owned consumer first; generated declarations and PyO3 strings remain outside language rename coverage.')
-    def operation_64(*,
+    def operation_65(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -851,7 +865,7 @@ def register() -> App:
         call('navigation_rename_preview', arguments, OPERATIONS['navigation_rename_preview'])
 
     @app.command(name='navigation_signature', help='Read native signature help at one-based UTF-16 coordinates.')
-    def operation_65(*,
+    def operation_66(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -867,7 +881,7 @@ def register() -> App:
         call('navigation_signature', arguments, OPERATIONS['navigation_signature'])
 
     @app.command(name='navigation_symbols', help='Read actual document symbols; incomplete indexing and degraded positions stay native.')
-    def operation_66(*,
+    def operation_67(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_source_sha256: Annotated[str | None, Parameter(name='--source-sha256', help=' JSON value.')] = None,) -> None:
@@ -879,7 +893,7 @@ def register() -> App:
         call('navigation_symbols', arguments, OPERATIONS['navigation_symbols'])
 
     @app.command(name='navigation_tool_support', help='Explicitly acquire the selected language server and inspect its actual supported operations.')
-    def operation_67(*,
+    def operation_68(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -888,7 +902,7 @@ def register() -> App:
         call('navigation_tool_support', arguments, OPERATIONS['navigation_tool_support'])
 
     @app.command(name='navigation_type_definition', help='Resolve the native type definition at one-based UTF-16 coordinates.')
-    def operation_68(*,
+    def operation_69(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_file_path: Annotated[str, Parameter(name='--file-path', help='')],
         arg_2_line: Annotated[int, Parameter(name='--line', help='')],
@@ -904,7 +918,7 @@ def register() -> App:
         call('navigation_type_definition', arguments, OPERATIONS['navigation_type_definition'])
 
     @app.command(name='navigation_workspace_symbols', help='Search actual native workspace symbols. Preserve native index coverage/truncation; an empty result is not proof of absence.')
-    def operation_69(*,
+    def operation_70(*,
         arg_0_language: Annotated[str, Parameter(name='--language', help='')],
         arg_1_query: Annotated[str, Parameter(name='--query', help='')],
         arg_2_limit: Annotated[int | None, Parameter(name='--limit', help='')] = None,) -> None:
@@ -916,7 +930,7 @@ def register() -> App:
         call('navigation_workspace_symbols', arguments, OPERATIONS['navigation_workspace_symbols'])
 
     @app.command(name='product_run_read', help='Read one authentic invocation and selected subjects, independent workload/assurance/drain and protected detail. Reader success is not a product pass; no rerun or implicit retry.')
-    def operation_70(*,
+    def operation_71(*,
         arg_0_invocation: Annotated[str, Parameter(name='--invocation', help='')],
         arg_1_registry: Annotated[str | None, Parameter(name='--registry', help=' JSON value.')] = None,
         arg_2_subject: Annotated[str | None, Parameter(name='--subject', help=' JSON value.')] = None,
@@ -941,55 +955,55 @@ def register() -> App:
         call('product_run_read', arguments, OPERATIONS['product_run_read'])
 
     @app.command(name='python_extension_dev_stage', help='Explicitly run one development extension owner stage in one admitted environment. environment ensures locked dependencies; prepare may build/install; stubs publishes generated outputs; stubs-check compares without publication; admit imports and fences actual bytes. Select profile and correctness/interactive validation explicitly. No automatic sync composition.')
-    def operation_71(*,
+    def operation_72(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['request'] = parse_value(arg_0_request)
         call('python_extension_dev_stage', arguments, OPERATIONS['python_extension_dev_stage'])
 
     @app.command(name='python_extension_native_stage', help='Explicitly run one linked native extension owner stage after its admitted provider environment. environment ensures locked dependencies; prepare may build/install; stubs publishes; stubs-check compares without publication; admit imports and fences actual bytes. Select profile and correctness/interactive validation explicitly. No automatic sync composition.')
-    def operation_72(*,
+    def operation_73(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['request'] = parse_value(arg_0_request)
         call('python_extension_native_stage', arguments, OPERATIONS['python_extension_native_stage'])
 
     @app.command(name='rust_test_describe', help="Describe a selected package's unit or named integration test request through the native selector and normalizer. No build or enumeration occurs; the real catalogue and force-validation closure are obtained only when the scoped run prepares them.")
-    def operation_73(*,
+    def operation_74(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['request'] = parse_value(arg_0_request)
         call('rust_test_describe', arguments, OPERATIONS['rust_test_describe'])
 
     @app.command(name='rust_test_reference_read', help="Read an actual scoped Rust action's invocation-reference.json before final return. The requested output alone is unconfirmed; an issued reference is checked against its original registry. Continue with product_run_read/workload_watch; no build, launch, replay or native settlement follows from reading.")
-    def operation_74(*,
+    def operation_75(*,
         arg_0_output: Annotated[str, Parameter(name='--output', help='')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['output'] = arg_0_output
         call('rust_test_reference_read', arguments, OPERATIONS['rust_test_reference_read'])
 
     @app.command(name='rust_test_run', help="Run one selected package's unit or named integration tests through the native selector, normalized invocation, force-validation preparation and terminal owner. Returns the authentic invocation, actual catalogue and separate native terminal/drain evidence; borrowed invocations retain their outer reconciliation owner. Native features use the existing prepared caller environment. If notifications are unavailable, rust_test_reference_read(output) exposes the original issued handle while this action remains attached. Protocol success never means the tests passed.")
-    def operation_75(*,
+    def operation_76(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['request'] = parse_value(arg_0_request)
         call('rust_test_run', arguments, OPERATIONS['rust_test_run'])
 
     @app.command(name='storage_observe', help='Observe configured store identities only, without recursive size traversal, reclamation or an assertion of disposable storage.')
-    def operation_76() -> None:
+    def operation_77() -> None:
         arguments: dict[str, JsonValue] = {}
 
         call('storage_observe', arguments, OPERATIONS['storage_observe'])
 
     @app.command(name='structural_json_source_bytes_preview', help='Preview the existing finite stdlib json.loads(Path.read_text()) to bytes migration. Retain complete source/basis under this endpoint; no apply, arbitrary rules or language-server acquisition.')
-    def operation_77(*,
+    def operation_78(*,
         arg_0_paths: Annotated[str, Parameter(name='--paths', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['paths'] = parse_value(arg_0_paths)
         call('structural_json_source_bytes_preview', arguments, OPERATIONS['structural_json_source_bytes_preview'])
 
     @app.command(name='telemetry_configuration', help='Read redacted effective telemetry settings for this calling MCP process. Optional state selects persisted local configuration; environment precedence stays with the host resolver. Endpoint paths and header values remain redacted. Configuration establishes neither SDK activation, target settings nor delivery; no service startup or native import.')
-    def operation_78(*,
+    def operation_79(*,
         arg_0_state: Annotated[str | None, Parameter(name='--state', help=' JSON value.')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
         if arg_0_state is not None:
@@ -997,7 +1011,7 @@ def register() -> App:
         call('telemetry_configuration', arguments, OPERATIONS['telemetry_configuration'])
 
     @app.command(name='telemetry_health', help="Passively read the selected pipeline's owned service health and collector delivery counters. Producer state is this calling MCP process, never a native target's metrics. Each HTTP read retains its owner's total deadline and byte bound. No install, start, capture, SDK activation or native import; native results/settlement remain authoritative. Use native_diagnostic_inspect for target checkpoint runtime_metrics, preserving its target identity and registration coverage.")
-    def operation_79(*,
+    def operation_80(*,
         arg_0_state: Annotated[str | None, Parameter(name='--state', help=' JSON value.')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
         if arg_0_state is not None:
@@ -1005,7 +1019,7 @@ def register() -> App:
         call('telemetry_health', arguments, OPERATIONS['telemetry_health'])
 
     @app.command(name='telemetry_investigation_export', help='Explicitly copy supplied query answers into a fresh finite native member pack; no new query or scientific analysis. Returns a digest-bound reference for stable offline pages. Native extension must already be prepared. Output exhaustion leaves its native incomplete publication visible; never overwrite an existing destination.')
-    def operation_80(*,
+    def operation_81(*,
         arg_0_destination: Annotated[str, Parameter(name='--destination', help='')],
         arg_1_selections: Annotated[str, Parameter(name='--selections', help=' JSON value.')],
         arg_2_question: Annotated[str, Parameter(name='--question', help='')],
@@ -1028,7 +1042,7 @@ def register() -> App:
         call('telemetry_investigation_export', arguments, OPERATIONS['telemetry_investigation_export'])
 
     @app.command(name='telemetry_profile_capture', help='Associate a selected bounded telemetry observation with an explicit original native CaptureRequest and CheckpointIdentity. Start only the requested finite Timeline/CPU capture against its exact checkpoint/OperationId, then return the intact original CaptureDocument. The original native owner validates operation/liveness; preflight and postcheck preserve process/start association but are not atomic expected-identity admission. Elapsed telemetry time is not CPU time, and late attachment cannot recover preceding samples. Cancelling this attached helper drains capture only; it never cancels or restarts science, starts telemetry services, changes permissions/tuning or launches a profiler UI. Existing output directories refuse. Capture failure, symbols, overlap and loss remain independent of scientific outcomes.')
-    def operation_81(*,
+    def operation_82(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],
         arg_1_expected: Annotated[str, Parameter(name='--expected', help=' JSON value.')],
         arg_2_suspect: Annotated[str, Parameter(name='--suspect', help=' JSON value.')],) -> None:
@@ -1039,7 +1053,7 @@ def register() -> App:
         call('telemetry_profile_capture', arguments, OPERATIONS['telemetry_profile_capture'])
 
     @app.command(name='telemetry_query', help='Read a selected trace/operation/log population or metric points/distribution through the single bounded backend adapter. Select explicit microsecond times and identities. Metrics use the exact backend instrument stream; rate/increase/p95 are estimates, exemplars only related examples. Source/configuration fences and 3s/1MiB bounds apply. Live reads provide no stable pagination. Follow original native readers for scientific results and explicit profiling. No SQL, arbitrary endpoint, service startup or automatic action.')
-    def operation_82(*,
+    def operation_83(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],
         arg_1_state: Annotated[str | None, Parameter(name='--state', help=' JSON value.')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -1049,13 +1063,13 @@ def register() -> App:
         call('telemetry_query', arguments, OPERATIONS['telemetry_query'])
 
     @app.command(name='telemetry_schema', help='Describe exact supported telemetry filters, signal fields, units, aggregation limits and original native readers without contacting a backend.')
-    def operation_83() -> None:
+    def operation_84() -> None:
         arguments: dict[str, JsonValue] = {}
 
         call('telemetry_schema', arguments, OPERATIONS['telemetry_schema'])
 
     @app.command(name='telemetry_selection_read', help='Read stable pages from one exact copied investigation using original native custody plus the returned member digest. Supply identical reference, selection and limit on continuation. Offline reads use no current clock, backend, source paths or scientific rerun. Copied population completeness remains distinct from live population completeness.')
-    def operation_84(*,
+    def operation_85(*,
         arg_0_reference: Annotated[str, Parameter(name='--reference', help=' JSON value.')],
         arg_1_selection: Annotated[int | None, Parameter(name='--selection', help='')] = None,
         arg_2_limit: Annotated[int | None, Parameter(name='--limit', help='')] = None,
@@ -1071,7 +1085,7 @@ def register() -> App:
         call('telemetry_selection_read', arguments, OPERATIONS['telemetry_selection_read'])
 
     @app.command(name='telemetry_trace_lookup', help='Look up one known nonzero trace ID in an explicit ordered microsecond interval, with 1..1000 rows. The original owner enforces HTTP byte/deadline bounds and backend incarnation/configuration fences. Unavailable, stale, partial and empty observations stay distinct. Live bounded selection has no completeness, pagination or custody guarantee; telemetry is not native result or settlement authority. No SQL, credentials, arbitrary endpoint or service startup is accepted.')
-    def operation_85(*,
+    def operation_86(*,
         arg_0_trace_id: Annotated[str, Parameter(name='--trace-id', help='')],
         arg_1_start_time_us: Annotated[int, Parameter(name='--start-time-us', help='')],
         arg_2_end_time_us: Annotated[int, Parameter(name='--end-time-us', help='')],
@@ -1088,7 +1102,7 @@ def register() -> App:
         call('telemetry_trace_lookup', arguments, OPERATIONS['telemetry_trace_lookup'])
 
     @app.command(name='telemetry_watch_configure', help='Explicitly configure/enable/disable fixed OpenObserve-native conditions and local self-delivery. Requires an owned, prepared backend with narrow loopback delivery configured; no automatic startup, remediation or external messages. Missing source metric schemas are reported and require a later explicit configure call.')
-    def operation_86(*,
+    def operation_87(*,
         arg_0_enabled: Annotated[bool | None, Parameter(name='--enabled', help='')] = None,
         arg_1_state: Annotated[str | None, Parameter(name='--state', help=' JSON value.')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -1099,7 +1113,7 @@ def register() -> App:
         call('telemetry_watch_configure', arguments, OPERATIONS['telemetry_watch_configure'])
 
     @app.command(name='telemetry_watch_read', help='Read fixed native alert conditions, evaluation history and local delivery in an explicit interval up to seven days. Missing data, disabled/backlogged evaluation and unsupported history remain explicit. Backend-down local health remains telemetry_health. No polling scheduler or implicit intervention.')
-    def operation_87(*,
+    def operation_88(*,
         arg_0_start_time_us: Annotated[int, Parameter(name='--start-time-us', help='')],
         arg_1_end_time_us: Annotated[int, Parameter(name='--end-time-us', help='')],
         arg_2_state: Annotated[str | None, Parameter(name='--state', help=' JSON value.')] = None,
@@ -1114,7 +1128,7 @@ def register() -> App:
         call('telemetry_watch_read', arguments, OPERATIONS['telemetry_watch_read'])
 
     @app.command(name='workload_watch', help='Detached bounded observation of one exact native owner. Cursor is bound to its selection; cancelling this read never cancels, drains or settles the subject.')
-    def operation_88(*,
+    def operation_89(*,
         arg_0_kind: Annotated[str, Parameter(name='--kind', help='')],
         arg_1_handle: Annotated[str, Parameter(name='--handle', help='')],
         arg_2_registry: Annotated[str | None, Parameter(name='--registry', help=' JSON value.')] = None,
@@ -1132,21 +1146,21 @@ def register() -> App:
         call('workload_watch', arguments, OPERATIONS['workload_watch'])
 
     @app.command(name='workspace_concepts_query', help='Query exact owner-defined concept alternatives, facets and original references.\n\nThe concept tag selects required identity/origin/reference fields. Owner examples describe\nvalid first requests; unknown native identities and unsupported adapters retain native truth.\nNo similarity, lexical fallback or source/service preparation is performed.')
-    def operation_89(*,
+    def operation_90(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['request'] = parse_value(arg_0_request)
         call('workspace_concepts_query', arguments, OPERATIONS['workspace_concepts_query'])
 
     @app.command(name='workspace_integration_view', help='Read a selected dirty-path page using explicit task/worker ownership claims bound to current source_sha256 and optional diff_sha256. Empty hunks explicitly claim the whole path; hunk coordinates refer to current bytes. Deletions require absence plus the current Git diff digest. Git state never establishes authorship. Preserve unknown, unrelated and overlapping claims, producer relationships, proposed checks and native lifecycle preflight. No staging, merge, generation, test execution, deletion or completion certification.')
-    def operation_90(*,
+    def operation_91(*,
         arg_0_request: Annotated[str, Parameter(name='--request', help=' JSON value.')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['request'] = parse_value(arg_0_request)
         call('workspace_integration_view', arguments, OPERATIONS['workspace_integration_view'])
 
     @app.command(name='workspace_inventory', help='Explicitly inspect current public recipe/script/native/skill entry points. This bounded read never executes the discovered operations.')
-    def operation_91(*,
+    def operation_92(*,
         arg_0_offset: Annotated[int | None, Parameter(name='--offset', help='')] = None,
         arg_1_limit: Annotated[int | None, Parameter(name='--limit', help='')] = None,
         arg_2_kind: Annotated[str | None, Parameter(name='--kind', help=' JSON value.')] = None,) -> None:
@@ -1160,7 +1174,7 @@ def register() -> App:
         call('workspace_inventory', arguments, OPERATIONS['workspace_inventory'])
 
     @app.command(name='workspace_producer_relationships', help='Find declared producer relationships for exact source/output paths. Unknown edges are not evidence of no impact; generated files name edit owners.')
-    def operation_92(*,
+    def operation_93(*,
         arg_0_paths: Annotated[str, Parameter(name='--paths', help=' JSON value.')],
         arg_1_limit: Annotated[int | None, Parameter(name='--limit', help='')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}
@@ -1170,14 +1184,14 @@ def register() -> App:
         call('workspace_producer_relationships', arguments, OPERATIONS['workspace_producer_relationships'])
 
     @app.command(name='workspace_recipe_describe', help='Describe an exact public recipe from its current declaration, including native grammar and limitations. This never runs that recipe.')
-    def operation_93(*,
+    def operation_94(*,
         arg_0_recipe: Annotated[str, Parameter(name='--recipe', help='')],) -> None:
         arguments: dict[str, JsonValue] = {}
         arguments['recipe'] = arg_0_recipe
         call('workspace_recipe_describe', arguments, OPERATIONS['workspace_recipe_describe'])
 
     @app.command(name='workspace_task_context', help='Read an exact task/package and selected source paths. Derived facts retain native status, source protection and omissions; no work is executed.')
-    def operation_94(*,
+    def operation_95(*,
         arg_0_task: Annotated[str | None, Parameter(name='--task', help=' JSON value.')] = None,
         arg_1_paths: Annotated[str | None, Parameter(name='--paths', help=' JSON value.')] = None,) -> None:
         arguments: dict[str, JsonValue] = {}

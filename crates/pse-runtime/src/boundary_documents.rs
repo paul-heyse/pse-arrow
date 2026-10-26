@@ -13,9 +13,11 @@ macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
             (DeploymentRequest, pse_runtime::workflow::DeploymentRequest, "deployment-request", Both, FlatV1),
             (DeploymentResponse, pse_runtime::workflow::DeploymentResponse, "deployment-response", Both, FlatV1),
+            (OperationCatalogue, pse_runtime::host_operations::OperationCatalogue, "host-operation-catalogue", Output, Native),
             (ProductionProfiles, pse_runtime::workflow::ProductionProfiles, "production-profiles", Both, Native),
             (RegisteredNativeContext, pse_runtime::workflow::RegisteredNativeContext, "registered-native-context", Both, Native),
             (DeploymentObservation, pse_runtime::workflow::DeploymentObservation, "deployment-observation", Both, FlatV1),
+            (SdkLossHealth, pse_runtime::tooling::telemetry::SdkLossHealth, "native-telemetry-health", Output, Native),
             (DecodeLocation, pse_model::document::DecodeLocation, "decode-location", Both, FlatV1),
             (PhysicalInspectionRequest, pse_runtime::workflow::PhysicalInspectionRequest, "physical-inspection-request", Both, FlatV1),
             (PhysicalInspectionDocument, pse_runtime::workflow::PhysicalInspectionDocument, "physical-inspection-document", Output, FlatV1),

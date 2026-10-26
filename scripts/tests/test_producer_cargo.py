@@ -19,6 +19,7 @@ from unittest.mock import patch
 
 from scripts import producer_cargo as observer
 from scripts import build_observation
+from scripts import producing_currency
 
 
 class ProducerCargoTests(unittest.TestCase):
@@ -83,7 +84,12 @@ class ProducerCargoTests(unittest.TestCase):
             source = self.root / name
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text("selected observer fixture")
-        return observer.configure_currency(self.root, self.output if output is None else output, os.environ)
+        witness = producing_currency.Witness()
+        sources = {str(self.root / name): witness.file(self.root / name) for name in observer.OBSERVER_SOURCE_INPUTS}
+        prepared = {"source_basis": producing_currency.basis(sources),
+                    "artifact_stamp": list(producing_currency.stamp(self.root / "target/debug/xtask")),
+                    "command": ["fixture: explicitly prepared observer"]}
+        return observer.configure_currency(self.root, self.output if output is None else output, os.environ, observer=prepared)
 
     def test_ordinary_observer_forwards_actual_installer_command_and_compiler_selection(self) -> None:
         environment = self.ordinary_environment()
@@ -150,9 +156,9 @@ class ProducerCargoTests(unittest.TestCase):
         self.assertFalse(selected.with_suffix(".selection.json").exists())
 
     def test_ordinary_observer_refuses_binary_or_source_replacement_during_extraction(self) -> None:
-        for changed in ("target/debug/xtask", "xtask/src/producing_inputs.rs"):
-            with self.subTest(changed=changed):
-                output = self.output / Path(changed).name
+        for index, (changed, identical) in enumerate((("target/debug/xtask", False), ("xtask/src/producing_inputs.rs", False), ("target/debug/xtask", True))):
+            with self.subTest(changed=changed, identical=identical):
+                output = self.output / str(index)
                 output.mkdir(mode=0o700)
                 environment = self.ordinary_environment(output)
                 def extract(command: list[str], **_kwargs: object) -> int:
@@ -160,7 +166,14 @@ class ProducerCargoTests(unittest.TestCase):
                         Path(command[-1]).write_text('{"roots":[0],"units":[{"pkg_id":"fixture","dependencies":[]}]}')
                     else:
                         Path(command[-1]).write_text('{"root_artifacts":[]}')
-                        (self.root / changed).write_text("raced observer fixture")
+                        changed_path = self.root / changed
+                        if identical:
+                            replacement = self.root / "observer-replacement"
+                            replacement.write_bytes(changed_path.read_bytes())
+                            replacement.chmod(changed_path.stat().st_mode & 0o777)
+                            replacement.replace(changed_path)
+                        else:
+                            changed_path.write_text("raced observer fixture")
                     return 0
                 with (
                     contextlib.chdir(self.root),
@@ -173,6 +186,20 @@ class ProducerCargoTests(unittest.TestCase):
                 status = json.loads(selected.with_suffix(".status.json").read_text())
                 self.assertEqual(status, {"supported": False, "cause": "observer-changed"})
                 self.assertFalse(selected.with_suffix(".selection.json").exists())
+
+    def test_ordinary_observer_refuses_source_change_after_helper_preparation(self) -> None:
+        environment = self.ordinary_environment()
+        (self.root / "xtask/src/producing_inputs.rs").write_text("new source after explicit helper build")
+        with (
+            contextlib.chdir(self.root),
+            patch.object(observer.subprocess, "call", return_value=0),
+            patch.object(build_observation, "run_command", return_value=0),
+        ):
+            self.assertEqual(observer.observe(self.arguments, environment), 0)
+        selected = Path(environment[observer.CURRENCY_CAPTURE])
+        self.assertEqual(json.loads(selected.with_suffix(".status.json").read_text()),
+                         {"supported": False, "cause": "observer-preparation-changed"})
+        self.assertFalse(selected.with_suffix(".selection.json").exists())
 
     def test_target_guard_remains_charged_until_actual_writer_descendant_exits(
         self,

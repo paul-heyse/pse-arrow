@@ -126,6 +126,16 @@ class MetricDeclaration:
     reset: str = "process SDK lifetime"
     scope: str = "performing host owner"
 
+    @property
+    def monotonic(self) -> bool:
+        """Actual counter/duration observations never decrement; active gauges may."""
+        return self.kind in {"counter", "histogram"}
+
+    @property
+    def exemplars(self) -> bool:
+        """The Python SDK can emit sampled-context pointers, never a complete population."""
+        return True
+
     def attribute_values(self) -> dict[str, list[str]]:
         """The same finite vocabularies used by the performing producer."""
         domains = {

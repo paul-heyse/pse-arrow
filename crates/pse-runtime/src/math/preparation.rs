@@ -357,7 +357,7 @@ impl MathService {
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let product =
                         service.with_modeling_compiler(authority, &revision, |compiler| {
-                            let _stage = tracing::info_span!("pse.model.specialization").entered();
+                            let _stage = tracing::info_span!("pse.model.specialization", pse.owner.stage = true).entered();
                             Ok(compiler.plan_modeling_cancellable(
                                 root,
                                 instance,
@@ -382,7 +382,7 @@ impl MathService {
             generation,
         })
     }
-    #[tracing::instrument(name = "pse.preparation.frontier.acquire", skip_all)]
+    #[tracing::instrument(name = "pse.preparation.frontier.acquire", skip_all, fields(pse.owner.stage = true))]
     pub(crate) async fn plan_frontier_keyed(
         self: &Arc<Self>,
         key: Arc<BasisKey>,
@@ -506,7 +506,7 @@ impl MathService {
                     effects
                         .completions
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    let _stage = tracing::info_span!("pse.compiler.materialization").entered();
+                    let _stage = tracing::info_span!("pse.compiler.materialization", pse.owner.stage = true).entered();
                     let product = compiler
                         .complete_modeling_cancellable(frontier.product.clone(), flag.flag())?;
                     let bytes = product.retained_bytes();
@@ -527,7 +527,7 @@ impl MathService {
             _owner: owner,
         })
     }
-    #[tracing::instrument(name = "pse.preparation.basis.acquire", skip_all)]
+    #[tracing::instrument(name = "pse.preparation.basis.acquire", skip_all, fields(pse.owner.stage = true))]
     pub(crate) async fn complete_frontier_keyed(
         self: &Arc<Self>,
         key: Arc<BasisKey>,

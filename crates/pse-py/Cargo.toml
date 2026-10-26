@@ -71,6 +71,7 @@ pyo3 = { workspace = true, features = [
   "extension-module",
   "abi3-py311",
   "experimental-inspect",
+  "multiple-pymethods",
 ] }
 pyo3-arrow.workspace = true
 pse-runtime.workspace = true

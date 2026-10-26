@@ -787,6 +787,7 @@ pub(crate) fn child<F: Future>(kind: &'static str, future: F) -> impl Future<Out
     let context = operation.as_ref().map(|operation| operation.context());
     let span = tracing::info_span!(
         "pse.native.producer",
+        pse.owner.stage = true,
         owner = kind,
         pse.operation.id = tracing::field::Empty
     );

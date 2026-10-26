@@ -41,6 +41,8 @@ pub mod budget;
 pub mod cancel;
 pub mod env;
 pub mod error;
+/// Finite host operation declarations and request headers.
+pub mod host_operations;
 pub mod inspection_documents;
 pub mod invocation;
 pub mod observation;

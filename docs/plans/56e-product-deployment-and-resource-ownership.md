@@ -158,8 +158,8 @@ repair truthful records. Archive diffs are useful evidence, not a new per-comman
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | E01 | complete at selected local build/generation/public acceptance | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
-| E02 | implemented; actual ordinary reference activation blocked by preserved legacy owner | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
-| E03 | implemented; five role controls passed, actual reference activation blocked | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
+| E02 | implemented; legacy prerequisite drained, fresh actual reference activation pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
+| E03 | implemented; role controls passed, fresh actual reference activation pending | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
 | E04 | complete at selected composite lifecycle/borrower/recovery acceptance | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
 | E05 | complete; exact source reconstruction tested | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
 

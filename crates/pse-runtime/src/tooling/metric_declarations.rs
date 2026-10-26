@@ -9,6 +9,10 @@ pub struct MetricDeclaration {
     pub name: &'static str,
     /// Actual SDK instrument role.
     pub kind: &'static str,
+    /// Whether the instrument accumulates only nonnegative measurements.
+    pub monotonic: bool,
+    /// Whether the pinned producer SDK can emit exemplar pointers; never completeness.
+    pub exemplars: bool,
     /// UCUM or explicit count unit.
     pub unit: &'static str,
     /// Performing-owner population, also the SDK instrument description.
@@ -33,6 +37,8 @@ pub struct MetricDeclaration {
 pub(super) const PSE_RUNTIME_EXECUTOR_WORKERS: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_executor_workers",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "{thread}",
     population: "Configured workers of currently registered executors",
     attributes: &["executor.role"],
@@ -47,6 +53,8 @@ pub(super) const PSE_RUNTIME_EXECUTOR_WORKERS: MetricDeclaration = MetricDeclara
 pub(super) const PSE_RUNTIME_EXECUTOR_ALIVE_TASKS: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_executor_alive_tasks",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "{task}",
     population: "Approximate alive tasks of currently registered executors; not settlement",
     attributes: &["executor.role"],
@@ -61,6 +69,8 @@ pub(super) const PSE_RUNTIME_EXECUTOR_ALIVE_TASKS: MetricDeclaration = MetricDec
 pub(super) const PSE_RUNTIME_EXECUTOR_GLOBAL_QUEUE_DEPTH: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_executor_global_queue_depth",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "{task}",
     population: "Global injection queues only; excludes worker-local queues",
     attributes: &["executor.role"],
@@ -75,6 +85,8 @@ pub(super) const PSE_RUNTIME_EXECUTOR_GLOBAL_QUEUE_DEPTH: MetricDeclaration = Me
 pub(super) const PSE_RUNTIME_EXECUTOR_WORKER_BUSY: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_executor_worker_busy",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "s",
     population: "Sum of cumulative worker busy time for currently registered executors; not CPU time",
     attributes: &["executor.role"],
@@ -89,6 +101,8 @@ pub(super) const PSE_RUNTIME_EXECUTOR_WORKER_BUSY: MetricDeclaration = MetricDec
 pub(super) const PSE_NATIVE_SUPERVISOR_EVENTS: MetricDeclaration = MetricDeclaration {
     name: "pse_native_supervisor_events",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "{event}",
     population: "Process cumulative actual native supervisor route events; join witnesses native/TLS destruction, attempts are not scientific solves",
     attributes: &["event"],
@@ -103,6 +117,8 @@ pub(super) const PSE_NATIVE_SUPERVISOR_EVENTS: MetricDeclaration = MetricDeclara
 pub(super) const PSE_NATIVE_SUPERVISORS: MetricDeclaration = MetricDeclaration {
     name: "pse_native_supervisors",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "{owner}",
     population: "Outstanding actual supervisor owners; caller completion does not prove physical release",
     attributes: &[],
@@ -117,6 +133,8 @@ pub(super) const PSE_NATIVE_SUPERVISORS: MetricDeclaration = MetricDeclaration {
 pub(super) const PSE_PREPARATION_FLIGHT_EVENTS: MetricDeclaration = MetricDeclaration {
     name: "pse_preparation_flight_events",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "{event}",
     population: "Process cumulative frontier/basis acquisition callers, retained reads and single-flight producers; overlapping populations, not additive work",
     attributes: &["stage", "event"],
@@ -131,6 +149,8 @@ pub(super) const PSE_PREPARATION_FLIGHT_EVENTS: MetricDeclaration = MetricDeclar
 pub(super) const PSE_PREPARATION_PRODUCTS: MetricDeclaration = MetricDeclaration {
     name: "pse_preparation_products",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "{product}",
     population: "Process cumulative performing-owner preparations; nested operation/service summaries overlap and are not re-added",
     attributes: &["product"],
@@ -145,6 +165,8 @@ pub(super) const PSE_PREPARATION_PRODUCTS: MetricDeclaration = MetricDeclaration
 pub(super) const PSE_CANONICAL_QUERY_EVENTS: MetricDeclaration = MetricDeclaration {
     name: "pse_canonical_query_events",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "{event}",
     population: "Process cumulative selected canonical query adapter builders and SDK response events; builders are not dispatched requests, select/control APIs are partial coverage",
     attributes: &["event"],
@@ -159,6 +181,8 @@ pub(super) const PSE_CANONICAL_QUERY_EVENTS: MetricDeclaration = MetricDeclarati
 pub(super) const PSE_CANONICAL_SERVER_DURATION: MetricDeclaration = MetricDeclaration {
     name: "pse_canonical_server_duration",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "s",
     population: "Process cumulative supplied statement server wall times for the selected query adapter; untimed statements omitted, not CPU time or a complete database population",
     attributes: &[],
@@ -173,6 +197,8 @@ pub(super) const PSE_CANONICAL_SERVER_DURATION: MetricDeclaration = MetricDeclar
 pub(super) const PSE_OPERATIONAL_SOURCE_START: MetricDeclaration = MetricDeclaration {
     name: "pse_operational_source_start",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "s",
     population: "Actual cumulative source generation origin in Unix seconds; streams reset only on process incarnation change, distinct from SDK activation",
     attributes: &["owner"],
@@ -187,6 +213,8 @@ pub(super) const PSE_OPERATIONAL_SOURCE_START: MetricDeclaration = MetricDeclara
 pub(super) const PSE_RUNTIME_TASK_EVENTS: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_task_events",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "{event}",
     population: "Process-wide selected future wrapper events; dropped wrappers do not establish native settlement",
     attributes: &["task.class", "event"],
@@ -201,6 +229,8 @@ pub(super) const PSE_RUNTIME_TASK_EVENTS: MetricDeclaration = MetricDeclaration 
 pub(super) const PSE_RUNTIME_TASK_DURATION: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_task_duration",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "s",
     population: "Cumulative selected-future poll, wake-to-poll and pending-to-wake intervals; not CPU time",
     attributes: &["task.class", "phase"],
@@ -215,6 +245,8 @@ pub(super) const PSE_RUNTIME_TASK_DURATION: MetricDeclaration = MetricDeclaratio
 pub(super) const PSE_RUNTIME_TASK_THRESHOLD: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_task_threshold",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "s",
     population: "Actual selected monitor thresholds; slow polls and long delays are subsets, not additional work",
     attributes: &["task.class", "threshold"],
@@ -229,6 +261,8 @@ pub(super) const PSE_RUNTIME_TASK_THRESHOLD: MetricDeclaration = MetricDeclarati
 pub(super) const PSE_RUNTIME_TASK_SOURCE_START: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_task_source_start",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "s",
     population: "Monitor source generation start in Unix seconds; SDK stream start is collection activation, not this origin",
     attributes: &["task.class"],
@@ -243,6 +277,8 @@ pub(super) const PSE_RUNTIME_TASK_SOURCE_START: MetricDeclaration = MetricDeclar
 pub(super) const PSE_RUNTIME_EXECUTOR_REGISTRY_AVAILABLE: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_executor_registry_available",
     kind: "observable_gauge",
+    monotonic: false,
+    exemplars: false,
     unit: "1",
     population: "Whether the executor source registry was available at collection",
     attributes: &[],
@@ -257,6 +293,8 @@ pub(super) const PSE_RUNTIME_EXECUTOR_REGISTRY_AVAILABLE: MetricDeclaration = Me
 pub(super) const PSE_RUNTIME_EXECUTOR_REGISTRATION_REFUSED: MetricDeclaration = MetricDeclaration {
     name: "pse_runtime_executor_registration_refused",
     kind: "observable_counter",
+    monotonic: true,
+    exemplars: false,
     unit: "{registration}",
     population: "Process-lifetime executor observation registration refusals; never workload admission",
     attributes: &[],
@@ -271,6 +309,8 @@ pub(super) const PSE_RUNTIME_EXECUTOR_REGISTRATION_REFUSED: MetricDeclaration = 
 pub(super) const PSE_OWNER_INTERVAL: MetricDeclaration = MetricDeclaration {
     name: "pse_owner_interval",
     kind: "histogram",
+    monotonic: true,
+    exemplars: false,
     unit: "s",
     population: "Completed inclusive owner wall intervals starting after SDK activation; includes failed or cancelled owners, not CPU time",
     attributes: &["owner.family", "stage"],
@@ -306,54 +346,6 @@ pub fn metric_declarations() -> &'static [MetricDeclaration] {
     ]
 }
 
-pub(super) const NATIVE_EVENTS: [&str; 6] = [
-    "attempt",
-    "admitted",
-    "dispatched",
-    "joined",
-    "cancel_requested",
-    "deadline_requested",
-];
-pub(super) const PREPARATION_EVENTS: [&str; 4] =
-    ["acquisition", "retained_reuse", "producer", "flight_waiter"];
-pub(super) const PRODUCTS: [&str; 4] = [
-    "structural_view",
-    "observation_program",
-    "value_rebuilt",
-    "value_shared",
-];
-pub(super) const QUERY_EVENTS: [&str; 7] = [
-    "builder",
-    "request_failed",
-    "statement",
-    "statement_succeeded",
-    "statement_failed",
-    "statement_timed",
-    "statement_untimed",
-];
-pub(super) const TASK_EVENTS: [&str; 8] = [
-    "instrumented",
-    "dropped",
-    "poll",
-    "scheduled",
-    "idle",
-    "first_poll",
-    "slow_poll",
-    "long_delay",
-];
-pub(super) const TASK_PHASES: [&str; 6] = [
-    "poll",
-    "scheduled",
-    "idle",
-    "first_poll",
-    "slow_poll",
-    "long_delay",
-];
-pub(super) const TASK_THRESHOLDS: [&str; 2] = ["slow_poll", "long_delay"];
-pub(super) const SOURCE_OWNERS: [&str; 2] = ["native_preparation", "canonical_query"];
-pub(super) const INTERVAL_FAMILIES: [&str; 2] = ["native", "preparation"];
-pub(super) const SUPERVISOR_STAGE: &str = "supervisor";
-
 /// Closed producer vocabularies, serialized as queryable attribute-to-value maps.
 #[derive(Clone, Copy, Debug)]
 pub enum AttributeValues {
@@ -385,7 +377,10 @@ pub enum AttributeValues {
 
 impl AttributeValues {
     fn domains(self) -> std::collections::BTreeMap<&'static str, Vec<&'static str>> {
-        use super::operational_metrics::PreparationStage;
+        use super::operational_metrics::{NativeEvent, PreparationEvent, PreparationStage, OwnerIntervalFamily, SUPERVISOR_STAGE};
+        use super::runtime_metrics::{TaskEvent, TaskPhase, TaskThreshold, OperationalSource};
+        use crate::math::PreparationProduct;
+        use pse_operations::canonical::CanonicalQueryEvent;
         use pse_diagnostics::{ExecutorRole, NativeTaskClass};
         let tasks = || {
             NativeTaskClass::ALL
@@ -406,23 +401,23 @@ impl AttributeValues {
                 ExecutorRole::ALL.iter().map(|role| role.as_str()).collect(),
             )]
             .into(),
-            Self::NativeEvents => [("event", NATIVE_EVENTS.to_vec())].into(),
+            Self::NativeEvents => [("event", NativeEvent::ALL.into_iter().map(NativeEvent::as_str).collect())].into(),
             Self::PreparationEvents => {
-                [("stage", stages()), ("event", PREPARATION_EVENTS.to_vec())].into()
+                [("stage", stages()), ("event", PreparationEvent::ALL.into_iter().map(PreparationEvent::as_str).collect())].into()
             }
-            Self::Products => [("product", PRODUCTS.to_vec())].into(),
-            Self::QueryEvents => [("event", QUERY_EVENTS.to_vec())].into(),
-            Self::Owners => [("owner", SOURCE_OWNERS.to_vec())].into(),
-            Self::TaskEvents => [("task.class", tasks()), ("event", TASK_EVENTS.to_vec())].into(),
-            Self::TaskPhases => [("task.class", tasks()), ("phase", TASK_PHASES.to_vec())].into(),
+            Self::Products => [("product", PreparationProduct::ALL.into_iter().map(PreparationProduct::as_str).collect())].into(),
+            Self::QueryEvents => [("event", CanonicalQueryEvent::ALL.into_iter().map(CanonicalQueryEvent::as_str).collect())].into(),
+            Self::Owners => [("owner", OperationalSource::ALL.into_iter().map(OperationalSource::as_str).collect())].into(),
+            Self::TaskEvents => [("task.class", tasks()), ("event", TaskEvent::ALL.into_iter().map(TaskEvent::as_str).collect())].into(),
+            Self::TaskPhases => [("task.class", tasks()), ("phase", TaskPhase::ALL.into_iter().map(TaskPhase::as_str).collect())].into(),
             Self::TaskThresholds => [
                 ("task.class", tasks()),
-                ("threshold", TASK_THRESHOLDS.to_vec()),
+                ("threshold", TaskThreshold::ALL.into_iter().map(TaskThreshold::as_str).collect()),
             ]
             .into(),
             Self::TaskClasses => [("task.class", tasks())].into(),
             Self::OwnerIntervals => [
-                ("owner.family", INTERVAL_FAMILIES.to_vec()),
+                ("owner.family", OwnerIntervalFamily::ALL.into_iter().map(OwnerIntervalFamily::as_str).collect()),
                 (
                     "stage",
                     std::iter::once(SUPERVISOR_STAGE).chain(stages()).collect(),

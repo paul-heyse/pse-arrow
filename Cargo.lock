@@ -5486,6 +5486,7 @@ dependencies = [
  "js-sys",
  "pin-project-lite",
  "thiserror 2.0.21",
+ "tracing",
 ]
 
 [[package]]
@@ -7048,6 +7049,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "indexmap",
+ "inventory",
  "libc",
  "once_cell",
  "portable-atomic",

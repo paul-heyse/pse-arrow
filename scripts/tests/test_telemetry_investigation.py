@@ -21,6 +21,7 @@ from scripts.telemetry_investigation import (
     BackendClient,
     QueryAnswer,
     QueryRequest,
+    MetricQueryRefusal,
     backend_request,
 )
 
@@ -276,7 +277,7 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             ("p95", "estimated_quantile"),
             ("exemplars", "related_examples"),
         ]:
-            selected = self.request(kind=kind)
+            selected = self.request(kind=kind, metric="pse_build_duration" if kind == "p95" else "pse_build_records")
             response = {
                 "status": "success",
                 "data": [{"exemplars": [{"value": 4}]}]
@@ -344,11 +345,90 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ValidationError):
                 self.request(**override)
         path, body = backend_request(
-            "default", "native_work", self.request(kind="rate")
+            "default", "pse_build_records", self.request(metric="pse_build_records", kind="rate")
         )
         self.assertIn("start=1.0", path)
         self.assertIn("end=121.0", path)
         self.assertIsNone(body)
+
+    async def test_instrument_refusals_precede_backend_or_service_access(self) -> None:
+        cases = [
+            ("pse_build_active", "rate", "metric_requires_monotonic_counter"),
+            ("pse_build_active", "increase", "metric_requires_monotonic_counter"),
+            ("pse_host_pressure", "rate", "metric_temporality_not_cumulative"),
+            ("pse_build_records", "p95", "metric_requires_monotonic_histogram"),
+            ("unknown_stream", "increase", "metric_instrument_not_declared"),
+            ("pse_build_duration_sum", "p95", "metric_instrument_not_declared"),
+            ("pse_owner_interval", "exemplars", "metric_exemplars_not_supported"),
+        ]
+        with (
+            patch.object(telemetry_service, "inspect") as inspect,
+            patch.object(telemetry_service, "backend_access") as access,
+            patch.object(self.client, "request", new_callable=AsyncMock) as request,
+        ):
+            for metric, kind, reason in cases:
+                with self.subTest(metric=metric, kind=kind):
+                    answer = await self.client.query(None, self.request(metric=metric, kind=kind))
+                    self.assertEqual((answer.status, answer.reason), ("unsupported", reason))
+                    self.assertEqual(answer.records, [])
+                    self.assertIsNone(answer.source)
+                    self.assertFalse(answer.complete)
+            inspect.assert_not_called()
+            access.assert_not_called()
+            request.assert_not_called()
+
+    def test_estimators_require_complete_actual_instrument_semantics(self) -> None:
+        base = {
+            "backend_name": "fixture",
+            "kind": "counter",
+            "monotonic": True,
+            "temporality": "cumulative",
+            "unit": "{event}",
+        }
+        for changed, reason in [
+            ({"monotonic": False}, "metric_requires_monotonic_counter"),
+            ({"monotonic": None}, "metric_requires_monotonic_counter"),
+            ({"temporality": "delta"}, "metric_temporality_not_cumulative"),
+            ({"unit": None}, "metric_unit_not_declared"),
+        ]:
+            with self.subTest(changed=changed), patch(
+                "scripts.telemetry_investigation.metric_declarations", return_value=[{**base, **changed}]
+            ), self.assertRaises(MetricQueryRefusal) as caught:
+                backend_request("default", "fixture", self.request(metric="fixture", kind="rate"))
+            self.assertEqual(caught.exception.reason, reason)
+        for buckets in [[], [1.0, 1.0], [2.0, 1.0], [float("inf")], [True]]:
+            with self.subTest(buckets=buckets), patch(
+                "scripts.telemetry_investigation.metric_declarations",
+                return_value=[{**base, "kind": "histogram", "buckets": buckets}],
+            ), self.assertRaises(MetricQueryRefusal) as caught:
+                backend_request("default", "fixture", self.request(metric="fixture", kind="p95"))
+            self.assertEqual(caught.exception.reason, "metric_histogram_buckets_invalid")
+
+    def test_exemplar_support_comes_from_owner_capability_without_name_inference(self) -> None:
+        for stream, support in [
+            ("pse_runtime_fixture", True),
+            ("host_fixture", False),
+            ("unknown_sdk_fixture", None),
+        ]:
+            declaration = {"backend_name": stream, "unit": "{event}", "exemplars": support}
+            with self.subTest(stream=stream), patch(
+                "scripts.telemetry_investigation.metric_declarations", return_value=[declaration]
+            ):
+                selected = self.request(metric=stream, kind="exemplars")
+                if support is True:
+                    path, body = backend_request("default", stream, selected)
+                    self.assertIn("/query_exemplars?", path)
+                    self.assertIsNone(body)
+                else:
+                    with self.assertRaises(MetricQueryRefusal) as caught:
+                        backend_request("default", stream, selected)
+                    self.assertEqual(caught.exception.reason, "metric_exemplars_not_supported")
+
+    async def test_unknown_absent_and_observed_zero_remain_distinct(self) -> None:
+        zero = await self.answer({"hits": [{"value": 0}]})
+        absent = await self.answer({"hits": []})
+        self.assertEqual((zero.status, zero.records, zero.unit), ("available", [{"value": 0}], None))
+        self.assertEqual((absent.status, absent.records, absent.unit), ("empty", [], None))
 
     def test_trace_points_do_not_require_unemitted_optional_attribute_columns(
         self,

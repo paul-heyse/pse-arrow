@@ -4,11 +4,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import msgspec
 
-from pse._build import _telemetry_initialize, _telemetry_shutdown
+from pse._build import _telemetry_initialize, _telemetry_shutdown, _telemetry_status
+from pse.contracts.documents import SdkLossHealth
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -20,12 +21,29 @@ class NativeTelemetryLifetime:
     def __init__(self, activation: str) -> None:
         self.activation = msgspec.json.decode(activation, type=dict[str, str | None])
         self.closed = False
+        self._final_health: dict[str, object] | None = None
 
     def shutdown(self) -> None:
         if not self.closed:
             self.closed = True
             if self.activation.get("status") in {"initialized", "disabled"}:
-                _telemetry_shutdown()
+                try:
+                    _telemetry_shutdown()
+                finally:
+                    self._final_health = self._read_loss_health()
+
+    @staticmethod
+    def _read_loss_health() -> dict[str, object] | None:
+        snapshot = msgspec.json.decode(_telemetry_status(), type=SdkLossHealth | None)
+        return (
+            cast("dict[str, object]", msgspec.to_builtins(snapshot))
+            if snapshot is not None
+            else None
+        )
+
+    def loss_health(self) -> dict[str, object] | None:
+        """Read only an existing native observer; shutdown retains its last snapshot."""
+        return self._final_health if self.closed else self._read_loss_health()
 
 
 def initialize(
