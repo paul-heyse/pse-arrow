@@ -763,6 +763,9 @@ mod canonical_tests {
             );
             reconnected.close();
             drop(reconnected);
+            let capture=first.status.receipt.capture.clone();
+            drop(first);
+            store.recover_study_capture(&capture).await.unwrap();
             store.remove_isolated_fixture().await.unwrap();
         }
     }

@@ -587,5 +587,8 @@ async fn study_observer_public_reconnect_checks_authority_and_exit_preserves_sci
     // Explicit cancellation remains its own canonical authority after observer exit.
     let cancelled = store.cancel_study("observed-study").await.unwrap();
     assert!(cancelled.cancelled);
+    let capture=page.status.receipt.capture.clone();
+    drop(page);
+    store.recover_study_capture(&capture).await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }

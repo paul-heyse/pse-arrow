@@ -152,7 +152,7 @@ impl Scan {
     }
     async fn load_locators(&mut self)->Result<(),WorkflowError> {
         self.pending=VecDeque::new();self.page_owner=None;
-        let response=connected_results::pooled_response_owner(&self.state.services.preparation().pool(),"study-cohort:locator-response",MetadataResponse::StudyPage)?;
+        let response=connected_results::pooled_response_owner(&self.state.services.preparation().pool(),"study-cohort:locator-response",MetadataResponse::CaptureLocators)?;
         let request=CaptureResultRequest{relation:self.state.relation.to_string(),output:self.state.filter.output.clone(),partition:self.state.filter.partition.clone(),dense:self.state.filter.dense,start:self.state.request.start,end:self.state.request.end};
         let page=pse_operations::canonical::response_ownership_scope(Arc::new((self.state.cohort.capture.clone(),response.clone())),self.state.cohort.capture.result_page(&self.selected,&request,self.cursor)).await?;
         self.cursor=page.next;self.locators_finished=page.exhausted;

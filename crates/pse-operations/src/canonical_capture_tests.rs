@@ -3,6 +3,26 @@
 // Included in the canonical study server test module; uses its isolated fixture.
 
 #[tokio::test]
+async fn capture_locator_profile_admits_native_wrappers_and_refuses_deeper_values() {
+    use crate::canonical::MetadataResponse;
+    let (store,_,_)=fixture().await;
+    // The exact locator nesting adds source/page wrappers around native rows.
+    // A manifest can occupy nearly the whole native byte-bound page, while a
+    // native record id adds RecordId/RecordIdKey protobuf message levels.
+    let shape="RETURN {items:[{position:0dec,manifest:{descriptors:$descriptors},page:{blocks:[{id:type::record('canonical_result_blocks','probe')}],batches:[],indexes:[],next:NONE,exhausted:true}}],member:1dec,after:NONE,exhausted:true};";
+    let descriptors=Bytes::from(vec![0;pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES-4096]);
+    let mut response=bounded_query(store.db.metadata_query(MetadataResponse::CaptureLocators,shape).bind(("descriptors",descriptors))).await.unwrap();
+    assert!(matches!(response.take::<Value>(0).unwrap(),Value::Object(_)));
+    drop(response);
+    let shallow=bounded_query(store.db.metadata_query(MetadataResponse::StudyPage,shape).bind(("descriptors",Bytes::from(vec![])))).await.unwrap_err();
+    assert!(shallow.to_string().contains("depth envelope"),"ordinary study-page depth must remain closed: {shallow:?}");
+    let deeper=shape.replace("id:type::record('canonical_result_blocks','probe')","extra:{extra:{extra:{extra:true}}}");
+    let error=bounded_query(store.db.metadata_query(MetadataResponse::CaptureLocators,deeper).bind(("descriptors",Bytes::from(vec![])))).await.unwrap_err();
+    assert!(error.to_string().contains("depth envelope"),"locator endpoint cannot admit arbitrary deeper values: {error:?}");
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
 async fn capture_last_owner_drain_refuses_exact_replay_until_native_release() {
     use crate::canonical_study_workbench::{StudyWorkbenchFilter,pause_capture_release};
     let (store,_,revision)=fixture().await;

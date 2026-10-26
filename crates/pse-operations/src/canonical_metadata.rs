@@ -28,6 +28,9 @@ pub enum MetadataResponse {
     OutputPage,
     /// A compact byte-bound study outcome or immutable cohort page, without descriptors.
     StudyPage,
+    /// One capture locator page: at most 64 sources and, cumulatively, 64 blocks
+    /// with their original batch descriptors and optional dense output indexes.
+    CaptureLocators,
     /// Native diagnostic plans and structured schema/module metadata; no payload bytes.
     DiagnosticPlan,
 }
@@ -57,6 +60,31 @@ impl MetadataResponse {
                 blob_bytes:bound,blob_length:128*1024,
             };
         }
+        if matches!(self,Self::CaptureLocators) {
+            let bound=pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES;
+            let rows=crate::canonical_results::PAGE;
+            // Each source has 8 wrapper, 6 manifest (including id), 3 set and
+            // 5 page fields. Across the whole response, at most 64 block (17),
+            // batch (15) and dense-index (11) rows are admitted. Eight protobuf
+            // nodes per field cover KeyValue/Value and the deepest scalar:
+            // finite {bits,projection} cells, including their two child pairs.
+            // This also covers RecordId/RecordIdKey and row/container wrappers;
+            // 512 further nodes cover operation envelopes and bounded errors.
+            let nodes=512+rows*(8+6+3+5+17+15+11)*8;
+            return surrealdb::opt::ResponseLimits {
+                wire_bytes:wire::RESULT_MESSAGE_BYTES,nodes,
+                // Pinned grpc_wire_schema: QueryResponse/QueryBatchFrame/
+                // ValueBatch -> root object/items/source/page/blocks/block/id
+                // traverses Value/Object/KeyValue/Array wrappers to depth 21,
+                // or 22 for a UUID key. 24 admits those fixed native leaves,
+                // not arbitrary application nesting. StudyPage stays at 16.
+                depth:24,container_items:rows,
+                string_bytes:bound+32*1024,string_length:wire::METADATA_ID_BYTES,
+                // Manifest descriptor bytes share the native 2 MiB item/page
+                // cap with all other fields; they are not limited to 128 KiB.
+                blob_bytes:bound,blob_length:bound,
+            };
+        }
         if matches!(self, Self::DiagnosticPlan) {
             return surrealdb::opt::ResponseLimits {
                 wire_bytes: 1 << 20,
@@ -74,13 +102,13 @@ impl MetadataResponse {
             Self::Page => crate::canonical_results::PAGE,
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
-            Self::DiagnosticPlan | Self::StudyPage => 0,
+            Self::DiagnosticPlan | Self::StudyPage | Self::CaptureLocators => 0,
         };
         let nodes = 512 + rows * 32 * 2;
         let strings =
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
-            Self::Protection | Self::Page | Self::DiagnosticPlan | Self::InlinePayload | Self::StudyPage => 0,
+            Self::Protection | Self::Page | Self::DiagnosticPlan | Self::InlinePayload | Self::StudyPage | Self::CaptureLocators => 0,
             Self::JoinedBlockPage => {
                 crate::canonical_results::PAGE
                     * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES
@@ -188,5 +216,21 @@ mod tests {
             MetadataResponse::Protection.allocation_bytes()
                 < MetadataResponse::Header.allocation_bytes()
         );
+    }
+    #[test]
+    fn capture_locator_allowance_covers_only_its_endpoint_layout() {
+        let limits=MetadataResponse::CaptureLocators.limits();
+        assert_eq!(limits.wire_bytes,wire::RESULT_MESSAGE_BYTES);
+        assert_eq!(limits.depth,24);
+        assert_eq!(MetadataResponse::StudyPage.limits().depth,16);
+        assert_eq!(limits.container_items,64);
+        assert_eq!(limits.blob_length,pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES);
+        assert_eq!(limits.blob_bytes,limits.blob_length);
+        assert!(limits.nodes>=512+64*(8+6+3+5+17+15+11)*8);
+        assert!(MetadataResponse::CaptureLocators.allocation_bytes()>limits.wire_bytes+4*(limits.string_bytes+limits.blob_bytes));
+        let registry=pse_schema::registry().unwrap();
+        for (name,fields) in [("canonical_result_manifests",6),("canonical_result_blocks",17),("canonical_result_batches",15),("canonical_result_block_outputs",11)] {
+            assert!(registry.relation(&format!("runtime.{name}")).unwrap().columns.len()+1<=fields,"{name}: native id plus actual declared fields must fit the locator allowance");
+        }
     }
 }

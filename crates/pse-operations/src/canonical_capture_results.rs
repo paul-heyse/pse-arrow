@@ -131,9 +131,9 @@ impl StudyCapture {
         let (store,key,owner,identity)=self.authority();
         store.files.require_current()?;
         let activity=store.admit_activity()?;
-        activity.scope(crate::canonical::transport::metadata_scope(MetadataResponse::StudyPage,async {
+        activity.scope(crate::canonical::transport::metadata_scope(MetadataResponse::CaptureLocators,async {
             let selected_values=selected.iter().copied().map(codec::encode_uint).collect::<Result<Vec<_>,_>>()?;
-            let mut response=protected_query("canonical_capture_results::result_page",||Ok(store.db.metadata_query(MetadataResponse::StudyPage,
+            let mut response=protected_query("canonical_capture_results::result_page",||Ok(store.db.metadata_query(MetadataResponse::CaptureLocators,
                 "RETURN fn::pse_workbench_v1::result_page($pse_rpc_expires_at,$capture,$owner,$request,$selected,$relation,$output,$partition,$dense,$start,$end,$member,$after);")
                 .bind(("capture",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(identity.to_vec())))
                 .bind(("selected",selected_values.clone())).bind(("relation",request.relation.clone())).bind(("output",request.output.clone()))
