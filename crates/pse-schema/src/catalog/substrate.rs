@@ -3,7 +3,7 @@
 
 //! Canonical substrate envelopes. Scientific payload shapes remain at their semantic owner.
 
-use super::declarations::{column, canonical_declaration as declaration};
+use super::declarations::{canonical_declaration as declaration, column};
 use crate::{
     RegistryBuilder,
     model::{FieldContract, Namespace, SnapshotClass},
@@ -1151,14 +1151,17 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
     ];
     for (name, columns, doc, policy) in declarations {
-        builder.declare_relation(declaration(
-            Namespace::Runtime,
-            name,
-            1,
-            SnapshotClass::Sidecar,
-            &["key"],
-            columns,
-            doc,
-        ).with_canonical(policy));
+        builder.declare_relation(
+            declaration(
+                Namespace::Runtime,
+                name,
+                1,
+                SnapshotClass::Sidecar,
+                &["key"],
+                columns,
+                doc,
+            )
+            .with_canonical(policy),
+        );
     }
 }

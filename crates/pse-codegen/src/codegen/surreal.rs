@@ -26,7 +26,10 @@ pub(super) fn relations<'a>(
             .filter_map(|column| column.graph_endpoint().map(|endpoint| (endpoint, column)))
             .collect::<Vec<_>>();
         if endpoints.is_empty() {
-            let caches = if relation.canonical.is_some_and(|policy| policy.inline_vertex) {
+            let caches = if relation
+                .canonical
+                .is_some_and(|policy| policy.inline_vertex)
+            {
                 " INLINE EDGES 64 INLINE REFERENCES 32"
             } else {
                 ""
@@ -41,8 +44,7 @@ pub(super) fn relations<'a>(
                 "DEFINE TABLE {table} TYPE RELATION IN {} OUT {}{} SCHEMAFULL;",
                 target("in")?,
                 target("out")?,
-                if relation.canonical.is_some_and(|policy| policy.enforced)
-                {
+                if relation.canonical.is_some_and(|policy| policy.enforced) {
                     " ENFORCED"
                 } else {
                     ""
@@ -68,7 +70,10 @@ pub(super) fn relations<'a>(
                         language: "surreal",
                         reason: format!("{table}.{name} graph endpoint lacks its record target"),
                     })?;
-                let knowledge_assert = if relation.canonical.is_some_and(|policy| policy.generation_references) {
+                let knowledge_assert = if relation
+                    .canonical
+                    .is_some_and(|policy| policy.generation_references)
+                {
                     " AND record::exists($value) AND $value.generation=$this.generation"
                 } else {
                     ""
@@ -82,7 +87,9 @@ pub(super) fn relations<'a>(
             }
             // Only this disposable family opts into native reverse references and
             // existence/cut assertions. Canonical scalar-FK interpretation is unchanged.
-            if relation.canonical.is_some_and(|policy| policy.generation_references)
+            if relation
+                .canonical
+                .is_some_and(|policy| policy.generation_references)
                 && column.graph_endpoint().is_none()
                 && let Some(target) = column
                     .fk()
@@ -94,7 +101,10 @@ pub(super) fn relations<'a>(
                 } else {
                     format!("record<{target}>")
                 };
-                let kind_assert = column.canonical_reference_kind().map(|kind| format!(" AND $value.kind='{kind}'")).unwrap_or_default();
+                let kind_assert = column
+                    .canonical_reference_kind()
+                    .map(|kind| format!(" AND $value.kind='{kind}'"))
+                    .unwrap_or_default();
                 let assertion = format!(
                     "$value=type::record('{target}',$this.{name}) AND record::exists($value) AND $value.generation=$this.generation{kind_assert}"
                 );
@@ -168,22 +178,52 @@ pub(super) fn relations<'a>(
             } else {
                 ""
             };
-            let readonly = if column.is_canonical_readonly() { " READONLY" } else { "" };
-            let default = column.canonical_default().map(|value| format!(" DEFAULT {value}")).unwrap_or_default();
+            let readonly = if column.is_canonical_readonly() {
+                " READONLY"
+            } else {
+                ""
+            };
+            let default = column
+                .canonical_default()
+                .map(|value| format!(" DEFAULT {value}"))
+                .unwrap_or_default();
             let mut assertions = Vec::new();
             if let Some(initial) = column.canonical_initial() {
-                let domain = column.enum_name().ok_or_else(|| SchemaError::Codegen { language: "surreal", reason: format!("{table}.{name} transition requires enum domain") })?;
-                let spec = registry.enum_spec(domain).ok_or_else(|| SchemaError::Codegen { language: "surreal", reason: format!("unknown transition enum {domain}") })?;
-                let mut edges = vec![format!("($before=NONE AND $value='{initial}')"), "$before=$value".to_owned()];
-                edges.extend(spec.transitions.iter().map(|edge| format!("($before='{}' AND $value='{}')",edge.before,edge.after)));
-                if let Some(exception) = column.canonical_transition_exception() { edges.push(format!("({exception})")); }
+                let domain = column.enum_name().ok_or_else(|| SchemaError::Codegen {
+                    language: "surreal",
+                    reason: format!("{table}.{name} transition requires enum domain"),
+                })?;
+                let spec = registry
+                    .enum_spec(domain)
+                    .ok_or_else(|| SchemaError::Codegen {
+                        language: "surreal",
+                        reason: format!("unknown transition enum {domain}"),
+                    })?;
+                let mut edges = vec![
+                    format!("($before=NONE AND $value='{initial}')"),
+                    "$before=$value".to_owned(),
+                ];
+                edges.extend(spec.transitions.iter().map(|edge| {
+                    format!("($before='{}' AND $value='{}')", edge.before, edge.after)
+                }));
+                if let Some(exception) = column.canonical_transition_exception() {
+                    edges.push(format!("({exception})"));
+                }
                 assertions.push(format!("({})", edges.join(" OR ")));
             }
-            if let Some(native) = column.canonical_assertion() { assertions.push(format!("({native})")); }
-            if assertions.is_empty() {
-                if let Some(native) = assertion.strip_prefix(" ASSERT ") { assertions.push(native.to_owned()); }
+            if let Some(native) = column.canonical_assertion() {
+                assertions.push(format!("({native})"));
             }
-            let assertion = if assertions.is_empty() { String::new() } else { format!(" ASSERT {}",assertions.join(" AND ")) };
+            if assertions.is_empty() {
+                if let Some(native) = assertion.strip_prefix(" ASSERT ") {
+                    assertions.push(native.to_owned());
+                }
+            }
+            let assertion = if assertions.is_empty() {
+                String::new()
+            } else {
+                format!(" ASSERT {}", assertions.join(" AND "))
+            };
             let _ = writeln!(
                 ddl,
                 "DEFINE FIELD {name} ON {table} TYPE {declared_ty}{readonly}{default}{assertion};"
@@ -282,11 +322,11 @@ pub(super) fn relations<'a>(
 }
 
 pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<(), SchemaError> {
-    for relation in registry
-        .relations()
-        .iter()
-        .filter(|relation| relation.canonical.is_some_and(|policy| !policy.generation_references))
-    {
+    for relation in registry.relations().iter().filter(|relation| {
+        relation
+            .canonical
+            .is_some_and(|policy| !policy.generation_references)
+    }) {
         for output in [
             "crates/pse-operations/src/generated/surreal.rs",
             "crates/pse-operations/src/generated/surreal.surql",
@@ -313,10 +353,11 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
         .collect::<Vec<_>>();
     let (mut ddl, codecs) = relations(
         registry,
-        registry
-            .relations()
-            .iter()
-            .filter(|relation| relation.canonical.is_some_and(|policy| !policy.generation_references)),
+        registry.relations().iter().filter(|relation| {
+            relation
+                .canonical
+                .is_some_and(|policy| !policy.generation_references)
+        }),
         &indexes,
     )?;
     for relation in registry.relations() {
@@ -324,8 +365,19 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             if let Some(predicate) = column.canonical_seal() {
                 let table = relation.key.name;
                 let field = column.name();
-                let refusal = column.canonical_seal_refusal().ok_or_else(|| SchemaError::Codegen { language: "surreal", reason: format!("{table}.{field} sealed field requires a declared refusal") })?;
-                let _ = writeln!(ddl, "DEFINE EVENT pse_sealed_{table}_{field} ON {table} WHEN $event='UPDATE' AND ({predicate}) AND $before.{field}!=$after.{field} THEN {{ THROW '{refusal}'; }};");
+                let refusal =
+                    column
+                        .canonical_seal_refusal()
+                        .ok_or_else(|| SchemaError::Codegen {
+                            language: "surreal",
+                            reason: format!(
+                                "{table}.{field} sealed field requires a declared refusal"
+                            ),
+                        })?;
+                let _ = writeln!(
+                    ddl,
+                    "DEFINE EVENT pse_sealed_{table}_{field} ON {table} WHEN $event='UPDATE' AND ({predicate}) AND $before.{field}!=$after.{field} THEN {{ THROW '{refusal}'; }};"
+                );
             }
         }
     }

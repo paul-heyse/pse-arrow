@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable logical-project import identity and monotonic completed membership.
-use super::declarations::{column, canonical_relation as relation};
+use super::declarations::{canonical_relation as relation, column};
 use super::substrate::NativeIndex;
 use crate::{
     RegistryBuilder,

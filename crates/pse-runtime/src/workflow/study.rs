@@ -788,7 +788,8 @@ impl Runtime {
                             policy: policy.clone(),
                             descriptor: descriptor.clone(),
                             run: StoredRequest {
-                                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                                purpose:
+                                    pse_model::generated::enums::CanonicalRunPurpose::Execution,
                                 admission_study: None,
                                 admission_point: None,
                                 key: format!("run:{point_run}").into(),

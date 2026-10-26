@@ -438,7 +438,11 @@ class ScientificRecoveryControls(unittest.TestCase):
 class CanonicalRecoveryProfileTests(unittest.TestCase):
     def setUp(self) -> None:
         fixture_build_context(self)
-        physical = patch.object(server, "native_payload_operation", side_effect=supervisor_controls.fixture_native_payload_operation)
+        physical = patch.object(
+            server,
+            "native_payload_operation",
+            side_effect=supervisor_controls.fixture_native_payload_operation,
+        )
         physical.start()
         self.addCleanup(physical.stop)
         self.directory = tempfile.TemporaryDirectory()

@@ -14,17 +14,39 @@ fn canonical_diagnostic(
     use pse_operations::canonical::CanonicalError as E;
     let mut diagnostic = pse_model::diagnostic::project_typed(error, stage);
     match error {
-        E::SettlementUnresolved { owner, operation, request, source, readback } => {
-            diagnostic.observations.insert("canonical_owner".into(), Observation::Text((*owner).into()));
-            diagnostic.observations.insert("canonical_operation".into(), Observation::Text(operation.clone()));
-            diagnostic.observations.insert("publication_effect".into(), Observation::Text("unresolved".into()));
-            diagnostic.observations.insert("immutable_request_bytes".into(), Observation::Integer(request.len() as i64));
+        E::SettlementUnresolved {
+            owner,
+            operation,
+            request,
+            source,
+            readback,
+        } => {
+            diagnostic
+                .observations
+                .insert("canonical_owner".into(), Observation::Text((*owner).into()));
+            diagnostic.observations.insert(
+                "canonical_operation".into(),
+                Observation::Text(operation.clone()),
+            );
+            diagnostic.observations.insert(
+                "publication_effect".into(),
+                Observation::Text("unresolved".into()),
+            );
+            diagnostic.observations.insert(
+                "immutable_request_bytes".into(),
+                Observation::Integer(request.len() as i64),
+            );
             diagnostic.causes.push(canonical_diagnostic(source, stage));
-            if let Some(readback) = readback { diagnostic.causes.push(canonical_diagnostic(readback, stage)); }
+            if let Some(readback) = readback {
+                diagnostic
+                    .causes
+                    .push(canonical_diagnostic(readback, stage));
+            }
         }
-        E::SourceEditUnsettled { source, .. } | E::SourceEditRefused { source, .. }
-        | E::AnalysisUnsettled { source, .. } | E::ArtifactUnsettled { source, .. }
-        => {
+        E::SourceEditUnsettled { source, .. }
+        | E::SourceEditRefused { source, .. }
+        | E::AnalysisUnsettled { source, .. }
+        | E::ArtifactUnsettled { source, .. } => {
             diagnostic.causes.push(canonical_diagnostic(source, stage));
         }
         E::PhysicalClose { source } | E::ProtectionRelease { source } => {
@@ -1161,14 +1183,20 @@ mod canonical_settlement_projection_tests {
     #[test]
     fn unresolved_canonical_effect_retains_both_causes_without_request_content() {
         let error = super::super::WorkflowError::Canonical(CanonicalError::SettlementUnresolved {
-            owner: "research", operation: "original-op".into(), request: b"private-request".to_vec(),
+            owner: "research",
+            operation: "original-op".into(),
+            request: b"private-request".to_vec(),
             source: Box::new(CanonicalError::Timeout),
             readback: Some(Box::new(CanonicalError::IncompleteResponse)),
         });
         let diagnostic = error.boundary_diagnostic();
         assert_eq!(diagnostic.causes.len(), 2);
-        assert!(matches!(diagnostic.observations.get("publication_effect"), Some(Observation::Text(value)) if value == "unresolved"));
-        assert!(matches!(diagnostic.observations.get("canonical_operation"), Some(Observation::Text(value)) if value == "original-op"));
+        assert!(
+            matches!(diagnostic.observations.get("publication_effect"), Some(Observation::Text(value)) if value == "unresolved")
+        );
+        assert!(
+            matches!(diagnostic.observations.get("canonical_operation"), Some(Observation::Text(value)) if value == "original-op")
+        );
         let document = serde_json::to_string(&diagnostic).unwrap();
         assert!(!document.contains("private-request"));
     }

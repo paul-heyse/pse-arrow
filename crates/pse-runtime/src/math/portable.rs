@@ -431,8 +431,12 @@ pub(crate) struct ValidatedReplayNamespace {
     deadline: Option<std::time::Instant>,
 }
 impl ValidatedReplayNamespace {
-    pub(crate) fn producer_key(&self) -> &str { &self.producer }
-    pub(crate) fn producer_class(&self) -> pse_model::generated::enums::CanonicalProducerClass { self.producer_class }
+    pub(crate) fn producer_key(&self) -> &str {
+        &self.producer
+    }
+    pub(crate) fn producer_class(&self) -> pse_model::generated::enums::CanonicalProducerClass {
+        self.producer_class
+    }
 }
 impl From<QualifiedProducer> for ReplayAdmission {
     fn from(value: QualifiedProducer) -> Self {
@@ -442,7 +446,10 @@ impl From<QualifiedProducer> for ReplayAdmission {
 impl ReplayAdmission {
     pub(crate) fn producer_class(&self) -> pse_model::generated::enums::CanonicalProducerClass {
         use pse_model::generated::enums::CanonicalProducerClass as C;
-        match self { Self::Local(_) => C::LocalScientificReplay, Self::QualifiedProducer(_) => C::LibraryMathematics }
+        match self {
+            Self::Local(_) => C::LocalScientificReplay,
+            Self::QualifiedProducer(_) => C::LibraryMathematics,
+        }
     }
     /// Original finite observation clock used by the worker and Python startup roots.
     pub const STARTUP_OBSERVATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(60);
@@ -659,7 +666,9 @@ impl ValidatedReplayNamespace {
         operation: impl FnOnce() -> Result<T, PortableError>,
     ) -> Result<T, PortableError> {
         receiving_checkpoint(cancelled, self.deadline)?;
-        if self.producer_class == pse_model::generated::enums::CanonicalProducerClass::LocalScientificReplay {
+        if self.producer_class
+            == pse_model::generated::enums::CanonicalProducerClass::LocalScientificReplay
+        {
             pse_buildinfo::with_local_runtime_scope(|| Ok(operation()))
                 .map_err(observation_error)?
         } else {
@@ -1459,7 +1468,9 @@ pub(crate) async fn publish_description(
     // Callers may use original provenance only for acknowledgment. New eligible
     // publication must establish a current namespace before constructing this value.
     let publication = || async {
-        if description.description.producer_class() != pse_model::generated::enums::CanonicalProducerClass::General {
+        if description.description.producer_class()
+            != pse_model::generated::enums::CanonicalProducerClass::General
+        {
             // SAFETY: this private path is reached only after current receiving admission;
             // descriptions are compiler-sealed and bound to the consumer's exact read.
             unsafe {

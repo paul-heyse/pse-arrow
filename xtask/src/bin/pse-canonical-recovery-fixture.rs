@@ -9,9 +9,7 @@
     reason = "xtask recovery driver reports its result and uses anyhow at the tool boundary"
 )]
 
-use std::{
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
 #[cfg(feature = "package-fixtures")]
 use anyhow::Context;
@@ -144,5 +142,4 @@ mod tests {
         assert!(cli.seed_signal_results);
         Ok(())
     }
-
 }

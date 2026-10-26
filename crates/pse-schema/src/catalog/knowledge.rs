@@ -8,19 +8,43 @@ use crate::{
 };
 use arrow_schema::DataType as D;
 
-fn relation(b: &mut RegistryBuilder, namespace: N, name: &'static str, class: S, keys: &[&'static str], columns: Vec<T>, doc: &'static str) {
+fn relation(
+    b: &mut RegistryBuilder,
+    namespace: N,
+    name: &'static str,
+    class: S,
+    keys: &[&'static str],
+    columns: Vec<T>,
+    doc: &'static str,
+) {
     relation_version(b, namespace, name, 1, class, keys, columns, doc);
 }
-fn relation_version(b: &mut RegistryBuilder, namespace: N, name: &'static str, version: u32, class: S, keys: &[&'static str], columns: Vec<T>, doc: &'static str) {
-    let columns = columns.into_iter().map(T::canonical_default_readonly).collect();
-    b.declare_relation(super::declarations::canonical_declaration(namespace, name, version, class, keys, columns, doc)
+fn relation_version(
+    b: &mut RegistryBuilder,
+    namespace: N,
+    name: &'static str,
+    version: u32,
+    class: S,
+    keys: &[&'static str],
+    columns: Vec<T>,
+    doc: &'static str,
+) {
+    let columns = columns
+        .into_iter()
+        .map(T::canonical_default_readonly)
+        .collect();
+    b.declare_relation(
+        super::declarations::canonical_declaration(
+            namespace, name, version, class, keys, columns, doc,
+        )
         .with_canonical(crate::model::CanonicalRelation {
             retention: crate::model::CanonicalRetention::Derived,
             backup: crate::model::CanonicalBackup::Recovered,
             inline_vertex: false,
             enforced: true,
             generation_references: true,
-        }));
+        }),
+    );
 }
 
 /// Derived interpretation, independent of scientific research and source authority.
@@ -438,7 +462,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         &["key"],
         vec![
             column("key", text()),
-            column("active_generation", text()).canonical_mutable().optional(),
+            column("active_generation", text())
+                .canonical_mutable()
+                .optional(),
         ],
         "Independent corpus activation pointer; no evidence pointer is changed.",
     );
@@ -585,9 +611,12 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("key", text()),
             column("generation", text()),
             column("production_id", text()),
-            link("declaration_key", "runtime.knowledge_subjects").with_canonical_reference_kind("declaration"),
-            link("generator_key", "runtime.knowledge_subjects").with_canonical_reference_kind("generator"),
-            link("artifact_key", "runtime.knowledge_subjects").with_canonical_reference_kind("generated_artifact"),
+            link("declaration_key", "runtime.knowledge_subjects")
+                .with_canonical_reference_kind("declaration"),
+            link("generator_key", "runtime.knowledge_subjects")
+                .with_canonical_reference_kind("generator"),
+            link("artifact_key", "runtime.knowledge_subjects")
+                .with_canonical_reference_kind("generated_artifact"),
             column("direction", T::enumeration("KnowledgeDirection")).optional(),
             column("basis", T::enumeration("KnowledgeBasis")),
         ],

@@ -5,8 +5,7 @@
 
 use anyhow::{Context, Result, ensure};
 use pse_model::generated::{
-    enums::CanonicalProducerClass,
-    runtime::canonical_products::Row as Product,
+    enums::CanonicalProducerClass, runtime::canonical_products::Row as Product,
 };
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore, ObjectEdit, ObjectVersion},
@@ -766,9 +765,11 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
             && descriptors
                 .iter()
                 .zip(&files)
-                .all(|(batch, file)| batch.placement == CanonicalPayloadPlacement::Sealed
-                    && batch.inline_key.is_none()
-                    && batch.file_instance.as_deref() == Some(file.as_str())),
+                .all(
+                    |(batch, file)| batch.placement == CanonicalPayloadPlacement::Sealed
+                        && batch.inline_key.is_none()
+                        && batch.file_instance.as_deref() == Some(file.as_str())
+                ),
         "signal control did not seal two actual file instances"
     );
     ensure!(

@@ -10,6 +10,11 @@ use crate::{
     canonical_codec as codec,
     generated::surreal as wire,
 };
+use pse_model::generated::canonical::{
+    AttemptKey, OperationKey, ProblemKey, ProjectBranchKey, ProjectDraftKey, ProjectKey,
+    ResearchSelectionKey, RevisionKey, RunKey,
+};
+use pse_model::generated::enums::CanonicalProjectPublicationKind as PublicationKind;
 pub use pse_model::generated::runtime::{
     canonical_draft_diagnostics::Row as DraftDiagnostic,
     canonical_project_bookmarks::Row as Bookmark, canonical_project_branches::Row as Branch,
@@ -19,8 +24,6 @@ pub use pse_model::generated::runtime::{
     canonical_project_savepoints::Row as Savepoint, canonical_projects::Row as Project,
     canonical_research_references::Row as ResearchReference,
 };
-use pse_model::generated::canonical::{ProjectKey, ProjectBranchKey, ProjectDraftKey, ProblemKey, RevisionKey, OperationKey, ResearchSelectionKey, RunKey, AttemptKey};
-use pse_model::generated::enums::CanonicalProjectPublicationKind as PublicationKind;
 use surrealdb::types::{Object, Value};
 
 /// One atomic draft-head and immutable-version selection.
@@ -214,13 +217,21 @@ impl ProjectPublication {
     }
 
     /// Original project domain coordinate.
-    pub fn project_key(&self) -> &ProjectKey { &self.project }
+    pub fn project_key(&self) -> &ProjectKey {
+        &self.project
+    }
     /// Original branch domain coordinate.
-    pub fn branch_key(&self) -> &ProjectBranchKey { &self.branch }
+    pub fn branch_key(&self) -> &ProjectBranchKey {
+        &self.branch
+    }
     /// Original source-problem domain coordinate.
-    pub fn problem_key(&self) -> &ProblemKey { &self.problem }
+    pub fn problem_key(&self) -> &ProblemKey {
+        &self.problem
+    }
     /// Original exact effect-operation domain coordinate.
-    pub fn operation_key(&self) -> &OperationKey { &self.operation }
+    pub fn operation_key(&self) -> &OperationKey {
+        &self.operation
+    }
     /// Exact independently owned source problem.
     pub fn problem(&self) -> &str {
         &self.problem
@@ -369,7 +380,12 @@ impl ProjectPublication {
             ("origin_revision", self.origin_revision.as_deref()),
             ("draft", self.draft.as_deref()),
         ] {
-            row.insert(key, value.map(|value| Value::String(value.to_owned())).unwrap_or(Value::None));
+            row.insert(
+                key,
+                value
+                    .map(|value| Value::String(value.to_owned()))
+                    .unwrap_or(Value::None),
+            );
         }
         row.insert(
             "draft_generation",
@@ -430,7 +446,11 @@ fn obligation(artifact: Option<&str>, owner: &str) -> Result<Value, CanonicalErr
     artifact
         .map(|key| {
             wire::encode_canonical_artifact_obligations(
-                &crate::canonical_artifacts::artifact_obligation(&pse_model::generated::canonical::ArtifactKey::from(key), crate::canonical_artifacts::CanonicalArtifactHolderKind::Project, owner),
+                &crate::canonical_artifacts::artifact_obligation(
+                    &pse_model::generated::canonical::ArtifactKey::from(key),
+                    crate::canonical_artifacts::CanonicalArtifactHolderKind::Project,
+                    owner,
+                ),
             )
             .map(Value::Object)
         })
@@ -496,14 +516,19 @@ impl CanonicalStore {
             result
         };
         let write = result.and_then(|mut response| {
-            wire::decode_canonical_project_operations(final_object(&mut response)?).map_err(Into::into)
+            wire::decode_canonical_project_operations(final_object(&mut response)?)
+                .map_err(Into::into)
         });
         crate::canonical::settlement::settle_exact(
-            "project", operation, request, write,
+            "project",
+            operation,
+            request,
+            write,
             self.project_acknowledgement(operation),
             |ack| ack.request.as_slice() == request,
             CanonicalError::source_transaction_refused,
-        ).await
+        )
+        .await
     }
 
     /// Select one compact project header without admitting or opening source payloads.

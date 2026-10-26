@@ -36,9 +36,13 @@ impl MetadataResponse {
         if matches!(self, Self::InlinePayload) {
             return surrealdb::opt::ResponseLimits {
                 wire_bytes: wire::RESULT_INLINE_BYTES + 64 * 1024,
-                nodes: 256, depth: 16, container_items: 32,
-                string_bytes: 32 * 1024, string_length: wire::METADATA_ID_BYTES,
-                blob_bytes: wire::RESULT_INLINE_BYTES, blob_length: wire::RESULT_INLINE_BYTES,
+                nodes: 256,
+                depth: 16,
+                container_items: 32,
+                string_bytes: 32 * 1024,
+                string_length: wire::METADATA_ID_BYTES,
+                blob_bytes: wire::RESULT_INLINE_BYTES,
+                blob_length: wire::RESULT_INLINE_BYTES,
             };
         }
         if matches!(self, Self::DiagnosticPlan) {

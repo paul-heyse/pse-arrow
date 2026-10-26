@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable engineering context selections; UTC instants are signed microseconds.
-use super::declarations::{column, canonical_relation as relation};
+use super::declarations::{canonical_relation as relation, column};
 use super::substrate::NativeIndex;
 use crate::{
     RegistryBuilder,
@@ -36,18 +36,28 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_project_contexts",
             vec![
-                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext),
-                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project).canonical_readonly(),
+                column("key", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext),
+                column("project", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Project)
+                    .canonical_readonly(),
                 column("scope", text()).canonical_readonly(),
-                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly(),
+                column("revision", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Revision)
+                    .canonical_readonly(),
                 column("source_identity", text()).canonical_readonly(),
                 column("physical_context", text()).canonical_readonly(),
                 column("physical_revision", text()).canonical_readonly(),
                 column("physical_source_identity", text()).canonical_readonly(),
                 column("effective_from_us", instant()).canonical_readonly(),
-                column("effective_to_us", instant()).canonical_readonly().optional(),
+                column("effective_to_us", instant())
+                    .canonical_readonly()
+                    .optional(),
                 column("recorded_sequence", uint()).canonical_readonly(),
-                column("corrects", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext).canonical_readonly().optional(),
+                column("corrects", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext)
+                    .canonical_readonly()
+                    .optional(),
                 column("deleted", T::native(D::Boolean)).canonical_readonly(),
                 column("request", T::native(D::Binary)).canonical_readonly(),
             ],
@@ -56,7 +66,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_context_ancestry",
             vec![
-                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ContextAncestry),
+                column("key", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ContextAncestry),
                 column("descendant", text()).canonical_readonly(),
                 column("ancestor", text()).canonical_readonly(),
             ],

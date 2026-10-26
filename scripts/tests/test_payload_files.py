@@ -66,7 +66,12 @@ class PayloadLifecycleTests(unittest.TestCase):
             "interpretation": server.SUBSTRATE_INTERPRETATION,
             "state": "sealed",
         }
-        directory = self.state / "payloads" / str(self.config["payload_incarnation"]) / str(self.config["database"])
+        directory = (
+            self.state
+            / "payloads"
+            / str(self.config["payload_incarnation"])
+            / str(self.config["database"])
+        )
         self.final = directory / "instances" / (self.key + ".sealed")
         self.staging = directory / ".pending" / (self.key + ".pending")
         self.final.parent.mkdir(parents=True, exist_ok=True)
@@ -81,24 +86,47 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.live_boot = self.owner["boot"]
         self.live_namespace = self.owner["pid_namespace"]
         self.live_start = self.owner["start"]
-        self.enterContext(patch.object(server, "native_payload_operation", side_effect=self.native_facts))
+        self.enterContext(
+            patch.object(
+                server, "native_payload_operation", side_effect=self.native_facts
+            )
+        )
 
-    def native_facts(self, state: Path, config: object, operation: str, inventory: object = None, **options: object) -> list[dict[str, object]]:
+    def native_facts(
+        self,
+        state: Path,
+        config: object,
+        operation: str,
+        inventory: object = None,
+        **options: object,
+    ) -> list[dict[str, object]]:
         if operation == "owner-observations":
             observations = []
             for owner in server.object_inventory(inventory):
                 if owner["boot"] != self.live_boot:
                     observations.append({"key": owner["key"], "dead": True})
                 elif owner["pid_namespace"] != self.live_namespace:
-                    observations.append({"key": owner["key"], "refusal": "unobservable fixture"})
+                    observations.append(
+                        {"key": owner["key"], "refusal": "unobservable fixture"}
+                    )
                 else:
-                    observations.append({"key": owner["key"], "dead": owner["start"] != self.live_start})
+                    observations.append(
+                        {"key": owner["key"], "dead": owner["start"] != self.live_start}
+                    )
             return observations
         if operation == "layout":
             placement = server.object_mapping(options["placement"])
-            return [{"root": str(state / "payloads" / str(placement["payload_incarnation"]) / str(placement["database"]))}]
+            return [
+                {
+                    "root": str(
+                        state
+                        / "payloads"
+                        / str(placement["payload_incarnation"])
+                        / str(placement["database"])
+                    )
+                }
+            ]
         return server.object_inventory(inventory or [])
-
 
     def query(self, _state: Path, _config: dict[str, object], body: str) -> object:
         self.events.append(body)
@@ -555,20 +583,6 @@ class PayloadLifecycleTests(unittest.TestCase):
             max(i for i, event in enumerate(self.events) if event == "managed-drain"),
         )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     def test_foreign_namespace_or_unobservable_owner_remains_protected(self) -> None:
         self.owner["pid_namespace"] = "pid:[unknown]"
         with self.assertRaisesRegex(server.SupervisorError, "unobservable"):
@@ -808,57 +822,84 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.assertTrue(self.final.is_file())
 
 
-
-
-
-
-
-
-
 class NativePayloadProtocolTests(unittest.TestCase):
     def test_native_entry_is_bounded_before_dispatch(self) -> None:
         config = {"payload_verifier": {"binary": "/fixture/helper", "sha256": "a" * 64}}
         with (
-            patch.object(server, "payload_verifier", return_value=config["payload_verifier"]),
+            patch.object(
+                server, "payload_verifier", return_value=config["payload_verifier"]
+            ),
             patch.object(server.subprocess, "run") as dispatch,
             self.assertRaisesRegex(server.SupervisorError, "bounded envelope"),
         ):
-            server.native_payload_operation(Path("/fixture/state"), config, "inventory", [{"instance": {"large": "x" * (64 * 1024)}}])
+            server.native_payload_operation(
+                Path("/fixture/state"),
+                config,
+                "inventory",
+                [{"instance": {"large": "x" * (64 * 1024)}}],
+            )
         dispatch.assert_not_called()
 
     def test_native_reply_bound_and_malformed_reply_refuse(self) -> None:
         config = {"payload_verifier": {"binary": "/fixture/helper", "sha256": "a" * 64}}
         for response in (b"x" * (64 * 1024 + 1), b"not json\n"):
-            def dispatch(arguments: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
+
+            def dispatch(
+                arguments: list[str], **options: object
+            ) -> subprocess.CompletedProcess[bytes]:
                 output = options["stdout"]
                 assert isinstance(output, io.BufferedIOBase)
                 output.write(response)
                 return subprocess.CompletedProcess(arguments, 0, b"", b"")
+
             with (
                 self.subTest(bytes=len(response)),
-                patch.object(server, "payload_verifier", return_value=config["payload_verifier"]),
+                patch.object(
+                    server, "payload_verifier", return_value=config["payload_verifier"]
+                ),
                 patch.object(server.subprocess, "run", side_effect=dispatch),
                 self.assertRaises(server.SupervisorError),
             ):
-                server.native_payload_operation(Path("/fixture/state"), config, "verify", [])
+                server.native_payload_operation(
+                    Path("/fixture/state"), config, "verify", []
+                )
 
     def test_success_without_the_exact_inventory_acknowledgment_refuses(self) -> None:
         config = {"payload_verifier": {"binary": "/fixture/helper", "sha256": "a" * 64}}
         with (
-            patch.object(server, "payload_verifier", return_value=config["payload_verifier"]),
-            patch.object(server.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")),
-            self.assertRaisesRegex(server.SupervisorError, "omitted an inventory acknowledgment"),
+            patch.object(
+                server, "payload_verifier", return_value=config["payload_verifier"]
+            ),
+            patch.object(
+                server.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, b"", b""),
+            ),
+            self.assertRaisesRegex(
+                server.SupervisorError, "omitted an inventory acknowledgment"
+            ),
         ):
-            server.native_payload_operation(Path("/fixture/state"), config, "verify", [{"original": "inventory"}])
+            server.native_payload_operation(
+                Path("/fixture/state"), config, "verify", [{"original": "inventory"}]
+            )
 
-    def test_default_already_built_helper_is_witnessed_for_published_supervisor(self) -> None:
+    def test_default_already_built_helper_is_witnessed_for_published_supervisor(
+        self,
+    ) -> None:
         config: dict[str, object] = {}
-        binary = Path(server.__file__).resolve().parents[1] / "target/debug/pse-canonical-recovery"
+        binary = (
+            Path(server.__file__).resolve().parents[1]
+            / "target/debug/pse-canonical-recovery"
+        )
         receipt = {"binary": str(binary), "sha256": "b" * 64}
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.object(server, "payload_verifier", return_value=receipt),
-            patch.object(server.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")),
+            patch.object(
+                server.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, b"", b""),
+            ),
         ):
             server.native_payload_operation(Path(directory), config, "verify", [])
         self.assertEqual(config["payload_verifier"], receipt)

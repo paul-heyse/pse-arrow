@@ -13,6 +13,7 @@ use crate::{
     canonical_execution::AttemptFence,
 };
 use pse_ids::{Frame, FramedHasher};
+use pse_model::generated::enums::{CanonicalFileState, CanonicalPayloadEncoding};
 use std::{
     fs::{File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
@@ -20,7 +21,6 @@ use std::{
     sync::Arc,
 };
 use surrealdb::types::{Object, Value};
-use pse_model::generated::enums::{CanonicalFileState, CanonicalPayloadEncoding};
 
 #[cfg(all(test, feature = "canonical-tests"))]
 #[derive(Clone)]
@@ -43,7 +43,9 @@ async fn effect_pause(kind: &str) {
 
 fn file_state(row: &Object) -> Result<CanonicalFileState, CanonicalError> {
     let value = row.get("state").ok_or(CanonicalError::IncompleteResponse)?;
-    codec::decode_string(value.clone())?.parse().map_err(configuration)
+    codec::decode_string(value.clone())?
+        .parse()
+        .map_err(configuration)
 }
 
 /// Completed file packing target, independent of RPC metadata limits.
@@ -95,7 +97,11 @@ impl FileDescriptor {
         validate_codec_schema(&self.encoding, &self.schema)?;
         match self.encoding_kind()? {
             CanonicalPayloadEncoding::ArrowIpcFile if self.batch_count > 0 => Ok(()),
-            CanonicalPayloadEncoding::OpaqueJson | CanonicalPayloadEncoding::OpaqueBytes if self.batch_count == 0 && self.schema.is_empty() => Ok(()),
+            CanonicalPayloadEncoding::OpaqueJson | CanonicalPayloadEncoding::OpaqueBytes
+                if self.batch_count == 0 && self.schema.is_empty() =>
+            {
+                Ok(())
+            }
             _ => Err(configuration("sealed file encoding coordinates invalid")),
         }
     }
@@ -116,7 +122,10 @@ impl FileDescriptor {
 /// Codec identity is a canonical semantic relation ID, not serialized Arrow
 /// schema text. Opaque formats have no schema identity at all.
 pub(crate) fn validate_codec_schema(encoding: &str, schema: &str) -> Result<(), CanonicalError> {
-    match encoding.parse::<CanonicalPayloadEncoding>().map_err(configuration)? {
+    match encoding
+        .parse::<CanonicalPayloadEncoding>()
+        .map_err(configuration)?
+    {
         CanonicalPayloadEncoding::ArrowIpcFile => {
             let identity = pse_ids::SemanticId::parse_hex(schema).map_err(configuration)?;
             if identity.to_string() != schema {
@@ -126,7 +135,11 @@ pub(crate) fn validate_codec_schema(encoding: &str, schema: &str) -> Result<(), 
             }
             Ok(())
         }
-        CanonicalPayloadEncoding::OpaqueJson | CanonicalPayloadEncoding::OpaqueBytes if schema.is_empty() => Ok(()),
+        CanonicalPayloadEncoding::OpaqueJson | CanonicalPayloadEncoding::OpaqueBytes
+            if schema.is_empty() =>
+        {
+            Ok(())
+        }
         _ => Err(configuration("sealed file codec/schema identity invalid")),
     }
 }
@@ -1010,8 +1023,12 @@ impl CanonicalStore {
         &self,
         batch: &pse_model::generated::runtime::canonical_result_batches::Row,
     ) -> Result<FileDescriptor, CanonicalError> {
-        let crate::canonical_execution::PayloadLocator::Sealed { instance, index } = crate::canonical_execution::result_payload_locator(batch)? else {
-            return Err(configuration("physical file descriptor requires sealed placement"));
+        let crate::canonical_execution::PayloadLocator::Sealed { instance, index } =
+            crate::canonical_execution::result_payload_locator(batch)?
+        else {
+            return Err(configuration(
+                "physical file descriptor requires sealed placement",
+            ));
         };
         let descriptor = self.descriptor_for_instance(&instance).await?;
         if descriptor.digest != batch.digest
@@ -1019,9 +1036,14 @@ impl CanonicalStore {
             || descriptor.schema != batch.schema
             || descriptor.encoding != batch.encoding
         {
-            return Err(configuration("logical file descriptor differs from sealed instance"));
+            return Err(configuration(
+                "logical file descriptor differs from sealed instance",
+            ));
         }
-        FileBatch { file: descriptor.clone(), index }
+        FileBatch {
+            file: descriptor.clone(),
+            index,
+        }
         .validate()?;
         Ok(descriptor)
     }

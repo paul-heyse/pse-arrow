@@ -14,11 +14,15 @@ use crate::{
 };
 use pse_ids::{Frame, FramedHasher};
 use pse_model::SemanticFrame;
-use std::time::Duration;
-pub use pse_model::generated::enums::CanonicalArtifactHolderKind;
 use pse_model::generated::canonical::ArtifactKey;
+pub use pse_model::generated::enums::CanonicalArtifactHolderKind;
+use std::time::Duration;
 fn holder_kind(value: &str) -> Result<CanonicalArtifactHolderKind, CanonicalError> {
-    value.parse().map_err(|error: pse_diagnostics::VocabularyError| CanonicalError::Configuration(error.to_string()))
+    value
+        .parse()
+        .map_err(|error: pse_diagnostics::VocabularyError| {
+            CanonicalError::Configuration(error.to_string())
+        })
 }
 use surrealdb::types::{Object, Value};
 
@@ -145,7 +149,11 @@ pub struct ArtifactLocator {
 }
 
 /// Explicit owner identity. Other obligations are never released by this value.
-pub fn artifact_obligation(artifact: &ArtifactKey, owner_kind: CanonicalArtifactHolderKind, owner: &str) -> ArtifactObligation {
+pub fn artifact_obligation(
+    artifact: &ArtifactKey,
+    owner_kind: CanonicalArtifactHolderKind,
+    owner: &str,
+) -> ArtifactObligation {
     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
     hash.str("pse.artifact.obligation.v1")
         .str(artifact)

@@ -257,7 +257,10 @@ impl RelationDecl {
 
     /// Declare the relation's native canonical policy.
     #[must_use]
-    pub const fn with_canonical(mut self, policy: super::CanonicalRelation) -> Self { self.canonical = Some(policy); self }
+    pub const fn with_canonical(mut self, policy: super::CanonicalRelation) -> Self {
+        self.canonical = Some(policy);
+        self
+    }
 
     /// The same declaration with `primary_key` set.
     #[must_use]

@@ -3000,7 +3000,9 @@ def main() -> int:
             if "deadline_monotonic_ns" in payload:
                 expires = payload["deadline_monotonic_ns"]
                 if type(expires) is not int or expires <= 0:
-                    raise ResourceError("Registration requires its original monotonic deadline")
+                    raise ResourceError(
+                        "Registration requires its original monotonic deadline"
+                    )
                 deadline = expires / 1_000_000_000
                 host.remaining(deadline, 1)
             print(json.dumps({"resource": register(payload, deadline=deadline)}))

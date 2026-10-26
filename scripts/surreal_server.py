@@ -661,7 +661,9 @@ def lifecycle_deadline(deadline: float | None) -> Generator[float | None, None, 
 
 
 def readmit_supervisor(
-    state: Path, *, deadline: float | None = None,
+    state: Path,
+    *,
+    deadline: float | None = None,
     execution_profile: str | None = None,
     worker_executable: Path | None = None,
     verifier: Path | None = None,
@@ -669,14 +671,19 @@ def readmit_supervisor(
     """Explicitly readmit current artifacts while preserving the closed target."""
     with lifecycle_deadline(deadline), lifecycle_reservation(state):
         return _readmit_supervisor(
-            state, execution_profile=execution_profile,
-            worker_executable=worker_executable, verifier=verifier,
+            state,
+            execution_profile=execution_profile,
+            worker_executable=worker_executable,
+            verifier=verifier,
         )
 
 
 def _readmit_supervisor(
-    state: Path, *, execution_profile: str | None = None,
-    worker_executable: Path | None = None, verifier: Path | None = None,
+    state: Path,
+    *,
+    execution_profile: str | None = None,
+    worker_executable: Path | None = None,
+    verifier: Path | None = None,
 ) -> dict[str, object]:
     config = config_for(state)
     if (
@@ -692,18 +699,33 @@ def _readmit_supervisor(
     receiver = None
     if execution_profile is not None:
         if config.get("resources") != execution_resources(execution_profile):
-            raise SupervisorError("Readmission execution profile differs from the selected allocation")
+            raise SupervisorError(
+                "Readmission execution profile differs from the selected allocation"
+            )
         expected_class = "timing" if execution_profile == "timing" else "functional"
         if config.get("service_class", "functional") != expected_class:
-            raise SupervisorError("Readmission execution profile differs from the selected storage lane")
+            raise SupervisorError(
+                "Readmission execution profile differs from the selected storage lane"
+            )
         receiver = primary_receiver(worker_executable)
     elif worker_executable is not None:
-        raise SupervisorError("Receiver readmission requires an explicit execution profile")
+        raise SupervisorError(
+            "Receiver readmission requires an explicit execution profile"
+        )
     selected_verifier = payload_verifier(verifier) if verifier is not None else None
     target_fields = (
-        "instance_id", "namespace", "database", "payload_incarnation", "admission",
-        "accepting_writes", "resources", "service_class", "telemetry_state",
-        "derived_rebuild_pending", "surrealkit_rollout_pending", "fresh_root_bootstrap",
+        "instance_id",
+        "namespace",
+        "database",
+        "payload_incarnation",
+        "admission",
+        "accepting_writes",
+        "resources",
+        "service_class",
+        "telemetry_state",
+        "derived_rebuild_pending",
+        "surrealkit_rollout_pending",
+        "fresh_root_bootstrap",
     )
     original_target = {name: config.get(name) for name in target_fields}
     close_context_admission(state)
@@ -736,16 +758,24 @@ def _readmit_supervisor(
         remaining(deadline)
     supervisor = (
         publish_generation(state, Path(receiver["worker_executable"]))
-        if receiver is not None else publish_generation(state)
+        if receiver is not None
+        else publish_generation(state)
     )
-    if receiver is not None and supervisor.get("worker_sha256") != receiver["worker_sha256"]:
-        raise SupervisorError("Receiver artifact changed during readmission; admission remains closed")
+    if (
+        receiver is not None
+        and supervisor.get("worker_sha256") != receiver["worker_sha256"]
+    ):
+        raise SupervisorError(
+            "Receiver artifact changed during readmission; admission remains closed"
+        )
     server = dict(object_mapping(config["server"]))
     server["binary_sha256"] = file_digest(Path(str(server["binary"])))
     with state_lock(state):
         config = config_for(state)
         if {name: config.get(name) for name in target_fields} != original_target:
-            raise SupervisorError("Readmission target or maintenance intent changed; admission remains closed")
+            raise SupervisorError(
+                "Readmission target or maintenance intent changed; admission remains closed"
+            )
         if receiver is not None:
             config["primary_receiver"] = supervisor
         if selected_verifier is not None:
@@ -1380,7 +1410,9 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
     if not retiring:
         incarnation = config.get("payload_incarnation")
         if not isinstance(incarnation, str):
-            raise SupervisorError("Missing payload incarnation; explicitly regenerate this profile")
+            raise SupervisorError(
+                "Missing payload incarnation; explicitly regenerate this profile"
+            )
         try:
             if str(uuid.UUID(incarnation)) != incarnation:
                 raise ValueError("noncanonical incarnation")
@@ -6592,15 +6624,21 @@ def native_payload_operation(
     verifier = object_mapping(config.get("payload_verifier", {}))
     binary = verifier.get("binary")
     if binary is None:
-        binary = str(Path(__file__).resolve().parents[1] / "target/debug/pse-canonical-recovery")
+        binary = str(
+            Path(__file__).resolve().parents[1] / "target/debug/pse-canonical-recovery"
+        )
     if not isinstance(binary, str):
         raise SupervisorError("Native payload helper artifact is unavailable")
     try:
         actual = payload_verifier(Path(binary))
     except (SupervisorError, OSError) as error:
-        raise SupervisorError("Native payload helper unavailable; build pse-operations --bin pse-canonical-recovery or select --payload-verifier") from error
+        raise SupervisorError(
+            "Native payload helper unavailable; build pse-operations --bin pse-canonical-recovery or select --payload-verifier"
+        ) from error
     if verifier and actual != verifier:
-        raise SupervisorError("Native payload helper differs from its selected artifact")
+        raise SupervisorError(
+            "Native payload helper differs from its selected artifact"
+        )
     if not verifier and isinstance(config, dict):
         config["payload_verifier"] = actual
     command = [binary, "--operation", operation, "--root", str(state)]
@@ -6608,32 +6646,63 @@ def native_payload_operation(
         command.extend(("--destination", str(destination)))
     for option, value in (("--placement", placement), ("--target", target)):
         if value is not None:
-            command.extend((option, json.dumps({name: value[name] for name in ("payload_incarnation", "database")}, separators=(",", ":"))))
-    with tempfile.TemporaryFile(mode="w+b") as request, tempfile.TemporaryFile(mode="w+b") as response:
+            command.extend(
+                (
+                    option,
+                    json.dumps(
+                        {
+                            name: value[name]
+                            for name in ("payload_incarnation", "database")
+                        },
+                        separators=(",", ":"),
+                    ),
+                )
+            )
+    with (
+        tempfile.TemporaryFile(mode="w+b") as request,
+        tempfile.TemporaryFile(mode="w+b") as response,
+    ):
         for entry in inventory or []:
             line = (json.dumps(entry, separators=(",", ":")) + "\n").encode()
             if len(line) > 64 * 1024:
-                raise SupervisorError("Native payload entry exceeds its bounded envelope")
+                raise SupervisorError(
+                    "Native payload entry exceeds its bounded envelope"
+                )
             request.write(line)
         request.seek(0)
-        result = subprocess.run(command, stdin=request, stdout=response, stderr=subprocess.PIPE, check=False, timeout=120)
+        result = subprocess.run(
+            command,
+            stdin=request,
+            stdout=response,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=120,
+        )
         if result.returncode:
             detail = result.stderr.decode(errors="replace").strip()[:4096]
-            raise SupervisorError(f"Native canonical payload operation refused; maintenance remains incomplete: {detail}")
+            raise SupervisorError(
+                f"Native canonical payload operation refused; maintenance remains incomplete: {detail}"
+            )
         response.seek(0)
         values: list[dict[str, object]] = []
         while line := response.readline(64 * 1024 + 1):
             if len(line) > 64 * 1024:
-                raise SupervisorError("Native payload response exceeds its bounded envelope")
+                raise SupervisorError(
+                    "Native payload response exceeds its bounded envelope"
+                )
             try:
                 values.append(object_mapping(json.loads(line)))
             except (ValueError, TypeError) as error:
                 raise SupervisorError("Native payload response is malformed") from error
         if operation in {"inventory", "backup", "verify-live", "verify", "restore"}:
             if len(values) != len(inventory or []):
-                raise SupervisorError("Native payload operation omitted an inventory acknowledgment")
+                raise SupervisorError(
+                    "Native payload operation omitted an inventory acknowledgment"
+                )
             if operation != "inventory" and values != (inventory or []):
-                raise SupervisorError("Native payload operation returned a different immutable inventory")
+                raise SupervisorError(
+                    "Native payload operation returned a different immutable inventory"
+                )
         return values
 
 
@@ -6644,7 +6713,11 @@ def selected_payload_helper(config: Mapping[str, object]) -> Path | None:
 
 def payload_root(state: Path, selected: Mapping[str, object]) -> Path:
     value = native_payload_operation(state, selected, "layout", placement=selected)
-    if len(value) != 1 or set(value[0]) != {"root"} or not isinstance(value[0]["root"], str):
+    if (
+        len(value) != 1
+        or set(value[0]) != {"root"}
+        or not isinstance(value[0]["root"], str)
+    ):
         raise SupervisorError("Native payload layout acknowledgment is invalid")
     return Path(value[0]["root"])
 
@@ -6660,7 +6733,9 @@ def verify_payload_inventory(
     if read_only_source:
         native_payload_operation(state, config, "verify", inventory, placement=config)
     else:
-        native_payload_operation(state, config, "verify-live", inventory, placement=config)
+        native_payload_operation(
+            state, config, "verify-live", inventory, placement=config
+        )
 
 
 def payload_query(state: Path, config: dict[str, object], body: str) -> object:
@@ -6783,7 +6858,9 @@ def payload_owner_live_refusal(
     if observation.get("key") != row.get("key"):
         raise SupervisorError("Native file owner observation identity differs")
     if "refusal" in observation:
-        raise SupervisorError("File owner drain is unobservable; admission remains closed")
+        raise SupervisorError(
+            "File owner drain is unobservable; admission remains closed"
+        )
     if set(observation) != {"key", "dead"} or type(observation["dead"]) is not bool:
         raise SupervisorError("Native file owner observation is invalid")
     if observation["dead"] is not True:
@@ -6802,7 +6879,9 @@ def reap_payload_owners(
         if not selected:
             continue
         try:
-            observations = native_payload_operation(state, config, "owner-observations", selected)
+            observations = native_payload_operation(
+                state, config, "owner-observations", selected
+            )
             if len(observations) != len(selected):
                 raise SupervisorError("Native owner observation closure differs")
         except (OSError, SupervisorError):
@@ -6935,7 +7014,11 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
             for rows in payload_pages(state, selected, "canonical_file_instances")
             for row in rows
         ]
-        inventory.extend(native_payload_operation(state, selected, "inventory", entries, placement=selected))
+        inventory.extend(
+            native_payload_operation(
+                state, selected, "inventory", entries, placement=selected
+            )
+        )
     return inventory
 
 
@@ -6943,7 +7026,10 @@ def copy_payload_inventory(
     state: Path, destination: Path, inventory: list[dict[str, object]]
 ) -> None:
     config = config_for(state)
-    native_payload_operation(state, config, "backup", inventory, destination=destination, placement=config)
+    native_payload_operation(
+        state, config, "backup", inventory, destination=destination, placement=config
+    )
+
 
 def validate_payload_inventory(
     source: Path, config: dict[str, object], value: object
@@ -6952,10 +7038,15 @@ def validate_payload_inventory(
         raise SupervisorError("Backup is missing its file-tier closure inventory")
     inventory = object_inventory(value)
     for entry in inventory:
-        if entry.get("context") != "." or entry.get("database") != config["database"] or entry.get("payload_incarnation") != config["payload_incarnation"]:
+        if (
+            entry.get("context") != "."
+            or entry.get("database") != config["database"]
+            or entry.get("payload_incarnation") != config["payload_incarnation"]
+        ):
             raise SupervisorError("Backup file-tier context differs from its profile")
     native_payload_operation(source, config, "verify", inventory, placement=config)
     return inventory
+
 
 def application_backup_tables() -> tuple[str, ...]:
     """Read generated classification only when a backup operation selects it."""
@@ -7115,7 +7206,9 @@ def inspect_backup(
 ) -> dict[str, object]:
     """Read-only inspection shares the exact restore verifier and performs no repair."""
     try:
-        manifest, config, payloads = validated_restore_backup(source, interpretation, verifier)
+        manifest, config, payloads = validated_restore_backup(
+            source, interpretation, verifier
+        )
         if verifier is not None:
             config = {**config, "payload_verifier": payload_verifier(verifier)}
         verify_payload_inventory(source, config, payloads, read_only_source=True)
@@ -7194,7 +7287,13 @@ def _backup(
         for path in sorted(destination.rglob("*"))
         if path.is_file() and path.relative_to(destination).parts[0] != "payloads"
     }
-    files.update({name: object_mapping(binding)["sha256"] for entry in payload_inventory for name, binding in object_mapping(entry["files"]).items()})
+    files.update(
+        {
+            name: object_mapping(binding)["sha256"]
+            for entry in payload_inventory
+            for name, binding in object_mapping(entry["files"]).items()
+        }
+    )
     write_json(
         destination / "backup.json",
         {
@@ -8176,8 +8275,11 @@ def retired_payload_cleanup_files(
     directory = payload_root(state, {**config, **placement})
     if directory == selected_root:
         return None
-    native_payload_operation(state, config, "retired-check", inventory, placement=placement)
+    native_payload_operation(
+        state, config, "retired-check", inventory, placement=placement
+    )
     return directory
+
 
 def cleanup_retired_payloads(
     state: Path, config: dict[str, object], credentials: dict[str, object]
@@ -8240,7 +8342,9 @@ def cleanup_retired_payloads(
         )
         if removal is None:
             continue
-        native_payload_operation(state, config, "retired-remove", placement_inventory, placement=placement)
+        native_payload_operation(
+            state, config, "retired-remove", placement_inventory, placement=placement
+        )
     pending["payload_cleanup_done"] = True
     config["derived_rebuild_pending"] = pending
     write_json(state / "config.json", config)
@@ -8406,7 +8510,15 @@ def rehome_restored_payloads(
         targets.append(target)
         payloads["payload_targets"] = targets
         write_maintenance_payloads(state, config, payloads)
-    native_payload_operation(backup, config, "restore", inventory, destination=state, placement=original, target=target)
+    native_payload_operation(
+        backup,
+        config,
+        "restore",
+        inventory,
+        destination=state,
+        placement=original,
+        target=target,
+    )
     # The imported gate remains closed throughout bounded catalog updates. These
     # physical fields are absent from scientific descriptors and manifest bytes.
     after = ""
@@ -8658,9 +8770,7 @@ def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object
             write_json(state / "credentials.json", credentials)
             write_json(state / "config.json", target)
             (state / "tmp").mkdir(mode=0o700, exist_ok=True)
-            payload_root(state, target).mkdir(
-                mode=0o700, parents=True, exist_ok=True
-            )
+            payload_root(state, target).mkdir(mode=0o700, parents=True, exist_ok=True)
             write_json(state / "config.json", target)
             # The config remains closed after the pending fence is removed.
             # Schema installation and admission are distinct explicit owners.
@@ -8966,7 +9076,9 @@ def recover_maintenance(
                 )
             current_marker(state, source, credentials)
             preserved, _original, _files = validated_restore_backup(
-                Path(str(pending["backup"])), SUBSTRATE_INTERPRETATION, selected_payload_helper(config)
+                Path(str(pending["backup"])),
+                SUBSTRATE_INTERPRETATION,
+                selected_payload_helper(config),
             )
             if (
                 capture_application_inventory(state, source, credentials)
@@ -9060,7 +9172,9 @@ def validated_restore_backup(
     for entry in inventory:
         for name, binding in object_mapping(entry["files"]).items():
             if files.get(name) != object_mapping(binding).get("sha256"):
-                raise SupervisorError("Backup payload manifest differs from native inventory")
+                raise SupervisorError(
+                    "Backup payload manifest differs from native inventory"
+                )
     if config.get("derived_rebuild_pending") or config.get(
         "surrealkit_rollout_pending"
     ):
@@ -9186,7 +9300,9 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
     # Known partial file copies can be overwritten from the immutable verified
     # backup. Never import its old, normally startable config.json.
     for directory in sorted(source.rglob("*")):
-        if directory.is_dir() and directory.relative_to(source).parts[0] in roots - {"payloads"}:
+        if directory.is_dir() and directory.relative_to(source).parts[0] in roots - {
+            "payloads"
+        }:
             (state / directory.relative_to(source)).mkdir(
                 mode=0o700, parents=True, exist_ok=True
             )
@@ -9202,8 +9318,17 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
             raise SupervisorError(
                 "Restored backup copy differs; admission remains closed"
             )
-    native_payload_operation(source, config, "restore", inventory, destination=state, placement=original_config)
-    validated_restore_backup(source, SUBSTRATE_INTERPRETATION, selected_payload_helper(config))
+    native_payload_operation(
+        source,
+        config,
+        "restore",
+        inventory,
+        destination=state,
+        placement=original_config,
+    )
+    validated_restore_backup(
+        source, SUBSTRATE_INTERPRETATION, selected_payload_helper(config)
+    )
     if file_digest(source / "backup.json") != pending["backup_digest"]:
         raise SupervisorError("Preserved backup changed during copy")
     original = str(manifest["state_root"])
@@ -9244,7 +9369,9 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
 def restore(
     source: Path, state: Path, interpretation: str, verifier: Path | None = None
 ) -> dict[str, object]:
-    manifest, original, _inventory = validated_restore_backup(source, interpretation, verifier)
+    manifest, original, _inventory = validated_restore_backup(
+        source, interpretation, verifier
+    )
     state = checked_directory(state)
     with lifecycle_reservation(state):
         binding = state / ".resource-owner"
@@ -10524,15 +10651,27 @@ def _dispatch(args: argparse.Namespace) -> int:
         ):
             config = config_for(state)
             if args.command == "readmit":
-                if any(value is not None for value in (
-                    args.memory_mib, args.server_memory_mib, args.native_workers,
-                    args.native_worker_memory_mib, args.port, args.version,
-                    args.interpretation, args.tool_root,
-                )):
-                    raise SupervisorError("Readmission preserves the selected allocation and state identity")
+                if any(
+                    value is not None
+                    for value in (
+                        args.memory_mib,
+                        args.server_memory_mib,
+                        args.native_workers,
+                        args.native_worker_memory_mib,
+                        args.port,
+                        args.version,
+                        args.interpretation,
+                        args.tool_root,
+                    )
+                ):
+                    raise SupervisorError(
+                        "Readmission preserves the selected allocation and state identity"
+                    )
                 output = readmit_supervisor(
-                    state, execution_profile=args.execution_profile,
-                    worker_executable=args.worker_executable, verifier=args.payload_verifier,
+                    state,
+                    execution_profile=args.execution_profile,
+                    worker_executable=args.worker_executable,
+                    verifier=args.payload_verifier,
                 )
                 print(json.dumps(output, sort_keys=True))
                 return 0

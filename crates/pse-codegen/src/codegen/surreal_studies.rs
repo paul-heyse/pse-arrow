@@ -520,7 +520,7 @@ DEFINE FUNCTION fn::pse_study_v1::finalize($rpc_expiry: int, $study: string, $op
         IF $current != NONE AND ($current.phase NOT IN ['terminal','terminal_compacted']) AND $current.expires_at > time::micros() { LET $rpc_result = NONE; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
     };
     LET $existing_operation = SELECT key FROM ONLY type::record('canonical_execution_operations', $operation);
-    LET $rpc_result = fn::pse_execution_v1::claim($rpc_expiry, $s.run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,$study);
+    LET $rpc_result = fn::pse_execution_v1::claim($rpc_expiry, $s.run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,$study,NONE);
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $existing_operation = NONE { fn::pse_execution_v1::lease($rpc_expiry, $rpc_result.expires_at); };
     RETURN $rpc_result;
@@ -574,7 +574,7 @@ DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,
         };
     };
     LET $s=SELECT interpretation FROM ONLY type::record('canonical_studies',$study);
-    LET $claimed=fn::pse_execution_v1::claim($rpc_expiry,$run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,NONE);
+    LET $claimed=fn::pse_execution_v1::claim($rpc_expiry,$run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,NONE,{study:$study,generation:$generation,point:$point,expected:$expected});
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::lease($rpc_expiry,$claimed.expires_at);
     RETURN $claimed;
@@ -630,7 +630,7 @@ DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $gener
         LET $current = SELECT * FROM ONLY type::record('canonical_study_points', $item.key);
         IF $current = NONE OR $current.study != $study OR $current.revision != $item.revision { THROW 'PSE_REFUSAL:study_point_premise_changed'; };
     };
-    LET $claimed = fn::pse_execution_v1::claim($rpc_expiry, $p.run, $operation + ':attempt', $claim_request, $attempt, $worker, $lifetime, $s.interpretation,NONE);
+    LET $claimed = fn::pse_execution_v1::claim($rpc_expiry, $p.run, $operation + ':attempt', $claim_request, $attempt, $worker, $lifetime, $s.interpretation,NONE,NONE);
     UPDATE ONLY type::record('canonical_study_points', $point) SET assigned = true, revision += 1dec, facts = $facts, start = $start, attempt = $attempt;
     fn::pse_study_v1::readiness_invalidate($rpc_expiry,(SELECT * FROM ONLY type::record('canonical_study_points',$point)),false);
     fn::pse_history_v1::record_operation($rpc_expiry,$operation,$p.run,$attempt,'study-claim',$request,$request,$study,$point);

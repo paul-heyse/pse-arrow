@@ -17,6 +17,7 @@
 //! - [`document`] — authoring document shapes.
 
 pub mod algorithm;
+pub mod canonical;
 pub mod collection;
 pub mod document;
 pub mod enums;
@@ -28,24 +29,23 @@ pub mod identity;
 pub mod integer_range;
 pub mod invariant;
 pub mod migration;
-pub mod canonical;
 pub mod provider;
 pub mod reference;
 pub mod relation;
 pub mod result_selection;
 pub mod tagged_alternative;
 
-pub use field::ROW_KEY_ENCODING;
 pub use canonical::{CanonicalBackup, CanonicalKeyKind, CanonicalRelation, CanonicalRetention};
+pub use field::ROW_KEY_ENCODING;
 
 pub use crate::model::algorithm::{
     AlgorithmDecl, AlgorithmSpec, ArgumentSpec, Determinism, ResultSpec,
 };
 pub use crate::model::document::{DocumentKind, DocumentSection, DocumentSpec, SourceColumn};
 pub use crate::model::enums::{
-    Authority, ColumnRole, DerivationGranularity, EnumDecl, EnumMember, EnumSpec, EnumTransition,
-    EnumProjection, EnumProjectionMember, InvariantKind,
-    Namespace, Severity, SnapshotClass, Stability,
+    Authority, ColumnRole, DerivationGranularity, EnumDecl, EnumMember, EnumProjection,
+    EnumProjectionMember, EnumSpec, EnumTransition, InvariantKind, Namespace, Severity,
+    SnapshotClass, Stability,
 };
 pub use crate::model::extension::ExtensionUse;
 pub use crate::model::extension::{EXTENSION_TYPES, ExtensionMetadataShape, ExtensionTypeSpec};

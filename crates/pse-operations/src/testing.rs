@@ -13,8 +13,13 @@ pub async fn result_payload_counts(
     let mut response = crate::canonical::bounded_query(store.db.query(
         "RETURN {inline:<decimal>array::len((SELECT key FROM canonical_inline_payloads WHERE attempt=$attempt)),sealed:<decimal>array::len((SELECT key FROM canonical_file_instances WHERE owner_kind='result' AND selection=$attempt))};"
     ).bind(("attempt",fence.attempt().to_owned()))).await?;
-    let mut row = response.take::<Option<surrealdb::types::Object>>(0)?.ok_or(crate::canonical::CanonicalError::IncompleteResponse)?;
-    Ok((decode_uint(required(&mut row,"inline")?)?, decode_uint(required(&mut row,"sealed")?)?))
+    let mut row = response
+        .take::<Option<surrealdb::types::Object>>(0)?
+        .ok_or(crate::canonical::CanonicalError::IncompleteResponse)?;
+    Ok((
+        decode_uint(required(&mut row, "inline")?)?,
+        decode_uint(required(&mut row, "sealed")?)?,
+    ))
 }
 
 /// Join already registered result-read cleanup without closing the fixture or

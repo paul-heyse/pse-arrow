@@ -85,8 +85,7 @@ impl ProtectedResultDecode {
 #[derive(Debug)]
 struct CachedFile {
     instance: String,
-    reader:
-        datafusion::arrow::ipc::reader::FileReader<result_files::ResultFileSource>,
+    reader: datafusion::arrow::ipc::reader::FileReader<result_files::ResultFileSource>,
     _owner: MemoryReservation,
 }
 
@@ -359,16 +358,23 @@ impl ProtectedResultDecode {
                 &self.services.preparation().pool(),
                 "canonical:result-file-open-response",
                 match locator {
-                    pse_operations::canonical_execution::PayloadLocator::Inline { .. } => MetadataResponse::InlinePayload,
-                    pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => MetadataResponse::Header,
+                    pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
+                        MetadataResponse::InlinePayload
+                    }
+                    pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => {
+                        MetadataResponse::Header
+                    }
                 },
             )?;
             let (source, count) = match &locator {
                 pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => {
                     let file = pse_operations::canonical::response_ownership_scope(
                         Arc::new((self.read.clone(), self.read_owner.clone(), response)),
-                        self.services.canonical_store()?.open_result_file(&self.read, descriptor),
-                    ).await?;
+                        self.services
+                            .canonical_store()?
+                            .open_result_file(&self.read, descriptor),
+                    )
+                    .await?;
                     let count = usize::try_from(file.descriptor().batch_count)
                         .map_err(|_| contract("file batch count extent"))?;
                     (result_files::ResultFileSource::Sealed(file), count)
@@ -376,11 +382,19 @@ impl ProtectedResultDecode {
                 pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
                     let body = pse_operations::canonical::response_ownership_scope(
                         Arc::new((self.read.clone(), self.read_owner.clone(), response)),
-                        self.services.canonical_store()?.read_inline_payload(&self.read, descriptor),
-                    ).await?;
+                        self.services
+                            .canonical_store()?
+                            .read_inline_payload(&self.read, descriptor),
+                    )
+                    .await?;
                     let count = usize::try_from(body.batch_count)
                         .map_err(|_| contract("inline batch count extent"))?;
-                    (result_files::ResultFileSource::Inline(std::io::Cursor::new(body.body.into_vec())), count)
+                    (
+                        result_files::ResultFileSource::Inline(std::io::Cursor::new(
+                            body.body.into_vec(),
+                        )),
+                        count,
+                    )
                 }
             };
             let reader = result_files::open_file_reader(source, &self.schema, Some(count))?;
@@ -879,7 +893,12 @@ impl NativeResultSelection {
             let exact = member(index).and_then(|(block, descriptor)| {
                 let bytes = block.statistics.as_ref()?;
                 let binding = pse_relations::result_batch::StatisticsBinding {
-                    payload: pse_operations::canonical_execution::result_payload_locator(descriptor).ok()?.payload_identity().to_owned(),
+                    payload: pse_operations::canonical_execution::result_payload_locator(
+                        descriptor,
+                    )
+                    .ok()?
+                    .payload_identity()
+                    .to_owned(),
                     digest: descriptor.digest.clone(),
                     index: descriptor.payload_index,
                     interpretation: block.interpretation.clone(),

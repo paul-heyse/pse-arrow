@@ -196,46 +196,117 @@ impl CanonicalStore {
     }
 }
 
-
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_research_server_unit {
-    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "isolated research receipt fixtures assert exact committed metadata")]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "isolated research receipt fixtures assert exact committed metadata"
+    )]
     use super::*;
 
     #[tokio::test]
     async fn research_lost_ack_settles_original_requests_and_reuse_is_explicit() {
         let state = std::env::var("PSE_SURREAL_STATE").expect("canonical fixture service");
-        let mut options = crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
+        let mut options =
+            crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_research_{}", uuid::Uuid::new_v4().simple());
         let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
         let source = store.edit("science", None, "source", &[]).await.unwrap();
-        store.create_project("create", "project", "Research").await.unwrap();
+        store
+            .create_project("create", "project", "Research")
+            .await
+            .unwrap();
         let project = store.project("project").await.unwrap().unwrap();
-        store.append_project_context("context", &project, "scope", &source.key, "source-hash", "physical", &source.key, "physical-hash", 0, None, None, false).await.unwrap();
+        store
+            .append_project_context(
+                "context",
+                &project,
+                "scope",
+                &source.key,
+                "source-hash",
+                "physical",
+                &source.key,
+                "physical-hash",
+                0,
+                None,
+                None,
+                false,
+            )
+            .await
+            .unwrap();
         // These are exact metadata receipt controls; scientific admission stays
         // with the runtime research owner and is not inferred from these bytes.
         let dataset = ResearchDataset {
-            key: "dataset".into(), project: project.key.clone(), revision: source.key.clone(),
-            physical_context: "physical".into(), context: "context".into(), parent: None,
-            role: "raw".into(), members: b"[]".to_vec().into(), request: Vec::new().into(),
+            key: "dataset".into(),
+            project: project.key.clone(),
+            revision: source.key.clone(),
+            physical_context: "physical".into(),
+            context: "context".into(),
+            parent: None,
+            role: "raw".into(),
+            members: b"[]".to_vec().into(),
+            request: Vec::new().into(),
         };
-        let committed = crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true, store.create_research_dataset(&project, dataset.clone())).await.unwrap();
-        assert_eq!(store.research_dataset("dataset").await.unwrap(), Some(committed.clone()));
-        assert_eq!(store.create_research_dataset(&project, dataset.clone()).await.unwrap(), committed);
+        let committed = crate::canonical_projects::PROJECT_REPLY_LOSS
+            .scope(
+                true,
+                store.create_research_dataset(&project, dataset.clone()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            store.research_dataset("dataset").await.unwrap(),
+            Some(committed.clone())
+        );
+        assert_eq!(
+            store
+                .create_research_dataset(&project, dataset.clone())
+                .await
+                .unwrap(),
+            committed
+        );
         let mut changed = dataset;
         changed.members = b"[1]".to_vec().into();
-        assert!(matches!(store.create_research_dataset(&project, changed).await, Err(CanonicalError::OperationReused)));
+        assert!(matches!(
+            store.create_research_dataset(&project, changed).await,
+            Err(CanonicalError::OperationReused)
+        ));
         let selection = ResearchSelection {
-            key: "selection".into(), project: project.key.clone(), dataset: committed.key,
-            revision: source.key, physical_context: "physical".into(), context: "context".into(),
-            fit: "fit".into(), selection: b"[]".to_vec().into(), request: Vec::new().into(),
+            key: "selection".into(),
+            project: project.key.clone(),
+            dataset: committed.key,
+            revision: source.key,
+            physical_context: "physical".into(),
+            context: "context".into(),
+            fit: "fit".into(),
+            selection: b"[]".to_vec().into(),
+            request: Vec::new().into(),
         };
-        let committed = crate::canonical_projects::PROJECT_REPLY_LOSS.scope(true, store.create_research_selection(&project, selection.clone())).await.unwrap();
-        assert_eq!(store.research_selection("selection").await.unwrap(), Some(committed.clone()));
-        assert_eq!(store.create_research_selection(&project, selection.clone()).await.unwrap(), committed);
+        let committed = crate::canonical_projects::PROJECT_REPLY_LOSS
+            .scope(
+                true,
+                store.create_research_selection(&project, selection.clone()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            store.research_selection("selection").await.unwrap(),
+            Some(committed.clone())
+        );
+        assert_eq!(
+            store
+                .create_research_selection(&project, selection.clone())
+                .await
+                .unwrap(),
+            committed
+        );
         let mut changed = selection;
         changed.fit = "different-fit".into();
-        assert!(matches!(store.create_research_selection(&project, changed).await, Err(CanonicalError::OperationReused)));
+        assert!(matches!(
+            store.create_research_selection(&project, changed).await,
+            Err(CanonicalError::OperationReused)
+        ));
         store.remove_isolated_fixture().await.unwrap();
     }
 }

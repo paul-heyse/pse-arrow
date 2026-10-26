@@ -12,8 +12,8 @@ use crate::{
     canonical_execution::{AttemptFence, RunRequest, execution_attempt_key},
     generated::surreal as wire,
 };
+use pse_model::generated::canonical::{OperationKey, ProblemKey, RunKey, StudyPointKey};
 use pse_model::generated::enums::StudyPointState;
-use pse_model::generated::canonical::{RunKey, ProblemKey, OperationKey, StudyPointKey};
 pub use pse_model::generated::runtime::{
     canonical_studies::Row as Study, canonical_study_points::Row as StudyPoint,
 };
@@ -577,11 +577,19 @@ impl StudyAdmissionAuthority {
     }
     /// Exact source destination admitted with the occurrence.
     pub fn variant_problem(&self) -> Result<&str, CanonicalError> {
-        self.scope.point.variant_problem.as_deref().ok_or_else(|| CanonicalError::Configuration("selected-source destination association absent".into()))
+        self.scope.point.variant_problem.as_deref().ok_or_else(|| {
+            CanonicalError::Configuration("selected-source destination association absent".into())
+        })
     }
     /// Exact source operation admitted with the occurrence.
     pub fn variant_operation(&self) -> Result<&str, CanonicalError> {
-        self.scope.point.variant_operation.as_deref().ok_or_else(|| CanonicalError::Configuration("selected-source operation association absent".into()))
+        self.scope
+            .point
+            .variant_operation
+            .as_deref()
+            .ok_or_else(|| {
+                CanonicalError::Configuration("selected-source operation association absent".into())
+            })
     }
     pub(crate) fn encode(&self) -> Result<Value, CanonicalError> {
         let mut value = Object::new();
@@ -1133,8 +1141,10 @@ impl CanonicalStore {
                 }
                 if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                     let mut admission_run = point.run.clone();
-                    admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str())).into();
-                    admission_run.purpose = pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
+                    admission_run.key =
+                        RunKey::study_admission(&StudyPointKey::from(key.as_str())).into();
+                    admission_run.purpose =
+                        pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
                     admission_run.admission_study = Some(expected.key.clone().into());
                     admission_run.admission_point = Some(key.clone().into());
                     admission_run.request = encode(&(
@@ -1187,22 +1197,64 @@ impl CanonicalStore {
             let study = match response {
                 Ok(study) => study,
                 Err(error) => {
-                    let intent = encode(&(&expected.key, &expected.run, &expected.problem, &expected.revision, expected.metadata.as_slice(), &expected.physical_revision, &expected.physical_identity, &expected.context, &expected.interpretation, expected.point_count, expected.dependency_count))?;
+                    let intent = encode(&(
+                        &expected.key,
+                        &expected.run,
+                        &expected.problem,
+                        &expected.revision,
+                        expected.metadata.as_slice(),
+                        &expected.physical_revision,
+                        &expected.physical_identity,
+                        &expected.context,
+                        &expected.interpretation,
+                        expected.point_count,
+                        expected.dependency_count,
+                    ))?;
                     if cancelled() {
-                        let study = self.cancel_study(&expected.key).await.map_err(|readback| crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, Some(readback)))?;
+                        let study = self.cancel_study(&expected.key).await.map_err(|readback| {
+                            crate::canonical::settlement::unresolved(
+                                "study-activation",
+                                &expected.key,
+                                &intent,
+                                error,
+                                Some(readback),
+                            )
+                        })?;
                         check_created_study(expected, &study)?;
                         return Ok(study.active.then_some(study));
                     }
                     let study = match self.canonical_study(&expected.key).await {
                         Ok(Some(study)) => study,
-                        Ok(None) => return Err(crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, None)),
-                        Err(readback) => return Err(crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, Some(readback))),
+                        Ok(None) => {
+                            return Err(crate::canonical::settlement::unresolved(
+                                "study-activation",
+                                &expected.key,
+                                &intent,
+                                error,
+                                None,
+                            ));
+                        }
+                        Err(readback) => {
+                            return Err(crate::canonical::settlement::unresolved(
+                                "study-activation",
+                                &expected.key,
+                                &intent,
+                                error,
+                                Some(readback),
+                            ));
+                        }
                     };
                     check_created_study(expected, &study)?;
                     if !study.active {
                         // The same native cancellation guard fences a late activation.
                         if let Err(readback) = self.cancel_study(&expected.key).await {
-                            return Err(crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, Some(readback)));
+                            return Err(crate::canonical::settlement::unresolved(
+                                "study-activation",
+                                &expected.key,
+                                &intent,
+                                error,
+                                Some(readback),
+                            ));
                         }
                         return Err(error);
                     }
@@ -1443,7 +1495,13 @@ impl CanonicalStore {
                     continue;
                 }
                 Err(error) => {
-                    let intent = encode(&(&pending.operation, &pending.study, &pending.run, &pending.epoch, &pending.keys))?;
+                    let intent = encode(&(
+                        &pending.operation,
+                        &pending.study,
+                        &pending.run,
+                        &pending.epoch,
+                        &pending.keys,
+                    ))?;
                     return crate::canonical::settlement::settle_exact(
                         "study-readiness-page", &pending.operation, &intent, Err(error),
                         async {
@@ -1759,8 +1817,12 @@ impl CanonicalStore {
         let attempt = execution_attempt_key(&run, &operation);
         let lifetime = i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
         if !(1..=86_400_000_000).contains(&lifetime) { return Err(CanonicalError::PayloadLimit); }
-        let request = encode(&(&run, &operation, worker, lifetime, wire::INTERPRETATION))?;
         let expected = scope_expected(scope)?;
+        // Bind this role and complete guarded premise set into the original claim
+        // witness; ordinary execution cannot reconcile this owner's receipt.
+        let premises = std::iter::once(&scope.point).chain(scope.predecessors.iter()).map(|point| (&point.key, point.revision)).collect::<Vec<_>>();
+        let request = encode(&(pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission, &scope.study, scope.generation, &scope.point.key, &premises, &run, &operation, worker, lifetime, wire::INTERPRETATION))?;
+        bounded(&request, crate::canonical_execution::EXECUTION_METADATA_BYTES)?;
         let response = self.protected_execution_query(&run, "canonical_studies::claim_study_admission", || Ok(
             self.db.query("RETURN fn::pse_study_v1::admission_claim($pse_rpc_expires_at,$study,$generation,$point,$expected,$operation,$request,$attempt,$worker,$lifetime);")
             .bind(("study", scope.study.clone())).bind(("generation", codec::encode_uint(scope.generation)?))
@@ -1931,18 +1993,49 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let (row, point) = match response {
                 Ok(row) => (row, None),
-                Err(error) => crate::canonical::settlement::settle_exact(
-                    "study-claim", operation, request, Err(error),
-                    async { match self.settle_operation_for_run(operation, "study-claim", request, Some(&scope.point.run)).await? {
-                        Some(key) => Ok(Some((
-                            self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?,
-                            Some(self.canonical_study_point(&scope.point.key).await?.ok_or(CanonicalError::IncompleteResponse)?),
-                        ))),
-                        None => Ok(None),
-                    } },
-                    |(row, _)| row.run == scope.point.run && row.key == execution_attempt_key(&scope.point.run, &format!("{operation}:attempt")) && row.claim_operation == format!("{operation}:attempt") && row.request.as_slice() == claim_request,
-                    CanonicalError::source_transaction_refused,
-                ).await?,
+                Err(error) => {
+                    crate::canonical::settlement::settle_exact(
+                        "study-claim",
+                        operation,
+                        request,
+                        Err(error),
+                        async {
+                            match self
+                                .settle_operation_for_run(
+                                    operation,
+                                    "study-claim",
+                                    request,
+                                    Some(&scope.point.run),
+                                )
+                                .await?
+                            {
+                                Some(key) => Ok(Some((
+                                    self.canonical_attempt(&key)
+                                        .await?
+                                        .ok_or(CanonicalError::IncompleteResponse)?,
+                                    Some(
+                                        self.canonical_study_point(&scope.point.key)
+                                            .await?
+                                            .ok_or(CanonicalError::IncompleteResponse)?,
+                                    ),
+                                ))),
+                                None => Ok(None),
+                            }
+                        },
+                        |(row, _)| {
+                            row.run == scope.point.run
+                                && row.key
+                                    == execution_attempt_key(
+                                        &scope.point.run,
+                                        &format!("{operation}:attempt"),
+                                    )
+                                && row.claim_operation == format!("{operation}:attempt")
+                                && row.request.as_slice() == claim_request
+                        },
+                        CanonicalError::source_transaction_refused,
+                    )
+                    .await?
+                }
             };
             let expected_attempt =
                 execution_attempt_key(&scope.point.run, &format!("{operation}:attempt"));
@@ -1956,7 +2049,10 @@ impl CanonicalStore {
             let fence = AttemptFence::from_row(row)?;
             let point = match point {
                 Some(point) => point,
-                None => self.canonical_study_point(&scope.point.key).await?.ok_or(CanonicalError::IncompleteResponse)?,
+                None => self
+                    .canonical_study_point(&scope.point.key)
+                    .await?
+                    .ok_or(CanonicalError::IncompleteResponse)?,
             };
             if point.study != scope.study
                 || point.run != scope.point.run
@@ -2238,15 +2334,35 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let row = match response {
                 Ok(row) => row,
-                Err(error) => Some(crate::canonical::settlement::settle_exact(
-                    "study-finalization", operation, request, Err(error),
-                    async { match self.settle_operation_for_run(operation, "claim", request, Some(run)).await? {
-                        Some(key) => Ok(Some(self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?)),
-                        None => Ok(None),
-                    } },
-                    |row| row.run == run && row.key == execution_attempt_key(run, operation) && row.claim_operation == operation && row.request.as_slice() == request,
-                    CanonicalError::source_transaction_refused,
-                ).await?),
+                Err(error) => Some(
+                    crate::canonical::settlement::settle_exact(
+                        "study-finalization",
+                        operation,
+                        request,
+                        Err(error),
+                        async {
+                            match self
+                                .settle_operation_for_run(operation, "claim", request, Some(run))
+                                .await?
+                            {
+                                Some(key) => Ok(Some(
+                                    self.canonical_attempt(&key)
+                                        .await?
+                                        .ok_or(CanonicalError::IncompleteResponse)?,
+                                )),
+                                None => Ok(None),
+                            }
+                        },
+                        |row| {
+                            row.run == run
+                                && row.key == execution_attempt_key(run, operation)
+                                && row.claim_operation == operation
+                                && row.request.as_slice() == request
+                        },
+                        CanonicalError::source_transaction_refused,
+                    )
+                    .await?,
+                ),
             };
             row.map(|row| {
                 if row.run != run
@@ -2360,18 +2476,30 @@ impl CanonicalStore {
             let intent = encode(&("cancel", key))?;
             let study = match response {
                 Ok(study) => study,
-                Err(error) => crate::canonical::settlement::settle_exact(
-                    "study-cancel", key, &intent, Err(error),
-                    async { Ok(self.canonical_study(key).await?.filter(|study| study.cancelled)) },
-                    |study| study.key == key,
-                    CanonicalError::source_transaction_refused,
-                ).await?,
+                Err(error) => {
+                    crate::canonical::settlement::settle_exact(
+                        "study-cancel",
+                        key,
+                        &intent,
+                        Err(error),
+                        async {
+                            Ok(self
+                                .canonical_study(key)
+                                .await?
+                                .filter(|study| study.cancelled))
+                        },
+                        |study| study.key == key,
+                        CanonicalError::source_transaction_refused,
+                    )
+                    .await?
+                }
             };
             if study.key != key || !study.cancelled {
                 return Err(CanonicalError::IncompleteResponse);
             }
             Ok(study)
-        }).await
+        })
+        .await
     }
     /// Conclude only after native scoped observations settle every admitted occurrence.
     pub async fn conclude_study(&self, key: &str) -> Result<Study, CanonicalError> {
@@ -2435,9 +2563,21 @@ fn decode_scope_point(mut row: Object) -> Result<ScopedStudyPoint, CanonicalErro
     let point = ScopedStudyPoint {
         key: decode_string(required(&mut row, "key")?)?,
         study: decode_string(required(&mut row, "study")?)?,
-        admission_run: row.remove("admission_run").filter(|value| !matches!(value, Value::None)).map(decode_string).transpose()?,
-        variant_problem: row.remove("variant_problem").filter(|value| !matches!(value, Value::None)).map(decode_string).transpose()?,
-        variant_operation: row.remove("variant_operation").filter(|value| !matches!(value, Value::None)).map(decode_string).transpose()?,
+        admission_run: row
+            .remove("admission_run")
+            .filter(|value| !matches!(value, Value::None))
+            .map(decode_string)
+            .transpose()?,
+        variant_problem: row
+            .remove("variant_problem")
+            .filter(|value| !matches!(value, Value::None))
+            .map(decode_string)
+            .transpose()?,
+        variant_operation: row
+            .remove("variant_operation")
+            .filter(|value| !matches!(value, Value::None))
+            .map(decode_string)
+            .transpose()?,
         ordinal: decode_uint(required(&mut row, "ordinal")?)?,
         occurrence: decode_uint(required(&mut row, "occurrence")?)?,
         policy: decode_bytes(required(&mut row, "policy")?)?,

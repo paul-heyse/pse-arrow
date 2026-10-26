@@ -34,42 +34,139 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "joined",
         ],
     );
-    builder.declare_enum(EnumDecl::platform(
-        "CanonicalTerminalOutcome",
-        ["succeeded", "failed", "partial", "cancelled"].into_iter().map(|name| EnumMember::new(name, name)).collect(),
-    ).with_projection(EnumProjection {
-        method: "attempt_state", target: "AttemptState", input: None,
-        members: [("succeeded", "completed"), ("failed", "failed"), ("partial", "partial"), ("cancelled", "cancelled")].into_iter().map(|(source,value)| EnumProjectionMember { source, value, when_true: None }).collect(),
-    }).with_projection(EnumProjection {
-        method: "study_point_state", target: "StudyPointState", input: Some("partial_usable"),
-        members: [("succeeded", "completed", "completed"), ("failed", "failed", "failed"), ("partial", "failed", "completed"), ("cancelled", "cancelled", "cancelled")].into_iter().map(|(source,value,when_true)| EnumProjectionMember { source, value, when_true: Some(when_true) }).collect(),
-    }));
-    builder.declare_enum(EnumDecl::platform(
-        "CanonicalAttemptPhase",
-        [
-            "ingesting",
-            "closed_awaiting_manifest",
-            "closed_with_manifest",
-            "terminal",
-            "terminal_compacted",
-        ].into_iter().map(|name| EnumMember::new(name, name)).collect(),
-    ).with_transitions(&[
-        ("ingesting", "closed_awaiting_manifest"),
-        ("ingesting", "closed_with_manifest"),
-        ("closed_awaiting_manifest", "closed_with_manifest"),
-        ("closed_with_manifest", "terminal"),
-        ("terminal", "terminal_compacted"),
-    ]).with_predicate("ingestion_open", &["ingesting"])
-      .with_predicate("closed", &["closed_awaiting_manifest", "closed_with_manifest", "terminal", "terminal_compacted"])
-      .with_predicate("terminal", &["terminal", "terminal_compacted"]));
-    enumeration(builder, "CanonicalProjectPublicationKind", ["import", "fork", "publish"]);
-    enumeration(builder, "CanonicalArtifactHolderKind", super::substrate::ARTIFACT_HOLDERS.iter().map(|holder| holder.0));
-    builder.declare_enum(EnumDecl::platform("CanonicalProducerClass", ["general", "library_mathematics", "local_scientific_replay"].into_iter().map(|name| EnumMember::new(name,name)).collect()).with_predicate("scientific", &["library_mathematics", "local_scientific_replay"]));
-    enumeration(builder, "CanonicalRunPurpose", ["execution", "study_admission"]);
+    builder.declare_enum(
+        EnumDecl::platform(
+            "CanonicalTerminalOutcome",
+            ["succeeded", "failed", "partial", "cancelled"]
+                .into_iter()
+                .map(|name| EnumMember::new(name, name))
+                .collect(),
+        )
+        .with_projection(EnumProjection {
+            method: "attempt_state",
+            target: "AttemptState",
+            input: None,
+            members: [
+                ("succeeded", "completed"),
+                ("failed", "failed"),
+                ("partial", "partial"),
+                ("cancelled", "cancelled"),
+            ]
+            .into_iter()
+            .map(|(source, value)| EnumProjectionMember {
+                source,
+                value,
+                when_true: None,
+            })
+            .collect(),
+        })
+        .with_projection(EnumProjection {
+            method: "study_point_state",
+            target: "StudyPointState",
+            input: Some("partial_usable"),
+            members: [
+                ("succeeded", "completed", "completed"),
+                ("failed", "failed", "failed"),
+                ("partial", "failed", "completed"),
+                ("cancelled", "cancelled", "cancelled"),
+            ]
+            .into_iter()
+            .map(|(source, value, when_true)| EnumProjectionMember {
+                source,
+                value,
+                when_true: Some(when_true),
+            })
+            .collect(),
+        }),
+    );
+    builder.declare_enum(
+        EnumDecl::platform(
+            "CanonicalAttemptPhase",
+            [
+                "ingesting",
+                "closed_awaiting_manifest",
+                "closed_with_manifest",
+                "terminal",
+                "terminal_compacted",
+            ]
+            .into_iter()
+            .map(|name| EnumMember::new(name, name))
+            .collect(),
+        )
+        .with_transitions(&[
+            ("ingesting", "closed_awaiting_manifest"),
+            ("ingesting", "closed_with_manifest"),
+            ("closed_awaiting_manifest", "closed_with_manifest"),
+            ("closed_with_manifest", "terminal"),
+            ("terminal", "terminal_compacted"),
+        ])
+        .with_predicate("ingestion_open", &["ingesting"])
+        .with_predicate(
+            "closed",
+            &[
+                "closed_awaiting_manifest",
+                "closed_with_manifest",
+                "terminal",
+                "terminal_compacted",
+            ],
+        )
+        .with_predicate("terminal", &["terminal", "terminal_compacted"]),
+    );
+    enumeration(
+        builder,
+        "CanonicalProjectPublicationKind",
+        ["import", "fork", "publish"],
+    );
+    enumeration(
+        builder,
+        "CanonicalArtifactHolderKind",
+        super::substrate::ARTIFACT_HOLDERS
+            .iter()
+            .map(|holder| holder.0),
+    );
+    builder.declare_enum(
+        EnumDecl::platform(
+            "CanonicalProducerClass",
+            ["general", "library_mathematics", "local_scientific_replay"]
+                .into_iter()
+                .map(|name| EnumMember::new(name, name))
+                .collect(),
+        )
+        .with_predicate(
+            "scientific",
+            &["library_mathematics", "local_scientific_replay"],
+        ),
+    );
+    enumeration(
+        builder,
+        "CanonicalRunPurpose",
+        ["execution", "study_admission"],
+    );
     enumeration(builder, "CanonicalFileOwnerKind", ["result", "artifact"]);
-    enumeration(builder, "CanonicalFileState", ["pending", "sealed", "attached", "abandoned", "collecting", "collected"]);
-    enumeration(builder, "CanonicalPayloadEncoding", ["arrow-ipc-file", "opaque-json", "opaque-bytes"]);
-    enumeration(builder, "CanonicalHistoryOwnerKind", ["run", "study", "point", "analysis", "user", "project", "audit"]);
+    enumeration(
+        builder,
+        "CanonicalFileState",
+        [
+            "pending",
+            "sealed",
+            "attached",
+            "abandoned",
+            "collecting",
+            "collected",
+        ],
+    );
+    enumeration(
+        builder,
+        "CanonicalPayloadEncoding",
+        ["arrow-ipc-file", "opaque-json", "opaque-bytes"],
+    );
+    enumeration(
+        builder,
+        "CanonicalHistoryOwnerKind",
+        [
+            "run", "study", "point", "analysis", "user", "project", "audit",
+        ],
+    );
     enumeration(
         builder,
         "AttemptState",

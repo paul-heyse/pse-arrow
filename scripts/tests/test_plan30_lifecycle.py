@@ -238,7 +238,9 @@ class Plan30LifecycleTests(unittest.TestCase):
                 return_value={
                     "version": 1,
                     "issuing_store": "00000000-0000-4000-8000-000000000001",
-                    "tables": {table: [] for table in server.application_backup_tables()},
+                    "tables": {
+                        table: [] for table in server.application_backup_tables()
+                    },
                 },
             ),
         ):

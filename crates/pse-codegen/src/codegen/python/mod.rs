@@ -142,7 +142,9 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             source.push_str("from datetime import datetime\n");
         }
         source.push_str("\nimport attrs\n\n");
-        if uses_alias(&declarations, "k") { source.push_str("from pse.contracts import canonical as k\n"); }
+        if uses_alias(&declarations, "k") {
+            source.push_str("from pse.contracts import canonical as k\n");
+        }
         // Sorted by module, as the linter's import order requires.
         if uses_alias(&declarations, "e") {
             source.push_str("from pse.contracts import enums as e\n");
@@ -253,7 +255,9 @@ fn structures(reg: &Registry) -> Result<String, SchemaError> {
         source.push_str("from datetime import datetime\n");
     }
     source.push_str("\nimport attrs\n\n");
-    if uses_alias(&declarations, "k") { source.push_str("from pse.contracts import canonical as k\n"); }
+    if uses_alias(&declarations, "k") {
+        source.push_str("from pse.contracts import canonical as k\n");
+    }
     if uses_alias(&declarations, "e") {
         source.push_str("from pse.contracts import enums as e\n");
     }
@@ -292,24 +296,40 @@ const fn base_class(base: crate::model::IdentityBase) -> &'static str {
 /// One `NewType` per declared entity identity: the alias a type checker keeps apart
 /// from every other identity, over the validated base class (ADR-0115).
 fn canonical(reg: &Registry) -> String {
-    let mut source = String::from("\"\"\"Opaque canonical text keys and native table classifications.\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import NewType\n");
+    let mut source = String::from(
+        "\"\"\"Opaque canonical text keys and native table classifications.\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import NewType\n",
+    );
     for &kind in crate::model::CanonicalKeyKind::ALL {
         let name = super::rust::canonical::type_name(kind);
         let _ = writeln!(source, "\n{name} = NewType({name:?}, str)");
         for constructor in kind.constructors() {
             let input = super::rust::canonical::type_name(constructor.input);
             let method = format!("{}_{}", kind.as_str(), constructor.method);
-            let _ = writeln!(source, "\ndef {method}(value: {input}) -> {name}:\n    \"\"\"Construct the declared opaque association key.\"\"\"\n    return {name}({:?} + value)", constructor.prefix);
+            let _ = writeln!(
+                source,
+                "\ndef {method}(value: {input}) -> {name}:\n    \"\"\"Construct the declared opaque association key.\"\"\"\n    return {name}({:?} + value)",
+                constructor.prefix
+            );
         }
     }
     source.push_str("\nAPPLICATION_BACKUP_TABLES: tuple[str, ...] = (\n");
-    for relation in reg.relations().iter().filter(|relation| relation.canonical.is_some_and(|policy| policy.backup == crate::model::CanonicalBackup::Required)) {
+    for relation in reg.relations().iter().filter(|relation| {
+        relation
+            .canonical
+            .is_some_and(|policy| policy.backup == crate::model::CanonicalBackup::Required)
+    }) {
         let _ = writeln!(source, "    {:?},", relation.key.name);
     }
     source.push_str(")\n\nTABLE_CLASSIFICATIONS: dict[str, tuple[str, str]] = {\n");
     for relation in reg.relations() {
         if let Some(policy) = relation.canonical {
-            let _ = writeln!(source, "    {:?}: ({:?}, {:?}),", relation.key.name, format!("{:?}",policy.retention), format!("{:?}",policy.backup));
+            let _ = writeln!(
+                source,
+                "    {:?}: ({:?}, {:?}),",
+                relation.key.name,
+                format!("{:?}", policy.retention),
+                format!("{:?}", policy.backup)
+            );
         }
     }
     source.push_str("}\n");
@@ -369,19 +389,44 @@ fn enumerations(reg: &Registry) -> String {
             let _ = writeln!(source, "    {variant} = {:?}{annotation}", member.name);
         }
         for projection in &spec.projections {
-            let parameters = projection.input.map(|input| format!(", {input}: bool")).unwrap_or_default();
-            let target = if projection.target == "bool" { "bool".to_owned() } else { pascal(projection.target) };
-            let _ = writeln!(source, "\n    def {}(self{parameters}) -> {target}:\n        \"\"\"Total observation declared by this closed vocabulary.\"\"\"", projection.method);
+            let parameters = projection
+                .input
+                .map(|input| format!(", {input}: bool"))
+                .unwrap_or_default();
+            let target = if projection.target == "bool" {
+                "bool".to_owned()
+            } else {
+                pascal(projection.target)
+            };
+            let _ = writeln!(
+                source,
+                "\n    def {}(self{parameters}) -> {target}:\n        \"\"\"Total observation declared by this closed vocabulary.\"\"\"",
+                projection.method
+            );
             source.push_str("        match self:\n");
             for member in &projection.members {
-                let result = if projection.target == "bool" { if member.value == "true" { "True".to_owned() } else { "False".to_owned() } } else {
+                let result = if projection.target == "bool" {
+                    if member.value == "true" {
+                        "True".to_owned()
+                    } else {
+                        "False".to_owned()
+                    }
+                } else {
                     let value = format!("{target}.{}", member_name(member.value));
                     match (projection.input, member.when_true) {
-                        (Some(input),Some(when_true)) if when_true != member.value => format!("{target}.{} if {input} else {value}",member_name(when_true)),
+                        (Some(input), Some(when_true)) if when_true != member.value => format!(
+                            "{target}.{} if {input} else {value}",
+                            member_name(when_true)
+                        ),
                         _ => value,
                     }
                 };
-                let _ = writeln!(source, "            case {}.{}:\n                return {result}",pascal(spec.name),member_name(member.source));
+                let _ = writeln!(
+                    source,
+                    "            case {}.{}:\n                return {result}",
+                    pascal(spec.name),
+                    member_name(member.source)
+                );
             }
         }
         if let Some(module) = spec.idaes_source {

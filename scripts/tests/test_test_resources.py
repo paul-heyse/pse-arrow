@@ -49,13 +49,17 @@ class TestResourceRegisterClockTests(unittest.TestCase):
             patch.object(sys, "argv", ["test_resources", "register"]),
             patch.object(sys, "stdin", io.StringIO(json.dumps(payload))),
             patch.object(resources.host.time, "monotonic", return_value=101.75),
-            patch.object(resources, "register", return_value="exact-resource") as register,
+            patch.object(
+                resources, "register", return_value="exact-resource"
+            ) as register,
             patch("builtins.print"),
         ):
             self.assertEqual(resources.main(), 0)
         register.assert_called_once_with(payload, deadline=102.0)
 
-    def test_cli_registration_refuses_expired_or_invalid_clock_before_effects(self) -> None:
+    def test_cli_registration_refuses_expired_or_invalid_clock_before_effects(
+        self,
+    ) -> None:
         for expires in (102_000_000_000, True, "102000000000", 0, -1, None):
             payload = {"deadline_monotonic_ns": expires, "state": "/not-opened"}
             with (
@@ -65,13 +69,17 @@ class TestResourceRegisterClockTests(unittest.TestCase):
                 patch.object(resources.host.time, "monotonic", return_value=103),
                 patch.object(resources, "register") as register,
                 patch.object(resources, "storage") as store,
-                self.assertRaises((resources.ResourceError, resources.host.AdmissionError)),
+                self.assertRaises(
+                    (resources.ResourceError, resources.host.AdmissionError)
+                ),
             ):
                 resources.main()
             register.assert_not_called()
             store.assert_not_called()
 
-    def test_register_expired_offer_refuses_before_registry_or_service_observation(self) -> None:
+    def test_register_expired_offer_refuses_before_registry_or_service_observation(
+        self,
+    ) -> None:
         with (
             patch.object(resources.host.time, "monotonic", return_value=103),
             patch.object(resources, "storage") as store,
@@ -84,12 +92,16 @@ class TestResourceRegisterClockTests(unittest.TestCase):
         invocation.assert_not_called()
         config.assert_not_called()
 
-    def test_cli_registration_without_original_offer_retains_generic_fallback(self) -> None:
+    def test_cli_registration_without_original_offer_retains_generic_fallback(
+        self,
+    ) -> None:
         payload = {"state": "/not-opened"}
         with (
             patch.object(sys, "argv", ["test_resources", "register"]),
             patch.object(sys, "stdin", io.StringIO(json.dumps(payload))),
-            patch.object(resources, "register", return_value="exact-resource") as register,
+            patch.object(
+                resources, "register", return_value="exact-resource"
+            ) as register,
             patch("builtins.print"),
         ):
             self.assertEqual(resources.main(), 0)

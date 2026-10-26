@@ -5,13 +5,13 @@
 
 mod alternative;
 mod arguments;
+pub(crate) mod canonical;
 mod columnar;
 mod contracts;
 mod enums;
 mod expression_fields;
 mod field_facets;
 pub(crate) mod identities;
-pub(crate) mod canonical;
 pub mod physical;
 mod products;
 mod registry;

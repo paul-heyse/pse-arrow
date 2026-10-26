@@ -39,7 +39,13 @@ pub struct CanonicalRelation {
 }
 impl CanonicalRelation {
     /// Original durable application rows without graph policy.
-    pub const DURABLE: Self = Self { retention: CanonicalRetention::Durable, backup: CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false };
+    pub const DURABLE: Self = Self {
+        retention: CanonicalRetention::Durable,
+        backup: CanonicalBackup::Required,
+        inline_vertex: false,
+        enforced: false,
+        generation_references: false,
+    };
 }
 macro_rules! key_kinds {
     ($($kind:ident => $spelling:literal),* $(,)?) => {
@@ -111,9 +117,21 @@ impl CanonicalKeyKind {
     /// Named key construction associations owned by this key domain.
     pub const fn constructors(self) -> &'static [CanonicalKeyConstructor] {
         match self {
-            Self::Run => &[CanonicalKeyConstructor { method: "study_admission", prefix: "study-admission:", input: Self::StudyPoint }],
-            Self::Problem => &[CanonicalKeyConstructor { method: "study_variant", prefix: "study-variant:", input: Self::StudyPoint }],
-            Self::Operation => &[CanonicalKeyConstructor { method: "study_variant_source", prefix: "study-variant-source:", input: Self::StudyPoint }],
+            Self::Run => &[CanonicalKeyConstructor {
+                method: "study_admission",
+                prefix: "study-admission:",
+                input: Self::StudyPoint,
+            }],
+            Self::Problem => &[CanonicalKeyConstructor {
+                method: "study_variant",
+                prefix: "study-variant:",
+                input: Self::StudyPoint,
+            }],
+            Self::Operation => &[CanonicalKeyConstructor {
+                method: "study_variant_source",
+                prefix: "study-variant-source:",
+                input: Self::StudyPoint,
+            }],
             _ => &[],
         }
     }

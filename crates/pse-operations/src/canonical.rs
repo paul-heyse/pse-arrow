@@ -9,10 +9,10 @@ pub(crate) mod lifetime;
 #[cfg(feature = "canonical-maintenance")]
 #[path = "canonical_maintenance.rs"]
 pub mod maintenance;
-#[path = "canonical_transport.rs"]
-pub(crate) mod transport;
 #[path = "canonical_settlement.rs"]
 pub(crate) mod settlement;
+#[path = "canonical_transport.rs"]
+pub(crate) mod transport;
 pub use lifetime::{ConnectionActivity, inherit_activity};
 pub use pse_model::generated::runtime::{
     canonical_memberships::Row as Membership, canonical_revisions::Row as Revision,
@@ -226,7 +226,9 @@ pub enum CanonicalError {
         source: Box<CanonicalError>,
     },
     /// An exact owner's effect remains unresolved; neither cause proves absence.
-    #[error("canonical {owner} operation {operation} did not settle: {source}; readback: {readback:?}")]
+    #[error(
+        "canonical {owner} operation {operation} did not settle: {source}; readback: {readback:?}"
+    )]
     SettlementUnresolved {
         /// Actual effect owner, rather than the transport used for readback.
         owner: &'static str,
@@ -303,14 +305,20 @@ impl From<surrealdb::Error> for CanonicalError {
 impl CanonicalError {
     /// Infrastructure termination is distinct from a scientific/domain refusal.
     pub fn is_infrastructure(&self) -> bool {
-        if let Self::SettlementUnresolved { source, readback, .. } = self {
+        if let Self::SettlementUnresolved {
+            source, readback, ..
+        } = self
+        {
             return source.is_infrastructure()
-                || readback.as_ref().is_some_and(|error| error.is_infrastructure());
+                || readback
+                    .as_ref()
+                    .is_some_and(|error| error.is_infrastructure());
         }
         if let Self::AnalysisUnsettled { source, .. }
         | Self::ArtifactUnsettled { source, .. }
         | Self::SourceEditUnsettled { source, .. }
-        | Self::SourceEditRefused { source, .. } = self {
+        | Self::SourceEditRefused { source, .. } = self
+        {
             return source.is_infrastructure();
         }
         matches!(
@@ -1729,90 +1737,138 @@ impl CanonicalStore {
             .transpose()?
             .unwrap_or(Value::None);
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(deadline, async {
-        let mut attempt=0;
-            loop {
-            self.ensure_writes()?;
-            let query = self
-                .activation_db
-                .query(crate::canonical_staging::bounded_edit_sql(EDIT))
-                .bind(("admission", admission.clone()))
-                .bind(("project_intent", project.map(|intent| intent.encode()).transpose()?.unwrap_or(Value::None)))
-                .bind(("problem", stage.problem.clone()))
-                .bind(("expected", stage.expected.clone()))
-                .bind(("operation", stage.operation.clone()))
-                .bind(("interpretation", wire::INTERPRETATION))
-                .bind((
-                    "request",
-                    surrealdb::types::Bytes::from(stage.request.clone()),
-                ))
-                .bind(("request_digest", stage.request_digest.clone()))
-                .bind((
-                    "generation",
-                    crate::canonical_codec::encode_uint(stage.generation)?,
-                ));
-            let result = tokio::time::timeout(ACTIVATION_REQUEST_TIMEOUT, query.into_future())
-                .await
-                .map_err(|_| CanonicalError::Timeout)
-                .and_then(|response| response.map_err(CanonicalError::from))
-                .and_then(complete_response);
-            #[cfg(any(test, feature = "test-support"))]
-            let result=if project.is_some() && result.is_ok() && crate::canonical_projects::simulate_reply_loss(){Err(CanonicalError::IncompleteResponse)}else{result};
-            if let Err(error) = result {
-                // A lost acknowledgment or concurrent identical activation is settled
-                // exclusively by the immutable operation receipt, never by the head.
-                let acknowledgement=self.revision(&stage.operation).await;
-                if let Ok(Some(revision))=&acknowledgement {
-                    if revision.request.as_slice()!=stage.request.as_slice() {
-                        return Err(CanonicalError::OperationReused);
-                    }
-                    if let Some(intent)=project {
-                        if let Err(readback)=self.verify_project_publication_ack(intent).await {
-                            return Err(settlement::unresolved("source-activation", &stage.operation, &stage.request, error, Some(readback)));
+        activity
+            .scope(async {
+                within_clock(deadline, async {
+                    let mut attempt = 0;
+                    loop {
+                        self.ensure_writes()?;
+                        let query = self
+                            .activation_db
+                            .query(crate::canonical_staging::bounded_edit_sql(EDIT))
+                            .bind(("admission", admission.clone()))
+                            .bind((
+                                "project_intent",
+                                project
+                                    .map(|intent| intent.encode())
+                                    .transpose()?
+                                    .unwrap_or(Value::None),
+                            ))
+                            .bind(("problem", stage.problem.clone()))
+                            .bind(("expected", stage.expected.clone()))
+                            .bind(("operation", stage.operation.clone()))
+                            .bind(("interpretation", wire::INTERPRETATION))
+                            .bind((
+                                "request",
+                                surrealdb::types::Bytes::from(stage.request.clone()),
+                            ))
+                            .bind(("request_digest", stage.request_digest.clone()))
+                            .bind((
+                                "generation",
+                                crate::canonical_codec::encode_uint(stage.generation)?,
+                            ));
+                        let result =
+                            tokio::time::timeout(ACTIVATION_REQUEST_TIMEOUT, query.into_future())
+                                .await
+                                .map_err(|_| CanonicalError::Timeout)
+                                .and_then(|response| response.map_err(CanonicalError::from))
+                                .and_then(complete_response);
+                        #[cfg(any(test, feature = "test-support"))]
+                        let result = if project.is_some()
+                            && result.is_ok()
+                            && crate::canonical_projects::simulate_reply_loss()
+                        {
+                            Err(CanonicalError::IncompleteResponse)
+                        } else {
+                            result
+                        };
+                        if let Err(error) = result {
+                            // A lost acknowledgment or concurrent identical activation is settled
+                            // exclusively by the immutable operation receipt, never by the head.
+                            let acknowledgement = self.revision(&stage.operation).await;
+                            if let Ok(Some(revision)) = &acknowledgement {
+                                if revision.request.as_slice() != stage.request.as_slice() {
+                                    return Err(CanonicalError::OperationReused);
+                                }
+                                if let Some(intent) = project {
+                                    if let Err(readback) =
+                                        self.verify_project_publication_ack(intent).await
+                                    {
+                                        return Err(settlement::unresolved(
+                                            "source-activation",
+                                            &stage.operation,
+                                            &stage.request,
+                                            error,
+                                            Some(readback),
+                                        ));
+                                    }
+                                }
+                                return Ok(revision.clone());
+                            }
+                            let refused = matches!(acknowledgement, Ok(None))
+                                && error.source_transaction_refused();
+                            if matches!(acknowledgement, Ok(None))
+                                && error.is_conflict()
+                                && attempt + 1 < GUARDED_ATTEMPTS
+                            {
+                                conflict_backoff(attempt).await;
+                                attempt += 1;
+                                continue;
+                            }
+                            let error = error.exhaust_conflict(
+                                "canonical::activate_source_stage",
+                                GUARDED_ATTEMPTS,
+                            );
+                            operation_failed("canonical::activate_source_stage", &error);
+                            let result = settlement::settle_exact(
+                                "source-activation",
+                                &stage.operation,
+                                &stage.request,
+                                Err(error),
+                                async { acknowledgement },
+                                |revision| revision.request.as_slice() == stage.request.as_slice(),
+                                CanonicalError::source_transaction_refused,
+                            )
+                            .await;
+                            return result.map_err(|error| {
+                                if refused {
+                                    CanonicalError::SourceEditRefused {
+                                        problem: stage.problem.clone(),
+                                        operation: stage.operation.clone(),
+                                        source: Box::new(error),
+                                    }
+                                } else {
+                                    error
+                                }
+                            });
                         }
+                        // The write completed, but a missing or failed receipt read still
+                        // cannot invent an immutable acknowledgement for this activation.
+                        return settlement::settle_exact(
+                            "source-activation",
+                            &stage.operation,
+                            &stage.request,
+                            Err(CanonicalError::IncompleteResponse),
+                            async {
+                                let revision = self.revision(&stage.operation).await?;
+                                if revision.as_ref().is_some_and(|revision| {
+                                    revision.request.as_slice() == stage.request.as_slice()
+                                }) {
+                                    if let Some(intent) = project {
+                                        self.verify_project_publication_ack(intent).await?;
+                                    }
+                                }
+                                Ok(revision)
+                            },
+                            |revision| revision.request.as_slice() == stage.request.as_slice(),
+                            |_| false,
+                        )
+                        .await;
                     }
-                    return Ok(revision.clone());
-                }
-                let refused=matches!(acknowledgement,Ok(None)) && error.source_transaction_refused();
-                if matches!(acknowledgement,Ok(None))
-                    && error.is_conflict()
-                    && attempt + 1 < GUARDED_ATTEMPTS
-                {
-                    conflict_backoff(attempt).await;
-                    attempt+=1;
-                    continue;
-                }
-                let error = error.exhaust_conflict("canonical::activate_source_stage", GUARDED_ATTEMPTS);
-                operation_failed("canonical::activate_source_stage", &error);
-                let result = settlement::settle_exact(
-                    "source-activation", &stage.operation, &stage.request, Err(error),
-                    async { acknowledgement },
-                    |revision| revision.request.as_slice() == stage.request.as_slice(),
-                    CanonicalError::source_transaction_refused,
-                ).await;
-                return result.map_err(|error| if refused {
-                    CanonicalError::SourceEditRefused { problem: stage.problem.clone(), operation: stage.operation.clone(), source: Box::new(error) }
-                } else { error });
-            }
-            // The write completed, but a missing or failed receipt read still
-            // cannot invent an immutable acknowledgement for this activation.
-            return settlement::settle_exact(
-                "source-activation", &stage.operation, &stage.request,
-                Err(CanonicalError::IncompleteResponse),
-                async {
-                    let revision = self.revision(&stage.operation).await?;
-                    if revision.as_ref().is_some_and(|revision| revision.request.as_slice() == stage.request.as_slice()) {
-                        if let Some(intent)=project {self.verify_project_publication_ack(intent).await?;}
-                    }
-                    Ok(revision)
-                },
-                |revision| revision.request.as_slice() == stage.request.as_slice(),
-                |_| false,
-            ).await;
-        }
-        }).await
-            }).await
+                })
+                .await
+            })
+            .await
     }
     /// Explicit historical inventory, indexed by problem and revision interval.
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -3623,10 +3679,18 @@ mod description_unit {
             "issuing stores cannot confer each other's ACKs"
         );
         let mut qualified = header.clone();
-        qualified.producer_class = pse_model::generated::enums::CanonicalProducerClass::LibraryMathematics;
-        let qualified_descriptor = descriptor_for_product(&qualified, "00000000-0000-4000-8000-000000000001").unwrap();
-        assert_eq!(qualified.payload, header.payload, "authority does not rewrite scientific body bytes");
-        assert_ne!(store_one.key, qualified_descriptor.key, "a generic publication cannot borrow a qualified producer's acknowledgement");
+        qualified.producer_class =
+            pse_model::generated::enums::CanonicalProducerClass::LibraryMathematics;
+        let qualified_descriptor =
+            descriptor_for_product(&qualified, "00000000-0000-4000-8000-000000000001").unwrap();
+        assert_eq!(
+            qualified.payload, header.payload,
+            "authority does not rewrite scientific body bytes"
+        );
+        assert_ne!(
+            store_one.key, qualified_descriptor.key,
+            "a generic publication cannot borrow a qualified producer's acknowledgement"
+        );
     }
     #[test]
     fn shared_body_description_retains_exact_payload_allocation_without_copy() {
@@ -3889,7 +3953,8 @@ mod canonical_server_unit {
                             4..=6 => {
                                 let key = format!("pacing-start-{lane}");
                                 let request = RunRequest {
-                                    purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                                    purpose:
+                                        pse_model::generated::enums::CanonicalRunPurpose::Execution,
                                     admission_study: None,
                                     admission_point: None,
                                     key: key.clone().into(),

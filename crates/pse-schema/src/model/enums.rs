@@ -187,17 +187,44 @@ impl EnumDecl {
 
     /// Declare the allowed nonreflexive lifecycle transitions.
     pub fn with_transitions(mut self, transitions: &[(&'static str, &'static str)]) -> Self {
-        self.transitions = transitions.iter().map(|&(before, after)| EnumTransition { before, after }).collect();
+        self.transitions = transitions
+            .iter()
+            .map(|&(before, after)| EnumTransition { before, after })
+            .collect();
         self
     }
 
     /// Add a total boolean observation over this vocabulary's declared members.
     pub fn with_predicate(self, method: &'static str, selected: &[&'static str]) -> Self {
-        let mut members = self.members.iter().map(|member| EnumProjectionMember {
-            source: member.name, value: if selected.contains(&member.name) { "true" } else { "false" }, when_true: None,
-        }).collect::<Vec<_>>();
-        members.extend(selected.iter().filter(|selected| !self.members.iter().any(|member| member.name == **selected)).map(|&source| EnumProjectionMember { source, value: "true", when_true: None }));
-        self.with_projection(EnumProjection { method, target: "bool", input: None, members })
+        let mut members = self
+            .members
+            .iter()
+            .map(|member| EnumProjectionMember {
+                source: member.name,
+                value: if selected.contains(&member.name) {
+                    "true"
+                } else {
+                    "false"
+                },
+                when_true: None,
+            })
+            .collect::<Vec<_>>();
+        members.extend(
+            selected
+                .iter()
+                .filter(|selected| !self.members.iter().any(|member| member.name == **selected))
+                .map(|&source| EnumProjectionMember {
+                    source,
+                    value: "true",
+                    when_true: None,
+                }),
+        );
+        self.with_projection(EnumProjection {
+            method,
+            target: "bool",
+            input: None,
+            members,
+        })
     }
 
     /// Add a total typed projection; assembly validates both vocabularies and coverage.
@@ -213,27 +240,78 @@ mod tests {
     use crate::RegistryBuilder;
 
     fn projection(members: Vec<EnumProjectionMember>) -> EnumDecl {
-        EnumDecl::platform("Outcome", vec![EnumMember::new("ok", "ok"), EnumMember::new("partial", "partial")])
-            .with_projection(EnumProjection { method: "state", target: "State", input: Some("usable"), members })
+        EnumDecl::platform(
+            "Outcome",
+            vec![
+                EnumMember::new("ok", "ok"),
+                EnumMember::new("partial", "partial"),
+            ],
+        )
+        .with_projection(EnumProjection {
+            method: "state",
+            target: "State",
+            input: Some("usable"),
+            members,
+        })
     }
     fn assemble(declaration: EnumDecl) -> Result<crate::Registry, crate::SchemaError> {
         let mut builder = RegistryBuilder::new();
-        builder.declare_enum(EnumDecl::platform("State", vec![EnumMember::new("done", "done"), EnumMember::new("failed", "failed")]))
+        builder
+            .declare_enum(EnumDecl::platform(
+                "State",
+                vec![
+                    EnumMember::new("done", "done"),
+                    EnumMember::new("failed", "failed"),
+                ],
+            ))
             .declare_enum(declaration);
         builder.build()
     }
     #[test]
     fn canonical_projection_rejects_omitted_and_unknown_members() {
-        let ok = EnumProjectionMember { source: "ok", value: "done", when_true: Some("done") };
+        let ok = EnumProjectionMember {
+            source: "ok",
+            value: "done",
+            when_true: Some("done"),
+        };
         assert!(assemble(projection(vec![ok.clone()])).is_err());
-        assert!(assemble(projection(vec![ok.clone(), EnumProjectionMember { source: "partial", value: "failed", when_true: Some("unknown") }])).is_err());
-        assemble(projection(vec![ok, EnumProjectionMember { source: "partial", value: "failed", when_true: Some("done") }])).unwrap();
+        assert!(
+            assemble(projection(vec![
+                ok.clone(),
+                EnumProjectionMember {
+                    source: "partial",
+                    value: "failed",
+                    when_true: Some("unknown")
+                }
+            ]))
+            .is_err()
+        );
+        assemble(projection(vec![
+            ok,
+            EnumProjectionMember {
+                source: "partial",
+                value: "failed",
+                when_true: Some("done"),
+            },
+        ]))
+        .unwrap();
     }
     #[test]
     fn canonical_lifecycle_edges_reject_unknown_and_duplicate_transitions() {
-        let vocabulary = || EnumDecl::platform("Phase", vec![EnumMember::new("open", "open"), EnumMember::new("closed", "closed")]);
+        let vocabulary = || {
+            EnumDecl::platform(
+                "Phase",
+                vec![
+                    EnumMember::new("open", "open"),
+                    EnumMember::new("closed", "closed"),
+                ],
+            )
+        };
         assert!(assemble(vocabulary().with_transitions(&[("open", "missing")])).is_err());
-        assert!(assemble(vocabulary().with_transitions(&[("open", "closed"), ("open", "closed")])).is_err());
+        assert!(
+            assemble(vocabulary().with_transitions(&[("open", "closed"), ("open", "closed")]))
+                .is_err()
+        );
         assert!(assemble(vocabulary().with_predicate("visible", &["missing"])).is_err());
         assemble(vocabulary().with_transitions(&[("open", "closed")])).unwrap();
     }

@@ -34,11 +34,26 @@ from scripts.tests.test_surrealism_module import fixture_module
 _native_payload_operation = server.native_payload_operation
 
 
-def fixture_native_payload_operation(state: Path, _config: object, operation: str, inventory: object = None, **options: object) -> list[dict[str, object]]:
+def fixture_native_payload_operation(
+    state: Path,
+    _config: object,
+    operation: str,
+    inventory: object = None,
+    **options: object,
+) -> list[dict[str, object]]:
     """Supply the product physical boundary to source-only supervisor controls."""
     if operation == "layout":
         placement = server.object_mapping(options["placement"])
-        return [{"root": str(state / "payloads" / str(placement["payload_incarnation"]) / str(placement["database"]))}]
+        return [
+            {
+                "root": str(
+                    state
+                    / "payloads"
+                    / str(placement["payload_incarnation"])
+                    / str(placement["database"])
+                )
+            }
+        ]
     return server.object_inventory(inventory or [])
 
 
@@ -1452,7 +1467,11 @@ class SurrealSupervisorTests(unittest.TestCase):
     def setUp(self) -> None:
         fixture_build_context(self)
         # Source-only orchestration controls provide the native layout boundary.
-        physical = patch.object(server, "native_payload_operation", side_effect=fixture_native_payload_operation)
+        physical = patch.object(
+            server,
+            "native_payload_operation",
+            side_effect=fixture_native_payload_operation,
+        )
         physical.start()
         self.addCleanup(physical.stop)
         self.scratch = tempfile.TemporaryDirectory()
@@ -2391,10 +2410,17 @@ class SurrealSupervisorTests(unittest.TestCase):
         self,
     ) -> None:
         old = self.initialized()
-        old.update(admission="quiesced", accepting_writes=False, telemetry_state=str(self.root / "retained-telemetry"))
+        old.update(
+            admission="quiesced",
+            accepting_writes=False,
+            telemetry_state=str(self.root / "retained-telemetry"),
+        )
         server.write_json(self.state / "config.json", old)
         with (
-            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": str(self.root / "foreign-telemetry")}),
+            patch.dict(
+                os.environ,
+                {"PSE_TELEMETRY_STATE": str(self.root / "foreign-telemetry")},
+            ),
             patch.object(server, "install", return_value=old["server"]) as build,
             patch.object(server, "all_contexts_drained"),
             patch.object(server, "active", return_value=False),
@@ -5105,14 +5131,23 @@ class SurrealSupervisorTests(unittest.TestCase):
         )
         self.assertFalse(Path(selected).exists())
 
-    def test_readmit_closed_initialize_target_admits_current_artifacts_without_opening(self) -> None:
+    def test_readmit_closed_initialize_target_admits_current_artifacts_without_opening(
+        self,
+    ) -> None:
         config = self.initialized(fresh=True)
         config.pop("telemetry_state")
         pending = {
-            "kind": "initialize", "phase": "initializing", "nonce": "original-initializer",
-            "target_namespace": config["namespace"], "target_database": config["database"],
+            "kind": "initialize",
+            "phase": "initializing",
+            "nonce": "original-initializer",
+            "target_namespace": config["namespace"],
+            "target_database": config["database"],
         }
-        config.update(admission="validation_required", accepting_writes=False, derived_rebuild_pending=pending)
+        config.update(
+            admission="validation_required",
+            accepting_writes=False,
+            derived_rebuild_pending=pending,
+        )
         server.write_json(self.state / "config.json", config)
         credentials = (self.state / "credentials.json").read_bytes()
         worker, helper = self.root / "current-worker", self.root / "current-helper"
@@ -5122,21 +5157,44 @@ class SurrealSupervisorTests(unittest.TestCase):
         selected_telemetry = str(self.root / "explicit-telemetry")
         events = []
         publish = server.publish_generation
+
         def published(state: Path, selected: Path) -> dict[str, str]:
             self.assertEqual(events, ["drained", "settled"])
             self.assertEqual(selected, worker)
-            self.assertEqual(server.config_for(state)["derived_rebuild_pending"], pending)
+            self.assertEqual(
+                server.config_for(state)["derived_rebuild_pending"], pending
+            )
             events.append("published")
             return publish(state, selected)
-        args = server.parser().parse_args([
-            "readmit", "--state", str(self.state), "--execution-profile", "functional",
-            "--worker-executable", str(worker), "--payload-verifier", str(helper),
-        ])
+
+        args = server.parser().parse_args(
+            [
+                "readmit",
+                "--state",
+                str(self.state),
+                "--execution-profile",
+                "functional",
+                "--worker-executable",
+                str(worker),
+                "--payload-verifier",
+                str(helper),
+            ]
+        )
         with (
             patch.object(server, "active", return_value=False),
-            patch.object(server, "all_contexts_drained", side_effect=lambda _state: events.append("drained")),
-            patch.object(server, "execution_resources", return_value=config["resources"]),
-            patch.object(server, "settle_legacy_telemetry_launch", side_effect=lambda *_args, **_kwargs: events.append("settled")),
+            patch.object(
+                server,
+                "all_contexts_drained",
+                side_effect=lambda _state: events.append("drained"),
+            ),
+            patch.object(
+                server, "execution_resources", return_value=config["resources"]
+            ),
+            patch.object(
+                server,
+                "settle_legacy_telemetry_launch",
+                side_effect=lambda *_args, **_kwargs: events.append("settled"),
+            ),
             patch.object(server, "publish_generation", side_effect=published),
             patch.dict(os.environ, {"PSE_TELEMETRY_STATE": selected_telemetry}),
             patch("builtins.print"),
@@ -5147,8 +5205,16 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(selected["admission"], "validation_required")
         self.assertFalse(selected["accepting_writes"])
         self.assertEqual(selected["derived_rebuild_pending"], pending)
-        self.assertEqual(selected["fresh_root_bootstrap"], config["fresh_root_bootstrap"])
-        for name in ("instance_id", "namespace", "database", "payload_incarnation", "resources"):
+        self.assertEqual(
+            selected["fresh_root_bootstrap"], config["fresh_root_bootstrap"]
+        )
+        for name in (
+            "instance_id",
+            "namespace",
+            "database",
+            "payload_incarnation",
+            "resources",
+        ):
             self.assertEqual(selected[name], config[name])
         self.assertEqual((self.state / "credentials.json").read_bytes(), credentials)
         self.assertEqual(selected["telemetry_state"], selected_telemetry)
@@ -5159,7 +5225,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(frozen.read_bytes(), worker.read_bytes())
         self.assertFalse(Path(selected_telemetry).exists())
 
-    def test_readmit_validation_target_retains_recorded_telemetry_despite_environment(self) -> None:
+    def test_readmit_validation_target_retains_recorded_telemetry_despite_environment(
+        self,
+    ) -> None:
         config = self.initialized(fresh=True)
         config.update(admission="validation_required", accepting_writes=False)
         server.write_json(self.state / "config.json", config)
@@ -5167,17 +5235,24 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "active", return_value=False),
             patch.object(server, "all_contexts_drained"),
             patch.object(server, "settle_legacy_telemetry_launch") as settle,
-            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": str(self.root / "foreign-telemetry")}),
+            patch.dict(
+                os.environ,
+                {"PSE_TELEMETRY_STATE": str(self.root / "foreign-telemetry")},
+            ),
         ):
             server.readmit_supervisor(self.state)
         settle.assert_not_called()
         selected = server.config_for(self.state)
         self.assertEqual(selected["telemetry_state"], config["telemetry_state"])
-        self.assertEqual(selected["fresh_root_bootstrap"], config["fresh_root_bootstrap"])
+        self.assertEqual(
+            selected["fresh_root_bootstrap"], config["fresh_root_bootstrap"]
+        )
         self.assertEqual(selected["admission"], "validation_required")
         self.assertFalse(selected["accepting_writes"])
 
-    def test_readmit_refuses_active_mismatched_or_invalid_artifacts_before_effects(self) -> None:
+    def test_readmit_refuses_active_mismatched_or_invalid_artifacts_before_effects(
+        self,
+    ) -> None:
         config = self.initialized(fresh=True)
         config.update(admission="validation_required", accepting_writes=False)
         server.write_json(self.state / "config.json", config)
@@ -5187,8 +5262,16 @@ class SurrealSupervisorTests(unittest.TestCase):
             artifact.chmod(0o700)
         before = (self.state / "config.json").read_bytes()
         credentials = (self.state / "credentials.json").read_bytes()
-        for case in ("active", "profile", "missing-worker", "unexecutable-helper", "worker-without-profile"):
-            offered_worker = self.root / "missing-worker" if case == "missing-worker" else worker
+        for case in (
+            "active",
+            "profile",
+            "missing-worker",
+            "unexecutable-helper",
+            "worker-without-profile",
+        ):
+            offered_worker = (
+                self.root / "missing-worker" if case == "missing-worker" else worker
+            )
             helper.chmod(0o600 if case == "unexecutable-helper" else 0o700)
             offered_profile = None if case == "worker-without-profile" else "functional"
             allocation = {} if case == "profile" else config["resources"]
@@ -5201,12 +5284,19 @@ class SurrealSupervisorTests(unittest.TestCase):
                 patch.object(server, "publish_generation") as publish,
                 self.assertRaises((server.SupervisorError, OSError)),
             ):
-                server.readmit_supervisor(self.state, execution_profile=offered_profile, worker_executable=offered_worker, verifier=helper)
+                server.readmit_supervisor(
+                    self.state,
+                    execution_profile=offered_profile,
+                    worker_executable=offered_worker,
+                    verifier=helper,
+                )
             close.assert_not_called()
             drain.assert_not_called()
             publish.assert_not_called()
             self.assertEqual((self.state / "config.json").read_bytes(), before)
-            self.assertEqual((self.state / "credentials.json").read_bytes(), credentials)
+            self.assertEqual(
+                (self.state / "credentials.json").read_bytes(), credentials
+            )
             self.assertFalse((self.state / ".profile-history").exists())
 
     def test_legacy_profile_remains_readable_but_requires_offline_telemetry_readmission(
@@ -7549,7 +7639,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             return subprocess.CompletedProcess(arguments, 0, b"", b"")
 
         with (
-            patch.object(server, "native_payload_operation", side_effect=_native_payload_operation),
+            patch.object(
+                server,
+                "native_payload_operation",
+                side_effect=_native_payload_operation,
+            ),
             patch.object(server, "payload_verifier", return_value=verifier),
             patch.object(server.subprocess, "run", side_effect=native),
         ):
@@ -8930,10 +9024,15 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 ),
             ):
                 server.rehome_restored_payloads(self.state, selected, {})
-            restored = [call for call in physical.call_args_list if call.args[2] == "restore"]
+            restored = [
+                call for call in physical.call_args_list if call.args[2] == "restore"
+            ]
             self.assertEqual(len(restored), 1)
             self.assertEqual(restored[0].kwargs["destination"], self.state)
-            self.assertEqual(restored[0].kwargs["target"]["payload_incarnation"], selected["payload_incarnation"])
+            self.assertEqual(
+                restored[0].kwargs["target"]["payload_incarnation"],
+                selected["payload_incarnation"],
+            )
             self.assertEqual(
                 domain.call_args_list[0].args[-2:], ("page", [*context, "rehome", ""])
             )

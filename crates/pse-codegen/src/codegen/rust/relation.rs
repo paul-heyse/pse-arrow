@@ -49,9 +49,15 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
             let method = format_ident!("{}_domain", column.name());
             let domain = format_ident!("{}", super::canonical::type_name(kind));
             let (ty, value) = if column.nullable() {
-                (quote!(Option<crate::generated::canonical::#domain>), quote!(self.#field.as_deref().map(crate::generated::canonical::#domain::from)))
+                (
+                    quote!(Option<crate::generated::canonical::#domain>),
+                    quote!(self.#field.as_deref().map(crate::generated::canonical::#domain::from)),
+                )
             } else {
-                (quote!(crate::generated::canonical::#domain), quote!(crate::generated::canonical::#domain::from(self.#field.as_str())))
+                (
+                    quote!(crate::generated::canonical::#domain),
+                    quote!(crate::generated::canonical::#domain::from(self.#field.as_str())),
+                )
             };
             declarations.push(quote! { impl #row {
                 /// Project the declared nominal lookup domain from native transport storage.
@@ -63,8 +69,17 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
     for column in spec.columns.iter().filter(|column| !column.nullable()) {
         if let Some(domain) = column.enum_name().and_then(|name| reg.enum_spec(name)) {
             let field = ident(column.name());
-            for predicate in domain.projections.iter().filter(|projection| projection.target == "bool" && projection.input.is_none()) {
-                if !predicate_names.insert(predicate.method) { return Err(super::error(format!("{} has conflicting predicate method {}",spec.key,predicate.method))); }
+            for predicate in domain
+                .projections
+                .iter()
+                .filter(|projection| projection.target == "bool" && projection.input.is_none())
+            {
+                if !predicate_names.insert(predicate.method) {
+                    return Err(super::error(format!(
+                        "{} has conflicting predicate method {}",
+                        spec.key, predicate.method
+                    )));
+                }
                 let method = ident(predicate.method);
                 declarations.push(quote! { impl #row {
                     /// Observation projected from the field's declared closed vocabulary.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable research organization over original admitted source and result owners.
-use super::declarations::{column, canonical_relation as relation};
+use super::declarations::{canonical_relation as relation, column};
 use super::substrate::NativeIndex;
 use crate::{
     RegistryBuilder,
@@ -30,12 +30,18 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_research_datasets",
             vec![
-                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ResearchDataset),
-                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
-                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision),
+                column("key", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ResearchDataset),
+                column("project", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Project),
+                column("revision", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Revision),
                 column("physical_context", text()),
-                column("context", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext),
-                column("parent", text()).with_canonical_key(crate::model::CanonicalKeyKind::ResearchDataset).optional(),
+                column("context", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext),
+                column("parent", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ResearchDataset)
+                    .optional(),
                 column("role", text()),
                 column("members", bytes()),
                 column("request", bytes()),
@@ -45,12 +51,17 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_research_selections",
             vec![
-                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ResearchSelection),
-                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
-                column("dataset", text()).with_canonical_key(crate::model::CanonicalKeyKind::ResearchDataset),
-                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision),
+                column("key", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ResearchSelection),
+                column("project", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Project),
+                column("dataset", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ResearchDataset),
+                column("revision", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Revision),
                 column("physical_context", text()),
-                column("context", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext),
+                column("context", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ProjectContext),
                 column("fit", text()),
                 column("selection", bytes()),
                 column("request", bytes()),
@@ -60,13 +71,19 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_research_publications",
             vec![
-                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ResearchPublication),
-                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
-                column("selection", text()).with_canonical_key(crate::model::CanonicalKeyKind::ResearchSelection),
+                column("key", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ResearchPublication),
+                column("project", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Project),
+                column("selection", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::ResearchSelection),
                 column("run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run),
-                column("attempt", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt),
-                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision),
-                column("parent", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision),
+                column("attempt", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Attempt),
+                column("revision", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Revision),
+                column("parent", text())
+                    .with_canonical_key(crate::model::CanonicalKeyKind::Revision),
                 column("mapping", bytes()),
                 column("request", bytes()),
             ],

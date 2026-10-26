@@ -416,12 +416,21 @@ impl<'a> ResultAppendQueue<'a> {
             (Some(Arc::new(admitted)), None)
         } else {
             let file = pse_operations::canonical::operation_scope(seal_deadline, async {
-                let intent = self.store.reserve_result_file(self.fence, &operation, &digest).await?;
-                self.store.seal_file(
-                    &intent, admitted.bytes(), pse_operations::canonical_files::ARROW_IPC_FILE,
-                    batches.len() as u64, &schema,
-                ).await
-            }).await?;
+                let intent = self
+                    .store
+                    .reserve_result_file(self.fence, &operation, &digest)
+                    .await?;
+                self.store
+                    .seal_file(
+                        &intent,
+                        admitted.bytes(),
+                        pse_operations::canonical_files::ARROW_IPC_FILE,
+                        batches.len() as u64,
+                        &schema,
+                    )
+                    .await
+            })
+            .await?;
             (None, Some(AdmittedSealedResultFile::bind(file, admitted)?))
         };
         drop(batches);
@@ -447,20 +456,36 @@ impl<'a> ResultAppendQueue<'a> {
             let owner = if let Some(body) = &inline_body {
                 // Encoded body custody and native request/value copies have distinct owners.
                 // Prepay every per-member append representation before constructing it.
-                let extent = body.bytes().len().checked_mul(16)
+                let extent = body
+                    .bytes()
+                    .len()
+                    .checked_mul(16)
                     .and_then(|bytes| bytes.checked_add(owner.size()))
                     .and_then(|bytes| bytes.checked_add(4096))
                     .ok_or_else(|| contract("inline append copy extent"))?;
-                let reservation = MemoryConsumer::new("canonical:inline-append-transport").register(self.pool);
-                reservation.try_grow(extent).map_err(pse_engine::EngineError::from)?;
+                let reservation =
+                    MemoryConsumer::new("canonical:inline-append-transport").register(self.pool);
+                reservation
+                    .try_grow(extent)
+                    .map_err(pse_engine::EngineError::from)?;
                 pse_columnar::AllocationLease::new(reservation)
-            } else { owner };
+            } else {
+                owner
+            };
             let payload = if let Some(body) = &inline_body {
-                ResultPayload::from_admitted_encoded_owned(body.clone(), index as u64, &operation, owner.clone())?
+                ResultPayload::from_admitted_encoded_owned(
+                    body.clone(),
+                    index as u64,
+                    &operation,
+                    owner.clone(),
+                )?
             } else {
                 ResultPayload::from_admitted_sealed_owned(
-                    sealed_body.as_ref().ok_or_else(|| contract("selected sealed body absent"))?,
-                    index as u64, owner.clone(),
+                    sealed_body
+                        .as_ref()
+                        .ok_or_else(|| contract("selected sealed body absent"))?,
+                    index as u64,
+                    owner.clone(),
                 )?
             };
             block.payload_bytes = payload.byte_len();
@@ -482,7 +507,9 @@ impl<'a> ResultAppendQueue<'a> {
                 .encoded_extent()
                 .checked_add(4096)
                 .ok_or_else(|| contract("sealed append metadata extent"))?;
-            if extent > owner.size() || extent > pse_schema::catalog::substrate::RESULT_APPEND_TARGET_BYTES - 4096 {
+            if extent > owner.size()
+                || extent > pse_schema::catalog::substrate::RESULT_APPEND_TARGET_BYTES - 4096
+            {
                 return Err(contract("sealed append exceeds admitted metadata extent"));
             }
             if !self.appends.is_empty()

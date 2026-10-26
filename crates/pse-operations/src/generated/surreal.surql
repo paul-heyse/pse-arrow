@@ -1089,13 +1089,35 @@ DEFINE FUNCTION fn::pse_execution_v1::current_writer($rpc_expiry:int,$run:string
     RETURN true;
 };
 
-DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int, $interpretation: string, $finalization_study: option<string>) -> object {
+DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int, $interpretation: string, $finalization_study: option<string>, $admission_owner: option<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
     IF $interpretation!='pse.substrate.v9' { THROW 'PSE_REFUSAL:stale_execution_claim_interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
+    // Immutable owner meaning is checked before receipt replay. A generic
+    // execution caller cannot borrow an input-admission acknowledgement.
+    LET $owner = SELECT purpose,admission_study,admission_point FROM ONLY type::record('canonical_runs',$run);
+    LET $purpose = IF $admission_owner=NONE {'execution'} ELSE {'study_admission'};
+    IF $owner=NONE OR $owner.purpose!=$purpose { THROW 'PSE_REFUSAL:execution_run_not_claimable'; };
+    IF $admission_owner!=NONE {
+        IF $finalization_study!=NONE OR $owner.admission_study!=$admission_owner.study OR $owner.admission_point!=$admission_owner.point { THROW 'PSE_REFUSAL:scientific_admission_capability_belongs_elsewhere'; };
+        LET $point=SELECT study,admission_run FROM ONLY type::record('canonical_study_points',$admission_owner.point);
+        IF $point=NONE OR $point.study!=$admission_owner.study OR $point.admission_run!=$run { THROW 'PSE_REFUSAL:scientific_admission_capability_belongs_elsewhere'; };
+    };
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'claim', $request);
-    IF $op != NONE { LET $rpc_result = SELECT * FROM ONLY type::record('canonical_attempts', $op.attempt); fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
+    IF $op != NONE {
+        IF $op.run!=$run { THROW 'PSE_REFUSAL:execution_operation_identity_reused'; };
+        LET $rpc_result = SELECT * FROM ONLY type::record('canonical_attempts', $op.attempt);
+        IF $rpc_result=NONE OR $rpc_result.run!=$run OR $rpc_result.claim_operation!=$operation OR $rpc_result.request!=$request { THROW 'PSE_REFUSAL:execution_operation_identity_reused'; };
+        fn::pse_execution_v1::deadline($rpc_expiry);
+        RETURN $rpc_result;
+    };
+    // Fresh allocation requires the current guarded study premises. Exact
+    // immutable replay above does not regain any later dispatch permission.
+    IF $admission_owner!=NONE {
+        LET $point=fn::pse_study_v1::guard($rpc_expiry,$admission_owner.study,$admission_owner.generation,false,$admission_owner.point,$admission_owner.expected);
+        IF $point.admission!=NONE OR $point.admission_run!=$run { THROW 'PSE_REFUSAL:scientific_admission_capability_belongs_elsewhere'; };
+    };
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $run);
     LET $r = SELECT * FROM ONLY type::record('canonical_runs', $run);
     LET $summary_cancelled=fn::pse_execution_v1::summary_cancelled($rpc_expiry,$run);
@@ -1107,7 +1129,7 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
         IF array::len($pending)!=0 { THROW 'PSE_REFUSAL:study_summary_finalization_requires_settled_membership'; };
     };
     IF fn::pse_execution_v1::study_cancelled($rpc_expiry, $run) OR ($summary_cancelled AND $finalization_study=NONE) { THROW 'PSE_REFUSAL:execution_cancelled_study_run_not_claimable'; };
-    IF $r = NONE OR $r.purpose!='execution' OR $r.cancelled OR $r.interpretation != $interpretation { THROW 'PSE_REFUSAL:execution_run_not_claimable'; };
+    IF $r = NONE OR $r.purpose!=$purpose OR $r.cancelled OR $r.interpretation != $interpretation { THROW 'PSE_REFUSAL:execution_run_not_claimable'; };
     IF (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$run) FOR UPDATE)!=NONE { THROW 'PSE_REFUSAL:effect_free_execution_already_settled'; };
     IF $r.current_attempt != NONE {
         LET $previous = SELECT * FROM ONLY type::record('canonical_attempts', $r.current_attempt);
@@ -1120,7 +1142,7 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
     LET $source_root = SELECT * FROM ONLY type::record('canonical_roots', 'run:' + $run);
     IF $source_root = NONE OR $source_root.problem != $r.problem OR $source_root.revision != $r.revision OR $source_root.sequence != $r.source_sequence OR $source_root.owner_kind != 'run' OR $source_root.owner != $run { THROW 'PSE_REFUSAL:execution_retained_source_selection_unavailable'; };
     CREATE ONLY type::record('canonical_roots', 'active_attempt:' + $attempt) SET key = 'active_attempt:' + $attempt, problem = $r.problem, revision = $r.revision, sequence = $r.source_sequence, owner_kind = 'active_attempt', owner = $attempt;
-    fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'claim',$request,$request,NONE,NONE);
+    fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'claim',$request,$request,$admission_owner.study,$admission_owner.point);
     LET $rpc_result = $saved;
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::lease($rpc_expiry, $saved.expires_at);
@@ -2777,7 +2799,7 @@ DEFINE FUNCTION fn::pse_study_v1::finalize($rpc_expiry: int, $study: string, $op
         IF $current != NONE AND ($current.phase NOT IN ['terminal','terminal_compacted']) AND $current.expires_at > time::micros() { LET $rpc_result = NONE; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
     };
     LET $existing_operation = SELECT key FROM ONLY type::record('canonical_execution_operations', $operation);
-    LET $rpc_result = fn::pse_execution_v1::claim($rpc_expiry, $s.run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,$study);
+    LET $rpc_result = fn::pse_execution_v1::claim($rpc_expiry, $s.run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,$study,NONE);
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $existing_operation = NONE { fn::pse_execution_v1::lease($rpc_expiry, $rpc_result.expires_at); };
     RETURN $rpc_result;
@@ -2831,7 +2853,7 @@ DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,
         };
     };
     LET $s=SELECT interpretation FROM ONLY type::record('canonical_studies',$study);
-    LET $claimed=fn::pse_execution_v1::claim($rpc_expiry,$run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,NONE);
+    LET $claimed=fn::pse_execution_v1::claim($rpc_expiry,$run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,NONE,{study:$study,generation:$generation,point:$point,expected:$expected});
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::lease($rpc_expiry,$claimed.expires_at);
     RETURN $claimed;
@@ -2887,7 +2909,7 @@ DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $gener
         LET $current = SELECT * FROM ONLY type::record('canonical_study_points', $item.key);
         IF $current = NONE OR $current.study != $study OR $current.revision != $item.revision { THROW 'PSE_REFUSAL:study_point_premise_changed'; };
     };
-    LET $claimed = fn::pse_execution_v1::claim($rpc_expiry, $p.run, $operation + ':attempt', $claim_request, $attempt, $worker, $lifetime, $s.interpretation,NONE);
+    LET $claimed = fn::pse_execution_v1::claim($rpc_expiry, $p.run, $operation + ':attempt', $claim_request, $attempt, $worker, $lifetime, $s.interpretation,NONE,NONE);
     UPDATE ONLY type::record('canonical_study_points', $point) SET assigned = true, revision += 1dec, facts = $facts, start = $start, attempt = $attempt;
     fn::pse_study_v1::readiness_invalidate($rpc_expiry,(SELECT * FROM ONLY type::record('canonical_study_points',$point)),false);
     fn::pse_history_v1::record_operation($rpc_expiry,$operation,$p.run,$attempt,'study-claim',$request,$request,$study,$point);

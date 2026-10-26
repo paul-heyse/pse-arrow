@@ -23,12 +23,18 @@ pub(super) enum ResultFileSource {
 }
 impl Read for ResultFileSource {
     fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
-        match self { Self::Sealed(file) => file.read(bytes), Self::Inline(body) => body.read(bytes) }
+        match self {
+            Self::Sealed(file) => file.read(bytes),
+            Self::Inline(body) => body.read(bytes),
+        }
     }
 }
 impl Seek for ResultFileSource {
     fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> {
-        match self { Self::Sealed(file) => file.seek(position), Self::Inline(body) => body.seek(position) }
+        match self {
+            Self::Sealed(file) => file.seek(position),
+            Self::Inline(body) => body.seek(position),
+        }
     }
 }
 

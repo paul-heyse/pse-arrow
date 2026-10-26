@@ -990,7 +990,9 @@ impl ProductDescription {
         })
     }
     /// Exact declared class of this original producer binding.
-    pub fn producer_class(&self) -> CanonicalProducerClass { self.material.product.producer_class }
+    pub fn producer_class(&self) -> CanonicalProducerClass {
+        self.material.product.producer_class
+    }
     /// Immutable complete premises, without protection or permission.
     pub fn selected_dependencies(&self) -> &SelectedDependencies {
         self.selection.selected_dependencies()
@@ -1095,7 +1097,9 @@ pub struct ProductCandidate {
 }
 impl ProductCandidate {
     /// Exact declared class; discovery alone grants no scientific admission.
-    pub fn producer_class(&self) -> CanonicalProducerClass { self.product.producer_class }
+    pub fn producer_class(&self) -> CanonicalProducerClass {
+        self.product.producer_class
+    }
 
     /// Cursor for the next discovery after an incompatible candidate.
     pub fn key(&self) -> &str {
@@ -1123,7 +1127,9 @@ impl ReusableProduct {
         self.product.payload.as_slice()
     }
     /// Exact producer class retained through canonical qualification.
-    pub fn producer_class(&self) -> CanonicalProducerClass { self.product.producer_class }
+    pub fn producer_class(&self) -> CanonicalProducerClass {
+        self.product.producer_class
+    }
     /// Exact producer interpretation used for eligibility.
     pub fn producer(&self) -> &str {
         &self.product.producer
@@ -2051,8 +2057,7 @@ impl CanonicalStore {
                 );
                 if !product.producer_class.scientific() {
                     return Err(CanonicalError::Configuration(
-                        "scientific publication requires its actual admitted producer class"
-                            .into(),
+                        "scientific publication requires its actual admitted producer class".into(),
                     ));
                 }
                 let description = self.prepare_description(read, product)?;
@@ -2734,7 +2739,13 @@ impl CanonicalStore {
     ) -> Result<Option<ReusableProduct>, CanonicalError> {
         let mut cursor = after.to_owned();
         while let Some(candidate) = self
-            .product_candidate(read.selection(), request, producer, CanonicalProducerClass::General, &cursor)
+            .product_candidate(
+                read.selection(),
+                request,
+                producer,
+                CanonicalProducerClass::General,
+                &cursor,
+            )
             .await?
         {
             cursor = candidate.key().to_owned();
@@ -2846,18 +2857,63 @@ mod canonical_server_unit {
 
     #[tokio::test]
     async fn generic_product_receipt_text_never_confers_scientific_class() {
-        let store=fixture().await;
-        let revision=store.edit("p",None,"producer-class-source",&[]).await.unwrap();
-        let selected=read(&store,revision).await;
-        for producer in ["pse.qualified-math-producer.v1:claimed","pse.local-runtime.v2:claimed","pse.local-runtime.v1:historical"] {
-            let mut offered=product(&selected,b"generic native product");
-            offered.producer=producer.into();
-            assert_eq!(offered.producer_class,CanonicalProducerClass::General);
-            store.publish_product(&selected,offered).await.unwrap();
-            assert!(store.product_candidate(selected.selection(),b"exact-request",producer,CanonicalProducerClass::General,"").await.unwrap().is_some());
-            for class in [CanonicalProducerClass::LibraryMathematics,CanonicalProducerClass::LocalScientificReplay] {
-                assert!(!store.product_candidate_presence(selected.selection(),b"exact-request",producer,class,"").await.unwrap());
-                assert!(store.product_candidate(selected.selection(),b"exact-request",producer,class,"").await.unwrap().is_none());
+        let store = fixture().await;
+        let revision = store
+            .edit("p", None, "producer-class-source", &[])
+            .await
+            .unwrap();
+        let selected = read(&store, revision).await;
+        for producer in [
+            "pse.qualified-math-producer.v1:claimed",
+            "pse.local-runtime.v2:claimed",
+            "pse.local-runtime.v1:historical",
+        ] {
+            let mut offered = product(&selected, b"generic native product");
+            offered.producer = producer.into();
+            assert_eq!(offered.producer_class, CanonicalProducerClass::General);
+            store.publish_product(&selected, offered).await.unwrap();
+            assert!(
+                store
+                    .product_candidate(
+                        selected.selection(),
+                        b"exact-request",
+                        producer,
+                        CanonicalProducerClass::General,
+                        ""
+                    )
+                    .await
+                    .unwrap()
+                    .is_some()
+            );
+            for class in [
+                CanonicalProducerClass::LibraryMathematics,
+                CanonicalProducerClass::LocalScientificReplay,
+            ] {
+                assert!(
+                    !store
+                        .product_candidate_presence(
+                            selected.selection(),
+                            b"exact-request",
+                            producer,
+                            class,
+                            ""
+                        )
+                        .await
+                        .unwrap()
+                );
+                assert!(
+                    store
+                        .product_candidate(
+                            selected.selection(),
+                            b"exact-request",
+                            producer,
+                            class,
+                            ""
+                        )
+                        .await
+                        .unwrap()
+                        .is_none()
+                );
             }
         }
         store.release(selected.selection()).await.unwrap();
@@ -4435,7 +4491,13 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let candidate = store
-            .product_candidate(old.selection(), b"exact-request", "qualified-fixture", CanonicalProducerClass::General, "")
+            .product_candidate(
+                old.selection(),
+                b"exact-request",
+                "qualified-fixture",
+                CanonicalProducerClass::General,
+                "",
+            )
             .await
             .unwrap()
             .unwrap();
@@ -4497,7 +4559,8 @@ mod canonical_server_unit {
             .product_candidate(
                 current.selection(),
                 b"exact-request",
-                "qualified-fixture", CanonicalProducerClass::General,
+                "qualified-fixture",
+                CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4599,7 +4662,8 @@ mod canonical_server_unit {
             .product_candidate(
                 selected.selection(),
                 b"exact-request",
-                "qualified-fixture", CanonicalProducerClass::General,
+                "qualified-fixture",
+                CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4812,7 +4876,8 @@ mod canonical_server_unit {
             .product_candidate(
                 second.selection(),
                 b"exact-request",
-                "qualified-fixture", CanonicalProducerClass::General,
+                "qualified-fixture",
+                CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4822,7 +4887,8 @@ mod canonical_server_unit {
             .product_candidate(
                 second.selection(),
                 b"second-request",
-                "qualified-fixture", CanonicalProducerClass::General,
+                "qualified-fixture",
+                CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4997,7 +5063,8 @@ mod canonical_server_unit {
                 .product_candidate(
                     second.selection(),
                     b"second-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5104,7 +5171,8 @@ mod canonical_server_unit {
                 .product_candidate_presence(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     "",
                 )
                 .await
@@ -5115,7 +5183,8 @@ mod canonical_server_unit {
                 .product_candidate_presence(
                     selected.selection(),
                     b"other-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     "",
                 )
                 .await
@@ -5127,7 +5196,8 @@ mod canonical_server_unit {
                 .product_candidate_presence(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     "",
                 )
                 .await
@@ -5139,7 +5209,8 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5170,7 +5241,8 @@ mod canonical_server_unit {
             .product_candidate(
                 selected.selection(),
                 b"exact-request",
-                "qualified-fixture", CanonicalProducerClass::General,
+                "qualified-fixture",
+                CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -5226,7 +5298,8 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5252,7 +5325,8 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5290,7 +5364,8 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture", CanonicalProducerClass::General,
+                    "qualified-fixture",
+                    CanonicalProducerClass::General,
                     ""
                 )
                 .await

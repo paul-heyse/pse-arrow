@@ -2145,9 +2145,14 @@ impl DurableAttempt {
             AttemptState::Partial => TerminalClass::Partial,
             AttemptState::Cancelled => TerminalClass::Cancelled,
             AttemptState::Failed => TerminalClass::Failed,
-            AttemptState::Planned | AttemptState::Queued | AttemptState::Running
-            | AttemptState::Stale | AttemptState::Superseded => {
-                return Err(contract("nonterminal attempt state cannot authorize terminal publication"));
+            AttemptState::Planned
+            | AttemptState::Queued
+            | AttemptState::Running
+            | AttemptState::Stale
+            | AttemptState::Superseded => {
+                return Err(contract(
+                    "nonterminal attempt state cannot authorize terminal publication",
+                ));
             }
         };
         let seeds = if stored.completion.is_some() {

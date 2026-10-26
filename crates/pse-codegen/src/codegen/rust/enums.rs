@@ -103,7 +103,9 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
         .collect::<Vec<_>>();
     let projection = spec.projections.iter().map(|projection| {
         let method = format_ident!("{}", projection.method);
-        let target = if projection.target == "bool" { quote!(bool) } else {
+        let target = if projection.target == "bool" {
+            quote!(bool)
+        } else {
             let target = format_ident!("{}", super::types::pascal(projection.target));
             quote!(#target)
         };
@@ -115,13 +117,15 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
             let result = if projection.target == "bool" {
                 let value = member.value == "true";
                 quote!(#value)
-            } else { match (input.as_ref(), member.when_true) {
-                (Some(input), Some(when_true)) if member.value != when_true => {
-                    let when_true = format_ident!("{}", super::types::pascal(when_true));
-                    quote!(if #input { #target::#when_true } else { #target::#value })
+            } else {
+                match (input.as_ref(), member.when_true) {
+                    (Some(input), Some(when_true)) if member.value != when_true => {
+                        let when_true = format_ident!("{}", super::types::pascal(when_true));
+                        quote!(if #input { #target::#when_true } else { #target::#value })
+                    }
+                    _ => quote!(#target::#value),
                 }
-                _ => quote!(#target::#value),
-            } };
+            };
             quote!(Self::#source => #result,)
         });
         quote! { impl #name {
@@ -129,7 +133,9 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
             pub const fn #method(self #parameter) -> #target { match self { #(#arms)* } }
         } }
     });
-    let transitions = if spec.transitions.is_empty() { quote!() } else {
+    let transitions = if spec.transitions.is_empty() {
+        quote!()
+    } else {
         let edges = spec.transitions.iter().map(|edge| {
             let before = format_ident!("{}", super::types::pascal(edge.before));
             let after = format_ident!("{}", super::types::pascal(edge.after));

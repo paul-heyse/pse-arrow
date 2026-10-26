@@ -1141,22 +1141,34 @@ impl CanonicalStore {
     /// Descriptor pages stay body-free; the caller supplies the actual prepaid
     /// InlinePayload response ownership through physical completion.
     pub async fn read_inline_payload(
-        &self, read: &ResultRead, batch: &ResultBatch,
+        &self,
+        read: &ResultRead,
+        batch: &ResultBatch,
     ) -> Result<pse_model::generated::runtime::canonical_inline_payloads::Row, CanonicalError> {
         if !read.belongs_to(self) || batch.attempt != read.attempt.key {
             return Err(invalid("inline payload belongs to another exact reader"));
         }
         let set = read.set(&batch.result_set)?;
-        if batch.ordinal >= set.batch_count { return Err(invalid("inline payload outside admitted descriptor")); }
+        if batch.ordinal >= set.batch_count {
+            return Err(invalid("inline payload outside admitted descriptor"));
+        }
         self.read_inline_payload_owner(&read.owner, batch).await
     }
     async fn read_inline_payload_owner(
-        &self, owner: &Arc<ReadOwner>, batch: &ResultBatch,
+        &self,
+        owner: &Arc<ReadOwner>,
+        batch: &ResultBatch,
     ) -> Result<pse_model::generated::runtime::canonical_inline_payloads::Row, CanonicalError> {
-        use crate::canonical_execution::{PayloadLocator, result_payload_locator, result_payload_digest, validate_result_batch};
+        use crate::canonical_execution::{
+            PayloadLocator, result_payload_digest, result_payload_locator, validate_result_batch,
+        };
         validate_result_batch(batch)?;
-        let PayloadLocator::Inline { key, index } = result_payload_locator(batch)? else { return Err(invalid("inline payload requires inline locator")); };
-        if !self.db.same_driver(&owner.store.db) { return Err(invalid("inline payload reader belongs to another store")); }
+        let PayloadLocator::Inline { key, index } = result_payload_locator(batch)? else {
+            return Err(invalid("inline payload requires inline locator"));
+        };
+        if !self.db.same_driver(&owner.store.db) {
+            return Err(invalid("inline payload reader belongs to another store"));
+        }
         let activity = owner.store.selection_activity(&owner.selection)?;
         activity.scope(crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::InlinePayload, async {
             let revision = owner.selection.revision();
@@ -1187,12 +1199,17 @@ impl CanonicalStore {
     ) -> Result<HydratedResultBatch, CanonicalError> {
         use std::io::Read;
         let bytes = match crate::canonical_execution::result_payload_locator(&batch)? {
-            crate::canonical_execution::PayloadLocator::Inline { .. } => self.read_inline_payload_owner(&owner, &batch).await?.body.to_vec(),
+            crate::canonical_execution::PayloadLocator::Inline { .. } => self
+                .read_inline_payload_owner(&owner, &batch)
+                .await?
+                .body
+                .to_vec(),
             crate::canonical_execution::PayloadLocator::Sealed { .. } => {
                 let descriptor = self.file_descriptor(&batch).await?;
                 let mut file = self.open_physical_file(descriptor, owner)?;
                 let mut bytes = Vec::with_capacity(batch.payload_bytes as usize);
-                file.read_to_end(&mut bytes).map_err(|error| invalid(&error.to_string()))?;
+                file.read_to_end(&mut bytes)
+                    .map_err(|error| invalid(&error.to_string()))?;
                 bytes
             }
         };
@@ -1850,7 +1867,14 @@ mod canonical_results_server_unit {
                 std::fs::write(&path, [2u8; 32]).unwrap();
             }
             crate::canonical_execution::PayloadLocator::Inline { key, .. } => {
-                bounded_query(store.db.query("DELETE ONLY type::record('canonical_inline_payloads',$key);").bind(("key",key))).await.unwrap();
+                bounded_query(
+                    store
+                        .db
+                        .query("DELETE ONLY type::record('canonical_inline_payloads',$key);")
+                        .bind(("key", key)),
+                )
+                .await
+                .unwrap();
             }
         }
         assert!(store.result_block(&read, page[0].clone()).await.is_err());

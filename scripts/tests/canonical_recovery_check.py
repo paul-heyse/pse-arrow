@@ -663,7 +663,9 @@ def journey(
                     directory / "backup" / "backup.json", incomplete / "backup.json"
                 )
                 refused = server.inspect_backup(
-                    incomplete, server.SUBSTRATE_INTERPRETATION, physical_helper.resolve()
+                    incomplete,
+                    server.SUBSTRATE_INTERPRETATION,
+                    physical_helper.resolve(),
                 )
                 if refused.get("complete") is not False:
                     raise server.SupervisorError(
@@ -778,8 +780,14 @@ def journey(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("binary", type=Path, help="Separate xtask recovery fixture binary")
-    parser.add_argument("--payload-verifier", type=Path, help="Product pse-canonical-recovery physical helper")
+    parser.add_argument(
+        "binary", type=Path, help="Separate xtask recovery fixture binary"
+    )
+    parser.add_argument(
+        "--payload-verifier",
+        type=Path,
+        help="Product pse-canonical-recovery physical helper",
+    )
     parser.add_argument(
         "--directory",
         type=Path,
