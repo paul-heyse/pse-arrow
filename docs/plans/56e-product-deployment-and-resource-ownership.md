@@ -2,7 +2,7 @@
 title: "Plan 56e: Product, deployment and resource ownership"
 status: draft
 date: 2026-10-25
-adrs: []
+adrs: [ADR-0229]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
 scenario_sources: [docs/design_review/audit/system-architecture.md]
 doc_role: plan
@@ -161,7 +161,7 @@ repair truthful records. Archive diffs are useful evidence, not a new per-comman
 | E02 | planned; C04 recovery-helper root delivered, wider RC04 pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
 | E03 | planned; RC05 required | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
 | E04 | planned | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
-| E05 | planned | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
+| E05 | implemented; exact source reconstruction tested | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
 
 E01 and F01 share one generator/output-family decision, with root ownership of the declaration
 surface. E03 and E02 consume its emitted bootstrap documents. E04's leaf/borrower slice enables
@@ -186,3 +186,27 @@ qualification or a measured rebuild-time claim.
 ## Selected 56c prerequisites — 2026-10-26
 
 **Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns the selected product recovery binary in existing `pse-operations`, separate xtask fixture controls, native offline file authority and closed current-artifact readmission. This delivers only E02's helper-root prerequisite. Worker/project root relocation, the complete deployment protocol/validator and receiver closure remain E02 work; RC04 is selected only for the helper. RC02/RC03 catalogue separation and RC05 production profile authority remain pending, with existing numeric capacities preserved.
+
+## Execution checkpoint — 2026-10-26
+
+All packages in this companion are authorized for joint 56d/56e execution. The coordinator's
+[joint checkpoint](56-design-principle-alignment.md#joint-56d56e-execution-checkpoint--2026-10-26)
+records selected rule changes, dependency order, preservation and qualification boundaries.
+Contract publication and independent E04/E05 work have begun; package completion remains open.
+
+## E05 supplier reconstruction — 2026-10-26
+
+**Implemented:** reconciled SDK/engine API 3.3.4 gRPC origin, SUNDIALS numerical edits and the
+existing server patch series. Complete archive deltas in `vendor/deltas/` retain substantive,
+whitespace, added/deleted path and executable-mode meaning. Existing supplier implementation
+bytes and patches were preserved; the source record and R-41 now identify the retained IDAS
+quadrature-history workaround. Producer review hashes remain explicitly historical evidence.
+
+**Tested:** the complete reconstruction block in `vendor/deltas/readme.md`, executed through
+`scripts/pse-env -- .venv/bin/python`, verified archive SHA256, packaged revisions and exact
+tracked path/byte/executable-mode equality for all seven edited suppliers: zero failures against
+the zero baseline. The twelve existing server patches applied with `git apply --index` to pinned
+revision `1ac2b1dba7cd177621a4cf5d507caebeb2414395`; resulting tree
+`120161c0f4138d7036961888ca60186dda195218` (65 changed paths). The pinned DiskANN archive
+digest and existing patch also verified. These controls establish source reconstruction, not
+numerical, producer-context or product requalification. No native implementation changed.

@@ -2,7 +2,7 @@
 title: "Plan 56d: Publication and workload fit"
 status: draft
 date: 2026-10-25
-adrs: []
+adrs: [ADR-0230]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
 scenario_sources: [docs/design_review/audit/system-architecture.md]
 doc_role: plan
@@ -194,3 +194,10 @@ No benchmark campaign, scale SLA or product qualification was run during authori
 ## Selected 56c prerequisites — 2026-10-26
 
 **Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns canonical declarations/settlement, bounded inline/sealed placement and the native product recovery helper at its recorded scopes. D01 consumes that placement; its grouped guard/frontier realization remains planned. D02 retains population admission, D05 retains incremental inventory/copy and frozen-tooling work, and D06 retains projection/spill ownership. Availability of C's mechanisms does not complete these D packages or establish measured workload benefit.
+
+## Execution checkpoint — 2026-10-26
+
+All packages in this companion are authorized for joint 56d/56e execution. The coordinator's
+[joint checkpoint](56-design-principle-alignment.md#joint-56d56e-execution-checkpoint--2026-10-26)
+records selected rule changes, dependency order, preservation and qualification boundaries.
+Contract publication and independent E04/E05 work have begun; package completion remains open.

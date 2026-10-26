@@ -1519,6 +1519,16 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 
+> Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
+> product and private declaration publication follow responsibility; scientific meaning stays
+> canonical. Plan56e owns migration and actual dependency/import qualification.
+
+Non-scientific owner-local serde documents and closed string enums lower through the existing
+schema/Python generator. Product contracts and private bootstrap/development outputs have separate
+publication roots. Private generated consumers do not require scientific package import, while
+scientific enum references retain their exact registry identity. Unsupported constructs and
+conflicting definitions refuse generation rather than widening the contract.
+
 > Amendment: [ADR-0227](../../adr/0227-completion-permission-and-operation-facts.md)
 > (proposed; maintainer-authorized Plan56b).
 

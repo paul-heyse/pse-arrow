@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 285
+revision: 286
 date: 2026-10-26
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 286 | 2026-10-26 | Select responsibility-owned product/private declarations, product worker/project roots, Rust deployment/allocation authority and production profiles (§D1/§3.2/§20.6/§21.1). | Maintainer-selected RC02/RC03 and remaining RC04/RC05; proposed ADR-0229 and independent Accept at Proposed design evidence precede dependent implementation; PSE_DESIGN_EDIT=1. Plan56e owns delivery/qualification; ADR-0230 capture remains unresolved. |
 | 285 | 2026-10-26 | Publish selected Plan56c canonical/native/Python/public and private mixed recovery acceptance, shared durable chunk custody and retained scope limits (§19.8/§24.2). | Maintainer-authorized C01–C05 closeout; PSE_DESIGN_EDIT=1. Original failures/composite checks retained; ADR-0228 remains proposed and wider Plan56 stays open. |
 | 284 | 2026-10-26 | Align backup preflight with the existing private sole-database restore/replacement authority (§20.6). | Maintainer-authorized Plan56c C04 integration correction; PSE_DESIGN_EDIT=1. Five source controls and the actual 45-context refusal preserve configuration and destination boundaries; mixed private recovery remains at 56c. |
 | 283 | 2026-10-26 | Publish exact study-admission claim identity, completed IPC allocation custody and prepaid durable progress futures (§19.8/§20). | Maintainer-authorized Plan56c integration repairs; PSE_DESIGN_EDIT=1. Qualification remains at the owning Outcome; ADR-0228 remains proposed. |

@@ -124,10 +124,10 @@ revised proposal. No rejection silently waives a supported MUST.
 | Rule | Current owner and proposed change | Consequence if current rule is kept | Confirmation |
 |---|---|---|---|
 | RC01 | ADR-0187 / blueprint §20: permit bounded small encoded scientific payloads inline, with sealed native IPC for larger members, one typed locator/validation/visibility owner | Keep file-only placement; group metadata and larger same-relation packing, but separately address/justify remaining tiny-file protocol work | selected 2026-10-25; ADR-0228/review before dependent implementation |
-| RC02 | ADR-0116 / boundary generation and D1 wording as affected: permit responsibility-owned document sets and owner-local non-scientific enums, with generated Python/schema types; scientific registry vocabularies remain canonical | Keep the all-enums-in-registry rule; redesign development/type partition before claiming DA-020/040 closure | pending |
-| RC03 | Reconsider I21's development/product placement conclusion for widened consumers: move development evidence/knowledge implementation/publication to existing xtask composition; retain product observability/hub and no new crate | Retain current placement and propose another effective dependency seam; nominal feature gating is insufficient | pending |
-| RC04 | Blueprint §3.2 composition roots: place actual product worker/project and product recovery roots in existing product package targets; retain fixture controls and I24 exploration in xtask | Keep xtask roots but provide a genuinely product-only build/closure without fixture/development dependencies; adapt E02 before implementation | selected only offline recovery helper for 56c; remaining worker/project relocation pending |
-| RC05 | Production profile authority: put separately typed product profile values upstream in existing capacity configuration with Rust validation/materialization; conformance selects/consumes, with no selected numeric reduction | Preserve conformance authority; remove duplicate literals but explicitly resolve the remaining test-to-production dependency in the target | pending |
+| RC02 | ADR-0116 / boundary generation and D1 wording as affected: permit responsibility-owned document sets and owner-local non-scientific enums, with generated Python/schema types; scientific registry vocabularies remain canonical | Keep the all-enums-in-registry rule; redesign development/type partition before claiming DA-020/040 closure | selected 2026-10-26 for joint 56d/56e execution; proposed ADR-0229 and focused review precede dependent implementation |
+| RC03 | Reconsider I21's development/product placement conclusion for widened consumers: move development evidence/knowledge implementation/publication to existing xtask composition; retain product observability/hub and no new crate | Retain current placement and propose another effective dependency seam; nominal feature gating is insufficient | selected 2026-10-26 for joint 56d/56e execution; proposed ADR-0229 and focused review precede dependent implementation |
+| RC04 | Blueprint §3.2 composition roots: place actual product worker/project and product recovery roots in existing product package targets; retain fixture controls and I24 exploration in xtask | Keep xtask roots but provide a genuinely product-only build/closure without fixture/development dependencies; adapt E02 before implementation | selected 2026-10-26 for joint 56d/56e execution; proposed ADR-0229 and focused review precede dependent implementation |
+| RC05 | Production profile authority: put separately typed product profile values upstream in existing capacity configuration with Rust validation/materialization; conformance selects/consumes, with no selected numeric reduction | Preserve conformance authority; remove duplicate literals but explicitly resolve the remaining test-to-production dependency in the target | selected 2026-10-26 for joint 56d/56e execution; proposed ADR-0229 and focused review precede dependent implementation |
 | RC06 | Blueprint §24.1 fresh-worker wording: allow an actually witnessed foreground endpoint/workload read worker to remain admitted across exact pages/calls, retiring on changed supported basis and draining before replacement | Keep fresh children, improve currency and use one explicit multi-page workload where possible; retain/reassess remaining cross-call setup work | pending |
 
 RC01/RC02 affect durable/Python/identity boundary contracts and require their applicable ADR and
@@ -319,3 +319,21 @@ store and prior qualification databases/receipts. Other RC04 work and RC02/03/05
 **Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) completes C01–C05 and resolves DA-007/033 at the recorded local Linux conditions. Declarations, exact settlement, v9 inline/sealed placement, native product recovery and controlled fresh activation are adopted through current consumers. Canonical 49/49 and final runtime 83/83 passed; installed Python, actual STDIO MCP/CLI and private mixed recovery passed with exact retained semantics. Original failures, affected repairs and early shared-state backup refusal remain evidence. Owned source/restored states are stopped and retained; the selected existing store and prior 56b data remain preserved.
 
 RC01 and only RC04's recovery-helper slice are delivered; ADR-0228 remains proposed. RC02/03/05/06 and wider RC04 remain pending. D/E/F/G consume the explicit prerequisites at their owners; their broader packages and full-series qualification remain open. No full feature matrix, parity/fleet, distribution, other-platform or measured performance claim follows.
+
+## Joint 56d/56e execution checkpoint — 2026-10-26
+
+The maintainer authorized all D01–D06 and E01–E05 after selecting RC02/RC03 and the remaining
+RC04/RC05 targets. Proposed ADR-0229/0230 record declaration/deployment/profile and durable
+installation/capture contracts before dependent code. Minimal F01 generation prerequisites and
+existing C/G integration are included; other plan series are outside this work.
+
+E04 process/borrower ownership and E05 supplier reconstruction can advance independently.
+E01/F01 family publication enables E02/E03, followed by actual grouped publication/population,
+compact outcomes/capture/provider, incremental exchange and frozen recovery. The selected old
+store and all 56a/b/c qualification states and receipts remain preserved. New application-state
+validation uses owned disposable deployments; private backup/restore uses a sole database.
+
+Scope-end qualification selects affected functional/features and focused benefit measurements,
+including 10,000-point creation/summary/cohort reads. The 100,000 ceiling remains unqualified.
+The full 505-case feature matrix is excluded. No new implementation, qualification or benefit
+claim follows from this checkpoint or the new proposed decisions.

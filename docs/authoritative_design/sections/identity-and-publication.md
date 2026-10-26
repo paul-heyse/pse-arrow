@@ -923,6 +923,27 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
+> Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
+> selected Plan56 RC05 and deployment ownership target; implementation remains with Plan56e.
+
+Rust owns versioned deployment/profile/context/receiver/readiness documents and one relational
+allocation validator callable before setup effects. Generated bootstrap contracts support Python's
+environment/systemd realization. Production profiles are separately typed sections of
+`.config/agent-capacity.toml`; conformance selects a profile. Materialize one admitted allocation
+for supervisor, runtime, worker and host consumers, preserving explicit override precedence and
+all selected numeric values, reference sixteen lanes, distinct fixture lanes and uncapped ordinary
+workstation behavior. Host, observer, receiver and worker scopes retain their different meanings.
+
+Receiver generations include their actual owned import closure, regular-package parents, generated
+bindings, required configuration and executable/provider identities. Explicitly declared dynamic
+imports are included; unknown owned dynamic imports refuse. Validate an isolated frozen import
+before publication. Unrelated development scripts do not invalidate product receiver identity.
+
+Shared leaf observations report authenticated process facts and explicit uncertainty. Existing
+admission/resource authority exposes borrowers independently of report/fixture custody. Owners
+retain distinct launcher-liveness and descendant-drain decisions; unknown authority stays
+protective. There is no universal alive predicate or second custody ledger.
+
 > Decision: [ADR-0220](../../adr/0220-selected-closure-and-fresh-authority-exchange.md) (proposed; maintainer-authorized Plan51e–51g target).
 
 Selected logical project closure has one resolver over original source, research, study,

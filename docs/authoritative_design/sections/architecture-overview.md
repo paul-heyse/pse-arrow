@@ -222,11 +222,18 @@ The linked section owns the detailed contract.
 > [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md),
 > [ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)
 
-Every durable shape, tag and public declaration contract is declared once in the
-`pse-schema` registry. Rust values, Arrow schemas, Python contracts and reference docs are
-generated from it and checked for regeneration equivalence. Authored definitions, loaded
-from modeling documents through Rust or Python, are the model authority; no hand-written
-structure shadows a generated one. *Because* parallel descriptions drift silently.
+> Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
+> responsibility-owned non-scientific document sets and local enums amend the universal
+> registry placement requirement; Plan56e owns migration and qualification.
+
+Each meaning has one authoritative declaration. Scientific relations, identities and vocabularies
+remain in the `pse-schema` registry. Non-scientific boundary documents and their local enums live
+with their responsibility, using the existing generator for Rust-derived schema/Python publication.
+Product and development contributions have separate output families; xtask composes development
+contributions without imposing their implementation on normal product consumers. Generation
+remains checked for equivalence. Authored definitions, loaded from modeling documents through
+Rust or Python, are the model authority; no handwritten structure shadows a generated one.
+*Because* parallel descriptions drift silently.
 See [§4](schema-and-relations.md#section-4).
 
 ### D2. Author definitions and bindings; derive specialized consequences
