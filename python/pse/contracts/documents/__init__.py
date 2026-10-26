@@ -28882,7 +28882,7 @@ class StudyCohortRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     document_version: Literal[1] = 1
     #: Exact native predicates.
     filter: StudyWorkbenchFilter
-    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    #: Capture refuses if complete selected population exceeds this or the declared cohort admission bound.
     maximum_members: Annotated[int, msgspec.Meta(ge=0)]
     #: Capture refuses if more studies match; maximum 64.
     maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
@@ -28896,7 +28896,7 @@ class StudyCohortRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     #: Exact native predicates.
     filter: StudyWorkbenchFilter
-    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    #: Capture refuses if complete selected population exceeds this or the declared cohort admission bound.
     maximum_members: Annotated[int, msgspec.Meta(ge=0)]
     #: Capture refuses if more studies match; maximum 64.
     maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
@@ -28910,7 +28910,7 @@ class StudyCohortRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_f
 
     #: Exact native predicates.
     filter: StudyWorkbenchFilterOutput
-    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    #: Capture refuses if complete selected population exceeds this or the declared cohort admission bound.
     maximum_members: Annotated[int, msgspec.Meta(ge=0)]
     #: Capture refuses if more studies match; maximum 64.
     maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
@@ -28928,7 +28928,7 @@ class StudyCohortRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     document_version: Literal[1] = 1
     #: Exact native predicates.
     filter: StudyWorkbenchFilterOutput
-    #: Capture refuses if complete selected population exceeds this; maximum 128.
+    #: Capture refuses if complete selected population exceeds this or the declared cohort admission bound.
     maximum_members: Annotated[int, msgspec.Meta(ge=0)]
     #: Capture refuses if more studies match; maximum 64.
     maximum_studies: Annotated[int, msgspec.Meta(ge=0)]
@@ -33413,4 +33413,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:cfae0edcb700aa48f634e4cdb324df208c3c295f9e21613743fe0fc59762c267"
+SCHEMA_SET_FINGERPRINT = "blake3:7b0f4b79dcc652e3b5f03362d4ed9f6b2e4834193f5c3abe6c1ed5efa7014d2a"

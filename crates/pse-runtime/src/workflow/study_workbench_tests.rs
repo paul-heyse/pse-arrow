@@ -202,6 +202,7 @@ fn cohort(physical: &flow::PhysicalSource) -> StudyCohortRequest {
 #[allow(clippy::print_stderr, reason = "selected native population qualification records phase timing and accounted pool usage without performance thresholds")]
 async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provider() {
     use datafusion::arrow::array::{Array,Float64Array,Int64Array};
+    use futures_util::StreamExt;
     use pse_operations::canonical::{CanonicalError,RefusalCode};
     let started=std::time::Instant::now();
     let runtime=flow::durable_tests::durable_runtime();
@@ -223,12 +224,12 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
     let summary=store.canonical_study_summary(&study).await.unwrap().unwrap();
     assert_eq!(summary.point_count,10000);assert!(summary.active&&!summary.terminal);
     let request=StudyCohortRequest{filter:StudyWorkbenchFilter{study:Some(study.clone()),..Default::default()},maximum_studies:1,maximum_members:10000};
-    assert!(runtime.freeze_study_cohort(request.clone()).await.is_err(),"ordinary128 admission stays until qualification is accepted");
+    assert!(runtime.freeze_study_cohort(StudyCohortRequest{maximum_members:pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS+1,..request.clone()}).await.is_err(),"population admission refuses beyond the single declared cap");
     let pool_limit=runtime.shared.budget().memory_limit_bytes.get();
     let capture_start_live=runtime.shared.pool().reserved();
     runtime.shared.reset_observation_peak();
     let capture_started=std::time::Instant::now();
-    let frozen=runtime.freeze_study_cohort_qualification(request).await.unwrap();
+    let frozen=runtime.freeze_study_cohort(request).await.unwrap();
     let captured=capture_started.elapsed();
     let capture_peak=runtime.shared.observation_peak_bytes();
     let capture_end_live=runtime.shared.pool().reserved();
@@ -296,12 +297,21 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
     loop {
         let page=store.study_point_page(&study,after).await.unwrap();
         if page.is_empty(){break;}
-        for point in page {
-            after=Some(point.ordinal);
-            if point.settled {continue;}
-            let scope=store.study_scope(&point.key).await.unwrap();
-            store.refuse_study_point(&scope,&scope.action(None).unwrap(),None).await.unwrap();
-        }
+        after=page.last().map(|point|point.ordinal);
+        // These independent fixture points have no dependency edges. Overlap
+        // only their compact scoped I/O within this original bounded page;
+        // production admission, request clocks and retries remain authoritative.
+        let settled=futures_util::stream::iter(page.into_iter().filter(|point|!point.settled).map(|point| {
+            let store=&store;
+            async move {
+                let scope=store.study_scope(&point.key).await?;
+                store.refuse_study_point(&scope,&scope.action(None)?,None).await
+            }
+        })).buffer_unordered(16).collect::<Vec<_>>().await;
+        // Drain every admitted sibling before asserting; retain each original
+        // typed error rather than dropping in-flight work on the first refusal.
+        let failures=settled.into_iter().filter_map(Result::err).collect::<Vec<_>>();
+        assert!(failures.is_empty(),"fixture cancellation settlement failures: {failures:?}");
     }
     let settled=settlement_started.elapsed();
     let summary_started=std::time::Instant::now();

@@ -39,7 +39,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::commit_capture($rpc_expiry:int,$key:string
     IF $capture.state!='pending' OR $gate=NONE OR $gate.capture!=$key OR $gate.owner!=$owner OR $gate.request!=$request OR $gate.incarnation!=$capture.incarnation OR $gate.issued_expires_at!=$capture.issued_expires_at OR $capture.issued_expires_at<=time::micros() { THROW 'PSE_REFUSAL:study_capture_original_grant_closed'; };
     LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
     IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
-    IF array::len($rows)>$maximum OR $maximum<1 OR $maximum>64 OR $members<1 OR $members>10000 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    IF array::len($rows)>$maximum OR $maximum<1 OR $maximum>64 OR $members<1 OR $members>__COHORT_MEMBERS__ { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     FOR $s IN $rows { fn::pse_history_v1::check_owner($rpc_expiry,'study',$s.key); };
     LET $total=math::sum($rows.point_count) ?? 0dec;
     IF array::len($rows.filter(|$s| !$s.active))!=0 OR $total>$members { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
@@ -54,7 +54,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::commit_capture($rpc_expiry:int,$key:string
     });
     LET $headers=$selected_headers.row;
     LET $selected=$rows.key;
-    LET $points=SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected ORDER BY study,ordinal LIMIT 10001;
+    LET $points=SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected ORDER BY study,ordinal LIMIT __COHORT_SENTINEL__;
     IF array::len($points)!=$total { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
     LET $facts=$points.map(|$point,$index| {
         LET $attempt=IF $point.attempt=NONE {NONE} ELSE {SELECT key,run,phase,closed_manifest FROM ONLY type::record('canonical_attempts',$point.attempt)};
@@ -209,5 +209,5 @@ DEFINE FUNCTION fn::pse_workbench_v1::browse($rpc_expiry:int,$rows:array<object>
     IF bytes::len(encoding::cbor::encode($result))>1048576 {THROW 'PSE_REFUSAL:study_workbench_narrow_selection';};
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $result;
 };
-"#.replace("__CAPTURE_ROWS__",&pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS.to_string()).replace("__STUDY_BYTES__",&pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES.to_string()));
+"#.replace("__CAPTURE_ROWS__",&pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS.to_string()).replace("__COHORT_MEMBERS__",&pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS.to_string()).replace("__COHORT_SENTINEL__",&(pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS+1).to_string()).replace("__STUDY_BYTES__",&pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES.to_string()));
 }

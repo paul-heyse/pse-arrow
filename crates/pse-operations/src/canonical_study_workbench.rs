@@ -527,10 +527,9 @@ impl CanonicalStore {
     }
 
     /// Capture an exact immutable request once, retaining the original gate grant.
-    /// This lower-level operation permits the selected 10,000-member qualification;
-    /// the public workbench admission remains at 128 until that qualification passes.
+    /// Complete population admission shares the public workbench's declared bound.
     pub async fn capture_study_workbench(&self,key:&str,filter:&StudyWorkbenchFilter,maximum:usize,members:usize)->Result<NativeStudyCapture,CanonicalError> {
-        if key.is_empty() || key.len()>4096 || !(1..=64).contains(&maximum) || !(1..=10000).contains(&members) {return Err(CanonicalError::PayloadLimit);}
+        if key.is_empty() || key.len()>4096 || !(1..=64).contains(&maximum) || !(1..=pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS).contains(&members) {return Err(CanonicalError::PayloadLimit);}
         for value in [&filter.study,&filter.project,&filter.branch,&filter.source,&filter.physical_revision,&filter.context,&filter.research_reference].into_iter().flatten() {
             if value.is_empty() || value.len()>4096 {return Err(CanonicalError::PayloadLimit);}
         }

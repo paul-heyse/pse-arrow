@@ -92,7 +92,7 @@
       "description": "Exact native predicates."
     },
     "maximum_members": {
-      "description": "Capture refuses if complete selected population exceeds this; maximum 128.",
+      "description": "Capture refuses if complete selected population exceeds this or the declared cohort admission bound.",
       "format": "uint",
       "minimum": 0,
       "type": "integer"

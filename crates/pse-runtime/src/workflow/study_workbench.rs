@@ -47,7 +47,7 @@ pub struct StudyCohortRequest {
     pub filter: StudyWorkbenchFilter,
     /// Capture refuses if more studies match; maximum 64.
     pub maximum_studies: usize,
-    /// Capture refuses if complete selected population exceeds this; maximum 128.
+    /// Capture refuses if complete selected population exceeds this or the declared cohort admission bound.
     pub maximum_members: usize,
 }
 /// Historical acknowledgement of a complete native cut. Identifiers grant no read permission.
@@ -247,17 +247,7 @@ impl Runtime {
     }
     /// Settle one exact native cut and return only counts plus retained custody.
     pub async fn freeze_study_cohort(&self,request:StudyCohortRequest)->Result<FrozenStudyCohort,WorkflowError> {
-        if !(1..=64).contains(&request.maximum_studies)||!(1..=128).contains(&request.maximum_members) {return Err(contract("cohort narrow selection outside public admission"));}
-        self.freeze_study_cohort_body(request).await
-    }
-    /// Selected actual native qualification reaches the same implementation;
-    /// this test-only allowance never widens ordinary product admission.
-    #[cfg(all(test,feature="canonical-tests"))]
-    pub(in crate::workflow) async fn freeze_study_cohort_qualification(&self,request:StudyCohortRequest)->Result<FrozenStudyCohort,WorkflowError> {
-        if !(1..=64).contains(&request.maximum_studies)||!(1..=10000).contains(&request.maximum_members) {return Err(contract("cohort qualification selection outside bounds"));}
-        self.freeze_study_cohort_body(request).await
-    }
-    async fn freeze_study_cohort_body(&self,request:StudyCohortRequest)->Result<FrozenStudyCohort,WorkflowError> {
+        if !(1..=64).contains(&request.maximum_studies)||!(1..=pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS).contains(&request.maximum_members) {return Err(contract("cohort narrow selection outside public admission"));}
         let activity=self.admit_activity()?;
         activity.scope(async {
             let response=super::connected_results::response_owner(self,"study-workbench:capture-receipt",pse_operations::canonical::MetadataResponse::Selection)?;

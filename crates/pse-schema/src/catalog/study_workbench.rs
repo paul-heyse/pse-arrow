@@ -8,6 +8,8 @@ pub const STUDY_PAGE_BYTES:usize=2*1024*1024;
 pub const STUDY_OUTCOME_PAGE_ROWS:usize=128;
 /// Frozen compact cohort members in one bounded native response/cleanup page.
 pub const STUDY_CAPTURE_PAGE_ROWS:usize=256;
+/// Maximum complete cohort population admitted by the qualified native capture.
+pub const STUDY_COHORT_MAX_MEMBERS:usize=10_000;
 /// Useful outcome rows packed across native metadata pages before publication.
 pub const STUDY_SUMMARY_BUFFER_ROWS:usize=1024;
 /// Compact encoded outcome bytes retained before requesting another page.

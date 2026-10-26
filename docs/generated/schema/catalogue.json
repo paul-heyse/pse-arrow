@@ -5028,7 +5028,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: StudyCohortExportRecord",
       "schema_path": "docs/generated/schema/study-cohort-export-record.output.schema.json",
-      "schema_sha256": "7229e557587fb5587c2da790e269c564db96ab55fca4981936cd65173d7c314a",
+      "schema_sha256": "859792f9bb01e804afb568bf590b56dd2962754bed68a017af96dcf84d0f9475",
       "slug": "study-cohort-export-record",
       "version": null,
       "wire": "Native"
@@ -5088,7 +5088,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: StudyCohortReceipt",
       "schema_path": "docs/generated/schema/study-cohort-receipt.output.schema.json",
-      "schema_sha256": "686d7b7218f91bd3693217caa84d7a0fa9f8a60bf7fefc4fb3071e6ff1837398",
+      "schema_sha256": "6c681c30d2dc3721ee11528a231f99ce3ec59bd4baffde2a02fc8dc5cd1b736e",
       "slug": "study-cohort-receipt",
       "version": 1,
       "wire": "FlatV1"
@@ -5100,7 +5100,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: StudyCohortRequest",
       "schema_path": "docs/generated/schema/study-cohort-request.input.schema.json",
-      "schema_sha256": "0b635e5055d3457d353924aecfe0878c6e5c1c705e7e12e6e0babea42a67dffa",
+      "schema_sha256": "bcc5c074a7933fbed3c5b259d94c6ca87dad24274cd00239a5fc2b25b02bbfb3",
       "slug": "study-cohort-request",
       "version": 1,
       "wire": "FlatV1"
@@ -5112,7 +5112,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: StudyCohortRequest",
       "schema_path": "docs/generated/schema/study-cohort-request.output.schema.json",
-      "schema_sha256": "2ca6a987277f6f476c3f396339ba9df4a88c209455d455767afc841286fda037",
+      "schema_sha256": "c120ca5d058a1710b37aa9a935e6371159cfd2b12ed6933d6ae2beae32f9ef25",
       "slug": "study-cohort-request",
       "version": 1,
       "wire": "FlatV1"
@@ -5232,7 +5232,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: StudyObservationPage",
       "schema_path": "docs/generated/schema/study-observation-page.input.schema.json",
-      "schema_sha256": "ebbea209eaf23c3b3fa3250b52606e5491e0e0e21b65a827424f3aed46c9104a",
+      "schema_sha256": "a4e357208d2de95d082178eba2f16129bddebaad2055cad5e1f1e1ab799c0f88",
       "slug": "study-observation-page",
       "version": 1,
       "wire": "FlatV1"
@@ -5244,7 +5244,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: StudyObservationPage",
       "schema_path": "docs/generated/schema/study-observation-page.output.schema.json",
-      "schema_sha256": "38648f5937bc066219c6a0f961168203d756ad889f4772b472c7121a4a57184f",
+      "schema_sha256": "48a6d0c331248fc0086c6f0263938e43355f8cc8b1aad74609247d27219a3551",
       "slug": "study-observation-page",
       "version": 1,
       "wire": "FlatV1"
@@ -5658,6 +5658,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:cfae0edcb700aa48f634e4cdb324df208c3c295f9e21613743fe0fc59762c267",
+  "schema_set_fingerprint": "blake3:7b0f4b79dcc652e3b5f03362d4ed9f6b2e4834193f5c3abe6c1ed5efa7014d2a",
   "version": 1
 }
