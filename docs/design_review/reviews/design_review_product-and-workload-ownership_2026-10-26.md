@@ -9,18 +9,20 @@ doc_topics: [design, storage, deployment, performance]
 
 # Product and workload ownership
 
-**ADR-0229: Accept at Proposed design evidence. ADR-0230: Not Accept as a whole while
-D04's active-capture premise remains unresolved.** The separable D01/D02/D03/D05/D06
-contracts are acceptable at Proposed design evidence; this judgment does not accept a larger
-cohort cap or certify their implementation. D03 retains the existing cap and frozen membership
-contract until D04 is settled. Independent work need not wait for that probe.
+**ADR-0229: Accept at Proposed design evidence. ADR-0230's revised target, including the
+scoped publication gate specified below: Accept at Proposed design evidence.** The original
+ungated active-capture selection is not accepted: its native probe aborted under ongoing writes.
+The revised gate contract must enter ADR-0230 before dependent implementation. This accepts an
+architecture with a demonstrated engine route, not a larger product cohort cap or qualified
+10,000-point production journey. D03 retains its existing cap until D04 implementation controls pass.
 
 The proposed boundaries follow independent reasons for change and remove concrete repeated work.
 Scientific authority remains in the registry; private development storage becomes an xtask
 responsibility. Product deployment and allocation acquire an executable Rust owner. Bounded
 installation, compact outcomes, shared result scans and incremental exchange address complete
-operations rather than only transport shape. Durable capture is a useful additional responsibility,
-but its coherent active behavior cannot be inferred from the existence of SSI primitives.
+operations rather than only transport shape. Durable capture is a useful additional responsibility.
+The decisive probes distinguish optimistic SSI conflict detection from a separately committed
+gate that temporarily excludes relevant publications while active scientific work can continue.
 
 ## 1. Review contract and evidence
 
@@ -30,6 +32,7 @@ but its coherent active behavior cannot be inferred from the existence of SSI pr
 | Focus | Combined design principles and SurrealDB library fit |
 | Reviewer | Independent delegated design reviewer; 2026-10-26 |
 | Source baseline | `c5ae90b8435ce71b2b6b552cc4f2e7b96dd66aba` plus the uncommitted ADR-0229/0230 drafts; ADR-0230's capture-lifetime amendment was re-read during review |
+| Focused reassessment | Same-day exact-engine receipts below; original review and drafts preserved at `7f5292c5fc88d7ea4c61e09ac620f499555e988b`; no broad D/E review restarted |
 | Diagnostic input | [Living audit](../audit/README.md), publication `f9b96810a84409d9d32ff2a1f62b029ac151ae2e`, audited source `682fc3830f8a370f0995544af5adf821e4be9ab9` |
 | Standard | Core 3.4, efficiency heuristics 1.0, process-simulator 1.5, test-assessment 1.2 for the proposed evidence controls; [binding](../design_principles/binding/pse-arrow.md) |
 | Disposition | [Plan 56](../../plans/56-design-principle-alignment.md); execution in [56d](../../plans/56d-publication-and-workload-fit.md) and [56e](../../plans/56e-product-deployment-and-resource-ownership.md) |
@@ -48,7 +51,8 @@ and `canonical_study_workbench.rs`, codegen `surreal_execution.rs` and
 `project_portability.rs`, selected profile/receiver realization in `scripts/surreal_server.py`,
 and `.config/agent-capacity.toml`. Concurrent process-observation and supplier-record edits are
 excluded from implementation judgment. No product test, native probe, build or benchmark was
-run by this reviewer. This is not whole-product or scientific qualification.
+run by this reviewer. The later coordinator-arranged probes were inspected as receipts and query
+source, not rerun. This is not whole-product or scientific qualification.
 
 The functional target is reliable interactive and many-case scientific work with exact, readable
 results and recoverable interruption. The relevant growth case is 10,000 study points across
@@ -131,6 +135,50 @@ adds a different capability. Compact records bound transport and hydration, but 
 still examines and writes its complete selected universe. Its real transaction work, conflict
 behavior and temporary residency must fit the admitted active workload.
 
+### Short native capture with a scoped publication gate
+
+The acceptable revised mechanism has a separately committed, exact-owner gate before the capture
+transaction. It is a publication coordination fact for this operation, not a universal lease
+service. Its scope covers the mutable selection universe: matching study creation/activation,
+membership, captured headers/facts and attempt/manifest selection, and retirement or other
+availability changes used by the cut. Selected keys discovered before the gate cannot silently
+exclude a concurrently added matching study. Prefer the narrowest existing canonical guard scope
+that covers this universe; a per-study gate alone is insufficient for an open multi-study filter.
+
+Every relevant native mutation reads the authoritative gate in the same writable transaction
+before changing those facts. A known busy refusal aborts before those effects. An already-running
+writer that observed the prior gate either commits before acquisition or loses commit-time read
+validation against the changed gate. Native scientific computation need not stop, and unrelated
+canonical work need not participate unless it can affect the selected answer or protection.
+
+The capture transaction verifies exact request, guard incarnation/generation, original grant,
+cancellation and native deadline; reads one coherent cut; and installs immutable facts, unavailable
+classifications, selected manifest protections and exact receipt atomically. Close/release the gate
+with that successful publication, preferably in the same transaction, before returning bounded
+pages. There is no gate held during analysis, scan hydration or remote page consumption.
+
+Expiry is a fencing transition, not permission for writers to ignore an unchanged active gate.
+Recovery authenticates the original intent and advances/closes the exact checked guard incarnation;
+an in-flight capture that read the old guard must then abort under native conflict validation, or
+its publication must have an equivalently established fence. Merely checking the clock once or
+adding `expires_at < now` to writer admission does not settle this race. Unknown ACK first uses
+exact receipt/gate readback under the original grant. Disconnect alone cannot release protection,
+renew authority or certify that capture work drained. An aborted capture leaves its gate recoverable
+without changing the scientific population; replay of a published capture returns its original cut.
+
+Busy writers may wait through existing bounded admission or return a typed known pre-effect
+refusal. They retain their original clock, cancellation, fence and completed numerical output;
+gate contention never instructs scientific reexecution or grants a fresh publication window.
+Transport uncertainty retains its original effect-knowledge/readback contract rather than being
+misclassified as known absent. Gate contention, acquisition failure and expiry must not amplify
+retries across layers or starve ordinary publication; one finite owner and existing admission
+suffice. Failed/expired capture must reopen publication through authenticated recovery promptly.
+
+This adds a guard check to relevant writes and briefly pauses their visibility. That burden earns
+a coherent active cut without an arbitrarily long transaction or repeated full capture attempts.
+The private measurement makes the physical route credible; production duration, contention,
+temporary memory and canonical protection cost remain unmeasured.
+
 Current `ResolvedClosure` retains aggregate document bytes and source packages. Incremental sinks
 remove that residency while retaining necessary protections and deterministic ordering. Holding
 compact exact manifests until final publication is justified; holding every hydrated package is
@@ -149,19 +197,19 @@ Verdicts concern the proposed target. They do not certify the current implementa
 | AP-04 | Satisfied: profiles, observations, installation phases and permission are distinct governing concepts | Satisfied: frozen unavailable facts and original permission remain authoritative |
 | AP-05 | Satisfied: one allocation validator and exact install transitions expose constraints | Satisfied at Proposed level: amended atomic protection/replay/release/classification contract |
 | AP-06 | Satisfied: private change and local policy controls avoid unrelated product startup | Satisfied: bounded canonical owner exposes its actual dependency |
-| AP-07 | Satisfied qualitatively: shared work, bounded units and selective hydration remove observed amplification | Unresolved: exact active capture feasibility, including its complete transaction and retention work, is unprobed |
+| AP-07 | Satisfied qualitatively: shared work, bounded units and selective hydration remove observed amplification | Satisfied for the revised gate target: short quiescent publication interval and atomic capture have a Tested surrogate route; production controls remain |
 
 | Gate | Independent scope | D04 capture / reason |
 |---|---|---|
 | G1 Authority | Pass: registry, allocation and owner policies remain scoped | Pass at Proposed level: capture copies facts rather than granting new permission |
 | G2 Semantic fidelity | Pass: enums, identities, units, unavailable and partial states preserved | Pass as specified; no live-page reinterpretation |
-| G3 Validity | Pass: relational validation, exact page closure and refusal precede use | Unresolved pending exact-engine feasibility controls |
+| G3 Validity | Pass: relational validation, exact page closure and refusal precede use | Pass at Proposed level with exact gate/grant and expiry fencing; production negative controls remain |
 | G4 Hidden behavior | Pass: setup, capture, copying and publication are explicit effects | Pass: durable capture is effectful, rather than a pure browsing getter |
-| G5 Consistency/recovery | Pass at Proposed level: original settlement and manifest-last semantics retained | Unresolved until coherent capture/protection is exercised under mutation and interruption |
+| G5 Consistency/recovery | Pass at Proposed level: original settlement and manifest-last semantics retained | Pass for the specified gate/capture/recovery contract; surrogate coherent cut/rollback is Tested, canonical recovery is not |
 | G6 Transformation/reuse | Pass: original scientific and immutable premises survive projections | Pass as specified; frozen absence cannot be refreshed from live state |
-| G7 Truthful claims | Pass: Proposed claims and unqualified ceiling are explicit | Unresolved for the selected capability; source primitives do not qualify its composition |
+| G7 Truthful claims | Pass: Proposed claims and unqualified ceiling are explicit | Pass: distinguish Tested surrogate feasibility from Proposed production realization and unqualified caps |
 | G8 Library leverage | Pass: existing generation, parsing, relational engine and DataFusion capabilities retained | Pass in mechanism selection; native SSI composition is the candidate, not bespoke MVCC |
-| G9 Architectural fitness | Pass at Proposed design level | Unresolved through AP-07; no averaging against independent strengths |
+| G9 Architectural fitness | Pass at Proposed design level | Pass for the revised gate target; original ungated mechanism remains unaccepted |
 | PS-G1 Physical consistency | Pass for preserved boundary contract; no new physical computation | Same preservation; quantity/permission controls remain required |
 | PS-G2 Well-posedness | Not applicable: formulation and solver admission unchanged | Not applicable for the same reason |
 | PS-G3 Numerical integrity | Pass for preserved permission/outcome contract; no numerical qualification claimed | Same preservation; capture cannot upgrade solver or completion status |
@@ -169,24 +217,46 @@ Verdicts concern the proposed target. They do not certify the current implementa
 ## 7. Findings and their relationship
 
 <a id="f01"></a>
-### F01 — Active immutable capture has an unresolved exact-engine premise
+### F01 — Active capture needs publication coordination beyond optimistic SSI
 
 **Principles:** AP-07, DP-15/19/20/22; G3/G5/G7/G9; S5/S6. **Evidence:** Interface-checked
-SSI patch and current native selector; Proposed replacement. The pinned
+SSI integration; Tested surrogate probes; Proposed production replacement. The pinned
 `scripts/surrealdb-source/mx-1.0-controls.patch` selects
 `with_serializable_snapshot_isolation` and contains write-skew/empty-range phantom controls.
-Those establish an implementation route and primitive challenge, not a coherent bounded
-SurrealQL capture of actively changing scientific facts plus retained manifests.
+Those primitives alone did not settle active capture. The coordinator subsequently ran native
+gRPC CLI probes against the exact installed patched server. Inspected result/query records are
+`/tmp/pse-active-capture-20261026-attempt3/{result.json,capture.surql}` and
+`/tmp/pse-active-capture-20261026-guarded/{result.json,capture.surql,queries.jsonl}`.
+The binary receipt identifies effective key `3549c2a97bd565fd24974405842677512a96a075f1b2366cbf6a95afed0c2099`
+and SHA-256 `f555c7819b2f8654912d5937020830397ca259421b54c9c0717784f18832707a`.
 
-If the actual capture cannot complete under active changes and selected limits, enlarging the cap
-would advertise a capability with no qualified route. Probe the exact installed patched engine,
-native query and ownership path: mutate active facts, capture one cut with unavailable members,
-change live state between bounded reads, then challenge retirement, cancellation and release.
-Preserve original clocks and drain charges; do not substitute terminal-only selection or repeated
-attempts until the study stops changing. A passing short feasibility probe permits reassessment of
-the mechanism; it does not supply 10,000-point qualification or measured benefit. Failure requires
-settling the engine/transaction realization before dependent cap changes. Plan 56d D04 owns this
-obligation; independent D packages remain separable.
+The ungated transaction failed with read conflict after 3.601 seconds while 22 updating
+transactions committed. Atomic rollback left zero captured members: this was honest failure,
+not mixed output. The separately committed gate run captured 10,000 same-epoch facts and
+6,666 protection rows in 1.962 seconds; 3,334 unavailable members stayed unavailable over
+40 pages while 23 updating transactions committed after release. Fourteen writer attempts
+refused around the gate. Replay did not duplicate members; deliberate abort rolled back;
+the surrogate retirement check refused protected data; explicit release left zero member and
+protection rows. Both receipts report server exit zero and drain. These are private surrogate
+observations with a zero failure target, not product acceptance or a speedup comparison.
+
+The guarded query uses a Boolean gate, separate acquisition/release, simple surrogate protection
+rows and no production grant/expiry protocol. It therefore establishes engine feasibility, not
+the exact-owner, expiry-race, original-clock, restore, cancellation or active-scan controls in
+the revised contract above. A replay keyed only by a string is also weaker than immutable request
+conflict enforcement required for production.
+
+Exact installed `surrealdb/kvs-mem/src/lib.rs` documents `getu` as commit-time conflict
+registration and calls `get_for_update`; its `shared_locked_reads` comment says the lock set is
+never visible to other transactions. `surrealmx-1.0.0/src/tx.rs::get_for_update` likewise describes
+commit-time `KeyReadConflict`. Thus `FOR UPDATE` is not a blocking lock that can replace the gate.
+
+The revised gate target is acceptable under §5's complete contract. It must enter ADR-0230
+before dependent code; Plan 56d D04 still owns canonical implementation and negative controls,
+then the actual 10,000-point creation/summary/cohort journey before any product cap increase.
+No retry-until-quiet or terminal-only substitute is accepted. This changes F01's remedy from an
+unexamined native capture premise to a viable coordinated publication mechanism; it does not
+mark implementation or required qualification complete.
 
 <a id="f02"></a>
 ### F02 — Durable capture requires exact lifetime, not references alone
@@ -205,9 +275,9 @@ addressed at Proposed evidence.** This is not implementation closure: the native
 retirement/restore consumers and negative controls remain in D04 and the coordinated interpretation
 change. No additional ledger or universal lease framework is needed.
 
-F02 supplies the complete operation whose feasibility F01 must challenge. Settling the words does
-not settle the engine composition; conversely, a snapshot-only happy-path probe cannot close the
-owned protection/recovery obligation.
+F02 supplies the complete lifetime operation F01's revised mechanism must realize. The inspected
+surrogate closes the engine feasibility question for that direction; it does not close the owned
+protection/recovery implementation obligation.
 
 ## 8–9. Library mechanisms and alternatives
 
@@ -227,9 +297,13 @@ as a parallel canonical store or record interpreter.
 | Single append loop inside one transaction | Preserves atomicity but repeats shared work; native bulk `INSERT`/`INSERT RELATION` plus grouped frontiers is selected |
 | Live keyset pages | Efficient transport but can mix observation times; unacceptable as immutable capture |
 | Terminal-only capture | Simpler stable universe but removes supported active-study semantics; not the selected scope |
-| Long remote transaction across pages | Can retain a view, but pins engine versions through caller lifetime and broadens cleanup; short durable capture is preferred if F01 passes |
+| Long remote transaction across pages | Can retain a view, but pins engine versions through caller lifetime and broadens cleanup; the short gated capture is preferred |
+| `FOR UPDATE` without committed gate | Optimistic commit validation, not visible writer exclusion; does not remove the observed read-conflict route |
+| Repeated ungated SSI capture | Preserves atomic refusal but can repeat the full scan/copy under ordinary active publication; reject as the normal supported route |
+| Read-only snapshot, client staging, then native protected publication | Potentially preserves a past cut if protection availability is revalidated, but adds full compact-membership transfer/republication and a retirement gap/refusal contract; paged remote snapshots also retain the original long-transaction burden. No simpler complete pinned route is established here |
+| Append-only fact history plus stable watermark | Could avoid pausing writers, but introduces new retained historical selection and reclamation machinery across writer families; disproportionate to this bounded correction without another requirement |
 | SDK `Query::stream_items` | Not selected: pinned `vendor/surrealdb/src/method/query.rs` explicitly rejects payload-owned streaming queries; provisional rows also require final statement/transaction success |
-| Short immutable capture and bounded pages | Candidate selected by the draft, with F01 unresolved; adds justified durable lifetime and recovery obligations |
+| Short committed gate, atomic immutable capture, then bounded pages | Preferred acceptable revised target: only relevant publication pauses; exact gate recovery and writer participation are required; surrogate feasibility is Tested |
 | Incremental protected export / controlled copy | Selected: uses existing scientific/file owners, releases hydrated units, and preserves distinct integrity checks and final visibility |
 
 The streaming refusal is decisive over the generic reference's supported gRPC streaming statement.
@@ -246,12 +320,13 @@ the public scientific consumers should not acquire engine keyspace knowledge.
 | One allocation meaning, complete frozen receiver | Proposed | Malformed cross-field refusal before effects; profile propagation with unchanged values; isolated imports including parents/generated/dynamic inputs; unrelated-script stability |
 | Process facts preserve owner policy | Proposed | PID reuse, uncertainty, launcher death with surviving descendants, repeated drain and report custody controls |
 | Exact bounded installation/publication | Proposed | Replay/conflict/lost ACK, stale fences, demanded empty/partial appends, interrupted nodes/edges, refused variants and incomplete activation |
-| Coherent active capture | Unresolved | F01 exact-engine probe, then original permission/quantity, concurrent retirement and protection/drain controls |
+| Coherent active capture engine route | Tested surrogate, as detailed under F01 | Production exact intent/conflict, gate expiry/recovery fencing, all relevant writers, original permission/quantity, retirement and protection/drain controls |
 | Supported many-case physical route | Proposed | 10,000-point creation/summary/cohort journey and relevant physical-work measurements; 100,000 remains unqualified |
 | Bounded copy/exchange | Proposed | Corrupt/changed source and destination, cancellation/stall/resume, allowance exhaustion, exact contents and actual retained hydration units |
 
-Tests/benchmarks by this reviewer: **not_run**. Failure target remains zero; no passing count is
-claimed. No touched unit/property model requires a new conformance suite because none changes;
+Tests/benchmarks by this reviewer: **not_run**; inspected coordinator probe results are reported
+under F01, retaining the failed ungated run. Failure target remains zero. No touched unit/property
+model requires a new conformance suite because none changes;
 existing scientific qualification is not renewed. Existing selected stores and 56c fixtures are
 preserved. Changed canonical interpretation must be coordinated once across declarations,
 writers/readers, retention and backup classification, before activation on owned disposable state.
@@ -276,16 +351,17 @@ recommended. ADR-0116 is amended through the decision route rather than edited a
 ## 12. Decision and next consequential evidence
 
 **Behavioral/semantic adequacy:** ADR-0229 and D01/D02/D03/D05/D06 pass at Proposed design level.
-They explicitly preserve original scientific and effect authority. D04 remains unresolved for
-coherence, owned protection and recovery under actual active concurrency, despite its now adequate
-lifetime specification.
+They explicitly preserve original scientific and effect authority. D04's revised gate target
+also passes at Proposed design level, with a Tested surrogate engine route. Native busy refusals
+remain pre-effect publication outcomes; they cannot renew clocks or trigger scientific reexecution.
 
-**Architectural fitness:** ADR-0229 and the independent D scope satisfy AP-01–AP-07 qualitatively.
-D04's AP-07/G9 remains unresolved. The combined ADR-0230 therefore receives **Not Accept** at this
-review point; this is not an Accept-scoped exception to a MUST. Its independent contracts may
-proceed within authorized work while the capture mechanism and cap remain unaccepted.
+**Architectural fitness:** ADR-0229 and the revised complete D target satisfy AP-01–AP-07
+qualitatively. The revised target receives **Accept at Proposed design evidence**. This verdict
+applies to §5's full gate/writer/capture/recovery contract, which the coordinator must integrate
+in ADR-0230 before dependent implementation; the original ungated selection does not inherit it.
 
-The next decision is evidence-led: reassess F01 after the short exact-native active-capture probe.
-If it passes, retain F02's complete protection/replay/drain/classification contract through
-implementation and then qualify the complete 10,000-point journey. No successful local probe or
-accepted ADR alone closes Plan 56d/56e, the broader Plan 56 series or measured benefit obligations.
+The next work is the bounded decision amendment and implementation of the exact participating
+writer and fenced expiry/recovery edges, retaining F02's protection/replay/drain/classification
+contract. Then qualify the complete production 10,000-point journey. No successful surrogate probe
+or accepted ADR alone closes Plan 56d/56e, the broader Plan 56 series or measured benefit obligations;
+100,000 remains an unqualified ceiling and the selected existing store/56c fixtures remain untouched.

@@ -491,6 +491,13 @@ observations in process; a durable storage failure never falls back to ephemeral
 
 ### 20.1 Canonical durable relations
 
+> Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
+> selected Plan56d target; implementation and qualification remain with its owning packages.
+
+Installation and immutable capture have declared canonical relation families, exact request/page
+receipts and explicit backup/retention classifications. Capture facts and selected manifest
+protections publish atomically; a reference string alone supplies no retained lifetime.
+
 > Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; maintainer-authorized Plan38e target).
 
 The former Delta durable-relation mechanism is retired. This section identity remains the
@@ -644,6 +651,14 @@ equivalence. Scientific completion and result meaning remain owned by
 [§19](workflows-and-results.md#section-19).
 
 ### 20.4 Reproduction, reuse and retention
+
+> Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
+> selected Plan56d target; implementation and qualification remain with its owning packages.
+
+Capture release authenticates the exact owner and is idempotent. Expiration/abandonment cleanup
+releases only that capture's references after active scan custody drains. Unknown acknowledgement
+settles through exact original-grant readback; disconnected callers do not imply absent effects.
+Interrupted installation/capture state retains its declared recovery meaning.
 
 > Decision: [ADR-0177](../../adr/0177-exact-conflicts-and-settled-retirement.md) (proposed amendment; Plan 36 P-B1/P-B7).
 
@@ -814,6 +829,15 @@ bytes and is not an exported database lease or another publication catalog.
 
 ### 20.5 Current contracts and schema evolution
 
+> Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
+> selected Plan56d target; implementation and qualification remain with its owning packages.
+
+The Plan56d installation/capture change coordinates one next canonical interpretation across
+all writers/readers, retention and backup classification before fresh owned-state activation.
+Prior selected stores and qualification evidence remain preserved; no compatibility reader or
+backfill is introduced. Protocol changes do not alter scientific Completion/replay body versions
+when their meaning remains unchanged.
+
 > Decision: [ADR-0216](../../adr/0216-project-and-evidence-foundations.md) (proposed; maintainer-authorized Plan51a target).
 
 Project/research relations extend the canonical installation. A separately disposable tooling
@@ -922,6 +946,17 @@ must receive explicit current readmission or a typed refusal without invented fi
 qualification or policy. Generated contracts remain declarations, never inferred layouts.
 
 ### 20.6 Operational store and durable execution
+
+> Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
+> selected Plan56d target; implementation and qualification remain with its owning packages.
+
+Publication shares applicable native guards and set/frontier mutation while retaining every exact
+logical acknowledgement. The scoped capture gate protects its complete selector universe and
+selected attempt/manifests without spanning user paging. Exact recovery changes its checked fence
+before reopening, so stale capture cannot commit. Native copy progress/checkpoints bind original
+frozen inventory and exact resume premises; progress is not terminal acknowledgement or thaw.
+Selected exchange holds compact selection/protection and consumes useful hydrated units through
+one export/count/checksum traversal, with allowance before avoidable copy and final manifest last.
 
 > Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
 > selected Plan56 RC05 and deployment ownership target; implementation remains with Plan56e.

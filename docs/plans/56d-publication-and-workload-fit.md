@@ -201,3 +201,26 @@ All packages in this companion are authorized for joint 56d/56e execution. The c
 [joint checkpoint](56-design-principle-alignment.md#joint-56d56e-execution-checkpoint--2026-10-26)
 records selected rule changes, dependency order, preservation and qualification boundaries.
 Contract publication and independent E04/E05 work have begun; package completion remains open.
+
+## D04 exact-engine choice — 2026-10-26
+
+The direct ungated 10,000-member surrogate capture failed with a native SSI read conflict after
+3.601 seconds; rollback left zero captured members while 22 writer transactions completed.
+Installed `getu`/`FOR UPDATE` is optimistic, so it does not provide blocking exclusion. A separately
+committed scoped-gate surrogate captured 10,000 facts and 6,666 protection references in 1.962
+seconds, preserving 3,334 unavailable members through forty bounded pages while later live updates
+continued. Exact replay, abort, protected-retirement refusal and release controls passed.
+
+**Tested:** `scripts/pse-env -- .venv/bin/python /tmp/pse-active-capture-20261026/probe.py`, pinned
+server revision `1ac2b1dba7cd177621a4cf5d507caebeb2414395`, binary SHA256
+`f555c7819b2f8654912d5937020830397ca259421b54c9c0717784f18832707a`; both owned services
+stopped. Evidence remains under `/tmp/pse-active-capture-20261026-attempt3/` and
+`/tmp/pse-active-capture-20261026-guarded/`. Two earlier harness setup failures were retained.
+These are surrogate engine controls, with the ungated failure preserved against the zero target;
+no canonical production, crash/expiry, genuine lost-ACK or full 10,000-point claim follows.
+
+The [independent reassessment](../design_review/reviews/design_review_product-and-workload-ownership_2026-10-26.md)
+accepts the revised gated target at Proposed design evidence. ADR-0230 and blueprint §19.3/§20
+now require complete writer participation, atomic facts/protection/receipt/gate closure, original
+clocks and exact incarnation-changing expiry recovery before dependent implementation. No cap
+change is authorized by surrogate success alone.

@@ -46,8 +46,14 @@ frontier work. Use native bulk INSERT/INSERT RELATION and grouped set/frontier r
 existing exact owner. Live keyset paging can mix times; terminal-only capture weakens supported live
 semantics. Long remote transactions pin global engine versions and broaden cleanup obligations.
 Select a short engine-native immutable compact capture under pinned serializable snapshot isolation,
-followed by bounded reads. Exact active-concurrency feasibility is required before changing caps.
-The pinned mx controls patch, not generic online isolation documentation, supplies the premise.
+preceded by a committed publication gate and followed by bounded reads. The ungated 10,000-member
+surrogate capture actually failed with a read conflict under active writes; FOR UPDATE is optimistic
+and cannot supply blocking exclusion. A scoped gated surrogate captured all 10,000 facts coherently,
+including unavailable members and protection references. Repeated optimistic retries can starve;
+a caller-held remote snapshot pins global versions and broadens cleanup. Read-only staging still
+needs protected publication and larger movement. A scoped gate is the simplest established complete
+route. The pinned mx controls patch and installed adapter source, rather than generic online
+isolation documentation, supply these premises.
 
 ## Outcome
 
@@ -56,6 +62,22 @@ edge frontiers. Bounded run-and-point pages atomically acknowledge their exact i
 replay conflicts refuse. Separate edge closure and activation prove complete population. Expired
 issued work and uncertain effects retain original clocks, fences, cancellation and readback causes.
 A resumed invocation does not recreate run identities or imply a renewed old page grant.
+
+A scoped publication gate commits before capture reads. Every answer-affecting mutation checks the
+same guard inside its native writable transaction before effects: selector universe (including new
+matching studies), membership, compact facts, attempts/manifests, availability and retirement.
+A per-study guard alone does not protect an open multi-study predicate. Pre-gate writers either
+commit first or lose SSI validation. The gate binds exact incarnation, immutable request and original
+bounded grant. Capture authenticates these, atomically publishes facts/protections/exact receipt and
+fences/closes the gate before paging; no global exclusion spans user reads.
+
+Busy publication is definitely pre-effect only after native refusal/rollback establishes that fact.
+Waiting or exact resubmission consumes the original clock/cancellation and retains already computed
+numerical output; it never reruns science or renews a grant. An expired timestamp never permits
+writers simply to bypass an unchanged gate. Exact recovery changes/closes the checked guard
+incarnation before reopening, forcing stale in-flight capture to conflict (or an equally strong
+fenced publication). Lost ACK, cancellation, expired recovery and cleanup keep attribution and
+unknown-effect knowledge. There is no new generic lease manager or automatic thaw.
 
 Admission publishes compact outcome projections consumed by summary/finalization observers.
 Cohort capture creates immutable headers, member facts, unavailable classifications and selected
@@ -99,7 +121,10 @@ private recovery separately from shared test contexts. Measure affected physical
 
 Proposed before dependent implementation at c5ae90b84. The focused review assesses the contract;
 56d owns exact-engine feasibility, implementation, functional acceptance and benefit measurements.
-A failed capture probe blocks that mechanism/cap change, while independent packages can advance.
+The original ungated mechanism failed and remains unselected. Independent review accepted the
+revised gated target at Proposed design evidence after inspecting both probes. Surrogate controls
+are not canonical production qualification; the complete 10,000-point journey, expiry races,
+retirement, genuine unknown ACK and scan drain remain with D04 before any cap increase.
 
 ## Pros and cons
 
@@ -118,3 +143,5 @@ exact pinned source and the active-concurrency probe settle consequential engine
 ## Status history
 
 - 2026-10-26: Proposed for authorized joint 56d/56e execution; formal acceptance remains separate.
+
+- 2026-10-26: Retained failed ungated SSI evidence and selected bounded gated capture after independent reassessment; production qualification remains open.

@@ -848,6 +848,30 @@ latency or general graph algorithms; §24.2 records the selected evidence.
 
 ### 19.3 Studies and reuse
 
+> Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed):
+> bounded installation, compact outcomes and gated immutable capture targets; Plan56d owns
+> implementation and qualification, including the complete 10,000-point journey.
+
+Study population installation owns immutable population identity/digest, generation, phase and
+exact node/edge frontier receipts. Native bounded run-and-point pages preserve occurrence identity
+and original issued authority; exact replay resumes installed work, changed replay refuses and
+activation requires complete edge closure. No arbitrary-population outer clock renews page grants.
+Compact admission-owned outcome facts supply summary/finalization; descriptors remain separate detail.
+
+Immutable live cohort capture uses a committed bounded publication gate before its short native
+transaction. All answer-affecting writers, including new matching studies and retirement, check
+the same relevant guard within their mutation transaction. Capture authenticates exact request,
+guard incarnation and original grant, and atomically publishes captured facts, manifest protection,
+receipt and gate closure. Release global exclusion before bounded lazy pages. Expiry recovery
+must change/fence the checked incarnation before reopening; a timestamp-only bypass is forbidden.
+Known pre-effect busy handling retains original clocks/cancellation and computed numerical output,
+never repeats scientific execution. One protected relation provider owns selected manifests through
+scan drain; captured unavailable members retain their original classification.
+
+The unguarded 10,000-member SSI surrogate conflicted and rolled back. A gated surrogate established
+a viable primitive, not canonical product acceptance. Existing cohort caps remain until integrated
+controls pass. The 100,000 admission ceiling is not a qualified scale promise.
+
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 
 One runtime request/preparation/admission/deployment owner and typed dispatch/finish pairing
