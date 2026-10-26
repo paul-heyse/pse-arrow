@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -188,6 +189,372 @@ class TestResourceTests(unittest.TestCase):
                 "test": "test_module.py::test_assert_after_exit",
             }
         )
+
+    def orphan_fixture(self) -> str:
+        resource = self.register()
+        with resources.storage().invocation_edit(self.invocation.stem) as image:
+            owner = {
+                "pid": 99999999,
+                "start": "123",
+                "boot": resources.host.boot(),
+                "scope": {
+                    "unit": "pse-original.scope",
+                    "group": "/fixture/pse-original.scope",
+                    "invocation": "b" * 32,
+                },
+            }
+            image["producer"] = owner
+            image["composer"] = owner.copy()
+        resources.finalize(
+            self.invocation,
+            {"test_module.py::test_assert_after_exit": "failure"},
+            complete=True,
+            terminal_owner="runner",
+        )
+        return resource
+
+    @contextlib.contextmanager
+    def orphan_boundaries(self) -> Generator[None, None, None]:
+        with (
+            patch.object(
+                surreal_server,
+                "lifecycle_deadline",
+                return_value=contextlib.nullcontext(),
+            ),
+            patch.object(
+                surreal_server,
+                "lifecycle_reservation",
+                return_value=contextlib.nullcontext(),
+            ),
+            patch.object(surreal_server, "service_directory", return_value=self.state),
+            patch.object(service_borrowers, "borrower_alive", return_value=False),
+            patch.object(resources.host, "caller_alive", return_value=False),
+            patch.object(
+                operation_lifetime, "drained", return_value=drain_fixture(True)
+            ),
+        ):
+            yield
+
+    def test_orphan_recovery_preserves_failure_database_and_exact_membership(
+        self,
+    ) -> None:
+        resource = self.orphan_fixture()
+        before = resources.resource_status(resource)
+        invocation = resources.storage().invocation_snapshot(self.invocation.stem)
+        retained = self.state / "retained-database"
+        retained.write_bytes(b"original failed fixture bytes")
+        unit = {
+            "unit": "receiver.service",
+            "group": "/fixture/receiver.service",
+            "invocation": "c" * 32,
+        }
+        deadline = time.monotonic() + 10
+        with (
+            self.orphan_boundaries(),
+            patch.object(
+                surreal_server, "drain_context", return_value=[unit]
+            ) as receiver,
+            patch.object(
+                surreal_server,
+                "recover_file_owners",
+                return_value={"recovered": 1, "live": 0, "unknown": 0},
+            ) as native,
+            patch.object(resources, "remove_owned") as remove,
+        ):
+            result = resources.recover_fixture_drain(resource, deadline=deadline)
+            self.assertTrue(result["drained"])
+            receiver.assert_called_once_with(
+                self.state, before["database"], deadline=deadline
+            )
+            native.assert_called_once_with(
+                self.state,
+                database=before["database"],
+                require_all=True,
+                fixture_recovery=True,
+                verifier=None,
+            )
+            # Repeated explicit recovery remains an observation/settlement, never disposal.
+            resources.recover_fixture_drain(resource, deadline=deadline)
+        after = resources.resource_status(resource)
+        self.assertTrue(after["drained"])
+        self.assertNotIn("creation_borrower", after)
+        self.assertIn(unit, after["units"])
+        self.assertEqual(
+            {
+                key: value
+                for key, value in after.items()
+                if key not in {"drained", "creation_borrower", "units"}
+            },
+            {
+                key: value
+                for key, value in before.items()
+                if key not in {"drained", "creation_borrower", "units"}
+            },
+        )
+        self.assertEqual(
+            resources.storage().invocation_snapshot(self.invocation.stem), invocation
+        )
+        self.assertEqual(retained.read_bytes(), b"original failed fixture bytes")
+        remove.assert_not_called()
+
+    def test_orphan_recovery_refuses_live_unknown_and_surviving_owner_before_effects(
+        self,
+    ) -> None:
+        resource = self.orphan_fixture()
+        before = resources.storage().path("resources", resource).read_bytes()
+        for boundary, value in (
+            ("sdk", True),
+            ("producer", True),
+            ("scope", False),
+            ("namespace", "other"),
+            ("generation", "other"),
+        ):
+            with (
+                self.subTest(boundary=boundary),
+                self.orphan_boundaries(),
+                patch.object(surreal_server, "drain_context") as receiver,
+                patch.object(surreal_server, "recover_file_owners") as native,
+                contextlib.ExitStack() as controls,
+            ):
+                if boundary == "sdk":
+                    controls.enter_context(
+                        patch.object(
+                            service_borrowers, "borrower_alive", return_value=value
+                        )
+                    )
+                elif boundary == "producer":
+                    controls.enter_context(
+                        patch.object(resources.host, "caller_alive", return_value=value)
+                    )
+                elif boundary == "scope":
+                    controls.enter_context(
+                        patch.object(
+                            operation_lifetime,
+                            "drained",
+                            return_value=drain_fixture(False),
+                        )
+                    )
+                else:
+                    controls.enter_context(
+                        patch.object(
+                            surreal_server,
+                            "config_for",
+                            return_value={
+                                **self.config,
+                                "namespace"
+                                if boundary == "namespace"
+                                else "instance_id": value,
+                            },
+                        )
+                    )
+                with self.assertRaises(resources.ResourceError):
+                    resources.recover_fixture_drain(
+                        resource, deadline=time.monotonic() + 10
+                    )
+                receiver.assert_not_called()
+                native.assert_not_called()
+                self.assertEqual(
+                    resources.storage().path("resources", resource).read_bytes(), before
+                )
+
+    def test_orphan_recovery_attempts_both_settlements_and_never_publishes_partial_ack(
+        self,
+    ) -> None:
+        resource = self.orphan_fixture()
+        before = resources.storage().path("resources", resource).read_bytes()
+        for failed in ("receiver", "native", "both"):
+            with (
+                self.subTest(failed=failed),
+                self.orphan_boundaries(),
+                patch.object(
+                    surreal_server,
+                    "drain_context",
+                    side_effect=surreal_server.SupervisorError("retained receiver")
+                    if failed in {"receiver", "both"}
+                    else None,
+                    return_value=[],
+                ) as receiver,
+                patch.object(
+                    surreal_server,
+                    "recover_file_owners",
+                    side_effect=surreal_server.SupervisorError("unprovable reader")
+                    if failed in {"native", "both"}
+                    else None,
+                    return_value={"recovered": 0, "live": 0, "unknown": 0},
+                ) as native,
+                self.assertRaisesRegex(
+                    resources.ResourceError, "drain unresolved"
+                ) as refusal,
+            ):
+                resources.recover_fixture_drain(
+                    resource, deadline=time.monotonic() + 10
+                )
+            receiver.assert_called_once()
+            native.assert_called_once()
+            if failed == "both":
+                self.assertIn("retained receiver", str(refusal.exception))
+                self.assertIn("unprovable reader", str(refusal.exception))
+            self.assertEqual(
+                resources.storage().path("resources", resource).read_bytes(), before
+            )
+
+    def test_orphan_recovery_rechecks_resource_after_native_ack(self) -> None:
+        resource = self.orphan_fixture()
+
+        def changed(*_args: object, **_options: object) -> dict[str, int]:
+            resources.retain_reference(resource, "retained-failure", "d" * 64)
+            return {"recovered": 1, "live": 0, "unknown": 0}
+
+        with (
+            self.orphan_boundaries(),
+            patch.object(surreal_server, "drain_context", return_value=[]),
+            patch.object(surreal_server, "recover_file_owners", side_effect=changed),
+            self.assertRaisesRegex(resources.ResourceError, "changed during recovery"),
+        ):
+            resources.recover_fixture_drain(resource, deadline=time.monotonic() + 10)
+        record = resources.resource_status(resource)
+        self.assertFalse(record["drained"])
+        self.assertIn("creation_borrower", record)
+        self.assertEqual(record["references"], {"retained-failure": "d" * 64})
+
+    def test_orphan_recovery_refuses_missing_frozen_or_scope_authority(self) -> None:
+        resource = self.orphan_fixture()
+        store = resources.storage()
+        original = store.invocation_snapshot(self.invocation.stem)
+        before = store.path("resources", resource).read_bytes()
+        for missing in (
+            "membership",
+            "terminal",
+            "composer",
+            "producer_scope",
+            "frozen",
+        ):
+            image = json.loads(json.dumps(original))
+            if missing == "membership":
+                image["members"].pop(resource)
+            elif missing == "terminal":
+                image["terminal_identity"] = "c" * 64
+            elif missing == "composer":
+                image.pop("composer")
+            elif missing == "producer_scope":
+                image["producer"]["scope"]["group"] = "/unrelated"
+            else:
+                image["phase"] = "open"
+            with (
+                self.subTest(missing=missing),
+                self.orphan_boundaries(),
+                patch.object(resources, "storage", return_value=store),
+                patch.object(store, "invocation_snapshot", return_value=image),
+                patch.object(surreal_server, "drain_context") as receiver,
+                patch.object(surreal_server, "recover_file_owners") as native,
+                self.assertRaises(resources.ResourceError),
+            ):
+                resources.recover_fixture_drain(
+                    resource, deadline=time.monotonic() + 10
+                )
+            receiver.assert_not_called()
+            native.assert_not_called()
+            self.assertEqual(store.path("resources", resource).read_bytes(), before)
+
+    def test_orphan_recovery_cli_selects_one_exact_resource_and_control_clock(
+        self,
+    ) -> None:
+        resource = "a" * 32
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["test_resources", "recover-drain", resource, "--seconds", "7"],
+            ),
+            patch.object(resources.time, "monotonic", return_value=100),
+            patch.object(
+                resources, "recover_fixture_drain", return_value={"drained": True}
+            ) as recover,
+            patch("builtins.print"),
+        ):
+            self.assertEqual(resources.main(), 0)
+        recover.assert_called_once_with(resource, deadline=107, payload_verifier=None)
+
+    def test_orphan_recovery_pending_owner_refuses_before_receiver_or_helper_selection(
+        self,
+    ) -> None:
+        resource = self.orphan_fixture()
+        before = resources.storage().path("resources", resource).read_bytes()
+        for key in (
+            "backup_pending",
+            "derived_rebuild_pending",
+            "surrealkit_rollout_pending",
+        ):
+            with (
+                self.subTest(key=key),
+                self.orphan_boundaries(),
+                patch.object(
+                    surreal_server,
+                    "config_for",
+                    return_value={**self.config, key: {"original": "retained"}},
+                ),
+                patch.object(surreal_server, "drain_context") as receiver,
+                patch.object(surreal_server, "recover_file_owners") as native,
+                self.assertRaisesRegex(
+                    surreal_server.SupervisorError, "Pending maintenance"
+                ),
+            ):
+                resources.recover_fixture_drain(
+                    resource,
+                    deadline=time.monotonic() + 10,
+                    payload_verifier=self.root / "new-helper",
+                )
+            receiver.assert_not_called()
+            native.assert_not_called()
+            self.assertEqual(
+                resources.storage().path("resources", resource).read_bytes(), before
+            )
+
+    def test_orphan_recovery_explicit_helper_cli_does_not_select_for_other_actions(
+        self,
+    ) -> None:
+        resource = "a" * 32
+        helper = self.root / "explicit-observer"
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "test_resources",
+                    "recover-drain",
+                    resource,
+                    "--seconds",
+                    "7",
+                    "--payload-verifier",
+                    str(helper),
+                ],
+            ),
+            patch.object(resources.time, "monotonic", return_value=100),
+            patch.object(
+                resources, "recover_fixture_drain", return_value={"drained": True}
+            ) as recover,
+            patch("builtins.print"),
+        ):
+            resources.main()
+        recover.assert_called_once_with(resource, deadline=107, payload_verifier=helper)
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "test_resources",
+                    "record-drain",
+                    resource,
+                    "--payload-verifier",
+                    str(helper),
+                ],
+            ),
+            patch.object(resources, "record_drain") as record,
+            patch.object(sys, "stderr", io.StringIO()),
+            self.assertRaises(SystemExit),
+        ):
+            resources.main()
+        record.assert_not_called()
 
     def metadata_peer(self, program: str, *arguments: str) -> subprocess.Popen[str]:
         """A bounded child shares only this test's actual private registry."""

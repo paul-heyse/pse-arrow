@@ -175,7 +175,7 @@ def register_composer(
         raise ValueError("selected terminal requires its exact private invocation")
     token = uuid.uuid4().hex
     with operation.record_lock(parent, deadline=deadline):
-        record = operation._record(parent)
+        record = operation._record(parent)  # noqa: SLF001 -- original terminal ownership under its record lock
         if record.get("cancelled"):
             raise ValueError("native operation cancelled before selected payload")
         composers = operation_lifetime.composer_registrations(record)
@@ -394,7 +394,7 @@ def invocation(
             "start": operation_lifetime.start_identity(os.getpid()),
             "boot": host.boot(),
         }
-    from scripts import (
+    from scripts import (  # noqa: PLC0415 -- fixture requirement owner is selected at collection
         test_requirements,
     )
 
@@ -927,6 +927,179 @@ def record_drain(
         record["units"] = [
             cast("ResourceUnit", dict(unit)) for unit in units
         ] or record["units"]
+
+
+def orphan_fixture_owners(
+    resource: str, record: ResourceRecord, deadline: float
+) -> tuple[dict, list[ResourceUnit]]:
+    """Authenticate the closed original cohort without changing its outcome."""
+    nonce = record.get("invocation")
+    if not isinstance(nonce, str) or not IDENTIFIER.fullmatch(nonce):
+        raise ResourceError("Orphan recovery requires the original invocation")
+    image = storage().invocation_snapshot(nonce)
+    membership = image["members"].get(resource)
+    declaration = image["declaration"]
+    if (
+        image["phase"] != "frozen"
+        or not image.get("collected")
+        or not isinstance(membership, dict)
+        or membership.get("identity") != resource_identity(record)
+        or membership.get("publication") != "durable"
+        or record.get("terminal_identity") != image.get("terminal_identity")
+        or record.get("test")
+        not in {
+            item["binary_id"] + "::" + item["name"]
+            if declaration["kind"] == "rust"
+            else item["name"]
+            for item in declaration["selected"]
+        }
+    ):
+        raise ResourceError("Orphan recovery requires exact frozen fixture membership")
+    identity = {key: record.get(key) for key in ("pid", "start", "boot")}
+    creation = record.get("creation_borrower")
+    if creation is None and record.get("drained") is not True:
+        raise ResourceError("Original fixture creation owner is unavailable")
+    if creation is not None and creation != identity:
+        raise ResourceError("Original fixture creation identity differs")
+    failures = []
+    pid = identity["pid"]
+    if (
+        type(pid) is not int
+        or pid <= 0
+        or any(
+            not isinstance(identity[key], str) or not identity[key]
+            for key in ("start", "boot")
+        )
+    ):
+        raise ResourceError("Original fixture SDK identity is unavailable")
+    if service_borrowers.borrower_alive(identity):
+        failures.append("original fixture SDK owner is live or unobservable")
+    units: list[ResourceUnit] = []
+    for role in ("producer", "composer"):
+        owner = image.get(role)
+        if owner is None and role == "composer" and declaration["kind"] == "rust":
+            continue
+        scope = owner.get("scope") if isinstance(owner, dict) else None
+        if (
+            not isinstance(scope, dict)
+            or any(
+                not isinstance(scope.get(key), str)
+                for key in ("unit", "group", "invocation")
+            )
+            or not scope["group"].startswith("/")
+            or ".." in Path(scope["group"]).parts
+            or Path(scope["group"]).name != scope["unit"]
+            or not scope["unit"].endswith((".scope", ".service"))
+            or not IDENTIFIER.fullmatch(scope["invocation"])
+        ):
+            failures.append(role + ": original physical scope identity is unavailable")
+            continue
+        try:
+            reason = invocation_disposition.owner_reason(owner, deadline)
+        except (OSError, ValueError, KeyError) as error:
+            reason = "original owner observation unavailable: " + str(error)
+        if reason:
+            failures.append(role + ": " + reason)
+        elif isinstance(owner, dict):
+            units.append(cast("ResourceUnit", dict(owner["scope"])))
+    for unit in record.get("units", []):
+        observed = operation_lifetime.drained({"scope": unit}, deadline=deadline)
+        if not observed.complete:
+            failures.append("fixture descendant: " + observed.diagnostic())
+        units.append(unit)
+    if failures:
+        raise ResourceError(
+            "Orphan fixture owner proof refused: " + "; ".join(failures)
+        )
+    return image, units
+
+
+def recover_fixture_drain(
+    resource: str, *, deadline: float, payload_verifier: Path | None = None
+) -> dict:
+    """Settle one dead fixture's physical owners, retaining every failure and byte."""
+    from scripts import surreal_server  # noqa: PLC0415 -- lifecycle owner
+
+    host.remaining(deadline, 1)
+    if not IDENTIFIER.fullmatch(resource):
+        raise ResourceError("Orphan recovery requires one exact resource identity")
+    record = resource_status(resource, deadline=deadline)
+    if (
+        record.get("kind") != "database"
+        or not DATABASE.fullmatch(record["database"])
+        or record.get("cleanup") != "retained"
+        or record.get("borrows") != {}
+        or record.get("custody_transition")
+        or record.get("unresolved_service")
+    ):
+        raise ResourceError("Orphan recovery requires an unborrowed retained database")
+    state = Path(record["state"])
+    if record.get("service_owner") != str(state):
+        raise ResourceError("Original fixture service association is unavailable")
+    surreal_server.require_fixture_recovery_idle(
+        state, surreal_server.config_for(state, deadline=deadline)
+    )
+    with (
+        surreal_server.lifecycle_deadline(deadline),
+        surreal_server.lifecycle_reservation(state, deadline=deadline),
+    ):
+        config = surreal_server.config_for(state, deadline=deadline)
+        surreal_server.require_fixture_recovery_idle(state, config)
+        if (
+            surreal_server.service_directory(state, deadline=deadline) != state
+            or config.get("instance_id") != record.get("service_generation")
+            or config.get("namespace") != record.get("namespace")
+        ):
+            raise ResourceError(
+                "Original fixture service generation or namespace differs"
+            )
+        service_borrowers.service_registry_binding(state, deadline=deadline)
+        if resource_status(resource, deadline=deadline) != record:
+            raise ResourceError("Original fixture resource changed before recovery")
+        original, units = orphan_fixture_owners(resource, record, deadline)
+        failures = []
+        payload = None
+        # Each independent owner gets its settlement attempt under the same clock.
+        # Neither a receiver ACK nor dead process metadata settles the other one.
+        try:
+            units.extend(
+                cast(
+                    "list[ResourceUnit]",
+                    surreal_server.drain_context(
+                        state, record["database"], deadline=deadline
+                    ),
+                )
+            )
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+            failures.append("receiver: " + str(error))
+        try:
+            payload = surreal_server.recover_file_owners(
+                state,
+                database=record["database"],
+                require_all=True,
+                fixture_recovery=True,
+                verifier=payload_verifier,
+            )
+            if payload.get("live") != 0 or payload.get("unknown") != 0:
+                failures.append("native file owners: incomplete physical settlement")
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+            failures.append("native file owners: " + str(error))
+        if failures:
+            raise ResourceError(
+                "Orphan fixture drain unresolved: " + "; ".join(failures)
+            )
+        host.remaining(deadline, 1)
+        if storage().invocation_snapshot(original["declaration"]["nonce"]) != original:
+            raise ResourceError("Original fixture invocation changed during recovery")
+        with resource_update(resource, deadline=deadline) as current:
+            if current != record:
+                raise ResourceError("Original fixture resource changed during recovery")
+            current["drained"] = True
+            current.pop("creation_borrower", None)
+            current["units"] = [
+                unit for index, unit in enumerate(units) if unit not in units[:index]
+            ]
+        return {"resource": resource, "drained": True, "file_owners": payload}
 
 
 def finalize(
@@ -2888,6 +3061,7 @@ def main() -> int:
             "setup-failure",
             "drain",
             "record-drain",
+            "recover-drain",
             "list",
             "status",
             "pin",
@@ -2904,6 +3078,7 @@ def main() -> int:
     parser.add_argument("resource", nargs="?")
     parser.add_argument("--receipt")
     parser.add_argument("--digest")
+    parser.add_argument("--payload-verifier", type=Path)
     parser.add_argument(
         "--apply",
         action="store_true",
@@ -2918,6 +3093,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.apply and args.action != "abandon":
         parser.error("--apply belongs to invocation abandonment")
+    if args.payload_verifier is not None and args.action != "recover-drain":
+        parser.error("--payload-verifier belongs to exact orphan fixture recovery")
     if args.action == "abandon":
         if not args.resource:
             parser.error("abandon requires an exact invocation declaration or identity")
@@ -2981,6 +3158,21 @@ def main() -> int:
                 resume_projection(
                     Path(args.resource), terminal_owner=args.terminal_owner
                 )
+            )
+        )
+    elif args.action == "recover-drain":
+        if not args.resource or not 0 < args.seconds <= CLEANUP_TIMEOUT_SECONDS:
+            parser.error(
+                "recover-drain requires one exact resource and seconds in (0, 90]"
+            )
+        print(
+            json.dumps(
+                recover_fixture_drain(
+                    args.resource,
+                    deadline=time.monotonic() + args.seconds,
+                    payload_verifier=args.payload_verifier,
+                ),
+                sort_keys=True,
             )
         )
     elif args.action in {"register", "drain", "record-drain", "setup-failure"}:

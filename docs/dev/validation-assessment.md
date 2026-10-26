@@ -165,6 +165,17 @@ a terminal record, ACK or scientific outcome. It cannot make protected evidence 
 The proposed ADR-0174 records the selected distinction; acceptance of that ADR remains a
 separate decision.
 
+For an exited fixture producer, `python -m scripts.test_resources recover-drain RESOURCE_ID
+--seconds 90` settles one exact retained database without disposition or disposal. It requires
+original frozen membership, service identity, dead SDK/producer/composer lifetimes and actual
+receiver/descendant drain. Native file owners must acknowledge recovery. An absent database needs
+authenticated namespace absence before and after native empty-placement verification; an existing
+malformed catalog remains refused. Failures, pins, references and database contents stay retained.
+An explicit `--payload-verifier /absolute/immutable/pse-canonical-recovery` selects the current
+native observer only for this recovery request; path/SHA are rechecked and stored configuration
+is unchanged. Pending backup or maintenance refuses before selection. This is independent of
+abandonment, which can make eligible data disposable.
+
 - Rust correctness routes activate and verify force-validation for each actual selected
   Arrow-consuming normal/build/test-dev closure, including host dependencies (ADR-0170).
   Pure closures select no unrelated relation targets. Bare commands have the same obligation.

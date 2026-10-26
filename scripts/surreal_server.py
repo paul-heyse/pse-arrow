@@ -401,7 +401,7 @@ def drain_borrowed_services(
     raw_units = record.get("units")
     if not isinstance(raw_units, dict):
         raise host_admission.AdmissionError("Invalid borrowed service unit ownership")
-    bound_units = cast("dict[str, BoundUnit]", raw_units)
+    bound_units = cast("dict[str, host_admission.BoundUnit]", raw_units)
     if not services or (not explicit and host_admission.caller_alive(record)):
         return
     units = {unit_name(Path(value)) for value in services}
@@ -451,6 +451,7 @@ def drain_borrowed_services(
                 or launch.get("binding") != expected
             ):
                 raise host_admission.AdmissionError("Borrowed storage binding changed")
+            expected = cast("host_admission.BoundUnit", expected)
             config = config_for(state, **options)
             if config.get("instance_id") != launch.get("generation"):
                 raise host_admission.AdmissionError(
@@ -627,6 +628,14 @@ def object_inventory(value: object) -> list[dict[str, object]]:
     return [object_mapping(item) for item in value]
 
 
+def string_mapping(value: object) -> dict[str, str]:
+    """Require string values where the owned metadata schema declares them."""
+    selected = object_mapping(value)
+    if any(not isinstance(item, str) for item in selected.values()):
+        raise SupervisorError("Expected string values in owned metadata")
+    return cast("dict[str, str]", selected)
+
+
 def integer(value: object) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise SupervisorError("Expected an integer in owned configuration")
@@ -795,9 +804,13 @@ def publish_generation(
     except receiver_closure.ClosureError as error:
         raise SupervisorError(str(error)) from error
     if prepared_inputs is not None:
+        import msgspec  # noqa: PLC0415 -- compiled runtime-input schema
+
         providers.update(
             receiver_environment.compiler_files(
-                object_mapping(json.loads(prepared_inputs)["values"])
+                msgspec.json.decode(
+                    prepared_inputs, type=deployment.PreparedReceiverEnvironment
+                ).values
             )
         )
     declaration = {
@@ -1050,46 +1063,49 @@ def all_contexts_drained(state: Path) -> None:
     if recovery_deadline is None:
         recovery_deadline = time.monotonic() + 90
     for context in managed_contexts(state):
-        for pending in [
-            context / "primary-admission.json",
-            context / "observer-launch.json",
-            context / "primary-observer.json",
-            *context.glob("worker-admission-*.json"),
-        ]:
-            if pending.exists() and read_json(pending).get("unresolved") is True:
-                reconcile_registration(context, pending, deadline=recovery_deadline)
-            if pending.exists() and reservation_live(read_json(pending)):
-                raise SupervisorError(
-                    "Context launch reservation remains active; wait for admission to settle"
-                )
-        if observer_launch_busy(context):
+        context_processes_drained(context, deadline=recovery_deadline)
+
+
+def context_processes_drained(context: Path, *, deadline: float) -> None:
+    """Observe exact launch, observer and worker obligations without fixture disposition."""
+    for pending in [
+        context / "primary-admission.json",
+        context / "observer-launch.json",
+        context / "primary-observer.json",
+        *context.glob("worker-admission-*.json"),
+    ]:
+        if pending.exists() and read_json(pending).get("unresolved") is True:
+            reconcile_registration(context, pending, deadline=deadline)
+        if pending.exists() and reservation_live(read_json(pending)):
             raise SupervisorError(
-                "Context observer launch remains active; drain before offline action"
+                "Context launch reservation remains active; wait for admission to settle"
             )
-        observer = context / "primary-observer.json"
-        if observer.exists():
-            registration = read_json(observer)
-            # verify_observer records actual membership for an existing process,
-            # which need not have a supervisor-created unit name. A dead leader
-            # does not free that recorded group while descendants survive.
-            group = registration.get("group", "")
-            if registration.get("unit"):
-                group = systemctl(
-                    "show",
-                    "--property=ControlGroup",
-                    "--value",
-                    str(registration["unit"]),
-                    check=False,
-                ).stdout.strip()
-            if not isinstance(group, str):
-                raise SupervisorError(
-                    "Context observer lacks recorded kernel membership"
-                )
-            if group.startswith("/") and group_populated(group):
-                raise SupervisorError(
-                    "Context observer process group remains populated; drain before offline action"
-                )
-        workers_drained(context, config_for(context))
+    if observer_launch_busy(context):
+        raise SupervisorError(
+            "Context observer launch remains active; drain before offline action"
+        )
+    observer = context / "primary-observer.json"
+    if observer.exists():
+        registration = read_json(observer)
+        # verify_observer records actual membership for an existing process,
+        # which need not have a supervisor-created unit name. A dead leader
+        # does not free that recorded group while descendants survive.
+        group = registration.get("group", "")
+        if registration.get("unit"):
+            group = systemctl(
+                "show",
+                "--property=ControlGroup",
+                "--value",
+                str(registration["unit"]),
+                check=False,
+            ).stdout.strip()
+        if not isinstance(group, str):
+            raise SupervisorError("Context observer lacks recorded kernel membership")
+        if group.startswith("/") and group_populated(group):
+            raise SupervisorError(
+                "Context observer process group remains populated; drain before offline action"
+            )
+    workers_drained(context, config_for(context))
 
 
 def owned_generations(state: Path) -> set[Path]:
@@ -1545,10 +1561,6 @@ def execution_resources(name: str) -> dict[str, object]:
 
 def context_document(value: Mapping[str, object]) -> dict[str, object]:
     import msgspec  # noqa: PLC0415 -- private typed boundary
-
-    from scripts.generated import (
-        deployment,
-    )
 
     if "version" not in value:
         raise SupervisorError("Registered context omitted its persisted version")
@@ -4000,12 +4012,8 @@ def primary_association(config: dict[str, object]) -> dict[str, str]:
         )
     import msgspec  # noqa: PLC0415 -- private typed boundary
 
-    from scripts.generated import (
-        deployment,
-    )
-
     try:
-        result = object_mapping(
+        result = string_mapping(
             msgspec.to_builtins(
                 msgspec.convert(
                     receiver, type=deployment.ManagedPrimaryReceiver, strict=True
@@ -4484,7 +4492,6 @@ def _checked_current_observer(state: Path) -> dict[str, object]:
     pid = os.getpid()
     if integer(registration["pid"]) != pid:
         raise SupervisorError("Current caller does not own the observer registration")
-    process = Path(f"/proc/{pid}")
     start = process_observation.start_identity(pid)
     group = process_observation.process_group(pid)
     if (
@@ -4862,6 +4869,7 @@ def drain_context(
         if observed["ActiveState"] in {"inactive", "failed"} and (
             not group or not group_populated(group)
         ):
+            context_processes_drained(selected, deadline=deadline)
             return []
         pid = primary_drain_pid(selected, config, observed)
         if pid is None:
@@ -4906,6 +4914,7 @@ def drain_context(
                     ) from error
         finally:
             os.close(descriptor)
+        context_processes_drained(selected, deadline=deadline)
         return [association]
     finally:
         _STARTUP.deadline = previous
@@ -7516,10 +7525,57 @@ def reap_payload_owners(
     return counts
 
 
-def recover_file_owners(state: Path) -> dict[str, int]:
+def fixture_database_absent(state: Path, database: str, deadline: float) -> bool:
+    """Observe exact namespace membership without selecting or creating the fixture DB."""
+    rows = administrative_query(state, "INFO FOR NS;", deadline)
+    if len(rows) != 1:
+        raise SupervisorError("Fixture namespace inventory acknowledgment differs")
+    catalog = object_mapping(rows[0]["result"])
+    databases = catalog.get("databases")
+    if not isinstance(databases, dict) or any(
+        not isinstance(name, str) for name in databases
+    ):
+        raise SupervisorError("Fixture namespace database inventory is unavailable")
+    return database not in databases
+
+
+def require_fixture_recovery_idle(state: Path, config: Mapping[str, object]) -> None:
+    """An orphan observation never takes over an original maintenance operation."""
+    if (
+        any(
+            key in config
+            for key in (
+                "backup_pending",
+                "derived_rebuild_pending",
+                "surrealkit_rollout_pending",
+            )
+        )
+        or (state / ".maintenance-listener.json").exists()
+    ):
+        raise SupervisorError(
+            "Pending maintenance requires its original owner; orphan recovery refused"
+        )
+
+
+def recover_file_owners(
+    state: Path,
+    *,
+    database: str | None = None,
+    require_all: bool = False,
+    fixture_recovery: bool = False,
+    verifier: Path | None = None,
+) -> dict[str, int]:
     """Explicit orphan recovery; ordinary service restart neither reaps nor invents owners."""
+    if fixture_recovery or verifier is not None:
+        if not fixture_recovery or database is None or not require_all:
+            raise SupervisorError(
+                "Explicit recovery helper requires exact fixture settlement"
+            )
+        require_fixture_recovery_idle(state, config_for(state))
     with lifecycle_reservation(state):
         config = config_for(state)
+        if fixture_recovery:
+            require_fixture_recovery_idle(state, config)
         if (
             service_directory(state) != state
             or not owns_listener(state, config)
@@ -7528,25 +7584,90 @@ def recover_file_owners(state: Path) -> dict[str, int]:
             raise SupervisorError(
                 "File-owner recovery requires the active owned catalog"
             )
-        marker = payload_query(
-            state,
-            config,
-            "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
-            "RETURN {payload_incarnation:$marker.payload_incarnation,interpretation:$marker.interpretation,study_module_sha256:$marker.study_module_sha256};",
-        )
+        if database is not None:
+            # The enclosing fixture owner supplies its exact registered database.
+            # Codec-only fixtures share the service placement without a receiver.
+            sql_identifier(database)
+            selected = receiver_context(state, database)
+            candidate = config_for(selected) if selected != state else {**config}
+            if any(
+                candidate.get(key) != config.get(key)
+                for key in ("instance_id", "namespace", "payload_incarnation")
+            ):
+                raise SupervisorError(
+                    "File-owner recovery context service identity differs"
+                )
+            config = candidate
+            config["database"] = database
+        if fixture_recovery:
+            require_fixture_recovery_idle(state, config)
+        # This descriptor belongs only to this new observation operation. Neither
+        # the service's original selection nor any pending operation is readmitted.
+        selected_verifier = payload_verifier(verifier) if verifier is not None else None
+        if selected_verifier is not None:
+            config = {**config, "payload_verifier": selected_verifier}
+        elif fixture_recovery and not config.get("payload_verifier"):
+            raise SupervisorError(
+                "Orphan recovery requires its selected or explicit native helper"
+            )
         if (
-            marker
-            != {
-                "payload_incarnation": config["payload_incarnation"],
-                "interpretation": SUBSTRATE_INTERPRETATION,
-                "study_module_sha256": study_module(config)["sha256"],
-            }
-            or config["interpretation"] != SUBSTRATE_INTERPRETATION
+            fixture_recovery
+            and config.get("interpretation") != SUBSTRATE_INTERPRETATION
         ):
             raise SupervisorError(
-                "File-owner recovery requires the current selected incarnation and interpretation"
+                "Orphan recovery requires the current selected interpretation"
             )
-        return reap_payload_owners(state, config, require_all=False)
+        deadline = getattr(_STARTUP, "deadline", None) or time.monotonic() + 90
+        if (
+            fixture_recovery
+            and database is not None
+            and fixture_database_absent(state, database, deadline)
+        ):
+            # A failed fixture creation need not have published a database. Its
+            # absence says nothing about orphan bytes: the existing native owner
+            # must independently reject every unknown file, lock and symlink.
+            result = native_payload_operation(
+                state, config, "retired-check", [], placement=config
+            )
+            if result != []:
+                raise SupervisorError("Empty fixture placement acknowledgment differs")
+            if not fixture_database_absent(state, database, deadline):
+                raise SupervisorError(
+                    "Fixture database appeared during orphan recovery"
+                )
+            counts = {"recovered": 0, "live": 0, "unknown": 0}
+        else:
+            counts = recover_selected_file_owners(
+                state, config, require_all=require_all
+            )
+        if verifier is not None and payload_verifier(verifier) != selected_verifier:
+            raise SupervisorError("Explicit recovery helper changed during observation")
+        return counts
+
+
+def recover_selected_file_owners(
+    state: Path, config: dict[str, object], *, require_all: bool
+) -> dict[str, int]:
+    """Require the complete current interpretation before native catalog recovery."""
+    marker = payload_query(
+        state,
+        config,
+        "LET $marker=SELECT * FROM ONLY canonical_interpretations:current; "
+        "RETURN {payload_incarnation:$marker.payload_incarnation,interpretation:$marker.interpretation,study_module_sha256:$marker.study_module_sha256};",
+    )
+    if (
+        marker
+        != {
+            "payload_incarnation": config["payload_incarnation"],
+            "interpretation": SUBSTRATE_INTERPRETATION,
+            "study_module_sha256": study_module(config)["sha256"],
+        }
+        or config["interpretation"] != SUBSTRATE_INTERPRETATION
+    ):
+        raise SupervisorError(
+            "File-owner recovery requires the current selected incarnation and interpretation"
+        )
+    return reap_payload_owners(state, config, require_all=require_all)
 
 
 def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, object]]:
@@ -7855,10 +7976,6 @@ def backup_sources(state: Path) -> tuple[Path, ...]:
 def backup_pending(config: Mapping[str, object]) -> dict[str, object]:
     import msgspec  # noqa: PLC0415 -- private typed boundary
 
-    from scripts.generated import (
-        deployment,
-    )
-
     pending = object_mapping(config["backup_pending"])
     if "version" not in pending:
         raise SupervisorError("Backup pending owner omitted its persisted version")
@@ -7998,7 +8115,7 @@ def resume_backup(
     if backup_image.digest(directory / "backup.json") != pending["manifest_sha256"]:
         raise SupervisorError("Backup original manifest snapshot changed")
     draft = read_json(directory / "backup.json")
-    files = object_mapping(draft["files"])
+    files = string_mapping(draft["files"])
     metadata = {
         name: str(digest)
         for name, digest in files.items()

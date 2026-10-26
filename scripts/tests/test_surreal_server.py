@@ -85,6 +85,426 @@ def record(value: object) -> dict[str, object]:
     return value
 
 
+class FixtureFileOwnerRecoveryTests(unittest.TestCase):
+    def test_inactive_receiver_does_not_hide_surviving_independent_worker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            database = "canonical_test_" + "a" * 32
+            selected = state / ".receivers/selected"
+            selected.mkdir(parents=True)
+            (state / ".contexts").mkdir()
+            (state / ".contexts" / (database + ".json")).write_text("{}")
+            with (
+                patch.object(server, "receiver_context", return_value=selected),
+                patch.object(server, "config_for", return_value={"database": database}),
+                patch.object(
+                    server,
+                    "primary_observation",
+                    return_value={"ActiveState": "inactive", "ControlGroup": ""},
+                ),
+                patch.object(server, "observer_launch_busy", return_value=False),
+                patch.object(
+                    server,
+                    "workers_drained",
+                    side_effect=server.SupervisorError(
+                        "independent native worker remains"
+                    ),
+                ) as workers,
+                patch.object(server.signal, "pidfd_send_signal") as signal,
+                self.assertRaisesRegex(
+                    server.SupervisorError, "independent native worker"
+                ),
+            ):
+                server.drain_context(state, database, deadline=time.monotonic() + 5)
+            workers.assert_called_once_with(selected, {"database": database})
+            signal.assert_not_called()
+
+    def test_context_launch_reservation_refuses_before_worker_settlement(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            selected = Path(directory)
+            (selected / "primary-admission.json").write_text("{}")
+            with (
+                patch.object(server, "reservation_live", return_value=True),
+                patch.object(server, "workers_drained") as workers,
+                self.assertRaisesRegex(
+                    server.SupervisorError, "reservation remains active"
+                ),
+            ):
+                server.context_processes_drained(
+                    selected, deadline=time.monotonic() + 5
+                )
+            workers.assert_not_called()
+
+    def test_recovery_selects_exact_registered_or_codec_database_without_startup(
+        self,
+    ) -> None:
+        service = Path("/fixture/service")
+        database = "canonical_test_" + "a" * 32
+        base = {
+            "instance_id": "instance",
+            "namespace": "pse",
+            "database": "canonical",
+            "payload_incarnation": "incarnation",
+            "interpretation": server.SUBSTRATE_INTERPRETATION,
+        }
+        marker = {
+            "payload_incarnation": "incarnation",
+            "interpretation": server.SUBSTRATE_INTERPRETATION,
+            "study_module_sha256": "b" * 64,
+        }
+        for selected in (service, service / ".receivers/generation" / database):
+            child = {**base, "database": database, "service_state": str(service)}
+            with (
+                self.subTest(selected=selected),
+                patch.object(
+                    server,
+                    "lifecycle_reservation",
+                    return_value=contextlib.nullcontext(),
+                ),
+                patch.object(
+                    server,
+                    "config_for",
+                    side_effect=lambda path, child=child: (
+                        base.copy() if path == service else child.copy()
+                    ),
+                ),
+                patch.object(server, "service_directory", return_value=service),
+                patch.object(server, "owns_listener", return_value=True),
+                patch.object(server, "listener_ready", return_value=True),
+                patch.object(
+                    server, "receiver_context", return_value=selected
+                ) as context,
+                patch.object(server, "payload_query", return_value=marker) as query,
+                patch.object(server, "study_module", return_value={"sha256": "b" * 64}),
+                patch.object(
+                    server,
+                    "reap_payload_owners",
+                    return_value={"recovered": 2, "live": 0, "unknown": 0},
+                ) as reap,
+                patch.object(server, "start") as start,
+            ):
+                result = server.recover_file_owners(
+                    service, database=database, require_all=True
+                )
+            self.assertEqual(result["recovered"], 2)
+            context.assert_called_once_with(service, database)
+            self.assertEqual(
+                query.call_args.args[:2],
+                (
+                    service,
+                    {**(base if selected == service else child), "database": database},
+                ),
+            )
+            self.assertEqual(reap.call_args.args[1]["database"], database)
+            self.assertEqual(reap.call_args.kwargs, {"require_all": True})
+            self.assertEqual(base["database"], "canonical")
+            start.assert_not_called()
+
+    def test_recovery_refuses_changed_catalog_or_context_before_native_owner_effects(
+        self,
+    ) -> None:
+        service = Path("/fixture/service")
+        base = {
+            "instance_id": "instance",
+            "namespace": "pse",
+            "database": "canonical",
+            "payload_incarnation": "incarnation",
+            "interpretation": server.SUBSTRATE_INTERPRETATION,
+        }
+        for changed in (
+            "namespace",
+            "instance_id",
+            "payload_incarnation",
+            "marker",
+            "listener",
+        ):
+            child = {
+                **base,
+                **(
+                    {changed: "changed"}
+                    if changed not in {"marker", "listener"}
+                    else {}
+                ),
+            }
+            with (
+                self.subTest(changed=changed),
+                patch.object(
+                    server,
+                    "lifecycle_reservation",
+                    return_value=contextlib.nullcontext(),
+                ),
+                patch.object(
+                    server,
+                    "config_for",
+                    side_effect=lambda path, child=child: (
+                        base if path == service else child
+                    ),
+                ),
+                patch.object(server, "service_directory", return_value=service),
+                patch.object(
+                    server, "owns_listener", return_value=changed != "listener"
+                ),
+                patch.object(server, "listener_ready", return_value=True),
+                patch.object(
+                    server,
+                    "receiver_context",
+                    return_value=service / ".receivers/selected",
+                ),
+                patch.object(server, "payload_query", return_value=None),
+                patch.object(server, "study_module", return_value={"sha256": "b" * 64}),
+                patch.object(server, "reap_payload_owners") as reap,
+                self.assertRaises(server.SupervisorError),
+            ):
+                server.recover_file_owners(
+                    service, database="canonical_test_" + "a" * 32, require_all=True
+                )
+            reap.assert_not_called()
+
+
+class AbsentFixtureRecoveryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.state = Path(temporary.name)
+        self.database = "canonical_test_" + "a" * 32
+        self.config = {
+            "instance_id": "original-service",
+            "namespace": "pse",
+            "database": "canonical",
+            "payload_incarnation": "12345678-1234-4234-8234-123456789abc",
+            "interpretation": server.SUBSTRATE_INTERPRETATION,
+            "payload_verifier": {
+                "binary": "/original/unavailable-helper",
+                "sha256": "a" * 64,
+            },
+        }
+        self.path = self.state / "config.json"
+        self.path.write_text(json.dumps(self.config))
+        self.original = self.path.read_bytes()
+        self.helper = self.state / "explicit-observer"
+        self.helper.write_bytes(
+            b"fixture executable identity only; native protocol is controlled"
+        )
+        self.helper.chmod(0o700)
+
+    @contextlib.contextmanager
+    def boundaries(self) -> Generator[None, None, None]:
+        with (
+            patch.object(
+                server, "config_for", side_effect=lambda _state: self.config.copy()
+            ),
+            patch.object(
+                server, "lifecycle_reservation", return_value=contextlib.nullcontext()
+            ),
+            patch.object(server, "service_directory", return_value=self.state),
+            patch.object(server, "receiver_context", return_value=self.state),
+            patch.object(server, "owns_listener", return_value=True),
+            patch.object(server, "listener_ready", return_value=True),
+        ):
+            yield
+
+    def recover(self) -> dict[str, int]:
+        return server.recover_file_owners(
+            self.state,
+            database=self.database,
+            require_all=True,
+            fixture_recovery=True,
+            verifier=self.helper,
+        )
+
+    def test_absent_fixture_requires_two_catalog_observations_and_native_empty_placement(
+        self,
+    ) -> None:
+        absent = [{"status": "OK", "result": {"databases": {}}}]
+        with (
+            self.boundaries(),
+            patch.object(
+                server, "administrative_query", side_effect=[absent, absent]
+            ) as catalog,
+            patch.object(server, "native_payload_operation", return_value=[]) as native,
+            patch.object(server, "reap_payload_owners") as reap,
+            patch.object(server, "write_json") as write,
+        ):
+            self.assertEqual(self.recover(), {"recovered": 0, "live": 0, "unknown": 0})
+        self.assertEqual(catalog.call_count, 2)
+        for observed in catalog.call_args_list:
+            self.assertEqual(observed.args[:2], (self.state, "INFO FOR NS;"))
+        self.assertEqual(native.call_args.args[2:], ("retired-check", []))
+        selected = native.call_args.args[1]
+        self.assertEqual(selected["database"], self.database)
+        self.assertEqual(
+            selected["payload_verifier"], server.payload_verifier(self.helper)
+        )
+        self.assertEqual(native.call_args.kwargs["placement"], selected)
+        self.assertEqual(self.path.read_bytes(), self.original)
+        self.assertEqual(
+            self.config["payload_verifier"]["binary"], "/original/unavailable-helper"
+        )
+        reap.assert_not_called()
+        write.assert_not_called()
+
+    def test_existing_malformed_catalog_never_uses_absent_fixture_fallback(
+        self,
+    ) -> None:
+        with (
+            self.boundaries(),
+            patch.object(
+                server,
+                "administrative_query",
+                return_value=[
+                    {"status": "OK", "result": {"databases": {self.database: {}}}}
+                ],
+            ),
+            patch.object(server, "payload_query", return_value=None),
+            patch.object(server, "study_module", return_value={"sha256": "b" * 64}),
+            patch.object(server, "native_payload_operation") as native,
+            patch.object(server, "reap_payload_owners") as reap,
+            self.assertRaisesRegex(
+                server.SupervisorError, "current selected incarnation"
+            ),
+        ):
+            self.recover()
+        native.assert_not_called()
+        reap.assert_not_called()
+        self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_absent_fixture_refuses_unknown_bytes_or_new_catalog(self) -> None:
+        absent = [{"status": "OK", "result": {"databases": {}}}]
+        appeared = [{"status": "OK", "result": {"databases": {self.database: {}}}}]
+        for reason in ("bytes", "appeared", "ack"):
+            with (
+                self.subTest(reason=reason),
+                self.boundaries(),
+                patch.object(
+                    server,
+                    "administrative_query",
+                    side_effect=[absent, appeared if reason == "appeared" else absent],
+                ) as catalog,
+                patch.object(
+                    server,
+                    "native_payload_operation",
+                    side_effect=server.SupervisorError(
+                        "unknown payload bytes or synchronization lock"
+                    )
+                    if reason == "bytes"
+                    else None,
+                    return_value=[{"unexpected": True}] if reason == "ack" else [],
+                ) as native,
+                self.assertRaises(server.SupervisorError),
+            ):
+                self.recover()
+            native.assert_called_once()
+            self.assertEqual(catalog.call_count, 2 if reason == "appeared" else 1)
+            self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_explicit_recovery_helper_is_rechecked_after_native_observation(
+        self,
+    ) -> None:
+        absent = [{"status": "OK", "result": {"databases": {}}}]
+
+        def replaced(*_args: object, **_options: object) -> list[dict[str, object]]:
+            self.helper.write_bytes(b"replacement executable must refuse")
+            return []
+
+        with (
+            self.boundaries(),
+            patch.object(server, "administrative_query", return_value=absent),
+            patch.object(server, "native_payload_operation", side_effect=replaced),
+            self.assertRaisesRegex(server.SupervisorError, "helper changed"),
+        ):
+            self.recover()
+        self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_explicit_helper_remains_ephemeral_for_existing_owner_observations(
+        self,
+    ) -> None:
+        marker = {
+            "payload_incarnation": self.config["payload_incarnation"],
+            "interpretation": server.SUBSTRATE_INTERPRETATION,
+            "study_module_sha256": "b" * 64,
+        }
+        with (
+            self.boundaries(),
+            patch.object(
+                server,
+                "administrative_query",
+                return_value=[
+                    {"status": "OK", "result": {"databases": {self.database: {}}}}
+                ],
+            ),
+            patch.object(server, "payload_query", return_value=marker),
+            patch.object(server, "study_module", return_value={"sha256": "b" * 64}),
+            patch.object(
+                server,
+                "reap_payload_owners",
+                return_value={"recovered": 1, "live": 0, "unknown": 0},
+            ) as reap,
+        ):
+            self.assertEqual(self.recover()["recovered"], 1)
+        self.assertEqual(
+            reap.call_args.args[1]["payload_verifier"],
+            server.payload_verifier(self.helper),
+        )
+        self.assertEqual(reap.call_args.kwargs, {"require_all": True})
+        self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_pending_owner_refuses_before_helper_selection_and_lifecycle(self) -> None:
+        for key in (
+            "backup_pending",
+            "derived_rebuild_pending",
+            "surrealkit_rollout_pending",
+        ):
+            with (
+                self.subTest(key=key),
+                self.boundaries(),
+                patch.dict(
+                    self.config,
+                    {
+                        key: {"exact": "original operation"},
+                        "payload_verifier": server.payload_verifier(self.helper),
+                    },
+                ),
+                patch.object(server, "payload_verifier") as select,
+                patch.object(server, "lifecycle_reservation") as reserve,
+                patch.object(server, "native_payload_operation") as native,
+                self.assertRaisesRegex(server.SupervisorError, "Pending maintenance"),
+            ):
+                self.recover()
+            select.assert_not_called()
+            reserve.assert_not_called()
+            native.assert_not_called()
+        self.assertEqual(self.path.read_bytes(), self.original)
+
+    def test_absent_fixture_never_falls_back_from_unavailable_original_helper(
+        self,
+    ) -> None:
+        absent = [{"status": "OK", "result": {"databases": {}}}]
+
+        def original_only(
+            _state: Path,
+            config: Mapping[str, object],
+            _operation: str,
+            _inventory: object,
+            **_options: object,
+        ) -> list[dict[str, object]]:
+            server.admitted_payload_verifier(config)
+            self.fail("Unavailable original helper was accepted")
+
+        with (
+            self.boundaries(),
+            patch.object(server, "administrative_query", return_value=absent),
+            patch.object(server, "native_payload_operation", side_effect=original_only),
+            self.assertRaisesRegex(server.SupervisorError, "helper unavailable"),
+        ):
+            server.recover_file_owners(
+                self.state,
+                database=self.database,
+                require_all=True,
+                fixture_recovery=True,
+            )
+        self.assertEqual(self.path.read_bytes(), self.original)
+
+
 class AdministrativeTransportTests(unittest.TestCase):
     def test_preserves_multiline_comment_and_literal_bytes_and_explicit_errors(
         self,

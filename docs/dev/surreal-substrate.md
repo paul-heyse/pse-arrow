@@ -474,7 +474,7 @@ The underlying tool commands are:
 
 ```bash
 scripts/pse-env --resource-class compile -- .venv/bin/python scripts/surreal_server.py build-server
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v9
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v10
 .venv/bin/python scripts/surreal_server.py initialize --initializer-command target/debug/xtask canonical-init "$PSE_SURREAL_STATE"
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
@@ -518,10 +518,10 @@ selection. Initialize the new identity before normal start; no mixed policy vers
 are accepted. Blueprint §19.3/§20.6 own the enduring contract, and Plan49 owns selected
 qualification and its limits.
 
-The current generated interpretation is `pse.substrate.v9`, including native physical
+The current generated interpretation is `pse.substrate.v10`, including native physical
 attempt phases, typed refusals, immutable record identities, independent
 scientific artifacts, copied study inputs and releasable detail history with permanent
-identity fences, explicit canonical key/producer/association meaning, inline/sealed payload locators and nonexpiring exact manifest tickets. Fresh stores and evidence replace earlier design-phase data. These commands
+identity fences, explicit canonical key/producer/association meaning, inline/sealed payload locators and nonexpiring exact manifest tickets, resumable population installation frontiers and coherently captured cohort facts/protections. Fresh stores and evidence replace earlier design-phase data. These commands
 do not authorize activation, migration or deletion of an existing deployment;
 an existing interpretation mismatch still refuses ordinary startup/admission.
 
@@ -681,7 +681,7 @@ Timing uses a dedicated state and endpoint. With an already built linked worker:
 ```bash
 timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
 scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
-  --port 18242 --interpretation pse.substrate.v9 --execution-profile timing \
+  --port 18242 --interpretation pse.substrate.v10 --execution-profile timing \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
@@ -825,7 +825,7 @@ An interrupted incomplete copy lacks a valid complete manifest and is not a read
 Inspect a copied application backup independently of its source service:
 
 ```bash
-just surreal inspect-backup --source /path/to/new-backup --interpretation pse.substrate.v9 --payload-verifier /absolute/path/to/pse-canonical-recovery
+just surreal inspect-backup --source /path/to/new-backup --interpretation pse.substrate.v10 --payload-verifier /absolute/path/to/pse-canonical-recovery
 ```
 
 `inspect-backup` shares restore's version-4 inventory, interpretation and required-file validation,
@@ -885,15 +885,20 @@ not freeze, stop or override another owner. Live or unprovable ownership remains
 protective. Collection serializes with publication/recovery through persistent instance
 locks and rechecks catalog state before touching bytes. Collected instances cannot revive.
 
+Exact exited test-fixture recovery is a separate, explicit resource-owner action. See
+[the qualification guide](validation-assessment.md) for `test_resources recover-drain`, including
+missing-database proof, optional ephemeral native observer selection and preservation of failed
+invocations, pins and database contents. It does not authorize ordinary collection or disposal.
+
 ## Restore and validation
 
 Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v9
+  --source /path/to/new-backup --interpretation pse.substrate.v10
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v9 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v10 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
@@ -918,7 +923,7 @@ recovery compares complete schema metadata and exact float/binary bits while dis
 metadata map order and transport chunk boundaries.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v9`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v10`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
 Under the exact restored incarnation, validation atomically admits protected file readers
 while keeping GC frozen and application writes closed. Every exit refreezes file admission
