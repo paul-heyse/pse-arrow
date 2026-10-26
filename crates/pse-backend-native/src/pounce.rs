@@ -9,14 +9,7 @@ pub use profiles::{
     SecondOpinionProfile, StartPerturbation, second_opinion_capacity, second_opinion_profiles,
 };
 mod retained;
-/// Actual library-generated replacement point, before scientific screening.
-#[derive(Clone, Debug)]
-pub struct PerturbedStart {
-    /// Coordinates in the same original layout as the input.
-    pub coordinates: Vec<f64>,
-    /// Actual maximum absolute displacement after bound clipping.
-    pub displacement: f64,
-}
+pub use crate::execution::PerturbedStart;
 /// Materialize the library's deterministic jitter without a native solve.
 /// The task must screen this proposal and establish its start/branch permission.
 pub fn perturb_start(

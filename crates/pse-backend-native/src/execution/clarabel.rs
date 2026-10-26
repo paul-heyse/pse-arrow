@@ -33,7 +33,7 @@ static CAPABILITY: Capability = Capability {
     sign_bounds: true,
     // MKL Pardiso admits the worker's native threads; QDLDL refuses more than one at
     // settings admission.
-    parallel: cfg!(feature = "clarabel-pardiso"),
+    parallel: false,
     certifies: false,
     native_forms: &[],
     requirements: &[],
@@ -50,6 +50,19 @@ impl BackendExecution for Clarabel {
     }
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
+    }
+    fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
+        let defaults = conic::Settings::default();
+        let settings = match settings {
+            BackendSettings::Default => &defaults,
+            BackendSettings::Clarabel(settings) => settings,
+            _ => return Err(super::foreign(Backend::Clarabel)),
+        };
+        conic::settings_base(settings, &Controls::default(), settings.mode)?;
+        let mut capability = CAPABILITY;
+        capability.parallel = settings.direct == conic::Direct::MklPardiso
+            && cfg!(feature = "clarabel-pardiso");
+        Ok(capability)
     }
     fn representation(&self) -> Representation {
         Representation::Cone

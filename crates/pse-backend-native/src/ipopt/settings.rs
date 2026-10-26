@@ -33,10 +33,6 @@ pub(crate) fn same_admission(settings: &Settings, before: &Runtime, after: &Runt
             }
         }
 }
-/// Whether `solver` consumes more than one admitted thread; MUMPS is sequential.
-const fn parallel(solver: IpoptLinearSolver) -> bool {
-    !matches!(solver, IpoptLinearSolver::Mumps)
-}
 /// MUMPS ICNTL(7) code of an ordering (`mumps_pivot_order`). Automatic choice (7) is not
 /// representable: the ordering is always stated (T06). SCOTCH is not linked.
 pub(crate) const fn mumps_pivot_order(ordering: MumpsOrdering) -> i32 {
@@ -178,7 +174,7 @@ pub fn admit(settings: &Settings, threads: usize, runtime: &Runtime) -> Result<(
             "Ipopt linear solver {name} is not linked in this build; no other solver is substituted"
         )));
     }
-    if threads > 1 && !parallel(solver) {
+    if threads > 1 && !settings.linear.parallel() {
         return Err(ProblemError::Unsupported(format!(
             "Ipopt linear solver {name} is sequential; {threads} threads need spral or pardisomkl"
         )));

@@ -123,6 +123,13 @@ impl Default for Linear {
     }
 }
 impl Linear {
+    /// Whether this selected native factorization consumes an admitted thread team.
+    pub const fn parallel(&self) -> bool {
+        match self {
+            Self::Mumps { .. } => false,
+            Self::Spral { .. } | Self::PardisoMkl { .. } => true,
+        }
+    }
     /// The linked solver this selects.
     pub const fn solver(&self) -> IpoptLinearSolver {
         match self {

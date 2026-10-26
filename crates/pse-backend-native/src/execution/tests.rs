@@ -1687,7 +1687,7 @@ fn selected_capabilities_match_native_methods_and_refuse_foreign_settings() {
     assert_eq!(
         kinsol.capability().derivatives,
         DerivativeCapability::JacobianOrProduct,
-        "inventory union keeps the root route"
+        "default inventory keeps the root route"
     );
     let published = STUB_TABLE.capability_for(Backend::Kinsol, &BackendSettings::Default);
     assert!(
@@ -1724,4 +1724,63 @@ fn preparation_and_arclength_suitability_are_adapter_facts() {
         !adapter(Backend::Ipopt)
             .arclength_corrector(&BackendSettings::Default, &Controls::default())
     );
+}
+
+#[test]
+fn default_inventory_and_configured_capabilities_follow_selected_methods() {
+    for adapter in LINKED.adapters().filter(|adapter| adapter.linked()) {
+        assert_eq!(
+            adapter.capability().row(adapter.backend()),
+            LINKED.capability_for(adapter.backend(), &BackendSettings::Default).unwrap(),
+            "default inventory must describe the default admitted method"
+        );
+    }
+    assert_eq!(adapter(Backend::Kinsol).capability().classes, &[ProblemClass::SquareRoot]);
+    assert!(!adapter(Backend::Clarabel).capability().parallel);
+    assert!(!adapter(Backend::Ipopt).capability().parallel);
+    let clarabel = adapter(Backend::Clarabel);
+    let pardiso = BackendSettings::Clarabel(crate::conic::Settings {
+        direct: crate::conic::Direct::MklPardiso,
+        ..Default::default()
+    });
+    if cfg!(feature = "clarabel-pardiso") {
+        assert!(clarabel.capability_for(&pardiso).unwrap().parallel);
+    } else {
+        assert!(clarabel.capability_for(&pardiso).is_err());
+    }
+    let scip = adapter(Backend::Scip);
+    for (exact, reoptimize, parallel) in [(false, false, true), (true, false, false), (false, true, false)] {
+        let settings = BackendSettings::Scip(ScipSettings { exact, reoptimize, ..Default::default() });
+        assert_eq!(scip.capability_for(&settings).unwrap().parallel, parallel);
+    }
+    assert!(scip.capability_for(&BackendSettings::Kinsol(Default::default())).is_err());
+    assert!(scip.capability_for(&BackendSettings::Scip(ScipSettings {
+        exact: true, reoptimize: true, ..Default::default()
+    })).is_err());
+}
+
+#[test]
+fn dynamics_backend_attribution_requires_a_concrete_method() {
+    use crate::dynamics::{Method, backend};
+    assert!(matches!(backend(Method::Auto), Err(ProblemError::Contract(_))));
+    assert_eq!(backend(Method::Diffsol).unwrap(), Backend::Diffsol);
+    assert_eq!(backend(Method::Idas).unwrap(), Backend::Idas);
+}
+
+
+#[test]
+fn petsc_direct_document_refuses_composition_only_controls() {
+    let direct = BackendSettings::Petsc(crate::settings::petsc::DirectSettings::default());
+    adapter(Backend::Petsc).capability_for(&direct).unwrap();
+    let document = serde_json::to_value(&direct).unwrap();
+    assert!(document.get("pseudo").is_none());
+    assert!(document.get("schwarz").is_none());
+    for payload in [
+        serde_json::json!({"backend":"petsc","method":"pseudo_transient"}),
+        serde_json::json!({"backend":"petsc","method":"nonlinear_additive_schwarz"}),
+        serde_json::json!({"backend":"petsc","pseudo":{}}),
+        serde_json::json!({"backend":"petsc","schwarz":{}}),
+    ] {
+        assert!(serde_json::from_value::<BackendSettings>(payload).is_err());
+    }
 }

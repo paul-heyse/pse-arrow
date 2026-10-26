@@ -36,6 +36,16 @@ pub use pse_model::generated::enums::{
     DiffsolLinear, DiffsolMethod, DynamicSensitivity, DynamicsMethod as Method, EventDirection,
     IdasInitialization, SensitivityCorrector, StateSign, TrialPolicy,
 };
+/// Attribute a concrete integration method to its executing adapter.
+/// # Errors
+/// Automatic selection has not yet resolved a method.
+pub fn backend(method: Method) -> Result<crate::solve::Backend, ProblemError> {
+    match method {
+        Method::Auto => Err(contract("automatic dynamic method has no executing backend")),
+        Method::Diffsol => Ok(crate::solve::Backend::Diffsol),
+        Method::Idas => Ok(crate::solve::Backend::Idas),
+    }
+}
 /// Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
 /// the version is required, and absent fields take these defaults.
 #[derive(

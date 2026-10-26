@@ -3,9 +3,51 @@
 //! Typed serial PETSc profiles. Each optional block belongs to exactly one method.
 use crate::ProblemError;
 pub use pse_model::generated::enums::{
-    NativePetscLinear as Linear, NativePetscMethod as Method,
+    NativePetscLinear as Linear,
     NativePetscPreconditioner as Preconditioner,
 };
+/// Methods of the internal declared mathematical composition.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Method {
+    /// Direct original root correction.
+    NewtonTrustRegion,
+    /// Declared physical mass and artificial flow.
+    PseudoTransient,
+    /// Declared complete nonlinear block correction.
+    NonlinearAdditiveSchwarz,
+}
+/// Direct original-root settings exposed at document boundaries.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+#[schemars(rename = "PetscSettings")]
+pub struct DirectSettings {
+    /// Selected direct nonlinear method.
+    pub method: pse_model::generated::enums::NativePetscMethod,
+    /// Selected native KSP method.
+    pub linear: Linear,
+    /// Selected native PC method.
+    pub preconditioner: Preconditioner,
+    /// Normalized trust-region controls.
+    pub trust: TrustRegion,
+}
+impl Default for DirectSettings {
+    fn default() -> Self {
+        Self { method: pse_model::generated::enums::NativePetscMethod::NewtonTrustRegion,
+            linear: Linear::Gmres, preconditioner: Preconditioner::Ilu, trust: TrustRegion::default() }
+    }
+}
+impl DirectSettings {
+    /// Lower the admitted direct profile into the scientific execution settings.
+    pub fn execution(&self) -> Settings {
+        Settings { method: Method::NewtonTrustRegion, linear: self.linear,
+            preconditioner: self.preconditioner, trust: self.trust, pseudo: None, schwarz: None }
+    }
+    /// Validate the direct method before effects.
+    /// # Errors
+    /// Nonfinite, inconsistent or unused controls.
+    pub fn validate(&self) -> Result<(), ProblemError> { self.execution().validate() }
+}
 /// Normalized radius bounds consumed by the native trust-region method.
 #[derive(
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -86,7 +128,7 @@ impl Default for Schwarz {
     Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(default, deny_unknown_fields)]
-#[schemars(rename = "PetscSettings")]
+#[schemars(rename = "PetscCompositionSettings")]
 pub struct Settings {
     /// Selected native nonlinear method.
     pub method: Method,

@@ -22,8 +22,8 @@ pub(super) static ADAPTER: Kinsol = Kinsol;
 static CAPABILITY: Capability = Capability {
     structural: crate::structural::Policy::Roots,
     lexicographic_degradation: crate::routing::DegradationSupport::Max,
-    classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
-    automatic_classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
+    classes: &[ProblemClass::SquareRoot],
+    automatic_classes: &[ProblemClass::SquareRoot],
     derivatives: DerivativeCapability::JacobianOrProduct,
     warm: WarmCapability::Primal,
     general_bounds: false,

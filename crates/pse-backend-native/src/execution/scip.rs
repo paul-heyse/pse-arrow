@@ -69,6 +69,9 @@ impl Settings {
                 "SPRAL in SCIP's nested Ipopt needs OMP_CANCELLATION=TRUE".into(),
             ));
         }
+        self.admit_modes(threads)
+    }
+    fn admit_modes(&self, threads: usize) -> Result<(), ProblemError> {
         let refuse = |why: &str| Err(ProblemError::Unsupported(why.into()));
         if self.exact && self.reoptimize {
             return refuse("SCIP exact solving excludes reoptimization");
@@ -140,6 +143,18 @@ impl BackendExecution for Scip {
     }
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
+    }
+    fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
+        let defaults = Settings::default();
+        let settings = match settings {
+            BackendSettings::Default => &defaults,
+            BackendSettings::Scip(settings) => settings,
+            _ => return Err(super::foreign(Backend::Scip)),
+        };
+        let mut capability = CAPABILITY;
+        settings.admit_modes(1)?;
+        capability.parallel = settings.admit_modes(2).is_ok();
+        Ok(capability)
     }
     fn representation(&self) -> Representation {
         Representation::Factorable

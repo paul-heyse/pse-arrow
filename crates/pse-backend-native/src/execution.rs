@@ -601,6 +601,14 @@ pub struct StartPerturbation {
     /// Relative displacement scale.
     pub scale: f64,
 }
+/// Actual library-generated replacement point, before scientific screening.
+#[derive(Clone, Debug)]
+pub struct PerturbedStart {
+    /// Coordinates in the original input layout.
+    pub coordinates: Vec<f64>,
+    /// Maximum absolute displacement after bound clipping.
+    pub displacement: f64,
+}
 /// One separately admitted native recovery candidate, derived from the original profile.
 #[derive(Clone, Debug)]
 pub struct RecoveryProfile {
@@ -629,7 +637,7 @@ pub struct CallbackDemand {
 pub trait BackendExecution: Sync + std::fmt::Debug {
     /// Registry identity of this adapter.
     fn backend(&self) -> Backend;
-    /// The one capability record.
+    /// Capabilities of this adapter's default settings, also published in inventory.
     fn capability(&self) -> &'static Capability;
     /// Capabilities of the selected method. Foreign or unsupported settings are refused
     /// before an inspection row can promise a route; contextual admission remains separate.
@@ -662,13 +670,28 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     /// The baseline settings or native recovery description is invalid.
     fn recovery_profiles(
         &self,
-        _controls: &Controls,
+        controls: &Controls,
         settings: &BackendSettings,
-        _report: &SolveReport,
+        report: &SolveReport,
         _permission: RecoveryPermission,
     ) -> Result<Vec<RecoveryProfile>, ProblemError> {
         self.capability_for(settings)?;
+        controls.validate()?;
+        if report.backend != self.backend() {
+            return Err(ProblemError::Contract("recovery observation belongs to another backend".into()));
+        }
         Ok(Vec::new())
+    }
+    /// Materialize an adapter-offered replacement start before original screening.
+    /// # Errors
+    /// This adapter has no such producer or the proposal is invalid.
+    fn recovery_start(
+        &self,
+        _point: &[f64],
+        _bounds: &[(f64, f64)],
+        _perturbation: StartPerturbation,
+    ) -> Result<PerturbedStart, ProblemError> {
+        Err(ProblemError::Unsupported("adapter has no replacement-start producer".into()))
     }
     /// Preparation facts consumed by the selected method, independent of backend spelling.
     fn callback_demand(&self, _settings: &BackendSettings) -> CallbackDemand {
@@ -979,7 +1002,8 @@ impl Table {
             .ok_or_else(|| unlinked(backend))?;
         Ok(adapter.capability_for(settings)?.row(backend))
     }
-    /// The published inventory: one row per linked adapter.
+    /// Default-settings inventory: one row per linked adapter. Configured queries
+    /// refine this same adapter-owned record through `capability_for`.
     pub fn published(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
         self.adapters()
             .filter(|a| a.linked())
@@ -1025,9 +1049,9 @@ pub enum BackendSettings {
     /// First-order Uno filter trust-region SQP or SLP.
     #[schemars(title = "UnoSettings")]
     Uno(crate::settings::uno::Settings),
-    /// Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile.
+    /// Serial PETSc direct trust-region root profile.
     #[schemars(title = "PetscSettings")]
-    Petsc(crate::settings::petsc::Settings),
+    Petsc(crate::settings::petsc::DirectSettings),
 }
 impl BackendSettings {
     /// The backend these settings belong to; `None` for native defaults.

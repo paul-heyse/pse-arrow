@@ -27,7 +27,7 @@ static CAPABILITY: Capability = Capability {
     sign_bounds: true,
     // SPRAL (OpenMP) and oneMKL Pardiso (MKL threads) consume admitted threads; MUMPS is
     // sequential and its settings refuse more than one.
-    parallel: true,
+    parallel: false,
     certifies: false,
     native_forms: &[],
     requirements: &[],
@@ -44,6 +44,18 @@ impl BackendExecution for Ipopt {
     }
     fn capability(&self) -> &'static Capability {
         &CAPABILITY
+    }
+    fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
+        let defaults = crate::settings::ipopt::Settings::default();
+        let settings = match settings {
+            BackendSettings::Default => &defaults,
+            BackendSettings::Ipopt(settings) => settings,
+            _ => return Err(super::foreign(Backend::Ipopt)),
+        };
+        settings.validate()?;
+        let mut capability = CAPABILITY;
+        capability.parallel = settings.linear.parallel();
+        Ok(capability)
     }
     fn arclength_corrector(&self, settings: &BackendSettings, controls: &Controls) -> bool {
         matches!(

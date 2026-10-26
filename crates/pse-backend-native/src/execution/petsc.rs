@@ -40,16 +40,13 @@ impl BackendExecution for Petsc {
         &CAPABILITY
     }
     fn capability_for(&self, settings: &BackendSettings) -> Result<Capability, ProblemError> {
-        let defaults = crate::settings::petsc::Settings::default();
+        let defaults = crate::settings::petsc::DirectSettings::default();
         let selected = match settings {
             BackendSettings::Default => &defaults,
             BackendSettings::Petsc(settings) => settings,
             _ => return Err(super::foreign(Backend::Petsc)),
         };
         selected.validate()?;
-        if selected.method != crate::settings::petsc::Method::NewtonTrustRegion {
-            return Err(ProblemError::Unsupported("PETSc pseudo-time and Schwarz require their declared mathematical composition owner".into()));
-        }
         Ok(CAPABILITY)
     }
     fn representation(&self) -> Representation {
@@ -77,16 +74,13 @@ impl BackendExecution for Petsc {
         controls: &Controls,
         _: &super::Snapshot,
     ) -> Result<(), ProblemError> {
-        let defaults = crate::settings::petsc::Settings::default();
+        let defaults = crate::settings::petsc::DirectSettings::default();
         let selected = match settings {
             BackendSettings::Default => &defaults,
             BackendSettings::Petsc(s) => s,
             _ => return Err(super::foreign(Backend::Petsc)),
         };
         selected.validate()?;
-        if selected.method != crate::settings::petsc::Method::NewtonTrustRegion {
-            return Err(ProblemError::Unsupported("PETSc pseudo-time and Schwarz require their declared mathematical composition owner".into()));
-        }
         if controls.threads != 1 || !controls.options.is_empty() {
             return Err(ProblemError::Unsupported(
                 "PETSc MPIUNI profiles require one thread and typed settings".into(),
@@ -139,7 +133,7 @@ impl BackendExecution for Petsc {
             else {
                 return Err(super::representation(Backend::Petsc));
             };
-            let defaults = crate::settings::petsc::Settings::default();
+            let defaults = crate::settings::petsc::DirectSettings::default();
             let settings = match input.settings {
                 BackendSettings::Default => &defaults,
                 BackendSettings::Petsc(s) => s,
@@ -149,7 +143,7 @@ impl BackendExecution for Petsc {
             crate::petsc::solve(
                 oracle.as_mut(),
                 initial,
-                settings,
+                &settings.execution(),
                 crate::petsc::SolveRequest {
                     controls: input.controls,
                     accuracy: input.accuracy,
