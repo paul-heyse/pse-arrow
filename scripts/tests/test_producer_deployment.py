@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import producer_receipts
 from scripts import producer_deployment as deployment
+from scripts import producer_receipts
 from scripts.tests.test_arrow_validation import Cargo, graph, package, unit
 
 if TYPE_CHECKING:
@@ -298,9 +298,9 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.assertIn("producer-preparation-begin", all_commands[2])
         self.assertTrue((self.output / "preparation/COMPLETE").is_file())
         self.assertEqual(len(commands), 2)  # Python is selected by Maturin's child.
-        options = producer_receipts.read_object(self.output / "python-installer-cargo.json")[
-            "capture_options"
-        ]
+        options = producer_receipts.read_object(
+            self.output / "python-installer-cargo.json"
+        )["capture_options"]
         self.assertIsInstance(options, list)
         commands.append(["just", "producer-identity", *options])
         self.assertEqual(
@@ -1062,7 +1062,8 @@ class ProducerDeploymentTests(unittest.TestCase):
                 self.output / "python-installation.json"
             )
             self.assertEqual(
-                installation["raw_artifact"], producer_receipts.file_observation(original)
+                installation["raw_artifact"],
+                producer_receipts.file_observation(original),
             )
             self.assertEqual(
                 installation["installed_artifact"],

@@ -48,22 +48,30 @@ macro_rules! start_row {
 
 /// Compact admission meaning is encoded once by the same scientific owner as
 /// the detail descriptor. Finalization never rehydrates that descriptor.
-pub(in crate::workflow) fn admission_projection(point: &StudyPointDefinition) -> Result<Vec<u8>, WorkflowError> {
-    let case_id=match &point.operation.operation {
-        OperationRequest::DeclaredCase(case)=>Some(case.case),
-        OperationRequest::Simulation(simulation)=>Some(simulation.case),
-        OperationRequest::Fit(_)=>None,
-        OperationRequest::Horizon(horizon)=>Some(horizon.plant.case),
+pub(in crate::workflow) fn admission_projection(
+    point: &StudyPointDefinition,
+) -> Result<Vec<u8>, WorkflowError> {
+    let case_id = match &point.operation.operation {
+        OperationRequest::DeclaredCase(case) => Some(case.case),
+        OperationRequest::Simulation(simulation) => Some(simulation.case),
+        OperationRequest::Fit(_) => None,
+        OperationRequest::Horizon(horizon) => Some(horizon.plant.case),
     };
-    serde_json::to_vec(&(case_id,Some(point.binding_hash.as_id()))).map_err(|error| WorkflowError::Integrity(error.to_string()))
+    serde_json::to_vec(&(case_id, Some(point.binding_hash.as_id())))
+        .map_err(|error| WorkflowError::Integrity(error.to_string()))
 }
 
-pub(in crate::workflow) fn projected_outcome_row(study_id: StudyId, projection: Option<&[u8]>, outcome: &PointOutcome) -> Result<RuntimeStudyOutcomesRow,WorkflowError> {
-    let mut row=outcome_row(study_id,None,outcome);
-    if let Some(projection)=projection {
-        let (case_id,binding_hash)=serde_json::from_slice(projection).map_err(|error| WorkflowError::Integrity(error.to_string()))?;
-        row.case_id=case_id;
-        row.binding_hash=binding_hash;
+pub(in crate::workflow) fn projected_outcome_row(
+    study_id: StudyId,
+    projection: Option<&[u8]>,
+    outcome: &PointOutcome,
+) -> Result<RuntimeStudyOutcomesRow, WorkflowError> {
+    let mut row = outcome_row(study_id, None, outcome);
+    if let Some(projection) = projection {
+        let (case_id, binding_hash) = serde_json::from_slice(projection)
+            .map_err(|error| WorkflowError::Integrity(error.to_string()))?;
+        row.case_id = case_id;
+        row.binding_hash = binding_hash;
     }
     Ok(row)
 }

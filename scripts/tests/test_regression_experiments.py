@@ -18,11 +18,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 from unittest.mock import patch
 
-from scripts import operation_lifetime
 from scripts import (
     case_measure,
     native_operation,
     native_tests,
+    operation_lifetime,
     run_inspection,
     test_resources,
     test_run,

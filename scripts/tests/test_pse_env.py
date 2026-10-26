@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 import contextlib
 import io
 import json
@@ -20,9 +19,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
-from scripts import pse_env, surreal_server, test_resources
+from scripts import (
+    operation_lifetime,
+    pse_env,
+    service_borrowers,
+    surreal_server,
+    test_resources,
+)
 
 
 def identity(_root: Path, env: dict[str, str]) -> dict[str, str]:

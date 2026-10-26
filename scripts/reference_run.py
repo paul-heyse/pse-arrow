@@ -11,9 +11,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 import msgspec
-from pathlib import Path
 
 from scripts import host_admission, native_operation, surreal_server, test_resources
 
@@ -51,22 +51,39 @@ def freeze_initializer(source: Path, invocation: Path) -> Path:
         ):
             raise ValueError("canonical initializer changed during artifact capture")
     target.chmod(0o500)
-    from scripts.generated import deployment  # noqa: PLC0415 -- product initializer protocol
+    from scripts.generated import (
+        deployment,
+    )
 
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
-        probe = subprocess.run([str(target), "--describe"], stdout=output, stderr=errors,
-                               timeout=10, check=False)
+        probe = subprocess.run(
+            [str(target), "--describe"],
+            stdout=output,
+            stderr=errors,
+            timeout=10,
+            check=False,
+        )
         output.seek(0)
         description = output.read(64 * 1024 + 1)
     try:
-        if probe.returncode != 0 or len(description) > 64 * 1024 or "version" not in json.loads(description):
+        if (
+            probe.returncode != 0
+            or len(description) > 64 * 1024
+            or "version" not in json.loads(description)
+        ):
             raise ValueError("initializer description unavailable")
-        report = msgspec.json.decode(description, type=deployment.CanonicalInitializationReport)
-        if (not report.canonical_initialize
-                or report.phase is not deployment.CanonicalInitializationPhase.DESCRIPTION):
+        report = msgspec.json.decode(
+            description, type=deployment.CanonicalInitializationReport
+        )
+        if (
+            not report.canonical_initialize
+            or report.phase is not deployment.CanonicalInitializationPhase.DESCRIPTION
+        ):
             raise ValueError("initializer did not describe the selected operation")
     except (ValueError, TypeError) as error:
-        raise ValueError("captured initializer does not expose the product initialization protocol; rebuild pse-canonical-init") from error
+        raise ValueError(
+            "captured initializer does not expose the product initialization protocol; rebuild pse-canonical-init"
+        ) from error
     return target
 
 
@@ -223,11 +240,27 @@ def execute(
     environment = {**os.environ, "PSE_SURREAL_STATE": str(state)}
     boundary = [str(ROOT / "scripts/pse-env")]
     value["deployment_build"] = (
-        "explicit prebuilt deployment operator" if environment.get("PSE_DEPLOYMENT_OPERATOR")
-        else subprocess.call([
-            *boundary, "--native=", "--", sys.executable, "-m", "scripts.arrow_validation", "build",
-            "-p", "pse-runtime", "--bin", "pse-deployment", "--no-default-features", "--locked",
-        ], env=environment, cwd=ROOT)
+        "explicit prebuilt deployment operator"
+        if environment.get("PSE_DEPLOYMENT_OPERATOR")
+        else subprocess.call(
+            [
+                *boundary,
+                "--native=",
+                "--",
+                sys.executable,
+                "-m",
+                "scripts.arrow_validation",
+                "build",
+                "-p",
+                "pse-runtime",
+                "--bin",
+                "pse-deployment",
+                "--no-default-features",
+                "--locked",
+            ],
+            env=environment,
+            cwd=ROOT,
+        )
     )
     if isinstance(value["deployment_build"], int) and value["deployment_build"] != 0:
         value["setup"] = "deployment build failed"
@@ -322,7 +355,9 @@ def execute(
     # The boundary owns exact allocation drain/release. Reconciliation uses the
     # existing parked-service intent and may honestly refuse or defer resumption.
     try:
-        value["normal_resume"] = host_admission.status(services=surreal_server.ServiceAdmission())
+        value["normal_resume"] = host_admission.status(
+            services=surreal_server.ServiceAdmission()
+        )
     except (OSError, ValueError, RuntimeError) as error:
         value["normal_resume"] = {"status": "unavailable", "error": str(error)}
     checkpoint(invocation, value)
@@ -337,9 +372,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--worker", type=Path, required=not internal)
-    parser.add_argument(
-        "--profile", choices=("reference",), default="reference"
-    )
+    parser.add_argument("--profile", choices=("reference",), default="reference")
     parser.add_argument("--tooling-fixture", action="store_true")
     parser.add_argument("--invocation", type=Path, required=internal)
     parser.add_argument(

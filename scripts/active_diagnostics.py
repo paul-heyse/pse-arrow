@@ -24,12 +24,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from scripts import process_observation
-from scripts import operation_lifetime
 from scripts import (
     diagnostic_trace,
     doctor,
     native_operation,
+    operation_lifetime,
+    process_observation,
     resource_store,
     run_inspection,
 )

@@ -17,7 +17,13 @@ import subprocess
 import time
 from pathlib import Path
 
-from scripts import host_admission, scientific_inputs, validation, validation_receipts, operation_lifetime, surreal_server
+from scripts import (
+    operation_lifetime,
+    scientific_inputs,
+    surreal_server,
+    validation,
+    validation_receipts,
+)
 from scripts.validation_scope import RUST_INPUTS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -132,8 +138,7 @@ def stop_managed_primary(state: Path, database: str) -> None:
             current = surreal_server.read_json(state / "primary-receiver.json")
             if (
                 current != marker
-                or operation_lifetime.start_identity(pid)
-                != start
+                or operation_lifetime.start_identity(pid) != start
                 or not surreal_server.primary_ready(
                     state, config, surreal_server.primary_observation(state), database
                 )

@@ -12,10 +12,8 @@ import stat
 import time
 from pathlib import Path
 
-from scripts import operation_lifetime
 from scripts import host_admission as host
-from scripts import native_operation as operation
-from scripts import run_inspection, surreal_server, test_resources
+from scripts import operation_lifetime, run_inspection, surreal_server, test_resources
 
 
 def owner_reason(record: object, deadline: float) -> str | None:
@@ -227,7 +225,9 @@ def inspect(
                 )
             else:
                 for unit in record["units"]:
-                    observation = operation_lifetime.drained({"scope": unit}, deadline=deadline)
+                    observation = operation_lifetime.drained(
+                        {"scope": unit}, deadline=deadline
+                    )
                     if not observation.complete:
                         reason = (
                             "fixture scope not drained: " + observation.diagnostic()

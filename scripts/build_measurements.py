@@ -23,12 +23,12 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import operation_lifetime
 from scripts import (
     arrow_validation,
     build_environment,
     host_admission,
     native_operation,
+    operation_lifetime,
     pse_env,
     surreal_server,
     validation,

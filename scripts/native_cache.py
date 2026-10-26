@@ -27,9 +27,9 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import operation_lifetime
 from scripts import (  # noqa: E402 -- direct script execution first adds the checkout import root
     build_environment,
+    operation_lifetime,
 )
 
 RECEIPT_VERSION = 2

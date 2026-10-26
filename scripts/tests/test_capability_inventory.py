@@ -107,7 +107,10 @@ class InventoryTests(unittest.TestCase):
             "workload-observation": ("execution", "scripts/activity.py"),
             "scientific-diagnostics": ("diagnostics", "python/pse/diagnostics.py"),
             "database-tooling": ("storage", "scripts/surreal_server.py"),
-            "projects-revisions": ("projects", "crates/pse-runtime/src/bin/project/tools.rs"),
+            "projects-revisions": (
+                "projects",
+                "crates/pse-runtime/src/bin/project/tools.rs",
+            ),
             "scientific-inputs": ("projects", "scripts/scientific_inputs.py"),
             "evidence-inspection": ("evidence", "xtask/src/evidence_tools.rs"),
             "experiments-recovery": ("experiments", "scripts/experiments.py"),

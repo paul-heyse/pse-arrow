@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 import argparse
 import contextlib
 import fcntl
@@ -19,8 +18,6 @@ import subprocess
 import sys
 import time
 import uuid
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, Self, TypedDict, TypeVar, cast
 
@@ -36,11 +33,9 @@ from scripts import (  # noqa: E402 -- direct-script path routing
     build_environment,
     host_admission,
     native_cache,
-    systemd_environment,
     operation_lifetime,
+    systemd_environment,
 )
-
-
 
 MARKER = "PSE_NATIVE_OPERATION"
 # Private handshake with the build-measurement observer, never an admission input.
@@ -74,12 +69,6 @@ CAPABILITY_PATHS = {
     "uno": ("UNO_DIR", "IPOPT_DIR"),
     "petsc": ("PETSC_DIR", "IPOPT_DIR"),
 }
-
-
-
-
-
-
 
 
 class Admission(TypedDict, total=False):
@@ -121,12 +110,6 @@ class OperationRecord(TypedDict):
 Observed = TypeVar("Observed")
 
 
-
-
-
-
-
-
 def original_cancellation_clock(value: object) -> float:
     """Narrow an existing cancellation deadline without choosing a new clock."""
     if (
@@ -138,33 +121,11 @@ def original_cancellation_clock(value: object) -> float:
     raise ValueError("invalid original cancellation clock")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def _record(path: Path) -> OperationRecord:
     value = json.loads(path.read_text())
-    if value.get("version") != operation_lifetime.VERSION or not isinstance(value.get("admissions"), dict):
+    if value.get("version") != operation_lifetime.VERSION or not isinstance(
+        value.get("admissions"), dict
+    ):
         raise ValueError("unknown native operation admission record")
     return cast("OperationRecord", value)
 
@@ -206,7 +167,14 @@ def owner_record(*, deadline: float | None = None, reserve: float = 0) -> Path |
             operation_lifetime.admission_remaining(deadline)
         owner = record.get("scope")
         if owner:
-            return path if operation_lifetime.scope_owner(**operation_lifetime.deadline_options(deadline)) == owner else None
+            return (
+                path
+                if operation_lifetime.scope_owner(
+                    **operation_lifetime.deadline_options(deadline)
+                )
+                == owner
+                else None
+            )
         pid = record["pid"]
         if operation_lifetime.start_identity(pid) != record["start"]:
             return None
@@ -255,7 +223,9 @@ def record_lock(
                         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                         break
                     except BlockingIOError:
-                        time.sleep(min(0.02, operation_lifetime.admission_remaining(deadline)))
+                        time.sleep(
+                            min(0.02, operation_lifetime.admission_remaining(deadline))
+                        )
                 operation_lifetime.admission_remaining(deadline)
             yield
     finally:
@@ -581,7 +551,10 @@ def stop_foreground_handoff(
     initial = operation_lifetime.drained(record, **options)
     if initial.complete:
         return
-    if initial.phase in {operation_lifetime.DrainPhase.UNAVAILABLE, operation_lifetime.DrainPhase.MISMATCH}:
+    if initial.phase in {
+        operation_lifetime.DrainPhase.UNAVAILABLE,
+        operation_lifetime.DrainPhase.MISMATCH,
+    }:
         raise ValueError(initial.diagnostic() + "; foreground cancellation refused")
     observed = operation_lifetime.unit_observation(owner["unit"], **options)
     if (
@@ -599,7 +572,9 @@ def stop_foreground_handoff(
     subprocess.run(
         ["systemctl", "--user", "stop", owner["unit"]],
         check=True,
-        timeout=10 if deadline is None else min(10, operation_lifetime.admission_remaining(deadline)),
+        timeout=10
+        if deadline is None
+        else min(10, operation_lifetime.admission_remaining(deadline)),
         env=operation_lifetime.manager_control_environment(),
     )
     completion = operation_lifetime.drained(record, **options)
@@ -718,10 +693,6 @@ def cancel_foreground_handoffs(
         raise ValueError("foreground cancellation incomplete: " + "; ".join(failures))
 
 
-
-
-
-
 def register_terminal_guard(
     parent: Path, nonce: str, token: str, *, deadline: float | None = None
 ) -> None:
@@ -760,8 +731,6 @@ def register_terminal_guard(
             "binding": dict(binding),
             "phase": "registered",
         }
-
-
 
 
 def composer_deadline(registration: tuple[Path, str, str] | None) -> float | None:
@@ -981,7 +950,9 @@ def request_composer_completion(signum: int, *, deadline: float) -> None:
         record = _record(parent)
         selected = {
             nonce: dict(value)
-            for nonce, value in operation_lifetime.composer_registrations(record).items()
+            for nonce, value in operation_lifetime.composer_registrations(
+                record
+            ).items()
         }
     for nonce, composer in selected.items():
         operation_lifetime.admission_remaining(deadline)
@@ -1003,7 +974,9 @@ def request_composer_completion(signum: int, *, deadline: float) -> None:
             descriptor = os.pidfd_open(pid)
         except ProcessLookupError:
             with record_lock(parent, deadline=deadline):
-                current = operation_lifetime.composer_registrations(_record(parent)).get(nonce)
+                current = operation_lifetime.composer_registrations(
+                    _record(parent)
+                ).get(nonce)
                 if (
                     current is not None
                     and current.get("phase") == "complete"
@@ -1287,9 +1260,7 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
     for kind, variable in (("uno", "UNO_DIR"), ("petsc", "PETSC_DIR")):
         if kind in requested:
             if result.get(variable):
-                cache.admit_external(
-                    Path(result[variable]), cache.pipeline_files(kind)
-                )
+                cache.admit_external(Path(result[variable]), cache.pipeline_files(kind))
             else:
                 result[variable] = str(pipeline.prepare(kind, result))
             result["LD_LIBRARY_PATH"] = cache.prepend_library_path(
@@ -1536,12 +1507,21 @@ def run_child_scope(
             raise subprocess.TimeoutExpired(command, 0)
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
 
-    allocation = host_admission.inherit(env, **operation_lifetime.deadline_options(deadline))
+    allocation = host_admission.inherit(
+        env, **operation_lifetime.deadline_options(deadline)
+    )
     if allocation is None:
         raise ValueError("selected native workload requires its admitted parent")
     with contextlib.ExitStack() as lifetime:
-        if operation_lifetime.scope_owner(**operation_lifetime.deadline_options(deadline)) is None:
-            require_command_parent(allocation, **operation_lifetime.deadline_options(deadline))
+        if (
+            operation_lifetime.scope_owner(
+                **operation_lifetime.deadline_options(deadline)
+            )
+            is None
+        ):
+            require_command_parent(
+                allocation, **operation_lifetime.deadline_options(deadline)
+            )
             if owner_record(**operation_lifetime.deadline_options(deadline)) is None:
                 if os.environ.get(MARKER) or env.get(MARKER):
                     raise ValueError(
@@ -1578,7 +1558,9 @@ def _run_child_scope(
     process_observation = observation if observation is not None else {}
     role_memory = systemd_environment.current_memory_ceiling()
     if allocation.profile.unbounded:
-        systemd_environment.require_unbounded_slice(host_admission.allocation_slice(allocation))
+        systemd_environment.require_unbounded_slice(
+            host_admission.allocation_slice(allocation)
+        )
         # A genuinely bounded scientific child of this build owner retains its
         # actual role cap; only the ordinary uncapped launcher omits one.
         if role_memory is not None and role_memory <= 0:
@@ -1592,7 +1574,9 @@ def _run_child_scope(
         role_memory = min(role_memory, allocation.profile.memory)
     unit = f"pse-native-{uuid.uuid4().hex}.scope"
     allocation.register(unit, **operation_lifetime.deadline_options(deadline))
-    handoff = prepare_handoff(unit, foreground=True, **operation_lifetime.deadline_options(deadline))
+    handoff = prepare_handoff(
+        unit, foreground=True, **operation_lifetime.deadline_options(deadline)
+    )
     if handoff is None:
         raise ValueError("selected native workload has no authenticated handoff")
     environment = dict(env)
@@ -1695,7 +1679,11 @@ def _run_child_scope(
                     return
                 if (
                     cancellation_deadline is None
-                    and completion.phase in {operation_lifetime.DrainPhase.POPULATED, operation_lifetime.DrainPhase.ACTIVE}
+                    and completion.phase
+                    in {
+                        operation_lifetime.DrainPhase.POPULATED,
+                        operation_lifetime.DrainPhase.ACTIVE,
+                    }
                     and process_observation.get("cancellation_deadline") is not None
                 ):
                     # A first signal arrived during the observation. Read that
@@ -1985,18 +1973,28 @@ def main() -> int:
     if args.prepared_environment is not None:
         if args.shell:
             parser.error("a prepared receiver runs only its selected child")
-        from scripts import receiver_environment, surreal_server  # noqa: PLC0415 -- immutable launch boundary
+        from scripts import (  # noqa: PLC0415 -- immutable launch boundary
+            receiver_environment,
+            surreal_server,
+        )
 
         if args.prepared_environment != ROOT / "native-environment.json":
-            raise ValueError("prepared receiver inputs must belong to this immutable helper")
+            raise ValueError(
+                "prepared receiver inputs must belong to this immutable helper"
+            )
         surreal_server.activatable_generation(ROOT)
         selected = receiver_environment.read(args.prepared_environment)
         original.update(selected.values)
 
     def selected_environment(source: dict[str, str]) -> dict[str, str]:
         if args.prepared_environment is not None:
-            from scripts import receiver_environment  # noqa: PLC0415 -- no setup path in this branch
-            return receiver_environment.restore(args.prepared_environment, requested, source)
+            from scripts import (
+                receiver_environment,
+            )
+
+            return receiver_environment.restore(
+                args.prepared_environment, requested, source
+            )
         return environment(requested, build_environment.configure(ROOT, source))
 
     if not args.shell and original.get("PSE_HOST_ALLOCATION"):
@@ -2018,9 +2016,7 @@ def main() -> int:
             print(f"unset {name}")
         return 0
     if owner_record() is not None:
-        return run(
-            command, selected_environment(original)
-        )
+        return run(command, selected_environment(original))
     with Operation(cache.cache_root(original)):
         if original.get("PSE_NATIVE_HANDOFF"):
             bind_handoff(Path(original["PSE_NATIVE_HANDOFF"]))

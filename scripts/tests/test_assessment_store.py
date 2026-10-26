@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import json
 import os
 import tempfile
@@ -13,9 +12,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import service_borrowers
 from scripts import assessment_store as store
-from scripts import resource_store, test_resources, validation_result
+from scripts import resource_store, service_borrowers, test_resources, validation_result
 from scripts.tests.assessment_fixture import publish
 
 

@@ -22,12 +22,10 @@ class AdmissionError(ValueError):
     """The requested supervised placement could not be established."""
 
 
-
 def root_path(env: Mapping[str, str] | None = None) -> Path:
     source = os.environ if env is None else env
     home = Path(source.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
     return home / "pse-arrow/host-admission"
-
 
 
 def protected(directory: Path) -> None:
@@ -39,7 +37,6 @@ def protected(directory: Path) -> None:
         raise AdmissionError("Admission state must be owned with mode0700")
 
 
-
 def remaining(deadline: float | None, maximum: float) -> float:
     """A shared absolute clock; ordinary calls retain their existing timeouts."""
     if deadline is None:
@@ -48,7 +45,6 @@ def remaining(deadline: float | None, maximum: float) -> float:
     if budget <= 0:
         raise AdmissionError("Control operation deadline exhausted")
     return budget
-
 
 
 def control_run(
@@ -90,7 +86,6 @@ def control_run(
         )
 
 
-
 def lock_until(fd: int, kind: int, deadline: float | None) -> None:
     if deadline is None:
         fcntl.flock(fd, kind)
@@ -105,7 +100,6 @@ def lock_until(fd: int, kind: int, deadline: float | None) -> None:
             return
 
 
-
 def validate_private_file(information: os.stat_result, label: str) -> None:
     if (
         not stat.S_ISREG(information.st_mode)
@@ -113,4 +107,3 @@ def validate_private_file(information: os.stat_result, label: str) -> None:
         or information.st_mode & 0o077
     ):
         raise AdmissionError(f"Unsafe admission {label}")
-

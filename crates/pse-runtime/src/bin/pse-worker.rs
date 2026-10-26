@@ -686,8 +686,13 @@ mod tests {
 
     fn legacy_allocation(bytes: usize) -> pse_runtime::workflow::NativeAllocation {
         pse_runtime::workflow::NativeAllocation::materialize(
-            bytes.checked_mul(2).unwrap() + (512 << 20), 512 << 20, 2, bytes, None,
-        ).unwrap()
+            bytes.checked_mul(2).unwrap() + (512 << 20),
+            512 << 20,
+            2,
+            bytes,
+            None,
+        )
+        .unwrap()
     }
     #[test]
     fn primary_receipt_observation_streams_actual_bytes_and_distinguishes_absence() {
@@ -725,8 +730,13 @@ mod tests {
             observer_memory_bytes: 4 << 30,
         };
         let allocation = pse_runtime::workflow::NativeAllocation::materialize(
-            160 << 30, 16 << 30, 1, 140 << 30, Some(execution),
-        ).unwrap();
+            160 << 30,
+            16 << 30,
+            1,
+            140 << 30,
+            Some(execution),
+        )
+        .unwrap();
         let budget = resource_budget(&cli, allocation).unwrap();
         assert_eq!(budget.memory_limit_bytes.get(), 128 << 30);
         assert_eq!(budget.math.worker_bytes, 16 << 30);

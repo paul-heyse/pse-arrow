@@ -43,11 +43,19 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import operation_lifetime
-from scripts import build_environment  # noqa: E402 -- direct-script path routing
+from scripts import (
+    build_environment,
+    operation_lifetime,
+)
 from scripts import host_admission as host  # noqa: E402 -- placement owner
-from scripts.systemd_environment import (BoundaryError, current_memory_ceiling, slice_group, limits, require_unbounded_slice, require_unbounded_group, manager_environment)
 from scripts import native_operation as operation  # noqa: E402 -- same routing
+from scripts.systemd_environment import (
+    BoundaryError,
+    current_memory_ceiling,
+    manager_environment,
+    require_unbounded_slice,
+    slice_group,
+)
 
 FAILURE = 125
 LOCAL = ".envrc.local"
@@ -74,8 +82,6 @@ CONFIGURED = {
     "SCCACHE_DIRECT": "direct mode cannot establish recorded absence premises",
     "RUSTC_WRAPPER": "an unsupported sccache configuration disables the wrapper",
 }
-
-
 
 
 def local_keys(root: Path, *, deadline: float | None = None) -> dict[str, str]:
@@ -314,14 +320,6 @@ def slice_name(env: Mapping[str, str]) -> str | None:
     return name
 
 
-
-
-
-
-
-
-
-
 def selected_resource_class(
     command: Sequence[str],
     env: Mapping[str, str],
@@ -349,8 +347,6 @@ def selected_resource_class(
     ):
         return "build"
     return selected
-
-
 
 
 def require_store(env: Mapping[str, str], *, deadline: float | None = None) -> None:
@@ -418,8 +414,6 @@ def require_store(env: Mapping[str, str], *, deadline: float | None = None) -> N
 
 
 SLICE_VALUE = re.compile(r"[A-Za-z0-9_:.-]+\.slice")
-
-
 
 
 @functools.cache
@@ -583,7 +577,11 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
     )
     from scripts import surreal_server  # noqa: PLC0415 -- command/service composition
 
-    allocation = host.acquire(profile, directory=host.root_path(env), services=surreal_server.ServiceAdmission())
+    allocation = host.acquire(
+        profile,
+        directory=host.root_path(env),
+        services=surreal_server.ServiceAdmission(),
+    )
     env.update(allocation.environment())
     try:
         host.enforce_parent(profile, env)
@@ -739,7 +737,9 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
     prefix and never enters this terminal owner. Release refusal is a boundary
     failure; diagnostics retain the independent raw and normalized child status.
     """
-    from scripts import surreal_server  # noqa: PLC0415 -- command/service lifetime composition
+    from scripts import (
+        surreal_server,
+    )
 
     allocation = host.inherit(env, services=surreal_server.ServiceAdmission())
     if allocation is None:
@@ -853,9 +853,13 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                                         registered["cancel_deadline"] = (
                                             cancellation_deadline
                                         )
-                                        operation_lifetime.write_json(observer.path, registered)
+                                        operation_lifetime.write_json(
+                                            observer.path, registered
+                                        )
                                     published_deadline = cancellation_deadline
-                            completion = operation_lifetime.drained(child, deadline=deadline)
+                            completion = operation_lifetime.drained(
+                                child, deadline=deadline
+                            )
                             if completion.complete:
                                 return
                             if (
@@ -879,7 +883,10 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                                     + "; native placement remains charged"
                                 )
                             time.sleep(
-                                min(0.02, operation_lifetime.admission_remaining(deadline))
+                                min(
+                                    0.02,
+                                    operation_lifetime.admission_remaining(deadline),
+                                )
                             )
                     finally:
                         if previous_mask is not None:

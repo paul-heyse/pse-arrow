@@ -2203,7 +2203,12 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .await
         .unwrap()
         .unwrap();
-    assert!(projected.projection.as_ref().is_some_and(|projection| projection.len()<=1024));
+    assert!(
+        projected
+            .projection
+            .as_ref()
+            .is_some_and(|projection| projection.len() <= 1024)
+    );
     assert_eq!(
         serde_json::to_value(projected.outcome().unwrap()).unwrap(),
         serde_json::to_value(

@@ -9,8 +9,8 @@ from typing import Annotated
 
 from pydantic import Field, JsonValue, model_validator
 
-from scripts.capabilities.model import Contract, Prerequisite
 from scripts import execution_profiles
+from scripts.capabilities.model import Contract, Prerequisite
 from scripts.capabilities.workers import WorkerCall
 from scripts.telemetry_investigation import QueryAnswer
 
@@ -20,9 +20,19 @@ Row = Annotated[int, Field(ge=0, le=(1 << 64) - 1)]
 
 
 class Resources(Contract):
-    memory_limit_bytes: Positive = Field(default_factory=lambda: execution_profiles.declarations().capabilities.memory_limit_bytes)
-    threads: Annotated[int, Field(ge=1, le=16)] = Field(default_factory=lambda: execution_profiles.declarations().capabilities.threads)
-    max_spill_bytes: Positive = Field(default_factory=lambda: execution_profiles.declarations().capabilities.max_spill_bytes)
+    memory_limit_bytes: Positive = Field(
+        default_factory=lambda: (
+            execution_profiles.declarations().capabilities.memory_limit_bytes
+        )
+    )
+    threads: Annotated[int, Field(ge=1, le=16)] = Field(
+        default_factory=lambda: execution_profiles.declarations().capabilities.threads
+    )
+    max_spill_bytes: Positive = Field(
+        default_factory=lambda: (
+            execution_profiles.declarations().capabilities.max_spill_bytes
+        )
+    )
 
 
 class Source(Contract):
@@ -160,13 +170,22 @@ class Binding:
     @property
     def worker(self) -> WorkerCall:
         return WorkerCall(
-            "evidence" if self.operation == "evidence_compare" else "native", self.operation, "attached" if self.prepare_import else "detached"
+            "evidence" if self.operation == "evidence_compare" else "native",
+            self.operation,
+            "attached" if self.prepare_import else "detached",
         )
 
     @property
     def requirements(self) -> tuple[Prerequisite, ...]:
         if self.operation == "evidence_compare":
-            return (Prerequisite(kind="executable", owner="xtask/src/bin/pse-evidence.rs", provider="pse-evidence", preparation=("just", "evidence-build")),)
+            return (
+                Prerequisite(
+                    kind="executable",
+                    owner="xtask/src/bin/pse-evidence.rs",
+                    provider="pse-evidence",
+                    preparation=("just", "evidence-build"),
+                ),
+            )
         extension = Prerequisite(
             kind="python-extension",
             owner="scripts/python_extension.py",

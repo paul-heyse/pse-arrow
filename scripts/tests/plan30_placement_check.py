@@ -21,9 +21,8 @@ from typing import TYPE_CHECKING, TypedDict, cast
 if TYPE_CHECKING:
     from typing import TextIO
 
-from scripts import operation_lifetime
 from scripts import host_admission as host
-from scripts import native_operation as operation
+from scripts import operation_lifetime
 
 ROOT = Path(__file__).resolve().parents[2]
 LIMIT = 180.0
@@ -197,7 +196,9 @@ class Plan30PlacementTests(unittest.TestCase):
         self.assertEqual(
             operation_lifetime.start_identity(descendant["pid"]), descendant["start"]
         )
-        self.assertEqual(operation_lifetime.process_group(descendant["pid"]), a["group"])
+        self.assertEqual(
+            operation_lifetime.process_group(descendant["pid"]), a["group"]
+        )
         self.assertTrue(operation_lifetime.populated(a["group"]))
         allocation_directory = Path(a["allocation_directory"])
         host.reconcile(allocation_directory)
@@ -205,7 +206,9 @@ class Plan30PlacementTests(unittest.TestCase):
             retained = state["owners"][a["nonce"]]
             self.assertFalse(host.caller_alive(retained))
             self.assertFalse(host.drained(retained))
-            operation_lifetime.write_json(self.directory / "retained-owner.json", retained)
+            operation_lifetime.write_json(
+                self.directory / "retained-owner.json", retained
+            )
 
         # Actual pse-env entry point uses the original policy admission clock;
         # do not shorten it by replacing the allocator or policy.

@@ -34,14 +34,18 @@ class BackupImageTests(unittest.TestCase):
             image.copy(self.source, self.target, self.expected)
         self.assertEqual(self.target.read_bytes(), b"unexpected")
 
-    def test_nested_sibling_copies_create_every_ancestor_privately_for_real_umasks(self) -> None:
+    def test_nested_sibling_copies_create_every_ancestor_privately_for_real_umasks(
+        self,
+    ) -> None:
         for mask in (0o022, 0o002):
             destination = self.root / f"nested-{mask:o}"
             previous = os.umask(mask)
             try:
-                targets = [destination / ".generations/selected/scripts/owner.py",
-                           destination / ".generations/selected/.config/selection.toml",
-                           destination / ".generations/selected/generation.json"]
+                targets = [
+                    destination / ".generations/selected/scripts/owner.py",
+                    destination / ".generations/selected/.config/selection.toml",
+                    destination / ".generations/selected/generation.json",
+                ]
                 for target in targets:
                     image.copy(self.source, target, self.expected)
                 for path in [destination, *destination.rglob("*")]:
@@ -55,7 +59,9 @@ class BackupImageTests(unittest.TestCase):
             finally:
                 os.umask(previous)
 
-    def test_preexisting_nonprivate_ancestor_is_refused_without_chmod_or_new_names(self) -> None:
+    def test_preexisting_nonprivate_ancestor_is_refused_without_chmod_or_new_names(
+        self,
+    ) -> None:
         for mode in (0o755, 0o775):
             destination = self.root / f"unknown-{mode:o}"
             destination.mkdir(mode=mode)
@@ -68,11 +74,17 @@ class BackupImageTests(unittest.TestCase):
             self.assertEqual(destination.stat().st_ino, before.st_ino)
             self.assertEqual(destination.stat().st_mode & 0o777, mode)
             self.assertEqual(set(destination.iterdir()), {unknown})
-            self.assertEqual(unknown.read_bytes(), b"retain this original directory and data")
+            self.assertEqual(
+                unknown.read_bytes(), b"retain this original directory and data"
+            )
 
     def test_interruption_before_publication_leaves_no_named_partial(self) -> None:
-        with (patch.object(image.os, "link", side_effect=InterruptedError("injected interruption")),
-              self.assertRaises(InterruptedError)):
+        with (
+            patch.object(
+                image.os, "link", side_effect=InterruptedError("injected interruption")
+            ),
+            self.assertRaises(InterruptedError),
+        ):
             image.copy(self.source, self.target, self.expected)
         self.assertEqual(list(self.target.parent.iterdir()), [])
         image.copy(self.source, self.target, self.expected)
@@ -84,7 +96,9 @@ class BackupImageTests(unittest.TestCase):
         unknown.write_bytes(b"retain")
         unknown.chmod(0o600)
         with self.assertRaisesRegex(image.ImageError, "Unknown"):
-            image.check_destination(self.target.parent, {"image": self.expected}, "a" * 64)
+            image.check_destination(
+                self.target.parent, {"image": self.expected}, "a" * 64
+            )
         self.assertEqual(unknown.read_bytes(), b"retain")
         os.symlink(self.source, self.target)
         with self.assertRaises(image.ImageError):
@@ -95,7 +109,9 @@ class BackupImageTests(unittest.TestCase):
             image.copy(self.source, self.target, self.expected)
         self.assertFalse(self.target.exists())
 
-    def test_historical_engine_mode_is_preserved_and_live_source_alias_is_refused(self) -> None:
+    def test_historical_engine_mode_is_preserved_and_live_source_alias_is_refused(
+        self,
+    ) -> None:
         self.source.chmod(0o644)
         image.copy(self.source, self.target, self.expected)
         self.assertEqual(self.target.stat().st_mode & 0o777, 0o644)

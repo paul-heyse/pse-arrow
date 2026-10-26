@@ -24,16 +24,16 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 from unittest.mock import MagicMock, patch
 
-from scripts import test_resources
-from scripts import systemd_environment
-from scripts import operation_lifetime
 from scripts import (
     build_environment,
     build_measurements,
     host_admission,
+    operation_lifetime,
     pse_env,
     resource_store,
     surreal_server,
+    systemd_environment,
+    test_resources,
     validation,
 )
 from scripts import native_cache as cache
@@ -57,7 +57,9 @@ class FixtureEntry(FixtureScope):
 def drain_fixture(complete: bool) -> operation_lifetime.DrainObservation:
     return operation_lifetime.DrainObservation(
         None,
-        operation_lifetime.DrainPhase.COMPLETE if complete else operation_lifetime.DrainPhase.POPULATED,
+        operation_lifetime.DrainPhase.COMPLETE
+        if complete
+        else operation_lifetime.DrainPhase.POPULATED,
         "controlled observation",
     )
 
@@ -174,7 +176,9 @@ class NativeOperationTests(unittest.TestCase):
                 patch.object(host_admission, "inherit", return_value=allocation),
                 patch.object(operation_lifetime, "scope_owner", return_value=scope),
                 patch.object(operation, "owner_record", side_effect=parent_owner),
-                patch.object(systemd_environment, "current_memory_ceiling", return_value=4 << 30),
+                patch.object(
+                    systemd_environment, "current_memory_ceiling", return_value=4 << 30
+                ),
                 patch.object(operation.time, "monotonic", side_effect=lambda: now[0]),
                 patch.object(operation, "prepare_handoff", side_effect=prepare),
                 patch.object(
@@ -632,7 +636,9 @@ class NativeOperationTests(unittest.TestCase):
                 and host_admission.group_identity(owner["group"])
                 == entry["scope_inode"]
             ):
-                observed = operation_lifetime.unit_observation(owner["unit"], deadline=deadline)
+                observed = operation_lifetime.unit_observation(
+                    owner["unit"], deadline=deadline
+                )
                 if (
                     observed.get("ControlGroup") == owner["group"]
                     and observed.get("InvocationID") == owner["invocation"]
@@ -810,7 +816,9 @@ class NativeOperationTests(unittest.TestCase):
             observed = (
                 operation_lifetime.unit_observation(owner["unit"])
                 if deadline is None
-                else operation_lifetime.unit_observation(owner["unit"], deadline=deadline)
+                else operation_lifetime.unit_observation(
+                    owner["unit"], deadline=deadline
+                )
             )
             self.assertEqual(observed["LoadState"], "loaded")
             self.assertEqual(observed["ControlGroup"], owner["group"])
@@ -852,7 +860,9 @@ class NativeOperationTests(unittest.TestCase):
         self.fixture_parent_group = owner["group"]
         with (
             patch.object(operation_lifetime, "scope_owner", return_value=owner),
-            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
+            patch.object(
+                operation_lifetime, "process_group", return_value=owner["group"]
+            ),
             patch.object(pse_env, "manager_available", return_value=True),
             patch.object(pse_env, "manager_environment", return_value={}),
             patch.object(pse_env, "limits", return_value=[]),
@@ -884,7 +894,9 @@ class NativeOperationTests(unittest.TestCase):
         self.fixture_parent_group = owner["group"]
         with (
             patch.object(operation_lifetime, "scope_owner", return_value=owner),
-            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
+            patch.object(
+                operation_lifetime, "process_group", return_value=owner["group"]
+            ),
             patch.object(operation.subprocess, "run") as manager,
         ):
             with self.assertRaisesRegex(AssertionError, "only a minted fixture"):
@@ -952,7 +964,9 @@ class NativeOperationTests(unittest.TestCase):
                 "admissions": {},
                 "generations": [],
             }
-            operation_lifetime.write_json(base / ".operations/owner.json", operation_record)
+            operation_lifetime.write_json(
+                base / ".operations/owner.json", operation_record
+            )
             native: host_admission.AllocationRecord = {
                 "boot": "fixture-boot",
                 "pid": entry["pid"],
@@ -987,7 +1001,9 @@ class NativeOperationTests(unittest.TestCase):
             with (
                 patch.object(self, "signal_fixture_entry"),
                 patch.object(self, "settle_fixture_scope") as settle,
-                patch.object(operation_lifetime, "drained", return_value=drain_fixture(True)),
+                patch.object(
+                    operation_lifetime, "drained", return_value=drain_fixture(True)
+                ),
                 patch.object(host_admission, "boot", return_value="fixture-boot"),
                 patch.object(
                     host_admission,
@@ -1234,9 +1250,13 @@ class NativeOperationTests(unittest.TestCase):
         }
         with (
             patch.object(
-                operation_lifetime, "process_group", return_value=group + "/native-child"
+                operation_lifetime,
+                "process_group",
+                return_value=group + "/native-child",
             ),
-            patch.object(operation_lifetime, "unit_observation", return_value=observation),
+            patch.object(
+                operation_lifetime, "unit_observation", return_value=observation
+            ),
         ):
             self.assertEqual(
                 operation_lifetime.scope_owner(),
@@ -1248,7 +1268,9 @@ class NativeOperationTests(unittest.TestCase):
         ):
             with (
                 patch.object(operation_lifetime, "process_group", return_value=group),
-                patch.object(operation_lifetime, "unit_observation", return_value=invalid),
+                patch.object(
+                    operation_lifetime, "unit_observation", return_value=invalid
+                ),
             ):
                 self.assertIsNone(operation_lifetime.scope_owner())
 
@@ -1272,7 +1294,9 @@ class NativeOperationTests(unittest.TestCase):
             with patch.object(operation_lifetime, "scope_owner", return_value=None):
                 self.assertIsNone(operation.current())
         with (
-            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
+            patch.object(
+                operation_lifetime, "process_group", return_value=owner["group"]
+            ),
             patch.object(
                 operation_lifetime,
                 "unit_observation",
@@ -1285,7 +1309,9 @@ class NativeOperationTests(unittest.TestCase):
         ):
             self.assertEqual(operation_lifetime.scope_owner(), owner)
         with (
-            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
+            patch.object(
+                operation_lifetime, "process_group", return_value=owner["group"]
+            ),
             patch.object(
                 operation_lifetime,
                 "unit_observation",
@@ -1439,13 +1465,19 @@ class NativeOperationTests(unittest.TestCase):
                 operation._record(handoff)["generations"],  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
                 [str(generation)],
             )
-            self.assertFalse(operation_lifetime.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+            self.assertFalse(
+                operation_lifetime.drained(operation._record(handoff)).complete
+            )  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             child_owner = {"unit": unit, "group": "/worker", "invocation": "b" * 32}
-            with patch.object(operation_lifetime, "scope_owner", return_value=child_owner):
+            with patch.object(
+                operation_lifetime, "scope_owner", return_value=child_owner
+            ):
                 operation.bind_handoff(handoff)
             self.assertEqual(operation._record(handoff)["scope"], child_owner)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             with patch.object(operation_lifetime, "populated", return_value=True):
-                self.assertFalse(operation_lifetime.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+                self.assertFalse(
+                    operation_lifetime.drained(operation._record(handoff)).complete
+                )  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             with (
                 patch.object(
                     operation_lifetime,
@@ -1567,7 +1599,9 @@ class NativeOperationTests(unittest.TestCase):
                     os.environ,
                     {"PSE_NATIVE_CACHE": str(base), operation.MARKER: str(parent)},
                 ),
-                patch.object(operation_lifetime, "process_group", return_value=scope["group"]),
+                patch.object(
+                    operation_lifetime, "process_group", return_value=scope["group"]
+                ),
                 patch.object(operation.time, "monotonic", side_effect=lambda: clock[0]),
                 patch.object(
                     operation.subprocess, "run", side_effect=timeout
@@ -1771,7 +1805,9 @@ class NativeOperationTests(unittest.TestCase):
                             "invocation": letter * 32,
                         }
                         with (
-                            patch.object(operation_lifetime, "scope_owner", return_value=child),
+                            patch.object(
+                                operation_lifetime, "scope_owner", return_value=child
+                            ),
                             patch.object(
                                 pse_env.host, "group_identity", return_value=17
                             ),
@@ -2319,7 +2355,8 @@ class NativeOperationTests(unittest.TestCase):
                         self.assert_fixture_scope(entry["scope"])
                         self.assertNotEqual(entry["allocation"], parent["allocation"])
                         self.assertEqual(
-                            operation_lifetime.start_identity(entry["pid"]), entry["start"]
+                            operation_lifetime.start_identity(entry["pid"]),
+                            entry["start"],
                         )
                         self.assertIn(
                             str(cache.ROOT / "scripts/pse_env.py").encode(),
@@ -2333,7 +2370,8 @@ class NativeOperationTests(unittest.TestCase):
                     self.assertNotEqual(owners[0], owners[1])
                     self.assertEqual(child["opaque"], child["session"])
                     self.assertEqual(
-                        operation_lifetime.process_group(child["opaque"]), owners[1]["group"]
+                        operation_lifetime.process_group(child["opaque"]),
+                        owners[1]["group"],
                     )
                     if target == "composer":
                         recipient = parent["pid"]
@@ -2475,7 +2513,9 @@ class NativeOperationTests(unittest.TestCase):
                     patch.object(
                         host_admission, "readonly_snapshot", return_value=ledger
                     ),
-                    patch.object(operation_lifetime, "process_group", return_value=actual),
+                    patch.object(
+                        operation_lifetime, "process_group", return_value=actual
+                    ),
                     patch.object(
                         host_admission,
                         "control_unit_observation",
@@ -2655,8 +2695,12 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
 
         with (
             patch.object(host_admission, "inherit", return_value=allocation),
-            patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
-            patch.object(systemd_environment, "current_memory_ceiling", return_value=4 << 30),
+            patch.object(
+                operation_lifetime, "scope_owner", return_value={"unit": "parent"}
+            ),
+            patch.object(
+                systemd_environment, "current_memory_ceiling", return_value=4 << 30
+            ),
             patch.object(operation.time, "monotonic", return_value=100),
             patch.object(
                 operation, "prepare_handoff", return_value=Path("/owned/handoff")
@@ -2667,7 +2711,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                 operation_lifetime,
                 "drained",
                 return_value=operation_lifetime.DrainObservation(
-                    selected, operation_lifetime.DrainPhase.COMPLETE, "controlled role drain"
+                    selected,
+                    operation_lifetime.DrainPhase.COMPLETE,
+                    "controlled role drain",
                 ),
             ),
         ):
@@ -2691,8 +2737,12 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
             with (
                 self.subTest(cap=missing),
                 patch.object(host_admission, "inherit", return_value=allocation),
-                patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
-                patch.object(systemd_environment, "current_memory_ceiling", return_value=missing),
+                patch.object(
+                    operation_lifetime, "scope_owner", return_value={"unit": "parent"}
+                ),
+                patch.object(
+                    systemd_environment, "current_memory_ceiling", return_value=missing
+                ),
                 patch.object(operation, "prepare_handoff") as handoff,
                 self.assertRaisesRegex(ValueError, "finite originating role cap"),
             ):
@@ -2732,7 +2782,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                 "acquire",
                 side_effect=AssertionError("second allocation"),
             ),
-            patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(
+                operation_lifetime, "scope_owner", return_value={"unit": "parent"}
+            ),
             patch.object(
                 operation, "prepare_handoff", return_value=Path("/owned/handoff")
             ),
@@ -2742,7 +2794,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                 operation_lifetime,
                 "drained",
                 return_value=operation_lifetime.DrainObservation(
-                    selected, operation_lifetime.DrainPhase.UNAVAILABLE, "missing unit proof"
+                    selected,
+                    operation_lifetime.DrainPhase.UNAVAILABLE,
+                    "missing unit proof",
                 ),
             ) as drain,
             patch.object(operation.time, "monotonic", return_value=100.0),
@@ -2795,7 +2849,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
         }
         with (
             patch.object(host_admission, "inherit", return_value=allocation),
-            patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(
+                operation_lifetime, "scope_owner", return_value={"unit": "parent"}
+            ),
             patch.object(
                 operation, "prepare_handoff", return_value=Path("/owned/handoff")
             ),
@@ -2810,7 +2866,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                     {**unit, "ActiveState": "inactive"},
                 ],
             ) as manager,
-            patch.object(operation_lifetime, "drained", wraps=operation_lifetime.drained) as drain,
+            patch.object(
+                operation_lifetime, "drained", wraps=operation_lifetime.drained
+            ) as drain,
             patch.object(operation.time, "monotonic", side_effect=lambda: elapsed[0]),
             patch.object(operation.time, "sleep", side_effect=advance) as pause,
             patch.object(operation.signal, "pthread_sigmask") as mask,
@@ -2836,7 +2894,10 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
         self,
     ) -> None:
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
-        for phase in (operation_lifetime.DrainPhase.ACTIVE, operation_lifetime.DrainPhase.POPULATED):
+        for phase in (
+            operation_lifetime.DrainPhase.ACTIVE,
+            operation_lifetime.DrainPhase.POPULATED,
+        ):
             for cancellation in (None, 100.025, 120.0):
                 with self.subTest(phase=phase, cancellation=cancellation):
                     allocation = MagicMock(spec=host_admission.Allocation)
@@ -2875,7 +2936,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                             host_admission, "inherit", return_value=allocation
                         ),
                         patch.object(
-                            operation_lifetime, "scope_owner", return_value={"unit": "parent"}
+                            operation_lifetime,
+                            "scope_owner",
+                            return_value={"unit": "parent"},
                         ),
                         patch.object(
                             operation,
@@ -3048,7 +3111,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                                     "actual gated child remains",
                                 )
                             assert deadline is not None
-                            opaque.wait(timeout=operation_lifetime.admission_remaining(deadline))
+                            opaque.wait(
+                                timeout=operation_lifetime.admission_remaining(deadline)
+                            )
                             observations.append((deadline, opaque.returncode is None))
                             return operation_lifetime.DrainObservation(
                                 selected,
@@ -3081,7 +3146,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                             ) as cancel,
                             patch.object(operation, "_record", side_effect=record),
                             patch.object(
-                                operation_lifetime, "drained", side_effect=physical_drain
+                                operation_lifetime,
+                                "drained",
+                                side_effect=physical_drain,
                             ),
                         ):
                             code = operation.run_child_scope(
@@ -3152,7 +3219,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                 with (
                     patch.object(host_admission, "inherit", return_value=allocation),
                     patch.object(
-                        operation_lifetime, "scope_owner", return_value={"unit": "parent"}
+                        operation_lifetime,
+                        "scope_owner",
+                        return_value={"unit": "parent"},
                     ),
                     patch.object(
                         operation,
@@ -3287,7 +3356,10 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
     @patch.object(systemd_environment, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_late_clock_does_not_retry_unknown_selected_scope_authority(self) -> None:
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
-        for phase in (operation_lifetime.DrainPhase.MISMATCH, operation_lifetime.DrainPhase.UNAVAILABLE):
+        for phase in (
+            operation_lifetime.DrainPhase.MISMATCH,
+            operation_lifetime.DrainPhase.UNAVAILABLE,
+        ):
             with self.subTest(phase=phase):
                 allocation = MagicMock(spec=host_admission.Allocation)
                 allocation.nonce = "c" * 32
@@ -3323,7 +3395,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                 with (
                     patch.object(host_admission, "inherit", return_value=allocation),
                     patch.object(
-                        operation_lifetime, "scope_owner", return_value={"unit": "parent"}
+                        operation_lifetime,
+                        "scope_owner",
+                        return_value={"unit": "parent"},
                     ),
                     patch.object(
                         operation,
@@ -3334,7 +3408,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                     patch.object(
                         operation, "_record", return_value={"scope": selected}
                     ),
-                    patch.object(operation_lifetime, "drained", side_effect=unknown) as drain,
+                    patch.object(
+                        operation_lifetime, "drained", side_effect=unknown
+                    ) as drain,
                     patch.object(operation.time, "sleep") as pause,
                     self.assertRaisesRegex(
                         ValueError, "selected workload remains charged"
@@ -3360,7 +3436,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
             patch.object(
                 operation,
                 "record_lock",
-                side_effect=operation_lifetime.DeadlineExpiredError("contended original clock"),
+                side_effect=operation_lifetime.DeadlineExpiredError(
+                    "contended original clock"
+                ),
             ) as lock,
             self.assertRaises(operation_lifetime.DeadlineExpiredError),
         ):
@@ -3447,7 +3525,9 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
             patch.object(
                 operation,
                 "owner_record",
-                side_effect=operation_lifetime.DeadlineExpiredError("contended first authority"),
+                side_effect=operation_lifetime.DeadlineExpiredError(
+                    "contended first authority"
+                ),
             ) as authority,
             patch.object(operation.os, "killpg") as direct,
             self.assertRaisesRegex(ValueError, "foreground cancellation incomplete"),
@@ -3931,7 +4011,8 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
             )
             try:
                 changed.update(
-                    pid=foreign.pid, start=operation_lifetime.start_identity(foreign.pid)
+                    pid=foreign.pid,
+                    start=operation_lifetime.start_identity(foreign.pid),
                 )
                 operation_lifetime.write_json(active.path, changed)
                 self.assertIsNone(
@@ -4197,7 +4278,8 @@ time.sleep(30)
                 self.assert_fixture_scope(record["scope"])
                 self.assertEqual(observed["group"], record["scope"]["group"])
                 self.assertEqual(
-                    operation_lifetime.process_group(record["pid"]), record["scope"]["group"]
+                    operation_lifetime.process_group(record["pid"]),
+                    record["scope"]["group"],
                 )
                 os.kill(record["pid"], signal.SIGTERM)
                 process.wait(timeout=15)
@@ -4624,9 +4706,13 @@ class DrainObservationTests(unittest.TestCase):
         ]
         for population, observed, phase, cause in scenarios:
             observation = (
-                patch.object(operation_lifetime, "unit_observation", side_effect=observed)
+                patch.object(
+                    operation_lifetime, "unit_observation", side_effect=observed
+                )
                 if isinstance(observed, Exception)
-                else patch.object(operation_lifetime, "unit_observation", return_value=observed)
+                else patch.object(
+                    operation_lifetime, "unit_observation", return_value=observed
+                )
             )
             with (
                 self.subTest(phase=phase),
@@ -4651,7 +4737,9 @@ class DrainObservationTests(unittest.TestCase):
         with (
             patch.object(operation_lifetime, "populated", side_effect=[False, True]),
             patch.object(
-                operation_lifetime, "unit_observation", return_value={"LoadState": "not-found"}
+                operation_lifetime,
+                "unit_observation",
+                return_value={"LoadState": "not-found"},
             ),
         ):
             result = operation_lifetime.drained({"scope": owner})
@@ -4722,16 +4810,21 @@ class ManagerObservationTests(unittest.TestCase):
         ):
             with (
                 self.subTest(invalid=invalid),
-                patch.object(operation_lifetime, "manager_observation", return_value=invalid),
+                patch.object(
+                    operation_lifetime, "manager_observation", return_value=invalid
+                ),
                 self.assertRaises(ValueError),
             ):
                 operation_lifetime.unit_observation("pse-owned.scope")
         absent = (
             "InvocationID=\nControlGroup=\nLoadState=not-found\nActiveState=inactive\n"
         )
-        with patch.object(operation_lifetime, "manager_observation", return_value=absent):
+        with patch.object(
+            operation_lifetime, "manager_observation", return_value=absent
+        ):
             self.assertEqual(
-                operation_lifetime.unit_observation("pse-gone.scope")["LoadState"], "not-found"
+                operation_lifetime.unit_observation("pse-gone.scope")["LoadState"],
+                "not-found",
             )
 
     def test_manager_failure_reports_bounded_stderr_and_selected_endpoint(self) -> None:
@@ -4750,7 +4843,9 @@ class ManagerObservationTests(unittest.TestCase):
             with (
                 self.subTest(failure=failure),
                 patch.object(
-                    operation_lifetime, "manager_control_environment", return_value=endpoint
+                    operation_lifetime,
+                    "manager_control_environment",
+                    return_value=endpoint,
                 ),
                 patch.object(
                     operation.subprocess,

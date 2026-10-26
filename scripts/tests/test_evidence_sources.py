@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import ast
 import contextlib
 import hashlib
@@ -17,7 +16,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import service_borrowers
 from scripts import (
     active_diagnostics,
     evidence_detail,
@@ -25,6 +23,7 @@ from scripts import (
     evidence_sources,
     evidence_store,
     resource_store,
+    service_borrowers,
     test_resources,
     test_run,
 )
@@ -154,7 +153,9 @@ class EvidenceSourceTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.registry = self.root / "registry"
-        selected = patch.object(service_borrowers, "registry", return_value=self.registry)
+        selected = patch.object(
+            service_borrowers, "registry", return_value=self.registry
+        )
         selected.start()
         self.addCleanup(selected.stop)
 

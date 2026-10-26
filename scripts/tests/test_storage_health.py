@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import contextlib
 import io
 import json
@@ -18,9 +17,11 @@ from unittest.mock import MagicMock, patch
 
 import msgspec
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
-from scripts import evidence_sources, test_resources
+from scripts import (
+    evidence_sources,
+    operation_lifetime,
+    service_borrowers,
+)
 from scripts import pressure_observation as pressure
 from scripts import storage_health as health
 from scripts import surreal_diagnostics as diagnostics

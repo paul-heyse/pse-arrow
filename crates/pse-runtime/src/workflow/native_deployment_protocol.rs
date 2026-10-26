@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// Production profile names are local deployment vocabulary, not scientific semantics.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProductionProfileName {
     /// Ordinary storage service and independently capped managed worker.
@@ -82,26 +84,48 @@ impl ProductionProfiles {
                 return Err(contract("duplicate production execution profile"));
             }
         }
-        let profile = self.profiles.iter().find(|profile| profile.name == name)
+        let profile = self
+            .profiles
+            .iter()
+            .find(|profile| profile.name == name)
             .ok_or_else(|| contract("selected production execution profile is absent"))?;
-        NativeAllocation::materialize(profile.total_memory_bytes, profile.server_memory_bytes,
-                                     1, profile.native_worker_memory_bytes, profile.execution)
+        NativeAllocation::materialize(
+            profile.total_memory_bytes,
+            profile.server_memory_bytes,
+            1,
+            profile.native_worker_memory_bytes,
+            profile.execution,
+        )
     }
     /// Read only the production-owned declaration from the existing host policy file.
     /// # Errors
     /// Unreadable, malformed, unsupported or missing production declarations.
     pub fn read(path: &Path) -> Result<Self, WorkflowError> {
         #[derive(Deserialize)]
-        struct Declaration { production: ProductionProfiles }
+        struct Declaration {
+            production: ProductionProfiles,
+        }
         use std::io::Read;
         let mut bytes = String::new();
-        let file = std::fs::File::open(path).map_err(|error| WorkflowError::Input(error.to_string()))?;
-        if !file.metadata().map_err(|error| WorkflowError::Input(error.to_string()))?.is_file() {
+        let file =
+            std::fs::File::open(path).map_err(|error| WorkflowError::Input(error.to_string()))?;
+        if !file
+            .metadata()
+            .map_err(|error| WorkflowError::Input(error.to_string()))?
+            .is_file()
+        {
             return Err(contract("production declaration must be a regular file"));
         }
-        file.take(1024 * 1024 + 1).read_to_string(&mut bytes).map_err(|error| WorkflowError::Input(error.to_string()))?;
-        if bytes.len() > 1024 * 1024 { return Err(contract("production declaration exceeds its bounded envelope")); }
-        let declaration: Declaration = toml::from_str(&bytes).map_err(|error| WorkflowError::Input(error.to_string()))?;
+        file.take(1024 * 1024 + 1)
+            .read_to_string(&mut bytes)
+            .map_err(|error| WorkflowError::Input(error.to_string()))?;
+        if bytes.len() > 1024 * 1024 {
+            return Err(contract(
+                "production declaration exceeds its bounded envelope",
+            ));
+        }
+        let declaration: Declaration =
+            toml::from_str(&bytes).map_err(|error| WorkflowError::Input(error.to_string()))?;
         Ok(declaration.production)
     }
 }
@@ -150,12 +174,27 @@ impl DeploymentRequest {
     /// Invalid allocation, declaration or selected production role.
     pub fn materialize(self) -> Result<DeploymentResponse, WorkflowError> {
         let allocation = match self {
-            Self::Materialize { total_memory_bytes, server_memory_bytes, native_workers,
-                                native_worker_memory_bytes, execution } =>
-                NativeAllocation::materialize(total_memory_bytes, server_memory_bytes,
-                                             native_workers, native_worker_memory_bytes, execution)?,
-            Self::Validate { allocation } => { allocation.validate()?; allocation },
-            Self::Profile { declaration, profile } => ProductionProfiles::read(&declaration)?.select(profile)?,
+            Self::Materialize {
+                total_memory_bytes,
+                server_memory_bytes,
+                native_workers,
+                native_worker_memory_bytes,
+                execution,
+            } => NativeAllocation::materialize(
+                total_memory_bytes,
+                server_memory_bytes,
+                native_workers,
+                native_worker_memory_bytes,
+                execution,
+            )?,
+            Self::Validate { allocation } => {
+                allocation.validate()?;
+                allocation
+            }
+            Self::Profile {
+                declaration,
+                profile,
+            } => ProductionProfiles::read(&declaration)?.select(profile)?,
         };
         Ok(DeploymentResponse { allocation })
     }
@@ -225,7 +264,6 @@ pub struct DeploymentObservation {
     pub cause: String,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,17 +287,30 @@ mod tests {
         let wide = profiles.select(ProductionProfileName::Wide).unwrap();
         assert_eq!(functional.execution.unwrap().case_lanes, 2);
         assert_eq!(wide.execution.unwrap().case_lanes, 4);
-        assert_ne!(functional.native_worker_memory_bytes, wide.native_worker_memory_bytes);
-        for name in [ProductionProfileName::Service, ProductionProfileName::Functional, ProductionProfileName::Wide,
-                     ProductionProfileName::Timing, ProductionProfileName::Exclusive,
-                     ProductionProfileName::Reference, ProductionProfileName::ExclusiveObserver] {
+        assert_ne!(
+            functional.native_worker_memory_bytes,
+            wide.native_worker_memory_bytes
+        );
+        for name in [
+            ProductionProfileName::Service,
+            ProductionProfileName::Functional,
+            ProductionProfileName::Wide,
+            ProductionProfileName::Timing,
+            ProductionProfileName::Exclusive,
+            ProductionProfileName::Reference,
+            ProductionProfileName::ExclusiveObserver,
+        ] {
             profiles.select(name).unwrap().validate().unwrap();
         }
     }
     #[test]
     fn one_validator_rejects_overflow_and_relationally_impossible_allocations() {
         let valid = NativeAllocation::materialize(4 << 30, 1 << 30, 2, 1 << 30, None).unwrap();
-        assert!(DeploymentRequest::Validate { allocation: valid }.materialize().is_ok());
+        assert!(
+            DeploymentRequest::Validate { allocation: valid }
+                .materialize()
+                .is_ok()
+        );
         assert!(NativeAllocation::materialize(2 << 30, 1 << 30, 2, 1 << 30, None).is_err());
         assert!(NativeAllocation::materialize(usize::MAX, 1 << 30, 32, usize::MAX, None).is_err());
         let mut invalid = valid;

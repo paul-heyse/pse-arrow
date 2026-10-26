@@ -10,7 +10,9 @@
 )]
 
 use clap::Parser;
-use pse_operations::canonical_files::offline::{self, Operation, Placement, RecoveryControl, RecoveryPhase, Request};
+use pse_operations::canonical_files::offline::{
+    self, Operation, Placement, RecoveryControl, RecoveryPhase, Request,
+};
 use std::{
     io::{self, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
@@ -71,10 +73,17 @@ fn run() -> Result<(), pse_operations::canonical::CanonicalError> {
     let mut input = BufReader::new(input);
     let mut control = RecoveryControl::new(cli.checkpoint);
     if matches!(cli.operation.as_str(), "layout" | "owner-observations") {
-        control.bind(&cli.operation, &cli.root, placement.as_ref(), cli.destination.as_deref(), target.as_ref(), &mut input)?;
+        control.bind(
+            &cli.operation,
+            &cli.root,
+            placement.as_ref(),
+            cli.destination.as_deref(),
+            target.as_ref(),
+            &mut input,
+        )?;
     }
     let mut output = io::stdout().lock();
-    let result = (|| { match cli.operation.as_str() {
+    let result = (|| match cli.operation.as_str() {
         "inventory" | "backup" | "verify-live" | "verify" | "restore" => {
             let operation = match cli.operation.as_str() {
                 "inventory" => Operation::Inventory,
@@ -84,8 +93,13 @@ fn run() -> Result<(), pse_operations::canonical::CanonicalError> {
                 _ => Operation::Restore,
             };
             offline::run(
-                Request { operation, state: &cli.root, placement: placement.as_ref(),
-                    destination: cli.destination.as_deref(), target: target.as_ref() },
+                Request {
+                    operation,
+                    state: &cli.root,
+                    placement: placement.as_ref(),
+                    destination: cli.destination.as_deref(),
+                    target: target.as_ref(),
+                },
                 &mut input,
                 &mut output,
                 &mut control,
@@ -141,7 +155,7 @@ fn run() -> Result<(), pse_operations::canonical::CanonicalError> {
         _ => Err(pse_operations::canonical::CanonicalError::Configuration(
             "unknown offline physical operation".into(),
         )),
-    } })();
+    })();
     if let Err(error) = &result {
         control.refused(error)?;
     }

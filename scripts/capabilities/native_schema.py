@@ -47,11 +47,17 @@ def source_identity(information: os.stat_result) -> SourceIdentity:
 class SchemaSet:
     """One immutable loaded interface revision from the compiled catalogue producer."""
 
-    def __init__(self, root: Path, *, family: Literal["product", "evidence"] = "product") -> None:
+    def __init__(
+        self, root: Path, *, family: Literal["product", "evidence"] = "product"
+    ) -> None:
         if family not in {"product", "evidence"}:
             raise ValueError("unknown responsibility-owned schema family")
         self.root = root
-        self.schema_root = "docs/generated/schema" if family == "product" else "scripts/generated/evidence_schema"
+        self.schema_root = (
+            "docs/generated/schema"
+            if family == "product"
+            else "scripts/generated/evidence_schema"
+        )
         self.manifest = JSON_OBJECT.validate_json(
             (root / self.schema_root / "catalogue.json").read_bytes(), strict=True
         )
@@ -74,7 +80,11 @@ class SchemaSet:
             )
             for row in self._documents.values()
         }
-        self._authoring_row = object_value(self.manifest["authoring"]) if self.manifest.get("authoring") is not None else None
+        self._authoring_row = (
+            object_value(self.manifest["authoring"])
+            if self.manifest.get("authoring") is not None
+            else None
+        )
         if self._authoring_row is not None:
             authoring = self._path(text_value(self._authoring_row["schema_path"]))
             self._sources[authoring] = source_identity(authoring.stat())
@@ -155,7 +165,9 @@ class SchemaSet:
         root_arguments: dict[str, JsonValue] = {"slug": slug}
         if slug == "authoring":
             if self._authoring_row is None:
-                raise ValueError("This private document family has no scientific authoring guidance")
+                raise ValueError(
+                    "This private document family has no scientific authoring guidance"
+                )
             if direction is not None:
                 raise ValueError(
                     "authoring guidance has no native input/output direction"

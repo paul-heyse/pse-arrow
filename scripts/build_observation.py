@@ -13,8 +13,12 @@ import time
 import uuid
 from pathlib import Path
 
-from scripts import operation_lifetime
-from scripts import host_admission, native_operation, resource_store, telemetry_metrics
+from scripts import (
+    host_admission,
+    operation_lifetime,
+    resource_store,
+    telemetry_metrics,
+)
 
 
 def processes(pid: int, start: str) -> list[dict]:

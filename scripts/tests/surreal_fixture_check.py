@@ -29,8 +29,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-from scripts import operation_lifetime
-from scripts import host_admission, native_operation
+from scripts import host_admission, operation_lifetime
 from scripts import surreal_server as server
 
 INTERPRETATION = server.SUBSTRATE_INTERPRETATION
@@ -513,7 +512,9 @@ def receiver_closures(state: Path, directory: Path) -> None:
     contexts: list[Path] = []
     releases: list[Path] = []
     proofs: list[dict[str, object]] = []
-    storage = operation_lifetime.unit_observation(server.unit_name(state))["InvocationID"]
+    storage = operation_lifetime.unit_observation(server.unit_name(state))[
+        "InvocationID"
+    ]
     original = {
         key: os.environ.get(key)
         for key in ("PSE_WORKER_BINARY", "PSE_WORKER_PRODUCER_RECEIPT")

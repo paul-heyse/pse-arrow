@@ -16,8 +16,11 @@ from typing import Literal, TypedDict
 
 import msgspec
 
-from scripts import operation_lifetime
-from scripts import host_admission, native_operation, pressure_observation
+from scripts import (
+    host_admission,
+    operation_lifetime,
+    pressure_observation,
+)
 from scripts import surreal_server as server
 
 SCHEMA = "storage-health-v1"
@@ -378,7 +381,10 @@ def selected_process(pid: int, group: str, boot: str) -> ProcessObservation:
                 rss = Observation(
                     "approximate", int(parts[1]) * 1024, "kernel VmRSS estimate"
                 )
-    if process_identity(pid) != process or operation_lifetime.process_group(pid) != group:
+    if (
+        process_identity(pid) != process
+        or operation_lifetime.process_group(pid) != group
+    ):
         raise ValueError("process lifetime changed")
     return ProcessObservation(process, rss)
 

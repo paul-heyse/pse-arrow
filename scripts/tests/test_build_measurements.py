@@ -18,12 +18,12 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import operation_lifetime
 from scripts import (
     build_environment,
     build_measurements,
     host_admission,
     native_operation,
+    operation_lifetime,
     surreal_server,
     validation,
 )

@@ -16,9 +16,8 @@ from typing import TYPE_CHECKING, cast
 if TYPE_CHECKING:
     from typing import TextIO
 
-from scripts import operation_lifetime
 from scripts import host_admission as host
-from scripts import native_operation as operation
+from scripts import operation_lifetime
 from scripts.tests import plan30_placement_check as placement
 
 

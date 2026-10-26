@@ -976,18 +976,24 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
     clippy::print_stderr,
     reason = "focused D06 evidence reports phase time and accounted pool observations without performance thresholds or private RSS claims"
 )]
-async fn project_portability_selected_multi_revision_exchange_reuses_original_scientific_admission() {
+async fn project_portability_selected_multi_revision_exchange_reuses_original_scientific_admission()
+{
     let runtime = workflow::durable_tests::durable_runtime();
     let cancel = crate::CancelSource::new();
-    let (physical_documents, _) = workflow::tests::sources(
-        "package algebraic {def Fixed {param x:Scalar=2;eq fixed:x==2;}}",
-    );
+    let (physical_documents, _) =
+        workflow::tests::sources("package algebraic {def Fixed {param x:Scalar=2;eq fixed:x==2;}}");
     let physical = Box::pin(runtime.physical_from_sources(&physical_documents, &cancel))
         .await
         .unwrap();
     let store = runtime.canonical_store().unwrap();
-    store.create_project("create-exchange", "exchange-project", "Exact selected exchange")
-        .await.unwrap();
+    store
+        .create_project(
+            "create-exchange",
+            "exchange-project",
+            "Exact selected exchange",
+        )
+        .await
+        .unwrap();
     // Keep only original identities/checksums, rather than retaining the fixture's packages
     // or encoded bodies while the production traversal reopens its selected revisions.
     let mut expected = BTreeMap::new();
@@ -1000,132 +1006,286 @@ async fn project_portability_selected_multi_revision_exchange_reuses_original_sc
         let (_, documents) = workflow::tests::sources(&format!(
             "package algebraic {{def Fixed {{param x:Scalar={value};eq fixed:x=={value};}}}}"
         ));
-        let source = Box::pin(runtime.package_from_sources(&[documents], physical.clone(), &cancel))
-            .await.unwrap();
+        let source =
+            Box::pin(runtime.package_from_sources(&[documents], physical.clone(), &cancel))
+                .await
+                .unwrap();
         let replay = serde_json::to_vec(&source.replay_source().unwrap()).unwrap();
         let identity = source.revision.identity();
         let replay_digest = pse_ids::encoding_checksum(&replay).content_hash().to_hex();
         let project = store.project("exchange-project").await.unwrap().unwrap();
         let revision = Box::pin(runtime.project_fork(
-            &project, branch, &format!("problem-{branch}"), operation, &source,
-        )).await.unwrap();
-        if branch == "history" { historical = Some(revision.clone()); }
-        if branch != "unselected" { expected.insert(revision.key.clone(), (identity, replay_digest)); }
+            &project,
+            branch,
+            &format!("problem-{branch}"),
+            operation,
+            &source,
+        ))
+        .await
+        .unwrap();
+        if branch == "history" {
+            historical = Some(revision.clone());
+        }
+        if branch != "unselected" {
+            expected.insert(revision.key.clone(), (identity, replay_digest));
+        }
     }
     let selection = Box::pin(runtime.project_select(
         &workflow::ProjectSelectRequest {
             version: Version,
-            reference: workflow::ProjectReference::Branch { key: "origin".into() },
-        }, physical.clone(), &cancel,
-    )).await.unwrap();
+            reference: workflow::ProjectReference::Branch {
+                key: "origin".into(),
+            },
+        },
+        physical.clone(),
+        &cancel,
+    ))
+    .await
+    .unwrap();
     let historical = historical.unwrap();
     let evidence = b"selected historical evidence";
-    let mut artifact = store.new_artifact(
-        &historical, "exchange-evidence", vec![], 1, evidence.len() as u64,
-    ).await.unwrap();
+    let mut artifact = store
+        .new_artifact(
+            &historical,
+            "exchange-evidence",
+            vec![],
+            1,
+            evidence.len() as u64,
+        )
+        .await
+        .unwrap();
     let blocks = vec![pse_operations::canonical_artifacts::artifact_block(
-        &artifact.key, 0, "exchange-evidence", evidence.to_vec(), "original-history", 0,
+        &artifact.key,
+        0,
+        "exchange-evidence",
+        evidence.to_vec(),
+        "original-history",
+        0,
     )];
     pse_operations::canonical_artifacts::seal_artifact_request(
-        &mut artifact, std::slice::from_ref(&historical), &[], &blocks, "project", &selection.project,
+        &mut artifact,
+        std::slice::from_ref(&historical),
+        &[],
+        &blocks,
+        "project",
+        &selection.project,
     );
-    let artifact = store.persist_artifact(
-        &artifact, std::slice::from_ref(&historical), &[], &blocks, "project", &selection.project,
-    ).await.unwrap();
+    let artifact = store
+        .persist_artifact(
+            &artifact,
+            std::slice::from_ref(&historical),
+            &[],
+            &blocks,
+            "project",
+            &selection.project,
+        )
+        .await
+        .unwrap();
     let mut request = ProjectExportRequest {
-        version: Version, selection, research_selections: vec![], publications: vec![],
-        studies: vec![], results: vec![], artifacts: vec![artifact.key.clone()], reproducers: vec![],
-        descriptive_only: false, omissions: vec![], maximum_output_bytes: 16 << 20,
+        version: Version,
+        selection,
+        research_selections: vec![],
+        publications: vec![],
+        studies: vec![],
+        results: vec![],
+        artifacts: vec![artifact.key.clone()],
+        reproducers: vec![],
+        descriptive_only: false,
+        omissions: vec![],
+        maximum_output_bytes: 16 << 20,
         maximum_document_bytes: 16 << 20,
     };
-    let explanation_scope = runtime.observations().hub().start("inquiry.project-exchange.explanation");
+    let explanation_scope = runtime
+        .observations()
+        .hub()
+        .start("inquiry.project-exchange.explanation");
     let explanation_start_live = runtime.shared.pool().reserved();
     runtime.shared.reset_observation_peak();
     let explanation_started = std::time::Instant::now();
     let explanation = pse_diagnostics::observation::scope(
         Some(explanation_scope.context()),
         Box::pin(runtime.project_closure(&request, physical.clone(), &cancel)),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     let explanation_elapsed = explanation_started.elapsed();
     let explanation_peak = runtime.shared.observation_peak_bytes();
     explanation_scope.finish(pse_diagnostics::observation::Outcome::Completed);
     let explanation_report = runtime.shared.report().unwrap();
     eprintln!(
         "d06 phase=explanation elapsed_us={} accounted_start_live_bytes={} accounted_phase_peak_bytes={} source_bytes={} source_members={} selected_revisions={} process_lifetime_peak_rss_bytes={:?}",
-        explanation_elapsed.as_micros(), explanation_start_live, explanation_peak,
+        explanation_elapsed.as_micros(),
+        explanation_start_live,
+        explanation_peak,
         explanation.known_source_bytes,
-        explanation.manifest.members.iter().filter(|m| m.artifact.is_none()).count(),
-        explanation.manifest.sources.len(), explanation_report.process_peak_rss_bytes,
+        explanation
+            .manifest
+            .members
+            .iter()
+            .filter(|m| m.artifact.is_none())
+            .count(),
+        explanation.manifest.sources.len(),
+        explanation_report.process_peak_rss_bytes,
     );
     assert!(!explanation.result_bytes_known);
-    assert_eq!(explanation.manifest.sources.iter().map(|s| &s.revision).collect::<Vec<_>>(),
-        expected.keys().collect::<Vec<_>>(), "unselected project forks cannot broaden exact closure");
+    assert_eq!(
+        explanation
+            .manifest
+            .sources
+            .iter()
+            .map(|s| &s.revision)
+            .collect::<Vec<_>>(),
+        expected.keys().collect::<Vec<_>>(),
+        "unselected project forks cannot broaden exact closure"
+    );
     let output = tempfile::tempdir().unwrap();
     let first = output.path().join("first");
-    let export_scope = runtime.observations().hub().start("inquiry.project-exchange.export");
+    let export_scope = runtime
+        .observations()
+        .hub()
+        .start("inquiry.project-exchange.export");
     let export_start_live = runtime.shared.pool().reserved();
     runtime.shared.reset_observation_peak();
     let export_started = std::time::Instant::now();
     let manifest = pse_diagnostics::observation::scope(
         Some(export_scope.context()),
         Box::pin(runtime.project_export(&first, &request, physical.clone(), &cancel)),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
     let export_elapsed = export_started.elapsed();
     let export_peak = runtime.shared.observation_peak_bytes();
     export_scope.finish(pse_diagnostics::observation::Outcome::Completed);
     let export_report = runtime.shared.report().unwrap();
     eprintln!(
         "d06 phase=export elapsed_us={} accounted_start_live_bytes={} accounted_phase_peak_bytes={} source_bytes={} source_members={} selected_revisions={} process_lifetime_peak_rss_bytes={:?}",
-        export_elapsed.as_micros(), export_start_live, export_peak,
-        manifest.members.iter().filter(|m| m.artifact.is_none()).map(|m| m.copied_bytes).sum::<u64>(),
-        manifest.members.iter().filter(|m| m.artifact.is_none()).count(),
-        manifest.sources.len(), export_report.process_peak_rss_bytes,
+        export_elapsed.as_micros(),
+        export_start_live,
+        export_peak,
+        manifest
+            .members
+            .iter()
+            .filter(|m| m.artifact.is_none())
+            .map(|m| m.copied_bytes)
+            .sum::<u64>(),
+        manifest
+            .members
+            .iter()
+            .filter(|m| m.artifact.is_none())
+            .count(),
+        manifest.sources.len(),
+        export_report.process_peak_rss_bytes,
     );
     assert!(manifest.executable_complete && manifest.offline_complete);
-    assert!(manifest.providers.is_empty(), "this fixture has no external execution premises");
-    assert_eq!(explanation.known_source_bytes, manifest.members.iter()
-        .filter(|m| m.artifact.is_none()).map(|m| m.copied_bytes).sum::<u64>());
+    assert!(
+        manifest.providers.is_empty(),
+        "this fixture has no external execution premises"
+    );
+    assert_eq!(
+        explanation.known_source_bytes,
+        manifest
+            .members
+            .iter()
+            .filter(|m| m.artifact.is_none())
+            .map(|m| m.copied_bytes)
+            .sum::<u64>()
+    );
     let reader = ProjectBundleReader::open(&first, request.maximum_document_bytes).unwrap();
     // Admit every exported physical/model pair through the receiving scientific pipeline.
     // A contained checksum alone does not establish either scientific identity.
     let receiver = workflow::tests::runtime();
     for (ordinal, source) in manifest.sources.iter().enumerate() {
-        assert_eq!(source.replay_source.as_deref(), Some(format!("source-{ordinal}").as_str()));
+        assert_eq!(
+            source.replay_source.as_deref(),
+            Some(format!("source-{ordinal}").as_str())
+        );
         let expected = &expected[&source.revision];
-        let replay_member = manifest.members.iter()
-            .find(|m| Some(m.id.as_str()) == source.replay_source.as_deref()).unwrap();
+        let replay_member = manifest
+            .members
+            .iter()
+            .find(|m| Some(m.id.as_str()) == source.replay_source.as_deref())
+            .unwrap();
         assert_eq!(replay_member.digest, expected.1);
         let replay: workflow::ReplaySourceDocument = serde_json::from_slice(
-            &reader.member_bytes(&replay_member.id, request.maximum_document_bytes).unwrap(),
-        ).unwrap();
+            &reader
+                .member_bytes(&replay_member.id, request.maximum_document_bytes)
+                .unwrap(),
+        )
+        .unwrap();
         let copied = reader.source_documents(source).unwrap();
-        assert_eq!(copied.physical, physical_documents,
-            "shared physical documents retain exact bytes in each source closure");
-        let receiving_physical = Box::pin(receiver.physical_from_sources(&copied.physical, &cancel))
-            .await.unwrap();
+        assert_eq!(
+            copied.physical, physical_documents,
+            "shared physical documents retain exact bytes in each source closure"
+        );
+        let receiving_physical =
+            Box::pin(receiver.physical_from_sources(&copied.physical, &cancel))
+                .await
+                .unwrap();
         assert_eq!(receiving_physical.identity(), physical.identity());
-        let admitted = replay.reconstruct(&receiver.source_services(), receiving_physical,
-            BTreeMap::new(), &cancel).unwrap();
+        let admitted = replay
+            .reconstruct(
+                &receiver.source_services(),
+                receiving_physical,
+                BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
         assert_eq!(admitted.revision.identity(), expected.0);
         for document in source.documents.iter().chain(&source.physical_documents) {
-            let member = manifest.members.iter().find(|m| m.id == document.member).unwrap();
-            let bytes = reader.member_bytes(&member.id, request.maximum_document_bytes).unwrap();
-            assert_eq!(pse_ids::encoding_checksum(&bytes).content_hash().to_hex(), member.digest);
+            let member = manifest
+                .members
+                .iter()
+                .find(|m| m.id == document.member)
+                .unwrap();
+            let bytes = reader
+                .member_bytes(&member.id, request.maximum_document_bytes)
+                .unwrap();
+            assert_eq!(
+                pse_ids::encoding_checksum(&bytes).content_hash().to_hex(),
+                member.digest
+            );
         }
     }
-    let artifact_member = manifest.members.iter().find(|m| m.artifact.is_some()).unwrap();
-    assert_eq!(reader.member_bytes(&artifact_member.id, request.maximum_document_bytes).unwrap(), evidence);
-    assert_eq!(artifact_member.artifact.as_ref().unwrap(), &(artifact.key.clone(), 0));
-    assert_eq!(artifact_member.artifact_metadata.as_ref().unwrap().original_digest, "original-history");
+    let artifact_member = manifest
+        .members
+        .iter()
+        .find(|m| m.artifact.is_some())
+        .unwrap();
+    assert_eq!(
+        reader
+            .member_bytes(&artifact_member.id, request.maximum_document_bytes)
+            .unwrap(),
+        evidence
+    );
+    assert_eq!(
+        artifact_member.artifact.as_ref().unwrap(),
+        &(artifact.key.clone(), 0)
+    );
+    assert_eq!(
+        artifact_member
+            .artifact_metadata
+            .as_ref()
+            .unwrap()
+            .original_digest,
+        "original-history"
+    );
     let second = output.path().join("second");
     let repeated = Box::pin(runtime.project_export(&second, &request, physical.clone(), &cancel))
-        .await.unwrap();
-    assert_eq!(serde_json::to_vec(&manifest).unwrap(), serde_json::to_vec(&repeated).unwrap(),
-        "origin-first traversal preserves deterministic sorted source IDs and copied checksums");
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::to_vec(&manifest).unwrap(),
+        serde_json::to_vec(&repeated).unwrap(),
+        "origin-first traversal preserves deterministic sorted source IDs and copied checksums"
+    );
 
     request.maximum_output_bytes = explanation.known_source_bytes - 1;
     let exhausted = output.path().join("exhausted");
-    assert!(Box::pin(runtime.project_export(&exhausted, &request, physical.clone(), &cancel)).await.is_err());
+    assert!(
+        Box::pin(runtime.project_export(&exhausted, &request, physical.clone(), &cancel))
+            .await
+            .is_err()
+    );
     assert!(!exhausted.join("project.json").exists());
     assert!(ProjectBundleReader::open(&exhausted, request.maximum_document_bytes).is_err());
     request.maximum_output_bytes = 16 << 20;
@@ -1134,8 +1294,12 @@ async fn project_portability_selected_multi_revision_exchange_reuses_original_sc
     let finished = std::sync::atomic::AtomicBool::new(false);
     let export = async {
         let result = Box::pin(runtime.project_export(
-            &interrupted, &request, physical.clone(), &interrupted_cancel,
-        )).await;
+            &interrupted,
+            &request,
+            physical.clone(),
+            &interrupted_cancel,
+        ))
+        .await;
         finished.store(true, std::sync::atomic::Ordering::Release);
         result
     };
@@ -1150,7 +1314,10 @@ async fn project_portability_selected_multi_revision_exchange_reuses_original_sc
         false
     };
     let (result, interrupted_after_effect) = tokio::join!(export, interrupt_after_effect);
-    assert!(interrupted_after_effect, "cancellation must exercise an actual staged source effect");
+    assert!(
+        interrupted_after_effect,
+        "cancellation must exercise an actual staged source effect"
+    );
     assert!(result.is_err());
     assert!(!interrupted.join("project.json").exists());
     assert!(ProjectBundleReader::open(&interrupted, request.maximum_document_bytes).is_err());
@@ -1174,7 +1341,10 @@ fn source_sinks_share_exact_receipts_and_refuse_before_copying() {
     for (id, bytes, digest) in &export.receipts {
         let stored = std::fs::read(destination.join(".staging").join(id)).unwrap();
         assert_eq!(stored.len() as u64, *bytes);
-        assert_eq!(&pse_ids::encoding_checksum(&stored).content_hash().to_hex(), digest);
+        assert_eq!(
+            &pse_ids::encoding_checksum(&stored).content_hash().to_hex(),
+            digest
+        );
     }
     assert!(count.emit("over", b"x", &token).is_err());
     assert!(export.emit("over", b"x", &token).is_err());

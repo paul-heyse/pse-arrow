@@ -5,14 +5,11 @@
 //! The registry owns native schemas; guarded operations own admission and immutable replay.
 
 pub mod canonical;
-/// Shared deployment identity and strict owner projections.
-pub mod deployment;
-/// Clock, response and lifetime composition for independently owned native clients.
-pub mod transport;
 pub mod canonical_analyses;
 pub mod canonical_artifacts;
 #[cfg(all(test, feature = "canonical-tests"))]
 mod canonical_capability_tests;
+pub mod canonical_capture_results;
 pub mod canonical_codec;
 pub mod canonical_contexts;
 pub mod canonical_execution;
@@ -24,14 +21,17 @@ pub mod canonical_project_imports;
 pub mod canonical_projects;
 pub mod canonical_research;
 pub mod canonical_result_retention;
-pub mod canonical_capture_results;
 pub mod canonical_results;
 pub mod canonical_retention;
 pub mod canonical_selection;
 pub mod canonical_staging;
 pub mod canonical_studies;
 pub mod canonical_study_workbench;
+/// Shared deployment identity and strict owner projections.
+pub mod deployment;
 mod ids;
+/// Clock, response and lifetime composition for independently owned native clients.
+pub mod transport;
 /// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]
 pub mod generated;

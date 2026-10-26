@@ -9,7 +9,11 @@
     reason = "xtask recovery driver reports its result and uses anyhow at the tool boundary"
 )]
 
-use std::{io::{Read, Write}, os::unix::fs::{MetadataExt, OpenOptionsExt}, path::PathBuf};
+use std::{
+    io::{Read, Write},
+    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    path::PathBuf,
+};
 
 #[cfg(feature = "package-fixtures")]
 use anyhow::Context;
@@ -50,28 +54,55 @@ struct Cli {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    canonical_recovery::check_backup_scale(cli.backup_scale_bytes, cli.backup_scale_receipt.as_deref())?;
-    anyhow::ensure!(cli.backup_scale_bytes == 0 || cfg!(feature = "force-validate"),
-        "backup scale fixture requires force-validate");
+    canonical_recovery::check_backup_scale(
+        cli.backup_scale_bytes,
+        cli.backup_scale_receipt.as_deref(),
+    )?;
+    anyhow::ensure!(
+        cli.backup_scale_bytes == 0 || cfg!(feature = "force-validate"),
+        "backup scale fixture requires force-validate"
+    );
     // Refuse replacement of the original private witness before any database effect.
-    let scale_receipt = cli.backup_scale_receipt.as_ref().map(|path| -> Result<std::fs::File> {
-        let state = cli.state.canonicalize()?;
-        let parent = path.parent().ok_or_else(|| anyhow::anyhow!("storage receipt parent absent"))?.canonicalize()?;
-        anyhow::ensure!(!parent.starts_with(&state), "original storage receipt must remain outside the live state/archive");
-        let file = if cli.seed {
-            std::fs::OpenOptions::new().create_new(true).write(true).mode(0o600).open(path)
-        } else {
-            anyhow::ensure!(!std::fs::symlink_metadata(path)?.file_type().is_symlink(), "original storage receipt must not be a symlink");
-            std::fs::OpenOptions::new().read(true).open(path)
-        }?;
-        let metadata = file.metadata()?;
-        let named = std::fs::symlink_metadata(path)?;
-        anyhow::ensure!(metadata.is_file() && metadata.mode() & 0o7777 == 0o600
-            && metadata.nlink() == 1 && metadata.uid() == state.metadata()?.uid()
-            && metadata.ino() == named.ino() && metadata.dev() == named.dev(),
-            "original storage receipt lost its private owned identity");
-        Ok(file)
-    }).transpose()?;
+    let scale_receipt = cli
+        .backup_scale_receipt
+        .as_ref()
+        .map(|path| -> Result<std::fs::File> {
+            let state = cli.state.canonicalize()?;
+            let parent = path
+                .parent()
+                .ok_or_else(|| anyhow::anyhow!("storage receipt parent absent"))?
+                .canonicalize()?;
+            anyhow::ensure!(
+                !parent.starts_with(&state),
+                "original storage receipt must remain outside the live state/archive"
+            );
+            let file = if cli.seed {
+                std::fs::OpenOptions::new()
+                    .create_new(true)
+                    .write(true)
+                    .mode(0o600)
+                    .open(path)
+            } else {
+                anyhow::ensure!(
+                    !std::fs::symlink_metadata(path)?.file_type().is_symlink(),
+                    "original storage receipt must not be a symlink"
+                );
+                std::fs::OpenOptions::new().read(true).open(path)
+            }?;
+            let metadata = file.metadata()?;
+            let named = std::fs::symlink_metadata(path)?;
+            anyhow::ensure!(
+                metadata.is_file()
+                    && metadata.mode() & 0o7777 == 0o600
+                    && metadata.nlink() == 1
+                    && metadata.uid() == state.metadata()?.uid()
+                    && metadata.ino() == named.ino()
+                    && metadata.dev() == named.dev(),
+                "original storage receipt lost its private owned identity"
+            );
+            Ok(file)
+        })
+        .transpose()?;
     #[cfg(not(feature = "package-fixtures"))]
     anyhow::ensure!(
         !cli.seed_signal_results,
@@ -110,13 +141,20 @@ fn main() -> Result<()> {
                 serde_json::to_writer(&mut file, &receipt)?;
                 file.write_all(b"\n")?;
                 file.sync_all()?;
-                if let Some(parent) = cli.backup_scale_receipt.as_ref().and_then(|path| path.parent()) {
+                if let Some(parent) = cli
+                    .backup_scale_receipt
+                    .as_ref()
+                    .and_then(|path| path.parent())
+                {
                     std::fs::File::open(parent)?.sync_all()?;
                 }
             } else {
                 let mut encoded = Vec::new();
                 file.take(256 * 1024 + 1).read_to_end(&mut encoded)?;
-                anyhow::ensure!(encoded.len() <= 256 * 1024, "original storage receipt exceeds its bounded envelope");
+                anyhow::ensure!(
+                    encoded.len() <= 256 * 1024,
+                    "original storage receipt exceeds its bounded envelope"
+                );
                 let receipt = serde_json::from_slice(&encoded)?;
                 executor.block_on(canonical_recovery::verify_backup_scale(state, &receipt))?;
             }
@@ -144,11 +182,31 @@ mod tests {
         assert_eq!(ordinary.backup_scale_bytes, 0);
         assert!(ordinary.backup_scale_receipt.is_none());
         canonical_recovery::check_backup_scale(0, None)?;
-        canonical_recovery::check_backup_scale(canonical_recovery::BACKUP_SCALE_BYTES, Some(std::path::Path::new("original.json")))?;
+        canonical_recovery::check_backup_scale(
+            canonical_recovery::BACKUP_SCALE_BYTES,
+            Some(std::path::Path::new("original.json")),
+        )?;
         assert!(canonical_recovery::check_backup_scale(1, None).is_err());
-        assert!(canonical_recovery::check_backup_scale(canonical_recovery::BACKUP_SCALE_BYTES, None).is_err());
-        assert!(canonical_recovery::check_backup_scale(0, Some(std::path::Path::new("unused.json"))).is_err());
-        assert!(Cli::try_parse_from(["recovery", "state", "--backup-scale-bytes", "1073741824", "--check-creation", "--creation-intent", "intent"]).is_err());
+        assert!(
+            canonical_recovery::check_backup_scale(canonical_recovery::BACKUP_SCALE_BYTES, None)
+                .is_err()
+        );
+        assert!(
+            canonical_recovery::check_backup_scale(0, Some(std::path::Path::new("unused.json")))
+                .is_err()
+        );
+        assert!(
+            Cli::try_parse_from([
+                "recovery",
+                "state",
+                "--backup-scale-bytes",
+                "1073741824",
+                "--check-creation",
+                "--creation-intent",
+                "intent"
+            ])
+            .is_err()
+        );
         Ok(())
     }
 

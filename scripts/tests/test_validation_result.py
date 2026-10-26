@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 import contextlib
 import io
 import json
@@ -19,8 +18,13 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from typing import TextIO
 
-from scripts import service_borrowers
-from scripts import assessment_store, test_resources, validation, validation_result
+from scripts import (
+    assessment_store,
+    service_borrowers,
+    test_resources,
+    validation,
+    validation_result,
+)
 from scripts.tests import assessment_fixture
 
 

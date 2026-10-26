@@ -42,10 +42,19 @@ mod tests {
         let original = family::development_rust(&private).unwrap();
         let mut builder = pse_schema::RegistryBuilder::new();
         super::declare(&mut builder);
-        pse_schema::declaration::enumeration(&mut builder, "PrivateOnlyMarker", ["first", "second"]);
+        pse_schema::declaration::enumeration(
+            &mut builder,
+            "PrivateOnlyMarker",
+            ["first", "second"],
+        );
         let changed = family::development_rust(&builder.build().unwrap()).unwrap();
         assert_ne!(original.files, changed.files);
-        assert!(changed.files.keys().all(|path| path.starts_with("xtask/src/generated")));
+        assert!(
+            changed
+                .files
+                .keys()
+                .all(|path| path.starts_with("xtask/src/generated"))
+        );
         assert_eq!(before, generate(&product, Language::Rust).unwrap());
     }
 }

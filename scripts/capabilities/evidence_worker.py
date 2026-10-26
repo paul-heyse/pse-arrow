@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Fixed private evidence dispatch through the existing independently built CLI."""
+
 from __future__ import annotations
 
 import json
@@ -21,23 +22,34 @@ ROOT = Path(__file__).resolve().parents[2]
 MAXIMUM_REQUEST_BYTES = 16 << 20
 
 
-def execute(arguments: dict[str, JsonValue], *, root: Path = ROOT) -> dict[str, JsonValue]:
+def execute(
+    arguments: dict[str, JsonValue], *, root: Path = ROOT
+) -> dict[str, JsonValue]:
     """Keep supplied-only analysis out of the scientific Python extension and store."""
     supplied = dict(arguments)
     fingerprint = supplied.pop("schema_set_fingerprint", None)
     try:
         schemas = SchemaSet(root, family="evidence")
     except (OSError, ValueError):
-        return {"outcome": "stale_interface", "code": "pse.evidence.contract_unavailable"}
+        return {
+            "outcome": "stale_interface",
+            "code": "pse.evidence.contract_unavailable",
+        }
     if fingerprint != schemas.fingerprint:
-        return {"outcome": "stale_interface", "code": "pse.evidence.schema_set_mismatch"}
+        return {
+            "outcome": "stale_interface",
+            "code": "pse.evidence.schema_set_mismatch",
+        }
     try:
         # Consume the loaded owner's source checks before entering the native CLI.
         schemas.document("evidence-comparison-request")
         schemas.document("evidence-snapshot")
         schemas.document("evidence-comparison", "output")
     except (OSError, ValueError):
-        return {"outcome": "stale_interface", "code": "pse.evidence.contract_unavailable"}
+        return {
+            "outcome": "stale_interface",
+            "code": "pse.evidence.contract_unavailable",
+        }
     request = EvidenceCompare.model_validate(supplied, strict=True)
     deadline = time.monotonic() + 30
     with tempfile.TemporaryDirectory(prefix="pse-evidence-comparison-") as temporary:
@@ -46,7 +58,12 @@ def execute(arguments: dict[str, JsonValue], *, root: Path = ROOT) -> dict[str, 
         observations_path = directory / "observations.json"
         resource_store.publish(request_path, request.request)
         resource_store.publish(observations_path, request.observations)
-        arguments = ["--request", str(request_path), "--observations", str(observations_path)]
+        arguments = [
+            "--request",
+            str(request_path),
+            "--observations",
+            str(observations_path),
+        ]
         for index, snapshot in enumerate(request.snapshots):
             path = directory / f"snapshot-{index}.json"
             resource_store.publish(path, snapshot)
@@ -54,19 +71,32 @@ def execute(arguments: dict[str, JsonValue], *, root: Path = ROOT) -> dict[str, 
         with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as output:
             try:
                 code = evidence_store.run_offline(
-                    root / "target/debug/pse-evidence", arguments,
-                    deadline=deadline, operation="compare-offline", stdout=output,
+                    root / "target/debug/pse-evidence",
+                    arguments,
+                    deadline=deadline,
+                    operation="compare-offline",
+                    stdout=output,
                 )
             except (OSError, subprocess.TimeoutExpired):
-                return {"outcome": "prerequisite_unavailable", "code": "pse.evidence.owner_unavailable",
-                        "remedy": "Explicitly build the private evidence executable with just evidence-build; no build, service or source fallback was attempted."}
+                return {
+                    "outcome": "prerequisite_unavailable",
+                    "code": "pse.evidence.owner_unavailable",
+                    "remedy": "Explicitly build the private evidence executable with just evidence-build; no build, service or source fallback was attempted.",
+                }
             if code:
-                return {"outcome": "native_refusal", "code": "pse.evidence.comparison_refused", "exit_status": code}
+                return {
+                    "outcome": "native_refusal",
+                    "code": "pse.evidence.comparison_refused",
+                    "exit_status": code,
+                }
             output.seek(0)
             encoded = output.read((1 << 20) + 1)
         if len(encoded.encode()) > 1 << 20:
             return {"outcome": "detail_refused", "code": "pse.evidence.response_bound"}
-        return {"outcome": "observed", "document": JSON_OBJECT.validate_json(encoded, strict=True)}
+        return {
+            "outcome": "observed",
+            "document": JSON_OBJECT.validate_json(encoded, strict=True),
+        }
 
 
 def main() -> int:
@@ -77,7 +107,10 @@ def main() -> int:
             raise ValueError("private evidence request exceeds its byte allowance")
         verify(ROOT, "evidence", "evidence_compare", raw)
         envelope = JSON_OBJECT.validate_json(raw, strict=True)
-        if set(envelope) != {"operation", "arguments"} or envelope["operation"] != "evidence_compare":
+        if (
+            set(envelope) != {"operation", "arguments"}
+            or envelope["operation"] != "evidence_compare"
+        ):
             raise ValueError("unsupported private evidence operation")
         arguments = envelope["arguments"]
         if not isinstance(arguments, dict):
@@ -86,7 +119,10 @@ def main() -> int:
     except AdmissionRefusedError as error:
         value = {"outcome": "stale_interface", **error.detail()}
     except (ValueError, TypeError):
-        value = {"outcome": "malformed_invocation", "code": "pse.evidence.input_refused"}
+        value = {
+            "outcome": "malformed_invocation",
+            "code": "pse.evidence.input_refused",
+        }
     print(json.dumps(value, allow_nan=False))
     return 0
 

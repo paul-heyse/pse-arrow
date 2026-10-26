@@ -45,10 +45,7 @@ where
 
 /// Carry a caller's original clock through nested requests without dropping its
 /// enclosing effect owner. Individual requests still enforce their own bounds.
-pub async fn operation_scope<F: Future>(
-    deadline: std::time::Instant,
-    future: F,
-) -> F::Output {
+pub async fn operation_scope<F: Future>(deadline: std::time::Instant, future: F) -> F::Output {
     let deadline = tokio::time::Instant::from_std(deadline);
     let deadline = OPERATION_DEADLINE
         .try_with(|enclosing| (*enclosing).min(deadline))
@@ -142,10 +139,7 @@ pub(crate) fn operation_failed(operation: &'static str, error: &CanonicalError) 
 // Each owner rebuilds its complete decision under the original request clock.
 pub(crate) async fn conflict_backoff(attempt: u32) {
     let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 64);
-    tokio::time::sleep(Duration::from_millis(
-        (10_u64 << attempt.min(4)) + jitter,
-    ))
-    .await;
+    tokio::time::sleep(Duration::from_millis((10_u64 << attempt.min(4)) + jitter)).await;
 }
 
 pub(crate) fn checked(
@@ -168,4 +162,3 @@ pub(crate) fn checked(
     }
     Ok(response)
 }
-

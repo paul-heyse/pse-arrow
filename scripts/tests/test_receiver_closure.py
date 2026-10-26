@@ -30,15 +30,28 @@ class ReceiverClosureTests(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source)
 
-    def test_regular_parents_generated_and_relative_imports_freeze_together(self) -> None:
+    def test_regular_parents_generated_and_relative_imports_freeze_together(
+        self,
+    ) -> None:
         self.write("scripts/generated/__init__.py", "")
         self.write("scripts/generated/deployment.py", "class Allocation: pass\n")
         self.write("scripts/owner/__init__.py", "from . import child\n")
-        self.write("scripts/owner/child.py", "from scripts.generated import deployment\n")
+        self.write(
+            "scripts/owner/child.py", "from scripts.generated import deployment\n"
+        )
         self.write("scripts/entry.py", "from scripts.owner import child\n")
         files = closure.source_files(self.root, ["scripts/entry.py"])
-        self.assertEqual(set(files), {"scripts/__init__.py", "scripts/entry.py", "scripts/owner/__init__.py",
-                                    "scripts/owner/child.py", "scripts/generated/__init__.py", "scripts/generated/deployment.py"})
+        self.assertEqual(
+            set(files),
+            {
+                "scripts/__init__.py",
+                "scripts/entry.py",
+                "scripts/owner/__init__.py",
+                "scripts/owner/child.py",
+                "scripts/generated/__init__.py",
+                "scripts/generated/deployment.py",
+            },
+        )
         frozen = Path(self.directory) / "frozen"
         for name in files:
             target = frozen / name
@@ -50,21 +63,33 @@ class ReceiverClosureTests(unittest.TestCase):
             closure.probe(frozen, files, Path(sys.executable))
 
     def test_computed_import_requires_its_exact_owner_declaration(self) -> None:
-        self.write("scripts/entry.py", "import importlib\ndef load(name): return importlib.import_module(name)\n")
+        self.write(
+            "scripts/entry.py",
+            "import importlib\ndef load(name): return importlib.import_module(name)\n",
+        )
         self.write("scripts/provider.py", "value = 1\n")
         with self.assertRaisesRegex(closure.ClosureError, "explicit owner declaration"):
             closure.source_files(self.root, ["scripts/entry.py"])
-        files = closure.source_files(self.root, ["scripts/entry.py"],
-                                     dynamic={"scripts/entry.py": ("scripts.provider",)})
+        files = closure.source_files(
+            self.root,
+            ["scripts/entry.py"],
+            dynamic={"scripts/entry.py": ("scripts.provider",)},
+        )
         self.assertIn("scripts/provider.py", files)
 
     def test_unrelated_script_change_does_not_change_receiver_inputs(self) -> None:
         self.write("scripts/entry.py", "from scripts import provider\n")
         self.write("scripts/provider.py", "value = 1\n")
         self.write("scripts/unrelated.py", "value = 2\n")
+
         def identity() -> str:
             files = closure.source_files(self.root, ["scripts/entry.py"])
-            return hashlib.sha256(b"".join(name.encode() + (self.root / name).read_bytes() for name in files)).hexdigest()
+            return hashlib.sha256(
+                b"".join(
+                    name.encode() + (self.root / name).read_bytes() for name in files
+                )
+            ).hexdigest()
+
         original = identity()
         self.write("scripts/unrelated.py", "value = 3\n")
         self.assertEqual(identity(), original)
@@ -76,7 +101,9 @@ class ReceiverClosureTests(unittest.TestCase):
         with self.assertRaisesRegex(closure.ClosureError, "missing"):
             closure.source_files(self.root, ["scripts/entry.py"])
 
-    def test_actual_receiver_imports_only_its_frozen_sources_and_declared_configuration(self) -> None:
+    def test_actual_receiver_imports_only_its_frozen_sources_and_declared_configuration(
+        self,
+    ) -> None:
         from scripts import surreal_server as server
 
         root = Path(__file__).resolve().parents[2]
@@ -84,7 +111,12 @@ class ReceiverClosureTests(unittest.TestCase):
         self.assertIn("scripts/generated/deployment.py", files)
         self.assertIn("scripts/generated/telemetry_settings.py", files)
         self.assertFalse(any(name.startswith("scripts/test_") for name in files))
-        for replaced in ("native_tests", "producer_deployment", "python_extension", "validation"):
+        for replaced in (
+            "native_tests",
+            "producer_deployment",
+            "python_extension",
+            "validation",
+        ):
             self.assertNotIn(f"scripts/{replaced}.py", files)
         frozen = Path(self.directory) / "actual-frozen"
         for name in (*files, *server.GENERATION_CONFIGURATION):
@@ -97,18 +129,41 @@ class ReceiverClosureTests(unittest.TestCase):
         injected = Path(self.directory) / "unadmitted-python"
         (injected / "scripts").mkdir(parents=True)
         for name in ("scripts/__init__.py", "msgspec.py", "sitecustomize.py"):
-            (injected / name).write_text("raise RuntimeError('unadmitted Python provider selected')\n")
-        environment = {**os.environ, "PYTHONPATH": str(injected), "PYTHONHOME": str(injected),
-                       "PYTHONUSERBASE": str(injected), "PYTHONDONTWRITEBYTECODE": "0"}
+            (injected / name).write_text(
+                "raise RuntimeError('unadmitted Python provider selected')\n"
+            )
+        environment = {
+            **os.environ,
+            "PYTHONPATH": str(injected),
+            "PYTHONHOME": str(injected),
+            "PYTHONUSERBASE": str(injected),
+            "PYTHONDONTWRITEBYTECODE": "0",
+        }
         for entry in ("surreal_server.py", "native_operation.py"):
             with self.subTest(entry=entry):
-                child = subprocess.run([sys.executable, "-I", "-B", str(frozen / "scripts" / entry), "--help"],
-                                       cwd=injected, env=environment, capture_output=True, timeout=20, check=False)
-                self.assertEqual(child.returncode, 0, child.stderr.decode(errors="replace"))
+                child = subprocess.run(
+                    [
+                        sys.executable,
+                        "-I",
+                        "-B",
+                        str(frozen / "scripts" / entry),
+                        "--help",
+                    ],
+                    cwd=injected,
+                    env=environment,
+                    capture_output=True,
+                    timeout=20,
+                    check=False,
+                )
+                self.assertEqual(
+                    child.returncode, 0, child.stderr.decode(errors="replace")
+                )
                 self.assertIn(b"usage:", child.stdout)
         self.assertFalse(list(frozen.rglob("__pycache__")))
 
-    def test_runtime_inputs_invalidate_generation_and_v1_remains_observation_only(self) -> None:
+    def test_runtime_inputs_invalidate_generation_and_v1_remains_observation_only(
+        self,
+    ) -> None:
         from scripts import surreal_server as server
 
         state = Path(self.directory) / "state"
@@ -119,20 +174,31 @@ class ReceiverClosureTests(unittest.TestCase):
         content = b"retained supervisor source\n"
         files = {"scripts/surreal_server.py": hashlib.sha256(content).hexdigest()}
         for version in (1, 2):
-            declaration = files if version == 1 else {
-                "files": files, "runtime": {str(provider): closure.digest(provider)},
-                "interpreter": str(Path(sys.executable).absolute()),
-            }
-            identity = hashlib.sha256(json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            declaration = (
+                files
+                if version == 1
+                else {
+                    "files": files,
+                    "runtime": {str(provider): closure.digest(provider)},
+                    "interpreter": str(Path(sys.executable).absolute()),
+                }
+            )
+            identity = hashlib.sha256(
+                json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
             directory = state / identity
             (directory / "scripts").mkdir(parents=True)
             script = directory / "scripts/surreal_server.py"
             script.write_bytes(content)
             script.chmod(0o600)
-            server.write_json(directory / "generation.json", {
-                "version": version, "identity": identity,
-                **({"files": files} if version == 1 else declaration),
-            })
+            server.write_json(
+                directory / "generation.json",
+                {
+                    "version": version,
+                    "identity": identity,
+                    **({"files": files} if version == 1 else declaration),
+                },
+            )
             server.verify_generation(directory)
             if version == 1:
                 with self.assertRaisesRegex(server.SupervisorError, "readmission"):
@@ -140,7 +206,9 @@ class ReceiverClosureTests(unittest.TestCase):
             else:
                 server.activatable_generation(directory)
                 provider.write_text("value = 2\n")
-                with self.assertRaisesRegex(server.SupervisorError, "provider inputs changed"):
+                with self.assertRaisesRegex(
+                    server.SupervisorError, "provider inputs changed"
+                ):
                     server.verify_generation(directory)
 
     def test_actual_publication_binds_frozen_operator_and_runtime_inputs(self) -> None:
@@ -156,9 +224,13 @@ class ReceiverClosureTests(unittest.TestCase):
         directory = Path(selected["supervisor_script"]).parents[1]
         manifest = server.read_json(directory / "generation.json")
         self.assertEqual(manifest["version"], 2)
-        self.assertEqual(manifest["files"]["bin/pse-deployment"], closure.digest(helper))
+        self.assertEqual(
+            manifest["files"]["bin/pse-deployment"], closure.digest(helper)
+        )
         self.assertIn(str(Path(sys.executable).absolute()), manifest["runtime"])
-        self.assertEqual(selected["supervisor_executable"], str(Path(sys.executable).absolute()))
+        self.assertEqual(
+            selected["supervisor_executable"], str(Path(sys.executable).absolute())
+        )
         server.activatable_generation(directory)
         (directory / "bin/pse-deployment").write_text("changed operator")
         with self.assertRaisesRegex(server.SupervisorError, "closure changed"):

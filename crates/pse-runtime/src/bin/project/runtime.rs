@@ -27,7 +27,9 @@ pub(super) const PROJECT_DOCUMENT_BYTES: usize = 16 << 20;
 fn project_document_bytes() -> usize {
     PROJECT_DOCUMENT_BYTES
 }
-fn cohort_export_bytes()->u64 {16*1024*1024}
+fn cohort_export_bytes() -> u64 {
+    16 * 1024 * 1024
+}
 fn project_branch_name() -> String {
     "main".into()
 }
@@ -1113,7 +1115,8 @@ mod tests {
         .await;
         assert!(page["headers"].as_array().unwrap().is_empty());
         let cohort = execute(Action::StudyCohort {
-            output:None,maximum_bytes:cohort_export_bytes(),
+            output: None,
+            maximum_bytes: cohort_export_bytes(),
             request: StudyCohortRequest {
                 filter: Default::default(),
                 maximum_studies: 4,

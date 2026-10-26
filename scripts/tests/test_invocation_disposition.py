@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 import contextlib
 import os
 import subprocess
@@ -16,10 +15,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import invocation_disposition as disposition
-from scripts import native_operation, resource_store, test_resources
+from scripts import (
+    native_operation,
+    operation_lifetime,
+    resource_store,
+    service_borrowers,
+    test_resources,
+)
 from scripts.tests.test_test_resources import drain_fixture
 
 
@@ -33,7 +36,9 @@ class InvocationDispositionTests(unittest.TestCase):
                 service_borrowers, "registry", return_value=self.root / "registry"
             ),
             patch.object(operation_lifetime, "scope_owner", return_value=None),
-            patch.object(operation_lifetime, "drained", return_value=drain_fixture(True)),
+            patch.object(
+                operation_lifetime, "drained", return_value=drain_fixture(True)
+            ),
         ):
             selected.start()
             self.addCleanup(selected.stop)
@@ -229,7 +234,9 @@ class InvocationDispositionTests(unittest.TestCase):
         )
         with patch.object(test_resources, "reclaim", return_value="removed"):
             self.apply()
-        self.assertTrue(operation_lifetime.terminal_guard_complete(self.path.stem, guard))
+        self.assertTrue(
+            operation_lifetime.terminal_guard_complete(self.path.stem, guard)
+        )
         self.assertEqual(resource_store.read(operation), record)
         self.assertEqual(guard["phase"], "registered")
         with patch.object(

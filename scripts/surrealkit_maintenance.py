@@ -29,9 +29,9 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
-from scripts import operation_lifetime
 from scripts import (
     native_operation,
+    operation_lifetime,
     surreal_rollout_producer,
     surreal_server,
     surrealkit,

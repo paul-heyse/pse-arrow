@@ -59,7 +59,6 @@ from pse.contracts.documents import (
     DiffsolSettings,
     DiffsolSettingsOutput,
     EligibilityDocumentOutput,
-    EvidenceComparisonOutput,
     FitExecutionDocument,
     FitProfileDocument,
     FlowGraphDocument,
@@ -217,7 +216,11 @@ from pse.contracts.documents import (
     SourceRecordingLaunchRequestOutput,
     SourceSettlementOutput,
     StudyCancel,
-    StudyCohortDocumentOutput,
+    StudyCohortClassificationPage,
+    StudyCohortHeaderPage,
+    StudyCohortMemberPage,
+    StudyCohortReceipt,
+    StudyCohortScanProgress,
     StudyDefinitionOutput,
     StudyObservationCursorOutput,
     StudyObservationPageOutput,
@@ -559,8 +562,10 @@ class NativeDiagnostics:
 @final
 class NativeFrozenStudyCohort:
     def aggregate(self, /, request: bytes) -> NativeStudyKpiAnalysis: ...
+    def header_page(self, /, request: bytes) -> StudyCohortHeaderPage: ...
+    def member_page(self, /, request: bytes) -> StudyCohortMemberPage: ...
     @property
-    def document(self, /) -> StudyCohortDocumentOutput: ...
+    def receipt(self, /) -> StudyCohortReceipt: ...
     def result(
         self, /, member: int, relation: str, *, start: int, end: int
     ) -> TableStream: ...
@@ -1603,12 +1608,17 @@ class NativeStudyHandle:
 @final
 class NativeStudyKpiAnalysis:
     def batches(self, /) -> list[ArrowArrayInput]: ...
+    def classification_page(
+        self, /, request: bytes
+    ) -> StudyCohortClassificationPage: ...
     @property
-    def cohort(self, /) -> StudyCohortDocumentOutput: ...
+    def cohort(self, /) -> StudyCohortReceipt: ...
     @property
-    def included(self, /) -> list[int]: ...
+    def included(self, /) -> int: ...
     @property
-    def unavailable(self, /) -> list[int]: ...
+    def progress(self, /) -> StudyCohortScanProgress: ...
+    @property
+    def unavailable(self, /) -> int: ...
 
 @final
 class NativeStudyObserver:
@@ -1720,9 +1730,6 @@ def diagnostic_capture(
 def diagnostic_capture_arrow(
     document: CaptureDocument | CaptureDocumentOutput, memory_bytes: int
 ) -> object: ...
-def diagnostic_compare_evidence(
-    request_json: str, snapshots_json: str, observations_json: str = "[]"
-) -> EvidenceComparisonOutput: ...
 def diagnostic_compare_invocations(
     left: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,
     right: InvocationEvidenceDocument | InvocationEvidenceDocumentOutput,

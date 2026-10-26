@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 import ast
 import json
 import os
@@ -14,9 +13,13 @@ import time
 import unittest
 from pathlib import Path
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
-from scripts import native_operation, surreal_server, test_resources, test_run
+from scripts import (
+    operation_lifetime,
+    service_borrowers,
+    surreal_server,
+    test_resources,
+    test_run,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 

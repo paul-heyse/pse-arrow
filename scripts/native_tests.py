@@ -17,9 +17,9 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import producer_receipts
 from scripts import (
     arrow_validation,
+    producer_receipts,
     pse_env,
     python_extension,
     scientific_inputs,

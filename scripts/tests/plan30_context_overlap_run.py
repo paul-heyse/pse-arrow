@@ -12,12 +12,11 @@ import sys
 import time
 from pathlib import Path
 
-from scripts import producer_receipts
-from scripts import operation_lifetime
 from scripts import (
     host_admission,
-    native_operation,
     native_tests,
+    operation_lifetime,
+    producer_receipts,
     run_inspection,
     test_resources,
     test_run,

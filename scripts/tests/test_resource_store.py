@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import hashlib
 import os
 import subprocess
@@ -18,9 +17,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import service_borrowers
 from scripts import host_admission as host
 from scripts import resource_store as files
+from scripts import service_borrowers
 from scripts import test_resources as resources
 
 if TYPE_CHECKING:

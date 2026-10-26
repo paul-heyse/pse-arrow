@@ -6,8 +6,8 @@ use crate::{
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, protected_query},
     canonical_codec as codec,
 };
-use surrealdb::types::{Bytes, Object, Value};
 use std::sync::Arc;
+use surrealdb::types::{Bytes, Object, Value};
 
 /// Indexed predicates over actual original scientific and engineering owners.
 #[derive(
@@ -127,7 +127,7 @@ pub struct NativeStudyPage<T> {
 
 /// Nonserializable exact capture capability. Clones and scans share one actual
 /// process owner; dropping the last one enqueues authenticated bounded cleanup.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct StudyCapture(Arc<CaptureOwner>);
 #[derive(Debug)]
 struct CaptureOwner {
@@ -136,49 +136,117 @@ struct CaptureOwner {
     owner: String,
     request: Vec<u8>,
     executor: tokio::runtime::Handle,
-    release_needed:std::sync::atomic::AtomicBool,
-    metadata: std::sync::Mutex<Option<Arc<dyn std::fmt::Debug+Send+Sync>>>,
+    release_needed: std::sync::atomic::AtomicBool,
+    metadata: std::sync::Mutex<Option<Arc<dyn std::fmt::Debug + Send + Sync>>>,
 }
-struct CaptureCustody {request:Vec<u8>,owner:std::sync::Weak<CaptureOwner>}
-type CaptureOwners=std::collections::BTreeMap<(String,String,String),CaptureCustody>;
-static CAPTURE_OWNERS: std::sync::LazyLock<std::sync::Mutex<CaptureOwners>>=std::sync::LazyLock::new(||std::sync::Mutex::new(std::collections::BTreeMap::new()));
-fn capture_owner(store:&CanonicalStore,key:&str,owner:&str,request:&[u8])->Result<StudyCapture,CanonicalError> {
-    let mut owners=CAPTURE_OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    let identity=(store.issuing_store()?.to_owned(),key.to_owned(),owner.to_owned());
-    if let Some(existing)=owners.get(&identity) {
-        if existing.request!=request {return Err(CanonicalError::OperationReused);}
-        let existing=existing.owner.upgrade().ok_or_else(||CanonicalError::CaptureDraining{capture:key.into()})?;
+struct CaptureCustody {
+    request: Vec<u8>,
+    owner: std::sync::Weak<CaptureOwner>,
+}
+type CaptureOwners = std::collections::BTreeMap<(String, String, String), CaptureCustody>;
+static CAPTURE_OWNERS: std::sync::LazyLock<std::sync::Mutex<CaptureOwners>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::BTreeMap::new()));
+fn capture_owner(
+    store: &CanonicalStore,
+    key: &str,
+    owner: &str,
+    request: &[u8],
+) -> Result<StudyCapture, CanonicalError> {
+    let mut owners = CAPTURE_OWNERS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let identity = (
+        store.issuing_store()?.to_owned(),
+        key.to_owned(),
+        owner.to_owned(),
+    );
+    if let Some(existing) = owners.get(&identity) {
+        if existing.request != request {
+            return Err(CanonicalError::OperationReused);
+        }
+        let existing = existing
+            .owner
+            .upgrade()
+            .ok_or_else(|| CanonicalError::CaptureDraining {
+                capture: key.into(),
+            })?;
         return Ok(StudyCapture(existing));
     }
     store.result_read_drain.retain()?;
-    let capture=Arc::new(CaptureOwner{store:store.clone(),key:key.into(),owner:owner.into(),request:request.to_vec(),executor:tokio::runtime::Handle::current(),release_needed:std::sync::atomic::AtomicBool::new(true),metadata:std::sync::Mutex::new(None)});
-    owners.insert(identity,CaptureCustody{request:request.to_vec(),owner:Arc::downgrade(&capture)});
+    let capture = Arc::new(CaptureOwner {
+        store: store.clone(),
+        key: key.into(),
+        owner: owner.into(),
+        request: request.to_vec(),
+        executor: tokio::runtime::Handle::current(),
+        release_needed: std::sync::atomic::AtomicBool::new(true),
+        metadata: std::sync::Mutex::new(None),
+    });
+    owners.insert(
+        identity,
+        CaptureCustody {
+            request: request.to_vec(),
+            owner: Arc::downgrade(&capture),
+        },
+    );
     Ok(StudyCapture(capture))
 }
 impl StudyCapture {
     /// Immutable exact capture identity; this identifier alone grants no read permission.
-    pub fn key(&self)->&str {&self.0.key}
+    pub fn key(&self) -> &str {
+        &self.0.key
+    }
     /// Fixed exact request/key custody, independent of member/page row allocations.
-    pub fn custody_bytes(&self)->Result<usize,CanonicalError> {
-        self.0.store.handle_heap_bytes().and_then(|bytes|bytes.checked_add(size_of::<CaptureOwner>()+size_of::<((String,String,String),CaptureCustody)>()+8*size_of::<usize>()+self.0.key.capacity()*2+self.0.owner.capacity()*2+self.0.request.capacity()*2+self.0.store.issuing_store().ok()?.len())).ok_or(CanonicalError::PayloadLimit)
+    pub fn custody_bytes(&self) -> Result<usize, CanonicalError> {
+        self.0
+            .store
+            .handle_heap_bytes()
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    size_of::<CaptureOwner>()
+                        + size_of::<((String, String, String), CaptureCustody)>()
+                        + 8 * size_of::<usize>()
+                        + self.0.key.capacity() * 2
+                        + self.0.owner.capacity() * 2
+                        + self.0.request.capacity() * 2
+                        + self.0.store.issuing_store().ok()?.len(),
+                )
+            })
+            .ok_or(CanonicalError::PayloadLimit)
     }
     /// Attach one fixed custody/release grant. Page/document grants remain with
     /// their actual consumers; replay cannot accumulate them in this owner.
-    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug+Send+Sync>) {
-        self.0.metadata.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_or_insert(owner);
+    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug + Send + Sync>) {
+        self.0
+            .metadata
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get_or_insert(owner);
     }
     /// Native read builders in this crate consume this unforgeable exact witness.
-    pub(crate) fn authority(&self)->(&CanonicalStore,&str,&str,&[u8]) {
-        (&self.0.store,&self.0.key,&self.0.owner,&self.0.request)
+    pub(crate) fn authority(&self) -> (&CanonicalStore, &str, &str, &[u8]) {
+        (&self.0.store, &self.0.key, &self.0.owner, &self.0.request)
     }
 }
 impl StudyCapture {
-    async fn page<T>(&self, kind: &str, after: Option<u64>, maximum: usize, decode: fn(Object)->Result<T,CanonicalError>) -> Result<NativeStudyPage<T>,CanonicalError> {
-        let limit=if kind=="headers" {64} else {pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS};
-        if maximum==0 || maximum>limit {return Err(CanonicalError::PayloadLimit);}
-        let (store,key,owner,request)=self.authority();
+    async fn page<T>(
+        &self,
+        kind: &str,
+        after: Option<u64>,
+        maximum: usize,
+        decode: fn(Object) -> Result<T, CanonicalError>,
+    ) -> Result<NativeStudyPage<T>, CanonicalError> {
+        let limit = if kind == "headers" {
+            64
+        } else {
+            pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS
+        };
+        if maximum == 0 || maximum > limit {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let (store, key, owner, request) = self.authority();
         store.files.require_current()?;
-        let activity=store.admit_activity()?;
+        let activity = store.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
             let mut response=protected_query("canonical_study_workbench::capture_page",|| Ok(store.db.metadata_query(crate::canonical::MetadataResponse::StudyPage,"RETURN fn::pse_workbench_v1::capture_page($pse_rpc_expires_at,$capture,$owner,$request,$kind,$after);")
                 .bind(("capture",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec())))
@@ -198,30 +266,71 @@ impl StudyCapture {
         })).await
     }
     /// Read one bounded immutable header page under this actual capture owner.
-    pub async fn header_page(&self, after: Option<u64>, maximum: usize)->Result<NativeStudyPage<StudyWorkbenchHeader>,CanonicalError> {
-        self.page("headers",after,maximum,header).await
+    pub async fn header_page(
+        &self,
+        after: Option<u64>,
+        maximum: usize,
+    ) -> Result<NativeStudyPage<StudyWorkbenchHeader>, CanonicalError> {
+        self.page("headers", after, maximum, header).await
     }
     /// Read one bounded immutable member page, preserving captured absence forever.
-    pub async fn member_page(&self, after: Option<u64>, maximum: usize)->Result<NativeStudyPage<StudyCohortMember>,CanonicalError> {
-        self.page("members",after,maximum,member).await
+    pub async fn member_page(
+        &self,
+        after: Option<u64>,
+        maximum: usize,
+    ) -> Result<NativeStudyPage<StudyCohortMember>, CanonicalError> {
+        self.page("members", after, maximum, member).await
     }
 }
 impl Drop for CaptureOwner {
     fn drop(&mut self) {
-        if !self.release_needed.load(std::sync::atomic::Ordering::Acquire) {
-            if let Ok(issuing)=self.store.issuing_store() {CAPTURE_OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&(issuing.to_owned(),self.key.clone(),self.owner.clone()));}
+        if !self
+            .release_needed
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            if let Ok(issuing) = self.store.issuing_store() {
+                CAPTURE_OWNERS
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .remove(&(issuing.to_owned(), self.key.clone(), self.owner.clone()));
+            }
             self.store.result_read_drain.release().complete(Ok(()));
             return;
         }
-        let store=self.store.clone();
-        #[cfg(any(test,feature="test-support"))]
-        let store={let mut store=store;store.fixture_lifetime=None;store};
-        let key=self.key.clone(); let owner=self.owner.clone(); let request=self.request.clone();
-        let metadata=self.metadata.get_mut().unwrap_or_else(std::sync::PoisonError::into_inner).take();
-        let release=store.result_read_drain.release_capture(store.clone(),key.clone(),owner.clone(),request.clone(),metadata.clone());
+        let store = self.store.clone();
+        #[cfg(any(test, feature = "test-support"))]
+        let store = {
+            let mut store = store;
+            store.fixture_lifetime = None;
+            store
+        };
+        let key = self.key.clone();
+        let owner = self.owner.clone();
+        let request = self.request.clone();
+        let metadata = self
+            .metadata
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take();
+        let release = store.result_read_drain.release_capture(
+            store.clone(),
+            key.clone(),
+            owner.clone(),
+            request.clone(),
+            metadata.clone(),
+        );
         self.executor.spawn(async move {
-            let result=crate::canonical::transport::optional_response_ownership_scope(metadata,release_capture_custody(&store,&key,&owner,&request)).await;
-            if let Err(error)=&result { crate::canonical::operation_failed("canonical_study_workbench::capture_release",error); }
+            let result = crate::canonical::transport::optional_response_ownership_scope(
+                metadata,
+                release_capture_custody(&store, &key, &owner, &request),
+            )
+            .await;
+            if let Err(error) = &result {
+                crate::canonical::operation_failed(
+                    "canonical_study_workbench::capture_release",
+                    error,
+                );
+            }
             drop(store);
             release.complete(result);
         });
@@ -230,45 +339,87 @@ impl Drop for CaptureOwner {
 
 /// Retry only this capture's bounded native cleanup; immutable custody is never
 /// reacquired. The local tombstone remains until native release is acknowledged.
-pub(crate) async fn release_capture_custody(store:&CanonicalStore,key:&str,owner:&str,request:&[u8])->Result<(),CanonicalError> {
-    release_capture_as(store,key,owner,request,owner).await
+pub(crate) async fn release_capture_custody(
+    store: &CanonicalStore,
+    key: &str,
+    owner: &str,
+    request: &[u8],
+) -> Result<(), CanonicalError> {
+    release_capture_as(store, key, owner, request, owner).await
 }
-async fn release_capture_as(store:&CanonicalStore,key:&str,owner:&str,request:&[u8],custodian:&str)->Result<(),CanonicalError> {
-    #[cfg(all(test,feature="canonical-tests"))]
-    let pause={CAPTURE_RELEASE_PAUSES.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(key).cloned()};
-    #[cfg(all(test,feature="canonical-tests"))]
-    if let Some(pause)=pause {
+async fn release_capture_as(
+    store: &CanonicalStore,
+    key: &str,
+    owner: &str,
+    request: &[u8],
+    custodian: &str,
+) -> Result<(), CanonicalError> {
+    #[cfg(all(test, feature = "canonical-tests"))]
+    let pause = {
+        CAPTURE_RELEASE_PAUSES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(key)
+            .cloned()
+    };
+    #[cfg(all(test, feature = "canonical-tests"))]
+    if let Some(pause) = pause {
         pause.entered.notify_one();
         pause.resume.notified().await;
     }
     loop {
         let mut response=protected_query("canonical_study_workbench::capture_release",|| Ok(store.db.query("RETURN fn::pse_workbench_v1::release_capture($pse_rpc_expires_at,$key,$owner,$request,$custodian);")
             .bind(("key",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec()))).bind(("custodian",custodian.to_owned())))).await?;
-        #[cfg(all(test,feature="canonical-tests"))]
-        if CAPTURE_RELEASE_REPLY_LOSS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(key) {
+        #[cfg(all(test, feature = "canonical-tests"))]
+        if CAPTURE_RELEASE_REPLY_LOSS
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(key)
+        {
             return Err(CanonicalError::IncompleteResponse);
         }
         if codec::decode_boolean(response.take::<Value>(0)?)? {
-            CAPTURE_OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&(store.issuing_store()?.to_owned(),key.to_owned(),owner.to_owned()));
+            CAPTURE_OWNERS
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .remove(&(
+                    store.issuing_store()?.to_owned(),
+                    key.to_owned(),
+                    owner.to_owned(),
+                ));
             return Ok(());
         }
     }
 }
-#[cfg(all(test,feature="canonical-tests"))]
-#[derive(Debug,Default)]
-pub(crate) struct CaptureReleasePause {pub(crate) entered:tokio::sync::Notify,pub(crate) resume:tokio::sync::Notify}
-#[cfg(all(test,feature="canonical-tests"))]
-static CAPTURE_RELEASE_PAUSES:std::sync::LazyLock<std::sync::Mutex<std::collections::BTreeMap<String,Arc<CaptureReleasePause>>>>=std::sync::LazyLock::new(||std::sync::Mutex::new(std::collections::BTreeMap::new()));
-#[cfg(all(test,feature="canonical-tests"))]
-pub(crate) fn pause_capture_release(key:&str)->Arc<CaptureReleasePause>{
-    let pause=Arc::new(CaptureReleasePause::default());
-    CAPTURE_RELEASE_PAUSES.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key.into(),pause.clone());pause
+#[cfg(all(test, feature = "canonical-tests"))]
+#[derive(Debug, Default)]
+pub(crate) struct CaptureReleasePause {
+    pub(crate) entered: tokio::sync::Notify,
+    pub(crate) resume: tokio::sync::Notify,
 }
-#[cfg(all(test,feature="canonical-tests"))]
-static CAPTURE_RELEASE_REPLY_LOSS:std::sync::LazyLock<std::sync::Mutex<std::collections::BTreeSet<String>>>=std::sync::LazyLock::new(||std::sync::Mutex::new(std::collections::BTreeSet::new()));
-#[cfg(all(test,feature="canonical-tests"))]
-pub(crate) fn lose_capture_release_reply(key:&str) {
-    CAPTURE_RELEASE_REPLY_LOSS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key.into());
+#[cfg(all(test, feature = "canonical-tests"))]
+static CAPTURE_RELEASE_PAUSES: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::BTreeMap<String, Arc<CaptureReleasePause>>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::BTreeMap::new()));
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(crate) fn pause_capture_release(key: &str) -> Arc<CaptureReleasePause> {
+    let pause = Arc::new(CaptureReleasePause::default());
+    CAPTURE_RELEASE_PAUSES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(key.into(), pause.clone());
+    pause
+}
+#[cfg(all(test, feature = "canonical-tests"))]
+static CAPTURE_RELEASE_REPLY_LOSS: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::BTreeSet<String>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::BTreeSet::new()));
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(crate) fn lose_capture_release_reply(key: &str) {
+    CAPTURE_RELEASE_REPLY_LOSS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(key.into());
 }
 
 type CompactStudyAttribution = (Option<String>, Option<String>, Option<String>);
@@ -403,9 +554,14 @@ pub fn workbench_sql(filter: &StudyWorkbenchFilter, frozen: bool) -> String {
             predicates.push(predicate.into());
         }
     }
-    let finish=if frozen {"RETURN fn::pse_workbench_v1::commit_capture($pse_rpc_expires_at,$capture,$owner,$request,$rows,$maximum,$members);"} else {"RETURN fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum);"};
+    let finish = if frozen {
+        "RETURN fn::pse_workbench_v1::commit_capture($pse_rpc_expires_at,$capture,$owner,$request,$rows,$maximum,$members);"
+    } else {
+        "RETURN fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum);"
+    };
     let sql = format!(
-        "LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent; {finish}",predicates.join(" AND ")
+        "LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent; {finish}",
+        predicates.join(" AND ")
     );
     format!("BEGIN; {prelude}{sql} COMMIT;")
 }
@@ -507,9 +663,11 @@ impl CanonicalStore {
     /// another actual process must first prove and register the original owner's
     /// drain with the existing file-owner recovery operation. Disconnection alone
     /// never supplies that proof or drops a captured protection.
-    pub async fn recover_study_capture(&self,key:&str)->Result<(),CanonicalError> {
-        if key.is_empty() || key.len()>4096 {return Err(CanonicalError::PayloadLimit);}
-        let activity=self.admit_activity()?;
+    pub async fn recover_study_capture(&self, key: &str) -> Result<(), CanonicalError> {
+        if key.is_empty() || key.len() > 4096 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let activity = self.admit_activity()?;
         activity.scope(async {
             let custodian=self.registered_file_owner().await?;
             let mut response=protected_query("canonical_study_workbench::capture_recovery_identity",|| Ok(self.db.query("SELECT owner,request FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;
@@ -528,12 +686,38 @@ impl CanonicalStore {
 
     /// Capture an exact immutable request once, retaining the original gate grant.
     /// Complete population admission shares the public workbench's declared bound.
-    pub async fn capture_study_workbench(&self,key:&str,filter:&StudyWorkbenchFilter,maximum:usize,members:usize)->Result<NativeStudyCapture,CanonicalError> {
-        if key.is_empty() || key.len()>4096 || !(1..=64).contains(&maximum) || !(1..=pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS).contains(&members) {return Err(CanonicalError::PayloadLimit);}
-        for value in [&filter.study,&filter.project,&filter.branch,&filter.source,&filter.physical_revision,&filter.context,&filter.research_reference].into_iter().flatten() {
-            if value.is_empty() || value.len()>4096 {return Err(CanonicalError::PayloadLimit);}
+    pub async fn capture_study_workbench(
+        &self,
+        key: &str,
+        filter: &StudyWorkbenchFilter,
+        maximum: usize,
+        members: usize,
+    ) -> Result<NativeStudyCapture, CanonicalError> {
+        if key.is_empty()
+            || key.len() > 4096
+            || !(1..=64).contains(&maximum)
+            || !(1..=pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS)
+                .contains(&members)
+        {
+            return Err(CanonicalError::PayloadLimit);
         }
-        let activity=self.admit_activity()?;
+        for value in [
+            &filter.study,
+            &filter.project,
+            &filter.branch,
+            &filter.source,
+            &filter.physical_revision,
+            &filter.context,
+            &filter.research_reference,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if value.is_empty() || value.len() > 4096 {
+                return Err(CanonicalError::PayloadLimit);
+            }
+        }
+        let activity = self.admit_activity()?;
         activity.scope(async {
             self.ensure_writes()?;
             let owner=self.registered_file_owner().await?;
@@ -569,7 +753,6 @@ impl CanonicalStore {
             Ok(NativeStudyCapture{header_count,member_count,capture})
         }).await
     }
-
 }
 #[cfg(test)]
 mod tests {

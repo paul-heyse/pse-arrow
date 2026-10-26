@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import contextlib
 import json
 import tempfile
@@ -35,7 +34,9 @@ class NamespaceTests(unittest.TestCase):
             "accepting_writes": True,
         }
         for replacement in (
-            patch.object(service_borrowers, "registry", return_value=self.root / "registry"),
+            patch.object(
+                service_borrowers, "registry", return_value=self.root / "registry"
+            ),
             patch.object(server, "config_for", return_value=self.config),
             patch.object(resources.host, "inherit", return_value=None),
             patch.dict("os.environ", {resources.MARKER: ""}),

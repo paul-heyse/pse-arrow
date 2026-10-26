@@ -10,9 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from scripts import operation_lifetime
 from scripts import host_admission as host
-from scripts import pse_env
+from scripts import operation_lifetime, pse_env
 
 
 class NestedCapacityTests(unittest.TestCase):

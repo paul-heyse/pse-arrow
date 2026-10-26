@@ -44,7 +44,21 @@ native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = []
 native-abi = ["dep:bindgen"]
 full-codegen = ["package-fixtures", "native-abi", "evidence-tools"]
-evidence-tools = ["dep:pse-operations", "dep:pse-engine", "dep:pse-model", "dep:pse-relations", "dep:pse-diagnostics", "dep:datafusion", "dep:surrealdb", "dep:uuid", "dep:hex", "dep:thiserror", "dep:strum", "dep:arrow-array", "dep:arrow-buffer"]
+evidence-tools = [
+  "dep:pse-operations",
+  "dep:pse-engine",
+  "dep:pse-model",
+  "dep:pse-relations",
+  "dep:pse-diagnostics",
+  "dep:datafusion",
+  "dep:surrealdb",
+  "dep:uuid",
+  "dep:hex",
+  "dep:thiserror",
+  "dep:strum",
+  "dep:arrow-array",
+  "dep:arrow-buffer",
+]
 surrealql-tools = ["dep:surrealdb-syn"]
 canonical-tools = [
   "dep:pse-diagnostics",

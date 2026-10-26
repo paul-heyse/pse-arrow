@@ -28,8 +28,7 @@ from unittest.mock import patch
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
-from scripts import operation_lifetime
-from scripts import telemetry_service
+from scripts import operation_lifetime, telemetry_service
 from scripts.telemetry_investigation import BackendClient, QueryAnswer, QueryRequest
 from scripts.tests.telemetry_pipeline_acceptance import mapping, records, require
 
@@ -87,7 +86,6 @@ def producer(
     from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
 
     from scripts import (  # noqa: PLC0415
-        native_operation,
         telemetry_metrics,
         telemetry_process,
     )

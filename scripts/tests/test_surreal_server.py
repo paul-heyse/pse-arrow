@@ -25,8 +25,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call, patch
 
-from scripts import operation_lifetime
 from scripts import host_admission as host
+from scripts import operation_lifetime
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
@@ -243,25 +243,46 @@ class LifecycleClockTests(unittest.TestCase):
 
 class SurrealSupervisorTests(unittest.TestCase):
     def test_parser_bootstrap_needs_no_deployment_operator(self) -> None:
-        with patch.object(server.execution_profiles, "declarations", side_effect=AssertionError("operator entered")):
+        with patch.object(
+            server.execution_profiles,
+            "declarations",
+            side_effect=AssertionError("operator entered"),
+        ):
             parser = server.parser()
-            self.assertEqual(parser.parse_args(["build-server"]).command, "build-server")
+            self.assertEqual(
+                parser.parse_args(["build-server"]).command, "build-server"
+            )
             for profile in server.deployment.ProductionProfileName:
                 if profile is not server.deployment.ProductionProfileName.SERVICE:
-                    self.assertEqual(parser.parse_args(["setup", "--execution-profile", profile.value]).execution_profile,
-                                     profile.value)
-            with self.assertRaises(SystemExit) as help_exit, contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(
+                        parser.parse_args(
+                            ["setup", "--execution-profile", profile.value]
+                        ).execution_profile,
+                        profile.value,
+                    )
+            with (
+                self.assertRaises(SystemExit) as help_exit,
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
                 parser.parse_args(["--help"])
             self.assertEqual(help_exit.exception.code, 0)
 
-    def test_recovery_receiver_retains_exact_product_helper_execution_mode(self) -> None:
+    def test_recovery_receiver_retains_exact_product_helper_execution_mode(
+        self,
+    ) -> None:
         config = self.initialized()
         selected = server.object_mapping(config["service_supervisor"])
-        recovery.receiver_equivalence(selected, selected, self.state, self.state, primary=False)
-        operator = Path(str(selected["supervisor_script"])).parents[1] / "bin/pse-deployment"
+        recovery.receiver_equivalence(
+            selected, selected, self.state, self.state, primary=False
+        )
+        operator = (
+            Path(str(selected["supervisor_script"])).parents[1] / "bin/pse-deployment"
+        )
         operator.chmod(0o600)
         with self.assertRaisesRegex(server.SupervisorError, "execution mode"):
-            recovery.receiver_equivalence(selected, selected, self.state, self.state, primary=False)
+            recovery.receiver_equivalence(
+                selected, selected, self.state, self.state, primary=False
+            )
 
     def test_recovery_equivalence_accepts_exact_relocation_and_fresh_incarnation(
         self,
@@ -632,9 +653,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         def reap(_duration: float) -> None:
             released.assert_not_called()
             self.assertEqual(server._STARTUP.deadline, deadline)  # noqa: SLF001 -- verify the original stop clock is retained
-            self.assertEqual(
-                operation_lifetime.start_identity(child.pid), identity
-            )
+            self.assertEqual(operation_lifetime.start_identity(child.pid), identity)
             child.wait()
 
         with (
@@ -1504,18 +1523,32 @@ class SurrealSupervisorTests(unittest.TestCase):
         helper.write_text("#!/bin/sh\nexit 0\n")
         helper.chmod(0o700)
         selected_helper = patch.object(
-            server, "admitted_payload_verifier",
-            side_effect=lambda config: server.object_mapping(config.get("payload_verifier") or {
-                "binary": str(helper), "sha256": server.file_digest(helper),
-            }),
+            server,
+            "admitted_payload_verifier",
+            side_effect=lambda config: server.object_mapping(
+                config.get("payload_verifier")
+                or {
+                    "binary": str(helper),
+                    "sha256": server.file_digest(helper),
+                }
+            ),
         )
         selected_helper.start()
         self.addCleanup(selected_helper.stop)
         # Source-only launch controls supply an already prepared native boundary;
         # actual generation verification/preparation is covered independently.
-        prepared_inputs = patch.object(server.receiver_environment, "capture", side_effect=lambda capabilities, _environment: json.dumps({
-            "version": 1, "capabilities": list(capabilities), "values": {}, "provider_receipts": {},
-        }).encode())
+        prepared_inputs = patch.object(
+            server.receiver_environment,
+            "capture",
+            side_effect=lambda capabilities, _environment: json.dumps(
+                {
+                    "version": 1,
+                    "capabilities": list(capabilities),
+                    "values": {},
+                    "provider_receipts": {},
+                }
+            ).encode(),
+        )
         prepared_inputs.start()
         self.addCleanup(prepared_inputs.stop)
         module_install = patch.object(
@@ -2811,11 +2844,21 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.checked_primary(config)
 
     def test_primary_environment_selects_worker_receipt_and_native_inputs(self) -> None:
-        with patch.object(server.receiver_environment, "capture", return_value=json.dumps({
-            "version": 1, "capabilities": list(server.WORKER_CAPABILITIES),
-            "values": {"IPOPT_DIR": "/admitted/solver", "CXXFLAGS": "-fno-fast-math"},
-            "provider_receipts": {},
-        }).encode()):
+        with patch.object(
+            server.receiver_environment,
+            "capture",
+            return_value=json.dumps(
+                {
+                    "version": 1,
+                    "capabilities": list(server.WORKER_CAPABILITIES),
+                    "values": {
+                        "IPOPT_DIR": "/admitted/solver",
+                        "CXXFLAGS": "-fno-fast-math",
+                    },
+                    "provider_receipts": {},
+                }
+            ).encode(),
+        ):
             config = self.reference_fixture()
         allocation = config["resources"]
         if not isinstance(allocation, dict):
@@ -2872,12 +2915,19 @@ class SurrealSupervisorTests(unittest.TestCase):
 
     def test_frozen_service_materialization_uses_isolated_python(self) -> None:
         config = self.initialized()
-        with patch.dict(os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}):
+        with patch.dict(
+            os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}
+        ):
             server.materialize_service(self.state, config, self.allocation)
-        declaration = self.root / "user-config/systemd/user" / server.unit_name(self.state)
+        declaration = (
+            self.root / "user-config/systemd/user" / server.unit_name(self.state)
+        )
         supervisor = server.object_mapping(config["service_supervisor"])
-        self.assertIn(f'ExecStart="{supervisor["supervisor_executable"]}" "-I" "-B" '
-                      f'"{supervisor["supervisor_script"]}" "_serve"', declaration.read_text())
+        self.assertIn(
+            f'ExecStart="{supervisor["supervisor_executable"]}" "-I" "-B" '
+            f'"{supervisor["supervisor_script"]}" "_serve"',
+            declaration.read_text(),
+        )
 
     def test_primary_environment_without_worker_role_removes_generic_receipt(
         self,
@@ -3264,9 +3314,17 @@ class SurrealSupervisorTests(unittest.TestCase):
         command = launch.call_args.args[0]
         receiver = server.recorded_primary(config)
         python_index = command.index(receiver["supervisor_executable"])
-        self.assertEqual(command[python_index:python_index + 4],
-                         [receiver["supervisor_executable"], "-I", "-B",
-                          str(Path(receiver["supervisor_script"]).with_name("native_operation.py"))])
+        self.assertEqual(
+            command[python_index : python_index + 4],
+            [
+                receiver["supervisor_executable"],
+                "-I",
+                "-B",
+                str(
+                    Path(receiver["supervisor_script"]).with_name("native_operation.py")
+                ),
+            ],
+        )
         self.assertIn(f"--slice={server.execution_slice(self.state)}", command)
         self.assertIn(f"--property=MemoryMax={140 * server.GIB}", command)
         self.assertEqual(
@@ -3620,7 +3678,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                     patch.object(host, "allocation_metadata", side_effect=metadata),
                     patch.object(host, "boot", return_value=record["boot"]),
                     patch.object(host, "group_identity", return_value=identity),
-                    patch.object(operation_lifetime, "populated", return_value=populated),
+                    patch.object(
+                        operation_lifetime, "populated", return_value=populated
+                    ),
                     patch.object(
                         operation_lifetime,
                         "unit_observation",
@@ -5544,7 +5604,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             "units": {server.unit_name(self.state): {}, "unrelated.service": {}},
         }
         with (
-            patch.object(server, "unadmitted_service_launch_drained", return_value=True),
+            patch.object(
+                server, "unadmitted_service_launch_drained", return_value=True
+            ),
             patch.object(
                 host, "readonly_snapshot", return_value={"owners": {nonce: shared}}
             ),
@@ -5559,7 +5621,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         retained.assert_not_called()
         self.assertEqual(server.read_json(path), launch)
         with (
-            patch.object(server, "unadmitted_service_launch_drained", return_value=True),
+            patch.object(
+                server, "unadmitted_service_launch_drained", return_value=True
+            ),
             patch.object(
                 host,
                 "readonly_snapshot",
@@ -6621,9 +6685,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                     patch.object(
                         operation_lifetime, "unit_observation", return_value=actual
                     ),
-                    patch.object(
-                        operation_lifetime, "drained", return_value=drained
-                    ),
+                    patch.object(operation_lifetime, "drained", return_value=drained),
                     patch.object(
                         server,
                         "systemctl",
@@ -7059,9 +7121,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(host, "allocation_metadata", side_effect=ledger),
             patch.object(host, "group_identity", return_value=None),
-            patch.object(
-                operation_lifetime, "unit_observation", side_effect=observe
-            ),
+            patch.object(operation_lifetime, "unit_observation", side_effect=observe),
             patch.object(
                 operation_lifetime,
                 "drained",
@@ -7123,7 +7183,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                     server.write_json(pending, selected)
                     with (
                         patch.dict(os.environ, {"PSE_NATIVE_CACHE": str(base)}),
-                        patch.object(operation_lifetime, "scope_owner", return_value=None),
+                        patch.object(
+                            operation_lifetime, "scope_owner", return_value=None
+                        ),
                         operation.Operation(base)
                         if enclosing_parent
                         else contextlib.nullcontext(),
@@ -7170,7 +7232,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                         "invocation": "b" * 32,
                     }
                     with (
-                        patch.object(operation_lifetime, "scope_owner", return_value=scope),
+                        patch.object(
+                            operation_lifetime, "scope_owner", return_value=scope
+                        ),
                         patch.object(host, "group_identity", return_value=17),
                     ):
                         operation.bind_handoff(handoff)
@@ -7179,7 +7243,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                     with (
                         patch.object(host, "allocation_metadata", side_effect=ledger),
                         patch.object(host, "group_identity", return_value=None),
-                        patch.object(operation_lifetime, "populated", return_value=False),
+                        patch.object(
+                            operation_lifetime, "populated", return_value=False
+                        ),
                         patch.object(
                             operation_lifetime,
                             "unit_observation",
@@ -7727,8 +7793,12 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         before = set(self.state.rglob("*"))
 
         def native(
-            arguments: list[str], request: object, output: object, _errors: object,
-            _checkpoint: Path, **_options: object
+            arguments: list[str],
+            request: object,
+            output: object,
+            _errors: object,
+            _checkpoint: Path,
+            **_options: object,
         ) -> int:
             self.assertEqual(arguments[1:3], ["--operation", "verify"])
             assert isinstance(request, io.BufferedIOBase)
@@ -7745,7 +7815,11 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             ),
             patch.object(server, "payload_verifier", return_value=verifier),
             patch.object(server.recovery_operation, "run", side_effect=native),
-            patch.object(server.recovery_operation, "checkpoint_path", return_value=self.root / "progress.json"),
+            patch.object(
+                server.recovery_operation,
+                "checkpoint_path",
+                return_value=self.root / "progress.json",
+            ),
         ):
             server.verify_payload_inventory(
                 self.state, config, inventory, read_only_source=True
@@ -7975,7 +8049,8 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             patch.object(server, "freeze_payloads") as freeze,
             self.assertRaisesRegex(
-                server.service_borrowers.resource_store.StoreError, "coverage is unestablished"
+                server.service_borrowers.resource_store.StoreError,
+                "coverage is unestablished",
             ),
         ):
             server.backup(self.state, config, destination)

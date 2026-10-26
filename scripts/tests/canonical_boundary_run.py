@@ -12,7 +12,6 @@ performs lifecycle operations on the caller's selected service.
 
 from __future__ import annotations
 
-
 import argparse
 import os
 import socket
@@ -26,12 +25,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import (
     native_operation,
     native_tests,
+    operation_lifetime,
     reference_run,
+    service_borrowers,
     test_resources,
     test_run,
     validation_receipts,

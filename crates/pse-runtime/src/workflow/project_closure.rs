@@ -104,9 +104,18 @@ impl Runtime {
         physical: PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<ProjectClosureExplanation, WorkflowError> {
-        let mut sources = SourceSink::new(None, request.maximum_output_bytes, request.maximum_document_bytes);
+        let mut sources = SourceSink::new(
+            None,
+            request.maximum_output_bytes,
+            request.maximum_document_bytes,
+        );
         let closure = self
-            .project_boxed(self.resolve_project_closure(request, Some(physical), cancel, &mut sources))?
+            .project_boxed(self.resolve_project_closure(
+                request,
+                Some(physical),
+                cancel,
+                &mut sources,
+            ))?
             .await?;
         let known_source_bytes = sources.bytes;
         Ok(ProjectClosureExplanation {
@@ -126,7 +135,11 @@ impl Runtime {
                 "metadata closure requires explicit descriptive-only selection",
             ));
         }
-        let mut sources = SourceSink::new(None, request.maximum_output_bytes, request.maximum_document_bytes);
+        let mut sources = SourceSink::new(
+            None,
+            request.maximum_output_bytes,
+            request.maximum_document_bytes,
+        );
         let closure = self
             .project_boxed(self.resolve_project_closure(request, None, cancel, &mut sources))?
             .await?;
@@ -218,8 +231,7 @@ impl Runtime {
         let mut revisions = BTreeSet::from([request.selection.revision.clone()]);
         let mut datasets = Vec::new();
         let mut contexts = BTreeSet::new();
-        if let Some(research) = selected.as_ref().and_then(|p| p.research_source.as_ref())
-        {
+        if let Some(research) = selected.as_ref().and_then(|p| p.research_source.as_ref()) {
             selections.push(research.selection.clone());
         }
 
@@ -443,40 +455,70 @@ impl Runtime {
                 });
                 closure.manifest.omissions.push(ProjectOmission{selection:format!("source:{revision}"),reason:"descriptive-only selection retains authenticated revision metadata; authored source objects, raw/curated data, physical documents and provider premises were not opened or copied".into(),required_for_execution:true});
             } else {
-                closure.protections.push(store.protect(row, std::time::Duration::from_secs(3600)).await?);
+                closure.protections.push(
+                    store
+                        .protect(row, std::time::Duration::from_secs(3600))
+                        .await?,
+                );
             }
         }
         // Consume the already admitted origin first, preserving sorted revision ordinals for ids.
         let mut ordered = revisions.into_iter().enumerate().collect::<Vec<_>>();
         ordered.sort_by_key(|(_, revision)| revision != &request.selection.revision);
         for (ordinal, revision) in ordered {
-            if request.descriptive_only { continue; }
+            if request.descriptive_only {
+                continue;
+            }
             super::study::creation_checkpoint(cancel)?;
-            let recorded = closure.protections.iter()
+            let recorded = closure
+                .protections
+                .iter()
                 .find(|protection| protection.revision().key == revision)
                 .ok_or_else(|| contract("selected source lacks original protection"))?
-                .revision().clone();
-            let package = if let Some(context) = closure.manifest.contexts.iter().rev()
-                .find(|context| context.revision == revision) {
+                .revision()
+                .clone();
+            let package = if let Some(context) = closure
+                .manifest
+                .contexts
+                .iter()
+                .rev()
+                .find(|context| context.revision == revision)
+            {
                 let selection = pse_operations::canonical_contexts::ContextSelection {
                     cut: pse_operations::canonical_contexts::ContextCut {
-                        issuing_store: store.issuing_store()?.into(), project: context.project.clone().into(),
+                        issuing_store: store.issuing_store()?.into(),
+                        project: context.project.clone().into(),
                         sequence: context.recorded_sequence,
                     },
-                    effective_at_us: context.effective_from_us, context: context.clone(),
+                    effective_at_us: context.effective_from_us,
+                    context: context.clone(),
                 };
-                if revision == request.selection.revision { drop(selected.take()); }
-                self.project_boxed(self.project_context_reopen(&selection, cancel))?.await?
+                if revision == request.selection.revision {
+                    drop(selected.take());
+                }
+                self.project_boxed(self.project_context_reopen(&selection, cancel))?
+                    .await?
             } else if revision == request.selection.revision {
-                selected.take().ok_or_else(|| contract("selected origin was not admitted"))?
+                selected
+                    .take()
+                    .ok_or_else(|| contract("selected origin was not admitted"))?
             } else {
-                let physical = if let Some(study) = closure.manifest.studies.iter()
-                    .find(|study| study.definition.modeling_revision == revision) {
-                    self.project_boxed(self.physical_source(&study.definition.physical, cancel))?.await?
+                let physical = if let Some(study) = closure
+                    .manifest
+                    .studies
+                    .iter()
+                    .find(|study| study.definition.modeling_revision == revision)
+                {
+                    self.project_boxed(self.physical_source(&study.definition.physical, cancel))?
+                        .await?
                 } else {
-                    physical.as_ref().ok_or_else(|| contract("source requires admitted physical context"))?.clone()
+                    physical
+                        .as_ref()
+                        .ok_or_else(|| contract("source requires admitted physical context"))?
+                        .clone()
                 };
-                self.project_boxed(self.modeling_revision(recorded, physical, BTreeMap::new()))?.await?
+                self.project_boxed(self.modeling_revision(recorded, physical, BTreeMap::new()))?
+                    .await?
             };
             let source_extent = package
                 .replay_source_extent()
@@ -561,8 +603,13 @@ impl Runtime {
                 physical_documents: physical_members,
             });
         }
-        closure.manifest.sources.sort_by(|left, right| left.revision.cmp(&right.revision));
-        closure.manifest.providers.sort_by(|left, right| (&left.name, &left.identity).cmp(&(&right.name, &right.identity)));
+        closure
+            .manifest
+            .sources
+            .sort_by(|left, right| left.revision.cmp(&right.revision));
+        closure.manifest.providers.sort_by(|left, right| {
+            (&left.name, &left.identity).cmp(&(&right.name, &right.identity))
+        });
         // Artifacts use original protected reads and preserve their original encoding digests and ordinal extent.
         for (artifact_index, read) in closure.artifacts.iter().enumerate() {
             for ordinal in 0..read.header().block_count {

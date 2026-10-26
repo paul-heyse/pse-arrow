@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027 -- stdlib endpoint controls
 from __future__ import annotations
 
-
 import asyncio
 import contextlib
 import hashlib
@@ -25,11 +24,11 @@ from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools
 from fastmcp.tools import ToolResult
 from mcp.types import CallToolResult, TextContent, TextResourceContents
 
-from scripts import service_borrowers
 from scripts import (
     activity_watch,
     evidence_detail,
     run_inspection,
+    service_borrowers,
     test_resources,
     test_run,
 )

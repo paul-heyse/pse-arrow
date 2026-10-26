@@ -556,17 +556,28 @@ fn constraints(schema: &Value) -> Vec<String> {
 
 /// Refuse ambiguous, empty or non-string choices rather than widening their wire contract.
 fn string_choices<'a>(schema: &Value, values: &'a Value) -> Result<Vec<&'a str>, SchemaError> {
-    let values = values.as_array().filter(|values| !values.is_empty())
+    let values = values
+        .as_array()
+        .filter(|values| !values.is_empty())
         .ok_or_else(|| error("a string enumeration must have members"))?;
     if types(schema) != (vec!["string"], false) {
-        return Err(error("only nonnullable string enumeration definitions are supported"));
+        return Err(error(
+            "only nonnullable string enumeration definitions are supported",
+        ));
     }
     let mut seen = BTreeSet::new();
-    values.iter().map(|value| {
-        let member = value.as_str().ok_or_else(|| error("non-string enumeration member"))?;
-        if !seen.insert(member) { return Err(error("duplicate enumeration member")); }
-        Ok(member)
-    }).collect()
+    values
+        .iter()
+        .map(|value| {
+            let member = value
+                .as_str()
+                .ok_or_else(|| error("non-string enumeration member"))?;
+            if !seen.insert(member) {
+                return Err(error("duplicate enumeration member"));
+            }
+            Ok(member)
+        })
+        .collect()
 }
 
 /// Schemars preserves variant documentation with a union of string constants.
@@ -575,11 +586,18 @@ fn named_string_choices(schema: &Value) -> Result<Option<Vec<&str>>, SchemaError
     if let Some(members) = schema.get("enum") {
         return string_choices(schema, members).map(Some);
     }
-    let Some(alternatives) = schema.get("oneOf").or_else(|| schema.get("anyOf"))
-        .and_then(Value::as_array).filter(|choices| !choices.is_empty()) else {
+    let Some(alternatives) = schema
+        .get("oneOf")
+        .or_else(|| schema.get("anyOf"))
+        .and_then(Value::as_array)
+        .filter(|choices| !choices.is_empty())
+    else {
         return Ok(None);
     };
-    if !alternatives.iter().all(|choice| choice.get("const").is_some_and(Value::is_string)) {
+    if !alternatives
+        .iter()
+        .all(|choice| choice.get("const").is_some_and(Value::is_string))
+    {
         return Ok(None);
     }
     for node in std::iter::once(schema).chain(alternatives.iter()) {
@@ -591,9 +609,13 @@ fn named_string_choices(schema: &Value) -> Result<Option<Vec<&str>>, SchemaError
     let mut members = Vec::new();
     let mut seen = BTreeSet::new();
     for choice in alternatives {
-        let member = choice.get("const").and_then(Value::as_str)
+        let member = choice
+            .get("const")
+            .and_then(Value::as_str)
             .ok_or_else(|| error("string vocabulary member absent"))?;
-        if !seen.insert(member) { return Err(error("duplicate enumeration member")); }
+        if !seen.insert(member) {
+            return Err(error("duplicate enumeration member"));
+        }
         members.push(member);
     }
     Ok(Some(members))
@@ -754,7 +776,9 @@ impl<'a> Emitter<'a> {
             for member in members {
                 let identifier = super::python::member_name(member);
                 if !identifiers.insert(identifier.clone()) {
-                    return Err(error(format!("{name} has colliding Python enumeration members")));
+                    return Err(error(format!(
+                        "{name} has colliding Python enumeration members"
+                    )));
                 }
                 let _ = writeln!(source, "    {identifier} = {}", py_str(member));
             }
@@ -1242,7 +1266,11 @@ impl<'a> Emitter<'a> {
                     format!("enums.{vocabulary}.{}", super::python::member_name(member))
                 }
                 Some(name) if self.local_enums.contains_key(name) => {
-                    format!("{}.{}", python_type_name(name), super::python::member_name(member))
+                    format!(
+                        "{}.{}",
+                        python_type_name(name),
+                        super::python::member_name(member)
+                    )
                 }
                 _ => py_str(member),
             },
@@ -1282,7 +1310,14 @@ impl<'a> Emitter<'a> {
         }
         if let Some(members) = schema.get("enum") {
             let members = string_choices(schema, members)?;
-            return Ok(format!("Literal[{}]", members.into_iter().map(py_str).collect::<Vec<_>>().join(", ")));
+            return Ok(format!(
+                "Literal[{}]",
+                members
+                    .into_iter()
+                    .map(py_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
         }
         if let Some(alternatives) = schema
             .get("anyOf")
@@ -1679,21 +1714,44 @@ pub fn generate_private(
 /// Render related private roots in one module, sharing their actual nested definitions.
 /// # Errors
 /// An unsafe family name or unsupported schema/scientific-package dependency.
-pub fn generate_private_family(reg: &Registry, family: &str, documents: &[Document]) -> Result<GeneratedTree, SchemaError> {
-    if family.is_empty() || !family.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-') {
-        return Err(error("private contract family requires a local module name"));
+pub fn generate_private_family(
+    reg: &Registry,
+    family: &str,
+    documents: &[Document],
+) -> Result<GeneratedTree, SchemaError> {
+    if family.is_empty()
+        || !family.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+        })
+    {
+        return Err(error(
+            "private contract family requires a local module name",
+        ));
     }
     let mut tree = GeneratedTree::empty(vec![PathBuf::from(PRIVATE_PYTHON_ROOT)]);
-    tree.files.insert(format!("{PRIVATE_PYTHON_ROOT}/{}.py", family.replace('-', "_")).into(),
-        python_module(reg, documents, true)?.into_bytes());
+    tree.files.insert(
+        format!("{PRIVATE_PYTHON_ROOT}/{}.py", family.replace('-', "_")).into(),
+        python_module(reg, documents, true)?.into_bytes(),
+    );
     for document in documents {
-        if document.name.is_empty() || !document.name.bytes().all(|byte|
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-') {
+        if document.name.is_empty()
+            || !document.name.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-'
+            })
+        {
             return Err(error("private schema requires a local document name"));
         }
-        let path = format!("{PRIVATE_PYTHON_ROOT}/{}_schema/{}.schema.json",
-            family.replace('-', "_"), document.name).into();
-        if tree.files.insert(path, canonical(&document.schema)?.into_bytes()).is_some() {
+        let path = format!(
+            "{PRIVATE_PYTHON_ROOT}/{}_schema/{}.schema.json",
+            family.replace('-', "_"),
+            document.name
+        )
+        .into();
+        if tree
+            .files
+            .insert(path, canonical(&document.schema)?.into_bytes())
+            .is_some()
+        {
             return Err(error("private family repeats a document schema name"));
         }
     }
@@ -1704,7 +1762,9 @@ pub fn generate_private_family(reg: &Registry, family: &str, documents: &[Docume
 /// Private Python records depend only on msgspec and their local closed vocabularies.
 /// # Errors
 /// Unsupported boundary schemas or canonical identity framing failure.
-pub fn generate_private_catalogue(catalogue: &[CatalogueDocument]) -> Result<GeneratedTree, SchemaError> {
+pub fn generate_private_catalogue(
+    catalogue: &[CatalogueDocument],
+) -> Result<GeneratedTree, SchemaError> {
     const ROOT: &str = "scripts/generated/evidence_schema";
     let registry = crate::RegistryBuilder::new().build()?;
     let mut tree = GeneratedTree::empty(vec![PathBuf::from(PRIVATE_PYTHON_ROOT)]);
@@ -1713,39 +1773,62 @@ pub fn generate_private_catalogue(catalogue: &[CatalogueDocument]) -> Result<Gen
     for entry in catalogue {
         let direction = if entry.output { "output" } else { "input" };
         let name = format!("{}_{direction}", entry.slug.replace('-', "_"));
-        let document = Document { name: entry.slug.clone(), schema: entry.schema.clone() };
-        let mut bytes = serde_json::to_vec_pretty(&entry.schema).map_err(|cause| error(cause.to_string()))?;
+        let document = Document {
+            name: entry.slug.clone(),
+            schema: entry.schema.clone(),
+        };
+        let mut bytes =
+            serde_json::to_vec_pretty(&entry.schema).map_err(|cause| error(cause.to_string()))?;
         bytes.push(b'\n');
         let schema_path = format!("{ROOT}/{}.{direction}.schema.json", entry.slug);
         let python_path = format!("{PRIVATE_PYTHON_ROOT}/{name}.py");
-        tree.files.insert(python_path.into(), python_module(&registry, &[document], true)?.into_bytes());
+        tree.files.insert(
+            python_path.into(),
+            python_module(&registry, &[document], true)?.into_bytes(),
+        );
         rows.push(serde_json::json!({"slug":entry.slug,"direction":direction,"exported_name":entry.name,
             "schema_path":schema_path,"schema_sha256":hex::encode(Sha256::digest(&bytes)),
             "version":entry.version,"wire":entry.wire,"registration_source":entry.registration_source}));
-        identities.push(serde_json::json!({"name":entry.name,"slug":entry.slug,"direction":direction,
-            "version":entry.version,"wire":entry.wire,"schema":entry.schema}));
+        identities.push(
+            serde_json::json!({"name":entry.name,"slug":entry.slug,"direction":direction,
+            "version":entry.version,"wire":entry.wire,"schema":entry.schema}),
+        );
         tree.files.insert(schema_path.into(), bytes);
     }
     let fingerprint = pse_ids::document::of(pse_ids::Frame::BoundarySchemaSetV1, &identities)
         .map_err(|cause| error(cause.to_string()))?;
     for entry in catalogue {
         let direction = if entry.output { "output" } else { "input" };
-        for output_path in [format!("{ROOT}/{}.{direction}.schema.json", entry.slug),
+        for output_path in [
+            format!("{ROOT}/{}.{direction}.schema.json", entry.slug),
             format!("{ROOT}/catalogue.json"),
-            format!("{PRIVATE_PYTHON_ROOT}/{}_{direction}.py", entry.slug.replace('-', "_"))] {
-            tree.relationships.push(super::provenance::SourceRelationship {
-                declaration_key: entry.name.clone(), declaration_kind: "private_catalogue".into(),
-                contract_sections: Vec::new(), source_path: Some(entry.registration_source.clone()),
-                source_symbol: Some(entry.rust_type.clone()), source_role: "catalogue_registration".into(),
-                source_identity: Some(fingerprint.to_prefixed()),
-                generator_path: "crates/pse-codegen/src/codegen/documents.rs".into(),
-                generator_symbol: "generate_private_catalogue".into(), output_path,
-                direction: Some(direction.into()), basis: "declared".into(),
-            });
+            format!(
+                "{PRIVATE_PYTHON_ROOT}/{}_{direction}.py",
+                entry.slug.replace('-', "_")
+            ),
+        ] {
+            tree.relationships
+                .push(super::provenance::SourceRelationship {
+                    declaration_key: entry.name.clone(),
+                    declaration_kind: "private_catalogue".into(),
+                    contract_sections: Vec::new(),
+                    source_path: Some(entry.registration_source.clone()),
+                    source_symbol: Some(entry.rust_type.clone()),
+                    source_role: "catalogue_registration".into(),
+                    source_identity: Some(fingerprint.to_prefixed()),
+                    generator_path: "crates/pse-codegen/src/codegen/documents.rs".into(),
+                    generator_symbol: "generate_private_catalogue".into(),
+                    output_path,
+                    direction: Some(direction.into()),
+                    basis: "declared".into(),
+                });
         }
     }
     let manifest = serde_json::json!({"version":1,"schema_set_fingerprint":fingerprint.to_prefixed(),"documents":rows,"authoring":null});
-    tree.files.insert(format!("{ROOT}/catalogue.json").into(), serde_json::to_vec_pretty(&manifest).map_err(|cause| error(cause.to_string()))?);
+    tree.files.insert(
+        format!("{ROOT}/catalogue.json").into(),
+        serde_json::to_vec_pretty(&manifest).map_err(|cause| error(cause.to_string()))?,
+    );
     Ok(tree)
 }
 
@@ -1773,33 +1856,58 @@ mod tests {
         }
         #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
         #[serde(deny_unknown_fields)]
-        struct Report { #[serde(default)] phase: Phase }
+        struct Report {
+            #[serde(default)]
+            phase: Phase,
+        }
         let registry = crate::RegistryBuilder::new().build().unwrap();
-        let document = Document { name: "report".into(), schema: schemars::schema_for!(Report).to_value() };
-        let tree = generate_private_family(&registry, "initialization", &[document.clone()]).unwrap();
-        let source = std::str::from_utf8(&tree.files[&PathBuf::from("scripts/generated/initialization.py")]).unwrap();
+        let document = Document {
+            name: "report".into(),
+            schema: schemars::schema_for!(Report).to_value(),
+        };
+        let tree =
+            generate_private_family(&registry, "initialization", &[document.clone()]).unwrap();
+        let source =
+            std::str::from_utf8(&tree.files[&PathBuf::from("scripts/generated/initialization.py")])
+                .unwrap();
         assert!(source.contains("class Phase(StrEnum):"), "{source}");
         assert!(source.contains("DESCRIPTION = \"description\""));
         assert!(source.contains("INITIALIZED = \"initialized\""));
         assert!(source.contains("phase: Phase = Phase.DESCRIPTION"));
         assert!(!source.contains("Phase = Literal"));
-        let published = &tree.files[&PathBuf::from("scripts/generated/initialization_schema/report.schema.json")];
+        let published = &tree.files
+            [&PathBuf::from("scripts/generated/initialization_schema/report.schema.json")];
         let mut published = serde_json::from_slice::<Value>(published).unwrap();
-        assert_eq!(published.as_object_mut().unwrap().remove("$comment"),
-            Some(Value::String("@generated by pse-schema; do not edit".into())));
+        assert_eq!(
+            published.as_object_mut().unwrap().remove("$comment"),
+            Some(Value::String(
+                "@generated by pse-schema; do not edit".into()
+            ))
+        );
         assert_eq!(published, document.schema);
     }
 
     #[test]
     fn private_family_shares_the_same_nested_owner_vocabulary_across_roots() {
         let registry = crate::RegistryBuilder::new().build().unwrap();
-        let root = |name: &str| Document { name: name.to_lowercase(), schema: serde_json::json!({
-            "title": name, "type": "object", "additionalProperties": false,
-            "properties": {"mode": {"$ref": "#/$defs/Profile"}}, "required": ["mode"],
-            "$defs": {"Profile": {"type":"string", "enum":["ordinary","reference"]}}
-        }) };
-        let tree = generate_private_family(&registry, "deployment-probe", &[root("Request"), root("Response")]).unwrap();
-        let source = std::str::from_utf8(&tree.files[&PathBuf::from("scripts/generated/deployment_probe.py")]).unwrap();
+        let root = |name: &str| Document {
+            name: name.to_lowercase(),
+            schema: serde_json::json!({
+                "title": name, "type": "object", "additionalProperties": false,
+                "properties": {"mode": {"$ref": "#/$defs/Profile"}}, "required": ["mode"],
+                "$defs": {"Profile": {"type":"string", "enum":["ordinary","reference"]}}
+            }),
+        };
+        let tree = generate_private_family(
+            &registry,
+            "deployment-probe",
+            &[root("Request"), root("Response")],
+        )
+        .unwrap();
+        let source = std::str::from_utf8(
+            &tree.files[&PathBuf::from("scripts/generated/deployment_probe.py")],
+        )
+        .unwrap();
         assert_eq!(source.matches("class Profile(StrEnum)").count(), 1);
         assert!(source.contains("class Request("));
         assert!(source.contains("class Response("));

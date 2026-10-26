@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 import json
 import os
 from typing import TYPE_CHECKING
@@ -12,9 +11,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-from scripts import service_borrowers
 from scripts import (
     arrow_validation,
+    service_borrowers,
     test_resources,
     test_run,
     validation,

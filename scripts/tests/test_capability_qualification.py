@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 import asyncio
 import io
 import json
@@ -20,8 +19,11 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import FunctionTool
 from pydantic import ValidationError
 
-from scripts import service_borrowers
-from scripts import assessment_store, test_resources, validation_result
+from scripts import (
+    assessment_store,
+    service_borrowers,
+    validation_result,
+)
 from scripts.capabilities import process
 from scripts.capabilities import qualification as subject
 from scripts.capabilities import qualification_worker as worker

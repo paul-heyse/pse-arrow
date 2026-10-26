@@ -16,8 +16,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import activity
+from scripts import activity, operation_lifetime
 
 
 class ActivityTests(unittest.TestCase):
@@ -87,9 +86,7 @@ class ActivityTests(unittest.TestCase):
             "ActiveState": "active",
         }
         with (
-            patch.object(
-                operation_lifetime, "unit_observation", return_value=fields
-            ),
+            patch.object(operation_lifetime, "unit_observation", return_value=fields),
             patch.object(operation_lifetime, "populated", return_value=False),
         ):
             observed, errors = activity.units(["pse-empty.scope"])

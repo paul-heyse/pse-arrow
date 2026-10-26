@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Owner-native development concepts above immutable source-version provenance.
+use arrow_schema::DataType as D;
 use pse_schema::declaration::{column, enumeration};
 use pse_schema::{
     RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
 };
-use arrow_schema::DataType as D;
 
 fn relation(
     b: &mut RegistryBuilder,

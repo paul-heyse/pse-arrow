@@ -99,4 +99,3 @@ def verify_native_provider(
         return False
     else:
         return result.returncode == 0
-

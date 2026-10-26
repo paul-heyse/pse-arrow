@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Logical project exchange. Origin evidence never becomes receiving execution authority.
-use super::{PhysicalContext, ProjectSelection, Runtime, WorkflowError, contract};
 use super::portable_payload;
+use super::{PhysicalContext, ProjectSelection, Runtime, WorkflowError, contract};
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -278,16 +278,31 @@ pub(super) struct SourceSink {
     pub(super) receipts: Vec<(String, u64, String)>,
 }
 impl SourceSink {
-    pub(super) fn new(destination: Option<&Path>, maximum: u64, maximum_document_bytes: usize) -> Self {
-        Self { destination: destination.map(Path::to_owned), root: None,
-            remaining: maximum, maximum_document_bytes, bytes: 0, receipts: Vec::new() }
+    pub(super) fn new(
+        destination: Option<&Path>,
+        maximum: u64,
+        maximum_document_bytes: usize,
+    ) -> Self {
+        Self {
+            destination: destination.map(Path::to_owned),
+            root: None,
+            remaining: maximum,
+            maximum_document_bytes,
+            bytes: 0,
+            receipts: Vec::new(),
+        }
     }
     pub(super) fn document_limit(&self) -> usize {
-        self.maximum_document_bytes.min(usize::try_from(self.remaining).unwrap_or(usize::MAX))
+        self.maximum_document_bytes
+            .min(usize::try_from(self.remaining).unwrap_or(usize::MAX))
     }
     pub(super) fn root(&mut self) -> Result<PathBuf, WorkflowError> {
-        if let Some(root) = &self.root { return Ok(root.clone()); }
-        let destination = self.destination.as_ref()
+        if let Some(root) = &self.root {
+            return Ok(root.clone());
+        }
+        let destination = self
+            .destination
+            .as_ref()
             .ok_or_else(|| contract("counting source traversal has no destination"))?;
         std::fs::create_dir(destination).map_err(io)?;
         let root = destination.canonicalize().map_err(io)?;
@@ -297,27 +312,44 @@ impl SourceSink {
         Ok(root)
     }
     pub(super) fn emit(
-        &mut self, id: &str, bytes: &[u8], token: &pse_columnar::CancellationToken,
+        &mut self,
+        id: &str,
+        bytes: &[u8],
+        token: &pse_columnar::CancellationToken,
     ) -> Result<(), WorkflowError> {
         token.checkpoint().map_err(pse_engine::EngineError::from)?;
         let extent = u64::try_from(bytes.len()).map_err(|_| contract("source document extent"))?;
         if extent > self.remaining || bytes.len() > self.maximum_document_bytes {
-            return Err(contract("project source document/output allowance exhausted"));
+            return Err(contract(
+                "project source document/output allowance exhausted",
+            ));
         }
         let digest = pse_ids::encoding_checksum(bytes).content_hash().to_hex();
         if self.destination.is_some() {
             let root = self.root()?;
-            let mut output = std::fs::OpenOptions::new().write(true).create_new(true)
-                .open(root.join(".staging").join(id)).map_err(io)?;
+            let mut output = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(root.join(".staging").join(id))
+                .map_err(io)?;
             portable_payload::copy_exact(&mut &bytes[..], &mut output, extent, || {
                 if token.is_cancelled() {
-                    Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "project copy cancelled"))
-                } else { Ok(()) }
-            }).map_err(io)?;
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::Interrupted,
+                        "project copy cancelled",
+                    ))
+                } else {
+                    Ok(())
+                }
+            })
+            .map_err(io)?;
             output.sync_all().map_err(io)?;
         }
         self.remaining -= extent;
-        self.bytes = self.bytes.checked_add(extent).ok_or_else(|| contract("source document extent"))?;
+        self.bytes = self
+            .bytes
+            .checked_add(extent)
+            .ok_or_else(|| contract("source document extent"))?;
         self.receipts.push((id.to_owned(), extent, digest));
         Ok(())
     }
@@ -949,7 +981,11 @@ impl Runtime {
         physical: Option<PhysicalContext>,
         cancel: &crate::CancelSource,
     ) -> Result<ProjectManifest, WorkflowError> {
-        let mut sources = SourceSink::new(Some(destination), request.maximum_output_bytes, request.maximum_document_bytes);
+        let mut sources = SourceSink::new(
+            Some(destination),
+            request.maximum_output_bytes,
+            request.maximum_document_bytes,
+        );
         let mut closure = self
             .project_boxed(self.resolve_project_closure(request, physical, cancel, &mut sources))?
             .await?;
@@ -980,7 +1016,9 @@ impl Runtime {
             let staged = root.join(".staging").join(id);
             let (actual, digest) = checksum(File::open(&staged).map_err(io)?, bytes)?;
             if actual != bytes || expected_digest.is_some_and(|expected| expected != digest) {
-                return Err(contract("copied project member differs from its source receipt"));
+                return Err(contract(
+                    "copied project member differs from its source receipt",
+                ));
             }
             File::open(&staged).map_err(io)?.sync_all().map_err(io)?;
             token.checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -991,8 +1029,16 @@ impl Runtime {
         }
         for (id, bytes, digest) in &sources.receipts {
             super::study::creation_checkpoint(cancel)?;
-            finish_member(&root, &mut closure.manifest, &mut total,
-                request.maximum_output_bytes, &token, id, *bytes, Some(digest))?;
+            finish_member(
+                &root,
+                &mut closure.manifest,
+                &mut total,
+                request.maximum_output_bytes,
+                &token,
+                id,
+                *bytes,
+                Some(digest),
+            )?;
         }
         for (id, reader) in &mut closure.results {
             let staging = root.join(".staging").join(id.as_str());

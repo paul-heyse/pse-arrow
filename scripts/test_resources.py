@@ -25,10 +25,13 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast, overload
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import host_admission as host
-from scripts import invocation_disposition, resource_store
+from scripts import (
+    invocation_disposition,
+    operation_lifetime,
+    resource_store,
+    service_borrowers,
+)
 from scripts import native_operation as operation
 from scripts.resource_store import StoreError as ResourceError
 
@@ -193,7 +196,6 @@ def register_composer(
     return parent, nonce, token
 
 
-
 def resource_phase(record: ResourceRecord) -> str:
     settled = (
         record.get("drained") is True
@@ -328,14 +330,16 @@ def cli_json(
     return json.loads("\n".join(lines))
 
 
-
-
 def execution_owner(*, deadline: float | None = None) -> dict | None:
     """Observe native or ordinary command membership through the existing host binding."""
-    selected = operation_lifetime.scope_owner(**operation_lifetime.deadline_options(deadline))
+    selected = operation_lifetime.scope_owner(
+        **operation_lifetime.deadline_options(deadline)
+    )
     if selected is not None:
         return dict(selected)
-    allocation = host.inherit(os.environ, **operation_lifetime.deadline_options(deadline))
+    allocation = host.inherit(
+        os.environ, **operation_lifetime.deadline_options(deadline)
+    )
     if allocation is None:
         return None
     snapshot = host.readonly_snapshot(
@@ -390,9 +394,13 @@ def invocation(
             "start": operation_lifetime.start_identity(os.getpid()),
             "boot": host.boot(),
         }
-    from scripts import test_requirements  # noqa: PLC0415 -- actual selected requirement-policy owner
+    from scripts import (
+        test_requirements,
+    )
 
-    storage().create_invocation(declaration, requirement_policy=test_requirements.POLICY_VERSION)
+    storage().create_invocation(
+        declaration, requirement_policy=test_requirements.POLICY_VERSION
+    )
     producer = {
         "pid": os.getpid(),
         "start": operation_lifetime.start_identity(os.getpid()),
@@ -857,7 +865,9 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
         if not isinstance(generation, str) or not isinstance(namespace, str):
             raise ResourceError("Invalid service generation or namespace")
         service_owner = surreal_server.service_directory(state, deadline=deadline)
-        service_borrowers.service_registry_binding(service_owner, establish=True, deadline=deadline)
+        service_borrowers.service_registry_binding(
+            service_owner, establish=True, deadline=deadline
+        )
         facts = {
             "pid": os.getppid() if payload.get("executable") else os.getpid(),
             "start": operation_lifetime.start_identity(
@@ -903,8 +913,6 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
             state, database, str(profile), Path(str(worker)) if worker else None
         )
     return resource
-
-
 
 
 def record_drain(
@@ -2950,7 +2958,13 @@ def main() -> int:
         elif not args.resource:
             parser.error("original inspection requires an exact invocation identity")
         else:
-            print(json.dumps(resource_conversion.original(service_borrowers.registry(), args.resource)))
+            print(
+                json.dumps(
+                    resource_conversion.original(
+                        service_borrowers.registry(), args.resource
+                    )
+                )
+            )
     elif args.action == "migrate":
         if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
             parser.error(

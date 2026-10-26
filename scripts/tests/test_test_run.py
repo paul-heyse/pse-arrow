@@ -18,8 +18,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import native_operation, native_tests, scientific_inputs, test_run
+from scripts import (
+    native_operation,
+    native_tests,
+    operation_lifetime,
+    scientific_inputs,
+    test_run,
+)
 from scripts import resource_store as files
 from scripts import test_resources as resources
 

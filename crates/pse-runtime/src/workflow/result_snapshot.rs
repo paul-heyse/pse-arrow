@@ -45,8 +45,10 @@ pub(super) struct ProtectedResultDecode {
     decode: Arc<ResultBlockDecode>,
 }
 impl std::ops::Deref for ProtectedResultDecode {
-    type Target=ResultBlockDecode;
-    fn deref(&self)->&Self::Target {&self.decode}
+    type Target = ResultBlockDecode;
+    fn deref(&self) -> &Self::Target {
+        &self.decode
+    }
 }
 /// One actual byte decoder shared by ordinary terminal reads and exact captures.
 #[derive(Debug)]
@@ -59,7 +61,7 @@ pub(super) struct ResultBlockDecode {
     _owner: MemoryReservation,
 }
 /// An opaque original read grant or the exact captured occurrence, never an ID alone.
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub(super) enum ResultPayloadAuthority {
     Terminal {
         read: Arc<ResultRead>,
@@ -78,34 +80,88 @@ impl ProtectedResultDecode {
         relation: pse_ids::SemanticId,
         schema: SchemaRef,
     ) -> Result<Arc<Self>, WorkflowError> {
-        let required=read.retained_bytes()?.checked_add(MetadataResponse::Protection.allocation_bytes())
-            .ok_or_else(||contract("result protected metadata extent"))?;
-        if read_owner.size()<required {return Err(contract("result read metadata is not prepaid"));}
+        let required = read
+            .retained_bytes()?
+            .checked_add(MetadataResponse::Protection.allocation_bytes())
+            .ok_or_else(|| contract("result protected metadata extent"))?;
+        if read_owner.size() < required {
+            return Err(contract("result read metadata is not prepaid"));
+        }
         read.retain_metadata_owner(read_owner.clone())?;
-        let decode=ResultBlockDecode::new(services,relation,schema)?;
-        decode._owner.try_grow(size_of::<Self>()+2*size_of::<usize>()).map_err(pse_engine::EngineError::from)?;
-        Ok(Arc::new(Self {read,read_owner,capture_custody:std::sync::OnceLock::new(),decode}))
+        let decode = ResultBlockDecode::new(services, relation, schema)?;
+        decode
+            ._owner
+            .try_grow(size_of::<Self>() + 2 * size_of::<usize>())
+            .map_err(pse_engine::EngineError::from)?;
+        Ok(Arc::new(Self {
+            read,
+            read_owner,
+            capture_custody: std::sync::OnceLock::new(),
+            decode,
+        }))
     }
-    pub(super) fn retain_capture(&self,capture:pse_operations::canonical_study_workbench::StudyCapture)->Result<(),WorkflowError> {
-        if self.capture_custody.get().is_some_and(|old|old.key()!=capture.key()) {return Err(contract("result capture custody differs"));}
-        let _=self.capture_custody.set(capture);
+    pub(super) fn retain_capture(
+        &self,
+        capture: pse_operations::canonical_study_workbench::StudyCapture,
+    ) -> Result<(), WorkflowError> {
+        if self
+            .capture_custody
+            .get()
+            .is_some_and(|old| old.key() != capture.key())
+        {
+            return Err(contract("result capture custody differs"));
+        }
+        let _ = self.capture_custody.set(capture);
         Ok(())
     }
-    fn authority(&self)->ResultPayloadAuthority {
-        ResultPayloadAuthority::Terminal{read:self.read.clone(),owner:self.read_owner.clone(),capture:self.capture_custody.get().cloned()}
+    fn authority(&self) -> ResultPayloadAuthority {
+        ResultPayloadAuthority::Terminal {
+            read: self.read.clone(),
+            owner: self.read_owner.clone(),
+            capture: self.capture_custody.get().cloned(),
+        }
     }
-    pub(super) async fn read_block(&self,block:&Block,descriptor:&FileBatch,cancel:&CancellationToken)->Result<pse_relations::columnar::FieldCheckedBatch,WorkflowError> {
-        self.decode.read_block(self.authority(),block,descriptor,cancel).await
+    pub(super) async fn read_block(
+        &self,
+        block: &Block,
+        descriptor: &FileBatch,
+        cancel: &CancellationToken,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        self.decode
+            .read_block(self.authority(), block, descriptor, cancel)
+            .await
     }
-    pub(super) async fn validate_pruned_block(&self,block:&Block,descriptor:&FileBatch,cancel:&CancellationToken)->Result<(),WorkflowError> {
-        self.decode.access_block(self.authority(),block,descriptor,cancel,false).await.map(|_|())
+    pub(super) async fn validate_pruned_block(
+        &self,
+        block: &Block,
+        descriptor: &FileBatch,
+        cancel: &CancellationToken,
+    ) -> Result<(), WorkflowError> {
+        self.decode
+            .access_block(self.authority(), block, descriptor, cancel, false)
+            .await
+            .map(|_| ())
     }
 }
 impl ResultBlockDecode {
-    pub(super) fn new(services:&SourceServices,relation:pse_ids::SemanticId,schema:SchemaRef)->Result<Arc<Self>,WorkflowError> {
-        let owner=MemoryConsumer::new("canonical:protected-result-decoder").register(&services.preparation().pool());
-        owner.try_grow(size_of::<Self>()+2*size_of::<usize>()).map_err(pse_engine::EngineError::from)?;
-        Ok(Arc::new(Self {services:services.clone(),relation,schema,admission:services.preparation().admission_context(),cache:tokio::sync::Mutex::new(None),_owner:owner}))
+    pub(super) fn new(
+        services: &SourceServices,
+        relation: pse_ids::SemanticId,
+        schema: SchemaRef,
+    ) -> Result<Arc<Self>, WorkflowError> {
+        let owner = MemoryConsumer::new("canonical:protected-result-decoder")
+            .register(&services.preparation().pool());
+        owner
+            .try_grow(size_of::<Self>() + 2 * size_of::<usize>())
+            .map_err(pse_engine::EngineError::from)?;
+        Ok(Arc::new(Self {
+            services: services.clone(),
+            relation,
+            schema,
+            admission: services.preparation().admission_context(),
+            cache: tokio::sync::Mutex::new(None),
+            _owner: owner,
+        }))
     }
 }
 
@@ -314,9 +370,10 @@ impl ResultBlockDecode {
         block: &Block,
         descriptor: &FileBatch,
         cancel: &CancellationToken,
-    )->Result<pse_relations::columnar::FieldCheckedBatch,WorkflowError> {
-        self.access_block(authority,block,descriptor,cancel,true).await?
-            .ok_or_else(||contract("protected native batch decode absent"))
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        self.access_block(authority, block, descriptor, cancel, true)
+            .await?
+            .ok_or_else(|| contract("protected native batch decode absent"))
     }
     async fn access_block(
         &self,
@@ -388,10 +445,26 @@ impl ResultBlockDecode {
                 pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => {
                     let file = pse_operations::canonical::response_ownership_scope(
                         Arc::new((authority.clone(), response)),
-                        async { match &authority {
-                            ResultPayloadAuthority::Terminal {read,owner,capture} => {let _custody=(owner,capture); self.services.canonical_store()?.open_result_file(read,descriptor).await.map_err(WorkflowError::from)},
-                            ResultPayloadAuthority::Capture {read} => read.open_result_file(descriptor).await.map_err(WorkflowError::from),
-                        } },
+                        async {
+                            match &authority {
+                                ResultPayloadAuthority::Terminal {
+                                    read,
+                                    owner,
+                                    capture,
+                                } => {
+                                    let _custody = (owner, capture);
+                                    self.services
+                                        .canonical_store()?
+                                        .open_result_file(read, descriptor)
+                                        .await
+                                        .map_err(WorkflowError::from)
+                                }
+                                ResultPayloadAuthority::Capture { read } => read
+                                    .open_result_file(descriptor)
+                                    .await
+                                    .map_err(WorkflowError::from),
+                            }
+                        },
                     )
                     .await?;
                     let count = usize::try_from(file.descriptor().batch_count)
@@ -404,10 +477,26 @@ impl ResultBlockDecode {
                 pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
                     let body = pse_operations::canonical::response_ownership_scope(
                         Arc::new((authority.clone(), response)),
-                        async { match &authority {
-                            ResultPayloadAuthority::Terminal {read,owner,capture} => {let _custody=(owner,capture); self.services.canonical_store()?.read_inline_payload(read,descriptor).await.map_err(WorkflowError::from)},
-                            ResultPayloadAuthority::Capture {read} => read.read_inline_payload(descriptor).await.map_err(WorkflowError::from),
-                        } },
+                        async {
+                            match &authority {
+                                ResultPayloadAuthority::Terminal {
+                                    read,
+                                    owner,
+                                    capture,
+                                } => {
+                                    let _custody = (owner, capture);
+                                    self.services
+                                        .canonical_store()?
+                                        .read_inline_payload(read, descriptor)
+                                        .await
+                                        .map_err(WorkflowError::from)
+                                }
+                                ResultPayloadAuthority::Capture { read } => read
+                                    .read_inline_payload(descriptor)
+                                    .await
+                                    .map_err(WorkflowError::from),
+                            }
+                        },
                     )
                     .await?;
                     let count = usize::try_from(body.batch_count)

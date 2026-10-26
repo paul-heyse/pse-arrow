@@ -3,8 +3,8 @@
 
 //! Concrete remote canonical substrate. Scientific work runs outside guarded transactions.
 
-use crate::{canonical_codec::CodecError, generated::surreal as wire};
 pub(crate) use crate::transport::lifetime;
+use crate::{canonical_codec::CodecError, generated::surreal as wire};
 #[cfg(feature = "canonical-maintenance")]
 #[path = "canonical_maintenance.rs"]
 pub mod maintenance;
@@ -31,10 +31,13 @@ use surrealdb::{
 mod metadata;
 #[path = "canonical_study_module.rs"]
 pub(crate) mod study_module;
+pub(crate) use crate::transport::{
+    bounded_query, checked, complete_response, conflict_backoff, operation_failed, protected_query,
+    request,
+};
+use crate::transport::{original_deadline, within_clock};
 pub use metadata::MetadataResponse;
 use transport::CanonicalClient;
-use crate::transport::{original_deadline, within_clock};
-pub(crate) use crate::transport::{bounded_query, protected_query, request, checked, complete_response, operation_failed, conflict_backoff};
 pub use transport::{CanonicalQueryMetrics, CanonicalQuerySample, query_metrics};
 
 /// Initial negotiated protocol limit; batches must leave space for their envelope.
@@ -85,13 +88,13 @@ pub enum CanonicalError {
     #[error("canonical study capture {capture} still has live readers")]
     CaptureInUse {
         /// Original immutable capture identity.
-        capture:String,
+        capture: String,
     },
     /// Exact capture cleanup completed; its original grant cannot be reopened.
     #[error("canonical study capture {capture} is closed")]
     CaptureClosed {
         /// Original immutable capture identity.
-        capture:String,
+        capture: String,
     },
     /// Exact immutable capture custody is draining and cannot admit another scan.
     #[error("canonical study capture {capture} is draining")]
@@ -417,7 +420,14 @@ impl CanonicalError {
         self
     }
     pub(crate) fn is_capture_busy(&self) -> bool {
-        matches!(self, Self::Refused {code:RefusalCode::StudyCapturePublicationBusy,effect:FailureEffect::StatementRefused,..})
+        matches!(
+            self,
+            Self::Refused {
+                code: RefusalCode::StudyCapturePublicationBusy,
+                effect: FailureEffect::StatementRefused,
+                ..
+            }
+        )
     }
     pub(crate) fn is_conflict(&self) -> bool {
         matches!(self, Self::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
@@ -697,10 +707,12 @@ impl CanonicalOptions {
             std::fs::read(path).map_err(|error| CanonicalError::Configuration(error.to_string()))
         };
         let configuration = read(&state.join("config.json"), CONFIGURATION_FILE_BYTES)?;
-        let deployment: crate::deployment::ServiceIdentity = crate::deployment::projection(&configuration)
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        let connection: crate::deployment::CanonicalConnectionSettings = crate::deployment::projection(&configuration)
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        let deployment: crate::deployment::ServiceIdentity =
+            crate::deployment::projection(&configuration)
+                .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        let connection: crate::deployment::CanonicalConnectionSettings =
+            crate::deployment::projection(&configuration)
+                .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         let mut deployment = deployment;
         if let Some(database) = database {
             if database.is_empty()
@@ -1800,7 +1812,10 @@ impl CanonicalStore {
                             result
                         };
                         if let Err(error) = result {
-                            if error.is_capture_busy() { conflict_backoff(4).await; continue; }
+                            if error.is_capture_busy() {
+                                conflict_backoff(4).await;
+                                continue;
+                            }
                             // A lost acknowledgment or concurrent identical activation is settled
                             // exclusively by the immutable operation receipt, never by the head.
                             let acknowledgement = self.revision(&stage.operation).await;
@@ -5575,16 +5590,27 @@ mod source_refusal_tests {
     use super::*;
     #[test]
     fn publication_busy_retries_only_the_exact_native_rollback_tag() {
-        let busy=CanonicalError::from(surrealdb::Error::thrown("PSE_REFUSAL:study_capture_publication_busy".into()));
+        let busy = CanonicalError::from(surrealdb::Error::thrown(
+            "PSE_REFUSAL:study_capture_publication_busy".into(),
+        ));
         assert!(busy.is_capture_busy());
         assert!(!busy.is_conflict());
         assert!(busy.source_transaction_refused());
         assert!(!busy.effect_is_unknown());
-        for text in ["PSE_BUSY:other", "PSE_REFUSAL:study_capture_publication_busy changed", "PSE_REFUSAL:study_capture_publication_gate"] {
+        for text in [
+            "PSE_BUSY:other",
+            "PSE_REFUSAL:study_capture_publication_busy changed",
+            "PSE_REFUSAL:study_capture_publication_gate",
+        ] {
             assert!(!CanonicalError::from(surrealdb::Error::thrown(text.into())).is_capture_busy());
         }
         assert!(!CanonicalError::Timeout.is_capture_busy());
-        assert!(!CanonicalError::from(surrealdb::Error::internal(RefusalCode::StudyCapturePublicationBusy.wire().into())).is_capture_busy());
+        assert!(
+            !CanonicalError::from(surrealdb::Error::internal(
+                RefusalCode::StudyCapturePublicationBusy.wire().into()
+            ))
+            .is_capture_busy()
+        );
     }
 
     #[test]

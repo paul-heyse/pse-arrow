@@ -26,8 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import operation_lifetime
-from scripts import telemetry_service
+from scripts import operation_lifetime, telemetry_service
 from scripts.telemetry_investigation import BackendClient, QueryRequest
 from scripts.tests.telemetry_operational_acceptance import environment, write
 from scripts.tests.telemetry_pipeline_acceptance import mapping, records, require
@@ -300,7 +299,6 @@ def producer(
     from pse.tests.test_local_runtime import physical_documents  # noqa: PLC0415
     from pse.tests.test_native_workflow import package_documents  # noqa: PLC0415
     from scripts import (  # noqa: PLC0415
-        native_operation,
         surreal_server,
         telemetry_process,
     )

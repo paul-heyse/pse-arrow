@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 import contextlib
 import io
 import json
@@ -24,12 +23,11 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import (
     assessment_store,
     case_measure,
     native_tests,
+    service_borrowers,
     test_resources,
     validation,
     validation_receipts,

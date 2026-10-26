@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 import contextlib
 import hashlib
 import os
@@ -12,8 +11,7 @@ import stat
 from collections import Counter
 from pathlib import Path
 
-from scripts import service_borrowers
-from scripts import resource_store, test_resources
+from scripts import resource_store, service_borrowers, test_resources
 
 
 def resolve(

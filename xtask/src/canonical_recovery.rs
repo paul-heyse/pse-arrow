@@ -117,10 +117,14 @@ pub(crate) struct BackupScaleReceipt {
 
 /// Refuse fixture selections before creating a receipt or a database effect.
 pub(crate) fn check_backup_scale(bytes: u64, receipt: Option<&Path>) -> Result<()> {
-    ensure!(bytes == 0 || bytes == BACKUP_SCALE_BYTES,
-        "backup scale is disabled (0) or explicitly one GiB ({BACKUP_SCALE_BYTES})");
-    ensure!((bytes == 0) == receipt.is_none(),
-        "explicit backup scale requires its original external receipt, and disabled scale accepts none");
+    ensure!(
+        bytes == 0 || bytes == BACKUP_SCALE_BYTES,
+        "backup scale is disabled (0) or explicitly one GiB ({BACKUP_SCALE_BYTES})"
+    );
+    ensure!(
+        (bytes == 0) == receipt.is_none(),
+        "explicit backup scale requires its original external receipt, and disabled scale accepts none"
+    );
     Ok(())
 }
 
@@ -130,93 +134,205 @@ fn backup_scale_byte(ordinal: u64) -> u8 {
 
 /// Exercise the existing opaque physical placement API, making no scientific
 /// validity or successful-solve assertion. Only one bounded body remains live.
-#[allow(unsafe_code, reason = "private scale fixture asserts only terminal partial observations")]
+#[allow(
+    unsafe_code,
+    reason = "private scale fixture asserts only terminal partial observations"
+)]
 pub(crate) async fn seed_backup_scale(state: &Path) -> Result<BackupScaleReceipt> {
     use pse_model::generated::enums::CanonicalRunPurpose;
-    use pse_operations::canonical_execution::{ResultPayload, RunRequest, SeedEligibility, TerminalClass};
-    ensure!(cfg!(feature = "force-validate"), "backup scale fixture requires force-validate");
+    use pse_operations::canonical_execution::{
+        ResultPayload, RunRequest, SeedEligibility, TerminalClass,
+    };
+    ensure!(
+        cfg!(feature = "force-validate"),
+        "backup scale fixture requires force-validate"
+    );
     let store = CanonicalStore::connect(&CanonicalOptions::from_state(state)?).await?;
     store.open().await?;
     let run = "private-backup-scale";
-    let revision = store.edit(run, None, "private-backup-scale-source", &[]).await?;
-    store.begin_run(&RunRequest {
-        key: run.into(), purpose: CanonicalRunPurpose::Execution,
-        admission_study: None, admission_point: None, revision, sources: vec![],
-        request: b"explicit-one-GiB-mixed-storage-control-v1".to_vec(),
-        source_selection: vec![], attestation: vec![],
-    }).await?;
+    let revision = store
+        .edit(run, None, "private-backup-scale-source", &[])
+        .await?;
+    store
+        .begin_run(&RunRequest {
+            key: run.into(),
+            purpose: CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
+            revision,
+            sources: vec![],
+            request: b"explicit-one-GiB-mixed-storage-control-v1".to_vec(),
+            source_selection: vec![],
+            attestation: vec![],
+        })
+        .await?;
     let lifetime = Duration::from_secs(60);
-    let fence = store.claim_run(run, "private-backup-scale-claim", "private-backup-scale", lifetime).await?;
-    let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
+    let fence = store
+        .claim_run(
+            run,
+            "private-backup-scale-claim",
+            "private-backup-scale",
+            lifetime,
+        )
+        .await?;
+    let pool: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
     for ordinal in 0..BACKUP_SCALE_BYTES / BACKUP_SCALE_BODY_BYTES as u64 {
         // Renew the original still-live fence. This API refuses expiry or cancellation.
         store.renew_attempt(&fence, lifetime).await?;
-        let owner = Arc::new(pse_columnar::MemoryConsumer::new("control:backup-scale-body").register(&pool));
-        owner.try_grow(2 * BACKUP_SCALE_BODY_BYTES + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES)?;
-        let payload = ResultPayload::new_owned(vec![backup_scale_byte(ordinal); BACKUP_SCALE_BODY_BYTES], owner)?;
-        store.append_result_batch(&fence, &format!("private-backup-scale-sealed-{ordinal}"),
-            "sealed", ordinal, payload, 1).await?;
+        let owner = Arc::new(
+            pse_columnar::MemoryConsumer::new("control:backup-scale-body").register(&pool),
+        );
+        owner.try_grow(
+            2 * BACKUP_SCALE_BODY_BYTES
+                + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES,
+        )?;
+        let payload = ResultPayload::new_owned(
+            vec![backup_scale_byte(ordinal); BACKUP_SCALE_BODY_BYTES],
+            owner,
+        )?;
+        store
+            .append_result_batch(
+                &fence,
+                &format!("private-backup-scale-sealed-{ordinal}"),
+                "sealed",
+                ordinal,
+                payload,
+                1,
+            )
+            .await?;
     }
     store.renew_attempt(&fence, lifetime).await?;
-    let owner = Arc::new(pse_columnar::MemoryConsumer::new("control:backup-scale-inline").register(&pool));
-    owner.try_grow(2 * BACKUP_SCALE_INLINE.len() + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES)?;
-    store.append_result_batch(&fence, "private-backup-scale-inline", "inline", 0,
-        ResultPayload::new_owned(BACKUP_SCALE_INLINE.to_vec(), owner)?, 1).await?;
-    let closed = store.close_result_ingestion(&fence, "private-backup-scale-close").await?;
+    let owner =
+        Arc::new(pse_columnar::MemoryConsumer::new("control:backup-scale-inline").register(&pool));
+    owner.try_grow(
+        2 * BACKUP_SCALE_INLINE.len()
+            + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES,
+    )?;
+    store
+        .append_result_batch(
+            &fence,
+            "private-backup-scale-inline",
+            "inline",
+            0,
+            ResultPayload::new_owned(BACKUP_SCALE_INLINE.to_vec(), owner)?,
+            1,
+        )
+        .await?;
+    let closed = store
+        .close_result_ingestion(&fence, "private-backup-scale-close")
+        .await?;
     let manifest = store.reconcile_closed_attempt(&closed).await?;
     // SAFETY: these deterministic opaque storage bodies establish no scientific
     // result or reusable seed. The fixture asserts only its complete partial closure.
     unsafe {
-        store.seal_attempt(&manifest, "private-backup-scale-partial", TerminalClass::Partial,
-            b"explicit opaque storage qualification", SeedEligibility::Unavailable).await?;
+        store
+            .seal_attempt(
+                &manifest,
+                "private-backup-scale-partial",
+                TerminalClass::Partial,
+                b"explicit opaque storage qualification",
+                SeedEligibility::Unavailable,
+            )
+            .await?;
     }
-    let mut receipt = BackupScaleReceipt { version: 1, run: run.into(), attempt: fence.attempt().into(),
-        sealed_bytes: BACKUP_SCALE_BYTES, inline_bytes: BACKUP_SCALE_INLINE.len() as u64,
-        descriptors: vec![] };
+    let mut receipt = BackupScaleReceipt {
+        version: 1,
+        run: run.into(),
+        attempt: fence.attempt().into(),
+        sealed_bytes: BACKUP_SCALE_BYTES,
+        inline_bytes: BACKUP_SCALE_INLINE.len() as u64,
+        descriptors: vec![],
+    };
     receipt.descriptors = backup_scale_observations(&store, &receipt, &pool).await?;
     disconnect_fixture(&store).await?;
     Ok(receipt)
 }
 
-async fn backup_scale_observations(store: &CanonicalStore, original: &BackupScaleReceipt,
-    pool: &Arc<dyn pse_columnar::MemoryPool>) -> Result<Vec<serde_json::Value>> {
+async fn backup_scale_observations(
+    store: &CanonicalStore,
+    original: &BackupScaleReceipt,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+) -> Result<Vec<serde_json::Value>> {
     use pse_model::generated::enums::CanonicalPayloadPlacement;
     use pse_operations::canonical_execution::result_set_key;
-    ensure!(original.version == 1 && original.sealed_bytes == BACKUP_SCALE_BYTES
-        && original.inline_bytes == BACKUP_SCALE_INLINE.len() as u64,
-        "backup scale receipt extent/version changed");
+    ensure!(
+        original.version == 1
+            && original.sealed_bytes == BACKUP_SCALE_BYTES
+            && original.inline_bytes == BACKUP_SCALE_INLINE.len() as u64,
+        "backup scale receipt extent/version changed"
+    );
     let read = store.read_results(&original.run, &original.attempt).await?;
     let sealed_set = result_set_key(&original.attempt, "sealed");
     let inline_set = result_set_key(&original.attempt, "inline");
-    ensure!(read.sets().len() == 2, "backup scale result-set closure changed");
+    ensure!(
+        read.sets().len() == 2,
+        "backup scale result-set closure changed"
+    );
     let mut observed = Vec::new();
     let mut instances = std::collections::BTreeSet::new();
     let count = BACKUP_SCALE_BYTES / BACKUP_SCALE_BODY_BYTES as u64;
-    for (name, set, members, bytes) in [("sealed", &sealed_set, count, BACKUP_SCALE_BODY_BYTES),
-                                       ("inline", &inline_set, 1, BACKUP_SCALE_INLINE.len())] {
-        let declared = read.sets().iter().find(|item| item.key == *set).context("backup scale set absent")?;
-        ensure!(declared.batch_count == members, "backup scale result-set membership changed");
+    for (name, set, members, bytes) in [
+        ("sealed", &sealed_set, count, BACKUP_SCALE_BODY_BYTES),
+        ("inline", &inline_set, 1, BACKUP_SCALE_INLINE.len()),
+    ] {
+        let declared = read
+            .sets()
+            .iter()
+            .find(|item| item.key == *set)
+            .context("backup scale set absent")?;
+        ensure!(
+            declared.batch_count == members,
+            "backup scale result-set membership changed"
+        );
         for ordinal in 0..members {
-            let owner = pse_columnar::MemoryConsumer::new("control:backup-scale-read").register(pool);
-            owner.try_grow(2 * bytes + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES)?;
+            let owner =
+                pse_columnar::MemoryConsumer::new("control:backup-scale-read").register(pool);
+            owner.try_grow(
+                2 * bytes + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES,
+            )?;
             let payload = store.result_payload(&read, set, ordinal).await?;
             let batch = &payload.batch;
-            ensure!(batch.payload.len() == bytes && batch.payload_bytes == bytes as u64
-                && batch.ordinal == ordinal && batch.row_count == 1,
-                "backup scale physical extent/coordinate changed");
+            ensure!(
+                batch.payload.len() == bytes
+                    && batch.payload_bytes == bytes as u64
+                    && batch.ordinal == ordinal
+                    && batch.row_count == 1,
+                "backup scale physical extent/coordinate changed"
+            );
             if name == "sealed" {
-                ensure!(batch.placement == CanonicalPayloadPlacement::Sealed && batch.inline_key.is_none()
-                    && batch.payload.iter().all(|byte| *byte == backup_scale_byte(ordinal)),
-                    "backup scale sealed bytes or placement changed");
-                ensure!(instances.insert(batch.file_instance.clone().context("backup scale file missing")?),
-                    "backup scale physical file was aliased");
+                ensure!(
+                    batch.placement == CanonicalPayloadPlacement::Sealed
+                        && batch.inline_key.is_none()
+                        && batch
+                            .payload
+                            .iter()
+                            .all(|byte| *byte == backup_scale_byte(ordinal)),
+                    "backup scale sealed bytes or placement changed"
+                );
+                ensure!(
+                    instances.insert(
+                        batch
+                            .file_instance
+                            .clone()
+                            .context("backup scale file missing")?
+                    ),
+                    "backup scale physical file was aliased"
+                );
             } else {
-                ensure!(batch.placement == CanonicalPayloadPlacement::Inline && batch.file_instance.is_none()
-                    && batch.inline_key.is_some() && batch.payload.as_slice() == BACKUP_SCALE_INLINE,
-                    "backup scale inline bits or placement changed");
+                ensure!(
+                    batch.placement == CanonicalPayloadPlacement::Inline
+                        && batch.file_instance.is_none()
+                        && batch.inline_key.is_some()
+                        && batch.payload.as_slice() == BACKUP_SCALE_INLINE,
+                    "backup scale inline bits or placement changed"
+                );
             }
             observed.push(serde_json::to_value(
-                pse_operations::generated::surreal::encode_canonical_result_batches(&batch.descriptor)?)?);
+                pse_operations::generated::surreal::encode_canonical_result_batches(
+                    &batch.descriptor,
+                )?,
+            )?);
             // The read ticket and prepaid allowance leave this iteration together.
             drop(payload);
             drop(owner);
@@ -229,9 +345,13 @@ async fn backup_scale_observations(store: &CanonicalStore, original: &BackupScal
 pub(crate) async fn verify_backup_scale(state: &Path, original: &BackupScaleReceipt) -> Result<()> {
     let store = CanonicalStore::connect(&CanonicalOptions::from_state(state)?).await?;
     store.open().await?;
-    let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
+    let pool: Arc<dyn pse_columnar::MemoryPool> =
+        Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
     let observed = backup_scale_observations(&store, original, &pool).await?;
-    ensure!(observed == original.descriptors, "backup scale original storage descriptors changed");
+    ensure!(
+        observed == original.descriptors,
+        "backup scale original storage descriptors changed"
+    );
     disconnect_fixture(&store).await?;
     Ok(())
 }

@@ -7,8 +7,13 @@ use crate::canonical::CanonicalError;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{fs::OpenOptions, io::{BufRead, Seek, SeekFrom, Write},
-    os::unix::fs::{OpenOptionsExt, MetadataExt}, path::{Path, PathBuf}, time::{Duration, Instant}};
+use std::{
+    fs::OpenOptions,
+    io::{BufRead, Seek, SeekFrom, Write},
+    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 
 /// Exact native request identity for an explicitly resumed frozen operation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -88,63 +93,110 @@ pub struct RecoveryControl {
 impl RecoveryControl {
     /// Select an explicit private checkpoint, or observe an in-process operation only.
     pub fn new(path: Option<PathBuf>) -> Self {
-        Self { path, checkpoint: None, resumed: false, updated: Instant::now(), lock: None }
+        Self {
+            path,
+            checkpoint: None,
+            resumed: false,
+            updated: Instant::now(),
+            lock: None,
+        }
     }
     /// Authenticate the whole input before effects and retain exact resume authority.
-    pub fn bind(&mut self, operation: &str, state: &Path, placement: Option<&Placement>,
-        destination: Option<&Path>, target: Option<&Placement>, input: &mut (impl BufRead + Seek))
-        -> Result<(), CanonicalError>
-    {
+    pub fn bind(
+        &mut self,
+        operation: &str,
+        state: &Path,
+        placement: Option<&Placement>,
+        destination: Option<&Path>,
+        target: Option<&Placement>,
+        input: &mut (impl BufRead + Seek),
+    ) -> Result<(), CanonicalError> {
         input.seek(SeekFrom::Start(0)).map_err(configuration)?;
         let mut digest = Sha256::new();
         let mut bytes = [0u8; 64 * 1024];
         loop {
             let length = input.read(&mut bytes).map_err(configuration)?;
-            if length == 0 { break; }
+            if length == 0 {
+                break;
+            }
             digest.update(&bytes[..length]);
         }
         input.seek(SeekFrom::Start(0)).map_err(configuration)?;
-        let binding = RecoveryBinding { operation: operation.into(), state: state.into(),
-            destination: destination.map(Path::to_path_buf), placement: placement.cloned(),
-            target: target.cloned(), inventory_sha256: hex::encode(digest.finalize()) };
+        let binding = RecoveryBinding {
+            operation: operation.into(),
+            state: state.into(),
+            destination: destination.map(Path::to_path_buf),
+            placement: placement.cloned(),
+            target: target.cloned(),
+            inventory_sha256: hex::encode(digest.finalize()),
+        };
         if let Some(path) = &self.path {
             absolute(path)?;
             no_symlinks(path)?;
-            let parent = path.parent().ok_or_else(|| configuration("checkpoint parent absent"))?;
+            let parent = path
+                .parent()
+                .ok_or_else(|| configuration("checkpoint parent absent"))?;
             let directory = super::StableDirectory::open(parent)?;
             if directory.before.mode() & 0o077 != 0 {
-                return Err(configuration("recovery checkpoint directory must be private"));
+                return Err(configuration(
+                    "recovery checkpoint directory must be private",
+                ));
             }
             let lock_path = path.with_extension("lock");
-            let file = OpenOptions::new().read(true).write(true).create(true).truncate(false)
-                .mode(0o600).custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-                .open(&lock_path).map_err(configuration)?;
+            let file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .mode(0o600)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+                .open(&lock_path)
+                .map_err(configuration)?;
             let before = file.metadata().map_err(configuration)?;
             super::private(&before, 1)?;
             file.try_lock().map_err(configuration)?;
-            let lock = StableFile { file, path: lock_path, before };
+            let lock = StableFile {
+                file,
+                path: lock_path,
+                before,
+            };
             lock.unchanged()?;
             self.lock = Some(lock);
             if path.try_exists().map_err(configuration)? {
                 let mut file = StableFile::open(path, false, 1)?;
                 if file.before.len() > super::ENTRY_BYTES as u64 {
-                    return Err(configuration("recovery checkpoint exceeds its bounded envelope"));
+                    return Err(configuration(
+                        "recovery checkpoint exceeds its bounded envelope",
+                    ));
                 }
-                let previous: RecoveryCheckpoint = serde_json::from_reader(&mut file.file).map_err(configuration)?;
+                let previous: RecoveryCheckpoint =
+                    serde_json::from_reader(&mut file.file).map_err(configuration)?;
                 file.unchanged()?;
                 if previous.binding != binding {
-                    return Err(configuration("recovery checkpoint differs from the exact frozen request"));
+                    return Err(configuration(
+                        "recovery checkpoint differs from the exact frozen request",
+                    ));
                 }
                 self.resumed = true;
             }
         }
-        self.checkpoint = Some(RecoveryCheckpoint { version: Version, binding,
-            attempt: uuid::Uuid::new_v4().to_string(), sequence: 0, phase: RecoveryPhase::Bound,
-            completed_entries: 0, processed_bytes: 0, processed_paths: 0, failure: None });
+        self.checkpoint = Some(RecoveryCheckpoint {
+            version: Version,
+            binding,
+            attempt: uuid::Uuid::new_v4().to_string(),
+            sequence: 0,
+            phase: RecoveryPhase::Bound,
+            completed_entries: 0,
+            processed_bytes: 0,
+            processed_paths: 0,
+            failure: None,
+        });
         self.publish()
     }
     /// Exact matching request was retained, but every physical byte still needs checking.
-    pub fn resumed(&self) -> bool { self.resumed }
+    pub fn resumed(&self) -> bool {
+        self.resumed
+    }
     /// Retain an actionable native refusal without replacing its actual last phase.
     pub fn refused(&mut self, error: &CanonicalError) -> Result<(), CanonicalError> {
         if let Some(checkpoint) = &mut self.checkpoint {
@@ -154,13 +206,17 @@ impl RecoveryControl {
     }
     /// Publish a durable phase boundary.
     pub fn phase(&mut self, phase: RecoveryPhase) -> Result<(), CanonicalError> {
-        if let Some(checkpoint) = &mut self.checkpoint { checkpoint.phase = phase; }
+        if let Some(checkpoint) = &mut self.checkpoint {
+            checkpoint.phase = phase;
+        }
         self.publish()
     }
     /// Advance a completed instance without skipping it on any later attempt.
     pub fn acknowledged(&mut self) -> Result<(), CanonicalError> {
         if let Some(checkpoint) = &mut self.checkpoint {
-            checkpoint.completed_entries = checkpoint.completed_entries.checked_add(1)
+            checkpoint.completed_entries = checkpoint
+                .completed_entries
+                .checked_add(1)
                 .ok_or_else(|| configuration("recovery entry counter overflow"))?;
         }
         self.publish()
@@ -168,37 +224,64 @@ impl RecoveryControl {
     /// Report byte work at bounded intervals, including within very large files.
     pub fn bytes(&mut self, length: usize) -> Result<(), CanonicalError> {
         if let Some(checkpoint) = &mut self.checkpoint {
-            checkpoint.processed_bytes = checkpoint.processed_bytes.checked_add(length as u64)
+            checkpoint.processed_bytes = checkpoint
+                .processed_bytes
+                .checked_add(length as u64)
                 .ok_or_else(|| configuration("recovery byte counter overflow"))?;
         }
-        if self.updated.elapsed() >= Duration::from_millis(250) { self.publish()?; }
+        if self.updated.elapsed() >= Duration::from_millis(250) {
+            self.publish()?;
+        }
         Ok(())
     }
     /// Record an actually inspected path during complete-tree validation.
     pub fn path(&mut self) -> Result<(), CanonicalError> {
         if let Some(checkpoint) = &mut self.checkpoint {
-            checkpoint.processed_paths = checkpoint.processed_paths.checked_add(1)
+            checkpoint.processed_paths = checkpoint
+                .processed_paths
+                .checked_add(1)
                 .ok_or_else(|| configuration("recovery path counter overflow"))?;
         }
         self.bytes(0)
     }
     fn publish(&mut self) -> Result<(), CanonicalError> {
-        if let Some(lock) = &self.lock { lock.unchanged()?; }
-        let Some(checkpoint) = &mut self.checkpoint else { return Ok(()); };
-        checkpoint.sequence = checkpoint.sequence.checked_add(1)
+        if let Some(lock) = &self.lock {
+            lock.unchanged()?;
+        }
+        let Some(checkpoint) = &mut self.checkpoint else {
+            return Ok(());
+        };
+        checkpoint.sequence = checkpoint
+            .sequence
+            .checked_add(1)
             .ok_or_else(|| configuration("recovery progress counter overflow"))?;
-        let Some(path) = &self.path else { return Ok(()); };
-        let parent = path.parent().ok_or_else(|| configuration("checkpoint parent absent"))?;
+        let Some(path) = &self.path else {
+            return Ok(());
+        };
+        let parent = path
+            .parent()
+            .ok_or_else(|| configuration("checkpoint parent absent"))?;
         let directory = super::StableDirectory::open(parent)?;
         if directory.before.mode() & 0o077 != 0 {
-            return Err(configuration("recovery checkpoint directory must be private"));
+            return Err(configuration(
+                "recovery checkpoint directory must be private",
+            ));
         }
         let temporary = parent.join(format!(".checkpoint-{}", uuid::Uuid::new_v4()));
-        let mut file = OpenOptions::new().write(true).create_new(true).mode(0o600)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC).open(&temporary).map_err(configuration)?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(&temporary)
+            .map_err(configuration)?;
         let bytes = serde_json::to_vec(checkpoint).map_err(configuration)?;
-        if bytes.len() > super::ENTRY_BYTES { return Err(configuration("checkpoint exceeds bounded envelope")); }
-        file.write_all(&bytes).and_then(|()| file.sync_all()).map_err(configuration)?;
+        if bytes.len() > super::ENTRY_BYTES {
+            return Err(configuration("checkpoint exceeds bounded envelope"));
+        }
+        file.write_all(&bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(configuration)?;
         directory.unchanged()?;
         std::fs::rename(&temporary, path).map_err(configuration)?;
         sync_parent(path)?;

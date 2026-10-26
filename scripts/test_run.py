@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 import json
 import os
 import signal
@@ -14,10 +13,14 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import test_resources
-from scripts import operation_lifetime
-from scripts import service_borrowers
-from scripts import arrow_validation, validation, validation_receipts
+from scripts import (
+    arrow_validation,
+    operation_lifetime,
+    service_borrowers,
+    test_resources,
+    validation,
+    validation_receipts,
+)
 from scripts import test_resources as resources
 
 if TYPE_CHECKING:

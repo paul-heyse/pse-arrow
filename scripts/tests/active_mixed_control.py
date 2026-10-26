@@ -17,8 +17,11 @@ from pse.contracts.documents import ReviewContextRequest
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse.tests.test_local_runtime import physical_documents
 from pse.tests.test_native_workflow import package_documents
-from scripts import operation_lifetime
-from scripts import active_diagnostics, native_operation, resource_store
+from scripts import (
+    active_diagnostics,
+    operation_lifetime,
+    resource_store,
+)
 
 
 def run(output: Path, seconds: float) -> dict:

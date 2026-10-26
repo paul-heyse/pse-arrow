@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import contextlib
 import fcntl
 import io
@@ -21,9 +20,7 @@ import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
-from scripts import surreal_server
+from scripts import operation_lifetime, service_borrowers, surreal_server
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping, Sequence
@@ -617,7 +614,9 @@ class TestResourceTests(unittest.TestCase):
         # A foreign empty registry must not establish service quiet.
         with (
             patch.object(
-                service_borrowers, "registry", return_value=self.root / "foreign-registry"
+                service_borrowers,
+                "registry",
+                return_value=self.root / "foreign-registry",
             ),
             self.assertRaisesRegex(resources.ResourceError, "coverage differs"),
         ):
@@ -2211,7 +2210,9 @@ print(json.dumps({'status':'released'}),flush=True)
                         )
 
                     with (
-                        patch.object(service_borrowers, "borrower_alive", side_effect=creator),
+                        patch.object(
+                            service_borrowers, "borrower_alive", side_effect=creator
+                        ),
                         self.assertRaisesRegex(
                             resources.ResourceError, "live creators"
                         ),
@@ -2378,7 +2379,9 @@ print(json.dumps({'status':'released'}),flush=True)
         creator.wait(timeout=5)
         with resources.resource_update(resource) as record:
             record.update(pid=creator.pid, start=start, boot=resources.host.boot())
-        self.assertFalse(service_borrowers.borrower_alive(resources.resource_status(resource)))
+        self.assertFalse(
+            service_borrowers.borrower_alive(resources.resource_status(resource))
+        )
         destination = self.root / "build" / ("converted-timeout-" + stage)
         observed = resources.time.monotonic()
         deadline = observed + 30

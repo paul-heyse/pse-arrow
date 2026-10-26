@@ -19,7 +19,12 @@ pub(super) trait Context<T> {
 }
 impl<T, E: Into<Error>> Context<T> for std::result::Result<T, E> {
     fn context(self, context: impl Into<String>) -> Result<T> {
-        self.map_err(|source| -> Error { Box::new(ContextFailure { context: context.into(), source: source.into() }) })
+        self.map_err(|source| -> Error {
+            Box::new(ContextFailure {
+                context: context.into(),
+                source: source.into(),
+            })
+        })
     }
 }
 impl<T> Context<T> for Option<T> {

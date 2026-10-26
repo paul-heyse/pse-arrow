@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027 -- stdlib tooling tests
 from __future__ import annotations
 
-
 import json
 import tempfile
 import unittest
@@ -15,10 +14,10 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator
 from pydantic import TypeAdapter, ValidationError
 
-from scripts import service_borrowers
 from scripts import (
     knowledge_store,
     run_inspection,
+    service_borrowers,
     test_resources,
     test_run,
     validation_result,

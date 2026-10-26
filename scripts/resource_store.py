@@ -557,8 +557,11 @@ class FileStore:
         host.remaining(deadline, 1)
 
     def create_invocation(
-        self, declaration: Mapping[str, object], *, requirement_policy: int | None = None,
-        deadline: float | None = None
+        self,
+        declaration: Mapping[str, object],
+        *,
+        requirement_policy: int | None = None,
+        deadline: float | None = None,
     ) -> None:
         deadline = clock(deadline)
         self.ensure(deadline)

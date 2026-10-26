@@ -14,7 +14,8 @@ pub mod knowledge;
 /// # Errors
 /// A malformed responsibility-owned declaration.
 pub fn registry() -> Result<&'static pse_schema::Registry, pse_schema::SchemaError> {
-    static REGISTRY: std::sync::OnceLock<Result<pse_schema::Registry, pse_schema::SchemaError>> = std::sync::OnceLock::new();
+    static REGISTRY: std::sync::OnceLock<Result<pse_schema::Registry, pse_schema::SchemaError>> =
+        std::sync::OnceLock::new();
     match REGISTRY.get_or_init(catalog::assemble) {
         Ok(registry) => Ok(registry),
         Err(error) => Err(error.clone()),

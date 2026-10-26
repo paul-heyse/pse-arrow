@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import contextlib
 import copy
 import hashlib
@@ -39,7 +38,9 @@ class PopulationTests(unittest.TestCase):
         self.readbacks = {query: [rows] for query, rows in population.checks()}
         self.queries: list[str] = []
         for replacement in (
-            patch.object(service_borrowers, "registry", return_value=self.root / "registry"),
+            patch.object(
+                service_borrowers, "registry", return_value=self.root / "registry"
+            ),
             patch.object(server, "config_for", return_value=self.config),
             patch.object(resources.host, "inherit", return_value=None),
             patch.dict("os.environ", {resources.MARKER: ""}),

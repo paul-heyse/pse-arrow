@@ -25,8 +25,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import process_observation
-from scripts import diagnostic_trace
+from scripts import diagnostic_trace, process_observation
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -757,18 +756,29 @@ def _checked_process(
         or ".." in Path(group).parts
     ):
         raise TelemetryServiceError("Telemetry process systemd incarnation is invalid")
-    process = process_observation.observe_process(pid, unit=str(units[name]), manager=observed)
-    if (process.availability is not process_observation.Availability.PRESENT
-            or process.start is None or process.executable is None
-            or process.group != group or process.invocation != invocation):
-        raise TelemetryServiceError("Telemetry process changed or is unavailable during observation; retry inspection")
+    process = process_observation.observe_process(
+        pid, unit=str(units[name]), manager=observed
+    )
+    if (
+        process.availability is not process_observation.Availability.PRESENT
+        or process.start is None
+        or process.executable is None
+        or process.group != group
+        or process.invocation != invocation
+    ):
+        raise TelemetryServiceError(
+            "Telemetry process changed or is unavailable during observation; retry inspection"
+        )
     start_ticks = int(process.start)
     binary = binaries[name]
     executable, identity = process.executable
     if not isinstance(binary, dict) or executable != binary["path"]:
         raise TelemetryServiceError("Telemetry process executable or cgroup differs")
     expected = binary.get("identity")
-    if not isinstance(expected, dict) or identity != (expected.get("device"), expected.get("inode")):
+    if not isinstance(expected, dict) or identity != (
+        expected.get("device"),
+        expected.get("inode"),
+    ):
         raise TelemetryServiceError("Telemetry running executable installation differs")
     return {
         "pid": pid,

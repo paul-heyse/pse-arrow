@@ -43,7 +43,7 @@ pub struct StudyDefinitionPoint {
     /// Capability required by the original policy facts.
     pub admitted_seed_need: Option<pse_model::study::SeedNeed>,
 }
-const STUDY_OUTCOME_SQL:&str="LET $points=SELECT key,ordinal,occurrence,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT __OUTCOME_ROWS__; LET $page=$points.fold({rows:[],bytes:0,stopped:false},|$acc,$point| {LET $bytes=$acc.bytes+bytes::len($point.outcome ?? <bytes>[])+2048; IF $acc.stopped OR ($bytes>__STUDY_BYTES__ AND array::len($acc.rows)!=0) {RETURN object::extend($acc,{stopped:true});}; RETURN {rows:array::append($acc.rows,$point),bytes:$bytes,stopped:false};}); RETURN $page.rows.map(|$point| object::extend(object::remove($point,'key'),{projection:(SELECT projection FROM ONLY type::record('canonical_study_admission_outcomes',$point.key)).projection}));";
+const STUDY_OUTCOME_SQL: &str = "LET $points=SELECT key,ordinal,occurrence,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT __OUTCOME_ROWS__; LET $page=$points.fold({rows:[],bytes:0,stopped:false},|$acc,$point| {LET $bytes=$acc.bytes+bytes::len($point.outcome ?? <bytes>[])+2048; IF $acc.stopped OR ($bytes>__STUDY_BYTES__ AND array::len($acc.rows)!=0) {RETURN object::extend($acc,{stopped:true});}; RETURN {rows:array::append($acc.rows,$point),bytes:$bytes,stopped:false};}); RETURN $page.rows.map(|$point| object::extend(object::remove($point,'key'),{projection:(SELECT projection FROM ONLY type::record('canonical_study_admission_outcomes',$point.key)).projection}));";
 const STUDY_DEFINITION_SQL: &str = "SELECT ordinal,occurrence,policy,descriptor,admission,facts,revision FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;";
 fn decode_definition_point(mut row: Object) -> Result<StudyDefinitionPoint, CanonicalError> {
     let ordinal = codec::decode_uint(codec::required(&mut row, "ordinal")?)?;
@@ -318,22 +318,37 @@ impl StudyOutcomePoint {
     pub fn outcome(&self) -> Result<PointOutcome, CanonicalError> {
         let outcome: PointOutcome = decode(self.outcome.as_slice())?;
         if u64::from(outcome.key.0) != self.occurrence {
-            return Err(CanonicalError::Configuration("summary outcome occurrence differs".into()));
+            return Err(CanonicalError::Configuration(
+                "summary outcome occurrence differs".into(),
+            ));
         }
         Ok(outcome)
     }
 }
 fn decode_outcome_point(mut row: Object) -> Result<StudyOutcomePoint, CanonicalError> {
     use codec::{decode_boolean, decode_bytes, decode_uint, required};
-    if !decode_boolean(required(&mut row,"settled")?)? { return Err(CanonicalError::Configuration("summary occurrence is not settled".into())); }
-    let point=StudyOutcomePoint {
-        ordinal:decode_uint(required(&mut row,"ordinal")?)?, occurrence:decode_uint(required(&mut row,"occurrence")?)?,
-        projection:row.remove("projection").filter(|v| !matches!(v,Value::None|Value::Null)).map(decode_bytes).transpose()?,
-        outcome:decode_bytes(required(&mut row,"outcome")?)?,
+    if !decode_boolean(required(&mut row, "settled")?)? {
+        return Err(CanonicalError::Configuration(
+            "summary occurrence is not settled".into(),
+        ));
+    }
+    let point = StudyOutcomePoint {
+        ordinal: decode_uint(required(&mut row, "ordinal")?)?,
+        occurrence: decode_uint(required(&mut row, "occurrence")?)?,
+        projection: row
+            .remove("projection")
+            .filter(|v| !matches!(v, Value::None | Value::Null))
+            .map(decode_bytes)
+            .transpose()?,
+        outcome: decode_bytes(required(&mut row, "outcome")?)?,
     };
-    if !row.is_empty() {return Err(codec::CodecError::UnknownFields.into());}
-    if let Some(projection)=&point.projection { bounded(projection.as_slice(),1024)?; }
-    bounded(point.outcome.as_slice(),128*1024)?;
+    if !row.is_empty() {
+        return Err(codec::CodecError::UnknownFields.into());
+    }
+    if let Some(projection) = &point.projection {
+        bounded(projection.as_slice(), 1024)?;
+    }
+    bounded(point.outcome.as_slice(), 128 * 1024)?;
     Ok(point)
 }
 
@@ -787,16 +802,29 @@ fn occurrence_dependencies(
     Ok(result)
 }
 
-fn population_digest(study: &str, run: &RunRequest, metadata: &[u8], points: &[NewOccurrence]) -> Result<String, CanonicalError> {
-    let mut population=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-    population.str("pse.study.installation.v1").str(study).part(metadata);
-    let (parent, _)=crate::canonical_execution::run_request_receipt(run)?;
+fn population_digest(
+    study: &str,
+    run: &RunRequest,
+    metadata: &[u8],
+    points: &[NewOccurrence],
+) -> Result<String, CanonicalError> {
+    let mut population = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+    population
+        .str("pse.study.installation.v1")
+        .str(study)
+        .part(metadata);
+    let (parent, _) = crate::canonical_execution::run_request_receipt(run)?;
     population.part(&encode(&wire::encode_canonical_runs(&parent)?)?);
     for point in points {
-        bounded(&point.descriptor,512*1024)?;
-        if let Some(projection)=&point.projection {bounded(projection,1024)?;}
-        population.part(&encode(&point.policy)?).part(&point.descriptor).part(&encode(&point.projection)?);
-        let (receipt,_)=crate::canonical_execution::run_request_receipt(&point.run)?;
+        bounded(&point.descriptor, 512 * 1024)?;
+        if let Some(projection) = &point.projection {
+            bounded(projection, 1024)?;
+        }
+        population
+            .part(&encode(&point.policy)?)
+            .part(&point.descriptor)
+            .part(&encode(&point.projection)?);
+        let (receipt, _) = crate::canonical_execution::run_request_receipt(&point.run)?;
         population.part(&encode(&wire::encode_canonical_runs(&receipt)?)?);
     }
     Ok(population.finish_hash().to_hex())
@@ -1248,8 +1276,14 @@ impl CanonicalStore {
     }
 
     async fn install_study_page(
-        &self, study: &str, digest: &str, phase: &str, cursor: u64,
-        points: &[Object], runs: &[Object], edges: &[Object],
+        &self,
+        study: &str,
+        digest: &str,
+        phase: &str,
+        cursor: u64,
+        points: &[Object],
+        runs: &[Object],
+        edges: &[Object],
     ) -> Result<(), CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut framing=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
@@ -1709,15 +1743,46 @@ impl CanonicalStore {
         after: Option<u64>,
     ) -> Result<Vec<StudyOutcomePoint>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let sql=STUDY_OUTCOME_SQL.replace("__OUTCOME_ROWS__",&pse_schema::catalog::study_workbench::STUDY_OUTCOME_PAGE_ROWS.to_string()).replace("__STUDY_BYTES__",&pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES.to_string());
-            let mut response = protected_query("canonical_studies::study_outcome_page", || Ok(self.db.metadata_query(crate::canonical::MetadataResponse::StudyPage,crate::canonical_history::study_query(&sql,"study"))
-                .bind(("study", study.to_owned()))
-                .bind(("after", after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
-            response.take::<Vec<Object>>(0)?.into_iter().map(decode_outcome_point).collect()
-        }).await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let sql = STUDY_OUTCOME_SQL
+                        .replace(
+                            "__OUTCOME_ROWS__",
+                            &pse_schema::catalog::study_workbench::STUDY_OUTCOME_PAGE_ROWS
+                                .to_string(),
+                        )
+                        .replace(
+                            "__STUDY_BYTES__",
+                            &pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES.to_string(),
+                        );
+                    let mut response =
+                        protected_query("canonical_studies::study_outcome_page", || {
+                            Ok(self
+                                .db
+                                .metadata_query(
+                                    crate::canonical::MetadataResponse::StudyPage,
+                                    crate::canonical_history::study_query(&sql, "study"),
+                                )
+                                .bind(("study", study.to_owned()))
+                                .bind((
+                                    "after",
+                                    after
+                                        .map(codec::encode_uint)
+                                        .transpose()?
+                                        .unwrap_or(codec::encode_int(-1)?),
+                                )))
+                        })
+                        .await?;
+                    response
+                        .take::<Vec<Object>>(0)?
+                        .into_iter()
+                        .map(decode_outcome_point)
+                        .collect()
+                })
+                .await
+            })
+            .await
     }
     /// One snapshot supplies only the candidate and immediate decision premises.
     pub async fn study_scope(&self, point: &str) -> Result<StudyScope, CanonicalError> {
@@ -2712,19 +2777,25 @@ mod canonical_studies_server_unit {
             .unwrap();
         assert_eq!(headers.headers.len(), 1);
         let frozen = store
-            .capture_study_workbench("workbench-native-cut",&filter,1,3)
+            .capture_study_workbench("workbench-native-cut", &filter, 1, 3)
             .await
             .unwrap();
-        assert_eq!(frozen.member_count,3);
-        let members=frozen.capture.member_page(None,3).await.unwrap();
-        assert_eq!(members.rows.len(),3);
-        assert_eq!(members.rows[0].value.facts.lifecycle, StudyPointState::Failed);
+        assert_eq!(frozen.member_count, 3);
+        let members = frozen.capture.member_page(None, 3).await.unwrap();
+        assert_eq!(members.rows.len(), 3);
+        assert_eq!(
+            members.rows[0].value.facts.lifecycle,
+            StudyPointState::Failed
+        );
         assert!(members.rows[0].value.attempt.is_some());
         assert!(members.rows[1].value.attempt.is_none());
-        assert_eq!(members.rows[1].value.facts.lifecycle, StudyPointState::Pending);
+        assert_eq!(
+            members.rows[1].value.facts.lifecycle,
+            StudyPointState::Pending
+        );
         assert!(
             store
-                .capture_study_workbench("workbench-native-narrow",&filter,1,2)
+                .capture_study_workbench("workbench-native-narrow", &filter, 1, 2)
                 .await
                 .is_err()
         );
@@ -2733,10 +2804,10 @@ mod canonical_studies_server_unit {
             ..Default::default()
         };
         let empty = store
-            .capture_study_workbench("workbench-native-empty",&empty,1,1)
+            .capture_study_workbench("workbench-native-empty", &empty, 1, 1)
             .await
             .unwrap();
-        assert_eq!((empty.header_count,empty.member_count),(0,0));
+        assert_eq!((empty.header_count, empty.member_count), (0, 0));
         drop(frozen);
         drop(empty);
         store.result_read_drain.drain().await.unwrap();
@@ -3223,7 +3294,14 @@ mod canonical_studies_server_unit {
                 .is_err()
         );
         let admitted = store
-            .complete_study_admission(&scope, &second, b"selected", None, Some(SeedNeed::Required), None)
+            .complete_study_admission(
+                &scope,
+                &second,
+                b"selected",
+                None,
+                Some(SeedNeed::Required),
+                None,
+            )
             .await
             .unwrap();
         assert_eq!(point_facts(&admitted).unwrap().attempt_count, 0);

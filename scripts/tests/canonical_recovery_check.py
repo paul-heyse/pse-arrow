@@ -43,25 +43,41 @@ def start_after_fixture_stop(state: Path, expected: dict[str, object]) -> None:
     changes the production startup policy.
     """
     with server.lifecycle_reservation(state, purpose="startup"):
+
         def require_stopped() -> dict[str, object]:
             current = server.config_for(state)
-            if (not isinstance(expected.get("instance_id"), str)
-                    or not expected["instance_id"]
-                    or any(current.get(key) != expected.get(key)
-                           for key in ("instance_id", "service_supervisor", "resources"))
-                    or current.get("accepting_writes") is not False
-                    or current.get("admission") != "quiesced"):
-                raise server.SupervisorError("Private recovery activation changed its original stopped owner")
+            if (
+                not isinstance(expected.get("instance_id"), str)
+                or not expected["instance_id"]
+                or any(
+                    current.get(key) != expected.get(key)
+                    for key in ("instance_id", "service_supervisor", "resources")
+                )
+                or current.get("accepting_writes") is not False
+                or current.get("admission") != "quiesced"
+            ):
+                raise server.SupervisorError(
+                    "Private recovery activation changed its original stopped owner"
+                )
             observed = server.service_readiness(state, current)
             unit = server.unit_name(state)
             group = observed.manager.get("ControlGroup")
-            if (observed.phase is not server.Readiness.ACTIONABLE_ABSENT
-                    or observed.state != state or observed.instance_id != current["instance_id"]
-                    or observed.unit != unit or observed.listener_owned
-                    or observed.manager.get("ActiveState") not in {"inactive", "failed"}
-                    or not isinstance(group, str)
-                    or (group and (Path(group).name != unit or server.group_populated(group)))):
-                raise server.SupervisorError("Private recovery activation requires its exact inactive empty service")
+            if (
+                observed.phase is not server.Readiness.ACTIONABLE_ABSENT
+                or observed.state != state
+                or observed.instance_id != current["instance_id"]
+                or observed.unit != unit
+                or observed.listener_owned
+                or observed.manager.get("ActiveState") not in {"inactive", "failed"}
+                or not isinstance(group, str)
+                or (
+                    group
+                    and (Path(group).name != unit or server.group_populated(group))
+                )
+            ):
+                raise server.SupervisorError(
+                    "Private recovery activation requires its exact inactive empty service"
+                )
             return current
 
         require_stopped()
@@ -202,7 +218,11 @@ def receiver_equivalence(
         manifest = server.read_json(generation / "generation.json")
         for name in ["generation.json", *server.object_mapping(manifest["files"])]:
             artifact = generation / name
-            mode = 0o700 if name in {"scripts/sccache", "bin/pse-worker", "bin/pse-deployment"} else 0o600
+            mode = (
+                0o700
+                if name in {"scripts/sccache", "bin/pse-worker", "bin/pse-deployment"}
+                else 0o600
+            )
             if (
                 stat.S_IMODE(artifact.stat().st_mode) != mode
                 or artifact.stat().st_uid != os.getuid()
@@ -475,7 +495,9 @@ def journey(
     backup_scale_bytes: int = 0,
 ) -> None:
     if backup_scale_bytes not in {0, 1 << 30}:
-        raise server.SupervisorError("Private backup scale is disabled (0) or explicitly 1073741824 bytes")
+        raise server.SupervisorError(
+            "Private backup scale is disabled (0) or explicitly 1073741824 bytes"
+        )
     physical_helper = payload_verifier or binary.with_name("pse-canonical-recovery")
     profile_args = profile_arguments(profile_state)
     selected = None
@@ -507,8 +529,16 @@ def journey(
         input_hashes = science.prepare_inputs(inputs) if scientific else None
         intent = directory / "creation-intent.json"
         scale_receipt = directory / "original-storage.json"
-        scale_arguments = (["--backup-scale-bytes", str(backup_scale_bytes),
-                            "--backup-scale-receipt", str(scale_receipt)] if backup_scale_bytes else [])
+        scale_arguments = (
+            [
+                "--backup-scale-bytes",
+                str(backup_scale_bytes),
+                "--backup-scale-receipt",
+                str(scale_receipt),
+            ]
+            if backup_scale_bytes
+            else []
+        )
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             port = probe.getsockname()[1]
@@ -576,9 +606,18 @@ def journey(
             # initializer owner before ordinary admission is opened.
             server.initialize(
                 state,
-                [*command, str(state), "--seed", "--creation-intent", str(intent), *scale_arguments],
+                [
+                    *command,
+                    str(state),
+                    "--seed",
+                    "--creation-intent",
+                    str(intent),
+                    *scale_arguments,
+                ],
             )
-            scale_receipt_digest = server.file_digest(scale_receipt) if backup_scale_bytes else None
+            scale_receipt_digest = (
+                server.file_digest(scale_receipt) if backup_scale_bytes else None
+            )
             config = server.config_for(state)
             if (
                 "fresh_root_bootstrap" in config
@@ -678,8 +717,13 @@ def journey(
                     config["admission"] = "quiesced"
                     server.write_json(state / "config.json", config)
                 run_effect([*command, str(state), *scale_arguments], timeout=120)
-                if backup_scale_bytes and server.file_digest(scale_receipt) != scale_receipt_digest:
-                    raise server.SupervisorError("Original external storage receipt changed during reopen")
+                if (
+                    backup_scale_bytes
+                    and server.file_digest(scale_receipt) != scale_receipt_digest
+                ):
+                    raise server.SupervisorError(
+                        "Original external storage receipt changed during reopen"
+                    )
                 if server_mib == lower_server_mib:
                     with server.lifecycle_reservation(state):
                         server.stop(state, config)
@@ -700,12 +744,21 @@ def journey(
                     )
                 if backup_scale_bytes:
                     inventory = server.object_inventory(inspected["payload_inventory"])
-                    sealed_bytes = sum(server.integer(server.object_mapping(fingerprint)["bytes"])
-                                       for entry in inventory
-                                       for name, fingerprint in server.object_mapping(entry["files"]).items()
-                                       if name.endswith(".sealed"))
-                    if sealed_bytes < backup_scale_bytes or server.file_digest(scale_receipt) != scale_receipt_digest:
-                        raise server.SupervisorError("Backup lacks original one GiB sealed storage closure")
+                    sealed_bytes = sum(
+                        server.integer(server.object_mapping(fingerprint)["bytes"])
+                        for entry in inventory
+                        for name, fingerprint in server.object_mapping(
+                            entry["files"]
+                        ).items()
+                        if name.endswith(".sealed")
+                    )
+                    if (
+                        sealed_bytes < backup_scale_bytes
+                        or server.file_digest(scale_receipt) != scale_receipt_digest
+                    ):
+                        raise server.SupervisorError(
+                            "Backup lacks original one GiB sealed storage closure"
+                        )
                 application = server.object_mapping(inspected["application_inventory"])
                 tables = server.object_mapping(application["tables"])
                 if (
@@ -766,8 +819,13 @@ def journey(
                         server.SUBSTRATE_INTERPRETATION,
                         [*command, str(restored), *scale_arguments],
                     )
-                    if backup_scale_bytes and server.file_digest(scale_receipt) != scale_receipt_digest:
-                        raise server.SupervisorError("Original external storage receipt changed during restore")
+                    if (
+                        backup_scale_bytes
+                        and server.file_digest(scale_receipt) != scale_receipt_digest
+                    ):
+                        raise server.SupervisorError(
+                            "Original external storage receipt changed during restore"
+                        )
                     start_after_fixture_stop(restored, restored_config)
                 if reference:
                     group = server.systemctl(
@@ -835,8 +893,11 @@ def journey(
             if scientific
             else ""
         )
-        + ("; one GiB sealed plus eight inline bytes matched the original external storage receipt after reopen/restore"
-           if backup_scale_bytes else "")
+        + (
+            "; one GiB sealed plus eight inline bytes matched the original external storage receipt after reopen/restore"
+            if backup_scale_bytes
+            else ""
+        )
     )
 
 
@@ -861,7 +922,10 @@ def main() -> None:
         help="Also rebuild/import/reopen explicit authored and physical documents and run native Ipopt with original scientific checks; requires the original reference profile and linked Python.",
     )
     parser.add_argument(
-        "--backup-scale-bytes", type=int, choices=(0, 1 << 30), default=0,
+        "--backup-scale-bytes",
+        type=int,
+        choices=(0, 1 << 30),
+        default=0,
         help="Explicit private mixed storage qualification; 0 disables it, 1073741824 adds one GiB sealed plus eight inline bytes.",
     )
     parser.add_argument(

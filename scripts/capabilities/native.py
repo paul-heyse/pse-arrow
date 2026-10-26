@@ -26,7 +26,6 @@ from scripts.capabilities.native_contracts import (
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.process import run_worker
 from scripts.capabilities.responses import ReadResult, bounded
-from scripts.capabilities.workers import WORKERS
 
 _PENDING: set[asyncio.Task[dict[str, JsonValue]]] = set()
 
@@ -228,7 +227,11 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
     specs: list[Capability] = []
     tools: dict[str, Tool] = {}
     for binding in BINDINGS:
-        schemas = evidence_schemas if binding.operation == "evidence_compare" else product_schemas
+        schemas = (
+            evidence_schemas
+            if binding.operation == "evidence_compare"
+            else product_schemas
+        )
         host_schema = binding.request.model_json_schema()
         parameters = schemas.envelope(
             host_schema, binding.documents, tuple(host_schema.get("required", ()))
@@ -259,9 +262,11 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             worker_calls=(binding.worker,),
             requirements=binding.requirements,
             prerequisites=(
-                ("Existing explicitly built pse-evidence executable; no scientific extension or service is used.",)
-                if binding.operation == "evidence_compare" else
                 (
+                    "Existing explicitly built pse-evidence executable; no scientific extension or service is used.",
+                )
+                if binding.operation == "evidence_compare"
+                else (
                     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner.",
                 )
                 if binding.prepare_import

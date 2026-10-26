@@ -60,22 +60,35 @@ def run(
         raise ValueError("supply nonempty independent expected comparison fields")
     if output.exists():
         raise ValueError("select a new inquiry output directory")
+    import msgspec  # noqa: PLC0415 -- private generated contract consumer.
     from msgspec.structs import replace  # noqa: PLC0415 -- selected inquiry only.
 
-    import msgspec  # noqa: PLC0415 -- private generated contract consumer.
     from scripts.capabilities import evidence_worker  # noqa: PLC0415
     from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
-    from scripts.generated.evidence_comparison_request_input import EvidenceComparisonRequest  # noqa: PLC0415
-    from scripts.generated.evidence_comparison_output import EvidenceComparison  # noqa: PLC0415
+    from scripts.generated.evidence_comparison_output import (
+        EvidenceComparison,
+    )
+    from scripts.generated.evidence_comparison_request_input import (
+        EvidenceComparisonRequest,
+    )
 
     request = msgspec.json.decode(request_raw, type=EvidenceComparisonRequest)
     fingerprint = SchemaSet(evidence_worker.ROOT, family="evidence").fingerprint
+
     def compare(supplied: bytes) -> EvidenceComparison:
-        result = evidence_worker.execute({"schema_set_fingerprint":fingerprint,
-            "request":json.loads(supplied),"snapshots":json.loads(snapshots),"observations":[]})
+        result = evidence_worker.execute(
+            {
+                "schema_set_fingerprint": fingerprint,
+                "request": json.loads(supplied),
+                "snapshots": json.loads(snapshots),
+                "observations": [],
+            }
+        )
         if result.get("outcome") != "observed":
             raise RuntimeError("original private evidence CLI refused the inquiry")
-        return msgspec.json.decode(msgspec.json.encode(result["document"]), type=EvidenceComparison)
+        return msgspec.json.decode(
+            msgspec.json.encode(result["document"]), type=EvidenceComparison
+        )
 
     detailed = compare(request_raw)
     detailed_raw = msgspec.json.encode(detailed)

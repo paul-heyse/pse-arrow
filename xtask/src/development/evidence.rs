@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Disposable evidence projections on the selected service. Never scientific authority.
-use pse_operations::{canonical::{self, CanonicalError}, transport::{self, lifetime::ConnectionAccess, original_deadline, within_clock}};
 use crate::generated::store::evidence as wire;
+use pse_operations::{
+    canonical::{self, CanonicalError},
+    transport::{self, lifetime::ConnectionAccess, original_deadline, within_clock},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, path::Path, sync::Arc};
@@ -733,13 +736,15 @@ impl EvidenceStore {
     }
     pub(crate) async fn marker(
         &self,
-    ) -> Result<crate::generated::model::runtime::evidence_interpretations::Row, EvidenceError> {
+    ) -> Result<crate::generated::model::runtime::evidence_interpretations::Row, EvidenceError>
+    {
         self.marker_checked(true).await
     }
     async fn marker_checked(
         &self,
         compatible: bool,
-    ) -> Result<crate::generated::model::runtime::evidence_interpretations::Row, EvidenceError> {
+    ) -> Result<crate::generated::model::runtime::evidence_interpretations::Row, EvidenceError>
+    {
         let mut response = transport::bounded_query(
             self.query("SELECT * FROM ONLY evidence_interpretations:current;")?,
         )
@@ -753,7 +758,8 @@ impl EvidenceStore {
         &self,
         object: Object,
         compatible: bool,
-    ) -> Result<crate::generated::model::runtime::evidence_interpretations::Row, EvidenceError> {
+    ) -> Result<crate::generated::model::runtime::evidence_interpretations::Row, EvidenceError>
+    {
         let marker = wire::decode_evidence_interpretations(object)?;
         if marker.interpretation != wire::INTERPRETATION
             || (compatible && marker.schema_digest != wire::SCHEMA_DIGEST)
@@ -782,7 +788,8 @@ impl EvidenceStore {
     /// Drain the actual SDK connection, reusing existing physical lifetime semantics.
     pub async fn disconnect(&self) -> Result<(), EvidenceError> {
         let db = self.db.clone();
-        self.access.disconnect(move || async move { db.disconnect().await.map_err(Into::into) })
+        self.access
+            .disconnect(move || async move { db.disconnect().await.map_err(Into::into) })
             .await?;
         Ok(())
     }

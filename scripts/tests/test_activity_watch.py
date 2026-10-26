@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027 -- stdlib setup controls
 from __future__ import annotations
 
-
 import contextlib
 import io
 import json
@@ -17,9 +16,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
-from scripts import activity, test_resources, test_run
+from scripts import (
+    activity,
+    operation_lifetime,
+    service_borrowers,
+    test_resources,
+    test_run,
+)
 from scripts import activity_watch as watch
 
 

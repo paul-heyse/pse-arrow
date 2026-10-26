@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Disposable tooling projections. Original host artifacts retain authority and custody.
+use arrow_schema::DataType as D;
 use pse_schema::declaration::{column, enumeration, relation};
 use pse_schema::{
     RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
 };
-use arrow_schema::DataType as D;
 /// Tooling interpretation, independent from scientific interpretation.
 pub const INTERPRETATION: &str = "pse-tooling-evidence-v2";
 /// Native indexes installed only in the tooling database.

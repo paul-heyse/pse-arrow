@@ -42,17 +42,14 @@ class DeadlineOptions(TypedDict, total=False):
     deadline: float
 
 
-
 def deadline_options(deadline: float | None) -> DeadlineOptions:
     return {"deadline": deadline} if deadline is not None else {}
-
 
 
 class ScopeOwner(TypedDict):
     unit: str
     group: str
     invocation: str
-
 
 
 def write_json(path: Path, value: Mapping[str, object]) -> None:
@@ -66,10 +63,8 @@ def write_json(path: Path, value: Mapping[str, object]) -> None:
     temporary.replace(path)
 
 
-
 class DeadlineExpiredError(ValueError):
     """An offered absolute native admission/control clock expired."""
-
 
 
 def admission_remaining(deadline: float) -> float:
@@ -77,7 +72,6 @@ def admission_remaining(deadline: float) -> float:
     if remaining <= 0:
         raise DeadlineExpiredError("native operation original admission clock expired")
     return remaining
-
 
 
 def manager_control_environment() -> dict[str, str]:
@@ -88,12 +82,10 @@ def manager_control_environment() -> dict[str, str]:
     return {**os.environ, **systemd_environment.manager_environment()}
 
 
-
 def _manager_detail(value: str | bytes | None, limit: int) -> str:
     raw = value.encode() if isinstance(value, str) else value or b""
     suffix = " [truncated]" if len(raw) > limit else ""
     return raw[:limit].decode(errors="replace").strip() + suffix
-
 
 
 def _manager_endpoint(environment: Mapping[str, str]) -> str:
@@ -101,7 +93,6 @@ def _manager_endpoint(environment: Mapping[str, str]) -> str:
         f"{name}={_manager_detail(environment.get(name), 256)}"
         for name in ("XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
     )
-
 
 
 class ManagerObservationTimeout(subprocess.TimeoutExpired):
@@ -117,7 +108,6 @@ class ManagerObservationTimeout(subprocess.TimeoutExpired):
         return (
             f"{super().__str__()} ({self.context}); stderr: {self.stderr or '(empty)'}"
         )
-
 
 
 def manager_observation(*arguments: str, deadline: float | None = None) -> str:
@@ -154,7 +144,6 @@ def manager_observation(*arguments: str, deadline: float | None = None) -> str:
     return result.stdout
 
 
-
 def unit_observation(
     unit: str, *, deadline: float | None = None, properties: tuple[str, ...] = ()
 ) -> dict[str, str]:
@@ -182,7 +171,6 @@ def unit_observation(
     ):
         raise ValueError(f"incomplete systemctl properties for {unit} ({context})")
     return fields
-
 
 
 def scope_owner(*, deadline: float | None = None) -> ScopeOwner | None:
@@ -224,14 +212,12 @@ def scope_owner(*, deadline: float | None = None) -> ScopeOwner | None:
         return {"unit": unit, "group": control, "invocation": invocation}
 
 
-
 class DrainPhase(Enum):
     COMPLETE = "complete"
     POPULATED = "populated"
     ACTIVE = "active"
     MISMATCH = "mismatch"
     UNAVAILABLE = "unavailable"
-
 
 
 @dataclass(frozen=True)
@@ -250,7 +236,6 @@ class DrainObservation:
 
     def __bool__(self) -> bool:
         raise TypeError("Consume DrainObservation.complete or its phase explicitly")
-
 
 
 def drained(
@@ -334,7 +319,6 @@ def drained(
         )
 
 
-
 def composer_registrations(
     record: Mapping[str, object],
 ) -> dict[str, dict[str, object]]:
@@ -347,7 +331,6 @@ def composer_registrations(
     ):
         raise ValueError("invalid selected terminal associations")
     return selected
-
 
 
 def terminal_guard_complete(
@@ -440,4 +423,3 @@ def terminal_guard_complete(
         ) == resource_store.digest(evidence)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):
         return False
-

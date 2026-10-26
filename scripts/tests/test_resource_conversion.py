@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
-
 import hashlib
 import os
 import tempfile
@@ -15,11 +14,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
+from scripts import (
+    operation_lifetime,
+    service_borrowers,
+    test_requirements,
+    test_resources,
+)
 from scripts import resource_conversion as conversion
 from scripts import resource_store as files
-from scripts import test_requirements, test_resources
 
 
 class ResourceConversionTests(unittest.TestCase):

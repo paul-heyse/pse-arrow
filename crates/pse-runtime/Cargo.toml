@@ -26,7 +26,11 @@ force-validate = [
   "pse-schema/force-validate",
 ]
 default = []
-product-operators = ["dep:clap", "dep:sha2", "pse-operations/canonical-maintenance"]
+product-operators = [
+  "dep:clap",
+  "dep:sha2",
+  "pse-operations/canonical-maintenance",
+]
 diagnostic-taskdump = ["tokio/taskdump"]
 compiled-evaluator = ["pse-math/compiled-evaluator"]
 canonical-tests = ["pse-operations/canonical-tests"]

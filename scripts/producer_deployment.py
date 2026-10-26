@@ -44,8 +44,6 @@ ROLES: tuple[ProducerRole, ...] = (
 )
 
 
-
-
 def input_path(root: Path, name: str, environment: Mapping[str, str]) -> Path:
     value = environment.get(name)
     if not value:
@@ -99,16 +97,6 @@ def reviewed_inputs(
     return result
 
 
-
-
-
-
-
-
-
-
-
-
 def verify_artifact(
     root: Path, receipt: Path, artifact: Path, environment: Mapping[str, str]
 ) -> dict[str, object]:
@@ -132,7 +120,9 @@ def verify_artifact(
             f"Actual artifact/consumed-input association refused: {result.stderr}"
         )
     value = json.loads(result.stdout)
-    if not isinstance(value, dict) or value != producer_receipts.file_observation(artifact):
+    if not isinstance(value, dict) or value != producer_receipts.file_observation(
+        artifact
+    ):
         raise ValueError("Independent artifact observation differs from actual file")
     return value
 

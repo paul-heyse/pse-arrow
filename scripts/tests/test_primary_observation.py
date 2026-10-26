@@ -10,8 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import host_admission, native_operation
+from scripts import host_admission, operation_lifetime
 from scripts import surreal_server as server
 
 
@@ -198,7 +197,9 @@ class PrimaryObservationTests(unittest.TestCase):
                 self.assertFalse(self.diagnostics(marker)["available"])
         server.write_json(self.state / "primary-receiver.json", marker)
         with patch.object(
-            operation_lifetime, "start_identity", side_effect=FileNotFoundError("exited")
+            operation_lifetime,
+            "start_identity",
+            side_effect=FileNotFoundError("exited"),
         ):
             self.assertFalse(
                 server.primary_diagnostics(self.state, "case", marker)["available"]

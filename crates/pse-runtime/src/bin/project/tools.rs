@@ -32,7 +32,7 @@ pub(crate) struct ProjectArgs {
 #[derive(Debug, Subcommand)]
 enum ProjectCommand {
     /// Verify and inspect only a supplied logical project pack, without opening a service.
-        InspectPack {
+    InspectPack {
         #[arg(long)]
         input: PathBuf,
         #[arg(long, default_value_t = super::project_runtime::PROJECT_DOCUMENT_BYTES)]
@@ -53,7 +53,7 @@ enum ProjectCommand {
         request: PathBuf,
     },
     /// Execute a typed runtime action (admission, comparison, merge, history or discovery).
-        Runtime(super::project_runtime::RuntimeArgs),
+    Runtime(super::project_runtime::RuntimeArgs),
     /// Create project organization, with an original caller-selected operation identity.
     Create {
         #[arg(long)]
@@ -144,7 +144,7 @@ fn output(result: serde_json::Value) -> Result<()> {
 pub(crate) fn run(args: ProjectArgs) -> Result<()> {
     ensure!(args.timeout_ms > 0, "positive original allowance required");
     // Offline source inspection must precede all service, environment and executor selection.
-        if let ProjectCommand::InspectPack {
+    if let ProjectCommand::InspectPack {
         input,
         maximum_document_bytes,
     } = &args.command
@@ -173,8 +173,8 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
             let result: Result<serde_json::Value> = async {
                 store.open().await?;
                 match args.command {
-                                        ProjectCommand::InspectPack { .. } => {
-                        return Err("offline project inspection was not dispatched".into())
+                    ProjectCommand::InspectPack { .. } => {
+                        return Err("offline project inspection was not dispatched".into());
                     }
                     ProjectCommand::Navigate {
                         operation,
@@ -201,7 +201,7 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
                                 .await?,
                         )
                     }
-                                        ProjectCommand::Runtime(input) => {
+                    ProjectCommand::Runtime(input) => {
                         super::project_runtime::run(&store, input, deadline).await
                     }
                     ProjectCommand::Create {

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Disposable owner-native concepts above exact immutable source provenance.
-use pse_operations::{canonical::{self, CanonicalError}, transport::{self, original_deadline}};
-use crate::generated::store::knowledge as wire;
-use crate::development::{
-    evidence::{EvidenceAccess, EvidenceError, EvidenceStore, within_allowance},
+use crate::development::catalog::knowledge as declaration;
+use crate::development::evidence::{
+    EvidenceAccess, EvidenceError, EvidenceStore, within_allowance,
 };
 pub use crate::generated::model::enums::{
     KnowledgeDirection as Direction, KnowledgeDocumentRole as DocumentRole,
@@ -19,7 +18,11 @@ use crate::generated::model::{
         knowledge_subjects,
     },
 };
-use crate::development::catalog::knowledge as declaration;
+use crate::generated::store::knowledge as wire;
+use pse_operations::{
+    canonical::{self, CanonicalError},
+    transport::{self, original_deadline},
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -1141,7 +1144,10 @@ impl EvidenceStore {
         }
         let mut record = records.remove(0);
         self.decode_marker(
-            as_object(pse_operations::canonical_codec::required(&mut record, "marker")?)?,
+            as_object(pse_operations::canonical_codec::required(
+                &mut record,
+                "marker",
+            )?)?,
             true,
         )?;
         let generation = wire::decode_knowledge_generations(as_object(

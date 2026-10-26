@@ -10,7 +10,6 @@ scripts.tests.plan52_observation_check. Receipts survive failures.
 # ruff: noqa: PT009 -- stdlib setup controls
 from __future__ import annotations
 
-
 import json
 import os
 import signal
@@ -24,15 +23,14 @@ from unittest.mock import patch
 
 import msgspec
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import (
     activity_watch as watch,
 )
 from scripts import (
     build_observation,
     host_admission,
-    native_operation,
+    operation_lifetime,
+    service_borrowers,
     test_resources,
     test_run,
 )
@@ -55,7 +53,10 @@ def worker(mode: str, directory: Path) -> int:
     if mode == "pressure":
         operation_lifetime.write_json(
             directory / "ready.json",
-            {"group": operation_lifetime.process_group(os.getpid()), "pid": os.getpid()},
+            {
+                "group": operation_lifetime.process_group(os.getpid()),
+                "pid": os.getpid(),
+            },
         )
         wait_file(directory / "cpu-start", deadline)
         stop = time.monotonic() + 1.5

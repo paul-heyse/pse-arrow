@@ -4,6 +4,7 @@
 //! Borrowed native SDK adapter. Logical-operation clocks include local queues,
 //! definite-conflict retries and complete transport response processing.
 
+pub(crate) use crate::transport::{operation_scope, original_deadline, within_clock};
 use std::{
     borrow::Cow,
     sync::{
@@ -13,7 +14,6 @@ use std::{
     time::Duration,
 };
 use surrealdb::types::Object;
-pub(crate) use crate::transport::{original_deadline, within_clock, operation_scope};
 use surrealdb::{Surreal, engine::remote::grpc::Client, opt::RequestContext};
 
 #[cfg(all(test, feature = "canonical-tests"))]

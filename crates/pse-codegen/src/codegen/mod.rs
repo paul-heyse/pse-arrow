@@ -226,8 +226,18 @@ mod tests {
         let after = generate(&extended, Language::Surreal).unwrap();
         let canonical = PathBuf::from("crates/pse-operations/src/generated/surreal.rs");
         assert_eq!(before.files[&canonical], after.files[&canonical]);
-        assert!(!before.files.keys().any(|path| path.ends_with("evidence.surql")));
-        assert!(!after.files.keys().any(|path| path.ends_with("evidence.surql")));
+        assert!(
+            !before
+                .files
+                .keys()
+                .any(|path| path.ends_with("evidence.surql"))
+        );
+        assert!(
+            !after
+                .files
+                .keys()
+                .any(|path| path.ends_with("evidence.surql"))
+        );
     }
 
     #[test]

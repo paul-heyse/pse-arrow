@@ -19,10 +19,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
-from scripts import operation_lifetime
+from scripts import operation_lifetime, surrealkit_source
 from scripts import surreal_server as server
 from scripts import surrealkit_maintenance as tool
-from scripts import surrealkit_source
 from scripts.tests import surrealkit_rollout_fixture_check as probe
 
 if TYPE_CHECKING:

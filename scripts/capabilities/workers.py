@@ -41,7 +41,11 @@ class Worker:
             worker_bindings,
         )
 
-        return frozenset(binding.operation for binding in worker_bindings() if binding.worker.worker == "native")
+        return frozenset(
+            binding.operation
+            for binding in worker_bindings()
+            if binding.worker.worker == "native"
+        )
 
 
 WORKERS = {

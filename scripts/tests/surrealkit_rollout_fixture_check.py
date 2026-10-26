@@ -25,8 +25,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from scripts import operation_lifetime
-from scripts import native_operation
+from scripts import native_operation, operation_lifetime
 from scripts import surreal_server as server
 from scripts import surrealkit as tool
 from scripts import surrealkit_maintenance as maintenance

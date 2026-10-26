@@ -113,7 +113,12 @@ pub struct StudyCohortMemberPage {
 }
 /// One bounded NDJSON export line; the receipt is written only after every page.
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(tag="kind",content="body",rename_all="snake_case",deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    content = "body",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum StudyCohortExportRecord {
     /// One original header prefix.
     Headers(StudyCohortHeaderPage),
@@ -123,8 +128,10 @@ pub enum StudyCohortExportRecord {
     Receipt(StudyCohortReceipt),
 }
 /// Knowledge about the exact selected predicate, separate from captured lifecycle facts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all="snake_case")]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum StudyCohortAvailability {
     /// This usable captured member has not been fully examined by the predicate.
     Pending,
@@ -136,8 +143,10 @@ pub enum StudyCohortAvailability {
     Included,
 }
 /// Population knowledge never treats an unvisited bit as unavailable.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all="snake_case")]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum StudyCohortScanState {
     /// No execution has started.
     Pending,
@@ -184,7 +193,7 @@ pub struct StudyCohortClassificationPage {
     pub next: Option<StudyCohortCursor>,
     #[serde(skip)]
     #[schemars(skip)]
-    pub(super) _owner: Option<Arc<dyn std::fmt::Debug+Send+Sync>>,
+    pub(super) _owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
 }
 /// Nonserializable exact capture capability retained through pages and physical scans.
 #[derive(Clone, Debug)]
@@ -226,162 +235,543 @@ pub struct StudyKpiAnalysis {
 }
 impl StudyKpiAnalysis {
     /// Read one bounded original membership/classification page under retained custody.
-    pub async fn classification_page(&self,request:StudyCohortPageRequest)->Result<StudyCohortClassificationPage,WorkflowError> {
+    pub async fn classification_page(
+        &self,
+        request: StudyCohortPageRequest,
+    ) -> Result<StudyCohortClassificationPage, WorkflowError> {
         self.state.classification_page(request).await
     }
     /// Exact predicate traversal knowledge and still-active executions.
-    pub fn progress(&self)->StudyCohortScanProgress {self.state.progress()}
+    pub fn progress(&self) -> StudyCohortScanProgress {
+        self.state.progress()
+    }
 }
 impl Runtime {
     /// Browse compact live headers without opening result payloads.
-    pub async fn study_workbench_page(&self,request:StudyWorkbenchRequest)->Result<StudyWorkbenchPage,WorkflowError> {
-        let activity=self.admit_activity()?;
-        activity.scope(async {
-            let issuer=self.canonical_store()?.issuing_store()?.to_owned();
-            if request.cursor.as_ref().is_some_and(|cursor|cursor.issuing_store!=issuer||cursor.filter!=request.filter) {return Err(contract("workbench cursor issuer or predicates differ"));}
-            let owner=super::connected_results::response_owner(self,"study-workbench:headers",pse_operations::canonical::MetadataResponse::Page)?;
-            let page=pse_operations::canonical::response_ownership_scope(owner,self.canonical_store()?.select_study_workbench(&request.filter,request.cursor.as_ref().map(|cursor|cursor.after.as_str()),request.maximum)).await?;
-            let next=if page.has_more {page.headers.last().map(|header|StudyWorkbenchCursor{issuing_store:issuer,filter:request.filter,after:header.study.clone()})} else {None};
-            Ok(StudyWorkbenchPage{headers:page.headers,next})
-        }).await
+    pub async fn study_workbench_page(
+        &self,
+        request: StudyWorkbenchRequest,
+    ) -> Result<StudyWorkbenchPage, WorkflowError> {
+        let activity = self.admit_activity()?;
+        activity
+            .scope(async {
+                let issuer = self.canonical_store()?.issuing_store()?.to_owned();
+                if request.cursor.as_ref().is_some_and(|cursor| {
+                    cursor.issuing_store != issuer || cursor.filter != request.filter
+                }) {
+                    return Err(contract("workbench cursor issuer or predicates differ"));
+                }
+                let owner = super::connected_results::response_owner(
+                    self,
+                    "study-workbench:headers",
+                    pse_operations::canonical::MetadataResponse::Page,
+                )?;
+                let page = pse_operations::canonical::response_ownership_scope(
+                    owner,
+                    self.canonical_store()?.select_study_workbench(
+                        &request.filter,
+                        request.cursor.as_ref().map(|cursor| cursor.after.as_str()),
+                        request.maximum,
+                    ),
+                )
+                .await?;
+                let next = if page.has_more {
+                    page.headers.last().map(|header| StudyWorkbenchCursor {
+                        issuing_store: issuer,
+                        filter: request.filter,
+                        after: header.study.clone(),
+                    })
+                } else {
+                    None
+                };
+                Ok(StudyWorkbenchPage {
+                    headers: page.headers,
+                    next,
+                })
+            })
+            .await
     }
     /// Settle one exact native cut and return only counts plus retained custody.
-    pub async fn freeze_study_cohort(&self,request:StudyCohortRequest)->Result<FrozenStudyCohort,WorkflowError> {
-        if !(1..=64).contains(&request.maximum_studies)||!(1..=pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS).contains(&request.maximum_members) {return Err(contract("cohort narrow selection outside public admission"));}
-        let activity=self.admit_activity()?;
-        activity.scope(async {
-            let response=super::connected_results::response_owner(self,"study-workbench:capture-receipt",pse_operations::canonical::MetadataResponse::Selection)?;
-            let selected=pse_operations::canonical::response_ownership_scope(response.clone(),self.canonical_store()?.capture_study_workbench(&pse_operations::mint_id::<pse_ids::SemanticId>().to_string(),&request.filter,request.maximum_studies,request.maximum_members)).await?;
-            let receipt=StudyCohortReceipt{issuing_store:self.canonical_store()?.issuing_store()?.into(),capture:selected.capture.key().into(),request,header_count:selected.header_count,member_count:selected.member_count,complete:true};
-            let retained=selected.capture.custody_bytes()?.checked_add(64*1024).ok_or_else(||contract("cohort receipt extent"))?;
-            let owner=Arc::new(super::connected_results::retain_protected_metadata(&self.shared.pool(),response,retained,|owner|{selected.capture.retain_metadata_owner(owner);Ok(())})?);
-            selected.capture.retain_metadata_owner(owner.clone());
-            Ok(FrozenStudyCohort{runtime:self.clone(),receipt,capture:selected.capture,_owner:owner})
-        }).await
+    pub async fn freeze_study_cohort(
+        &self,
+        request: StudyCohortRequest,
+    ) -> Result<FrozenStudyCohort, WorkflowError> {
+        if !(1..=64).contains(&request.maximum_studies)
+            || !(1..=pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS)
+                .contains(&request.maximum_members)
+        {
+            return Err(contract("cohort narrow selection outside public admission"));
+        }
+        let activity = self.admit_activity()?;
+        activity
+            .scope(async {
+                let response = super::connected_results::response_owner(
+                    self,
+                    "study-workbench:capture-receipt",
+                    pse_operations::canonical::MetadataResponse::Selection,
+                )?;
+                let selected = pse_operations::canonical::response_ownership_scope(
+                    response.clone(),
+                    self.canonical_store()?.capture_study_workbench(
+                        &pse_operations::mint_id::<pse_ids::SemanticId>().to_string(),
+                        &request.filter,
+                        request.maximum_studies,
+                        request.maximum_members,
+                    ),
+                )
+                .await?;
+                let receipt = StudyCohortReceipt {
+                    issuing_store: self.canonical_store()?.issuing_store()?.into(),
+                    capture: selected.capture.key().into(),
+                    request,
+                    header_count: selected.header_count,
+                    member_count: selected.member_count,
+                    complete: true,
+                };
+                let retained = selected
+                    .capture
+                    .custody_bytes()?
+                    .checked_add(64 * 1024)
+                    .ok_or_else(|| contract("cohort receipt extent"))?;
+                let owner = Arc::new(super::connected_results::retain_protected_metadata(
+                    &self.shared.pool(),
+                    response,
+                    retained,
+                    |owner| {
+                        selected.capture.retain_metadata_owner(owner);
+                        Ok(())
+                    },
+                )?);
+                selected.capture.retain_metadata_owner(owner.clone());
+                Ok(FrozenStudyCohort {
+                    runtime: self.clone(),
+                    receipt,
+                    capture: selected.capture,
+                    _owner: owner,
+                })
+            })
+            .await
     }
 }
 impl FrozenStudyCohort {
     /// Publish bounded original metadata pages as NDJSON, then the compact final receipt.
     /// Cancellation or failure retains only `.incomplete`; an existing output refuses.
-    pub async fn export_pages(&self,destination:&std::path::Path,maximum_bytes:u64,cancel:&CancellationToken)->Result<u64,WorkflowError> {
+    pub async fn export_pages(
+        &self,
+        destination: &std::path::Path,
+        maximum_bytes: u64,
+        cancel: &CancellationToken,
+    ) -> Result<u64, WorkflowError> {
         use std::io::Write;
-        let owner=MemoryConsumer::new("study-cohort:page-export").register(&self.runtime.shared.pool());
-        owner.try_grow(64*1024).map_err(pse_engine::EngineError::from)?;
-        let io=|source|pse_engine::EngineError::Infrastructure{op:"publish frozen cohort pages".into(),source:Box::new(source)};
-        let mut staging=destination.as_os_str().to_os_string();staging.push(".incomplete");let staging=std::path::PathBuf::from(staging);
-        let file=std::fs::OpenOptions::new().write(true).create_new(true).open(&staging).map_err(io)?;
-        let mut output=std::io::BufWriter::new(super::connected_results::BoundedExportFile{file,remaining:maximum_bytes,written:0,cancel:cancel.clone()});
-        let mut cursor=None;
+        let owner =
+            MemoryConsumer::new("study-cohort:page-export").register(&self.runtime.shared.pool());
+        owner
+            .try_grow(64 * 1024)
+            .map_err(pse_engine::EngineError::from)?;
+        let io = |source| pse_engine::EngineError::Infrastructure {
+            op: "publish frozen cohort pages".into(),
+            source: Box::new(source),
+        };
+        let mut staging = destination.as_os_str().to_os_string();
+        staging.push(".incomplete");
+        let staging = std::path::PathBuf::from(staging);
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&staging)
+            .map_err(io)?;
+        let mut output = std::io::BufWriter::new(super::connected_results::BoundedExportFile {
+            file,
+            remaining: maximum_bytes,
+            written: 0,
+            cancel: cancel.clone(),
+        });
+        let mut cursor = None;
         loop {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            let page=cancel.until_cancelled(self.header_page(StudyCohortPageRequest{maximum:64,cursor})).await.map_err(pse_engine::EngineError::from)??;
-            cursor=page.next.clone();write_page_line(&mut output,&StudyCohortExportRecord::Headers(page))?;
-            if cursor.is_none(){break;}
+            let page = cancel
+                .until_cancelled(self.header_page(StudyCohortPageRequest {
+                    maximum: 64,
+                    cursor,
+                }))
+                .await
+                .map_err(pse_engine::EngineError::from)??;
+            cursor = page.next.clone();
+            write_page_line(&mut output, &StudyCohortExportRecord::Headers(page))?;
+            if cursor.is_none() {
+                break;
+            }
         }
-        let mut cursor=None;
+        let mut cursor = None;
         loop {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            let page=cancel.until_cancelled(self.member_page(StudyCohortPageRequest{maximum:pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS,cursor})).await.map_err(pse_engine::EngineError::from)??;
-            cursor=page.next.clone();write_page_line(&mut output,&StudyCohortExportRecord::Members(page))?;
-            if cursor.is_none(){break;}
+            let page = cancel
+                .until_cancelled(self.member_page(StudyCohortPageRequest {
+                    maximum: pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS,
+                    cursor,
+                }))
+                .await
+                .map_err(pse_engine::EngineError::from)??;
+            cursor = page.next.clone();
+            write_page_line(&mut output, &StudyCohortExportRecord::Members(page))?;
+            if cursor.is_none() {
+                break;
+            }
         }
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        write_page_line(&mut output,&StudyCohortExportRecord::Receipt(self.receipt.clone()))?;
-        output.flush().map_err(io)?;output.get_ref().file.sync_all().map_err(io)?;
-        let bytes=output.get_ref().written;drop(output);
+        write_page_line(
+            &mut output,
+            &StudyCohortExportRecord::Receipt(self.receipt.clone()),
+        )?;
+        output.flush().map_err(io)?;
+        output.get_ref().file.sync_all().map_err(io)?;
+        let bytes = output.get_ref().written;
+        drop(output);
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        std::fs::hard_link(&staging,destination).map_err(io)?;std::fs::remove_file(staging).map_err(io)?;
+        std::fs::hard_link(&staging, destination).map_err(io)?;
+        std::fs::remove_file(staging).map_err(io)?;
         Ok(bytes)
     }
     /// Compact historical facts. This borrowed document grants no payload permission.
-    pub fn receipt(&self)->&StudyCohortReceipt {&self.receipt}
-    fn after(&self,request:&StudyCohortPageRequest,count:u64,maximum:usize)->Result<Option<u64>,WorkflowError> {
-        if request.maximum==0||request.maximum>maximum {return Err(contract("cohort page allowance outside bounds"));}
-        if let Some(cursor)=&request.cursor {
-            if cursor.issuing_store!=self.receipt.issuing_store||cursor.capture!=self.receipt.capture||cursor.after>=count {return Err(contract("cohort cursor issuer or exact capture differs"));}
-        }
-        Ok(request.cursor.as_ref().map(|cursor|cursor.after))
+    pub fn receipt(&self) -> &StudyCohortReceipt {
+        &self.receipt
     }
-    fn next(&self,last:Option<u64>,count:u64)->Option<StudyCohortCursor> {
-        last.filter(|last|last.checked_add(1).is_some_and(|next|next<count)).map(|after|StudyCohortCursor{issuing_store:self.receipt.issuing_store.clone(),capture:self.receipt.capture.clone(),after})
+    fn after(
+        &self,
+        request: &StudyCohortPageRequest,
+        count: u64,
+        maximum: usize,
+    ) -> Result<Option<u64>, WorkflowError> {
+        if request.maximum == 0 || request.maximum > maximum {
+            return Err(contract("cohort page allowance outside bounds"));
+        }
+        if let Some(cursor) = &request.cursor {
+            if cursor.issuing_store != self.receipt.issuing_store
+                || cursor.capture != self.receipt.capture
+                || cursor.after >= count
+            {
+                return Err(contract("cohort cursor issuer or exact capture differs"));
+            }
+        }
+        Ok(request.cursor.as_ref().map(|cursor| cursor.after))
+    }
+    fn next(&self, last: Option<u64>, count: u64) -> Option<StudyCohortCursor> {
+        last.filter(|last| last.checked_add(1).is_some_and(|next| next < count))
+            .map(|after| StudyCohortCursor {
+                issuing_store: self.receipt.issuing_store.clone(),
+                capture: self.receipt.capture.clone(),
+                after,
+            })
     }
     /// Read one immutable original header page under this retained capability.
-    pub async fn header_page(&self,request:StudyCohortPageRequest)->Result<StudyCohortHeaderPage,WorkflowError> {
-        let after=self.after(&request,self.receipt.header_count,64)?;
-        let response=super::connected_results::response_owner(&self.runtime,"study-workbench:captured-headers",pse_operations::canonical::MetadataResponse::StudyPage)?;
-        let page=pse_operations::canonical::response_ownership_scope(Arc::new((self.capture.clone(),response.clone())),self.capture.header_page(after,request.maximum)).await?;
-        if page.rows.last().is_some_and(|row|row.position>=self.receipt.header_count) || page.rows.is_empty() && after.map_or(0,|value|value+1)<self.receipt.header_count {return Err(contract("captured header page incomplete"));}
-        let next=self.next(page.rows.last().map(|row|row.position),self.receipt.header_count);
-        let bytes=header_bytes(&page.rows)?.checked_add(16*1024).ok_or_else(||contract("header retained extent"))?;
-        let owner=Arc::new(super::connected_results::retain_metadata(&self.runtime.shared.pool(),response,bytes)?);
-        Ok(StudyCohortHeaderPage{headers:page.rows,next,_owner:Some(owner)})
+    pub async fn header_page(
+        &self,
+        request: StudyCohortPageRequest,
+    ) -> Result<StudyCohortHeaderPage, WorkflowError> {
+        let after = self.after(&request, self.receipt.header_count, 64)?;
+        let response = super::connected_results::response_owner(
+            &self.runtime,
+            "study-workbench:captured-headers",
+            pse_operations::canonical::MetadataResponse::StudyPage,
+        )?;
+        let page = pse_operations::canonical::response_ownership_scope(
+            Arc::new((self.capture.clone(), response.clone())),
+            self.capture.header_page(after, request.maximum),
+        )
+        .await?;
+        if page
+            .rows
+            .last()
+            .is_some_and(|row| row.position >= self.receipt.header_count)
+            || page.rows.is_empty()
+                && after.map_or(0, |value| value + 1) < self.receipt.header_count
+        {
+            return Err(contract("captured header page incomplete"));
+        }
+        let next = self.next(
+            page.rows.last().map(|row| row.position),
+            self.receipt.header_count,
+        );
+        let bytes = header_bytes(&page.rows)?
+            .checked_add(16 * 1024)
+            .ok_or_else(|| contract("header retained extent"))?;
+        let owner = Arc::new(super::connected_results::retain_metadata(
+            &self.runtime.shared.pool(),
+            response,
+            bytes,
+        )?);
+        Ok(StudyCohortHeaderPage {
+            headers: page.rows,
+            next,
+            _owner: Some(owner),
+        })
     }
     /// Read one immutable occurrence page, retaining missing/failed/unattempted facts.
-    pub async fn member_page(&self,request:StudyCohortPageRequest)->Result<StudyCohortMemberPage,WorkflowError> {
-        let after=self.after(&request,self.receipt.member_count,pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS)?;
-        let response=super::connected_results::response_owner(&self.runtime,"study-workbench:captured-members",pse_operations::canonical::MetadataResponse::StudyPage)?;
-        let page=pse_operations::canonical::response_ownership_scope(Arc::new((self.capture.clone(),response.clone())),self.capture.member_page(after,request.maximum)).await?;
-        if page.rows.last().is_some_and(|row|row.position>=self.receipt.member_count) || page.rows.is_empty() && after.map_or(0,|value|value+1)<self.receipt.member_count {return Err(contract("captured member page incomplete"));}
-        let next=self.next(page.rows.last().map(|row|row.position),self.receipt.member_count);
-        let bytes=member_bytes(&page.rows)?.checked_add(16*1024).ok_or_else(||contract("member retained extent"))?;
-        let owner=Arc::new(super::connected_results::retain_metadata(&self.runtime.shared.pool(),response,bytes)?);
-        Ok(StudyCohortMemberPage{members:page.rows,next,_owner:Some(owner)})
+    pub async fn member_page(
+        &self,
+        request: StudyCohortPageRequest,
+    ) -> Result<StudyCohortMemberPage, WorkflowError> {
+        let after = self.after(
+            &request,
+            self.receipt.member_count,
+            pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS,
+        )?;
+        let response = super::connected_results::response_owner(
+            &self.runtime,
+            "study-workbench:captured-members",
+            pse_operations::canonical::MetadataResponse::StudyPage,
+        )?;
+        let page = pse_operations::canonical::response_ownership_scope(
+            Arc::new((self.capture.clone(), response.clone())),
+            self.capture.member_page(after, request.maximum),
+        )
+        .await?;
+        if page
+            .rows
+            .last()
+            .is_some_and(|row| row.position >= self.receipt.member_count)
+            || page.rows.is_empty()
+                && after.map_or(0, |value| value + 1) < self.receipt.member_count
+        {
+            return Err(contract("captured member page incomplete"));
+        }
+        let next = self.next(
+            page.rows.last().map(|row| row.position),
+            self.receipt.member_count,
+        );
+        let bytes = member_bytes(&page.rows)?
+            .checked_add(16 * 1024)
+            .ok_or_else(|| contract("member retained extent"))?;
+        let owner = Arc::new(super::connected_results::retain_metadata(
+            &self.runtime.shared.pool(),
+            response,
+            bytes,
+        )?);
+        Ok(StudyCohortMemberPage {
+            members: page.rows,
+            next,
+            _owner: Some(owner),
+        })
     }
     /// One explicitly selected detail reader retains its original independent permission.
-    pub async fn result(&self,position:usize,relation:&str,start:u64,end:u64,cancel:CancellationToken)->Result<super::CanonicalResultReader,WorkflowError> {
-        let position=u64::try_from(position).map_err(|_|contract("cohort member coordinate extent"))?;
-        if position>=self.receipt.member_count {return Err(contract("cohort member absent"));}
-        let page=self.member_page(StudyCohortPageRequest{maximum:1,cursor:position.checked_sub(1).map(|after|StudyCohortCursor{issuing_store:self.receipt.issuing_store.clone(),capture:self.receipt.capture.clone(),after})}).await?;
-        let point=&page.members.first().ok_or_else(||contract("cohort member absent"))?.value;
-        let manifest=point.manifest.as_deref().ok_or_else(||contract("cohort member had no closed result at capture"))?;
-        let attempt=point.attempt.as_deref().ok_or_else(||contract("cohort member has no attempted result"))?;
-        let reader=self.runtime.results(&point.run,attempt,relation,start,end,cancel).await?;
-        if reader.selection().manifest().key!=manifest||reader.selection().attempt().key!=attempt||reader.selection().run().key!=point.run {return Err(contract("detail reader differs from captured exact manifest"));}
+    pub async fn result(
+        &self,
+        position: usize,
+        relation: &str,
+        start: u64,
+        end: u64,
+        cancel: CancellationToken,
+    ) -> Result<super::CanonicalResultReader, WorkflowError> {
+        let position =
+            u64::try_from(position).map_err(|_| contract("cohort member coordinate extent"))?;
+        if position >= self.receipt.member_count {
+            return Err(contract("cohort member absent"));
+        }
+        let page = self
+            .member_page(StudyCohortPageRequest {
+                maximum: 1,
+                cursor: position.checked_sub(1).map(|after| StudyCohortCursor {
+                    issuing_store: self.receipt.issuing_store.clone(),
+                    capture: self.receipt.capture.clone(),
+                    after,
+                }),
+            })
+            .await?;
+        let point = &page
+            .members
+            .first()
+            .ok_or_else(|| contract("cohort member absent"))?
+            .value;
+        let manifest = point
+            .manifest
+            .as_deref()
+            .ok_or_else(|| contract("cohort member had no closed result at capture"))?;
+        let attempt = point
+            .attempt
+            .as_deref()
+            .ok_or_else(|| contract("cohort member has no attempted result"))?;
+        let reader = self
+            .runtime
+            .results(&point.run, attempt, relation, start, end, cancel)
+            .await?;
+        if reader.selection().manifest().key != manifest
+            || reader.selection().attempt().key != attempt
+            || reader.selection().run().key != point.run
+        {
+            return Err(contract(
+                "detail reader differs from captured exact manifest",
+            ));
+        }
         reader.retain_capture(self.capture.clone())?;
         Ok(reader)
     }
     /// Aggregate through one lazy original relation provider, without per-member snapshots.
-    pub async fn aggregate(&self,request:&StudyKpiRequest,cancel:CancellationToken)->Result<StudyKpiAnalysis,WorkflowError> {
-        use datafusion::{functions_aggregate::expr_fn::{avg,count,max,min},prelude::{SessionContext,col}};
-        let headers=self.header_page(StudyCohortPageRequest{maximum:64,cursor:None}).await?;
+    pub async fn aggregate(
+        &self,
+        request: &StudyKpiRequest,
+        cancel: CancellationToken,
+    ) -> Result<StudyKpiAnalysis, WorkflowError> {
+        use datafusion::{
+            functions_aggregate::expr_fn::{avg, count, max, min},
+            prelude::{SessionContext, col},
+        };
+        let headers = self
+            .header_page(StudyCohortPageRequest {
+                maximum: 64,
+                cursor: None,
+            })
+            .await?;
         compatible_rows(&headers.headers)?;
-        let state=super::cohort_provider::CohortAnalysisState::new(self.clone(),request.clone(),cancel.clone())?;
-        let context=SessionContext::new_with_state(self.runtime.source_services().preparation().bound_model().native_state());
-        let frame=context.read_table(state.table_provider()).map_err(pse_engine::EngineError::from)?;
-        let query=frame.aggregate(vec![col("quantity_id"),col("unit_id")],vec![count(col(&request.field)).alias("count"),min(col(&request.field)).alias("minimum"),max(col(&request.field)).alias("maximum"),avg(col(&request.field)).alias("mean")]).map_err(pse_engine::EngineError::from)?;
-        let batches=cancel.until_cancelled(query.collect()).await.map_err(pse_engine::EngineError::from)?.map_err(pse_engine::EngineError::from)?;
-        let progress=state.progress();
-        if progress.state!=StudyCohortScanState::Complete||progress.pending!=0 {return Err(contract("cohort aggregate traversal incomplete"));}
-        if batches.iter().map(|batch|batch.num_rows()).sum::<usize>()>1 {return Err(contract("KPI outputs have incompatible actual quantity, basis, reference state or units"));}
-        Ok(StudyKpiAnalysis{cohort:self.receipt.clone(),included:progress.included,unavailable:progress.unavailable,batches,state})
+        let state = super::cohort_provider::CohortAnalysisState::new(
+            self.clone(),
+            request.clone(),
+            cancel.clone(),
+        )?;
+        let context = SessionContext::new_with_state(
+            self.runtime
+                .source_services()
+                .preparation()
+                .bound_model()
+                .native_state(),
+        );
+        let frame = context
+            .read_table(state.table_provider())
+            .map_err(pse_engine::EngineError::from)?;
+        let query = frame
+            .aggregate(
+                vec![col("quantity_id"), col("unit_id")],
+                vec![
+                    count(col(&request.field)).alias("count"),
+                    min(col(&request.field)).alias("minimum"),
+                    max(col(&request.field)).alias("maximum"),
+                    avg(col(&request.field)).alias("mean"),
+                ],
+            )
+            .map_err(pse_engine::EngineError::from)?;
+        let batches = cancel
+            .until_cancelled(query.collect())
+            .await
+            .map_err(pse_engine::EngineError::from)?
+            .map_err(pse_engine::EngineError::from)?;
+        let progress = state.progress();
+        if progress.state != StudyCohortScanState::Complete || progress.pending != 0 {
+            return Err(contract("cohort aggregate traversal incomplete"));
+        }
+        if batches.iter().map(|batch| batch.num_rows()).sum::<usize>() > 1 {
+            return Err(contract(
+                "KPI outputs have incompatible actual quantity, basis, reference state or units",
+            ));
+        }
+        Ok(StudyKpiAnalysis {
+            cohort: self.receipt.clone(),
+            included: progress.included,
+            unavailable: progress.unavailable,
+            batches,
+            state,
+        })
     }
 }
-fn write_page_line(output:&mut impl std::io::Write,record:&StudyCohortExportRecord)->Result<(),WorkflowError> {
+fn write_page_line(
+    output: &mut impl std::io::Write,
+    record: &StudyCohortExportRecord,
+) -> Result<(), WorkflowError> {
     use std::io::Write;
-    struct Line<'a,W>{output:&'a mut W,remaining:usize}
-    impl<W:Write> Write for Line<'_,W> {
-        fn write(&mut self,bytes:&[u8])->std::io::Result<usize>{if bytes.len()>self.remaining{return Err(std::io::Error::other("cohort page line allowance exhausted"));}let written=self.output.write(bytes)?;self.remaining-=written;Ok(written)}
-        fn flush(&mut self)->std::io::Result<()>{self.output.flush()}
+    struct Line<'a, W> {
+        output: &'a mut W,
+        remaining: usize,
     }
-    let mut line=Line{output,remaining:8*pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES};
-    serde_json::to_writer(&mut line,record).map_err(|error|contract(error.to_string()))?;
-    line.write_all(b"\n").map_err(|source|pse_engine::EngineError::Infrastructure{op:"write cohort page line".into(),source:Box::new(source)})?;
+    impl<W: Write> Write for Line<'_, W> {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if bytes.len() > self.remaining {
+                return Err(std::io::Error::other(
+                    "cohort page line allowance exhausted",
+                ));
+            }
+            let written = self.output.write(bytes)?;
+            self.remaining -= written;
+            Ok(written)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.output.flush()
+        }
+    }
+    let mut line = Line {
+        output,
+        remaining: 8 * pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES,
+    };
+    serde_json::to_writer(&mut line, record).map_err(|error| contract(error.to_string()))?;
+    line.write_all(b"\n")
+        .map_err(|source| pse_engine::EngineError::Infrastructure {
+            op: "write cohort page line".into(),
+            source: Box::new(source),
+        })?;
     Ok(())
 }
-fn member_bytes(rows:&Vec<CapturedStudyRow<StudyCohortMember>>)->Result<usize,WorkflowError> {
-    let mut bytes=rows.capacity().checked_mul(size_of::<CapturedStudyRow<StudyCohortMember>>()).ok_or_else(||contract("member page extent"))?;
-    for row in rows {let member=&row.value;for value in [Some(&member.key),Some(&member.study),Some(&member.run),member.attempt.as_ref(),member.manifest.as_ref()].into_iter().flatten() {bytes=bytes.checked_add(value.capacity()).ok_or_else(||contract("member page strings extent"))?;}}
+fn member_bytes(rows: &Vec<CapturedStudyRow<StudyCohortMember>>) -> Result<usize, WorkflowError> {
+    let mut bytes = rows
+        .capacity()
+        .checked_mul(size_of::<CapturedStudyRow<StudyCohortMember>>())
+        .ok_or_else(|| contract("member page extent"))?;
+    for row in rows {
+        let member = &row.value;
+        for value in [
+            Some(&member.key),
+            Some(&member.study),
+            Some(&member.run),
+            member.attempt.as_ref(),
+            member.manifest.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            bytes = bytes
+                .checked_add(value.capacity())
+                .ok_or_else(|| contract("member page strings extent"))?;
+        }
+    }
     Ok(bytes)
 }
-fn header_bytes(rows:&Vec<CapturedStudyRow<StudyWorkbenchHeader>>)->Result<usize,WorkflowError> {
-    let mut bytes=rows.capacity().checked_mul(size_of::<CapturedStudyRow<StudyWorkbenchHeader>>()).ok_or_else(||contract("header page extent"))?;
-    for row in rows {let header=&row.value;for value in [Some(&header.study),Some(&header.run),Some(&header.problem),Some(&header.source),header.physical_revision.as_ref(),header.physical_identity.as_ref(),header.context.as_ref(),header.result_attempt.as_ref()].into_iter().flatten() {bytes=bytes.checked_add(value.capacity()).ok_or_else(||contract("header page strings extent"))?;}}
+fn header_bytes(
+    rows: &Vec<CapturedStudyRow<StudyWorkbenchHeader>>,
+) -> Result<usize, WorkflowError> {
+    let mut bytes = rows
+        .capacity()
+        .checked_mul(size_of::<CapturedStudyRow<StudyWorkbenchHeader>>())
+        .ok_or_else(|| contract("header page extent"))?;
+    for row in rows {
+        let header = &row.value;
+        for value in [
+            Some(&header.study),
+            Some(&header.run),
+            Some(&header.problem),
+            Some(&header.source),
+            header.physical_revision.as_ref(),
+            header.physical_identity.as_ref(),
+            header.context.as_ref(),
+            header.result_attempt.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            bytes = bytes
+                .checked_add(value.capacity())
+                .ok_or_else(|| contract("header page strings extent"))?;
+        }
+    }
     Ok(bytes)
 }
-fn compatible_rows(rows:&[CapturedStudyRow<StudyWorkbenchHeader>])->Result<(),WorkflowError> {
-    if let Some(first)=rows.first().map(|row|&row.value)
-        && (first.physical_revision.is_none()||first.physical_identity.is_none()||rows.iter().any(|row|row.value.physical_revision!=first.physical_revision||row.value.physical_identity!=first.physical_identity)) {
-        return Err(contract("KPI source or physical meaning differs or is unavailable; select compatible exact sources or an admitted transform"));
+fn compatible_rows(rows: &[CapturedStudyRow<StudyWorkbenchHeader>]) -> Result<(), WorkflowError> {
+    if let Some(first) = rows.first().map(|row| &row.value)
+        && (first.physical_revision.is_none()
+            || first.physical_identity.is_none()
+            || rows.iter().any(|row| {
+                row.value.physical_revision != first.physical_revision
+                    || row.value.physical_identity != first.physical_identity
+            }))
+    {
+        return Err(contract(
+            "KPI source or physical meaning differs or is unavailable; select compatible exact sources or an admitted transform",
+        ));
     }
     Ok(())
 }
@@ -390,23 +780,26 @@ mod tests {
     use super::*;
     #[test]
     fn cohort_export_names_both_actual_generic_row_instantiations() {
-        let schema=schemars::schema_for!(StudyCohortExportRecord).to_value();
-        let definitions=schema["$defs"].as_object().unwrap();
+        let schema = schemars::schema_for!(StudyCohortExportRecord).to_value();
+        let definitions = schema["$defs"].as_object().unwrap();
         assert!(definitions.contains_key("CapturedStudyRowForStudyWorkbenchHeader"));
         assert!(definitions.contains_key("CapturedStudyRowForStudyCohortMember"));
         for alternative in schema["oneOf"].as_array().unwrap() {
-            assert_eq!(alternative["additionalProperties"],false,"each export line is a closed owner-declared envelope");
+            assert_eq!(
+                alternative["additionalProperties"], false,
+                "each export line is a closed owner-declared envelope"
+            );
         }
     }
     #[test]
     fn workbench_refuses_incompatible_kpi_meaning_before_payload_access() {
         let mut h:StudyWorkbenchHeader=serde_json::from_value(serde_json::json!({"study":"s","run":"r","problem":"p","source":"revision","physical_revision":"physical","physical_identity":"identity","context":null,"point_count":3,"generation":0,"active":true,"cancelled":false,"terminal":false,"result_attempt":null,"outcome":null})).unwrap();
-        let row=|value|CapturedStudyRow{position:0,value};
-        assert!(compatible_rows(&[row(h.clone()),row(h.clone())]).is_ok());
+        let row = |value| CapturedStudyRow { position: 0, value };
+        assert!(compatible_rows(&[row(h.clone()), row(h.clone())]).is_ok());
         h.physical_revision = Some("other-unit-system".into());
         let mut original = h.clone();
         original.physical_revision = Some("physical".into());
-        assert!(compatible_rows(&[row(original),row(h)]).is_err());
+        assert!(compatible_rows(&[row(original), row(h)]).is_err());
     }
 }
 

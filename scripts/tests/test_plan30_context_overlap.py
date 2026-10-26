@@ -19,10 +19,9 @@ from pse.tests import conftest as fixture_plugin
 if TYPE_CHECKING:
     from pse.tests.canonical_fixture import CanonicalFixture
 
-from scripts import producer_receipts
-from scripts import operation_lifetime
 from scripts import (
-    native_operation,
+    operation_lifetime,
+    producer_receipts,
     surreal_server,
     test_resources,
 )

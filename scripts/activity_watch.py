@@ -9,7 +9,6 @@ No watcher owns, cancels, drains or resumes a workload.
 
 from __future__ import annotations
 
-
 import base64
 import hashlib
 import json
@@ -21,13 +20,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import (
     build_observation,
     host_admission,
-    native_operation,
+    operation_lifetime,
     run_inspection,
+    service_borrowers,
     test_resources,
 )
 

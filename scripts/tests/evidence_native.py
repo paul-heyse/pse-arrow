@@ -10,7 +10,6 @@ operation, never an inspection side effect. Missing selection fails, never skips
 # ruff: noqa: PT009
 from __future__ import annotations
 
-
 import hashlib
 import json
 import os
@@ -22,11 +21,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import service_borrowers
 from scripts import (
     active_diagnostics,
     evidence_projection,
     evidence_sources,
+    service_borrowers,
     storage_health,
     surreal_server,
     test_resources,
@@ -46,7 +45,9 @@ class EvidenceNativeTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.registry = self.root / "registry"
-        selection = patch.object(service_borrowers, "registry", return_value=self.registry)
+        selection = patch.object(
+            service_borrowers, "registry", return_value=self.registry
+        )
         selection.start()
         self.addCleanup(selection.stop)
         self.environment = {

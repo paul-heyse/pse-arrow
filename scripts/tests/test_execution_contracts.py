@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 import json
 import os
 import subprocess
@@ -17,14 +16,14 @@ from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import (
     cargo_tools,
     case_measure,
     native_operation,
     native_tests,
+    operation_lifetime,
     python_extension,
+    service_borrowers,
     surreal_server,
     test_resources,
     test_run,

@@ -11,7 +11,6 @@ After fencing, interrupted work remains protected and is resumed explicitly.
 
 from __future__ import annotations
 
-
 import hashlib
 import json
 import os
@@ -21,10 +20,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
 from scripts import host_admission as host
-from scripts import native_operation as operation
+from scripts import operation_lifetime, service_borrowers
 from scripts import resource_store as files
 from scripts import test_resources as resources
 
@@ -273,7 +270,10 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
                             continue
                         try:
                             group = operation_lifetime.process_group(peer["pid"])
-                            if operation_lifetime.start_identity(peer["pid"]) != peer["start"]:
+                            if (
+                                operation_lifetime.start_identity(peer["pid"])
+                                != peer["start"]
+                            ):
                                 raise files.StoreError(
                                     "Process identity changed during conversion scope discovery"
                                 )
@@ -319,7 +319,10 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
                 and isinstance(owner.get("start"), str)
             ):
                 try:
-                    if operation_lifetime.start_identity(owner["pid"]) == owner["start"]:
+                    if (
+                        operation_lifetime.start_identity(owner["pid"])
+                        == owner["start"]
+                    ):
                         raise files.StoreError(
                             "Unresolved original process identity; conversion refused"
                         )

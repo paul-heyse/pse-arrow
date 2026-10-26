@@ -27,8 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
-from scripts import operation_lifetime
-from scripts import host_admission, native_operation
+from scripts import host_admission, operation_lifetime
 from scripts import surreal_rollout_producer as producer
 from scripts import surreal_server as server
 from scripts import surrealkit_maintenance as maintenance

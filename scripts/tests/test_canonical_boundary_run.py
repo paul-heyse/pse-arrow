@@ -17,8 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import Mock, patch
 
-from scripts import operation_lifetime
-from scripts import resource_store
+from scripts import operation_lifetime, resource_store
 from scripts.tests import canonical_boundary_run as boundary
 from scripts.tests import plan30_context_overlap_run as overlap
 from scripts.tests import plan50_database_fixture as database_fixture

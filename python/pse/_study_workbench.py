@@ -25,13 +25,13 @@ if TYPE_CHECKING:
 
     from pse._runs import RunHandle
     from pse.contracts.documents import (
-        StudyCohortReceiptOutput,
-        StudyCohortPageRequest,
+        StudyCohortClassificationPageOutput,
         StudyCohortHeaderPageOutput,
         StudyCohortMemberPageOutput,
-        StudyCohortClassificationPageOutput,
-        StudyCohortScanProgressOutput,
+        StudyCohortPageRequest,
+        StudyCohortReceiptOutput,
         StudyCohortRequest,
+        StudyCohortScanProgressOutput,
         StudyKpiRequest,
         StudyObservationCursor,
         StudyObservationCursorOutput,
@@ -64,7 +64,9 @@ class StudyKpiAnalysis:
     def progress(self) -> StudyCohortScanProgressOutput:
         return self._handle.progress
 
-    def classification_page(self, request: StudyCohortPageRequest) -> StudyCohortClassificationPageOutput:
+    def classification_page(
+        self, request: StudyCohortPageRequest
+    ) -> StudyCohortClassificationPageOutput:
         return self._handle.classification_page(codec.encode_json(request))
 
     def batches(self) -> tuple[pa.RecordBatch, ...]:
@@ -82,10 +84,14 @@ class FrozenStudyCohort:
     def receipt(self) -> StudyCohortReceiptOutput:
         return self._handle.receipt
 
-    def header_page(self, request: StudyCohortPageRequest) -> StudyCohortHeaderPageOutput:
+    def header_page(
+        self, request: StudyCohortPageRequest
+    ) -> StudyCohortHeaderPageOutput:
         return self._handle.header_page(codec.encode_json(request))
 
-    def member_page(self, request: StudyCohortPageRequest) -> StudyCohortMemberPageOutput:
+    def member_page(
+        self, request: StudyCohortPageRequest
+    ) -> StudyCohortMemberPageOutput:
         return self._handle.member_page(codec.encode_json(request))
 
     def result(

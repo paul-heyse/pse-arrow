@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 import contextlib
 import io
 import json
@@ -14,9 +13,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import service_borrowers
 from scripts import evidence_projection as projection
-from scripts import evidence_store, resource_store, test_resources, test_run
+from scripts import (
+    evidence_store,
+    resource_store,
+    service_borrowers,
+    test_resources,
+    test_run,
+)
 
 
 class EvidenceProjectionTests(unittest.TestCase):
@@ -24,7 +28,9 @@ class EvidenceProjectionTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.registry = Path(temporary.name) / "registry"
-        selected = patch.object(service_borrowers, "registry", return_value=self.registry)
+        selected = patch.object(
+            service_borrowers, "registry", return_value=self.registry
+        )
         selected.start()
         self.addCleanup(selected.stop)
         self.path = test_resources.invocation(

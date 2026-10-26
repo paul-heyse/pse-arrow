@@ -10,11 +10,11 @@ mod private_store;
 
 #[cfg(feature = "native-abi")]
 mod ipopt;
+#[cfg(feature = "evidence-tools")]
+mod private_documents;
 pub(super) mod python_stubs;
 #[cfg(feature = "product-schemas")]
 mod schemas;
-#[cfg(feature = "evidence-tools")]
-mod private_documents;
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -384,7 +384,10 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
     private.relationships.extend(evidence.relationships);
     let deployment_document = |name: &str, title: &str, mut schema: serde_json::Value| {
         schema["title"] = title.into();
-        documents::Document { name: name.into(), schema }
+        documents::Document {
+            name: name.into(),
+            schema,
+        }
     };
     let deployment = documents::generate_private_family(registry, "deployment", &[
         deployment_document("deployment-request", "DeploymentRequest", schemars::schema_for!(pse_runtime::boundary_documents::Versioned<pse_runtime::workflow::DeploymentRequest, 1>).to_value()),

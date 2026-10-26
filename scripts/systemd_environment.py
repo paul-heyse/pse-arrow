@@ -14,14 +14,12 @@ class BoundaryError(Exception):
     """This boundary, not the command, failed."""
 
 
-
 def slice_group(name: str) -> Path:
     """Systemd nests dashed slice names: pse-x.slice lives inside pse.slice."""
     stem = name.removesuffix(".slice").split("-")
     parts = ["-".join(stem[: index + 1]) + ".slice" for index in range(len(stem))]
     service = f"user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service"
     return Path("/sys/fs/cgroup", service, *parts)
-
 
 
 def limits(name: str | None) -> list[tuple[str, str]]:
@@ -40,11 +38,9 @@ def limits(name: str | None) -> list[tuple[str, str]]:
     return found
 
 
-
 def require_unbounded_slice(name: str) -> None:
     """Read the actual selected memory cgroup and every ancestor, including root."""
     require_unbounded_group(slice_group(name))
-
 
 
 def require_unbounded_group(
@@ -66,7 +62,6 @@ def require_unbounded_group(
         group = group.parent
 
 
-
 def manager_environment() -> dict[str, str]:
     runtime = Path(f"/run/user/{os.getuid()}")
     return {
@@ -75,7 +70,6 @@ def manager_environment() -> dict[str, str]:
             "DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime}/bus"
         ),
     }
-
 
 
 def current_memory_ceiling() -> int | None:
@@ -96,4 +90,3 @@ def current_memory_ceiling() -> int | None:
             break
         current = current.parent
     return min(ceilings) if ceilings else None
-

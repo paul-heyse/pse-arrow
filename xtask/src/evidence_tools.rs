@@ -3,12 +3,12 @@
 //! Explicit tooling-only evidence lifecycle. Opening never initializes scientific state.
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
-use xtask::development::evidence::{
-    self, EvidenceAccess, EvidenceQuery, EvidenceSnapshot, EvidenceStore, ToolingOptions,
-};
 use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
+};
+use xtask::development::evidence::{
+    self, EvidenceAccess, EvidenceQuery, EvidenceSnapshot, EvidenceStore, ToolingOptions,
 };
 #[derive(Debug, Args)]
 pub(crate) struct EvidenceArgs {
@@ -254,7 +254,8 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
             .collect::<Result<Vec<_>, _>>()?;
         let request = read_comparison_request(request)?;
         let observations = read_observations(observations.as_deref())?;
-        let mut analysis = xtask::development::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
+        let mut analysis =
+            xtask::development::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;

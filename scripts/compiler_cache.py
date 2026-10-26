@@ -38,13 +38,12 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import operation_lifetime
 from scripts import (  # noqa: E402 -- direct-script root routing
     build_environment,
     diagnostic_trace,
+    operation_lifetime,
 )
 from scripts import host_admission as host  # noqa: E402 -- direct-script root routing
-from scripts import native_operation as operation  # noqa: E402 -- script routing
 
 
 class CacheSignal(BaseException):

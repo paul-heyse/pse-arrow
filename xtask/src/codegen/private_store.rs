@@ -82,15 +82,18 @@ fn record_relationships(
 }
 
 fn append_knowledge(registry: &Registry, tree: &mut GeneratedTree) -> Result<String, SchemaError> {
-    use xtask::development::catalog::knowledge as declaration;
     use std::fmt::Write as _;
+    use xtask::development::catalog::knowledge as declaration;
     let selected = registry
         .relations()
         .iter()
         .filter(|relation| relation.key.name.starts_with("knowledge_"))
         .collect::<Vec<_>>();
-    let (mut ddl, codecs) =
-        pse_codegen::codegen::native_relations(registry, selected.iter().copied(), declaration::INDEXES)?;
+    let (mut ddl, codecs) = pse_codegen::codegen::native_relations(
+        registry,
+        selected.iter().copied(),
+        declaration::INDEXES,
+    )?;
     knowledge_constraints(&mut ddl);
     let search = &declaration::FULL_TEXT;
     let relation = registry
@@ -167,8 +170,8 @@ fn append_knowledge(registry: &Registry, tree: &mut GeneratedTree) -> Result<Str
 }
 
 fn knowledge_constraints(ddl: &mut String) {
-    use xtask::development::catalog::knowledge as declaration;
     use std::fmt::Write as _;
+    use xtask::development::catalog::knowledge as declaration;
     let strings = |values: &[&str]| {
         format!(
             "[{}]",
@@ -266,13 +269,14 @@ mod tests {
     #[test]
     fn knowledge_schema_is_tooling_only_with_declared_fulltext_and_native_graph() {
         let registry = xtask::development::catalog::assemble().unwrap();
-        let canonical = pse_codegen::codegen::canonical_schema(&pse_schema::catalog::assemble().unwrap()).unwrap();
+        let canonical =
+            pse_codegen::codegen::canonical_schema(&pse_schema::catalog::assemble().unwrap())
+                .unwrap();
         assert!(!canonical.contains("knowledge_"));
         let mut tree = GeneratedTree::empty(vec![PathBuf::from("xtask/src/generated")]);
         append(&registry, &mut tree).unwrap();
         let ddl = std::str::from_utf8(
-            &tree.files
-                [std::path::Path::new("xtask/src/generated/store/knowledge.surql")],
+            &tree.files[std::path::Path::new("xtask/src/generated/store/knowledge.surql")],
         )
         .unwrap();
         assert!(ddl.contains("DEFINE TABLE knowledge_subject_edges TYPE RELATION IN knowledge_subjects OUT knowledge_subjects ENFORCED"));
@@ -285,8 +289,7 @@ mod tests {
                 .iter()
                 .any(
                     |record| record.declaration_key == "runtime.knowledge_subject_edges@1"
-                        && record.output_path
-                            == "xtask/src/generated/store/knowledge.surql"
+                        && record.output_path == "xtask/src/generated/store/knowledge.surql"
                 )
         );
         let original = std::str::from_utf8(

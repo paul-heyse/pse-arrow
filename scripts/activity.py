@@ -25,12 +25,11 @@ import msgspec
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import operation_lifetime
 from scripts import (  # noqa: E402 -- direct-script path routing
     activity_watch,
     build_observation,
     host_admission,
-    native_operation,
+    operation_lifetime,
     pressure_observation,
     pse_env,
     run_inspection,

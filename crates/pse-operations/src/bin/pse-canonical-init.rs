@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Ordinary product canonical initialization, independent of fixture and evidence composition.
-#![allow(clippy::print_stderr, reason = "product initializer reports an actionable terminal refusal")]
+#![allow(
+    clippy::print_stderr,
+    reason = "product initializer reports an actionable terminal refusal"
+)]
 use clap::Parser;
-use pse_operations::{canonical::{CanonicalError, CanonicalOptions, CanonicalStore},
-                     deployment::{CanonicalInitializationPhase, CanonicalInitializationReport}};
+use pse_operations::{
+    canonical::{CanonicalError, CanonicalOptions, CanonicalStore},
+    deployment::{CanonicalInitializationPhase, CanonicalInitializationReport},
+};
 use std::{io::Write, path::PathBuf};
 
 #[derive(Debug, Parser)]
@@ -21,9 +26,13 @@ fn run(cli: Cli) -> Result<(), CanonicalError> {
     let phase = if cli.describe {
         CanonicalInitializationPhase::Description
     } else {
-        let state = cli.state.ok_or_else(|| CanonicalError::Configuration("initializer requires state".into()))?;
+        let state = cli
+            .state
+            .ok_or_else(|| CanonicalError::Configuration("initializer requires state".into()))?;
         let options = CanonicalOptions::from_state(&state)?;
-        let executor = tokio::runtime::Builder::new_multi_thread().enable_all().build()
+        let executor = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         executor.block_on(CanonicalStore::initialize_database(&options))?;
         CanonicalInitializationPhase::Initialized
@@ -34,13 +43,19 @@ fn run(cli: Cli) -> Result<(), CanonicalError> {
         phase,
     };
     let mut output = std::io::stdout().lock();
-    serde_json::to_writer(&mut output, &report).map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-    output.write_all(b"\n").map_err(|error| CanonicalError::Configuration(error.to_string()))
+    serde_json::to_writer(&mut output, &report)
+        .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+    output
+        .write_all(b"\n")
+        .map_err(|error| CanonicalError::Configuration(error.to_string()))
 }
 fn main() -> std::process::ExitCode {
     match run(Cli::parse()) {
         Ok(()) => std::process::ExitCode::SUCCESS,
-        Err(error) => { eprintln!("pse-canonical-init: {error}"); std::process::ExitCode::FAILURE }
+        Err(error) => {
+            eprintln!("pse-canonical-init: {error}");
+            std::process::ExitCode::FAILURE
+        }
     }
 }
 #[cfg(test)]

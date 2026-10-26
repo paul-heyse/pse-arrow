@@ -239,13 +239,18 @@ impl QualifiedProducer {
         {
             return Ok(None);
         }
-        if matches!((expected_target.package, expected_target.target, expected_target.kind),
-                    ("pse-runtime", "pse-worker", "bin") | ("pse-py", "_native", "cdylib"))
-            && (root.profile.get("name").and_then(serde_json::Value::as_str) != Some("producer")
-                || !root
-                    .features
-                    .iter()
-                    .any(|feature| feature == "native-solvers"))
+        if matches!(
+            (
+                expected_target.package,
+                expected_target.target,
+                expected_target.kind
+            ),
+            ("pse-runtime", "pse-worker", "bin") | ("pse-py", "_native", "cdylib")
+        ) && (root.profile.get("name").and_then(serde_json::Value::as_str) != Some("producer")
+            || !root
+                .features
+                .iter()
+                .any(|feature| feature == "native-solvers"))
         {
             return Ok(None);
         }

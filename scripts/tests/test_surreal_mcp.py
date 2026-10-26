@@ -26,9 +26,8 @@ from unittest.mock import MagicMock, patch
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-from scripts import operation_lifetime
 from scripts import host_admission as host
-from scripts import pse_env
+from scripts import operation_lifetime, pse_env
 from scripts import surreal_server as server
 from scripts.tests.test_surrealism_module import fixture_module
 

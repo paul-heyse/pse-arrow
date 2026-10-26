@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Passive bounded study telemetry: exact per-attempt streams, never a study execution owner.
 use super::{
-    ProgressCheckpointDocument, ProgressEventDocument, Runtime, StudyCohortReceipt, StudyCohortMemberPage, StudyWorkbenchHeader, StudyCohortPageRequest,
-    StudyCohortRequest, StudyWorkbenchFilter, WorkflowError, contract,
+    ProgressCheckpointDocument, ProgressEventDocument, Runtime, StudyCohortMemberPage,
+    StudyCohortPageRequest, StudyCohortReceipt, StudyCohortRequest, StudyWorkbenchFilter,
+    StudyWorkbenchHeader, WorkflowError, contract,
 };
 use pse_columnar::CancellationToken;
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
@@ -119,14 +120,40 @@ pub struct StudyObservationStatus {
     pub members: StudyCohortMemberPage,
     #[serde(skip)]
     #[schemars(skip)]
-    _custody: Option<Arc<dyn std::fmt::Debug+Send+Sync>>,
+    _custody: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
 }
-async fn status_page(cohort:super::FrozenStudyCohort)->Result<StudyObservationStatus,WorkflowError> {
-    let headers=cohort.header_page(StudyCohortPageRequest{maximum:1,cursor:None}).await?;
-    let members=cohort.member_page(StudyCohortPageRequest{maximum:64,cursor:None}).await?;
-    if cohort.receipt().header_count!=1||headers.next.is_some()||members.next.is_some() {return Err(contract("selected observation bounded population incomplete"));}
-    let header=headers.headers.into_iter().next().ok_or_else(||contract("selected observation study absent"))?.value;
-    Ok(StudyObservationStatus{receipt:cohort.receipt().clone(),header,members,_custody:Some(Arc::new((headers._owner,cohort)))})
+async fn status_page(
+    cohort: super::FrozenStudyCohort,
+) -> Result<StudyObservationStatus, WorkflowError> {
+    let headers = cohort
+        .header_page(StudyCohortPageRequest {
+            maximum: 1,
+            cursor: None,
+        })
+        .await?;
+    let members = cohort
+        .member_page(StudyCohortPageRequest {
+            maximum: 64,
+            cursor: None,
+        })
+        .await?;
+    if cohort.receipt().header_count != 1 || headers.next.is_some() || members.next.is_some() {
+        return Err(contract(
+            "selected observation bounded population incomplete",
+        ));
+    }
+    let header = headers
+        .headers
+        .into_iter()
+        .next()
+        .ok_or_else(|| contract("selected observation study absent"))?
+        .value;
+    Ok(StudyObservationStatus {
+        receipt: cohort.receipt().clone(),
+        header,
+        members,
+        _custody: Some(Arc::new((headers._owner, cohort))),
+    })
 }
 /// One bounded read-only poll and its exact reconnect position.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -149,7 +176,7 @@ pub struct StudyObserver {
     closed: bool,
 }
 fn context(document: &StudyObservationStatus) -> Result<StudyObservationContext, WorkflowError> {
-    let h=&document.header;
+    let h = &document.header;
     Ok(StudyObservationContext {
         run: h.run.clone(),
         source: h.source.clone(),
@@ -180,7 +207,7 @@ impl Runtime {
                 maximum_members: request.maximum_members,
             })
             .await?;
-        let status=status_page(status).await?;
+        let status = status_page(status).await?;
         let selected = context(&status)?;
         let issuer = self.canonical_store()?.issuing_store()?.to_owned();
         let cursor = match cursor {
@@ -201,7 +228,11 @@ impl Runtime {
                     if !keys.insert((&source.run, &source.attempt))
                         || source.offset > 512
                         || source.run != selected.run
-                            && !status.members.members.iter().any(|p|p.value.run==source.run)
+                            && !status
+                                .members
+                                .members
+                                .iter()
+                                .any(|p| p.value.run == source.run)
                     {
                         return Err(contract(
                             "observer cursor includes foreign or malformed source",
@@ -311,13 +342,17 @@ impl StudyObserver {
                 maximum_members: self.cursor.request.maximum_members,
             })
             .await?;
-        let status=status_page(status).await?;
+        let status = status_page(status).await?;
         if context(&status)? != self.cursor.context {
             return Err(contract("observer selected context changed"));
         }
         let mut runs = vec![(self.cursor.context.run.clone(), None)];
         runs.extend(
-            status.members.members.iter().map(|p|(p.value.run.clone(),Some(p.value.metadata_revision))),
+            status
+                .members
+                .members
+                .iter()
+                .map(|p| (p.value.run.clone(), Some(p.value.metadata_revision))),
         );
         let mut attempts = Vec::new();
         for (run, revision) in runs {
@@ -763,7 +798,7 @@ mod canonical_tests {
             );
             reconnected.close();
             drop(reconnected);
-            let capture=first.status.receipt.capture.clone();
+            let capture = first.status.receipt.capture.clone();
             drop(first);
             store.recover_study_capture(&capture).await.unwrap();
             store.remove_isolated_fixture().await.unwrap();

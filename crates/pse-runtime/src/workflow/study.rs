@@ -785,7 +785,13 @@ impl Runtime {
                             }
                         };
                         Ok(NewOccurrence {
-                            projection: if definition.variants.is_none() {Some(super::study_tables::admission_projection(&definition.points[index])?)} else {None},
+                            projection: if definition.variants.is_none() {
+                                Some(super::study_tables::admission_projection(
+                                    &definition.points[index],
+                                )?)
+                            } else {
+                                None
+                            },
                             policy: policy.clone(),
                             descriptor: descriptor.clone(),
                             run: StoredRequest {
@@ -1102,11 +1108,22 @@ impl Runtime {
                 )
             }
         };
-        let projection=admission.definition.as_ref().map(super::study_tables::admission_projection).transpose()?;
+        let projection = admission
+            .definition
+            .as_ref()
+            .map(super::study_tables::admission_projection)
+            .transpose()?;
         let admission = document(&admission)?;
         creation_effect(
             cancel,
-            store.complete_study_admission(scope, fence, &admission, projection.as_deref(), seed_need, diagnostic),
+            store.complete_study_admission(
+                scope,
+                fence,
+                &admission,
+                projection.as_deref(),
+                seed_need,
+                diagnostic,
+            ),
         )
         .await?;
         Ok(true)

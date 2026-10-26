@@ -8,7 +8,9 @@ use pse_operations::canonical::{CanonicalError, CanonicalStore};
 use std::path::{Path, PathBuf};
 
 /// Materialized executable association for the managed study receiver.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ManagedPrimaryReceiver {
     /// Interpreter selected by the owning supervisor environment.
@@ -23,7 +25,9 @@ pub struct ManagedPrimaryReceiver {
     pub worker_sha256: String,
 }
 /// The application profile's separately capped native-worker slots.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct NativeAllocation {
     /// Finite service and execution envelope, separate from each process cap.
@@ -53,7 +57,9 @@ pub struct NativeAllocation {
     pub execution: Option<NativeExecutionAllocation>,
 }
 /// Finite runtime allocation materialized by the existing deployment supervisor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct NativeExecutionAllocation {
     /// Shared application pool capacity, distinct from the process cap.
@@ -79,17 +85,30 @@ impl NativeAllocation {
     /// Materialize the declared process envelope and the storage defaults once.
     /// # Errors
     /// The same relational validator refuses impossible allocations before effects.
-    pub fn materialize(total: usize, server: usize, workers: usize, worker: usize,
-                       execution: Option<NativeExecutionAllocation>) -> Result<Self, WorkflowError> {
+    pub fn materialize(
+        total: usize,
+        server: usize,
+        workers: usize,
+        worker: usize,
+        execution: Option<NativeExecutionAllocation>,
+    ) -> Result<Self, WorkflowError> {
         let allocation = Self::declared(total, server, workers, worker, execution);
         allocation.validate()?;
         Ok(allocation)
     }
-    fn declared(total: usize, server: usize, workers: usize, worker: usize,
-                execution: Option<NativeExecutionAllocation>) -> Self {
+    fn declared(
+        total: usize,
+        server: usize,
+        workers: usize,
+        worker: usize,
+        execution: Option<NativeExecutionAllocation>,
+    ) -> Self {
         Self {
-            total_memory_bytes: total, server_memory_bytes: server,
-            native_workers: workers, native_worker_memory_bytes: worker, execution,
+            total_memory_bytes: total,
+            server_memory_bytes: server,
+            native_workers: workers,
+            native_worker_memory_bytes: worker,
+            execution,
             surrealmx_memory_limit_bytes: server / 2,
             surrealmx_max_transaction_age_seconds: 90,
             surrealmx_snapshot_interval_seconds: 60,
@@ -147,16 +166,31 @@ impl NativeAllocation {
                 "shared execution profile exceeds the managed allocation",
             ));
         }
-        let observer = self.execution.map_or(0, |profile| profile.observer_memory_bytes);
-        let demand = self.native_workers.checked_mul(self.native_worker_memory_bytes)
+        let observer = self
+            .execution
+            .map_or(0, |profile| profile.observer_memory_bytes);
+        let demand = self
+            .native_workers
+            .checked_mul(self.native_worker_memory_bytes)
             .and_then(|workers| workers.checked_add(self.server_memory_bytes))
             .and_then(|bytes| bytes.checked_add(observer));
         if demand.is_none_or(|bytes| bytes > self.total_memory_bytes) {
-            return Err(super::contract("storage, managed workers and observer exceed the declared envelope"));
+            return Err(super::contract(
+                "storage, managed workers and observer exceed the declared envelope",
+            ));
         }
-        if *self != Self::declared(self.total_memory_bytes, self.server_memory_bytes,
-                                  self.native_workers, self.native_worker_memory_bytes, self.execution) {
-            return Err(super::contract("storage settings differ from the materialized allocation"));
+        if *self
+            != Self::declared(
+                self.total_memory_bytes,
+                self.server_memory_bytes,
+                self.native_workers,
+                self.native_worker_memory_bytes,
+                self.execution,
+            )
+        {
+            return Err(super::contract(
+                "storage settings differ from the materialized allocation",
+            ));
         }
         Ok(())
     }
@@ -209,7 +243,9 @@ impl NativeExecutionSelection {
         let state = canonical_state.as_path();
         let initial_path = state.join("config.json");
         let initial_bytes = private_file(&initial_path)?;
-        let initial: pse_operations::deployment::ServiceIdentity = pse_operations::deployment::projection(&initial_bytes).map_err(|error| super::contract(error.to_string()))?;
+        let initial: pse_operations::deployment::ServiceIdentity =
+            pse_operations::deployment::projection(&initial_bytes)
+                .map_err(|error| super::contract(error.to_string()))?;
         let service_state = initial.service_state.as_deref().unwrap_or(state);
         private_directory(service_state)?;
         let service_path = service_state.join("config.json");
@@ -218,10 +254,10 @@ impl NativeExecutionSelection {
         } else {
             private_file(&service_path)?
         };
-        let service: pse_operations::deployment::ServiceIdentity = pse_operations::deployment::projection(&service_bytes).map_err(|error| super::contract(error.to_string()))?;
-        if service.endpoint != initial.endpoint
-            || service.namespace != initial.namespace
-        {
+        let service: pse_operations::deployment::ServiceIdentity =
+            pse_operations::deployment::projection(&service_bytes)
+                .map_err(|error| super::contract(error.to_string()))?;
+        if service.endpoint != initial.endpoint || service.namespace != initial.namespace {
             return Err(super::contract(
                 "native deployment storage identity/version mismatch",
             ));
@@ -269,8 +305,12 @@ impl NativeExecutionSelection {
             private_directory(&context.receiver_state)?;
             let receiver_path = context.receiver_state.join("config.json");
             let receiver_bytes = private_file(&receiver_path)?;
-            let receiver_identity: pse_operations::deployment::ServiceIdentity = pse_operations::deployment::projection(&receiver_bytes).map_err(|error| super::contract(error.to_string()))?;
-            let receiver_policy: ManagedExecutionPolicy = pse_operations::deployment::projection(&receiver_bytes).map_err(|error| super::contract(error.to_string()))?;
+            let receiver_identity: pse_operations::deployment::ServiceIdentity =
+                pse_operations::deployment::projection(&receiver_bytes)
+                    .map_err(|error| super::contract(error.to_string()))?;
+            let receiver_policy: ManagedExecutionPolicy =
+                pse_operations::deployment::projection(&receiver_bytes)
+                    .map_err(|error| super::contract(error.to_string()))?;
             if receiver_identity.database != database
                 || receiver_identity.namespace != service.namespace
                 || receiver_identity.endpoint != service.endpoint
@@ -294,7 +334,9 @@ impl NativeExecutionSelection {
             });
             (context.policy, context.receiver_state)
         } else {
-            let policy: ManagedExecutionPolicy = pse_operations::deployment::projection(&service_bytes).map_err(|error| super::contract(error.to_string()))?;
+            let policy: ManagedExecutionPolicy =
+                pse_operations::deployment::projection(&service_bytes)
+                    .map_err(|error| super::contract(error.to_string()))?;
             if database != service.database
                 && (policy.resources.execution.is_some() || policy.primary_receiver.is_some())
             {
@@ -510,11 +552,27 @@ mod native_selection_unit {
             .unwrap();
     }
     fn policy() -> Value {
-        serde_json::to_value(NativeAllocation::materialize(1 << 30, 512 << 20, 1, 64 << 20,
-            Some(NativeExecutionAllocation { pool_memory_bytes: 32 << 20, worker_bytes: 16 << 20,
-                cpu_threads: 2, case_lanes: 2, math_jobs: 4, compiler_cores: 1,
-                admission_wait_ms: 1000, process_headroom_bytes: 32 << 20,
-                observer_memory_bytes: 16 << 20 })).unwrap()).unwrap()
+        serde_json::to_value(
+            NativeAllocation::materialize(
+                1 << 30,
+                512 << 20,
+                1,
+                64 << 20,
+                Some(NativeExecutionAllocation {
+                    pool_memory_bytes: 32 << 20,
+                    worker_bytes: 16 << 20,
+                    cpu_threads: 2,
+                    case_lanes: 2,
+                    math_jobs: 4,
+                    compiler_cores: 1,
+                    admission_wait_ms: 1000,
+                    process_headroom_bytes: 32 << 20,
+                    observer_memory_bytes: 16 << 20,
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap()
     }
     fn deployment(resources: Value, receiver: Value) -> Value {
         json!({"profile_version": 3, "endpoint": "grpc://127.0.0.1:8000",

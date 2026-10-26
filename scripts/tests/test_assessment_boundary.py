@@ -5,7 +5,6 @@
 # ruff: noqa: PT009, PT027 -- stdlib cross-owner controls
 from __future__ import annotations
 
-
 import tempfile
 import unittest
 from dataclasses import asdict
@@ -16,9 +15,9 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from jsonschema import Draft202012Validator
 
-from scripts import service_borrowers
 from scripts import (
     assessment_store,
+    service_borrowers,
     test_resources,
     validation_receipts,
     validation_result,

@@ -17,7 +17,6 @@ import os
 import re
 import stat
 import subprocess
-import tempfile
 import time
 import tomllib
 import uuid
@@ -26,9 +25,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict, cast
 
 from scripts import operation_lifetime as operation
-from scripts import resource_store, systemd_environment, process_observation
+from scripts import process_observation, resource_store, systemd_environment
+from scripts.host_metadata import (
+    AdmissionError,
+    control_run,
+    lock_until,
+    protected,
+    remaining,
+    root_path,
+    validate_private_file,
+)
 from scripts.process_observation import boot
-from scripts.host_metadata import (AdmissionError, root_path, protected, remaining, control_run, lock_until, validate_private_file)
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
@@ -105,8 +112,6 @@ class AllocationLedger(TypedDict):
     version: int
     owners: dict[str, AllocationRecord]
     parked_services: NotRequired[list[str]]
-
-
 
 
 @dataclass(frozen=True)
@@ -187,7 +192,9 @@ def settings(name: str) -> dict[str, int]:
 
 
 def execution(name: str) -> dict[str, int]:
-    from scripts import execution_profiles  # noqa: PLC0415 -- explicit product profile selection
+    from scripts import (
+        execution_profiles,
+    )
 
     return execution_profiles.execution(name)
 
@@ -260,13 +267,17 @@ def select(name: str, requested: str | None = None) -> Profile:
     elif name == "timing":
         result = Profile(name, settings(name)["slot_gib"] * GIB, name, 1, timing)
     elif name == "reference":
-        from scripts import execution_profiles  # noqa: PLC0415 -- explicit production profile admission
+        from scripts import (
+            execution_profiles,
+        )
 
         admitted = execution_profiles.profile("reference")
         memory = integer(admitted["native_worker_memory_bytes"])
         result = Profile(name, memory, "exclusive", 2, all_cores, True)
         if amount is not None and amount != memory:
-            raise AdmissionError("Reference profile requires its declared primary and service envelope; select exclusive for another allocation")
+            raise AdmissionError(
+                "Reference profile requires its declared primary and service envelope; select exclusive for another allocation"
+            )
     else:
         result = Profile(
             name,
@@ -290,7 +301,9 @@ def select(name: str, requested: str | None = None) -> Profile:
 def aggregate(profile: Profile) -> int:
     config = policy()
     if profile.name == "reference":
-        from scripts import execution_profiles  # noqa: PLC0415 -- explicit production profile envelope
+        from scripts import (
+            execution_profiles,
+        )
 
         return integer(execution_profiles.profile("reference")["total_memory_bytes"])
     if profile.exclusive:
@@ -354,14 +367,6 @@ def classify(command: Sequence[str], native: bool = False) -> str:
     return "functional"
 
 
-
-
-
-
-
-
-
-
 def verify_light_control_child(
     env: Mapping[str, str], *, deadline: float
 ) -> Allocation:
@@ -402,8 +407,6 @@ def verify_light_control_child(
             allocation.bind(unit, deadline=deadline, fresh=True)
             return allocation
     raise AdmissionError("Fixed control child is outside its registered actual scope")
-
-
 
 
 def validate_ledger(record: object) -> MetadataLedger:
@@ -457,8 +460,6 @@ def readonly_snapshot(
         return cast("AllocationLedger", ledger)
     finally:
         os.close(fd)
-
-
 
 
 @contextlib.contextmanager
@@ -584,8 +585,6 @@ def validate_allocation_record(record: Mapping[str, object]) -> None:
         raise AdmissionError("Corrupt host allocation; retain ownership for inspection")
 
 
-
-
 def integer(value: object) -> int:
     """Reject an untyped ownership number rather than guessing a live identity."""
     if type(value) is not int:
@@ -609,23 +608,34 @@ def group_identity(group: str) -> int | None:
         raise AdmissionError(str(error)) from error
 
 
-
-
-
-
-
 class ServicePolicy(Protocol):
     """Explicit service lifetime decisions composed by the service entry point."""
 
-    def processes_drained(self, record: Mapping[str, object], allocation: Path | None,
-                          *, deadline: float | None = None) -> bool: ...
+    def processes_drained(
+        self,
+        record: Mapping[str, object],
+        allocation: Path | None,
+        *,
+        deadline: float | None = None,
+    ) -> bool: ...
 
-    def return_borrowed(self, directory: Path, record: Mapping[str, object], *,
-                        allocation: Path, explicit: bool = False,
-                        deadline: float | None = None) -> None: ...
+    def return_borrowed(
+        self,
+        directory: Path,
+        record: Mapping[str, object],
+        *,
+        allocation: Path,
+        explicit: bool = False,
+        deadline: float | None = None,
+    ) -> None: ...
 
-    def park(self, directory: Path, owners: Mapping[str, AllocationRecord], *,
-             deadline: float) -> None: ...
+    def park(
+        self,
+        directory: Path,
+        owners: Mapping[str, AllocationRecord],
+        *,
+        deadline: float,
+    ) -> None: ...
 
     def resume(self, state: Path, *, deadline: float | None = None) -> None: ...
 
@@ -666,9 +676,10 @@ def drained(
             or not operation.terminal_guard_complete(nonce, guard, deadline=deadline)
         ):
             return False
-    if (
-        record.get("service") or record.get("borrowed_services")
-    ) and (services is None or not services.processes_drained(record, allocation, deadline=deadline)):
+    if (record.get("service") or record.get("borrowed_services")) and (
+        services is None
+        or not services.processes_drained(record, allocation, deadline=deadline)
+    ):
         return False
     for unit, owner in units.items():
         if not isinstance(owner, dict):
@@ -717,10 +728,6 @@ def drained(
     return bool(record.get("released")) or not caller_alive(record)
 
 
-
-
-
-
 def withdraw_parked_service(state: Path, *, directory: Path | None = None) -> None:
     """Withdraw only this service's queued resume; retain every allocation owner."""
     directory = root_path() if directory is None else directory
@@ -731,7 +738,10 @@ def withdraw_parked_service(state: Path, *, directory: Path | None = None) -> No
 
 
 def reconcile(
-    directory: Path, deadline: float | None = None, *, resume_parked: bool = True,
+    directory: Path,
+    deadline: float | None = None,
+    *,
+    resume_parked: bool = True,
     services: ServicePolicy | None = None,
 ) -> None:
     with allocation_metadata(directory) as state:
@@ -751,7 +761,8 @@ def reconcile(
     finished = {
         nonce: item
         for nonce, item in snapshot.items()
-        if isinstance(item, dict) and drained(item, allocation=directory / nonce, services=services)
+        if isinstance(item, dict)
+        and drained(item, allocation=directory / nonce, services=services)
     }
     with allocation_metadata(directory) as state:
         owners = state["owners"]
@@ -884,8 +895,11 @@ class Allocation:
             return True
         if self.services is not None:
             self.services.return_borrowed(
-                self.directory, owner, allocation=self.directory / self.nonce,
-                explicit=True, **operation.deadline_options(deadline),
+                self.directory,
+                owner,
+                allocation=self.directory / self.nonce,
+                explicit=True,
+                **operation.deadline_options(deadline),
             )
         # Returning a stopped borrowed service can retire only that affiliation.
         # Judge and release the current record, including any other surviving work.
@@ -918,7 +932,10 @@ class Allocation:
 
 
 def inherit(
-    env: Mapping[str, str], *, handoff: bool = False, deadline: float | None = None,
+    env: Mapping[str, str],
+    *,
+    handoff: bool = False,
+    deadline: float | None = None,
     services: ServicePolicy | None = None,
 ) -> Allocation | None:
     marker = env.get(MARKER)
@@ -1237,7 +1254,10 @@ def admission_observations(
 
 
 def acquire(
-    profile: Profile, *, directory: Path | None = None, deadline: float | None = None,
+    profile: Profile,
+    *,
+    directory: Path | None = None,
+    deadline: float | None = None,
     services: ServicePolicy | None = None,
 ) -> Allocation:
     directory = root_path() if directory is None else directory
@@ -1303,9 +1323,13 @@ def acquire(
                 if profile.exclusive and parkable:
                     try:
                         if services is None:
-                            raise AdmissionError("Service parking requires its composed lifetime policy")
+                            raise AdmissionError(
+                                "Service parking requires its composed lifetime policy"
+                            )
                         services.park(directory, parkable, deadline=deadline)
-                        reconcile(directory, deadline, resume_parked=False, services=services)
+                        reconcile(
+                            directory, deadline, resume_parked=False, services=services
+                        )
                         require_admission_time(
                             deadline,
                             "Original admission clock expired during service parking",
@@ -1364,9 +1388,11 @@ def retire_empty_allocation(
     observed = operation.unit_observation(name, **options)
     group = observed.get("ControlGroup", "")
     if group and not operation.populated(group):
-        result = control_run(["systemctl", "--user", "stop", name],
-                             env=operation.manager_control_environment(),
-                             deadline=time.monotonic() + 10 if deadline is None else deadline)
+        result = control_run(
+            ["systemctl", "--user", "stop", name],
+            env=operation.manager_control_environment(),
+            deadline=time.monotonic() + 10 if deadline is None else deadline,
+        )
         if result.returncode:
             raise AdmissionError("Cannot retire empty allocation cgroup")
 
@@ -1534,7 +1560,9 @@ def status(*, services: ServicePolicy | None = None) -> dict[str, object]:
         return {**state, "pressure": memory_info(), "policy": policy()}
 
 
-def measurement_context(env: Mapping[str, str] | None = None, *, service: Mapping[str, object] | None = None) -> dict[str, object]:
+def measurement_context(
+    env: Mapping[str, str] | None = None, *, service: Mapping[str, object] | None = None
+) -> dict[str, object]:
     """Record conditions without treating snapshots or CPU ceilings as isolation."""
     source = os.environ if env is None else env
     owner = inherit(source)

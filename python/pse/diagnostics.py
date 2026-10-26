@@ -1314,4 +1314,3 @@ def _review_command(args: argparse.Namespace) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

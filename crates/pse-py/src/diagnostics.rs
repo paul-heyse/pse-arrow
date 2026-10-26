@@ -1047,4 +1047,3 @@ pub(crate) fn diagnostic_read_handoff(
         .map(DocumentValue)
         .map_err(|error| errors::diagnostic(py, &error))
 }
-

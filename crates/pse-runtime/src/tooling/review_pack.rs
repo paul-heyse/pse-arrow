@@ -1687,8 +1687,11 @@ fn validate_encoding(
     }
     if member.selection.format == PackFormat::ArrowIpcStream {
         let schema = crate::workflow::portable_payload::finalized_ipc_schema(
-            file, member.readable_bytes, maximum_document_bytes,
-        ).map_err(contained_error)?;
+            file,
+            member.readable_bytes,
+            maximum_document_bytes,
+        )
+        .map_err(contained_error)?;
         if let Some(table) = &member.selection.diagnostic_table {
             let registry = pse_schema::registry().map_err(|e| invalid(e.to_string()))?;
             let relation = registry
@@ -1719,7 +1722,6 @@ fn validate_encoding(
     }
     Ok(())
 }
-
 
 struct BoundedOutput<'a> {
     output: &'a mut File,

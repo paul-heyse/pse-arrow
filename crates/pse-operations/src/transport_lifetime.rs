@@ -120,7 +120,9 @@ impl ConnectionAccess {
         O: FnOnce() -> F + Send + 'static,
         F: Future<Output = Result<(), CanonicalError>> + Send,
     {
-        self.physical.close(|| async { Ok(()) }, ordinary, || async { Ok(()) }).await
+        self.physical
+            .close(|| async { Ok(()) }, ordinary, || async { Ok(()) })
+            .await
     }
     /// Retain one bounded activity; closed callers cannot admit independent work.
     /// # Errors
@@ -355,8 +357,9 @@ impl PhysicalLifetime {
                 round: round.clone(),
                 completed: false,
             };
-            let deadline = crate::transport::current_deadline()
-                .unwrap_or_else(|| crate::transport::original_deadline(crate::transport::REQUEST_TIMEOUT));
+            let deadline = crate::transport::current_deadline().unwrap_or_else(|| {
+                crate::transport::original_deadline(crate::transport::REQUEST_TIMEOUT)
+            });
             tokio::spawn(async move {
                 let result = async {
                     // Readers protect both clients. Failure here forbids either

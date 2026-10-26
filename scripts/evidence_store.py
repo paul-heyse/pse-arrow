@@ -331,7 +331,12 @@ def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceS
 
 
 def run_offline(
-    tool: Path, arguments: list[str], *, deadline: float, operation: str = "offline", stdout: TextIO | None = None
+    tool: Path,
+    arguments: list[str],
+    *,
+    deadline: float,
+    operation: str = "offline",
+    stdout: TextIO | None = None,
 ) -> int:
     """Dispatch an explicitly built tool without configuration, service or build effects."""
     if operation not in {"offline", "compare-offline"}:

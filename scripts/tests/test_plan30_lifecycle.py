@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-
 import contextlib
 import hashlib
 import json
@@ -24,9 +23,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 from unittest.mock import MagicMock, patch
 
-from scripts import operation_lifetime
-from scripts import service_borrowers
-from scripts import host_admission, native_operation, test_resources
+from scripts import (
+    host_admission,
+    native_operation,
+    operation_lifetime,
+    service_borrowers,
+)
 from scripts import surreal_server as server
 from scripts.tests import surreal_fixture_check
 from scripts.tests.server_receipt_fixture import (
@@ -197,7 +199,10 @@ class Plan30LifecycleTests(unittest.TestCase):
     def reservation(self, path: Path) -> None:
         server.write_json(
             path,
-            {"pid": os.getpid(), "start": operation_lifetime.start_identity(os.getpid())},
+            {
+                "pid": os.getpid(),
+                "start": operation_lifetime.start_identity(os.getpid()),
+            },
         )
 
     @contextlib.contextmanager
@@ -389,7 +394,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         record = {"state": str(self.state), "cleanup": "retained", "drained": False}
         with (
             patch.object(
-                service_borrowers, "service_resources", return_value={"borrower": record}
+                service_borrowers,
+                "service_resources",
+                return_value={"borrower": record},
             ),
             patch.object(service_borrowers, "borrower_alive", return_value=True),
             patch.object(server, "stop") as stop,
@@ -408,7 +415,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         record = {"state": str(context), "cleanup": "retained", "drained": False}
         with (
             patch.object(
-                service_borrowers, "service_resources", return_value={"borrower": record}
+                service_borrowers,
+                "service_resources",
+                return_value={"borrower": record},
             ),
             patch.object(service_borrowers, "borrower_alive", return_value=True),
         ):
@@ -435,7 +444,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         }
         with (
             patch.object(
-                service_borrowers, "service_resources", return_value={"resource": record}
+                service_borrowers,
+                "service_resources",
+                return_value={"resource": record},
             ),
             patch.object(
                 service_borrowers,
@@ -452,7 +463,9 @@ class Plan30LifecycleTests(unittest.TestCase):
                 server.all_contexts_drained(self.state)
         with (
             patch.object(
-                service_borrowers, "service_resources", return_value={"resource": record}
+                service_borrowers,
+                "service_resources",
+                return_value={"resource": record},
             ),
             patch.object(service_borrowers, "borrower_alive", return_value=False),
         ):
@@ -687,7 +700,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         }
         with (
             patch.object(server, "Path", side_effect=path),
-            patch.object(operation_lifetime, "start_identity", return_value="same-start"),
+            patch.object(
+                operation_lifetime, "start_identity", return_value="same-start"
+            ),
             patch.object(
                 server, "recorded_storage_owner", return_value=(owner, launch)
             ),

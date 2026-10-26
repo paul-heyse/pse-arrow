@@ -55,42 +55,68 @@ pub fn projection<'de, T: Deserialize<'de>>(bytes: &'de [u8]) -> Result<T, serde
 struct OwnedFields<D>(D);
 impl<'de, D: serde::Deserializer<'de>> serde::Deserializer<'de> for OwnedFields<D> {
     type Error = D::Error;
-    fn deserialize_any<V: serde::de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+    fn deserialize_any<V: serde::de::Visitor<'de>>(
+        self,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error> {
         self.0.deserialize_any(visitor)
     }
     fn deserialize_struct<V: serde::de::Visitor<'de>>(
-        self, _name: &'static str, fields: &'static [&'static str], visitor: V,
+        self,
+        _name: &'static str,
+        fields: &'static [&'static str],
+        visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        self.0.deserialize_map(ProjectionVisitor { fields, visitor })
+        self.0
+            .deserialize_map(ProjectionVisitor { fields, visitor })
     }
     serde::forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string bytes byte_buf
         option unit unit_struct newtype_struct seq tuple tuple_struct map enum identifier ignored_any
     }
 }
-struct ProjectionVisitor<V> { fields: &'static [&'static str], visitor: V }
+struct ProjectionVisitor<V> {
+    fields: &'static [&'static str],
+    visitor: V,
+}
 impl<'de, V: serde::de::Visitor<'de>> serde::de::Visitor<'de> for ProjectionVisitor<V> {
     type Value = V::Value;
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.visitor.expecting(formatter)
     }
     fn visit_map<A: serde::de::MapAccess<'de>>(self, map: A) -> Result<Self::Value, A::Error> {
-        self.visitor.visit_map(SelectedMap { fields: self.fields, map })
+        self.visitor.visit_map(SelectedMap {
+            fields: self.fields,
+            map,
+        })
     }
 }
-struct SelectedMap<A> { fields: &'static [&'static str], map: A }
+struct SelectedMap<A> {
+    fields: &'static [&'static str],
+    map: A,
+}
 impl<'de, A: serde::de::MapAccess<'de>> serde::de::MapAccess<'de> for SelectedMap<A> {
     type Error = A::Error;
-    fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error> {
+    fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: K,
+    ) -> Result<Option<K::Value>, Self::Error> {
         while let Some(key) = self.map.next_key::<String>()? {
             if self.fields.contains(&key.as_str()) {
-                return seed.deserialize(serde::de::value::StringDeserializer::<Self::Error>::new(key)).map(Some);
+                return seed
+                    .deserialize(serde::de::value::StringDeserializer::<Self::Error>::new(
+                        key,
+                    ))
+                    .map(Some);
             }
             self.map.next_value::<serde::de::IgnoredAny>()?;
         }
         Ok(None)
     }
-    fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(&mut self, seed: V) -> Result<V::Value, Self::Error> {
+    fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(
+        &mut self,
+        seed: V,
+    ) -> Result<V::Value, Self::Error> {
         self.map.next_value_seed(seed)
     }
 }

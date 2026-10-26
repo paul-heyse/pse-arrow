@@ -21,8 +21,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from scripts import operation_lifetime
 from scripts import compiler_cache as cache
+from scripts import operation_lifetime
 
 
 def alive(pid: int) -> bool:
@@ -326,7 +326,9 @@ class CompilerCacheTests(unittest.TestCase):
             }
             with (
                 patch.object(cache, "observe", return_value=observation),
-                patch.object(operation_lifetime, "process_group", return_value="/owned"),
+                patch.object(
+                    operation_lifetime, "process_group", return_value="/owned"
+                ),
                 patch.object(cache, "peer", return_value=os.getpid()),
                 patch.object(cache, "registered", return_value=True),
             ):
