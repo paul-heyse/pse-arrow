@@ -1,6 +1,6 @@
 ---
 title: "Plan 56d: Publication and workload fit"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: [ADR-0230]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -161,12 +161,12 @@ interpretation.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | implemented; selected native publication controls passed, scope-end acceptance in progress | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
-| D02 | implemented; selected native frontier/replay/expiry controls passed | 56d | Resume begins at exact installed frontier; incomplete population never activates |
-| D03 | implemented; native provider controls passed, corrected public workbench journey pending | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
-| D04 | implemented; actual public 10,000-point creation/capture/provider/summary journey passed | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
-| D05 | implemented; fused integrity and pending-owner controls passed, current-helper large recovery pending | 56d | Inventory/copy progress is resumable and integrity passes reused with distinct guarantees retained |
-| D06 | implemented; native selected multi-revision exchange and accounted benefit observations passed | 56d | Executable explanation/export retain only useful hydrated units, with exact closure and final visibility |
+| D01 | complete at selected native publication acceptance | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
+| D02 | complete at selected native frontier/replay/expiry acceptance | 56d | Resume begins at exact installed frontier; incomplete population never activates |
+| D03 | complete at native provider and installed public workbench/CLI acceptance | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
+| D04 | complete at actual public 10,000-point creation/capture/provider/summary acceptance | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
+| D05 | complete at selected fused-helper one-GiB recovery and interruption/resume acceptance | 56d | Inventory/copy progress is resumable and integrity passes reused with distinct guarantees retained |
+| D06 | complete at native selected multi-revision exchange acceptance | 56d | Executable explanation/export retain only useful hydrated units, with exact closure and final visibility |
 
 D01 consumes C01/C03; D02 consumes C01/C02 and B03 operation facts. D03 needs B01 permission
 and D02's compact admission product, not all population work. D04 may start its engine inquiry
@@ -325,3 +325,147 @@ Earlier positive large archives remain bound to their original helper bytes.
 The current helper's fresh one-GiB mixed-placement recovery and interruption/resume, corrected
 installed public workbench journey and final shared scope-end checks are still in progress.
 Package implementation and earlier focused passes do not close these remaining acceptance tasks.
+
+## Verification and Outcome — 2026-10-26
+
+### What was built
+
+**Implemented:** D01–D06 use native grouped publication, original resumable installation pages,
+compact admission outcomes, atomic gated live capture/protection, one lazy relation provider,
+recoverable fused integrity/copy phases and incremental selected-source exchange. The replaced
+per-item shared-work loops, per-point creation path, full-descriptor summary reads, per-member
+full snapshots/union chains and aggregate encoded-source retention are removed. Current fresh
+interpretation is `pse.substrate.v10`; prior qualification states and original archives remain
+preserved. Proposed ADR-0230 retains its formal status.
+
+**Tested:** selected local Linux correctness uses explicit force-validation, the pinned nightly,
+current native providers and owned v10 state. The initial joint native selection passed 78 of 82;
+its four corrected cohort/observer controls then passed 4/4. This is composite evidence, not a
+clean monolithic 82-case run. `just unit-native-package pse-runtime canonical-tests
+'test(workbench_actual_10000_)' --profile local --success-output immediate` subsequently passed
+the single actual public 10,000-point journey. The later five-control selection
+`test(workbench_actual_10000_) | test(workbench_public_cohort_) | test(workbench_capture_continuation_) | test(study_observer_public_)`
+passed 5/5 against zero, including a repeated actual 10,000-point run and original capture release
+after caller close followed by terminal drain. It covers bounded creation, changing-live capture,
+forty member pages, one shared provider, exact quantities, late completion remaining unavailable
+in the original capture, cancellation and final compact summary. The capture includes nine usable,
+two failed, one active and 9,988 unattempted points; the final summary includes ten usable points.
+This does not claim 10,000 numerical solves or qualification of the 100,000 admission ceiling.
+
+**Measured:** that selected 10,000-point run observed creation 52.340 s, capture 1.639 s, aggregate
+5.579 s, cancellation 23.446 s and summary 8.373 s. Accounted capture/aggregate pool peaks were
+22,872,064/58,680,171 bytes, with 103,314 bytes maximum retained member page. These are local
+single-run phase observations under a 4 GiB fixture pool, not comparative speedup, private RSS,
+a workstation cap or an SLA. Native selected multi-revision exchange retained 543,259 source bytes
+across twelve source members/two revisions; explanation/export took 2.043403/2.450874 s with
+accounted phase peaks 34,883,551/34,987,639 bytes. Process-lifetime RSS observations are separate
+and do not establish phase RSS. Original admission, exclusion of the unselected third revision,
+output exhaustion and cancellation before the next hydration were exercised.
+
+**Tested:** `just unit-package pse-operations
+'test(canonical_files::offline::tests::) | test(canonical_files::tests::sealed_)'` passed 22/22;
+the supervised backup image/resume selection passed 19/19. Canonical framing and archive SHA256
+share each controlled read while fresh payload copies retain four physical phases and exact
+resumed copies two. Source extent refuses before payload reads and original source/destination
+refusal priorities remain independent. `scripts.tests.canonical_recovery_check` with explicit
+`--backup-scale-bytes 1073741824`, the retained private fixture and rebuilt product helper passed
+SIGKILL/reopen, backup, offline lower/original-cap recovery, fresh restore identity and original
+semantic checks. Sixty-four sealed 16 MiB bodies plus eight inline bytes matched all 65 original
+descriptors and exact bytes after reopen/restore. The fixture remains Partial/SeedUnavailable;
+opaque storage bodies establish no numerical success.
+
+The fused helper selected for the large positive controls has SHA256
+`f79f2bf0c0e6c0b6b4cabd0609183294985df24cc39c85dce977f63a279cb7d8`.
+An authenticated helper SIGKILL during the next copy after one acknowledged entry left the backup
+unpublished and source stopped. Explicit normal resume preserved the prefix inode, completed 65
+entries and independently verified the archive. Wrong destination and later changed destination
+bytes refused; the positive original backup and receipt stayed unchanged. The negative destination
+is intentionally retained corrupt. Source, positive backup and restored state are retained under
+`build/qualification/56de-fused-scale-20261026T174725`; logs are
+`/tmp/pse-56de-fused-scale-journey.log` and `/tmp/pse-56de-fused-backup-interruption.log`.
+Earlier positive archives remain bound to their original helper bytes.
+
+**Tested:** the final installed correctness selection passes 8/8 against zero using
+`scripts/pse-env --native -- .venv/bin/python -m scripts.python_tests`
+with `test_study_workbench.py`, the retained-revision capability adapter, `test_project_cli.py`
+and `test_project_portability.py`, on owned v10 state and a fresh owned pytest directory.
+The artifact SHA256 is `f2f0dd191d89013d402142e03acc38cd74746c2134c840d0ae9bb9625ac01c2d`,
+with `force-validate,native-solvers,solver-highs`. Actual two-point execution preserves the original
+unavailable capture, then returns exact completed quantity/unit rows and aggregate values through
+Python, NDJSON and Arrow IPC. CLI output exhaustion retains the original refusal; terminal cleanup
+joins original reader releases. Actual completed-parent observation preserves status and truthfully
+reports no parent numeric history. The separate actual STDIO MCP and pack/CLI/offline/import/reopen/
+corruption journeys pass in the same selection. Log: `/tmp/pse-56de-public-product-final.log`.
+The original failed runs remain separate evidence.
+
+**Tested:** the final native selection
+`test(study_summary_conclusion) | test(study_observer_terminal_parent_conclusion_has_no_numeric_history) | test(study_observer_public_disconnect_reconnect_reads_full_history_or_reports_missing_prefix)`
+passes 4/4 through `just unit-native-package pse-runtime canonical-tests`, explicit force-validation,
+local profile and the original owned v10 state. Strict current summary tuples, malformed/versioned
+refusals, real parent finalization, repeated polls and original point history/missing-prefix behavior
+are exercised. The pure `pse-project` dual action/drain failure control passes 1/1. Logs are
+`/tmp/pse-56de-final-parent-observer-controls.log` and `/tmp/pse-56de-cli-dual-failure-unit.log`.
+Shared scope-end reconciliation is recorded in the final closeout below.
+
+### A mistake made and corrected
+
+Independent reconciliation found that D05 still performed redundant canonical/SHA scans despite
+its initial implementation claim; those scans are now fused with distinct readbacks preserved.
+Real large recovery also exposed intermediate backup directories created with the caller's umask;
+all newly created ancestors now retain private owned directory custody. Two helper-selection
+entrypoints could invalidate an original pending backup before refusal; both now validate its
+original identity before any write. Actual public acceptance exposed a completed parent summary being read as a scientific
+completion receipt; its strict study-owned conclusion decoder now preserves the parent status
+and absent numeric-history meaning while point receipts retain their original path. It also
+exposed queued capture cleanup racing CLI disconnect; the terminal owner now joins original releases and SDK callbacks without relaxing
+live-reader refusal. The expanded test also corrected its own queue-driving, feasible-point,
+result-document and relation-specific `step:0` selection assumptions. Original failures remain
+in the scope's logs rather than being promoted to successful qualification.
+
+### Deviations from the plan, deliberate
+
+The ungated native SSI mechanism failed, so the independently reviewed committed gate replaces it;
+optimistic `FOR UPDATE` is not described as blocking exclusion. The selected cap is the shared
+public 10,000-member bound actually exercised. Large storage qualification explicitly uses private
+opaque bodies and original descriptors, independent of numerical solver success. No universal
+one-pass, full feature matrix, solver-fleet/parity, distribution, desktop attachment or other-platform
+claim follows. Full F/G work retains its owner.
+
+### Final closeout and handoff
+
+**Implemented/Tested:** D01–D06 are complete for the selected local functional scope and
+acceptance described above. Enduring publication/capture/offline contracts are in blueprint
+§19.3/§20.6; this companion remains retained for active E/F/G and proposed-ADR readers.
+E02/E03 ordinary receiver activation is separately blocked at E's Outcome; it does not turn the
+passing capture, publication, exchange or private recovery controls into receiver qualification.
+
+**Tested:** final `just governance` passes governance controls, all generated comparisons and
+family agreement against zero. Full native/product/private-development Clippy passes with
+`--workspace --all-targets --no-default-features`,
+`pse-runtime/product-operators,pse-runtime/native-solvers,pse-runtime/canonical-tests,xtask/canonical-tools,xtask/full-codegen`,
+explicit force-validation and `-D warnings`. This includes the relocated development families;
+it is one selected feature graph, not a feature powerset. Final default workspace `just lint-native-data`, `just lint-native-contracts` and
+`just clippy-no-default` also pass; G's selected contribution retains their exact scope.
+`just ready`, `just lint-py`, `just typecheck` (including warnings), `just lint-license` and strict `just audit-shear` pass against zero. Pyrefly reports
+zero diagnostics with seven existing suppressions; REUSE covers all 12,589 files. Unused xtask
+optional dependencies and empty generated modules were removed through the generator and lockfile,
+with full ten-target regeneration and generated equivalence passing. `just docs` publishes all
+683 chapters and scoped search after the host/docs interpreter correction recorded in E; the
+original failed documentation attempt remains separate evidence.
+
+The original `just hygiene` had seven unsuccessful leaves. Corrected affected leaves pass,
+except global `just lint-typos`, which still reports one `RDER` finding in unrelated dirty
+`history.txt` (zero target). That user-owned file remains unedited and uncommitted. The scoped
+spelling run excluding that file passes. This is composite scope-end evidence, with the original
+failures retained, and no clean full-hygiene claim. Logs include
+`/tmp/pse-56de-governance-closeout.log`, `/tmp/pse-56de-final-full-private-native-clippy.log`,
+`/tmp/pse-56de-typecheck-closeout.log` and `/tmp/pse-56de-audit-shear-repaired.log`.
+The 505-case feature campaign, full-series F/G, full parity/fleet, distribution and other platforms
+remain not_run in this selected closeout.
+
+**Tested:** the owned v10 test deployment was quiesced, authenticated-drained and stopped after
+passing public/native tests, with all failed-run databases and receipts retained. Positive private
+backup/restored services are also stopped; the corrupt negative archive remains explicitly corrupt.
+The attempted reference deployment never started. All earlier qualification states and unrelated
+live services remain preserved. Work stops after committing the integrated changes and this
+handoff; E's activation blocker and wider F/G work remain explicit.

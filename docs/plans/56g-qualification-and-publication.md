@@ -18,7 +18,7 @@ doc_topics: [validation, design, documentation, numerical-execution, storage]
 paths on the supported local Linux host, then reconcile each finding against its complete scope.
 [Plan 56](56-design-principle-alignment.md) owns disposition and authorization; companions own
 functional package state. This plan supplies neither execution authorization nor a claim of
-current qualification. Prior plan/ADR acceptance, source reasoning and focused passes retain
+series-wide qualification. Prior plan/ADR acceptance, source reasoning and focused passes retain
 their exact scope; they do not close this integrated target.
 
 The selected standard is Core 3.4, heuristics 1.0, Process Simulator 1.5 and test-assessment 1.2.
@@ -122,10 +122,10 @@ references and owning scope are satisfied; other plan series retain their obliga
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| G01 | planned; selected 56a/56b/56c contributions delivered | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
-| G02 | planned; selected 56a/56b/56c contributions delivered | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
-| G03 | planned; selected 56a/56b/56c contributions delivered | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
-| G04 | planned; selected 56a/56b/56c contributions delivered | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
+| G01 | planned; selected 56a–56e contributions recorded below | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
+| G02 | planned; selected 56a–56e contributions recorded below | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
+| G03 | planned; selected 56a–56e contributions recorded below | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
+| G04 | planned; selected 56a–56e contributions recorded below | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
 
 G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
 another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
@@ -138,7 +138,7 @@ at the end when implementation is already entrenched.
 original scope, library documentation and focused independent design advice. Document reference,
 metadata, scope-binding and formatting checks establish planning-artifact consistency only.
 At authoring, no product, solver, store, host or benchmark journey had run for Plan56. Subsequent
-selected 56a/56b execution is recorded below; scheduling other findings is not their resolution.
+selected execution is recorded below; scheduling other findings is not their resolution.
 
 ## Selected 56a qualification — 2026-10-25
 
@@ -170,11 +170,64 @@ stopped, with databases/receipts retained and the preexisting selected store pre
 The accidentally launched full feature powerset was interrupted/drained and remains incomplete;
 it was not restarted and supplies no matrix claim. Default/no-default/supported native compile/lint
 closures passed at their actual scope. No full parity/fleet, distribution, desktop-host attachment,
-other-platform, performance or remaining C/D/E/F scenario qualification follows. RC01–RC06 and the
-wider G01–G04 scope remain pending. ADR-0227 remains proposed.
+other-platform, performance or remaining C/D/E/F scenario qualification follows. RC01–RC06 were
+pending at this checkpoint; subsequent selected C/D/E contributions are recorded below, with
+current rule/finding disposition owned by the coordinator. Wider G01–G04 scope remains open.
+ADR-0227 remains proposed.
 
 ## Selected 56c qualification — 2026-10-26
 
 **Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns completed C01–C05 and selected G01–G04 contributions for canonical meaning/effects, exact payload custody, product file authority and closed activation/recovery. Evidence includes canonical 49/49, final native runtime 83/83, repaired installed Python/physical readers, actual STDIO MCP/CLI agreement and private mixed backup/restore with exact original semantics. A real interrupted restore remained closed through three refusals, recovered, validated closed, readmitted and reopened exactly. Original failed attempts, shared-state refusal and composed static checks retain their scope. All owned fixture services are stopped with data/receipts retained.
 
 This is selected local Linux acceptance. G's remaining scenarios, independent full-series assessment, wider D/E/F work and pending rule choices remain open. Shared-context restore, desktop-host attachment, trace export, a new feature powerset, full parity/fleet, wheels, other platforms and measured performance are not established. ADR-0228 remains proposed.
+
+## Selected 56d/56e qualification contribution — 2026-10-26
+
+**Implemented/Tested:** [56d's Outcome](56d-publication-and-workload-fit.md#verification-and-outcome--2026-10-26)
+owns grouped publication, resumable population installation, exact capture/shared cohort provider,
+incremental exchange and fused integrity/copy recovery. Selected local Linux native correctness
+uses explicit force-validation and the current owned v10 state. The actual public 10,000-point
+journey passed; the later five-control native selection passed 5/5 against zero, including a
+repeated 10,000-point journey, retained original capture semantics and terminal drain. These are
+cohort/public-contract controls, not 10,000 numerical solves or qualification of the larger
+admission ceiling. The earlier 78/82 native selection and exact corrected 4/4 rerun retain their
+composite boundaries in D's Outcome.
+
+**Tested:** the rebuilt fused product helper passed the explicit 1 GiB private storage journey
+with 64 sealed 16 MiB bodies plus eight inline bytes, original descriptors and exact reopen/restore
+bytes. Authenticated helper interruption left the backup unpublished/source stopped; explicit
+resume preserved the acknowledged prefix and completed independent archive verification. Original
+destination refusals and retained corrupt negative state remain in D's Outcome. Opaque storage
+bodies supply no numerical-success claim.
+
+**Implemented/Tested:** [56e's Outcome](56e-product-deployment-and-resource-ownership.md#verification-and-outcome--2026-10-26)
+owns responsibility-scoped catalogues/enums/constraints, product roots, actual Rust allocation
+validation and the frozen prepared-input/import closure. Full generation passed all ten targets;
+selected builds, migrated enum consumers, changed-declaration controls and host/static acceptance
+retain their exact scope there. Exact-resource recovery settled the recorded orphan fixtures
+through original durable membership and native/file-owner drain proof, preserving databases,
+pins, references and original failure records. This contributes to G02 custody/drain acceptance;
+it is not fixture disposal or proof of every future recovery route.
+
+**Tested:** the final installed public selection passes 8/8 and native parent/history controls
+4/4; D's Outcome owns commands, correctness artifact and local conditions. `just governance`
+passes governance tests, full generated comparisons and family checks. Final strict default
+workspace `just lint-native-data`, `just lint-native-contracts`, `just clippy-no-default` and
+one explicit full native/product/private-development graph with `xtask/full-codegen` pass against
+zero. Full ten-target regeneration, `just ready`, Ruff, Pyrefly including warnings, REUSE and
+strict dependency shear pass. The repaired `just docs` publishes 683 chapters/scoped search;
+its original host-interpreter import failure remains in E's Outcome. The original hygiene failures and corrected affected leaves are
+composite evidence. Global spelling still fails one `RDER` finding in unrelated dirty
+`history.txt`; that file remains preserved. This is not a clean full-hygiene pass.
+
+**Blocked / not_run:** actual ordinary reference activation fails exclusive admission on a
+preserved unrelated live legacy service; new-profile setup passes, but initialization and native
+receiver/workload launch do not run. E's Outcome owns the failed invocation, exact blocker and
+next step. The owned test deployment is authenticated-drained and stopped; the fresh reference
+never starts. All original data and unrelated live services remain preserved.
+
+These are selected G01–G04 contributions, with D/E Outcomes owning their final results. F's remaining metric, operation, telemetry, currency and
+retention/RC06 work, full-series independent reconciliation and the rest of G remain open. The
+coordinator retains the single rule/finding disposition account. No full feature matrix,
+solver-fleet/parity, desktop attachment, distribution, other-platform qualification or comparative
+performance claim follows.

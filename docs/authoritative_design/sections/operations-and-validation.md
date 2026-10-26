@@ -1390,6 +1390,35 @@ local Linux acceptance, not full-series D/E/F/G, shared-context restore, desktop
 trace export, a fresh feature powerset, parity/fleet, distribution, other-platform or measured
 performance qualification. ADR-0228 remains proposed.
 
+Selected Plan56d/56e local acceptance of 2026-10-26 belongs to the
+[56d Outcome](../../plans/56d-publication-and-workload-fit.md#verification-and-outcome--2026-10-26)
+and [56e Outcome](../../plans/56e-product-deployment-and-resource-ownership.md#verification-and-outcome--2026-10-26).
+**Implemented/Tested:** D01–D06 complete selected grouped publication, resumable population,
+compact outcomes, coherent capture/provider, fused offline integrity and incremental exchange.
+The actual public 10,000-point journey and four other capture/observer controls pass 5/5;
+completed-parent/history controls pass 4/4, and installed correctness Python/CLI/actual STDIO MCP
+passes 8/8. Initial native 78/82 plus corrected 4/4 remain composite evidence. The 100,000 ceiling
+is unqualified. One-GiB sealed opaque bodies plus eight inline bytes survive SIGKILL/reopen,
+backup/restore and explicit interrupted-copy resume; descriptors and bytes match original custody.
+This establishes storage behavior, without numerical-success or comparative-speed claims.
+
+**Implemented/Tested:** E01/E04/E05 deliver responsibility-owned declarations, development/product
+partition, shared observations/borrowers, exact frozen orphan drain and truthful supplier records.
+Product roots, upstream profile materialization and frozen prepared-input/import closure are
+implemented, with selected builds and five declaration/profile controls passing. Final generated
+comparisons, governance, strict default/no-default/full native-private Clippy and repaired Python/
+dependency/license checks pass against zero. The unrelated dirty `history.txt` retains one spelling
+finding; original hygiene failures and affected repairs remain explicit. No clean full-hygiene pass
+is claimed.
+
+E02/E03 actual ordinary reference activation remains **blocked** by a preserved unrelated live
+legacy service: setup accepts the fresh profile, but exclusive admission exits 125 before
+initialization or receiving-helper/worker launch. Source and focused controls do not qualify that
+actual activation. Owned current test/private services are stopped; failed-run databases/receipts
+and the unrelated legacy lifetime are preserved. Wider F/G, full-series assessment, feature
+powerset, parity/fleet, distribution, desktop attachment and other-platform qualification remain
+open or not_run. ADR-0229/0230 retain formal proposed status.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

@@ -492,7 +492,7 @@ observations in process; a durable storage failure never falls back to ephemeral
 ### 20.1 Canonical durable relations
 
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
-> selected Plan56d target; implementation and qualification remain with its owning packages.
+> implemented selected Plan56d target; qualification and its limits remain with the owning Outcome.
 
 Installation and immutable capture have declared canonical relation families, exact request/page
 receipts and explicit backup/retention classifications. Capture facts and selected manifest
@@ -955,11 +955,20 @@ logical acknowledgement. The scoped capture gate protects its complete selector 
 selected attempt/manifests without spanning user paging. Exact recovery changes its checked fence
 before reopening, so stale capture cannot commit. Native copy progress/checkpoints bind original
 frozen inventory and exact resume premises; progress is not terminal acknowledgement or thaw.
+Canonical framed integrity and independent archive SHA256 share each protected source/readback
+stream. Fresh payload copies retain four physical phases: source validation/fingerprint, actual
+copy, unpublished destination readback and published destination readback. Exact resumed copies
+retain source and existing destination reads. These separate copy-fidelity guarantees remain;
+ordinary live canonical validation does not add archive hashing. Source extent refuses before
+payload reads; source canonical-first and destination archive-first refusal priorities remain.
+A pending backup authenticates its original frozen configuration before either helper-selection
+entrypoint may write; changed helper paths or bytes require the original operation to settle.
+Identical helper selection is idempotent. This is not a universal one-pass or power-loss claim.
 Selected exchange holds compact selection/protection and consumes useful hydrated units through
 one export/count/checksum traversal, with allowance before avoidable copy and final manifest last.
 
 > Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
-> selected Plan56 RC05 and deployment ownership target; implementation remains with Plan56e.
+> implemented selected Plan56 RC05 and deployment ownership; qualification remains with Plan56e.
 
 Rust owns versioned deployment/profile/context/receiver/readiness documents and one relational
 allocation validator callable before setup effects. Generated bootstrap contracts support Python's
@@ -973,6 +982,13 @@ Receiver generations include their actual owned import closure, regular-package 
 bindings, required configuration and executable/provider identities. Explicitly declared dynamic
 imports are included; unknown owned dynamic imports refuse. Validate an isolated frozen import
 before publication. Unrelated development scripts do not invalidate product receiver identity.
+The immutable v2 generation contains its Rust-owned prepared runtime-input descriptor, exact
+selected nonsecret values and absence, original provider receipt hashes and interpreter/helper
+identity. Frozen runtime launch verifies and pins those existing managed generations without
+compiler discovery, Cargo or provider preparation. Invocation-owned secrets and allocation-owned
+thread/worker budgets remain separate. Missing or changed preparation refuses; v1 receiver
+generations within a supported server profile remain observable/drainable and require explicit
+readmission before current activation.
 
 Shared leaf observations report authenticated process facts and explicit uncertainty. Existing
 admission/resource authority exposes borrowers independently of report/fixture custody. Owners

@@ -122,8 +122,8 @@ provenance and exact source-qualified review remain separate obligations.
 ### 3.2 Workspace crates and dependency direction
 
 > Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed),
-> selected Plan56 RC02/RC03 and remaining RC04: target ownership below precedes migration;
-> Plan56e owns implementation and qualification.
+> selected Plan56 RC02/RC03 and remaining RC04 ownership below is implemented;
+> Plan56e owns the selected qualification and its limits.
 
 Private development evidence/knowledge storage, queries and catalogue contributions belong to
 existing xtask composition. Normal product operations/runtime/Python closure does not require this
@@ -133,7 +133,11 @@ and project consumers, independently of development review policy. No new crate 
 
 Production worker/project roots belong to existing pse-runtime binary targets. Product offline
 recovery remains in pse-operations; fixture seeding/signals and the exploratory native lane remain
-in xtask. A fixture-named feature is not a product deployment contract.
+in xtask. The product targets select `product-operators`; ordinary execution does not select
+fixture instrumentation. The existing generator composes product and private responsibility-owned
+document/catalogue families for publication without putting development evidence/knowledge storage
+or its query backend in the normal product dependency closure. No second generator or crate is
+introduced.
 
 > Decision: [ADR-0175](../../adr/0175-responsibility-local-admission-and-build-roots.md)
 > (proposed; maintainer-authorized Plan 36 target).

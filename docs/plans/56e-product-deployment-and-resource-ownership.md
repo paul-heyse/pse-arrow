@@ -157,11 +157,11 @@ repair truthful records. Archive diffs are useful evidence, not a new per-comman
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| E01 | implemented; targeted controls passed, assembled qualification pending | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
-| E02 | product protocol/targets/frozen launch implemented; assembled journeys pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
-| E03 | production declaration/consumers implemented; targeted role controls passed, wider journeys pending | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
-| E04 | implemented; selected composite lifecycle/borrower controls passed | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
-| E05 | implemented; exact source reconstruction tested | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
+| E01 | complete at selected local build/generation/public acceptance | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
+| E02 | implemented; actual ordinary reference activation blocked by preserved legacy owner | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
+| E03 | implemented; five role controls passed, actual reference activation blocked | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
+| E04 | complete at selected composite lifecycle/borrower/recovery acceptance | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
+| E05 | complete; exact source reconstruction tested | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
 
 E01 and F01 share one generator/output-family decision, with root ownership of the declaration
 surface. E03 and E02 consume its emitted bootstrap documents. E04's leaf/borrower slice enables
@@ -315,3 +315,109 @@ Supplier reconstruction covers all seven exact tracked supplier trees; no implem
 numerical behavior changed through that record correction. RC02/03 and remaining RC04/05 are
 selected and implemented, while ADR-0229/0230 retain their formal proposed status. These checkpoints
 do not close full F/G scope or establish a measured build-time improvement.
+
+## Verification and Outcome — 2026-10-26
+
+### What was built
+
+**Implemented:** E01–E05 and the required F01 generator slice separate responsibility-owned
+product/private declarations and development evidence/knowledge storage, move ordinary worker/project
+roots into existing product targets, materialize production profiles through one Rust validator,
+publish the owned frozen v2 import/prepared-input closure, and share leaf observations plus the
+service borrower boundary. Replaced xtask product roots, dependency edges, mirrored relational
+validation and the host/reference reverse import are deleted. No crate or dependency version was
+added. Every selected production role, reference sixteen lanes, distinct fixture/controller scopes
+and ordinary unbounded workstation placement are preserved. ADR-0229/0230 remain proposed.
+
+**Tested:** full `just codegen` passes all ten schema targets; actual native extension metadata emits
+the public stubs. Pure initializer/recovery/allocator/project builds use the product feature closure,
+without fixture features. The current native correctness extension and ordinary native worker also
+build; final runtime activation/qualification remains separately stated below. Real owner-local
+StrEnum members are adopted by Python and host consumers without changing their wire values.
+Four installed query/status controls pass, including cancellation/output-limit/malformed results.
+
+Scoped host qualification is composite: initial 187 tests had two failures/eighteen errors; the
+repaired 188 selection had one remaining parked-service fixture failure, and that exact corrected
+control passed. Missing immutable receiver/prepared inputs were supplied through their existing
+fixtures, preserving production refusals. `ExecutionProfileTests` passes 5/5, including a temporary
+single-value production declaration change propagated through the actual Rust profile/materialize/
+validate requests and host consumption. A separate actual setup control propagates the same value
+through supervisor configuration under explicitly mocked installation/native/systemd boundaries.
+Neither temporary control changes the live profile or claims changed frozen-worker execution.
+The earlier E04 observation/borrower/native lifecycle selections retain their detailed composite
+boundaries above.
+
+**Implemented/Tested:** exact-resource `test_resources recover-drain` authenticates frozen durable
+membership, unchanged service/namespace identity, dead original SDK/producer/composer lifetimes and
+actual recorded descendant drain. Receiver and native file-owner settlement are independent; a
+partial failure cannot acknowledge resource drain. Missing databases need authenticated namespace
+absence around native `retired-check` of empty exact placement, with removal disabled. Existing
+malformed catalogs stay refused. Optional explicit observer selection is ephemeral, path/SHA checked
+and unavailable during pending maintenance; it cannot rewrite the stored helper or resume a backup.
+The dedicated final selection passes 21 controls. Actual recovery then settled all 22 root-owned
+orphan fixtures across seven original frozen invocations, preserving invocation records, base
+configuration, failure outcomes, pins, references and every database. Two later failed public workbench invocations each received the same exact-resource drain
+acknowledgment, with their original failure records and databases preserved. The first 22 refusals remain
+recorded; they exposed the unavailable old helper and eight never-created databases. Final evidence
+is `/tmp/pse-56de-orphan-fixture-recovery-final.log`; no disposal was requested or performed.
+
+**Tested:** E05 reconstructs all seven complete tracked supplier trees, plus the existing server
+patch series and DiskANN patch, as recorded above. License metadata covers the derived patches and
+private generated outputs under their existing source scopes; The final REUSE run passes for all 12,589 files after the two empty generated files were removed.
+No supplier implementation or numerical behavior changed through this record correction.
+
+**Tested:** the final installed public Python/CLI/actual STDIO MCP selection passes 8/8,
+including terminal reader drain, real completed study observation and pack exchange; the final
+native parent/history regression selection passes 4/4. D's Outcome owns commands, artifact and
+conditions. Current ordinary no-fixture native worker and pure product initializer/recovery/
+deployment builds pass with explicit force-validation. These builds establish the selected
+composition roots; receiving-process execution remains a separate acceptance obligation.
+
+**Blocked / not_run:** actual ordinary frozen reference activation was attempted through
+`scripts.reference_run` with the normal worker, explicit prebuilt initializer/deployment operator,
+fresh `build/qualification/56de-reference-prepared-bHHTGqgo` state and the unchanged reference
+sixteen-lane profile. Setup passed; the new profile3/v10 configuration is accepted. Exclusive
+admission exited 125 while trying to park the unrelated live legacy profile2/v2 service at
+`/home/paul/.local/state/pse-arrow/fixtures/surreal-b1-hcqo_3r2/restored`
+(unit `pse-surreal-5845baf003442ce5.service`, original invocation
+`3a489524f5644e82b0c707fe09e9b2e8`). The current supervisor refuses its unsupported old profile.
+Initialization, receiving-helper/native-worker launch and workload were **not_run**. No bypass,
+profile reduction, migration, retirement or service stop was applied to that preserved owner.
+The failed reference invocation is `1afadf9342b74692a013d8d69c571140`; its fresh state remains
+stopped with validation-required admission, original frozen inputs and initializer retained.
+Logs are `/tmp/pse-56de-prepared-receiver-actual.log` and
+`/tmp/pse-56de-reference-legacy-blocker-observation.json`.
+
+E02/E03 therefore remain implemented with actual ordinary activation acceptance open; this
+companion is not complete. After that independent legacy lifetime is released or handled under
+its own authorization, run a new reference invocation on fresh owned state with the same profile
+and observe the actual isolated prepared helper, normal worker, provider pins and exact role
+budgets, then perform authenticated drain/stop. Do not reinterpret or replay the failed handle.
+This is the only remaining functional acceptance in this selected E scope; wider F/G work keeps
+its own owners. Shared check results and the preserved external spelling finding are recorded
+in D's closeout below and contribute to G03 without a clean full-hygiene claim.
+
+### A mistake made and corrected
+
+The first checkpoint described publication/import ownership before all generated-enum callers and
+new test fixtures had migrated. Scope-end type/lint checks exposed those gaps; consumers now use
+the owning enum types and actual required immutable/prepared fixtures. Actual failed pytest cleanup
+also exposed the missing exact orphan recovery composition. Its explicit resource action now reuses
+native ownership proof instead of treating launcher death, fixture teardown failure or abandonment
+as physical drain. The documentation build then exposed allocation-binding reentry using the
+selected thin docs interpreter, which lacks the host contracts. Reentry now retains the original
+checkout controller interpreter while the docs payload keeps its selected environment. Two focused
+controls, all 53 controls in `scripts.tests.test_pse_env` and the actual 683-chapter documentation
+build pass against zero; final Ruff and Pyrefly including warnings report zero diagnostics. Original failure and unknown-effect
+dispositions remain retained.
+
+### Deviations from the plan, deliberate
+
+Frozen closure analysis conservatively includes setup definitions, while the receiving runtime path
+uses its admitted prepared descriptor and never enters preparation. Old v1 generations remain for
+observation/drain and require explicit current readmission. Supplier records use their existing
+patch/archive forms, without imposing a new universal representation or rerunning unrelated
+numerical qualification. The narrowly required orphan recovery action was added after actual
+acceptance exposed the missing owner operation; it adds no ledger or collector. Full F/G work,
+505-case feature matrix, fleet/parity, distribution and other-platform qualification remain outside
+this selected scope. No measured build-time or general latency improvement is claimed.

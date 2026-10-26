@@ -7,15 +7,31 @@ publication/workload fit, product/resource ownership, host/observability contrac
 qualification. The coordinator owns finding dispositions and shared
 [rule choices](56-design-principle-alignment.md#rule-changes); companions own package state.
 Remedy comparison is part of this series, with controlled fresh regeneration selected for needed
-cutovers. These are planning proposals; production implementation and changed rules are not yet
-authorized by the original authoring decision. The maintainer subsequently authorized
+cutovers. These were planning proposals at authoring; that decision alone authorized no production
+implementation or changed rules. The maintainer subsequently authorized
 [56a execution](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25),
 including minimal boundary/permission/context prerequisites and source-owned identity direction
-RC07 (proposed ADR-0226). A01–A03 are now complete at their recorded local Linux conditions;
-DA-003/005/006 are resolved. Subsequent authorized
+RC07 (proposed ADR-0226). A01–A03 are complete at their recorded local Linux conditions. Subsequent authorized
 [56b execution](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25)
 completed B01–B06 with necessary C/F adoption and selected local native/canonical/Python/MCP/CLI
-acceptance. [56c execution](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) completed C01–C05 with selected canonical/native/Python/public and private mixed recovery acceptance. D/E/F/G retain their wider obligations; RC01 and the RC04 helper slice are delivered, while RC02/03/05/06 and wider RC04 remain pending. The coordinator owns current finding dispositions. Completed 56a/56b/56c remain as evidence for active dependents.
+acceptance. [56c execution](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26)
+completed C01–C05 with selected canonical/native/Python/public and private mixed recovery acceptance.
+The authorized [56d Outcome](56d-publication-and-workload-fit.md#verification-and-outcome--2026-10-26)
+and [56e Outcome](56e-product-deployment-and-resource-ownership.md#verification-and-outcome--2026-10-26)
+record implemented publication/workload and product/resource ownership work, including the selected
+responsibility-scoped catalogue/enum/constraint prerequisite, actual public 10,000-point/native
+controls, fused 1 GiB interrupted/resumed storage recovery, full generation and exact orphan drain.
+D01–D06 are complete at their selected local acceptance, including the final 8/8 installed public
+and 4/4 native parent/history controls. E01/E04/E05 are delivered; E02/E03 remain implemented
+with actual ordinary reference activation blocked before initialization by a preserved unrelated
+live legacy service. The Outcomes own exact evidence, the blocker and next step. Shared checks
+retain one unrelated `history.txt` spelling finding against zero; no clean full-hygiene claim follows.
+[56f](56f-host-agent-and-observability-contracts.md#selected-56d56e-prerequisites--2026-10-26)
+retains wider metrics, operation projection, telemetry, currency and retention/RC06 work;
+[56g](56g-qualification-and-publication.md#selected-56d56e-qualification-contribution--2026-10-26)
+records the selected contribution without closing full-series qualification. The coordinator owns
+current rule choices and finding dispositions; completed prerequisites remain as evidence for
+active dependents.
 Other plans retain their independent scope and status.
 
 [Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for

@@ -849,8 +849,8 @@ latency or general graph algorithms; §24.2 records the selected evidence.
 ### 19.3 Studies and reuse
 
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed):
-> bounded installation, compact outcomes and gated immutable capture targets; Plan56d owns
-> implementation and qualification, including the complete 10,000-point journey.
+> bounded installation, compact outcomes and gated immutable capture are implemented; Plan56d
+> owns their selected local qualification, including the complete public 10,000-point journey.
 
 Study population installation owns immutable population identity/digest, generation, phase and
 exact node/edge frontier receipts. Native bounded run-and-point pages preserve occurrence identity
@@ -868,9 +868,12 @@ Known pre-effect busy handling retains original clocks/cancellation and computed
 never repeats scientific execution. One protected relation provider owns selected manifests through
 scan drain; captured unavailable members retain their original classification.
 
-The unguarded 10,000-member SSI surrogate conflicted and rolled back. A gated surrogate established
-a viable primitive, not canonical product acceptance. Existing cohort caps remain until integrated
-controls pass. The 100,000 admission ceiling is not a qualified scale promise.
+The unguarded 10,000-member SSI surrogate conflicted and rolled back. The resulting gated native
+implementation passes the complete public 10,000-point creation/capture/provider/summary journey,
+including live mutation between pages and preserved captured-unavailable membership. One shared
+cohort admission declaration permits at most 10,000 members. Header/member/locator byte and page
+bounds remain separate. Accounted-pool observations establish the exercised workload, not a general
+RSS or latency promise. The 100,000 population admission ceiling remains unqualified.
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) — Proposed, maintainer-authorized Plan49 target; implementation/qualification remains at the owning plan.
 

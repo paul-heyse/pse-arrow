@@ -27,10 +27,12 @@ needed. Intervening runtime-selector exceptions do not eliminate broad per-call 
 
 ## Boundary and host design
 
-Under RC02, owner-local serde enums generate their own uniquely scoped Python enum types;
-scientific registry vocabularies keep their existing canonical types. Document sets publish only
-to their responsibility's target roots. Preserve input/output direction, tagged choice, version
-admission, no-Any and generation equivalence; unknown constructs fail generation.
+The selected RC02 implementation supplies responsibility-scoped catalogues, owner-local serde
+enums with uniquely scoped Python enum types, and constraint lowering. Scientific registry
+vocabularies keep their canonical types; document sets publish only to their responsibility's
+target roots. [56e's Outcome](56e-product-deployment-and-resource-ownership.md#verification-and-outcome--2026-10-26)
+owns that E01/F01 delivery and its qualification. Preserve input/output direction, tagged choice,
+version admission, no-Any and generation equivalence; unknown constructs fail generation.
 
 Keep scalar bounds in the owning Rust constraint/constants and derived JSON Schema, emitted as
 `Annotated[..., msgspec.Meta(...)]` by the existing generator. Shared constants can be referenced
@@ -114,11 +116,13 @@ The reduced scope/cost consequence must remain explicit.
 
 ### F01 — Scoped boundary enum, constraints and keyed metrics
 
-With E01, extend catalogue contributions/output roots and enum/constraint lowering under RC02.
-Migrate telemetry settings and evidence comparison wire vocabularies/key domains. Define owner
-event identity at its producer and consume it in counters/declarations/export. Remove duplicated
+Consume E01's implemented catalogue contributions/output roots and enum/constraint lowering under
+RC02. Complete remaining telemetry vocabulary/key-domain adoption and define owner event identity
+at its producer, then consume it in counters/declarations/export. Remove remaining duplicated
 sampler/bound sets, positional name zips and root semantic telemetry-role declarations after all
-consumers migrate. Preserve independent receiving validation and necessary SDK checks.
+consumers migrate. Preserve owner-local closed evidence comparison types, independent receiving
+validation and necessary SDK checks. The delivered generator slice does not complete typed metric
+population or telemetry adoption.
 
 ### F02 — Projected public operations and actual prerequisites
 
@@ -179,7 +183,7 @@ redundant imports only when their current guarantees are supplied by the retaine
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | planned; selected 56a/56b/56c boundary adoption complete, RC02 pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
+| F01 | partially implemented; selected 56a–56e boundary and E01 catalogue/enum/constraint slice delivered; metric adoption remains | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
 | F02 | planned | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
 | F03 | planned; selected 56b remedies and 56c settlement causes delivered | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | planned | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
@@ -197,8 +201,10 @@ existing Rust wrappers and preserve typed Python domains. Physical inspection re
 documents use the existing directional emitter; record definitions precede dependency-ordered
 evaluated aliases. The actual PyO3 surface, Python facade, MCP binding and derived CLI expose the
 same native physical projection. [56a](56a-model-meaning-and-physical-interpretation.md) owns this
-slice's acceptance. General owner-local enum/key/bound fidelity, responsibility partition and
-generated operation declarations remain F01/F02 work; RC02 and RC06 are not adopted.
+slice's acceptance. At this checkpoint, general owner-local enum/key/bound fidelity, responsibility
+partition and generated operation declarations remained F01/F02 work, and RC02/RC06 were not
+adopted. The selected D/E contribution below records the subsequent catalogue/codegen delivery;
+operation declarations and RC06 retention remain open.
 
 ## Library basis and acceptance
 
@@ -238,9 +244,32 @@ Rust/Python contracts. Typed failure classes, source references and admission ef
 feed redacted host remedies. The installed correctness extension, actual STDIO MCP and derived
 CLI agree on an original failed model's permission and retained diagnostic checks; host contract
 unit controls remain separate evidence. This completes only B's necessary F01/F03 adoption.
-General declaration/metric fidelity, all-host operation envelopes, wider settlement/telemetry,
-image-currency redesign and reused page/worker lifetimes remain planned; RC02/RC06 remain pending.
+At this checkpoint, general declaration/metric fidelity, all-host operation envelopes, wider
+settlement/telemetry, image-currency redesign and reused page/worker lifetimes remained planned;
+RC02/RC06 were pending. Subsequent D/E delivery supplies the selected RC02 catalogue/codegen
+prerequisite below, with the wider F obligations still open.
 
 ## Selected 56c prerequisites — 2026-10-26
 
-**Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns canonical key/vocabulary/association generation, exact attributed settlement with both original/readback causes and selected installed Python/STDIO MCP/CLI agreement. These supply F01/F03 prerequisites. Responsibility-scoped catalogue generation, wider host agreement, metric/telemetry semantics, image-witness redesign and retained page/worker lifetimes remain F01–F06 work. RC02/RC06 remain pending; the public acceptance does not establish desktop-host attachment or end-to-end trace export.
+**Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns canonical key/vocabulary/association generation, exact attributed settlement with both original/readback causes and selected installed Python/STDIO MCP/CLI agreement. These supply F01/F03 prerequisites. At that checkpoint, responsibility-scoped catalogue generation and RC02/RC06 were pending. D/E subsequently supplies the selected catalogue/codegen prerequisite below; wider host agreement, metric/telemetry semantics, image-witness redesign and retained page/worker lifetimes remain F01–F06 work. The public acceptance does not establish desktop-host attachment or end-to-end trace export.
+
+## Selected 56d/56e prerequisites — 2026-10-26
+
+**Implemented/Tested:** [56e's Outcome](56e-product-deployment-and-resource-ownership.md#verification-and-outcome--2026-10-26)
+owns the selected responsibility-scoped catalogue and product/tooling partition, owner-local enums,
+constraint lowering, migrated Python/host enum consumers and full ten-target generation. This is
+the delivered E01/F01 generator slice under selected RC02/RC03; it replaces the earlier pending
+prerequisite statements without closing F01's metric work. Materialized production allocations,
+frozen prepared-input closure, shared leaf observations and the acyclic service borrower boundary
+are available to remaining host work. Exact-resource orphan recovery preserves original failure
+outcomes and custody; it does not establish retained endpoint/page workers or producing-artifact
+currency.
+
+[56d's Outcome](56d-publication-and-workload-fit.md#verification-and-outcome--2026-10-26)
+and 56e own their selected workload, recovery and ownership evidence. The final installed public
+selection passes 8/8 and native parent/history controls 4/4. Ordinary reference activation remains
+blocked before initialization by a preserved unrelated live legacy service, as recorded at E's
+Outcome; actual receiver activation is unqualified. Finite generated operation declarations/all-host envelopes,
+typed metric populations/questions, span/loss telemetry, producing-artifact currency and retained
+read/page lifetimes remain open. RC06 remains a separate rule choice with the coordinator; no
+worker retention or full F acceptance follows from the D/E prerequisites.
