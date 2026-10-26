@@ -20,7 +20,7 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.ipc
 import pytest
-from scripts import host_admission, surreal_server, test_requirements, test_resources
+from scripts import surreal_server, test_requirements, test_resources
 
 import pse
 from pse._build import (
