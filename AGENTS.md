@@ -130,7 +130,7 @@ GitHub check workflows run only when manually dispatched.
 2. **Never edit a generated directory. Fix the generator, then `just codegen`.** The
    generated paths are `docs/generated/`, `scripts/generated/`, `xtask/src/generated/`, `crates/*/src/generated/` (the operational
    store's `crates/pse-operations/src/generated/` included), `crates/pse-operations-queries/`,
-   `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/` and
+   `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/`, `python/pse/generated/` and
    `python/pse/_native.pyi`. `just codegen-check` covers every generated
    output; a hand edit there is a red diff, not a fix.
 3. **One authoritative declaration per meaning.** A dependency is declared once, in

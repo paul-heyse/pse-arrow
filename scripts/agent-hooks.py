@@ -58,6 +58,7 @@ def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None
                 "scripts/generated/",
                 "xtask/src/generated/",
                 "python/pse/contracts/",
+                "python/pse/generated/",
                 "crates/pse-operations-queries/",
             )
         )

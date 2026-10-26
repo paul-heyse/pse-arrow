@@ -326,6 +326,7 @@ class EditPolicyTests(unittest.TestCase):
             ".git/config",
             "crates/a/src/generated/b.rs",
             "python/pse/contracts/a.py",
+            "python/pse/generated/project_operations.py",
             "crates/pse-ipopt-sys/src/bindings.rs",
         ):
             with self.subTest(name=name):
@@ -345,6 +346,7 @@ class EditPolicyTests(unittest.TestCase):
             "crates/pse-operations-queries/src/queries/store.rs",
             "python/pse/_native.pyi",
             "python/pse/contracts/identities.py",
+            "python/pse/generated/project_operations.py",
             "scripts/generated/telemetry_settings.py",
         ):
             with self.subTest(name=name):

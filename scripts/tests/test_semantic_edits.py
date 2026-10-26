@@ -104,6 +104,7 @@ class SemanticEditTests(unittest.TestCase):
     def test_generated_outside_symlink_and_receipt_source_are_refused(self) -> None:
         for name in (
             "python/pse/contracts/model.py",
+            "python/pse/generated/project_operations.py",
             "crates/pse-operations-queries/lib.rs",
             "crates/example/src/generated/data.rs",
             "python/pse/_native.pyi",

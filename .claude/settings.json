@@ -30,7 +30,8 @@
       "Edit(/crates/pse-ipopt-sys/src/bindings.rs)",
       "Edit(/crates/pse-operations-queries/**)",
       "Edit(/python/pse/_native.pyi)",
-      "Edit(/python/pse/contracts/**)"
+      "Edit(/python/pse/contracts/**)",
+      "Edit(/python/pse/generated/**)"
     ]
   },
   "enabledPlugins": {
