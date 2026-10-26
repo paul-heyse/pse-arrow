@@ -1,6 +1,6 @@
 ---
 title: "Plan 56e: Product, deployment and resource ownership"
-status: draft
+status: in-progress
 date: 2026-10-25
 adrs: [ADR-0229]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -160,7 +160,7 @@ repair truthful records. Archive diffs are useful evidence, not a new per-comman
 | E01 | implemented; targeted controls passed, assembled qualification pending | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
 | E02 | product protocol/targets/frozen launch implemented; assembled journeys pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
 | E03 | production declaration/consumers implemented; targeted role controls passed, wider journeys pending | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
-| E04 | service/observation slice implemented; E03 profile edge remains | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
+| E04 | implemented; selected composite lifecycle/borrower controls passed | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
 | E05 | implemented; exact source reconstruction tested | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
 
 E01 and F01 share one generator/output-family decision, with root ownership of the declaration
@@ -294,3 +294,24 @@ Next acceptance is the actual prepared frozen receiver launch without provisioni
 host/supervisor propagation and lifecycle controls, and the coordinator's selected native canonical
 and product journeys. Existing producer reviews/receipts remain historical; source relocation and
 these targeted checks do not requalify an assembled producer deployment or close E01–E03.
+
+## Joint acceptance checkpoint — 2026-10-26
+
+E01–E05 source migration and replaced-path deletion are implemented. The production-profile owner
+now supplies the former `reference_execution` reverse edge; the earlier E04 checkpoint records
+its then-pending state. Current full generation succeeds for all ten schema targets, and ordinary
+product initializer, recovery, allocator and project targets build without fixture features.
+The native runtime-input descriptor retains exact prepared values and absence, while receiving
+launch verifies/pins original managed providers without entering compiler/provider preparation.
+
+Independent reconciliation found no additional high-confidence implementation defect after D05's
+fusion and pending-helper corrections. It identified a qualification gap: changing one temporary
+production declaration must reach materialization/setup consumers without secondary literal edits.
+That revealing control and an actual ordinary frozen reference receiver launch remain in progress,
+along with installed public journeys and shared scope-end checks. The reference sixteen lanes,
+all declared role scopes and ordinary workstation unbounded placement remain unchanged.
+
+Supplier reconstruction covers all seven exact tracked supplier trees; no implementation bytes or
+numerical behavior changed through that record correction. RC02/03 and remaining RC04/05 are
+selected and implemented, while ADR-0229/0230 retain their formal proposed status. These checkpoints
+do not close full F/G scope or establish a measured build-time improvement.

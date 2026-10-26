@@ -1,6 +1,6 @@
 ---
 title: "Plan 56d: Publication and workload fit"
-status: draft
+status: in-progress
 date: 2026-10-25
 adrs: [ADR-0230]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -161,12 +161,12 @@ interpretation.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | implemented; native publication and benefit controls pending | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
-| D02 | implemented; native frontier, replay and expiry controls pending | 56d | Resume begins at exact installed frontier; incomplete population never activates |
-| D03 | implemented; targeted provider and public-consumer execution pending | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
-| D04 | implemented; actual canonical capture and selected scale qualification pending | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
-| D05 | implemented; native physical recovery and composed backup qualification pending | 56d | Inventory/copy progress is resumable and integrity passes reused with distinct guarantees retained |
-| D06 | incremental source traversal implemented; targeted units passed, canonical exchange/benefit checks pending | 56d | Executable explanation/export retain only useful hydrated units, with exact closure and final visibility |
+| D01 | implemented; selected native publication controls passed, scope-end acceptance in progress | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
+| D02 | implemented; selected native frontier/replay/expiry controls passed | 56d | Resume begins at exact installed frontier; incomplete population never activates |
+| D03 | implemented; native provider controls passed, corrected public workbench journey pending | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
+| D04 | implemented; actual public 10,000-point creation/capture/provider/summary journey passed | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
+| D05 | implemented; fused integrity and pending-owner controls passed, current-helper large recovery pending | 56d | Inventory/copy progress is resumable and integrity passes reused with distinct guarantees retained |
+| D06 | implemented; native selected multi-revision exchange and accounted benefit observations passed | 56d | Executable explanation/export retain only useful hydrated units, with exact closure and final visibility |
 
 D01 consumes C01/C03; D02 consumes C01/C02 and B03 operation facts. D03 needs B01 permission
 and D02's compact admission product, not all population work. D04 may start its engine inquiry
@@ -305,3 +305,23 @@ The remaining busy-publication deadline assertion needs exact returned-error and
 investigation; unknown effects must remain conservative. The owning failure log is
 `/tmp/pse-56de-native-publication-controls.log`. Dependent native and 10,000-point acceptance
 remain open until the corrected paths execute successfully.
+
+## Joint acceptance checkpoint — 2026-10-26
+
+All D01–D06 mechanisms and migrated consumers are implemented. Native controls exercise grouped
+publication, original installation frontiers/grants, capture writer participation, exact protections,
+shared provider and incremental exchange. The public 10,000-point route now passes creation,
+coherent changing-live capture, aggregate/detail reads, cancellation and summary completion; the
+sole shared admitted cohort maximum is 10,000. Earlier cap-128 and surrogate-only statements above
+record their historical checkpoints. The 100,000 population ceiling remains unqualified.
+
+Independent source reconciliation exposed the remaining D05 repeated integrity scans. Canonical
+framing and archive SHA256 now consume each protected source/readback stream together; fresh copies
+retain four physical phases and exact resumed copies two. Original file identity, locks, refusal
+priority, independent unpublished/published readbacks, clocks and resume checkpoints remain.
+Both helper-selection entrypoints also refuse changes before modifying an original pending backup.
+Earlier positive large archives remain bound to their original helper bytes.
+
+The current helper's fresh one-GiB mixed-placement recovery and interruption/resume, corrected
+installed public workbench journey and final shared scope-end checks are still in progress.
+Package implementation and earlier focused passes do not close these remaining acceptance tasks.
