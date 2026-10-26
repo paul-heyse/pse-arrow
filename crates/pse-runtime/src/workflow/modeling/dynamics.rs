@@ -997,6 +997,10 @@ impl ModelingSimulation {
             .ok_or_else(|| ProblemError::memory("compact simulation admission extent"))
     }
     #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "sample integration retains its run, profile, attempt, scope, execution and capture inputs alongside explicit mathematical services"
+    )]
     pub(super) fn integrate_sample_attempt(
         &self,
         math: &Arc<crate::math::MathService>,
@@ -1675,6 +1679,10 @@ impl ModelingPackage {
             .await
     }
     /// Admit pending physical controls once, or use the case's authored controls.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the declared dynamic request keeps physical controls and optional binding separate from compiler inputs and preparation services"
+    )]
     pub(in crate::workflow) async fn declared_simulation_request(
         &self,
         services: &crate::workflow::PreparationServices,
@@ -1688,7 +1696,7 @@ impl ModelingPackage {
         self.check_service_bindings(services)?;
         match request {
             Some(request) => {
-                let request = request.clone().retain(&services)?;
+                let request = request.clone().retain(services)?;
                 self.declared_physical_simulation(
                     services, root, compiler, &request, limits, binding, cancel,
                 )
@@ -1703,6 +1711,10 @@ impl ModelingPackage {
         }
     }
     /// Apply fresh immutable parameter coordinates before rebuilding integration premises.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the declared simulation boundary retains integration controls, specialization limits and optional binding alongside preparation services"
+    )]
     pub(in crate::workflow) async fn declared_simulation_bound(
         &self,
         services: &crate::workflow::PreparationServices,
@@ -1783,6 +1795,10 @@ impl ModelingPackage {
             .await
     }
     /// Admit host physical coordinate controls under the actual declared state inventory.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "physical simulation admission keeps the authored root, physical request, binding and compiler inputs explicit alongside preparation services"
+    )]
     pub async fn declared_physical_simulation(
         &self,
         services: &crate::workflow::PreparationServices,
@@ -8275,7 +8291,7 @@ mod diagnostic_admission_tests {
                 initial.constants.is_empty(),
                 "the authored initial RHS remains a model function"
             );
-            let result = point.run(&services, cancel).await.unwrap();
+            let result = point.run(services, cancel).await.unwrap();
             assert!(result.accepted(), "{:?}", result.diagnostic());
             assert_eq!(result.report().samples.len(), expected.len());
             for (sample, (time, state)) in result

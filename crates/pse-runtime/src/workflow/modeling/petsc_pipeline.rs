@@ -56,6 +56,10 @@ impl ModelingPackage {
     ///
     /// # Errors
     /// Original/profile/domain binding, scoped preparation or complete block coverage fails.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "PETSc block preparation retains original source, solver profile, complete method settings and declaration scope alongside preparation services"
+    )]
     pub async fn prepare_petsc_blocks(
         &self,
         services: &crate::workflow::PreparationServices,

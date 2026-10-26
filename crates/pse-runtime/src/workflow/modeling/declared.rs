@@ -307,6 +307,10 @@ impl DeclaredExecution {
 }
 impl ModelingPackage {
     /// Admit the authored route/procedure before any operation executes it.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the authored execution boundary keeps compiler, solver, numerical and specialization inputs explicit alongside preparation services"
+    )]
     pub async fn declared_execution(
         &self,
         services: &crate::workflow::PreparationServices,

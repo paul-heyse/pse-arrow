@@ -29,6 +29,10 @@ pub struct ModelingDiagnosticSamples {
 impl ModelingPackage {
     /// Inspect supplied points without changing starts or generating scientific guesses.
     /// The finding limit and wall allowance apply across the complete sample set.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the sample campaign retains points, diagnostic policy, compiler, campaign bound and operation ownership alongside execution services"
+    )]
     pub(in crate::workflow) async fn diagnose_samples(
         &self,
         services: &crate::workflow::ExecutionServices,

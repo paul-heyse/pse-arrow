@@ -127,13 +127,14 @@ impl Drop for ManagedReceiver {
 }
 
 async fn definition(
+    services: &workflow::ExecutionServices,
     package: &ModelingPackage,
     physical: &workflow::PhysicalContext,
     sources: &workflow::PackageSources,
     values: &[f64],
     parallel: bool,
 ) -> workflow::LocalStudy {
-    let declarations = package.declarations().await.unwrap();
+    let declarations = package.declarations(services.preparation()).await.unwrap();
     let root = declarations
         .iter()
         .find(|row| row.name == "Root")
@@ -178,8 +179,8 @@ async fn definition(
                     target: workflow::BindingTarget::Path("a".into()),
                     value: workflow::BindingQuantity {
                         magnitude: FiniteBound::try_new(value).unwrap(),
-                        quantity,
-                        unit,
+                        quantity: quantity.into(),
+                        unit: unit.into(),
                     },
                 }],
             },
@@ -206,6 +207,7 @@ async fn definition(
         .collect();
     let admitted = package
         .admit_study(
+            services,
             &workflow::StudyInputs::Explicit(points.to_vec()),
             &workflow::StudyOutputDemand::Full {},
             &audit::cancel_source(),
@@ -391,7 +393,7 @@ async fn export_study_results(runtime: &Runtime, points: &[(u32, String, Option<
         request.selection.missing_context.push("Original study source/definition bytes retained separately; original managed RunResult review-context bridge unavailable".into());
         request.scientific_results = selections;
         std::fs::create_dir_all(&parent).map_err(|error| error.to_string())?;
-        let index = pse_runtime::tooling::review_export::export_review_pack(runtime,&destination,&evidence,&analysis,request,cancel)
+        let index = pse_runtime::tooling::review_export::export_review_pack(&runtime.source_services(),&destination,&evidence,&analysis,request,cancel)
             .await.map_err(|error| error.to_string())?;
         Ok(json!(index))
     }.await;
@@ -580,7 +582,7 @@ pub(super) fn measure(
                 let ((physical,package,definition,recorded_definition),admission_counts)=pse_runtime::invocation::counted(async {
                 let physical=support::physical(&runtime,&owner,&sources).await;
                 let package=runtime.modeling_from_documents(&support::admitted_documents(&owner,&sources.modeling),physical.clone(),&cancel).await.unwrap();
-                let definition=definition(&package,&physical,&sources,&values,independent).await;
+                let definition=definition(&runtime.execution_services(),&package,&physical,&sources,&values,independent).await;
                 assert!(definition.points.iter().all(|point| point.operation.preparation.compiler.optimization.cores == 1),
                     "reference comparison retains one construction core per occurrence");
                 let recorded_definition = if durable_mode || managed { Some(runtime.record_study(&definition, &cancel).await.unwrap()) } else { None };
@@ -689,7 +691,7 @@ pub(super) fn measure(
                     let metrics=persisted(&runtime,&owner,&points,&mut numerical,&values,true).await;
                     (elapsed,Duration::ZERO,Value::Null,Value::Null,read.elapsed().as_secs_f64(),report.outcomes,metrics)
                 } else {
-                    let report=Box::pin(package.study(&definition,occurrences,&cancel)).await.unwrap();
+                    let report=Box::pin(package.study(&runtime.execution_services(), &definition,occurrences,&cancel)).await.unwrap();
                     audit::direct_joined();
                     let elapsed=started.elapsed();
                     let read=Instant::now();

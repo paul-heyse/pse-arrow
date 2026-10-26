@@ -97,16 +97,24 @@ pub(super) async fn run(
             "included":true,"importance":1.0
         })).collect::<Vec<_>>()
     })).unwrap());
-    let package = runtime(owner)
+    let runtime = runtime(owner);
+    let package = runtime
         .modeling_package(rows, physical)
         .await
         .unwrap()
-        .with_fit_declarations(declarations)
+        .with_fit_declarations(&runtime.source_services(), declarations)
         .await
         .unwrap();
     let cancel = audit::cancel_source();
     let simulation = package
-        .declared_simulation(case, compiler(), None, seed_limits(), &cancel)
+        .declared_simulation(
+            &runtime.preparation_services(),
+            case,
+            compiler(),
+            None,
+            seed_limits(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(simulation.contract().states.len(), 2);
@@ -155,6 +163,7 @@ pub(super) async fn run(
     solver.presolve = native::presolve::Policy::Off;
     let prepared = package
         .prepare_fit(
+            &runtime.preparation_services(),
             FitId::from_id(id("fit")),
             workflow::FitProfile {
                 optimizer: workflow::FitOptimizer::NativeNlp,
@@ -190,7 +199,9 @@ pub(super) async fn run(
     assert!(objective_budget.is_finite() && objective_budget > 0.0);
     drop(preparation_stage);
     let execution_stage = audit::stage("numerical_execution");
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     drop(execution_stage);
     let _assessment = audit::stage("original_scientific_assessment");
     observations.run(&result, owner.runtime.math());

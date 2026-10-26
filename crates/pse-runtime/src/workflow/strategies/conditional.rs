@@ -997,6 +997,10 @@ impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
     }
 }
 impl ModelingPackage {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "causal preparation binds source, providers, numerical policy, compiler and original solve under explicit services"
+    )]
     pub(in crate::workflow) fn automatic_causal_supplier(
         &self,
         services: &crate::workflow::PreparationServices,
@@ -1154,6 +1158,10 @@ impl ModelingPackage {
 
         }).await
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "recycle preparation keeps resolved source, profile, compiler, flow selection, request and cancellation explicit"
+    )]
     async fn finish_recycle(
         &self,
         services: &crate::workflow::PreparationServices,

@@ -132,8 +132,10 @@ pub(crate) fn near(a: f64, b: f64, tol: f64) {
 /// Load the explicit source package closure used by authored seed acceptance and timing.
 pub(crate) async fn seed_package(
     owner: &WorkflowRuntime,
-) -> pse_runtime::workflow::ModelingPackage {
-    seed_package_on(owner, runtime(owner)).await
+) -> (Runtime, pse_runtime::workflow::ModelingPackage) {
+    let runtime = runtime(owner);
+    let package = seed_package_on(owner, runtime.clone()).await;
+    (runtime, package)
 }
 /// [`seed_package`] on an explicit runtime, such as a durable one.
 pub(crate) async fn seed_package_on(
@@ -179,6 +181,7 @@ pub(crate) fn seed_limits() -> pse_modeling::Limits {
     }
 }
 pub(crate) async fn heat_fit(
+    services: &pse_runtime::workflow::PreparationServices,
     package: &pse_runtime::workflow::ModelingPackage,
     kind: &str,
 ) -> (FitId, pse_runtime::workflow::FitProfile) {
@@ -197,6 +200,7 @@ pub(crate) async fn heat_fit(
     if kind != "steady" {
         let simulation = package
             .declared_simulation(
+                services,
                 SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c")
                     .unwrap()
                     .into(),
@@ -236,6 +240,7 @@ pub(crate) async fn heat_fit(
 
 /// Prepare a source-authored steady case with the requested native policy.
 pub(crate) async fn seed_prepare(
+    services: &pse_runtime::workflow::PreparationServices,
     package: &pse_runtime::workflow::ModelingPackage,
     case: SemanticId,
     solver: SolverProfile,
@@ -243,6 +248,7 @@ pub(crate) async fn seed_prepare(
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let analysis = package
         .declared_execution(
+            services,
             case.into(),
             compiler(),
             solver,
@@ -252,7 +258,7 @@ pub(crate) async fn seed_prepare(
         )
         .await?
         .analysis;
-    package.prepare_analysis(&analysis, cancel).await
+    package.prepare_analysis(services, &analysis, cancel).await
 }
 /// Use the actual admitted physical allowance for the named original coordinate.
 pub(crate) fn resolved_allowance(
@@ -384,6 +390,7 @@ pub(crate) fn resolved_physical_allowance(
 /// Read a shared authored resolution for an empirical output comparison.
 /// A variable/bound feasibility budget does not establish forward output accuracy.
 pub(crate) async fn authored_resolution(
+    services: &pse_runtime::workflow::PreparationServices,
     package: &pse_runtime::workflow::ModelingPackage,
     declaration: SemanticId,
     registry: &pse_quantity::QuantityRegistry,
@@ -394,6 +401,7 @@ pub(crate) async fn authored_resolution(
     let owner = declaration.into();
     let knowledge = package
         .knowledge(
+            services,
             Some(owner),
             1,
             compiler().evaluation.scratch_bytes,

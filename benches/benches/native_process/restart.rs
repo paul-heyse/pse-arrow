@@ -259,7 +259,7 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
         .await
         .unwrap();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -268,6 +268,7 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
         .declaration_id;
     phases.reset();
     let prepared = seed_prepare(
+        &runtime.preparation_services(),
         &package,
         root.into(),
         profile(Backend::Ipopt, false),
@@ -276,7 +277,12 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
     .await
     .unwrap();
     let constructions = body_counts(phases, false);
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared
+        .start(&runtime.execution_services())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
     let rows = original_rows(&result);
     let invocation = observations::invocation_document(&result);
     drop(result);
@@ -332,7 +338,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         .unwrap();
     let revision = package.canonical_revision().unwrap().clone();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -341,6 +347,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         .declaration_id;
     phases.reset();
     let prepared = seed_prepare(
+        &runtime.preparation_services(),
         &package,
         root.into(),
         profile(Backend::Ipopt, false),
@@ -349,7 +356,12 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     .await
     .unwrap();
     let seed_constructions = body_counts(phases, false);
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared
+        .start(&runtime.execution_services())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
     let original = original_rows(&result);
     let seed_invocation = observations::invocation_document(&result);
     let run = result.canonical_run_key().unwrap().to_owned();
@@ -402,6 +414,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     phases.reset();
     let phase = Instant::now();
     let prepared = seed_prepare(
+        &runtime.preparation_services(),
         &package,
         root.into(),
         profile(Backend::Ipopt, false),
@@ -413,7 +426,12 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     let replay_phases = phases.report(1);
     let preparation_seconds = phase.elapsed().as_secs_f64();
     let phase = Instant::now();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared
+        .start(&runtime.execution_services())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
     let reopened = original_rows(&result);
     let replay_invocation = observations::invocation_document(&result);
     assert_ne!(result.canonical_run_key().unwrap(), run);
@@ -487,6 +505,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     assert_eq!(package.canonical_revision(), Some(&revision));
     phases.reset();
     let prepared = seed_prepare(
+        &runtime.preparation_services(),
         &package,
         root.into(),
         profile(Backend::Ipopt, false),
@@ -495,7 +514,12 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     .await
     .unwrap();
     let fresh_constructions = body_counts(phases, false);
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared
+        .start(&runtime.execution_services())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
     let fresh_rows = original_rows(&result);
     let fresh_invocation = observations::invocation_document(&result);
     let fresh_run = result.canonical_run_key().unwrap().to_owned();

@@ -1078,8 +1078,7 @@ mod admission_failure_tests {
             std::time::Duration::MAX,
             None,
         )
-        .err()
-        .expect("unrepresentable diagnostic deadline must refuse");
+        .expect_err("unrepresentable diagnostic deadline must refuse");
         assert!(matches!(&error,
             WorkflowError::Math(MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
                 kind: pse_backend_native::LimitKind::Time, detail,

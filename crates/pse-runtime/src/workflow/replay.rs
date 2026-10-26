@@ -445,24 +445,24 @@ pub enum ReplayConstructor {
     /// Original physical integration.
     Simulation {
         /// Complete immutable integration constructor.
-        simulation: ReplaySimulationConstructor,
+        simulation: Box<ReplaySimulationConstructor>,
     },
     /// Original shared-parameter fit.
     Fit {
         /// Complete immutable fitting constructor.
-        fit: ReplayFitConstructor,
+        fit: Box<ReplayFitConstructor>,
     },
     /// Original requested horizon, independently of retained full or compact history.
     Horizon {
         /// Complete original plant and stage constructors.
-        horizon: ReplayHorizonConstructor,
+        horizon: Box<ReplayHorizonConstructor>,
         /// Exact original horizon provenance bytes.
         provenance: Vec<u8>,
     },
     /// Host-only composed shooting; this does not admit persisted study shooting.
     Shooting {
         /// Original shooting with its original simulation constructor.
-        shooting: ReplayShootingConstructor,
+        shooting: Box<ReplayShootingConstructor>,
     },
 }
 /// Complete export of available scientific premises. Compiled products/factories remain in-process capabilities.
@@ -509,7 +509,7 @@ pub(super) struct ReplayRequestFacts {
     pub constructor: ReplayConstructor,
 }
 pub(super) fn modeling_request_facts(
-    steps: &Vec<super::ModelingSolvePreparation>,
+    steps: &[super::ModelingSolvePreparation],
     run_id: RunId,
 ) -> Result<ReplayRequestFacts, WorkflowError> {
     let mut runtime_premises = Vec::new();
@@ -570,7 +570,7 @@ pub(super) fn simulation_request_facts(
     );
 
     let constructor = ReplayConstructor::Simulation {
-        simulation: original,
+        simulation: original.into(),
     };
     Ok(ReplayRequestFacts {
         runtime_premises,
@@ -594,7 +594,9 @@ pub(super) fn fit_request_facts(
     ));
     contexts.push(fit.scientific_context(run_id)?);
 
-    let constructor = ReplayConstructor::Fit { fit: original };
+    let constructor = ReplayConstructor::Fit {
+        fit: original.into(),
+    };
     Ok(ReplayRequestFacts {
         runtime_premises,
         solver_settings,
@@ -633,7 +635,7 @@ pub(super) fn horizon_request_facts(
     }
 
     let constructor = ReplayConstructor::Horizon {
-        horizon: ReplayHorizonConstructor::new(original)?,
+        horizon: Box::new(ReplayHorizonConstructor::new(original)?),
         provenance: request.provenance.clone(),
     };
     Ok(ReplayRequestFacts {
@@ -668,7 +670,7 @@ pub(super) fn shooting_request_facts(
     contexts.push(context);
 
     let constructor = ReplayConstructor::Shooting {
-        shooting: ReplayShootingConstructor::new(problem, initial)?,
+        shooting: Box::new(ReplayShootingConstructor::new(problem, initial)?),
     };
     Ok(ReplayRequestFacts {
         runtime_premises,
@@ -2025,13 +2027,17 @@ mod tests {
         };
         for constructor in [
             ReplayConstructor::Modeling { cases: vec![] },
-            ReplayConstructor::Simulation { simulation },
-            ReplayConstructor::Fit { fit },
+            ReplayConstructor::Simulation {
+                simulation: Box::new(simulation),
+            },
+            ReplayConstructor::Fit { fit: Box::new(fit) },
             ReplayConstructor::Horizon {
-                horizon,
+                horizon: Box::new(horizon),
                 provenance: vec![0, 128, 255],
             },
-            ReplayConstructor::Shooting { shooting },
+            ReplayConstructor::Shooting {
+                shooting: Box::new(shooting),
+            },
         ] {
             let encoded = serde_json::to_value(&constructor).unwrap();
             let restored: ReplayConstructor = serde_json::from_value(encoded.clone()).unwrap();

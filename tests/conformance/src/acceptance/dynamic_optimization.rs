@@ -37,6 +37,7 @@ const HOLDUPS: [(f64, &str); 3] = [
 /// Solve an authored simultaneous fixture, with `target` replacing the authored target;
 /// returns the run and the identities of the demanded `paths`.
 async fn simultaneous(
+    services: &pse_runtime::workflow::ExecutionServices,
     package: &ModelingPackage,
     fixture: &str,
     solver: SolverProfile,
@@ -46,6 +47,7 @@ async fn simultaneous(
     let cancel = CancelSource::new();
     let mut analysis = package
         .declared_execution(
+            services.preparation(),
             SemanticId::parse_hex(fixture).unwrap().into(),
             compiler(),
             solver,
@@ -63,13 +65,16 @@ async fn simultaneous(
         .bindings
         .demand
         .extend(paths.iter().map(|p| (*p).to_owned()));
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let known = &prepared.model.model.compiled().model.paths;
     let ids = paths
         .iter()
         .map(|p| *known.get(*p).unwrap_or_else(|| panic!("{p}")))
         .collect();
-    (prepared.start().unwrap().wait().await.unwrap(), ids)
+    (prepared.start(services).unwrap().wait().await.unwrap(), ids)
 }
 fn tracking(result: &ModelingResult) -> f64 {
     result
@@ -323,9 +328,11 @@ fn global_optimality_premises(result: &ModelingResult) {
 #[tokio::test]
 async fn simultaneous_dynamic_optimization_matches_analytic() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let paths = HOLDUPS.map(|(_, p)| p);
     let (saturated, _holdups) = simultaneous(
+        &services,
         &package,
         SATURATED,
         optimize(SolverSelection::Auto),
@@ -367,6 +374,7 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
     }
     // Track half the reachable range in the same finite control parameterization.
     let (half, _holdups) = simultaneous(
+        &services,
         &package,
         SATURATED,
         optimize(SolverSelection::Auto),
@@ -384,7 +392,14 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
     let cancel = CancelSource::new();
     let integrated = SemanticId::parse_hex(INTEGRATED).unwrap().into();
     let declared = package
-        .declared_simulation(integrated, compiler(), None, seed_limits(), &cancel)
+        .declared_simulation(
+            services.preparation(),
+            integrated,
+            compiler(),
+            None,
+            seed_limits(),
+            &cancel,
+        )
         .await
         .unwrap();
     let contract = declared.contract();
@@ -403,6 +418,7 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         });
     let simulation = package
         .declared_simulation(
+            services.preparation(),
             integrated,
             compiler(),
             Some(schedule),
@@ -411,7 +427,7 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         )
         .await
         .unwrap();
-    let trajectory = simulation.run(&cancel).await.unwrap();
+    let trajectory = simulation.run(&services, &cancel).await.unwrap();
     assert_eq!(
         trajectory.report().termination,
         pse_backend_native::dynamics::Termination::Completed,
@@ -446,8 +462,10 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
 #[tokio::test]
 async fn simultaneous_dynamic_optimization_with_discrete_decision() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let (run, _) = simultaneous(
+        &services,
         &package,
         SWITCHED,
         optimize(SolverSelection::Auto),

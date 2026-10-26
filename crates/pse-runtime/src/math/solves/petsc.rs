@@ -841,6 +841,10 @@ impl MathService {
     /// # Errors
     /// A partial/deficient source, wrong domain/profile binding, compiler failure,
     /// inconsistent selected maps/support, cancellation or a finite resource cap.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "PETSc preparation keeps source, compiler, profile, composition controls, domain witness and declaration explicit"
+    )]
     pub async fn prepare_petsc_blocks(
         self: &Arc<Self>,
         source: PreparedPetscSource,
@@ -866,6 +870,10 @@ impl MathService {
         preparing.0 = None;
         result
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the preparation phase retains the same explicit PETSc source, controls and domain binding"
+    )]
     async fn prepare_petsc_blocks_inner(
         self: &Arc<Self>,
         source: PreparedPetscSource,

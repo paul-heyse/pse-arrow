@@ -322,12 +322,12 @@ def scientific_error(
     if recovery:
         value["recovery"] = recovery
         value["remedy"] = (
-            str(value["remedy"])
+            value["remedy"]
             + " Inspect the original owner using these issued references; settle uncertain work before any repeat action. No automatic retry is authorized."
         )
     if value.get("admission_effect") == "unresolved_publication":
         value["remedy"] = (
-            str(value["remedy"])
+            value["remedy"]
             + " Read back the original publication occurrence; its outcome remains unresolved."
         )
     value["complete"] = (

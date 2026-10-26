@@ -181,9 +181,12 @@ fn phase_regime_envelope_rejects_interior_and_missing_slack() {
 }
 
 /// Select real complementarity fixture identities from the intact loaded package.
-async fn complementarity_fixtures(package: &ModelingPackage) -> BTreeMap<String, SemanticId> {
+async fn complementarity_fixtures(
+    services: &pse_runtime::workflow::ExecutionServices,
+    package: &ModelingPackage,
+) -> BTreeMap<String, SemanticId> {
     let tests = package
-        .declarations()
+        .declarations(services.preparation())
         .await
         .unwrap()
         .iter()
@@ -202,18 +205,28 @@ fn feasible(backend: Backend) -> SolverProfile {
 }
 /// Solve an authored fixture and return its vapor fraction and equilibrium temperature.
 async fn solve(
+    services: &pse_runtime::workflow::ExecutionServices,
     package: &ModelingPackage,
     case: SemanticId,
     solver: SolverProfile,
 ) -> FlashEvidence {
-    let prepared = seed_prepare(package, case, solver, &CancelSource::new())
-        .await
-        .unwrap();
-    solve_prepared(&prepared).await
+    let prepared = seed_prepare(
+        services.preparation(),
+        package,
+        case,
+        solver,
+        &CancelSource::new(),
+    )
+    .await
+    .unwrap();
+    solve_prepared(services, &prepared).await
 }
 /// Execute the same admitted preparation whose route and closure were inspected.
-async fn solve_prepared(prepared: &ModelingSolvePreparation) -> FlashEvidence {
-    let result = prepared.start().unwrap().wait().await.unwrap();
+async fn solve_prepared(
+    services: &pse_runtime::workflow::ExecutionServices,
+    prepared: &ModelingSolvePreparation,
+) -> FlashEvidence {
+    let result = prepared.start(services).unwrap().wait().await.unwrap();
     if let Ok(RunReport::Modeling(reports)) = result.report() {
         for report in reports
             .iter()
@@ -412,12 +425,14 @@ async fn solve_prepared(prepared: &ModelingSolvePreparation) -> FlashEvidence {
 #[tokio::test]
 async fn flash_phase_disappearance_agrees_across_realizations() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
-    let cases = complementarity_fixtures(&package).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
+    let cases = complementarity_fixtures(&services, &package).await;
     // Historical beta comparisons belong to the source-authored expectations.
     for feed in ["liquid", "two_phase", "vapor"] {
         // smooth(math.smooth_min, 1e-4): a square system on the NLP route.
         let smooth = solve(
+            &services,
             &package,
             cases[&format!("complementarity_{feed}_smooth")],
             feasible(Backend::Ipopt),
@@ -425,6 +440,7 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         .await;
         // disjunctive: slack columns and a native SOS1, on SCIP.
         let disjunctive = solve(
+            &services,
             &package,
             cases[&format!("complementarity_{feed}_disjunctive")],
             feasible(Backend::Scip),
@@ -446,6 +462,7 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         // author's selection (ADR-0104 §5, Plan 22 M5b).
         let penalty_case = cases[&format!("complementarity_{feed}_penalty")];
         let prepared = seed_prepare(
+            services.preparation(),
             &package,
             penalty_case,
             feasible(Backend::Pounce),
@@ -463,7 +480,7 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
                 .requirements(),
             [Requirement::L1ExactPenalty]
         );
-        let penalty = solve_prepared(&prepared).await;
+        let penalty = solve_prepared(&services, &prepared).await;
         // The realizations agree within the shared physical output resolution.
         assert!(
             (penalty.temperature - disjunctive.temperature).abs()
@@ -480,6 +497,7 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         // Another backend cannot honour the requirement.
         assert!(
             seed_prepare(
+                services.preparation(),
                 &package,
                 penalty_case,
                 feasible(Backend::Ipopt),

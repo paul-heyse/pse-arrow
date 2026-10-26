@@ -209,6 +209,10 @@ impl ModelingPackage {
     /// # Errors
     /// Declared admission and the recycle owner's route/control refusals propagate.
     #[cfg(feature = "solver-kinsol")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "original request coordinates and controls remain explicit alongside the receiving effect capability"
+    )]
     pub async fn prepare_recycle_request(
         &self,
         services: &PreparationServices,
@@ -317,6 +321,10 @@ impl ModelingPackage {
     /// Diagnose original case values under one inherited caller clock.
     /// # Errors
     /// Original admission, diagnostic policy and deadline failures propagate.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "original request coordinates and controls remain explicit alongside the receiving effect capability"
+    )]
     pub async fn diagnose_case_request(
         &self,
         services: &ExecutionServices,
@@ -408,6 +416,10 @@ impl ModelingPackage {
     /// # Errors
     /// Original contextual admission, coordinate maps and native diagnostics refuse.
     #[cfg(feature = "solver-highs")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "original request coordinates and controls remain explicit alongside the receiving effect capability"
+    )]
     pub async fn diagnose_linear_request(
         &self,
         services: &ExecutionServices,
@@ -458,6 +470,10 @@ impl ModelingPackage {
     /// # Errors
     /// Contextual admission, policy and native diagnostic failures propagate.
     #[cfg(feature = "solver-highs")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "original request coordinates and controls remain explicit alongside the receiving effect capability"
+    )]
     pub async fn diagnose_jacobian_request(
         &self,
         services: &ExecutionServices,
@@ -499,6 +515,10 @@ impl ModelingPackage {
     /// Inspect prepared source artifacts under one finite clock including admission.
     /// # Errors
     /// Nonpositive allowances, original admission and source-map allocation refuse.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "original request coordinates and controls remain explicit alongside the receiving effect capability"
+    )]
     pub async fn source_map_request(
         &self,
         services: &PreparationServices,

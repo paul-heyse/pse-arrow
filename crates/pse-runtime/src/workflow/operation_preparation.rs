@@ -209,6 +209,10 @@ impl ModelingPackage {
         }
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "original request coordinates and controls remain explicit alongside the receiving effect capability"
+    )]
     pub(in crate::workflow) async fn prepare_case_operation(
         &self,
         services: &PreparationServices,

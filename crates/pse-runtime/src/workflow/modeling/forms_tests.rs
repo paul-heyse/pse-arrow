@@ -157,7 +157,7 @@ async fn optimum(
     case: ModelingCaseBindings,
     report: &str,
 ) -> (f64, ObjectiveAccuracy) {
-    let ([value], accuracy) = optimal(&services, package, root, case, [report]).await;
+    let ([value], accuracy) = optimal(services, package, root, case, [report]).await;
     (value, accuracy)
 }
 /// Solve as [`optimum`] and return several reports, in the order requested.
@@ -168,7 +168,7 @@ async fn optimal<const N: usize>(
     case: ModelingCaseBindings,
     reports: [&str; N],
 ) -> ([f64; N], ObjectiveAccuracy) {
-    optimal_on(&services, package, root, case, reports, Backend::Highs).await
+    optimal_on(services, package, root, case, reports, Backend::Highs).await
 }
 /// Solve with automatic routing, require `backend` and an accepted candidate, and return
 /// reports in the order requested. HiGHS solves the linear lowerings as a discrete
@@ -181,12 +181,12 @@ async fn optimal_on<const N: usize>(
     reports: [&str; N],
     backend: Backend,
 ) -> ([f64; N], ObjectiveAccuracy) {
-    let prepared = prepare(&services, package, root, case, SolverSelection::Auto)
+    let prepared = prepare(services, package, root, case, SolverSelection::Auto)
         .await
         .unwrap();
     let result = package
         .solve_case(
-            &services,
+            services,
             prepared,
             fixture::compiler_profile(),
             &crate::CancelSource::new(),

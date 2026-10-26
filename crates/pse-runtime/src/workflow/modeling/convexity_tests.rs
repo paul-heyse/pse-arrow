@@ -100,7 +100,7 @@ async fn reports(
 ) -> (ModelingResult, Vec<f64>) {
     let result = package
         .solve_case(
-            &services,
+            services,
             prepared,
             fixture::compiler_profile(),
             &crate::CancelSource::new(),

@@ -60,12 +60,14 @@ fn native_failure_context(
 #[tokio::test]
 async fn authored_physical_nlp_preserves_native_routes_and_original_qualification() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let id = |s| pse_ids::SemanticId::parse_hex(s).unwrap();
     let heater = id("68ba8dc2d6b05d9a9fe1b1a3625d8015");
     let optimization = id("079a378ba3ce46728b32c87f4fe6a3df");
     for backend in [Backend::Ipopt, Backend::Pounce, Backend::Kinsol] {
         let prepared = seed_prepare(
+            services.preparation(),
             &package,
             heater,
             profile(backend, false),
@@ -107,7 +109,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
                 assert!(target.budget >= floor, "{target:?}");
             }
         }
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         native_failure_context(&result, heater, backend, &Default::default());
         let report = authored_success(&result);
         assert!(
@@ -118,7 +120,13 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
                 .count()
                 >= 2
         );
-        assert!(!package.declarations().await.unwrap().is_empty());
+        assert!(
+            !package
+                .declarations(services.preparation(),)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert!(result.table("authored.modeling_declarations").is_err());
         assert!(result.table("authored.computation_models").is_err());
     }
@@ -146,14 +154,20 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
     ] {
         let mut settings = profile(backend, true);
         settings.presolve = presolve.clone();
-        let result = seed_prepare(&package, optimization, settings, &CancelSource::new())
-            .await
-            .unwrap()
-            .start()
-            .unwrap()
-            .wait()
-            .await
-            .unwrap();
+        let result = seed_prepare(
+            services.preparation(),
+            &package,
+            optimization,
+            settings,
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap()
+        .start(&services)
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
         native_failure_context(&result, optimization, backend, &presolve);
         let report = authored_success(&result);
         let Outcome::Native(native) = &report.outcome else {
@@ -185,6 +199,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         "d84e844726e64a2c9b23d96a4039b4f9",
     ] {
         let result = seed_prepare(
+            services.preparation(),
             &package,
             id(case),
             profile(Backend::Ipopt, false),
@@ -192,7 +207,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
         )
         .await
         .unwrap()
-        .start()
+        .start(&services)
         .unwrap()
         .wait()
         .await
@@ -203,6 +218,7 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
     // Root-only strategies must retain objective and inequality admission refusals.
     assert!(
         seed_prepare(
+            services.preparation(),
             &package,
             optimization,
             profile(Backend::Kinsol, false),
@@ -218,7 +234,8 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
 #[tokio::test]
 async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualification() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let flash = pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap();
     for backend in [Backend::Ipopt, Backend::Pounce] {
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
@@ -227,6 +244,7 @@ async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualif
         let prepared = pse_diagnostics::observation::scope(
             Some(context.clone()),
             seed_prepare(
+                services.preparation(),
                 &package,
                 flash,
                 profile(backend, false),
@@ -257,7 +275,13 @@ async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualif
                     .filter_map(|child| hub.reader(child.id)),
             );
         }
-        let result = prepared.unwrap().start().unwrap().wait().await.unwrap();
+        let result = prepared
+            .unwrap()
+            .start(&services)
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         native_failure_context(&result, flash, backend, &Default::default());
         authored_success(&result);
     }
@@ -268,8 +292,9 @@ async fn authored_physical_nlp_flash_preserves_native_routes_and_original_qualif
 #[tokio::test]
 async fn authored_countercurrent_and_unequal_pressure_variants() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
-    let declarations = package.declarations().await.unwrap();
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
+    let declarations = package.declarations(services.preparation()).await.unwrap();
     for name in [
         "heat_exchanger_default_countercurrent",
         "mixer_unequal_pressure_minimum",
@@ -284,10 +309,16 @@ async fn authored_countercurrent_and_unequal_pressure_variants() {
         // final original-space reconstruction can have a Constant outcome.
         let mut settings = profile(Backend::Ipopt, false);
         settings.presolve = pse_backend_native::presolve::Policy::Off;
-        let prepared = seed_prepare(&package, case, settings, &CancelSource::new())
-            .await
-            .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let prepared = seed_prepare(
+            services.preparation(),
+            &package,
+            case,
+            settings,
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let report = authored_success(&result);
         assert!(
             result.usable() && report.accepted,

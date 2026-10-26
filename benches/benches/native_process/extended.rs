@@ -76,11 +76,14 @@ async fn cone(owner: &WorkflowRuntime, observations: &mut observations::Observat
         objective_constant: 3.,
     };
     let selected = profile(Backend::Clarabel, true);
-    let prepared = runtime(owner)
+    let target = runtime(owner);
+    let prepared = target
         .prepare_conic(request, &physical, selected.clone())
         .await
         .unwrap();
-    let result = audit::finish(prepared.start().unwrap()).await.unwrap();
+    let result = audit::finish(prepared.start(&target.preparation_services()).unwrap())
+        .await
+        .unwrap();
     let pse_runtime::math::solves::Outcome::Native(report) = &result.outcome else {
         panic!("missing cone result")
     };
@@ -160,6 +163,7 @@ pub(super) async fn recycle(
     let cancel = audit::cancel_source();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler(),
             profile(Backend::Kinsol, false),
@@ -172,6 +176,7 @@ pub(super) async fn recycle(
         .analysis;
     let model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             analysis.bindings.clone(),
@@ -213,7 +218,12 @@ pub(super) async fn recycle(
             .collect(),
     };
     let flow = package
-        .prepare_flow(&analysis, selection.clone(), &cancel)
+        .prepare_flow(
+            &runtime.preparation_services(),
+            &analysis,
+            selection.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     let selected = owner
@@ -246,14 +256,27 @@ pub(super) async fn recycle(
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     let prepared = package
-        .prepare_recycle(&analysis, selection, request, &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection,
+            request,
+            &cancel,
+        )
         .await
         .unwrap();
     let review = audit::review_context_request();
-    let (handle, operation) = prepared.start_with_operation().unwrap();
+    let (handle, operation) = prepared
+        .start_with_operation(&runtime.preparation_services())
+        .unwrap();
     let result = audit::finish(handle).await.unwrap();
     if let Some(request) = review {
-        match prepared.review_context(&request, operation, &result) {
+        match prepared.review_context(
+            &runtime.preparation_services(),
+            &request,
+            operation,
+            &result,
+        ) {
             Ok(context) => audit::retain_context(context.document()),
             Err(error) => audit::review_context_error(error),
         }
@@ -301,13 +324,14 @@ async fn sparse_fit(
         .modeling_package(rows, physical)
         .await
         .unwrap()
-        .with_fit_declarations(data)
+        .with_fit_declarations(&target.source_services(), data)
         .await
         .unwrap();
     let mut solver = profile(Backend::Ipopt, true);
     solver.presolve = native::presolve::Policy::Off;
     let prepared = package
         .prepare_fit(
+            &target.preparation_services(),
             FitId::from_id(id(73)),
             workflow::FitProfile {
                 optimizer: workflow::FitOptimizer::NativeNlp,
@@ -325,7 +349,9 @@ async fn sparse_fit(
         )
         .await
         .unwrap();
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let result = audit::wait(prepared.start(&target.execution_services()).unwrap())
+        .await
+        .unwrap();
     audit::export_result(&target, &result).await;
     observations.run(&result, owner.runtime.math());
     let RunReport::Fit(report) = result.report().unwrap() else {
@@ -387,6 +413,7 @@ async fn run(
             selected.presolve = native::presolve::Policy::Off;
             let mut analysis = package
                 .declared_execution(
+                    &target.preparation_services(),
                     root,
                     compiler(),
                     selected,
@@ -413,7 +440,10 @@ async fn run(
                     if mixed { 1e6 } else { 3.0 },
                 ];
                 analysis.case.values.insert("a".into(), expected[0]);
-                let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+                let prepared = package
+                    .prepare_analysis(&target.preparation_services(), &analysis, &cancel)
+                    .await
+                    .unwrap();
                 let symbol = |name: &str| {
                     prepared
                         .model
@@ -427,7 +457,9 @@ async fn run(
                         .id
                 };
                 let coordinates = [symbol("x"), symbol("y")];
-                let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+                let result = audit::wait(prepared.start(&target.execution_services()).unwrap())
+                    .await
+                    .unwrap();
                 audit::export_result(&target, &result).await;
                 authored_success(&result);
                 observations.run(&result, owner.runtime.math());
@@ -448,11 +480,20 @@ async fn run(
             );
             let cancel = audit::cancel_source();
             let prepared = package
-                .declared_simulation(root, compiler(), None, seed_limits(), &cancel)
+                .declared_simulation(
+                    &target.preparation_services(),
+                    root,
+                    compiler(),
+                    None,
+                    seed_limits(),
+                    &cancel,
+                )
                 .await
                 .unwrap();
             if operation == "vessel" {
-                let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+                let result = audit::wait(prepared.start(&target.execution_services()).unwrap())
+                    .await
+                    .unwrap();
                 audit::export_result(&target, &result).await;
                 observations.invocation(&result);
                 let RunReport::Simulation(trajectory) = result.report().unwrap() else {
@@ -464,6 +505,7 @@ async fn run(
             } else {
                 let analysis = package
                     .declared_execution(
+                        &target.preparation_services(),
                         root,
                         compiler(),
                         profile(Backend::Ipopt, false),
@@ -479,6 +521,7 @@ async fn run(
                     case.values.insert("root.heat".into(), step as f64);
                     let rebound = package
                         .prepare_simulation(
+                            &target.preparation_services(),
                             root,
                             pse_modeling::specialize::root_instance(root),
                             analysis.bindings.clone(),
@@ -491,7 +534,9 @@ async fn run(
                         )
                         .await
                         .unwrap();
-                    let result = audit::wait(rebound.start().unwrap()).await.unwrap();
+                    let result = audit::wait(rebound.start(&target.execution_services()).unwrap())
+                        .await
+                        .unwrap();
                     audit::export_result(&target, &result).await;
                     observations.invocation(&result);
                     let RunReport::Simulation(trajectory) = result.report().unwrap() else {
@@ -505,13 +550,15 @@ async fn run(
         "fit" | "evented-fit" => {
             let target = runtime(owner);
             let package = seed_package_on(owner, target.clone()).await;
-            let (fit, mut selected) = heat_fit(&package, "transient").await;
+            let (fit, mut selected) =
+                heat_fit(&target.preparation_services(), &package, "transient").await;
             if operation == "evented-fit" {
                 let root = DeclarationId::from_id(
                     SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap(),
                 );
                 let simulation = package
                     .declared_simulation(
+                        &target.preparation_services(),
                         root,
                         compiler(),
                         None,
@@ -537,6 +584,7 @@ async fn run(
             }
             let prepared = package
                 .prepare_fit(
+                    &target.preparation_services(),
                     fit,
                     selected,
                     compiler(),
@@ -545,7 +593,9 @@ async fn run(
                 )
                 .await
                 .unwrap();
-            let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+            let result = audit::wait(prepared.start(&target.execution_services()).unwrap())
+                .await
+                .unwrap();
             audit::export_result(&target, &result).await;
             observations.run(&result, owner.runtime.math());
             let RunReport::Fit(report) = result.report().unwrap() else {

@@ -70,7 +70,7 @@ impl ModelingPackage {
             ));
         }
         let plan = product.plan.clone();
-        let primal_coordinates = crate::workflow::PrimalCoordinates::original(&services.preparation(), plan.structure().variables().iter().map(|variable| variable.port.clone()).collect())?;
+        let primal_coordinates = crate::workflow::PrimalCoordinates::original(services.preparation(), plan.structure().variables().iter().map(|variable| variable.port.clone()).collect())?;
         let source_identity = plan.structure().key();
         let numerical_identity = prepared.numerics.key;
         let columns = plan.columns().to_vec();

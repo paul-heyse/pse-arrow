@@ -1361,6 +1361,10 @@ impl Control {
     };
 }
 impl Loop {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "horizon admission retains separate science, staged execution, run lifetime, durable attempt and original result owners"
+    )]
     pub(super) fn new(
         services: ExecutionServices,
         admitted: Arc<Admitted>,

@@ -280,6 +280,10 @@ impl ModelingPackage {
             .await
     }
     /// Build each point's declared values, numerical premises and fresh experiment ICs together.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "fit identity, numerical/compiler policies and point binding remain explicit alongside preparation capability and cancellation"
+    )]
     pub(in crate::workflow) async fn prepare_fit_bound(
         &self,
         services: &PreparationServices,
@@ -306,6 +310,10 @@ impl ModelingPackage {
         .await
     }
     /// Prepare fitting with physically typed experiment controls under one shared owner.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "physical fit request and compiler/binding inputs remain explicit alongside preparation capability and cancellation"
+    )]
     pub async fn prepare_physical_fit(
         &self,
         services: &PreparationServices,
@@ -346,6 +354,10 @@ impl ModelingPackage {
         )
         .await
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "fit declaration, preparation policies and admitted point inputs remain separate from the supplied effect capability"
+    )]
     async fn prepare_fit_input(
         &self,
         services: &PreparationServices,
@@ -485,6 +497,10 @@ impl ModelingPackage {
         )
         .await
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "immutable fit problem inputs and admitted binding remain separate from explicit preparation effects and cancellation"
+    )]
     async fn prepare_fit_problem_bound(
         &self,
         services: &PreparationServices,
@@ -1487,6 +1503,10 @@ impl PreparedFit {
         report.strategy = Some(trace);
         Ok(report)
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "original fit identity, native controls and worker admission remain explicit alongside the selected mathematical service and execution scope"
+    )]
     fn execute_original(
         &self,
         math: &Arc<MathService>,

@@ -1056,9 +1056,7 @@ impl MathService {
             let gate = effects
                 .compiler_entry_gate
                 .lock()
-                .map_err(|_| {
-                    MathRuntimeError::Infrastructure("test compiler gate lock poisoned".into())
-                })?
+                .map_err(|_| MathRuntimeError::Internal("test compiler gate lock poisoned".into()))?
                 .take();
             #[cfg(test)]
             if let Some(gate) = gate {

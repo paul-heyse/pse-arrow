@@ -310,6 +310,10 @@ impl ModelingPackage {
             })
             .await
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the observation request keeps model, rows, values, compiler and providers explicit alongside preparation services and cancellation"
+    )]
     pub(in crate::workflow) async fn observe_registered(
         &self,
         services: &crate::workflow::PreparationServices,
@@ -400,6 +404,10 @@ impl ModelingPackage {
             .map(|r| (r.spec().key(), r.clone()))
             .collect()
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "start resolution consumes distinct model, case, override and compiler inputs alongside preparation services and cancellation"
+    )]
     pub(in crate::workflow) async fn resolve_starts(
         &self,
         services: &crate::workflow::PreparationServices,

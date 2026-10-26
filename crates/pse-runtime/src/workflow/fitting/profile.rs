@@ -1101,6 +1101,10 @@ impl ChainPolicy<'_> {
 impl PreparedFit {
     /// The two profile-likelihood chains of every free parameter, or why they are withheld:
     /// they need the estimate's own conditions, not full rank, which a flat profile shows.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "profile statistic, chain controls and route/team selection remain explicit alongside the mathematical service and original execution owner"
+    )]
     pub(super) fn profiles(
         &self,
         math: &Arc<MathService>,

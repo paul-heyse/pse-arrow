@@ -72,13 +72,13 @@ pub(super) fn measure(
                 let started = Instant::now();
                 let copied = authored.clone();
                 let rows = parse(&copied);
-                let edited = executor.block_on(package.with_declarations(rows)).unwrap();
+                let edited = executor.block_on(package.with_declarations(&runtime.source_services(), rows)).unwrap();
                 let seconds = started.elapsed();
                 elapsed += seconds;
                 records.push(json!({"seconds":seconds.as_secs_f64(),"kind":"unchanged_source_admission","canonical_revision":edited.canonical_revision().map(|revision| revision.key.as_str()),"clock_scope":"authored copy, parse and canonical edit; no scientific solve requested"}));
                 assert_eq!(copied, authored);
                 assert_eq!(edited.canonical_revision(), Some(&revision));
-                let actual = executor.block_on(edited.declarations()).unwrap();
+                let actual = executor.block_on(edited.declarations(&runtime.preparation_services(), )).unwrap();
                 assert_eq!(actual.len(), expected.len());
                 assert!(
                     actual

@@ -1672,7 +1672,7 @@ impl Runtime {
         let response = receiver_response(command);
         let (status, stdout, stderr) = tokio::select! {
             output = tokio::time::timeout(Duration::from_millis(profile.admission_wait_ms), response) =>
-                output.map_err(|_| contract("managed primary readiness deadline expired"))?
+                output.map_err(|_| super::deadline_limit("managed primary readiness deadline expired"))?
                     ?,
             () = cancel.cancelled() => return Err(crate::math::MathRuntimeError::Cancelled.into()),
         };

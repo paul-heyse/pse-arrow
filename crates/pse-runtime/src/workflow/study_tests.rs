@@ -257,7 +257,7 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
     for key in [7, 11] {
         let mut requested = point(root, key, vec![], StartPolicy::Fresh);
         let OperationRequest::DeclaredCase(operation) = &mut requested.operation else {
-            unreachable!("authored algebraic operation")
+            panic!("expected the authored algebraic operation")
         };
         operation.settings.intent = pse_backend_native::solve::SolveIntent::Optimize;
         let local = package

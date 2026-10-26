@@ -899,7 +899,7 @@ impl RunSupervisor {
         let deadline = self
             .checks
             .deadline()
-            .ok_or_else(|| contract("native run deadline absent"))?;
+            .ok_or_else(|| WorkflowError::Internal("native run deadline absent".into()))?;
         let (submission, signal) = submission(
             &self.native,
             &self.progress,
@@ -1146,7 +1146,7 @@ impl super::ModelingSimulation {
         activity.sync_scope(crate::invocation::start_scope(|| {
             let supervisor = RunSupervisor::new(services.clone(), attempt, parent.as_ref(), Some(deadline), 256)?;
             let run_id = supervisor.run_id;
-            let deadline = supervisor.checks.deadline().ok_or_else(|| contract("simulation deadline absent"))?;
+            let deadline = supervisor.checks.deadline().ok_or_else(|| WorkflowError::Internal("simulation deadline absent".into()))?;
             let cancel = supervisor.native.clone();
             let canonical_attempt = supervisor.durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
             let live = live.map(|options| super::live_simulation::LiveDispatch::new(
@@ -1306,7 +1306,7 @@ impl super::ShootingProblem {
             let deadline = supervisor
                 .checks
                 .deadline()
-                .ok_or_else(|| contract("shooting deadline absent"))?;
+                .ok_or_else(|| WorkflowError::Internal("shooting deadline absent".into()))?;
             let prepared = self.clone();
             let mut declared_profile = self.solver.clone();
             if initial.is_some() {
@@ -1431,7 +1431,7 @@ impl super::PreparedFit {
             let deadline = supervisor
                 .checks
                 .deadline()
-                .ok_or_else(|| contract("fit deadline absent"))?;
+                .ok_or_else(|| WorkflowError::Internal("fit deadline absent".into()))?;
             let prepared = self.clone();
             // Estimation admits only its own demand. Profile teams acquire their next
             // stage after the estimate reaches the quiescent phase boundary.

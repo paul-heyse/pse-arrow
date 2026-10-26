@@ -7,16 +7,24 @@ use pse_runtime::{CancelSource, math::solves::Outcome, workflow::RunReport};
 async fn authored_connected_results_resource() {
     let owner = WorkflowRuntime::new().unwrap();
     let rt = runtime(&owner);
+    let services = rt.execution_services();
     let package = seed_package_on(&owner, rt.clone()).await;
     let case = pse_ids::SemanticId::parse_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015").unwrap();
     let cancelled = CancelSource::new();
     cancelled.cancel();
     assert!(
-        seed_prepare(&package, case, profile(Backend::Ipopt, false), &cancelled)
-            .await
-            .is_err()
+        seed_prepare(
+            services.preparation(),
+            &package,
+            case,
+            profile(Backend::Ipopt, false),
+            &cancelled
+        )
+        .await
+        .is_err()
     );
     let prepared = seed_prepare(
+        services.preparation(),
         &package,
         case,
         profile(Backend::Ipopt, false),
@@ -24,8 +32,8 @@ async fn authored_connected_results_resource() {
     )
     .await
     .unwrap();
-    let a = prepared.start().unwrap();
-    let b = prepared.start().unwrap();
+    let a = prepared.start(&services).unwrap();
+    let b = prepared.start(&services).unwrap();
     let (a, b) = tokio::join!(a.wait(), b.wait());
     let a = a.unwrap();
     let b = b.unwrap();
@@ -93,9 +101,15 @@ async fn authored_connected_results_resource() {
     // A limited or cancelled attempt remains an attempt, never an optimum certificate.
     let mut limited = profile(Backend::Ipopt, false);
     limited.controls.iterations = 1;
-    let mut p = seed_prepare(&package, case, limited, &CancelSource::new())
-        .await
-        .unwrap();
+    let mut p = seed_prepare(
+        services.preparation(),
+        &package,
+        case,
+        limited,
+        &CancelSource::new(),
+    )
+    .await
+    .unwrap();
     // Exercise a limited original native attempt. Auto conditional blocks may instead
     // stop before complete original coordinates exist, which has a different failure API.
     let original = p.solve.clone();
@@ -108,7 +122,7 @@ async fn authored_connected_results_resource() {
         .clone()
         .with_strategy(direct, vec![original.into()])
         .unwrap();
-    let result = p.start().unwrap().wait().await.unwrap();
+    let result = p.start(&services).unwrap().wait().await.unwrap();
     let RunReport::Modeling(report) = result.report().unwrap() else {
         panic!()
     };
@@ -125,6 +139,7 @@ async fn authored_connected_results_resource() {
         1
     );
     let p = seed_prepare(
+        services.preparation(),
         &package,
         case,
         profile(Backend::Ipopt, false),
@@ -132,7 +147,7 @@ async fn authored_connected_results_resource() {
     )
     .await
     .unwrap();
-    let handle = p.start().unwrap();
+    let handle = p.start(&services).unwrap();
     handle.cancel();
     let result = handle.wait().await.unwrap();
     assert!(std::sync::Arc::ptr_eq(

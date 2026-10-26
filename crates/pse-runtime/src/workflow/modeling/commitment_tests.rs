@@ -138,7 +138,7 @@ async fn solve(
             })
         })
         .collect();
-    let result = prepared.start(&services).unwrap().wait().await.unwrap();
+    let result = prepared.start(services).unwrap().wait().await.unwrap();
     (result, ids)
 }
 fn rows<R: RelationRow>(result: &crate::workflow::RunResult, name: &str) -> Vec<R> {

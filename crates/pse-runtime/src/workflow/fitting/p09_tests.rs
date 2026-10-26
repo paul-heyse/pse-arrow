@@ -248,7 +248,7 @@ async fn source_case(
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
-    source_case_on(&runtime, mixed, expected, case).await
+    source_case_on(runtime, mixed, expected, case).await
 }
 async fn source_case_on(
     runtime: &crate::workflow::Runtime,
@@ -256,7 +256,7 @@ async fn source_case_on(
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
-    source_case_on_with_fixed_parameter(&runtime, mixed, expected, case, false).await
+    source_case_on_with_fixed_parameter(runtime, mixed, expected, case, false).await
 }
 async fn source_case_on_with_fixed_parameter(
     runtime: &crate::workflow::Runtime,
@@ -1197,7 +1197,7 @@ async fn transient_fit(
     (
         frozen,
         output_allowances,
-        prepared.start(&services).unwrap().wait().await.unwrap(),
+        prepared.start(services).unwrap().wait().await.unwrap(),
     )
 }
 

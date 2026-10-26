@@ -34,7 +34,11 @@ const PHASE_STABILITY_FIXTURES: &str = "881a0e9fb03144108d64f181a79d1e9f";
 /// phase-stability fixtures at run time: an unstable feed fails the model's own stability
 /// check, so it is no conformance fixture. The reference phase is the feed's vapor root; the
 /// trial density stays below the smallest covolume limit 1/b of either component.
-async fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, SemanticId) {
+async fn unstable_case(
+    services: &pse_runtime::workflow::ExecutionServices,
+    package: &ModelingPackage,
+    header: &str,
+) -> (ModelingPackage, SemanticId) {
     let name = "tpd_pr_two_phase";
     let source = format!(
         "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use eos_data @\"1.0.0\"; use cubic @\"1.0.0\"; use properties @\"1.0.0\"; test {name} fixture {{dof 1; route steady; procedure solve; value root.temperature=368{{K}}; value root.pressure=101325{{Pa}}; value root.reference_upper=200{{mol/m^3}}; value root.trial_upper=10500{{mol/m^3}}; value root.reference.rho=34{{mol/m^3}}; value root.trial.rho=9505.77{{mol/m^3}}; {header}}} {{ permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false; child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=bt_ideal.aromatics,law=eos_data.potential,feed=bt_feed); }} }}"
@@ -51,19 +55,30 @@ async fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPack
         .find(|r| r.name == name)
         .unwrap()
         .declaration_id;
-    let mut rows = package.declarations().await.unwrap().to_vec();
+    let mut rows = package
+        .declarations(services.preparation())
+        .await
+        .unwrap()
+        .to_vec();
     rows.extend(
         extra
             .into_iter()
             .filter(|r| r.value.kind.as_str() != "package"),
     );
-    (package.with_declarations(rows).await.unwrap(), case.as_id())
+    (
+        package
+            .with_declarations(&services.source_services(), rows)
+            .await
+            .unwrap(),
+        case.as_id(),
+    )
 }
 /// The authored stability check `tpd > -tolerance` of the phase-stability model.
 const TPD_CHECK: &str = "cf7deebc57f244f8a52ec8e924140225";
 
 /// Demand inspected coordinates through the compiler's existing path resolution.
 async fn prepare_tpd(
+    services: &pse_runtime::workflow::ExecutionServices,
     package: &ModelingPackage,
     case: SemanticId,
     solver: SolverProfile,
@@ -72,6 +87,7 @@ async fn prepare_tpd(
     let cancel = CancelSource::new();
     let mut analysis = package
         .declared_execution(
+            services.preparation(),
             case.into(),
             compiler(),
             solver,
@@ -86,7 +102,10 @@ async fn prepare_tpd(
         .bindings
         .demand
         .extend(paths.iter().map(|path| (*path).to_owned()));
-    package.prepare_analysis(&analysis, &cancel).await.unwrap()
+    package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap()
 }
 
 fn stability_tolerance(report: &pse_runtime::workflow::ModelingResult) -> f64 {
@@ -130,11 +149,12 @@ async fn tpd_certifies_stable_feed() {
     // An ideal mixture is stable everywhere: tpd is the Kullback-Leibler divergence of the
     // trial from the feed, minimized at the feed with value zero.
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let case = SemanticId::parse_hex(TPD_IDEAL).unwrap();
-    let result = prepare_tpd(&package, case, certify(5), &["root.tolerance"])
+    let result = prepare_tpd(&services, &package, case, certify(5), &["root.tolerance"])
         .await
-        .start()
+        .start(&services)
         .unwrap()
         .wait()
         .await
@@ -192,16 +212,18 @@ async fn tpd_detects_known_instability() {
         "{expected} {teqp}"
     );
     let owner = WorkflowRuntime::new().unwrap();
-    let source = seed_package(&owner).await;
-    let (package, case) = unstable_case(&source, "").await;
+    let (rt, source) = seed_package(&owner).await;
+    let services = rt.execution_services();
+    let (package, case) = unstable_case(&services, &source, "").await;
     let result = prepare_tpd(
+        &services,
         &package,
         case,
         profile(Backend::Ipopt, true),
         &["root.tolerance", "root.trial.amount[chem.benzene]"],
     )
     .await
-    .start()
+    .start(&services)
     .unwrap()
     .wait()
     .await
@@ -260,6 +282,7 @@ async fn tpd_detects_known_instability() {
     .resolve(registry, &Default::default())
     .unwrap();
     let trial_allowance = authored_resolution(
+        services.preparation(),
         &package,
         SemanticId::parse_hex("cb535c40e89f420aba9a06444306aca8").unwrap(),
         registry,
@@ -285,19 +308,26 @@ async fn fixture_intent_selects_certify() {
     use pse_model::generated::enums::ModelingConformanceStatus;
     use pse_model::generated::identities::DeclarationId;
     let owner = WorkflowRuntime::new().unwrap();
-    let source = seed_package(&owner).await;
+    let (rt, source) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let fixture = DeclarationId::from(SemanticId::parse_hex(TPD_IDEAL).unwrap());
     // Only this fixture runs.
-    let rows = source.declarations().await.unwrap().to_vec();
+    let rows = source
+        .declarations(services.preparation())
+        .await
+        .unwrap()
+        .to_vec();
     let mut solver = profile(Backend::Ipopt, true);
     solver.selection = SolverSelection::Auto;
     solver.controls.time_limit = Duration::from_secs(300);
     assert_eq!(solver.intent, SolveIntent::Optimize);
     let conform = |package: ModelingPackage| {
         let solver = solver.clone();
+        let services = services.clone();
         async move {
             package
                 .conform(
+                    &services,
                     pse_runtime::workflow::ModelingConformancePolicy {
                         compiler: compiler(),
                         solver,
@@ -364,7 +394,10 @@ async fn fixture_intent_selects_certify() {
             authored.intent = None;
         }
     }
-    let updated = source.with_declarations(open).await.unwrap();
+    let updated = source
+        .with_declarations(&services.source_services(), open)
+        .await
+        .unwrap();
     let report = conform(updated).await;
     let result = &report.results[&fixture];
     let Outcome::Native(native) = &result.outcome else {
@@ -392,18 +425,25 @@ async fn heater_optimization_certified() {
     // The authored `intent certify;` fixture: heater_optimization over a declared
     // vapor-branch box, so the certified global minimum is the selected local one.
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let case = SemanticId::parse_hex("e0d4fbe894134e60bb4e364dddae9c5f").unwrap();
     let mut solver = certify(10);
     solver.controls.foreign_bytes = Some(SCIP_FOREIGN_BYTES);
-    let result = seed_prepare(&package, case, solver, &CancelSource::new())
-        .await
-        .unwrap()
-        .start()
-        .unwrap()
-        .wait()
-        .await
-        .unwrap();
+    let result = seed_prepare(
+        services.preparation(),
+        &package,
+        case,
+        solver,
+        &CancelSource::new(),
+    )
+    .await
+    .unwrap()
+    .start(&services)
+    .unwrap()
+    .wait()
+    .await
+    .unwrap();
     let report = authored_success(&result);
     let Outcome::Native(native) = &report.outcome else {
         panic!("expected a native certification");
@@ -442,16 +482,23 @@ async fn heater_optimization_certified() {
 #[tokio::test]
 async fn small_regression_certified() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     let case = SemanticId::parse_hex("f767847e54e547d396cf0190032aa9d4").unwrap();
-    let result = seed_prepare(&package, case, certify(5), &CancelSource::new())
-        .await
-        .unwrap()
-        .start()
-        .unwrap()
-        .wait()
-        .await
-        .unwrap();
+    let result = seed_prepare(
+        services.preparation(),
+        &package,
+        case,
+        certify(5),
+        &CancelSource::new(),
+    )
+    .await
+    .unwrap()
+    .start(&services)
+    .unwrap()
+    .wait()
+    .await
+    .unwrap();
     let report = authored_success(&result);
     let Outcome::Native(native) = &report.outcome else {
         panic!("expected a native certification");
@@ -485,6 +532,7 @@ async fn small_regression_certified() {
 /// The PC-SAFT tangent-plane case of the vessel mixture, added to the authored phase-stability
 /// fixtures at run time. Publish once so both resource controls use the same revision.
 async fn pcsaft_tpd_fixture(
+    services: &pse_runtime::workflow::ExecutionServices,
     package: &ModelingPackage,
 ) -> (
     ModelingPackage,
@@ -506,13 +554,20 @@ async fn pcsaft_tpd_fixture(
         .find(|r| r.name == name)
         .unwrap()
         .declaration_id;
-    let mut rows = package.declarations().await.unwrap().to_vec();
+    let mut rows = package
+        .declarations(services.preparation())
+        .await
+        .unwrap()
+        .to_vec();
     rows.extend(
         extra
             .into_iter()
             .filter(|r| r.value.kind.as_str() != "package"),
     );
-    let package = package.with_declarations(rows).await.unwrap();
+    let package = package
+        .with_declarations(&services.source_services(), rows)
+        .await
+        .unwrap();
     (package, case)
 }
 const PCSAFT_TRIAL_PATHS: [&str; 3] = [
@@ -521,15 +576,19 @@ const PCSAFT_TRIAL_PATHS: [&str; 3] = [
     "root.trial.amount[chem.propane]",
 ];
 async fn pcsaft_tpd(
+    services: &pse_runtime::workflow::ExecutionServices,
     package: &ModelingPackage,
     case: pse_model::generated::identities::DeclarationId,
     limits: pse_modeling::Limits,
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let cancel = CancelSource::new();
-    let analysis = pcsaft_tpd_analysis(package, case, limits).await?;
-    package.prepare_analysis(&analysis, &cancel).await
+    let analysis = pcsaft_tpd_analysis(services, package, case, limits).await?;
+    package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
 }
 async fn pcsaft_tpd_analysis(
+    services: &pse_runtime::workflow::ExecutionServices,
     package: &ModelingPackage,
     case: pse_model::generated::identities::DeclarationId,
     limits: pse_modeling::Limits,
@@ -537,6 +596,7 @@ async fn pcsaft_tpd_analysis(
     let cancel = CancelSource::new();
     let mut analysis = package
         .declared_execution(
+            services.preparation(),
             case,
             compiler(),
             profile(Backend::Ipopt, true),
@@ -568,19 +628,25 @@ async fn pcsaft_tpd_fits_the_formal_pool() {
         },
     )
     .unwrap();
-    let source = seed_package(&owner).await;
-    let (package, case) = pcsaft_tpd_fixture(&source).await;
+    let (rt, source) = seed_package(&owner).await;
+    let services = rt.execution_services();
+    let (package, case) = pcsaft_tpd_fixture(&services, &source).await;
     let former = pse_modeling::Limits {
         body_slots: Some(4096),
         ..seed_limits()
     };
-    let refused = pcsaft_tpd(&package, case, former).await.unwrap_err();
+    let refused = pcsaft_tpd(&services, &package, case, former)
+        .await
+        .unwrap_err();
     assert!(refused.to_string().contains("body slots"), "{refused}");
     let cancel = CancelSource::new();
-    let analysis = pcsaft_tpd_analysis(&package, case, seed_limits())
+    let analysis = pcsaft_tpd_analysis(&services, &package, case, seed_limits())
         .await
         .unwrap();
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     // Resolve pressure at the authored feed before releasing its two independent
     // trial composition coordinates. The third amount still obeys normalization;
     // neither pressure equation nor the constitutive law is replaced.
@@ -619,10 +685,10 @@ async fn pcsaft_tpd_fits_the_formal_pool() {
         );
     }
     let initialized = package
-        .prepare_analysis(&initialization, &cancel)
+        .prepare_analysis(services.preparation(), &initialization, &cancel)
         .await
         .unwrap()
-        .start()
+        .start(&services)
         .unwrap()
         .wait()
         .await
@@ -712,7 +778,11 @@ async fn pcsaft_tpd_fits_the_formal_pool() {
     let seed = rows.finish().unwrap().batch().clone();
     let schema = seed.schema();
     let seed = datafusion::arrow::record_batch::RecordBatchIterator::new(vec![Ok(seed)], schema);
-    let handle = prepared.with_primal_start(seed).unwrap().start().unwrap();
+    let handle = prepared
+        .with_primal_start(services.preparation(), seed)
+        .unwrap()
+        .start(&services)
+        .unwrap();
     let result = handle.wait().await.unwrap();
     if !result.usable() {
         let (events, dropped) = handle.progress();

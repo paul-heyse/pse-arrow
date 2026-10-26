@@ -1741,7 +1741,7 @@ impl ModelingPackage {
             let decision = match resolution.route_decision().and_then(|decision| {
                 let identity = resolution.admission_identity(&decision)?;
                 let tables = analysis_tables::admission_tables(
-                    &services.preparation(),
+                    services.preparation(),
                     &decision,
                     identity,
                     0,
@@ -2308,6 +2308,10 @@ impl ModelingPackage {
             )
             .await?)
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the authored validity envelope binds its model, point, providers, annotation and compiler alongside explicit preparation services"
+    )]
     async fn conformance_envelope(
         &self,
         services: &crate::workflow::PreparationServices,

@@ -53,7 +53,7 @@ pub(super) fn measure(
                 let runtime = runtime(&owner);
                 let begin = Instant::now();
                 let package = support::package(&runtime, &owner, &sources).await;
-                let root = package.declarations().await.unwrap().iter().find(|row| row.name == "Root").unwrap().declaration_id;
+                let root = package.declarations(&runtime.preparation_services(), ).await.unwrap().iter().find(|row| row.name == "Root").unwrap().declaration_id;
                 let admission = begin.elapsed();
                 let mut solver = profile(Backend::Kinsol, false);
                 solver.intent = pse_backend_native::solve::SolveIntent::Root;
@@ -68,8 +68,8 @@ pub(super) fn measure(
                 let begin = Instant::now();
                 let cancel = CancelSource::new();
                 let ((prepared, result), preparation_counts) = pse_runtime::invocation::counted(async {
-                    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-                    let result = prepared.start().unwrap().wait().await.unwrap();
+                    let prepared = package.prepare_analysis(&runtime.preparation_services(), &analysis, &cancel).await.unwrap();
+                    let result = prepared.start(&runtime.execution_services()).unwrap().wait().await.unwrap();
                     (prepared, result)
                 }).await;
                 let elapsed = begin.elapsed();

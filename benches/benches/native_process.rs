@@ -173,6 +173,7 @@ fn observe_joined_cancellation(
 }
 /// Vary instance count by composing the authored unit, without restating its equations.
 async fn heater_blocks(
+    services: &pse_runtime::workflow::SourceServices,
     package: &ModelingPackage,
     blocks: usize,
 ) -> (ModelingPackage, DeclarationId) {
@@ -202,13 +203,20 @@ async fn heater_blocks(
         .find(|r| r.name == "workload")
         .unwrap()
         .declaration_id;
-    let mut rows = package.declarations().await.unwrap().to_vec();
+    let mut rows = package
+        .declarations(services.preparation())
+        .await
+        .unwrap()
+        .to_vec();
     rows.extend(
         extra
             .into_iter()
             .filter(|r| r.value.kind.as_str() != "package"),
     );
-    (package.with_declarations(rows).await.unwrap(), case)
+    (
+        package.with_declarations(services, rows).await.unwrap(),
+        case,
+    )
 }
 fn process(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
@@ -297,10 +305,11 @@ fn process(c: &mut Criterion) {
             let (package, case) = if operation == "flash" {
                 (source.clone(), flash)
             } else {
-                executor.block_on(heater_blocks(&source, blocks))
+                executor.block_on(heater_blocks(&target.source_services(), &source, blocks))
             };
             let execution = executor
                 .block_on(package.declared_execution_with_demand(
+                    &target.preparation_services(),
                     case,
                     compiler(),
                     profile(Backend::Ipopt, false),
@@ -311,11 +320,15 @@ fn process(c: &mut Criterion) {
                 ))
                 .unwrap();
             let prepared = executor
-                .block_on(package.prepare_declared(&execution, &audit::cancel_source()))
+                .block_on(package.prepare_declared(
+                    &target.preparation_services(),
+                    &execution,
+                    &audit::cancel_source(),
+                ))
                 .unwrap();
             let result = executor
                 .block_on(audit::scope(async {
-                    audit::wait(prepared.start().unwrap()).await
+                    audit::wait(prepared.start(&target.execution_services()).unwrap()).await
                 }))
                 .unwrap();
             executor.block_on(audit::export_result(&target, &result));
@@ -367,7 +380,7 @@ fn process(c: &mut Criterion) {
                     &retained
                 {
                     let (package, case) = if reuse == "structure" {
-                        executor.block_on(heater_blocks(source, blocks + (iterations as usize % 2)))
+                        executor.block_on(heater_blocks(&target.source_services(), source, blocks + (iterations as usize % 2)))
                     } else {
                         (package.clone(), *case)
                     };
@@ -377,12 +390,12 @@ fn process(c: &mut Criterion) {
                     let (package, case) = if operation == "flash" {
                         (source, flash)
                     } else {
-                        executor.block_on(heater_blocks(&source, blocks))
+                        executor.block_on(heater_blocks(&target.source_services(), &source, blocks))
                     };
                     (target, package, case)
                 };
                 if reuse == "specialization" {
-                    let mut rows = executor.block_on(package.declarations()).unwrap().to_vec();
+                    let mut rows = executor.block_on(package.declarations(&target.preparation_services(), )).unwrap().to_vec();
                     let row = rows
                         .iter_mut()
                         .find(|r| {
@@ -397,7 +410,7 @@ fn process(c: &mut Criterion) {
                         .unwrap();
                     row.value.contribution.as_mut().unwrap().expression =
                         format!("{}*fraction*recycle", 1.0 + (iterations + 1) as f64 * 1e-10);
-                    package = executor.block_on(package.with_declarations(rows)).unwrap();
+                    package = executor.block_on(package.with_declarations(&target.source_services(), rows)).unwrap();
                 }
                 mark(&mut phases, "source_admission", begin);
                 drop(source_stage);
@@ -405,7 +418,7 @@ fn process(c: &mut Criterion) {
                 let begin = Instant::now();
                 let cancel = audit::cancel_source();
                 let mut execution = executor
-                    .block_on(package.declared_execution_with_demand(
+                    .block_on(package.declared_execution_with_demand(&target.preparation_services(),
                         case,
                         compiler(),
                         profile(Backend::Ipopt, false),
@@ -440,7 +453,7 @@ fn process(c: &mut Criterion) {
                         .insert("root.vapor.rho".into(), 1000.0 * 1.02);
                 }
                 let prepared = executor
-                    .block_on(package.prepare_declared(&execution, &cancel))
+                    .block_on(package.prepare_declared(&target.preparation_services(), &execution, &cancel))
                     .unwrap();
                 variables.insert(
                     prepared
@@ -452,7 +465,7 @@ fn process(c: &mut Criterion) {
                         .free_variables()
                         .count(),
                 );
-                let handle = prepared.start().unwrap();
+                let handle = prepared.start(&target.execution_services()).unwrap();
                 mark(&mut phases, "case_preparation_and_start", begin);
                 drop(prepare_stage);
                 let native_stage = audit::stage("numerical_execution");

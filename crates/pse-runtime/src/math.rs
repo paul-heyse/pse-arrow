@@ -625,9 +625,10 @@ impl CompilerAuthority {
         }
     }
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, CompilerWorkspace>, MathRuntimeError> {
-        let retained = self.retention.lock().map_err(|_| {
-            MathRuntimeError::Infrastructure("compiler retention lock poisoned".into())
-        })?;
+        let retained = self
+            .retention
+            .lock()
+            .map_err(|_| MathRuntimeError::Internal("compiler retention lock poisoned".into()))?;
         if !retained
             .as_ref()
             .is_some_and(|owner| Arc::ptr_eq(&owner._workspace.compiler, &self.workspace.compiler))
@@ -637,17 +638,23 @@ impl CompilerAuthority {
             ));
         }
         drop(retained);
-        self.workspace.compiler.try_lock().map_err(|error| {
-            MathRuntimeError::Infrastructure(format!("admitted compiler lock unavailable: {error}"))
-        })
+        self.workspace
+            .compiler
+            .try_lock()
+            .map_err(|error| match error {
+                std::sync::TryLockError::Poisoned(_) => {
+                    MathRuntimeError::Internal("admitted compiler lock poisoned".into())
+                }
+                error @ std::sync::TryLockError::WouldBlock => MathRuntimeError::Infrastructure(
+                    format!("admitted compiler lock unavailable: {error}"),
+                ),
+            })
     }
     fn release(&self) -> Result<(), MathRuntimeError> {
         drop(
             self.retention
                 .lock()
-                .map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler retention lock poisoned".into())
-                })?
+                .map_err(|_| MathRuntimeError::Internal("compiler retention lock poisoned".into()))?
                 .take(),
         );
         Ok(())
@@ -672,12 +679,14 @@ impl CompilerAuthority {
         workspace: Workspace,
         permit: tokio::sync::OwnedSemaphorePermit,
     ) -> Result<Self, MathRuntimeError> {
-        *self.retention.lock().map_err(|_| {
-            MathRuntimeError::Infrastructure("compiler retention lock poisoned".into())
-        })? = Some(CompilerOwner {
-            _workspace: workspace.clone(),
-            _permit: permit,
-        });
+        *self
+            .retention
+            .lock()
+            .map_err(|_| MathRuntimeError::Internal("compiler retention lock poisoned".into()))? =
+            Some(CompilerOwner {
+                _workspace: workspace.clone(),
+                _permit: permit,
+            });
         self.workspace = workspace;
         Ok(self)
     }
@@ -1132,5 +1141,80 @@ impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
                 project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod compiler_authority_tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::panic,
+        reason = "controls poison actual compiler ownership locks and inspect their retained typed failures"
+    )]
+    use super::*;
+    use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
+
+    fn workspace(service: &Arc<MathService>) -> Workspace {
+        let physical = crate::workflow::tests::physical();
+        service
+            .workspace(
+                CompilerContext {
+                    quantities: physical.quantities.clone(),
+                    preconditions: physical.preconditions.clone(),
+                    providers: BTreeMap::new(),
+                },
+                WorkspaceLimits::default(),
+            )
+            .unwrap()
+    }
+
+    fn assert_internal(error: MathRuntimeError) {
+        assert!(matches!(&error, MathRuntimeError::Internal(_)));
+        let stage = pse_diagnostics::DiagnosticStage::Evaluation;
+        assert_eq!(
+            error.boundary_diagnostic(stage).class,
+            BoundaryClass::Internal
+        );
+        let nested = MathRuntimeError::Math(error.into_math());
+        assert_eq!(
+            nested.boundary_diagnostic(stage).class,
+            BoundaryClass::Internal
+        );
+        assert_eq!(
+            strategy::runtime_failure(&nested),
+            pse_model::generated::enums::NumericalAttemptObservation::OperationalFailure
+        );
+    }
+
+    #[test]
+    fn poisoned_compiler_retention_preserves_internal_class_through_every_authority_operation() {
+        let service = tests::service();
+        let authority = CompilerAuthority::private(workspace(&service)).unwrap();
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _held = authority.retention.lock().unwrap();
+                panic!("injected compiler retention poison");
+            }))
+            .is_err()
+        );
+        assert_internal(authority.lock().unwrap_err());
+        assert_internal(authority.release().unwrap_err());
+        let replacement = workspace(&service);
+        let permit = replacement.admission.clone().try_acquire_owned().unwrap();
+        assert_internal(authority.replace_held(replacement, permit).unwrap_err());
+    }
+
+    #[test]
+    fn poisoned_admitted_compiler_mutex_is_internal_rather_than_external_infrastructure() {
+        let service = tests::service();
+        let authority = CompilerAuthority::private(workspace(&service)).unwrap();
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _held = authority.workspace.compiler.lock().unwrap();
+                panic!("injected compiler workspace poison");
+            }))
+            .is_err()
+        );
+        assert_internal(authority.lock().unwrap_err());
     }
 }

@@ -16,12 +16,14 @@ use pse_runtime::{CancelSource, workflow::RunReport};
 #[tokio::test]
 async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifiability() {
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
     // Read the actual admitted Power accounting requirement. Its authored
     // tolerance consumes numerical_policy.power, also declared as its shared
     // engineering-default rule. The fitted parameter is EnergyTransferRate;
     // a matching unit alone would not make its allowance authoritative here.
     let meter = seed_prepare(
+        services.preparation(),
         &package,
         SemanticId::parse_hex("f1b94720fef75b3bab2e29090ef0c315").unwrap(),
         profile(Backend::Ipopt, false),
@@ -81,9 +83,16 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
     assert!(power_allowance.is_finite() && power_allowance > 0.);
     drop(meter);
     for kind in ["steady", "transient", "mixed", "unidentifiable"] {
-        let (id, profile) = heat_fit(&package, kind).await;
+        let (id, profile) = heat_fit(services.preparation(), &package, kind).await;
         let prepared = package
-            .prepare_fit(id, profile, compiler(), seed_limits(), &CancelSource::new())
+            .prepare_fit(
+                services.preparation(),
+                id,
+                profile,
+                compiler(),
+                seed_limits(),
+                &CancelSource::new(),
+            )
             .await
             .unwrap();
         let numerics = prepared.numerics().clone();
@@ -104,6 +113,7 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
         .resolve(&registry, &Default::default())
         .unwrap();
         let heat_allowance = authored_resolution(
+            services.preparation(),
             &package,
             SemanticId::parse_hex("4b8c1108211445f180f66c602f10b982").unwrap(),
             &registry,
@@ -119,7 +129,7 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
             .iter()
             .find(|target| target.kind == NumericalTarget::Objective)
             .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
@@ -342,7 +352,7 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
                     .await
                     .unwrap();
                 let knowledge = admitted
-                    .knowledge(None, 128, 1 << 20, &owner.cancel)
+                    .knowledge(services.preparation(), None, 128, 1 << 20, &owner.cancel)
                     .await
                     .unwrap();
                 let cells = pse_relations::generated::runtime::modeling_knowledge::Row::rows(
@@ -375,9 +385,23 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
             result.usable(),
             "a checked prediction remains usable when a parameter is unidentifiable"
         );
-        assert!(!package.declarations().await.unwrap().is_empty());
+        assert!(
+            !package
+                .declarations(services.preparation(),)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert!(result.table("authored.modeling_declarations").is_err());
-        assert_eq!(package.fit_declarations().await.unwrap().fits.len(), 4);
+        assert_eq!(
+            package
+                .fit_declarations(services.preparation(),)
+                .await
+                .unwrap()
+                .fits
+                .len(),
+            4
+        );
         assert!(result.table("authored.fit_cases").is_err());
         assert!(result.table("authored.computation_models").is_err());
     }
@@ -396,16 +420,24 @@ async fn unidentifiable_fit_withholds_covariance() {
         },
     };
     let owner = WorkflowRuntime::new().unwrap();
-    let package = seed_package(&owner).await;
-    let (id, profile) = heat_fit(&package, "unidentifiable").await;
+    let (rt, package) = seed_package(&owner).await;
+    let services = rt.execution_services();
+    let (id, profile) = heat_fit(services.preparation(), &package, "unidentifiable").await;
     // Identifiability is a numerical-rank condition in declared-scale coordinates,
     // separate from physical engineering resolution or integration convergence.
     let direction_accuracy = profile.rank_tolerance;
     let prepared = package
-        .prepare_fit(id, profile, compiler(), seed_limits(), &CancelSource::new())
+        .prepare_fit(
+            services.preparation(),
+            id,
+            profile,
+            compiler(),
+            seed_limits(),
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };

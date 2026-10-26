@@ -1165,6 +1165,10 @@ impl FitProblem {
         }
         result
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "solver route, stopping criteria and attempt owners remain explicit alongside the mathematical service used by mutable evaluators"
+    )]
     fn execute_inner(
         self: &Arc<Self>,
         math: &Arc<MathService>,

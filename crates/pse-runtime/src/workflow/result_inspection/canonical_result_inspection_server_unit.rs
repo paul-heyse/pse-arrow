@@ -11,10 +11,6 @@ use pse_operations::canonical_execution::{
 use pse_relations::generated::{enums::DualQualification, runtime::solve_variables};
 use std::time::Duration;
 
-#[allow(
-    clippy::unwrap_used,
-    reason = "isolated registered result setup fails the test on unexpected admission or publication errors"
-)]
 async fn wide_fixture(nested: bool) -> (Runtime, AttemptFence, RecordBatch) {
     wide_fixture_physical(nested, false).await
 }
@@ -31,6 +27,10 @@ async fn wide_fixture_receipt(
 ) -> (Runtime, AttemptFence, RecordBatch) {
     wide_fixture_with_completion(nested, retained_physical, receipt_fault, None).await
 }
+#[allow(
+    clippy::unwrap_used,
+    reason = "isolated registered result setup fails the test on unexpected admission or publication errors"
+)]
 async fn wide_fixture_with_completion(
     nested: bool,
     retained_physical: bool,
@@ -804,7 +804,7 @@ async fn canonical_readable_wide_result_retains_physical_context_protection_and_
     );
     schema_request.cursor = match &discovered {
         ResultInspectionDocument::Schema { next_cursor, .. } => next_cursor.clone(),
-        _ => unreachable!(),
+        _ => panic!("expected the original discovered schema page"),
     };
     let continued = pse_diagnostics::observation::scope(
         Some(observed.context()),

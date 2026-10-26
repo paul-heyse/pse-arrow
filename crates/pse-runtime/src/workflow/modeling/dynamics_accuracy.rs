@@ -1961,6 +1961,10 @@ impl ModelingSimulation {
         }
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "dynamic goal capture keeps report, profile, occurrence, execution scope, budget and charges explicit alongside mathematical services"
+    )]
     fn capture_dynamic_goals(
         &self,
         math: &Arc<crate::math::MathService>,

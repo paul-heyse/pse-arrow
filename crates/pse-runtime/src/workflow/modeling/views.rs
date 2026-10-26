@@ -16,6 +16,10 @@ impl ModelingPackage {
     /// values are completed with the view's derived realization parameters (ADR-0104). The
     /// bound tightenings belong to `states`, not to the shared view (ADR-0103 item 4).
     #[cfg(test)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "this test entry exercises the complete model, point, state and derivative request through explicit preparation services"
+    )]
     pub(in crate::workflow) async fn bound_case(
         &self,
         services: &crate::workflow::PreparationServices,
@@ -196,6 +200,10 @@ impl ModelingPackage {
     /// The parametric program of the solver view `prepared` over `parameters`, in request
     /// order (Plan 22 S1), compiled once per view and parameter selection and cached with
     /// the view (A6). Every declared parameter of the view's structure is admitted.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the parametric compiler boundary keeps model, prepared view, ordered parameters and derivative inputs explicit alongside preparation services"
+    )]
     pub(in crate::workflow) async fn parametric_program(
         &self,
         services: &crate::workflow::PreparationServices,

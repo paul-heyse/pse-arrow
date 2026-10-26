@@ -227,7 +227,13 @@ def test_contextual_accuracy_completion_preserves_estimated_violated_decision() 
         limitation="Local estimate on the retained stationary branch.",
     )
     completion = documents.Completion(
-        accuracy_goals=(row,), assessments=(), diagnostics=(), lineage=(), solves=()
+        accuracy_goals=(row,),
+        assessments=(),
+        diagnostics=(),
+        lineage=(),
+        solves=(),
+        products=(),
+        step_permissions=(),
     )
     encoded = codec.encode_json(completion)
     restored = codec.decode_json(encoded, documents.Completion)

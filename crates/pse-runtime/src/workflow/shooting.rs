@@ -209,6 +209,10 @@ impl super::ModelingPackage {
     /// Outcome 5, ADR-0119): the case's simulation, its schedules held free as the controls
     /// from their authored values, its shooting method and nodes, and the model's objective
     /// level, minimized. A given `profile` replaces the fixture's integration controls.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "declared shooting retains explicit services, source root, integration and nonlinear controls, limits and cancellation"
+    )]
     pub async fn declared_shooting(
         &self,
         services: &super::PreparationServices,
@@ -1602,6 +1606,10 @@ impl ShootingProblem {
     /// Solve from `initial` (or [`Self::initial_point`]) on the admitted worker: the NLP
     /// through the one NLP runner, then a fresh evaluation of the candidate for its
     /// objective, continuity residual and stitched trajectory.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "shooting execution keeps services, run scope and progress, start, solver profile and admitted storage distinct"
+    )]
     pub(crate) fn solve(
         self: &Arc<Self>,
         services: &super::ExecutionServices,
@@ -1700,6 +1708,10 @@ impl ShootingProblem {
         }
         result
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "shooting execution retains its explicit services, run scope, start, solver profile and actual task admission"
+    )]
     fn solve_inner(
         self: &Arc<Self>,
         services: &super::ExecutionServices,

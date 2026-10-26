@@ -524,6 +524,10 @@ impl HeldPreparationScope {
                 }
             })
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the retained lease prepares a source root and instance with complete bindings and limits using explicit preparation services"
+    )]
     pub(in crate::workflow) async fn prepare(
         &self,
         services: &crate::workflow::PreparationServices,

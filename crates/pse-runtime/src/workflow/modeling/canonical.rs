@@ -1064,7 +1064,7 @@ impl CheckedSelection {
         let validation = services.admission_context();
         let physical = package
             .physical
-            .readmit_context(&services, &validation, &cancel.token())?;
+            .readmit_context(services, &validation, &cancel.token())?;
         let spec = services
             .registry()
             .relation("authored.modeling_declarations")
@@ -1905,7 +1905,7 @@ impl ModelingPackage {
             inventory.parsed_fields.insert(
                 row.declaration_id,
                 parsed_fields(
-                    &services,
+                    services,
                     row,
                     inventory.field_spans.get(&row.declaration_id),
                 )?,
@@ -2368,7 +2368,7 @@ impl ModelingPackage {
                     .get(&id)
                     .cloned()
                     .map(Ok)
-                    .unwrap_or_else(|| parsed_fields(&services, &row, index.fields.get(&id)))?;
+                    .unwrap_or_else(|| parsed_fields(services, &row, index.fields.get(&id)))?;
                 let references = selected_source::declaration_references_parsed(&row, &parsed)
                     .map_err(super::super::modeling_error)?;
                 let lease = services

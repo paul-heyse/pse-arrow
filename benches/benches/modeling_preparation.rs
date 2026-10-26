@@ -148,7 +148,10 @@ fn retain_preparation_inputs(label: &str, documents: &BTreeMap<String, Vec<u8>>)
 
 /// The seed reference closure, loaded through the declared package document paths, with the
 /// bench package from its authored texts.
-async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> ModelingPackage {
+async fn seed(
+    owner: &WorkflowRuntime,
+    bench: &BTreeMap<String, String>,
+) -> (Runtime, ModelingPackage) {
     use pse_admission::authoring_driver::document::{
         OwnedDocumentSet, load_package_documents_owned,
     };
@@ -211,7 +214,7 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
         .physical_from_documents(&documents(&["physical"], None), &owner.cancel)
         .await
         .unwrap();
-    runtime
+    let package = runtime
         .modeling_from_documents(
             &documents(
                 &[
@@ -238,7 +241,8 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
             &owner.cancellation,
         )
         .await
-        .unwrap()
+        .unwrap();
+    (runtime, package)
 }
 
 /// Ordered membership of the published bank, read from its authored set declaration.
@@ -381,9 +385,13 @@ fn test_name(workload: &Value) -> String {
 }
 
 /// The workload's authored test in the bench package.
-async fn case(package: &ModelingPackage, workload: &Value) -> pse_modeling::DeclarationId {
+async fn case(
+    services: &pse_runtime::workflow::PreparationServices,
+    package: &ModelingPackage,
+    workload: &Value,
+) -> pse_modeling::DeclarationId {
     let name = test_name(workload);
-    let declarations = package.declarations().await.unwrap();
+    let declarations = package.declarations(services).await.unwrap();
     declarations
         .iter()
         .find(|r| {
@@ -405,6 +413,7 @@ fn count<T: TryInto<i64>>(value: T) -> Value {
 /// Prepare one case cold: specialization and lowering, case resolution, then the derivative
 /// programs. Returns the timed duration and the case record; a typed refusal is a result.
 async fn prepare(
+    services: &pse_runtime::workflow::PreparationServices,
     owner: &WorkflowRuntime,
     package: &ModelingPackage,
     case: pse_modeling::DeclarationId,
@@ -429,6 +438,7 @@ async fn prepare(
         pse_runtime::invocation::counted(async {
             let mut analysis = package
                 .declared_execution(
+                    services,
                     case,
                     Default::default(),
                     Default::default(),
@@ -466,7 +476,7 @@ async fn prepare(
             );
             let phase = Instant::now();
             let prepared = package
-                .prepare_diagnostics(&analysis, &cancel)
+                .prepare_diagnostics(services, &analysis, &cancel)
                 .await
                 .map_err(|e| ("case_resolution", e))?;
             seconds.insert(
@@ -645,12 +655,23 @@ fn preparation(c: &mut Criterion) {
                         WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap())
                             .unwrap();
                     let stages = audit::with_owner_sync(&owner, &executor, || {
-                        let package = executor.block_on(audit::scope(seed(&owner, &bench)));
-                        let case = executor.block_on(audit::scope(case(&package, workload)));
+                        let (runtime, package) =
+                            executor.block_on(audit::scope(seed(&owner, &bench)));
+                        let case = executor.block_on(audit::scope(case(
+                            &runtime.preparation_services(),
+                            &package,
+                            workload,
+                        )));
                         let mut stages = Vec::new();
                         for stage in ["cold", "warm", "value", "structural"] {
                             let (elapsed, record) = executor.block_on(audit::scope(prepare(
-                                &owner, &package, case, workload, stage, &phases,
+                                &runtime.preparation_services(),
+                                &owner,
+                                &package,
+                                case,
+                                workload,
+                                stage,
+                                &phases,
                             )));
                             timed += elapsed;
                             stages.push(record);

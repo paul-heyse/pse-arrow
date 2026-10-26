@@ -524,7 +524,7 @@ async fn prepare(
         .unwrap();
     let revision = package.canonical_revision().unwrap().key.clone();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -548,6 +548,7 @@ async fn prepare(
     };
     let prepared = package
         .prepare_simulation(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -595,7 +596,9 @@ async fn prepare(
     mark(&mut phase_seconds, "simulation_preparation", started);
     let started = Instant::now();
     let numerical_stage = audit::stage("simulate_and_publish");
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     drop(numerical_stage);
     let _assessment = audit::stage("original_trajectory_and_analysis_assessment");
     mark(&mut phase_seconds, "simulate_and_publish", started);

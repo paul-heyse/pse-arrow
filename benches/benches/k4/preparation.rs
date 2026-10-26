@@ -13,6 +13,7 @@ use pse_runtime::workflow::ModelingDiagnosticPreparation;
 use std::{collections::BTreeSet, num::NonZeroUsize};
 
 async fn stage(
+    services: &pse_runtime::workflow::PreparationServices,
     owner: &WorkflowRuntime,
     package: &ModelingPackage,
     name: &str,
@@ -22,7 +23,7 @@ async fn stage(
     let _audit_stage = audit::stage(name);
     audit::checkpoint();
     let root = package
-        .declarations()
+        .declarations(services, )
         .await
         .unwrap()
         .iter()
@@ -33,7 +34,7 @@ async fn stage(
     phases.reset();
     let started = Instant::now();
     let mut analysis = package
-        .declared_execution(
+        .declared_execution(services,
             root,
             Default::default(),
             Default::default(),
@@ -53,7 +54,7 @@ async fn stage(
     }
     let phase = Instant::now();
     let prepared = package
-        .prepare_diagnostics(&analysis, &audit::cancel_source())
+        .prepare_diagnostics(services, &analysis, &audit::cancel_source())
         .await
         .unwrap();
     let resolution_seconds = phase.elapsed().as_secs_f64();
@@ -123,7 +124,14 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
         "binding-b",
         "binding-a-return",
     ] {
-        let (elapsed, record, prepared) = stage(owner, &original, name, phases).await;
+        let (elapsed, record, prepared) = stage(
+            &runtime.preparation_services(),
+            owner,
+            &original,
+            name,
+            phases,
+        )
+        .await;
         timed += elapsed;
         records.push(record);
         retained.push(prepared);
@@ -136,7 +144,14 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
     let setup = Instant::now();
     let shifted = support::package(&runtime, owner, &span_sources).await;
     let source_admission = setup.elapsed();
-    let (elapsed, mut record, prepared) = stage(owner, &shifted, "span-only", phases).await;
+    let (elapsed, mut record, prepared) = stage(
+        &runtime.preparation_services(),
+        owner,
+        &shifted,
+        "span-only",
+        phases,
+    )
+    .await;
     record["source_admission_seconds"] = source_admission.as_secs_f64().into();
     // Timers directly cover their own synchronous setup, never estimate internal phases.
     let original_product = retained[0].model.model.compiled().clone();
@@ -162,7 +177,14 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
     let setup = Instant::now();
     let edited = support::package(&runtime, owner, &edited_sources).await;
     let source_admission = setup.elapsed();
-    let (elapsed, mut record, prepared) = stage(owner, &edited, "one-equation", phases).await;
+    let (elapsed, mut record, prepared) = stage(
+        &runtime.preparation_services(),
+        owner,
+        &edited,
+        "one-equation",
+        phases,
+    )
+    .await;
     record["source_admission_seconds"] = source_admission.as_secs_f64().into();
     assert!(original_product.admitted.bodies.keys().any(|key| {
         !prepared
@@ -208,8 +230,14 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
         pse_runtime::workflow::OperationSource::of(&original).physical_context,
         pse_runtime::workflow::OperationSource::of(&changed).physical_context
     );
-    let (elapsed, mut record, prepared) =
-        stage(owner, &changed, "referenced-context", phases).await;
+    let (elapsed, mut record, prepared) = stage(
+        &runtime.preparation_services(),
+        owner,
+        &changed,
+        "referenced-context",
+        phases,
+    )
+    .await;
     record["source_admission_seconds"] = source_admission.as_secs_f64().into();
     assert!(original_product.admitted.bodies.keys().all(|key| {
         !prepared
@@ -260,7 +288,7 @@ async fn pressure(
     let started = Instant::now();
     let package = support::package(&runtime, owner, &sources).await;
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -270,6 +298,7 @@ async fn pressure(
     phases.reset();
     let first = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -306,6 +335,7 @@ async fn pressure(
         let other = support::package(&runtime, owner, &texts).await;
         let model = other
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -332,6 +362,7 @@ async fn pressure(
     let fresh = support::package(&runtime, owner, &sources).await;
     let fresh_model = fresh
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),

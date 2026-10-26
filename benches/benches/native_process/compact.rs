@@ -14,7 +14,10 @@ fn id(name: &str) -> SemanticId {
     named_id(SemanticId::NIL, &format!("process-cost.compact.{name}"))
 }
 
-async fn package(owner: &WorkflowRuntime, source: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(
+    owner: &WorkflowRuntime,
+    source: &str,
+) -> (workflow::Runtime, ModelingPackage, DeclarationId) {
     let rows = pse_authoring::language::parse(
         source,
         id("package"),
@@ -30,7 +33,7 @@ async fn package(owner: &WorkflowRuntime, source: &str) -> (ModelingPackage, Dec
     let runtime = local_runtime(owner);
     let physical = physical_on(owner, &runtime).await;
     let package = runtime.modeling_package(rows, physical).await.unwrap();
-    (package, root)
+    (runtime, package, root)
 }
 
 /// These declarations exercise local science, not canonical publication. The
@@ -89,7 +92,7 @@ async fn roots(
         ));
     }
     source.push_str("} }");
-    let (package, root) = package(owner, &source).await;
+    let (runtime, package, root) = package(owner, &source).await;
     let backend = match spec["backend"].as_str().unwrap_or("kinsol") {
         "kinsol" => Backend::Kinsol,
         "petsc" => Backend::Petsc,
@@ -104,6 +107,7 @@ async fn roots(
     let cancel = audit::cancel_source();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler(),
             selected,
@@ -114,7 +118,10 @@ async fn roots(
         .await
         .unwrap()
         .analysis;
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let symbols = (0..n)
         .map(|i| {
             prepared
@@ -129,7 +136,9 @@ async fn roots(
                 .id
         })
         .collect::<Vec<_>>();
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     observations.run(&result, owner.runtime.math());
     if reject_negative {
         let RunReport::Modeling(reports) = result.report().unwrap() else {
@@ -210,7 +219,7 @@ async fn classes(
         ),
         _ => panic!("unknown compact class {operation}"),
     };
-    let (package, root) = package(owner, source).await;
+    let (runtime, package, root) = package(owner, source).await;
     let cancel = audit::cancel_source();
     let mut selected = profile(backend, true);
     selected.presolve = native::presolve::Policy::Off;
@@ -220,6 +229,7 @@ async fn classes(
     }
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler(),
             selected,
@@ -230,8 +240,13 @@ async fn classes(
         .await
         .unwrap()
         .analysis;
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let prepared = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
+    let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     observations.run(&result, owner.runtime.math());
     let report = authored_success(&result);
     let pse_runtime::math::solves::Outcome::Native(native) = &report.outcome else {
@@ -297,7 +312,7 @@ async fn trajectory(
     let source = format!(
         "package compact {{ def Root {{ domain t:Time from 0{{s}} to 2{{s}}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{{s}}; var x[i in t]:Time; eq rate[i in t]:{equation}; eq initial:x[0{{s}}]==offset; {algebraic} annotation start x(1{{s}}); annotation check x(x[i]>=0{{s}} and x[i]<=10{{s}}); }} }}"
     );
-    let (package, root) = package(owner, &source).await;
+    let (runtime, package, root) = package(owner, &source).await;
     let cancel = audit::cancel_source();
     let accuracy = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
     let integration = dynamics::Profile {
@@ -314,6 +329,7 @@ async fn trajectory(
     };
     let initial = package
         .prepare_simulation(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -349,6 +365,7 @@ async fn trajectory(
         }];
         package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -372,7 +389,9 @@ async fn trajectory(
         .unwrap();
     let x = contract.states[xi];
     let allowance = resolved_allowance(prepared.numerics(), NumericalTarget::Variable, x);
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     assert!(result.usable(), "{:?}", result.assessments());
     let RunReport::Simulation(trajectory) = result.report().unwrap() else {
         panic!("missing trajectory")
@@ -420,13 +439,14 @@ async fn decay(
     let source = format!(
         "package compact {{ difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5); def Root {{ domain t:Time from 0{{s}} to 1{{s}}; when analysis.route==analysis.integrated {{discretize native on t using integrated(elements=1,order=1);}} when analysis.route!=analysis.integrated {{discretize grid on t using backward(elements=4,order=1);}} param target:Time=2{{s}}; param tau:Time={tau}{{s}}; var x[i in t]:Time; when analysis.dynamic {{eq transient[i in t]:d(x[i])/di==(target-x[i])/tau; eq initial:x[0{{s}}]==0{{s}};}} when not analysis.dynamic {{eq stationary[i in t]:0==(target-x[i])/tau;}} annotation start x(0{{s}}); annotation engineering_scale x[0{{s}}](kind=magnitude,value=2{{s}}); annotation check x(x[i]>=-0.01{{s}} and x[i]<=2.01{{s}}); }} }}"
     );
-    let (package, root) = package(owner, &source).await;
+    let (runtime, package, root) = package(owner, &source).await;
     let cancel = audit::cancel_source();
     if spec["operation"].as_str() == Some("compact-simultaneous") {
         let mut selected = profile(Backend::Kinsol, false);
         selected.presolve = native::presolve::Policy::Off;
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 pse_modeling::Bindings::default()
@@ -451,7 +471,9 @@ async fn decay(
             .iter()
             .map(|variable| variable.port.id)
             .collect::<Vec<_>>();
-        let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+        let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+            .await
+            .unwrap();
         authored_success(&result);
         let end = variables
             .into_iter()
@@ -480,6 +502,7 @@ async fn decay(
         };
         let prepared = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -510,7 +533,9 @@ async fn decay(
         assert!(!engineering.canonical_fallback);
         assert_eq!(engineering.characteristic, Some(2.));
         near(budget, 2. * accuracy, 1e-15);
-        let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+        let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+            .await
+            .unwrap();
         assert!(result.usable(), "{:?}", result.assessments());
         let RunReport::Simulation(trajectory) = result.report().unwrap() else {
             panic!("missing decay trajectory")
@@ -534,10 +559,11 @@ async fn reference(
     observations: &mut observations::Observations,
 ) {
     let loading = audit::stage("reference_documents_and_admission");
-    let package = seed_package_on(owner, local_runtime(owner)).await;
+    let runtime = local_runtime(owner);
+    let package = seed_package_on(owner, runtime.clone()).await;
     assert!(
         package
-            .declarations()
+            .declarations(&runtime.preparation_services(),)
             .await
             .unwrap()
             .iter()
@@ -555,6 +581,7 @@ async fn reference(
     }
     let case = SemanticId::parse_hex("01a0e1484fb87705b3f22bd8fe49aa48").unwrap();
     let prepared = seed_prepare(
+        &runtime.preparation_services(),
         &package,
         case,
         profile(Backend::Kinsol, false),
@@ -562,7 +589,9 @@ async fn reference(
     )
     .await
     .unwrap();
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     let report = authored_success(&result);
     assert!(report.checks.len() >= 4);
     observations.run(&result, owner.runtime.math());
@@ -761,7 +790,7 @@ fn implicit_derivatives(spec: &Value) {
 }
 
 async fn implicit_root(owner: &WorkflowRuntime, observations: &mut observations::Observations) {
-    let (package, root) = package(owner,
+    let (runtime, package, root) = package(owner,
         "package compact { def Root { var x:Scalar; implicit inner select branch(y>=0) {var y:Scalar; eq root:y*y==x; annotation bounds y(0.5,3); annotation start y(1);} realize policy on inner using nested; eq pin:inner.y==2; annotation start x(3); annotation report x(\"parameter\"); annotation check x(abs(x-4)<=0.01); } }"
     ).await;
     let cancel = audit::cancel_source();
@@ -769,6 +798,7 @@ async fn implicit_root(owner: &WorkflowRuntime, observations: &mut observations:
     selected.presolve = native::presolve::Policy::Off;
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler(),
             selected,
@@ -779,8 +809,13 @@ async fn implicit_root(owner: &WorkflowRuntime, observations: &mut observations:
         .await
         .unwrap()
         .analysis;
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-    let result = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let prepared = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
+    let result = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     let report = authored_success(&result);
     near(
         report
@@ -887,8 +922,8 @@ async fn study(
                     target: workflow::BindingTarget::Path("t".into()),
                     value: workflow::BindingQuantity {
                         magnitude: FiniteBound::try_new(*value).unwrap(),
-                        quantity: scalar.as_id(),
-                        unit,
+                        quantity: scalar,
+                        unit: unit.into(),
                     },
                 }],
             },
@@ -935,7 +970,12 @@ async fn study(
     };
     let cancel = audit::cancel_source();
     let definition = package
-        .admit_study(&workflow::StudyInputs::Explicit(points), &demand, &cancel)
+        .admit_study(
+            &runtime.execution_services(),
+            &workflow::StudyInputs::Explicit(points),
+            &demand,
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(definition.points.len(), point_count);
@@ -959,9 +999,14 @@ async fn study(
         context.integer("study.requested_points", "occurrences", point_count as i64);
         context.integer("study.configured_workers", "workers", workers as i64);
     }
-    let report = Box::pin(package.study(&definition, point_count, &cancel))
-        .await
-        .unwrap();
+    let report = Box::pin(package.study(
+        &runtime.execution_services(),
+        &definition,
+        point_count,
+        &cancel,
+    ))
+    .await
+    .unwrap();
     audit::direct_joined();
     drop(execution);
     // Preserve every actual joined original before stop handling or an assertion

@@ -53,7 +53,8 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
         .find(|row| row.name == "Tracking")
         .unwrap()
         .declaration_id;
-    let package = runtime(owner)
+    let runtime = runtime(owner);
+    let package = runtime
         .modeling_package(rows, physical.clone())
         .await
         .unwrap();
@@ -76,6 +77,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
     };
     let simulation = package
         .prepare_simulation(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -136,22 +138,25 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
         .budget;
     assert!(objective_budget.is_finite() && objective_budget > 0.);
     let problem = simulation
-        .shooting(workflow::ShootingProfile {
-            method: workflow::ShootingMethod::Single,
-            nodes: vec![],
-            controls: vec![workflow::ShootingControl {
-                input: contract.parameters[0],
-                lower: Some(0.),
-                upper: Some(5.),
-            }],
-            path: vec![],
-            objective: workflow::ShootingObjective {
-                terminal: BTreeMap::from([(contract.outputs[2], 1.)]),
-                integral: BTreeMap::from([(contract.quadratures[0], 1.)]),
+        .shooting(
+            &runtime.preparation_services(),
+            workflow::ShootingProfile {
+                method: workflow::ShootingMethod::Single,
+                nodes: vec![],
+                controls: vec![workflow::ShootingControl {
+                    input: contract.parameters[0],
+                    lower: Some(0.),
+                    upper: Some(5.),
+                }],
+                path: vec![],
+                objective: workflow::ShootingObjective {
+                    terminal: BTreeMap::from([(contract.outputs[2], 1.)]),
+                    integral: BTreeMap::from([(contract.quadratures[0], 1.)]),
+                },
+                evaluation: Default::default(),
+                solver,
             },
-            evaluation: Default::default(),
-            solver,
-        })
+        )
         .unwrap();
     assert_eq!(problem.controls(), 2);
     assert_eq!(problem.contract().variables.len(), 2);
@@ -177,9 +182,13 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
     .unwrap();
     drop(preparation_stage);
     let execution_stage = audit::stage("numerical_execution");
-    let result = audit::wait(Arc::new(problem).start().unwrap())
-        .await
-        .unwrap();
+    let result = audit::wait(
+        Arc::new(problem)
+            .start(&runtime.execution_services())
+            .unwrap(),
+    )
+    .await
+    .unwrap();
     drop(execution_stage);
     let _assessment = audit::stage("original_scientific_assessment");
     assert!(result.usable(), "{:?}", result.assessments());

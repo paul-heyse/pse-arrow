@@ -2243,6 +2243,10 @@ mod occurrence_execution_tests {
         )
         .await
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the resource fixture varies points, source, native route, threads, physical units and presolve under its actual runtime"
+    )]
     async fn fixture_source_with_presolve(
         runtime: &crate::workflow::Runtime,
         values: &[f64],

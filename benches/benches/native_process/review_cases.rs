@@ -170,6 +170,7 @@ async fn sparse_nlp(
     let cancel = audit::cancel_source();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler(),
             selected,
@@ -180,14 +181,19 @@ async fn sparse_nlp(
         .await
         .unwrap()
         .analysis;
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     assert_eq!(prepared.model.case.compiled().plan.columns().len(), n);
     assert_eq!(
         prepared.model.case.compiled().plan.structure().rows().len(),
         n / 2
     );
     let mut reports = Vec::new();
-    let cold = audit::wait(prepared.start().unwrap()).await.unwrap();
+    let cold = audit::wait(prepared.start(&runtime.execution_services()).unwrap())
+        .await
+        .unwrap();
     audit::export_result(&runtime, &cold).await;
     observations.run(&cold, owner.runtime.math());
     let cold_native = validate_nlp(&cold, &prepared, backend, n);
@@ -206,7 +212,9 @@ async fn sparse_nlp(
                 .unwrap();
         }
         let seeded = prepared.clone().with_start(seed).unwrap();
-        let accepted = audit::wait(seeded.start().unwrap()).await.unwrap();
+        let accepted = audit::wait(seeded.start(&runtime.execution_services()).unwrap())
+            .await
+            .unwrap();
         audit::export_result(&runtime, &accepted).await;
         observations.run(&accepted, owner.runtime.math());
         let native = validate_nlp(&accepted, &seeded, backend, n);
@@ -294,12 +302,13 @@ async fn pounce_convex(
         let source = format!(
             "package review {{ def Root {{ var x:Scalar; var y:Scalar; eq budget:x+y<=1; let cost:Scalar=(x-{a})*(x-{a})+(y-0.4)*(y-0.4); annotation objective cost(minimize); annotation bounds x(0,5); annotation bounds y(0,5); annotation start x(0); annotation start y(0); }} }}"
         );
-        let (_runtime, package, root) = package(owner, &source).await;
+        let (runtime, package, root) = package(owner, &source).await;
         let mut selected = profile(Backend::PounceConvex, true);
         selected.controls.threads = workers;
         selected.presolve = native::presolve::Policy::Off;
         let analysis = package
             .declared_execution(
+                &runtime.preparation_services(),
                 root,
                 compiler(),
                 selected,
@@ -310,7 +319,10 @@ async fn pounce_convex(
             .await
             .unwrap()
             .analysis;
-        let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let prepared = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         // Solver admission classifies its own overlay; the original compiler case
         // deliberately leaves coefficient evidence optional until explicitly demanded.
         let class_cancel = pse_diagnostics::Cancellation::new(cancel.token().is_cancelled());
@@ -560,7 +572,9 @@ async fn conic(
         .prepare_conic(request, &physical, selected)
         .await
         .unwrap();
-    let result = audit::finish(prepared.start().unwrap()).await.unwrap();
+    let result = audit::finish(prepared.start(&runtime.preparation_services()).unwrap())
+        .await
+        .unwrap();
     let pse_runtime::math::solves::Outcome::Native(report) = &result.outcome else {
         panic!("proper cone request must execute a native cone adapter");
     };

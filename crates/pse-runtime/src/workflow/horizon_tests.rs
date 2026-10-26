@@ -952,7 +952,7 @@ async fn antiwindup_with_start_policy(
             .push(pse_model::strategy::StartOrigin::Predicted);
     }
     let result = run(
-        &runtime,
+        runtime,
         Horizon {
             output: crate::workflow::StudyOutputDemand::Full {},
             plant,

@@ -62,7 +62,7 @@ async fn solve(
         .await
         .unwrap();
     package
-        .solve_case(&services, prepared, analysis.compiler, &cancel)
+        .solve_case(services, prepared, analysis.compiler, &cancel)
         .await
         .unwrap()
 }

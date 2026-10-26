@@ -22,10 +22,49 @@ fn draft_checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
         .deadline()
         .is_some_and(|d| std::time::Instant::now() >= d)
     {
-        return Err(contract("draft original deadline expired"));
+        return Err(super::deadline_limit("draft original deadline expired"));
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod deadline_tests {
+    use super::*;
+
+    #[test]
+    #[allow(
+        clippy::expect_used,
+        reason = "the deadline control requires refusal and inspects its original typed cause"
+    )]
+    fn expired_draft_deadline_retains_time_limit_without_cancelling_the_caller() {
+        let cancel = crate::CancelSource::new().with_deadline(Some(std::time::Instant::now()));
+        let error = draft_checkpoint(&cancel).expect_err("the original deadline already elapsed");
+        assert!(
+            matches!(&error, WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Limit { kind: pse_backend_native::LimitKind::Time, detail }
+        )) if detail == "draft original deadline expired")
+        );
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit
+        );
+        assert_eq!(
+            diagnostic.code,
+            pse_diagnostics::DiagnosticCode::RuntimeTimeout
+        );
+        assert!(!cancel.token().is_cancelled());
+
+        cancel.cancel();
+        let error =
+            draft_checkpoint(&cancel).expect_err("actual caller cancellation takes precedence");
+        assert_eq!(
+            error.boundary_diagnostic().code,
+            pse_diagnostics::DiagnosticCode::RuntimeCancelled
+        );
+    }
+}
+
 /// Explicit raw draft document codec. Saving arbitrary bytes does not require this shape;
 /// only scientific publication decodes it and invokes the ordinary package loader.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

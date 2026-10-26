@@ -241,7 +241,7 @@ impl ModelingPackage {
         self.check_service_bindings(services)?;
         checkpoint(cancel)?;
         if let Some(products) = self.revision.delta_products.get() {
-            return products.copy_parent(&services);
+            return products.copy_parent(services);
         }
         let (frame, frame_lease) = self
             .source_decode::<IngressFrame>(services, self.local_object(INGRESS_FRAME)?.as_ref())?;
@@ -389,7 +389,7 @@ impl ModelingPackage {
             .delta_products
             .get()
             .unwrap_or(&products)
-            .copy_parent(&services)
+            .copy_parent(services)
     }
     /// Stage an exact local parent edit; durable recording is a separate CAS effect.
     pub async fn with_delta(
@@ -1138,7 +1138,7 @@ impl ModelingPackage {
             if let Some(row) = after {
                 let fields = parent.fields.get(&id).cloned();
                 index.insert((row.clone(), fields.clone()))?;
-                index.parsed_fields.insert(id, parsed_fields(&services.preparation(), row, fields.as_ref())?);
+                index.parsed_fields.insert(id, parsed_fields(services.preparation(), row, fields.as_ref())?);
                 index.complete_scope(id); index.complete_imports(id);
             }
         }
@@ -1422,7 +1422,7 @@ impl ModelingPackage {
         let revision = if record {
             admit_revision(services, Some(&self.revision), identity, &edits, &typed, Some(cancel)).await?
         } else {
-            let admitted = AdmittedModelRevision::apply_inputs(&services.preparation(), Some(&self.revision.admitted), &edits, &typed, Some(cancel))?;
+            let admitted = AdmittedModelRevision::apply_inputs(services.preparation(), Some(&self.revision.admitted), &edits, &typed, Some(cancel))?;
             SourceRevision::admitted(admitted, identity, None, None, self.revision.issuer.clone())?
         };
         let extent = product_extent(&revision.admitted, &dependencies)?;
