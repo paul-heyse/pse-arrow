@@ -1037,7 +1037,7 @@ impl Runtime {
                         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                         tracing::debug!(error = %error, "original result physical closure unavailable");
                         let reason = match &error {
-                            WorkflowError::Input(reason) if reason.len() <= TEXT_BYTES => reason.clone(),
+                            WorkflowError::Input(reason) | WorkflowError::Integrity(reason) if reason.len() <= TEXT_BYTES => reason.clone(),
                             _ => "original retained physical closure failed native admission".into(),
                         };
                         (None, ResultPhysicalContext::Unavailable { reason })

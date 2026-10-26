@@ -780,29 +780,31 @@ pub async fn pending_result_batch_rows(
     )?)?))
 }
 
-/// Inspect actual staged file coordinates in an isolated schema-boundary control.
-pub async fn pending_result_file_coordinates(
+/// Inspect actual staged payload coordinates in an isolated schema-boundary control.
+pub async fn pending_result_payload_coordinates(
     store: &crate::canonical::CanonicalStore,
     fence: &crate::canonical_execution::AttemptFence,
     output: &str,
     ordinal: u64,
-) -> Result<Option<(String, String)>, crate::canonical::CanonicalError> {
+) -> Result<
+    Option<(crate::canonical_execution::PayloadLocator, String)>,
+    crate::canonical::CanonicalError,
+> {
     use crate::{
         canonical::bounded_query,
-        canonical_codec as codec,
-        canonical_execution::{result_batch_key, result_set_key},
+        canonical_execution::{result_batch_key, result_payload_locator, result_set_key},
+        generated::surreal as wire,
     };
     let set = result_set_key(fence.attempt(), output);
     let key = result_batch_key(fence.attempt(), &set, ordinal);
     let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
         .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
-    let Some(mut row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
+    let Some(row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
         return Ok(None);
     };
-    Ok(Some((
-        codec::decode_string(codec::required(&mut row, "file_instance")?)?,
-        codec::decode_string(codec::required(&mut row, "schema")?)?,
-    )))
+    let batch = wire::decode_canonical_result_batches(row)?;
+    crate::canonical_execution::validate_result_batch(&batch)?;
+    Ok(Some((result_payload_locator(&batch)?, batch.schema)))
 }
 
 /// Expire only an acknowledged current claim in a registered isolated fixture.

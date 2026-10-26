@@ -152,7 +152,7 @@ pub struct AdmittedResultFile {
     bytes: Vec<u8>,
     relation: SemanticId,
     facts: Vec<BatchFacts>,
-    _encoder: Arc<AllocationLease>,
+    _encoded: Arc<AllocationLease>,
 }
 impl AdmittedResultFile {
     /// Encode the actual admitted batches once and retain their exact facts.
@@ -209,7 +209,6 @@ impl AdmittedResultFile {
                     .ok_or_else(|| mismatch("result encoder extent"))?,
             )
             .map_err(pse_columnar::CanonError::from)?;
-        let encoder = AllocationLease::new(encoder);
         let mut facts = Vec::with_capacity(batches.len());
         for batch in batches {
             cancel.checkpoint()?;
@@ -258,11 +257,20 @@ impl AdmittedResultFile {
         }
         let bytes = pse_columnar::ipc_file::encode(&native, byte_limit)?;
         cancel.checkpoint()?;
+        drop(native);
+        // The complete writer has dropped its scratch. Transfer the original
+        // grant to the actual retained allocation without releasing/reacquiring
+        // byte custody or keeping the transient three-file encoder allowance.
+        let surplus = encoder
+            .size()
+            .checked_sub(bytes.capacity())
+            .ok_or_else(|| mismatch("encoded result allocation within encoder grant"))?;
+        encoder.shrink(surplus);
         Ok(Self {
             bytes,
             relation: first.relation_id(),
             facts,
-            _encoder: encoder,
+            _encoded: AllocationLease::new(encoder),
         })
     }
     /// Exact bytes that were encoded with these facts.
@@ -611,6 +619,60 @@ mod tests {
         assert_eq!(refused.reserved(), 0);
         cancel.cancel();
         assert!(logical_null_counts(&batch, &pool, &cancel).is_err());
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn admitted_file_releases_encoder_scratch_but_keeps_bytes_and_facts_in_custody() {
+        let registry = pse_schema::registry().unwrap();
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(256 * 1024));
+        let cancel = CancellationToken::new();
+        let source = parameters().retained(&pool, &cancel).unwrap();
+        let source_extent = pool.reserved();
+        let byte_limit = 65536;
+        let encoded = Arc::new(
+            AdmittedResultFile::encode(
+                registry,
+                std::slice::from_ref(&source),
+                byte_limit,
+                &pool,
+                &cancel,
+            )
+            .unwrap(),
+        );
+        let capacity = encoded.bytes.capacity();
+        let facts = encoded.facts()[0].clone();
+        let facts_extent = facts.0._owner.size();
+        assert_eq!(encoded._encoded.size(), capacity);
+        assert_eq!(pool.reserved(), source_extent + capacity + facts_extent);
+        let reuse = MemoryConsumer::new("test:released-encoder-scratch").register(&pool);
+        reuse.try_grow(byte_limit * 3 - capacity).unwrap();
+        drop(reuse);
+
+        let reader_owner = encoded.clone();
+        drop(encoded);
+        drop(source);
+        assert_eq!(pool.reserved(), capacity + facts_extent);
+        let decoded = arrow::ipc::reader::FileReader::try_new(
+            std::io::Cursor::new(reader_owner.bytes()),
+            None,
+        )
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap();
+        let value = decoded.schema().index_of("value").unwrap();
+        let values = decoded
+            .column(value)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .unwrap();
+        assert_eq!(values.value(2).to_bits(), (-0.0f64).to_bits());
+        assert_eq!(facts.rows(), 4);
+        assert!(facts.encode_bound(&binding(0)).is_ok());
+        drop(reader_owner);
+        assert_eq!(pool.reserved(), facts_extent);
+        drop(facts);
         assert_eq!(pool.reserved(), 0);
     }
 

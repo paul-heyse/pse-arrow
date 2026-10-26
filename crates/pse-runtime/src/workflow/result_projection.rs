@@ -1728,7 +1728,7 @@ mod result_projection_unit {
 
     #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_append_queue_groups_sealed_schemas_and_acknowledges_final_operations() {
+    async fn canonical_append_queue_groups_encoded_schemas_and_acknowledges_final_operations() {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
         let runtime = super::super::durable_tests::durable_runtime();
         let super::super::Durability::Durable(operations) = runtime.durability() else {
@@ -1873,7 +1873,7 @@ mod result_projection_unit {
             queue.finish_deferred(id, position).await.unwrap();
             assert!(
                 observed_source.upgrade().is_none(),
-                "sealing releases source ownership before retaining append metadata"
+                "completed encoding releases source ownership before retaining append payloads"
             );
             assert!(acks.complete(&fence, &id.to_string()).is_err());
             if let Some(clock) = original_deadline {
@@ -1888,7 +1888,7 @@ mod result_projection_unit {
             assert!(operations.pool.reserved() > idle);
             assert!(
                 operations.pool.reserved() - idle < result_files::MAX_FILE_BYTES,
-                "sealed metadata must not retain the three-file encoder allowance"
+                "queued payload custody must not retain the three-file encoder allowance"
             );
             assert_eq!(
                 pse_operations::testing::pending_result_batch_rows(
@@ -1914,7 +1914,7 @@ mod result_projection_unit {
         );
         assert!(queue.appends.is_empty() && queue.complete.is_empty());
         assert!(queue.complete.capacity() > 0);
-        let metrics_file = pse_operations::testing::pending_result_file_coordinates(
+        let metrics_payload = pse_operations::testing::pending_result_payload_coordinates(
             store,
             &fence,
             &solve_metrics::RELATION_ID.to_string(),
@@ -1923,7 +1923,7 @@ mod result_projection_unit {
         .await
         .unwrap()
         .unwrap();
-        let parameters_file = pse_operations::testing::pending_result_file_coordinates(
+        let parameters_payload = pse_operations::testing::pending_result_payload_coordinates(
             store,
             &fence,
             &fit_parameters::RELATION_ID.to_string(),
@@ -1932,12 +1932,30 @@ mod result_projection_unit {
         .await
         .unwrap()
         .unwrap();
+        assert!(matches!(
+            metrics_payload.0,
+            pse_operations::canonical_execution::PayloadLocator::Inline { index: 0, .. }
+        ));
+        assert!(matches!(
+            parameters_payload.0,
+            pse_operations::canonical_execution::PayloadLocator::Inline { index: 0, .. }
+        ));
         assert_ne!(
-            metrics_file.0, parameters_file.0,
-            "unlike schemas use independent physical files"
+            metrics_payload.0.payload_identity(),
+            parameters_payload.0.payload_identity(),
+            "unlike schemas use independent admitted bodies"
         );
-        assert_eq!(metrics_file.1, solve_metrics::RELATION_ID.to_string());
-        assert_eq!(parameters_file.1, fit_parameters::RELATION_ID.to_string());
+        assert_eq!(metrics_payload.1, solve_metrics::RELATION_ID.to_string());
+        assert_eq!(
+            parameters_payload.1,
+            fit_parameters::RELATION_ID.to_string()
+        );
+        assert_eq!(
+            pse_operations::testing::result_payload_counts(store, &fence)
+                .await
+                .unwrap(),
+            (2, 0)
+        );
         store_result_table_queued(
             &mut queue,
             solve_constraints::RELATION_ID,
