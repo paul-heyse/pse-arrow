@@ -18,6 +18,7 @@ import unittest
 from contextlib import suppress
 from pathlib import Path
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 from fastmcp import Client
 
@@ -25,7 +26,7 @@ from scripts.capabilities import native, native_worker
 from scripts.capabilities.cleanup import settle
 from scripts.capabilities.native_contracts import Resources
 from scripts.capabilities.native_read_context import NativeReadContext
-from scripts.capabilities.native_schema import SchemaSet
+from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.server import build
 from scripts.tests.native_read_adverse import (
     AuthenticatedReadWorker,
@@ -62,6 +63,45 @@ def owned_sessions(lifetime: ReadSessions) -> list[ReadSession]:
 
 
 class ActualNativeContextTests(unittest.TestCase):
+    def test_changed_compiled_effect_fact_refuses_before_runtime_acquisition(
+        self,
+    ) -> None:
+        import pse  # noqa: PLC0415 -- explicit installed catalogue control
+        from pse import codec  # noqa: PLC0415 -- original JSON boundary codec
+
+        changed = JSON_OBJECT.validate_json(
+            codec.encode_json(pse.host_operation_catalogue())
+        )
+        operations = changed["operations"]
+        assert isinstance(operations, list)
+        operation = operations[0]
+        assert isinstance(operation, dict)
+        facts = operation["effect_facts"]
+        assert isinstance(facts, dict)
+        facts["read_only"] = not facts["read_only"]
+        supplied = source_request()
+        supplied["schema_set_fingerprint"] = SchemaSet(ROOT).fingerprint
+        supplied["request"] = {"document_version": 1, "offset": 0, "limit": 1}
+        context = NativeReadContext("changed-compiled-effect-control")
+        try:
+            with (
+                tempfile.TemporaryDirectory() as temporary,
+                patch.object(pse, "host_operation_catalogue", return_value=changed),
+                patch.object(pse, "Runtime") as acquire,
+            ):
+                result = native_worker.execute(
+                    "model_declarations",
+                    supplied,
+                    scratch=Path(temporary),
+                    context=context,
+                )
+                self.assertEqual(
+                    result["code"], "pse.native.operation_catalogue_mismatch"
+                )
+                acquire.assert_not_called()
+        finally:
+            context.close()
+
     def test_actual_extension_retains_runtime_physical_and_modeling_package_between_pages(
         self,
     ) -> None:

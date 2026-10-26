@@ -455,8 +455,8 @@ def execute(
 
     if (
         os.environ.get("PSE_CAPABILITY_ADMISSION") or context is not None
-    ) and codec.document_builtins(
-        pse.host_operation_catalogue()
+    ) and JSON_OBJECT.validate_json(
+        codec.encode_json(pse.host_operation_catalogue())
     ) != host.native_catalogue():
         return {
             "outcome": "stale_interface",
