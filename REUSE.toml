@@ -28,7 +28,12 @@ SPDX-License-Identifier = "MIT OR Apache-2.0"
 
 # Preserve the imported SDK family's exact upstream license parameters.
 [[annotations]]
-path = ["vendor/surrealdb/**", "vendor/surrealdb-engine-api/**"]
+path = [
+  "vendor/surrealdb/**",
+  "vendor/surrealdb-engine-api/**",
+  "vendor/deltas/surrealdb.patch",
+  "vendor/deltas/surrealdb-engine-api.patch",
+]
 precedence = "override"
 SPDX-FileCopyrightText = [
   "2025 SurrealDB Limited",
@@ -114,6 +119,7 @@ path = [
   "python/pse/contracts/GENERATED.sha256",
   "python/pse/contracts/documents/GENERATED.sha256",
   "crates/*/src/generated/**",
+  "xtask/src/generated/**",
   "crates/pse-operations-queries/**",
   "crates/pse-ipopt-sys/src/bindings.rs",
 ]
@@ -163,7 +169,7 @@ SPDX-License-Identifier = "MIT OR Apache-2.0"
 # imported documentation, metadata and sources retain upstream terms. The sys
 # wrapper license does not relicense the native sources it packages.
 [[annotations]]
-path = ["vendor/suitesparse-sys/**"]
+path = ["vendor/suitesparse-sys/**", "vendor/deltas/suitesparse-sys.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = ["Martin Robinson", "Richard Lincoln"]
 SPDX-License-Identifier = "MIT"
@@ -178,7 +184,7 @@ SPDX-FileCopyrightText = "SuiteSparse contributors and third-party copyright hol
 SPDX-License-Identifier = "LicenseRef-SuiteSparse-Upstream"
 
 [[annotations]]
-path = ["vendor/sundials-sys/**"]
+path = ["vendor/sundials-sys/**", "vendor/deltas/sundials-sys.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = ["2018 Jason K Dark", "sundials-sys contributors"]
 SPDX-License-Identifier = "BSD-3-Clause"
@@ -199,7 +205,14 @@ SPDX-FileCopyrightText = "2013-2022 Lawrence Livermore National Security, LLC an
 SPDX-License-Identifier = "Apache-2.0 OR MIT"
 
 [[annotations]]
-path = ["vendor/diffsol/**", "vendor/diffsol-la/**", "vendor/diffsol-nl/**"]
+path = [
+  "vendor/diffsol/**",
+  "vendor/diffsol-la/**",
+  "vendor/diffsol-nl/**",
+  "vendor/deltas/diffsol.patch",
+  "vendor/deltas/diffsol-la.patch",
+  "vendor/deltas/diffsol-nl.patch",
+]
 precedence = "override"
 SPDX-FileCopyrightText = "Martin Robinson and Diffsol contributors"
 SPDX-License-Identifier = "MIT"
