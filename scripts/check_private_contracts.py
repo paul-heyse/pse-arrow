@@ -33,6 +33,10 @@ def main() -> None:
         spec.loader.exec_module(module)
         for exported in module.__all__:
             value = getattr(module, exported)
+            # Validate the same concrete default header used by the host binder.
+            # Generic declarations remain exportable for typed host specialization.
+            if hasattr(module, "ENVELOPES"):
+                value = module.ENVELOPES.get(exported, value)
             if isinstance(value, type) and issubclass(value, BaseModel):
                 value.model_rebuild(force=True)
                 value.model_json_schema()

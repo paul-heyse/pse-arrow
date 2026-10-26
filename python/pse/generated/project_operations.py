@@ -2,10 +2,9 @@
 # Do not edit.
 """Public project operations projected from their Rust owner and typed receiver glue."""
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from types import FunctionType
-from typing import ParamSpec, TypeVar
 
 from pse._modeling import ModelingPackage
 from pse._physical import PhysicalContext
@@ -78,20 +77,16 @@ from pse.contracts.documents import (
 )
 from pse.generated.project_operation_defaults import DEFAULT_BRANCH
 
-P = ParamSpec("P")
-R = TypeVar("R")
-
 
 def _public_metadata(
-    public: Callable[P, R], glue: type[object], helper: str, owner: str, module: str
-) -> Callable[P, R]:
+    public: object, glue: type[object], helper: str, owner: str, module: str
+) -> None:
     original = vars(glue)[helper]
     if not isinstance(public, FunctionType) or not isinstance(original, FunctionType):
         raise TypeError((helper, type(public), type(original)))
     public.__qualname__ = owner + "." + public.__name__
     public.__module__ = module
     public.__annotations__ = dict(original.__annotations__)
-    return public
 
 
 class ProjectRuntimeOperations(ProjectRuntimeGlue):
@@ -110,7 +105,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_modeling_revision(revision, physical)
 
-    modeling_revision = _public_metadata(
+    _public_metadata(
         modeling_revision,
         ProjectRuntimeGlue,
         "_host_modeling_revision",
@@ -129,7 +124,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_context_cut(project)
 
-    project_context_cut = _public_metadata(
+    _public_metadata(
         project_context_cut,
         ProjectRuntimeGlue,
         "_host_project_context_cut",
@@ -150,7 +145,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_context_select(cut, scope, effective_at_us)
 
-    project_context_select = _public_metadata(
+    _public_metadata(
         project_context_select,
         ProjectRuntimeGlue,
         "_host_project_context_select",
@@ -169,7 +164,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_context_record(key)
 
-    project_context_record = _public_metadata(
+    _public_metadata(
         project_context_record,
         ProjectRuntimeGlue,
         "_host_project_context_record",
@@ -190,7 +185,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_context_reopen(selection)
 
-    project_context_reopen = _public_metadata(
+    _public_metadata(
         project_context_reopen,
         ProjectRuntimeGlue,
         "_host_project_context_reopen",
@@ -211,7 +206,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_closure(request, physical)
 
-    project_closure = _public_metadata(
+    _public_metadata(
         project_closure,
         ProjectRuntimeGlue,
         "_host_project_closure",
@@ -235,7 +230,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_export(destination, request, physical)
 
-    project_export = _public_metadata(
+    _public_metadata(
         project_export,
         ProjectRuntimeGlue,
         "_host_project_export",
@@ -258,7 +253,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
             bundle, title=title, branch_name=branch_name
         )
 
-    project_import_issue = _public_metadata(
+    _public_metadata(
         project_import_issue,
         ProjectRuntimeGlue,
         "_host_project_import_issue",
@@ -281,7 +276,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_import(bundle, intent)
 
-    project_import = _public_metadata(
+    _public_metadata(
         project_import,
         ProjectRuntimeGlue,
         "_host_project_import",
@@ -302,7 +297,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_import_status(intent)
 
-    project_import_status = _public_metadata(
+    _public_metadata(
         project_import_status,
         ProjectRuntimeGlue,
         "_host_project_import_status",
@@ -325,7 +320,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_import_recover(intent, original)
 
-    project_import_recover = _public_metadata(
+    _public_metadata(
         project_import_recover,
         ProjectRuntimeGlue,
         "_host_project_import_recover",
@@ -346,7 +341,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_import_open(intent)
 
-    project_import_open = _public_metadata(
+    _public_metadata(
         project_import_open,
         ProjectRuntimeGlue,
         "_host_project_import_open",
@@ -365,7 +360,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_lifecycle_select(target)
 
-    lifecycle_select = _public_metadata(
+    _public_metadata(
         lifecycle_select,
         ProjectRuntimeGlue,
         "_host_lifecycle_select",
@@ -386,7 +381,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_lifecycle_explain(selection)
 
-    lifecycle_explain = _public_metadata(
+    _public_metadata(
         lifecycle_explain,
         ProjectRuntimeGlue,
         "_host_lifecycle_explain",
@@ -407,7 +402,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_lifecycle_release(selection)
 
-    lifecycle_release = _public_metadata(
+    _public_metadata(
         lifecycle_release,
         ProjectRuntimeGlue,
         "_host_lifecycle_release",
@@ -430,7 +425,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_context_package(selection, physical)
 
-    project_context_package = _public_metadata(
+    _public_metadata(
         project_context_package,
         ProjectRuntimeGlue,
         "_host_project_context_package",
@@ -473,7 +468,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
             deleted=deleted,
         )
 
-    project_context_append = _public_metadata(
+    _public_metadata(
         project_context_append,
         ProjectRuntimeGlue,
         "_host_project_context_append",
@@ -494,7 +489,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_create(operation, project, title)
 
-    project_create = _public_metadata(
+    _public_metadata(
         project_create,
         ProjectRuntimeGlue,
         "_host_project_create",
@@ -513,7 +508,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_record(project)
 
-    project_record = _public_metadata(
+    _public_metadata(
         project_record,
         ProjectRuntimeGlue,
         "_host_project_record",
@@ -532,7 +527,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_branch_record(branch)
 
-    project_branch_record = _public_metadata(
+    _public_metadata(
         project_branch_record,
         ProjectRuntimeGlue,
         "_host_project_branch_record",
@@ -553,7 +548,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_branches(project, cursor=cursor)
 
-    project_branches = _public_metadata(
+    _public_metadata(
         project_branches,
         ProjectRuntimeGlue,
         "_host_project_branches",
@@ -579,7 +574,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_fork(project, branch, problem, operation, source)
 
-    project_fork = _public_metadata(
+    _public_metadata(
         project_fork,
         ProjectRuntimeGlue,
         "_host_project_fork",
@@ -608,7 +603,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
             project, branch, expected, operation, draft=draft
         )
 
-    project_publication_intent = _public_metadata(
+    _public_metadata(
         project_publication_intent,
         ProjectRuntimeGlue,
         "_host_project_publication_intent",
@@ -642,7 +637,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
             operation, project, branch, key, base, content, expected=expected
         )
 
-    project_draft_save_intent = _public_metadata(
+    _public_metadata(
         project_draft_save_intent,
         ProjectRuntimeGlue,
         "_host_project_draft_save_intent",
@@ -665,7 +660,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_draft_save(intent, content)
 
-    project_draft_save = _public_metadata(
+    _public_metadata(
         project_draft_save,
         ProjectRuntimeGlue,
         "_host_project_draft_save",
@@ -684,7 +679,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_draft_record(key)
 
-    project_draft_record = _public_metadata(
+    _public_metadata(
         project_draft_record,
         ProjectRuntimeGlue,
         "_host_project_draft_record",
@@ -703,7 +698,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_draft_bytes(key)
 
-    project_draft_bytes = _public_metadata(
+    _public_metadata(
         project_draft_bytes,
         ProjectRuntimeGlue,
         "_host_project_draft_bytes",
@@ -724,7 +719,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_select(request, physical)
 
-    project_select = _public_metadata(
+    _public_metadata(
         project_select,
         ProjectRuntimeGlue,
         "_host_project_select",
@@ -745,7 +740,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_open_selection(selection, physical)
 
-    project_open_selection = _public_metadata(
+    _public_metadata(
         project_open_selection,
         ProjectRuntimeGlue,
         "_host_project_open_selection",
@@ -768,7 +763,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_navigate(operation, project, request)
 
-    project_navigate = _public_metadata(
+    _public_metadata(
         project_navigate,
         ProjectRuntimeGlue,
         "_host_project_navigate",
@@ -789,7 +784,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_metadata(request)
 
-    project_metadata = _public_metadata(
+    _public_metadata(
         project_metadata,
         ProjectRuntimeGlue,
         "_host_project_metadata",
@@ -808,7 +803,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_draft_version(key)
 
-    project_draft_version = _public_metadata(
+    _public_metadata(
         project_draft_version,
         ProjectRuntimeGlue,
         "_host_project_draft_version",
@@ -827,7 +822,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_draft_version_bytes(key)
 
-    project_draft_version_bytes = _public_metadata(
+    _public_metadata(
         project_draft_version_bytes,
         ProjectRuntimeGlue,
         "_host_project_draft_version_bytes",
@@ -848,7 +843,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_draft_delta(source, delta)
 
-    project_draft_delta = _public_metadata(
+    _public_metadata(
         project_draft_delta,
         ProjectRuntimeGlue,
         "_host_project_draft_delta",
@@ -869,7 +864,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_admit_draft(operation, key, physical)
 
-    project_admit_draft = _public_metadata(
+    _public_metadata(
         project_admit_draft,
         ProjectRuntimeGlue,
         "_host_project_admit_draft",
@@ -890,7 +885,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_acknowledgement(operation)
 
-    project_acknowledgement = _public_metadata(
+    _public_metadata(
         project_acknowledgement,
         ProjectRuntimeGlue,
         "_host_project_acknowledgement",
@@ -913,7 +908,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_publish_draft(intent, physical)
 
-    project_publish_draft = _public_metadata(
+    _public_metadata(
         project_publish_draft,
         ProjectRuntimeGlue,
         "_host_project_publish_draft",
@@ -941,7 +936,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
             base, target, proposal, resolutions=resolutions
         )
 
-    project_merge_preview = _public_metadata(
+    _public_metadata(
         project_merge_preview,
         ProjectRuntimeGlue,
         "_host_project_merge_preview",
@@ -970,7 +965,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
             publication, base, target, proposal, resolutions=resolutions
         )
 
-    project_merge_intent = _public_metadata(
+    _public_metadata(
         project_merge_intent,
         ProjectRuntimeGlue,
         "_host_project_merge_intent",
@@ -999,7 +994,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
             publication, base, target, version, resolutions=resolutions
         )
 
-    project_merge_draft_intent = _public_metadata(
+    _public_metadata(
         project_merge_draft_intent,
         ProjectRuntimeGlue,
         "_host_project_merge_draft_intent",
@@ -1023,7 +1018,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_undo_intent(publication, target, restore)
 
-    project_undo_intent = _public_metadata(
+    _public_metadata(
         project_undo_intent,
         ProjectRuntimeGlue,
         "_host_project_undo_intent",
@@ -1046,7 +1041,7 @@ class ProjectRuntimeOperations(ProjectRuntimeGlue):
         """
         return self._host_project_publish_merge(intent, physical)
 
-    project_publish_merge = _public_metadata(
+    _public_metadata(
         project_publish_merge,
         ProjectRuntimeGlue,
         "_host_project_publish_merge",
@@ -1071,7 +1066,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_dataset_create(request)
 
-    research_dataset_create = _public_metadata(
+    _public_metadata(
         research_dataset_create,
         ResearchRuntimeGlue,
         "_host_research_dataset_create",
@@ -1092,7 +1087,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_selection_create(request)
 
-    research_selection_create = _public_metadata(
+    _public_metadata(
         research_selection_create,
         ResearchRuntimeGlue,
         "_host_research_selection_create",
@@ -1111,7 +1106,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_read(request)
 
-    research_read = _public_metadata(
+    _public_metadata(
         research_read,
         ResearchRuntimeGlue,
         "_host_research_read",
@@ -1132,7 +1127,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_dataset_open(key, context)
 
-    research_dataset_open = _public_metadata(
+    _public_metadata(
         research_dataset_open,
         ResearchRuntimeGlue,
         "_host_research_dataset_open",
@@ -1151,7 +1146,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_selection_open(key)
 
-    research_selection_open = _public_metadata(
+    _public_metadata(
         research_selection_open,
         ResearchRuntimeGlue,
         "_host_research_selection_open",
@@ -1172,7 +1167,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_publication_preview(request)
 
-    research_publication_preview = _public_metadata(
+    _public_metadata(
         research_publication_preview,
         ResearchRuntimeGlue,
         "_host_research_publication_preview",
@@ -1193,7 +1188,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_publish(intent)
 
-    research_publish = _public_metadata(
+    _public_metadata(
         research_publish,
         ResearchRuntimeGlue,
         "_host_research_publish",
@@ -1212,7 +1207,7 @@ class ResearchRuntime(ResearchRuntimeGlue):
         """
         return self._host_research_publication_open(key)
 
-    research_publication_open = _public_metadata(
+    _public_metadata(
         research_publication_open,
         ResearchRuntimeGlue,
         "_host_research_publication_open",
@@ -1237,7 +1232,7 @@ class StudyWorkbenchMixin(StudyWorkbenchGlue):
         """
         return self._host_study_workbench_page(request)
 
-    study_workbench_page = _public_metadata(
+    _public_metadata(
         study_workbench_page,
         StudyWorkbenchGlue,
         "_host_study_workbench_page",
@@ -1256,7 +1251,7 @@ class StudyWorkbenchMixin(StudyWorkbenchGlue):
         """
         return self._host_freeze_study_cohort(request)
 
-    freeze_study_cohort = _public_metadata(
+    _public_metadata(
         freeze_study_cohort,
         StudyWorkbenchGlue,
         "_host_freeze_study_cohort",
@@ -1280,7 +1275,7 @@ class StudyWorkbenchMixin(StudyWorkbenchGlue):
         """
         return self._host_observe_study(request, cursor=cursor)
 
-    observe_study = _public_metadata(
+    _public_metadata(
         observe_study,
         StudyWorkbenchGlue,
         "_host_observe_study",

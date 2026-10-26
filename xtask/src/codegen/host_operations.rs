@@ -94,9 +94,21 @@ fn reference(catalogue: &[CatalogueDocument], slug: &str, output: bool) -> Resul
         "output": catalogue.iter().any(|entry| entry.slug == slug && entry.output)}))
 }
 fn python(schemas: &[(&str, Value)], operations: &Value, native: &Value) -> Result<String> {
+    let parameters = schemas
+        .iter()
+        .map(|(name, schema)| Ok((*name, host_parameters(schema)?)))
+        .collect::<Result<BTreeMap<_, _>>>()?;
+    let type_variables = parameters.values().flatten().collect::<BTreeSet<_>>();
     let mut source = String::from(
-        "# @generated from Rust host operation owners; do not edit\n\"\"\"Host contracts projected from the existing Rust operation owners.\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Annotated, Literal\nfrom pydantic import Field, JsonValue, TypeAdapter\nfrom scripts import execution_profiles\nfrom scripts.host_contracts import Contract\n\n",
+        "# SPDX-License-Identifier: MIT OR Apache-2.0\n# Copyright (c) 2026 Paul Heyse\n# @generated from Rust host operation owners; do not edit\n\"\"\"Host contracts projected from the existing Rust operation owners.\"\"\"\nfrom __future__ import annotations\n\nfrom typing import Annotated, Literal\nfrom pydantic import Field, JsonValue, TypeAdapter\nfrom scripts import execution_profiles\nfrom scripts.host_contracts import Contract\n\n",
     );
+    if !type_variables.is_empty() {
+        writeln!(source, "from typing import Generic, TypeVar\n")?;
+        for variable in type_variables {
+            writeln!(source, "{variable} = TypeVar({variable:?})")?;
+        }
+        writeln!(source)?;
+    }
     let known = schemas
         .iter()
         .map(|(name, _)| (*name).to_owned())
@@ -122,7 +134,16 @@ fn python(schemas: &[(&str, Value)], operations: &Value, native: &Value) -> Resu
                 .with_context(|| format!("host base {base} must precede {name}"))?
                 .clone()
         };
-        writeln!(source, "class {name}({base}):")?;
+        let slots = &parameters[name];
+        if slots.is_empty() {
+            writeln!(source, "class {name}({base}):")?;
+        } else {
+            writeln!(
+                source,
+                "class {name}({base}, Generic[{}]):",
+                slots.iter().cloned().collect::<Vec<_>>().join(", ")
+            )?;
+        }
         let required = schema["required"]
             .as_array()
             .map(|fields| {
@@ -193,7 +214,16 @@ fn python(schemas: &[(&str, Value)], operations: &Value, native: &Value) -> Resu
     )?;
     writeln!(source, "ENVELOPES: dict[str, type[Contract]] = {{")?;
     for (name, _) in schemas {
-        writeln!(source, "    {name:?}: {name},")?;
+        let slots = &parameters[name];
+        if slots.is_empty() {
+            writeln!(source, "    {name:?}: {name},")?;
+        } else {
+            writeln!(
+                source,
+                "    {name:?}: {name}[{}],",
+                vec!["JsonValue"; slots.len()].join(", ")
+            )?;
+        }
     }
     writeln!(source, "}}\n")?;
     writeln!(
@@ -216,6 +246,27 @@ fn python(schemas: &[(&str, Value)], operations: &Value, native: &Value) -> Resu
             .join(" ")
     )?;
     Ok(source)
+}
+fn host_parameters(schema: &Value) -> Result<BTreeSet<String>> {
+    let properties = schema["properties"]
+        .as_object()
+        .context("host parameter owner must be an object")?;
+    properties
+        .values()
+        .filter_map(|shape| shape.get("x-pse-host-type-parameter"))
+        .map(|value| {
+            let parameter = value.as_str().context("host type parameter must be text")?;
+            ensure!(
+                identifier(parameter)
+                    && !matches!(
+                        parameter,
+                        "Contract" | "JsonValue" | "Generic" | "TypeVar" | "Annotated" | "Literal"
+                    ),
+                "unsupported host type parameter {parameter}"
+            );
+            Ok(parameter.to_owned())
+        })
+        .collect()
 }
 fn identifier(value: &str) -> bool {
     !value.is_empty()
@@ -256,6 +307,7 @@ fn python_type(schema: &Value, definitions: &Value, known: &BTreeSet<String>) ->
                     | "description"
                     | "default"
                     | "x-pse-host-default"
+                    | "x-pse-host-type-parameter"
             ),
             "unsupported host field schema construct {key}"
         );
@@ -266,7 +318,20 @@ fn python_type(schema: &Value, definitions: &Value, known: &BTreeSet<String>) ->
             "title" | "description" | "default" | "x-pse-host-default"
         )
     });
-    let mut annotation = if unconstrained {
+    let mut annotation = if let Some(parameter) = schema.get("x-pse-host-type-parameter") {
+        let parameter = parameter
+            .as_str()
+            .context("host type parameter must be text")?;
+        ensure!(
+            identifier(parameter)
+                && object.keys().all(|key| matches!(
+                    key.as_str(),
+                    "title" | "description" | "default" | "x-pse-host-type-parameter"
+                )),
+            "host payload parameter requires an unconstrained original transport field"
+        );
+        parameter.to_owned()
+    } else if unconstrained {
         "JsonValue".into()
     } else if let Some(reference) = schema.get("$ref").and_then(Value::as_str) {
         let name = reference
@@ -388,6 +453,38 @@ fn python_literal(value: &Value) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn host_payload_parameter_has_a_concrete_default_binder() {
+        let schemas = pse_runtime::host_operations::header_schemas();
+        let capture = &schemas
+            .iter()
+            .find(|(name, _)| *name == "ProfileCaptureRequest")
+            .unwrap()
+            .1;
+        assert_eq!(
+            capture["properties"]["suspect"]["x-pse-host-type-parameter"],
+            "SuspectT"
+        );
+        let source = python(
+            &schemas,
+            &serde_json::json!([]),
+            &serde_json::to_value(pse_runtime::host_operations::catalogue()).unwrap(),
+        )
+        .unwrap();
+        assert!(source.contains("SuspectT = TypeVar(\"SuspectT\")"));
+        assert!(source.contains("class ProfileCaptureRequest(Contract, Generic[SuspectT]):"));
+        assert!(source.contains("suspect: SuspectT"));
+        assert!(source.contains("\"ProfileCaptureRequest\": ProfileCaptureRequest[JsonValue],"));
+        assert!(!source.contains("default=JsonValue"));
+        assert!(
+            python_type(
+                &serde_json::json!({"type":"integer", "x-pse-host-type-parameter":"SuspectT"}),
+                &serde_json::json!({}),
+                &BTreeSet::new()
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn host_operation_projection_refuses_unknown_schema_constructs() {
         assert!(

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 def executable(root: Path, tool: Path, *, files: tuple[Path, ...] = ()) -> None:
     environment = python_extension.bind_interpreter(os.environ)
-    selection = {
+    selection: dict[str, object] = {
         "version": 1,
         "scope": "ordinary-cargo-inputs",
         "files": [str(path) for path in files],

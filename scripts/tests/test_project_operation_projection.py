@@ -18,6 +18,9 @@ from unittest.mock import patch
 
 from scripts.project_operation_projection import render, validate_python_floor
 
+if typing.TYPE_CHECKING:
+    from pydantic import JsonValue
+
 
 class ProjectProjectionTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -49,7 +52,7 @@ class ProjectProjectionTests(unittest.TestCase):
             path = self.root / "python" / (module.replace(".", "/") + ".py")
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(source)
-        self.declarations = [
+        self.declarations: list[dict[str, JsonValue]] = [
             {
                 "name": "project_create",
                 "family": "project",
@@ -96,7 +99,7 @@ class ProjectProjectionTests(unittest.TestCase):
             path = self.root / "python" / (name.replace(".", "/") + ".py")
             modules[name] = self._load_module(name, path)
         defaults = types.ModuleType("pse.generated.project_operation_defaults")
-        defaults.DEFAULT_BRANCH = "main"
+        vars(defaults)["DEFAULT_BRANCH"] = "main"
         modules[defaults.__name__] = defaults
         candidate = self.root / "project_projection_candidate.py"
         candidate.write_text(generated)
@@ -104,6 +107,8 @@ class ProjectProjectionTests(unittest.TestCase):
             public = self._load_module("_project_projection_candidate", candidate)
         instance = public.ProjectRuntimeOperations()
         method = public.ProjectRuntimeOperations.project_create
+        self.assertTrue(inspect.ismethod(instance.project_create))
+        self.assertIs(instance.project_create.__self__, instance)
         self.assertEqual(instance.project_create("original"), ("original", "main"))
         self.assertEqual(
             instance.project_create("original", branch_name="selected"),
@@ -123,6 +128,8 @@ class ProjectProjectionTests(unittest.TestCase):
             public.ProjectRuntimeOperations.__doc__,
             "Original project owner documentation.",
         )
+        if public.__doc__ is None:
+            self.fail("generated public module must retain its documentation")
         self.assertIn("Public project operations", public.__doc__)
         self.assertEqual(
             inspect.signature(method).parameters["branch_name"].default, "main"
@@ -157,7 +164,7 @@ class ProjectProjectionTests(unittest.TestCase):
     ) -> None:
         generated = render(self.root, self.declarations)
         validate_python_floor(self.root, generated)
-        self.assertIn('P = ParamSpec("P")', generated)
+        self.assertNotIn("def _public_metadata[", generated)
         newer = "def newer[T](value: T) -> T:\n    return value\n"
         with self.assertRaises(SyntaxError):
             validate_python_floor(self.root, newer)

@@ -588,6 +588,7 @@ pub struct ProfileCaptureRequest {
     /// Original `expected` transport field.
     pub expected: Value,
     /// Original `suspect` transport field.
+    #[schemars(extend("x-pse-host-type-parameter" = "SuspectT"))]
     pub suspect: Value,
 }
 

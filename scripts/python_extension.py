@@ -1287,7 +1287,10 @@ def extension_prepare(
         and previous_inputs.get("schema") == "producing-cargo-inputs-v1"
     ):
         current = currency_check(
-            environment, mode=mode, profile=profile, validated=validated
+            environment,
+            mode="native" if mode == "native" else "dev",
+            profile=profile,
+            validated=validated,
         )
         if current.state == "current":
             return StageResult(

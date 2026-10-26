@@ -13,9 +13,13 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import producer_cargo, producing_currency, python_extension
+
+if TYPE_CHECKING:
+    from io import BufferedReader
 
 
 class ObserverPreparationTests(unittest.TestCase):
@@ -38,7 +42,7 @@ class ObserverPreparationTests(unittest.TestCase):
     ) -> None:
         calls = []
 
-        def run(command: list[str], **kwargs: object) -> int:
+        def run(command: list[str], *, env: dict[str, str], **_kwargs: object) -> int:
             calls.append(command)
             if "scripts.arrow_validation" in command:
                 (self.root / "target/debug/xtask").write_text(
@@ -49,7 +53,7 @@ class ObserverPreparationTests(unittest.TestCase):
                     (self.root / "target/debug/xtask").read_text(),
                     "rebuilt current observer",
                 )
-                environment = kwargs["env"]
+                environment = env
                 configuration = json.loads(
                     Path(environment[producer_cargo.CURRENCY_CAPTURE]).read_text()
                 )
@@ -114,7 +118,7 @@ class ProducingCurrencyTests(unittest.TestCase):
     def test_runtime_environment_stays_outside_currency_unless_actually_consumed(
         self,
     ) -> None:
-        selection = {
+        selection: dict[str, object] = {
             "version": 1,
             "scope": "ordinary-cargo-inputs",
             "files": [],
@@ -191,7 +195,7 @@ class ProducingCurrencyTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("selected preparation input")
             witness = producing_currency.Witness()
-            observed = {
+            observed: dict[str, object] = {
                 "inputs": {
                     "version": 1,
                     "scope": "ordinary-cargo-inputs",
@@ -201,7 +205,7 @@ class ProducingCurrencyTests(unittest.TestCase):
                 },
                 "invocation": {"observer": {"artifact": witness.file(alias)}},
             }
-            context = {
+            context: dict[str, object] = {
                 "tools": {"toolchain-rustc": witness.file(compiler)},
                 "configuration": {},
                 "generations": {},
@@ -216,9 +220,15 @@ class ProducingCurrencyTests(unittest.TestCase):
                 patch.object(python_extension, "PRODUCING_WITNESS", witness),
             ):
                 selection = python_extension.producing_selection(observed, context)
-                self.assertNotIn(str(alias), selection["files"])
-                self.assertIn(str(source), selection["files"])
-                self.assertIn(str(compiler), selection["files"])
+                self.assertNotIn(
+                    str(alias), producing_currency.string_list(selection["files"])
+                )
+                self.assertIn(
+                    str(source), producing_currency.string_list(selection["files"])
+                )
+                self.assertIn(
+                    str(compiler), producing_currency.string_list(selection["files"])
+                )
                 original = python_extension.producing_inputs(
                     selection, {}, mode="dev", profile="dev", validated=True
                 )
@@ -257,7 +267,7 @@ class ProducingCurrencyTests(unittest.TestCase):
             consumed, unrelated = root / "consumed.rs", root / "unrelated.rs"
             consumed.write_text("original")
             unrelated.write_text("original")
-            selection = {
+            selection: dict[str, object] = {
                 "version": 1,
                 "scope": "ordinary-cargo-inputs",
                 "files": [str(consumed)],
@@ -329,7 +339,7 @@ class ProducingCurrencyTests(unittest.TestCase):
             artifact.write_bytes(b"prepared image")
             actual_digest = hashlib.file_digest
 
-            def replace(stream: object, algorithm: str) -> object:
+            def replace(stream: BufferedReader, algorithm: str) -> object:
                 result = actual_digest(stream, algorithm)
                 replacement = artifact.with_suffix(".new")
                 replacement.write_bytes(b"replacement image")
@@ -370,7 +380,7 @@ class ProducingCurrencyTests(unittest.TestCase):
                 "VIRTUAL_ENV": str(root / ".venv"),
                 "UV_PROJECT_ENVIRONMENT": str(root / ".venv"),
             }
-            selection = {
+            selection: dict[str, object] = {
                 "version": 1,
                 "scope": "ordinary-cargo-inputs",
                 "files": [str(source)],
@@ -397,7 +407,7 @@ class ProducingCurrencyTests(unittest.TestCase):
                 inputs = python_extension.producing_inputs(
                     selection, environment, mode="dev", profile="dev", validated=True
                 )
-                artifact = {
+                artifact: dict[str, object] = {
                     "binary": str(binary),
                     "sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
                     "features": ["force-validate"],
@@ -466,7 +476,7 @@ class ProducingCurrencyTests(unittest.TestCase):
                 ],
                 check=True,
             )
-            selection = {
+            selection: dict[str, object] = {
                 "root_artifacts": [{"filenames": [str(original)]}],
                 "files": [],
                 "build_scripts": [
@@ -482,7 +492,7 @@ class ProducingCurrencyTests(unittest.TestCase):
                     }
                 },
             }
-            artifact = {
+            artifact: dict[str, object] = {
                 "binary": str(installed),
                 "sha256": hashlib.sha256(installed.read_bytes()).hexdigest(),
                 "features": [],
@@ -491,9 +501,10 @@ class ProducingCurrencyTests(unittest.TestCase):
                 selection, artifact, os.environ
             )
             self.assertIsNotNone(association)
-            self.assertEqual(
-                association["transformation"]["kind"], "maturin-rpath-only"
-            )
+            assert association is not None
+            transformation = association["transformation"]
+            assert isinstance(transformation, dict)
+            self.assertEqual(transformation["kind"], "maturin-rpath-only")
             installed.write_bytes(installed.read_bytes() + b"unrelated mutation")
             artifact["sha256"] = hashlib.sha256(installed.read_bytes()).hexdigest()
             self.assertIsNone(

@@ -1135,7 +1135,8 @@
           "description": "Original `expected` transport field."
         },
         "suspect": {
-          "description": "Original `suspect` transport field."
+          "description": "Original `suspect` transport field.",
+          "x-pse-host-type-parameter": "SuspectT"
         }
       },
       "required": [

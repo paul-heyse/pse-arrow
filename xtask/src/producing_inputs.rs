@@ -249,7 +249,7 @@ pub(crate) fn extract(
                         .split_once('=')
                         .map_or((line, None), |(name, value)| (name, Some(value)));
                     // Preserve every actually compiled value under its unit;
-                    // two packages can consume different CARGO_PKG_VERSIONs.
+                    // two packages can consume different CARGO_PKG_VERSION values.
                     dep_environment
                         .entry(*index)
                         .or_default()
@@ -473,13 +473,13 @@ mod tests {
             "env":[["GENERATED_CONTEXT","derived-value"]]});
         assert!(build_script_sets_environment(
             &unit,
-            &[output.clone()],
+            std::slice::from_ref(&output),
             "GENERATED_CONTEXT",
             Some("derived-value")
         ));
         assert!(!build_script_sets_environment(
             &script,
-            &[output.clone()],
+            std::slice::from_ref(&output),
             "GENERATED_CONTEXT",
             Some("derived-value")
         ));

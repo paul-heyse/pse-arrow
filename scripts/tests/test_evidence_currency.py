@@ -12,10 +12,15 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import evidence_store, producing_currency, python_extension, surreal_server
 from scripts.tests.producing_receipt_fixture import executable
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+    from typing import TextIO
 
 
 class EvidenceCurrencyTests(unittest.TestCase):
@@ -93,13 +98,19 @@ class EvidenceCurrencyTests(unittest.TestCase):
         executable(self.root, self.tool)
         actual_open = os.open
 
-        def raced(path: object, flags: int, *args: object, **kwargs: object) -> int:
+        def raced(
+            path: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+            flags: int,
+            mode: int = 0o777,
+            *,
+            dir_fd: int | None = None,
+        ) -> int:
             if path == self.tool:
                 replacement = self.tool.with_suffix(".new")
                 replacement.write_text("#!/bin/sh\nexit 9\n")
                 replacement.chmod(0o700)
                 replacement.replace(self.tool)
-            return actual_open(path, flags, *args, **kwargs)
+            return actual_open(path, flags, mode, dir_fd=dir_fd)
 
         with (
             patch.object(os, "open", side_effect=raced),
@@ -113,12 +124,27 @@ class EvidenceCurrencyTests(unittest.TestCase):
         executable(self.root, self.tool)
         actual_run = subprocess.run
 
-        def raced(command: list[str], **kwargs: object) -> object:
+        def raced(
+            command: list[str],
+            *,
+            stdout: TextIO | None,
+            check: bool,
+            timeout: float,
+            env: Mapping[str, str],
+            pass_fds: tuple[int, ...],
+        ) -> subprocess.CompletedProcess[bytes]:
             replacement = self.tool.with_suffix(".new")
             replacement.write_text("#!/bin/sh\nprintf 'wrong-image\\n'\n")
             replacement.chmod(0o700)
             replacement.replace(self.tool)
-            return actual_run(command, **kwargs)
+            return actual_run(
+                command,
+                stdout=stdout,
+                check=check,
+                timeout=timeout,
+                env=env,
+                pass_fds=pass_fds,
+            )
 
         with patch.object(evidence_store.subprocess, "run", side_effect=raced):
             self.assertEqual(self.run_tool(), "prepared-image\n")

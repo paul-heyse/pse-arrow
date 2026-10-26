@@ -15,10 +15,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import build_observation, producing_currency
 from scripts import producer_cargo as observer
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ProducerCargoTests(unittest.TestCase):
@@ -111,9 +115,13 @@ class ProducerCargoTests(unittest.TestCase):
         selected = Path(environment[observer.CURRENCY_CAPTURE])
         calls = []
 
-        def run(command: list[str], **kwargs: object) -> int:
-            calls.append((command, kwargs))
-            record = kwargs["record"]
+        def run(
+            command: list[str],
+            *,
+            env: dict[str, str],
+            record: Callable[[bytes, str], None],
+        ) -> int:
+            calls.append((command, env))
             record(
                 b'{"reason":"compiler-artifact","filenames":["selected.so"]}', "stdout"
             )
@@ -141,7 +149,7 @@ class ProducerCargoTests(unittest.TestCase):
         ):
             self.assertEqual(observer.observe(self.arguments, environment), 0)
         self.assertEqual(calls[0][0][1:], self.arguments)
-        child = calls[0][1]["env"]
+        child = calls[0][1]
         self.assertEqual(child["RUSTC_WRAPPER"], "selected-sccache-wrapper")
         self.assertEqual(child["RUSTC_WORKSPACE_WRAPPER"], "selected-workspace-wrapper")
         self.assertNotIn("CARGO", child)
@@ -587,6 +595,7 @@ class ProducerCargoTests(unittest.TestCase):
             f"#!{sys.executable}\n"
             """import json,sys,time
 from pathlib import Path
+from typing import TYPE_CHECKING
 args=sys.argv
 print('{"reason":"fixture-before-exit"}',flush=True)
 release=Path("""

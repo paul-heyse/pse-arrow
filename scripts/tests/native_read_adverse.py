@@ -320,7 +320,7 @@ class AuthenticatedReadWorker:
             and isinstance(bound.get("group"), str)
             and (
                 first.group == bound["group"]
-                or first.group.startswith(str(bound["group"]) + "/")
+                or first.group.startswith(bound["group"] + "/")
             )
         ]
         if not unit_matches:
@@ -328,7 +328,7 @@ class AuthenticatedReadWorker:
                 "read worker is outside its original bound allocation units"
             )
         self.unit, self.bound = max(
-            unit_matches, key=lambda item: len(str(item[1]["group"]))
+            unit_matches, key=lambda item: len(item[1]["group"])
         )
         manager = operation_lifetime.unit_observation(
             self.unit, deadline=time.monotonic() + 5
@@ -339,7 +339,7 @@ class AuthenticatedReadWorker:
         if (
             observed.availability is not process_observation.Availability.PRESENT
             or observed.invocation != self.bound.get("invocation")
-            or process_observation.group_identity(str(self.bound["group"]))
+            or process_observation.group_identity(self.bound["group"])
             != self.bound.get("inode")
         ):
             raise ValueError(
@@ -391,7 +391,7 @@ class AuthenticatedReadWorker:
         record = self._allocation_record()
         if record["units"].get(
             self.unit
-        ) != self.bound or not process_observation.populated(str(self.bound["group"])):
+        ) != self.bound or not process_observation.populated(self.bound["group"]):
             raise ValueError(
                 "original read allocation/unit was released before physical drain"
             )

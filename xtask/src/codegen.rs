@@ -35,6 +35,7 @@ use crate::Target;
 #[cfg(feature = "native-abi")]
 const BINDINGS: &str = "crates/pse-ipopt-sys/src/bindings.rs";
 const PYTHON_ROOT: &str = "python/pse/contracts";
+const PROJECT_PYTHON_ROOT: &str = "python/pse/generated";
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
     if only.is_none()
@@ -601,7 +602,9 @@ fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
 }
 
 fn python_bytecode_path(relative: &Path) -> bool {
-    if !(relative.starts_with(PYTHON_ROOT) || relative.starts_with(documents::PRIVATE_PYTHON_ROOT))
+    if !(relative.starts_with(PYTHON_ROOT)
+        || relative.starts_with(documents::PRIVATE_PYTHON_ROOT)
+        || relative.starts_with(PROJECT_PYTHON_ROOT))
         || relative.parent().and_then(Path::file_name) != Some("__pycache__".as_ref())
     {
         return false;
@@ -900,12 +903,21 @@ mod tests {
 
     #[test]
     fn private_python_caches_survive_writing_without_hiding_source_changes() {
+        python_caches_survive_at(documents::PRIVATE_PYTHON_ROOT);
+    }
+
+    #[test]
+    fn project_python_caches_survive_writing_without_hiding_source_changes() {
+        python_caches_survive_at(PROJECT_PYTHON_ROOT);
+    }
+
+    fn python_caches_survive_at(python_root: &str) {
         let checkout = tempfile::tempdir().unwrap();
         let scratch = tempfile::tempdir().unwrap();
-        let tree = python_tree_at(documents::PRIVATE_PYTHON_ROOT);
+        let tree = python_tree_at(python_root);
         write_tree(checkout.path(), &tree).unwrap();
         write_tree(scratch.path(), &tree).unwrap();
-        let root = checkout.path().join(documents::PRIVATE_PYTHON_ROOT);
+        let root = checkout.path().join(python_root);
         let cache = root.join("__pycache__");
         fs::create_dir(&cache).unwrap();
         let names = [
@@ -928,12 +940,21 @@ mod tests {
 
     #[test]
     fn private_python_caches_reject_lookalikes_and_symlinks() {
+        python_caches_reject_lookalikes_and_symlinks_at(documents::PRIVATE_PYTHON_ROOT);
+    }
+
+    #[test]
+    fn project_python_caches_reject_lookalikes_and_symlinks() {
+        python_caches_reject_lookalikes_and_symlinks_at(PROJECT_PYTHON_ROOT);
+    }
+
+    fn python_caches_reject_lookalikes_and_symlinks_at(python_root: &str) {
         let checkout = tempfile::tempdir().unwrap();
         let scratch = tempfile::tempdir().unwrap();
-        let tree = python_tree_at(documents::PRIVATE_PYTHON_ROOT);
+        let tree = python_tree_at(python_root);
         write_tree(checkout.path(), &tree).unwrap();
         write_tree(scratch.path(), &tree).unwrap();
-        let root = checkout.path().join(documents::PRIVATE_PYTHON_ROOT);
+        let root = checkout.path().join(python_root);
         let cache = root.join("__pycache__");
         fs::create_dir(&cache).unwrap();
         for relative in [
@@ -954,6 +975,9 @@ mod tests {
         }
         assert!(!python_bytecode_path(Path::new(
             "scripts/generated-other/__pycache__/a.cpython-314.pyc"
+        )));
+        assert!(!python_bytecode_path(Path::new(
+            "python/pse/generated-other/__pycache__/a.cpython-314.pyc"
         )));
         #[cfg(unix)]
         {

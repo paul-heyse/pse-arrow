@@ -1,13 +1,17 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
 # @generated from Rust host operation owners; do not edit
 """Host contracts projected from the existing Rust operation owners."""
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Generic, Literal, TypeVar
 
 from pydantic import Field, JsonValue, TypeAdapter
 from scripts import execution_profiles
 from scripts.host_contracts import Contract
+
+SuspectT = TypeVar("SuspectT")
 
 
 class Resources(Contract):
@@ -125,10 +129,10 @@ class EvidenceCompare(Contract):
     )
 
 
-class ProfileCaptureRequest(Contract):
+class ProfileCaptureRequest(Contract, Generic[SuspectT]):
     request: JsonValue
     expected: JsonValue
-    suspect: JsonValue
+    suspect: SuspectT
 
 
 class ConfiguredCapabilities(Contract):
@@ -262,7 +266,7 @@ ENVELOPES: dict[str, type[Contract]] = {
     "PhysicalInspection": PhysicalInspection,
     "ResultInspection": ResultInspection,
     "EvidenceCompare": EvidenceCompare,
-    "ProfileCaptureRequest": ProfileCaptureRequest,
+    "ProfileCaptureRequest": ProfileCaptureRequest[JsonValue],
     "ConfiguredCapabilities": ConfiguredCapabilities,
     "DocumentReference": DocumentReference,
     "DocumentField": DocumentField,

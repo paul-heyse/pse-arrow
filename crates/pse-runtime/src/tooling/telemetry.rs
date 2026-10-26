@@ -1567,6 +1567,10 @@ mod tests {
         assert_eq!(snapshot.abrupt_exit_loss, SdkAbruptLoss::Unknown);
     }
     #[test]
+    #[expect(
+        clippy::exit,
+        reason = "this subprocess control deliberately omits Rust drops and SDK shutdown"
+    )]
     fn sdk_loss_abrupt_exit_control() {
         let Some(output) = std::env::var_os("PSE_SDK_LOSS_ABRUPT_SNAPSHOT") else {
             return;

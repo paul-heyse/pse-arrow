@@ -91,7 +91,7 @@ class Witness:
             after.st_mode,
         ) or before != stamp(path):
             raise ValueError("producing input changed during its observation")
-        value = {
+        value: dict[str, object] = {
             "path": name,
             "resolved": str(path.resolve()),
             "link": link,
@@ -101,7 +101,7 @@ class Witness:
         self.files[name] = (key, value)
         return value
 
-    def tree(self, root: Path) -> dict[str, object]:
+    def tree(self, root: Path) -> dict[str, dict[str, object]]:
         """Track additions/deletions and nested changes without rehashing bytes."""
         root = root.absolute()
         if root.is_symlink():
@@ -110,7 +110,7 @@ class Witness:
             return {str(root): {"absent": True}}
         if not root.is_dir():
             return {str(root): self.file(root)}
-        result: dict[str, object] = {}
+        result: dict[str, dict[str, object]] = {}
         pending = [root]
         while pending:
             directory = pending.pop()

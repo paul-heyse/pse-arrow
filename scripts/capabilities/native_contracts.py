@@ -69,10 +69,8 @@ __all__ = (
 T = TypeVar("T")
 
 
-class ProfileCaptureRequest(generated.ProfileCaptureRequest):
+class ProfileCaptureRequest(generated.ProfileCaptureRequest[QueryAnswer]):
     """Host association only; scientific documents still use their native owners."""
-
-    suspect: QueryAnswer
 
     @model_validator(mode="after")
     def observed_source(self) -> ProfileCaptureRequest:

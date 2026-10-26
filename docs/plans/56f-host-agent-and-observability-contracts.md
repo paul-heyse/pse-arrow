@@ -276,7 +276,7 @@ worker retention or full F acceptance follows from the D/E prerequisites.
 
 ## Remaining-scope execution — 2026-10-26
 
-The maintainer authorized the remaining 56e/56f/56g scope and selected RC06 retained foreground native read workers, authenticated drain of the exact blocking legacy service with its data/receipts preserved, and the single `RDER` typo correction while preserving other history edits. Rust SDK span-processor loss observations are selected; Python SDK queues remain explicitly unknown. Proposed ADR-0231 precedes dependent retention changes. Root owns shared contracts, generation, integration, Cargo and status; independent producer-metric/query, SDK-health and currency slices are underway. Current source implementation and targeted controls do not establish assembled G acceptance.
+The maintainer authorized the remaining 56e/56f/56g scope and selected RC06 retained foreground native read workers, authenticated drain of the exact blocking legacy service with its data/receipts preserved, and the single known `ORDER` spelling correction while preserving other history edits. Rust SDK span-processor loss observations are selected; Python SDK queues remain explicitly unknown. Proposed ADR-0231 precedes dependent retention changes. Root owns shared contracts, generation, integration, Cargo and status; independent producer-metric/query, SDK-health and currency slices are underway. Current source implementation and targeted controls do not establish assembled G acceptance.
 
 ## Integrated execution checkpoint — 2026-10-26
 

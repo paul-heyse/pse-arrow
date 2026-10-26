@@ -235,8 +235,8 @@ class FakeSession(ReadSession):
 
     async def invoke(
         self,
-        selected: Binding,
-        supplied: dict[str, JsonValue],
+        binding: Binding,
+        arguments: dict[str, JsonValue],
         deadline_monotonic_ns: int | None,
     ) -> ReadResponse:
         self.events.append("start:" + self.incarnation)
@@ -248,7 +248,7 @@ class FakeSession(ReadSession):
             request="a" * 32,
             context=self.identity,
             request_sha256=hashlib.sha256(
-                operation_document(selected.operation, supplied)
+                operation_document(binding.operation, arguments)
             ).hexdigest(),
             deadline_monotonic_ns=deadline_monotonic_ns,
             result={
@@ -375,7 +375,7 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
         changed["physical"] = "another-original-physical"
         await manager.run(selected, changed)
         self.assertEqual(len(sessions), 2)
-        next_page = {
+        next_page: dict[str, JsonValue] = {
             **changed,
             "request": {"query": "original-query", "limit": 3, "cursor": 10},
         }

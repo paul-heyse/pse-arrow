@@ -397,7 +397,7 @@ def execute(
                     validated=requirement.validated,
                 )
             except ExtensionSelectionError as error:
-                return error.detail()
+                return dict(error.detail())
             if current.state != "current":
                 return {
                     "outcome": "prerequisite_unavailable",

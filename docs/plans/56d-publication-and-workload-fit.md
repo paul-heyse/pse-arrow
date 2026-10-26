@@ -454,7 +454,7 @@ with full ten-target regeneration and generated equivalence passing. `just docs`
 original failed documentation attempt remains separate evidence.
 
 The original `just hygiene` had seven unsuccessful leaves. Corrected affected leaves pass,
-except global `just lint-typos`, which still reports one `RDER` finding in unrelated dirty
+except global `just lint-typos`, which still reports one known `ORDER` misspelling in unrelated dirty
 `history.txt` (zero target). That user-owned file remains unedited and uncommitted. The scoped
 spelling run excluding that file passes. This is composite scope-end evidence, with the original
 failures retained, and no clean full-hygiene claim. Logs include

@@ -108,7 +108,9 @@ class ProfileBindingTests(unittest.TestCase):
         self.assertFalse(annotations.idempotent_hint)
         self.assertEqual(specs[0].worker_calls[0].lifetime, "attached")
         self.assertEqual(specs[0].requirements[0].kind, "python-extension")
-        self.assertEqual(specs[0].requirements[0].mode, "native")
+        self.assertIsNone(specs[0].requirements[0].mode)
+        self.assertEqual(specs[0].requirements[0].provider, "installed_correctness")
+        self.assertTrue(specs[0].requirements[0].validated)
         self.assertIn("telemetry_profile_capture", WORKERS["native"].operations)
 
     def test_suspect_without_original_source_or_checkpoint_identity_refuses(

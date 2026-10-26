@@ -36,7 +36,7 @@ from scripts.capabilities.workers import WORKERS, selected_worker_environment
 from scripts.telemetry_process import helper_environment
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Generator
+    from collections.abc import Callable, Generator
     from typing import BinaryIO
 
     from pydantic import JsonValue
@@ -324,7 +324,7 @@ class ReadSessions:
         return self._closed
 
     def observe(
-        self, work: Awaitable[dict[str, JsonValue]]
+        self, work: Coroutine[object, object, dict[str, JsonValue]]
     ) -> asyncio.Task[dict[str, JsonValue]]:
         """Cancellation detaches the observer, not native work or source protections."""
         if self._closed:

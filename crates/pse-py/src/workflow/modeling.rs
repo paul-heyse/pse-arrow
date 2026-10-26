@@ -209,7 +209,7 @@ impl ModelingLimits {
         };
         limits
             .validate()
-            .map_err(|error| invalid(py, &error.to_string()))?;
+            .map_err(|error| invalid(py, error.to_string()))?;
         Ok(Self { limits })
     }
     #[getter]

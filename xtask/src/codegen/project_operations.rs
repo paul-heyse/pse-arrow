@@ -112,7 +112,7 @@ pub(super) fn append(tree: &mut GeneratedTree) -> Result<()> {
     })?;
     let rust_path = PathBuf::from("crates/pse-py/src/generated/project_operations.rs");
     tree.files.insert(rust_path.clone(), format!("// @generated from the Rust project operation owner and typed helpers; do not edit\n{}", prettyplease::unparse(&generated)).into_bytes());
-    let python_root = PathBuf::from("python/pse/generated");
+    let python_root = PathBuf::from(super::PROJECT_PYTHON_ROOT);
     if !tree.roots.contains(&python_root) {
         tree.roots.push(python_root.clone());
     }

@@ -80,6 +80,7 @@ class ReadImageTests(unittest.TestCase):
             )
             image = LoadedReadImage.admit(dev)
             image.require_current(dev)
+            assert dev.artifact is not None
             image.require_loaded(dev.artifact.binary)
             for changed in (
                 current,

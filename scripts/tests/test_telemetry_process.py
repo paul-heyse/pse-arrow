@@ -17,7 +17,6 @@ import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import ClassVar
 from unittest.mock import patch
 
 from opentelemetry import context, trace
@@ -527,7 +526,6 @@ print("native-result-retained")
                 result = self.child(
                     """import asyncio,json,os,sys
 from pathlib import Path
-from typing import ClassVar
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 async def main():
@@ -629,8 +627,9 @@ asyncio.run(main())
         self,
     ) -> None:
         class Native:
-            activation: ClassVar[dict[str, str | None]] = {"status": "initialized"}
-            closed = False
+            def __init__(self) -> None:
+                self.activation: dict[str, str | None] = {"status": "initialized"}
+                self.closed = False
 
             def shutdown(self) -> None:
                 self.closed = True
@@ -673,7 +672,8 @@ asyncio.run(main())
 
     def test_native_loss_read_failure_is_passive_unavailable(self) -> None:
         class Native:
-            activation: ClassVar[dict[str, str | None]] = {"status": "initialized"}
+            def __init__(self) -> None:
+                self.activation: dict[str, str | None] = {"status": "initialized"}
 
             def shutdown(self) -> None:
                 pass

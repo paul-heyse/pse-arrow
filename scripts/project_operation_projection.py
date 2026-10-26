@@ -185,7 +185,6 @@ def render(root: Path, declarations: list[dict[str, JsonValue]]) -> str:
             keywords=[],
             body=[ast.Expr(value=ast.Constant(value=class_doc))] if class_doc else [],
             decorator_list=[],
-            type_params=[],
         )
         family_methods = 0
         for declaration in declarations:
@@ -278,9 +277,8 @@ def render(root: Path, declarations: list[dict[str, JsonValue]]) -> str:
                         value=ast.Name(id=helper.args.kwarg.arg, ctx=ast.Load()),
                     )
                 )
-            wrapper.body = (
-                [ast.Expr(value=ast.Constant(value=doc))] if doc else []
-            ) + [
+            statements: list[ast.stmt] = [
+                ast.Expr(value=ast.Constant(value=doc)),
                 ast.Return(
                     value=ast.Call(
                         func=ast.Attribute(
@@ -291,8 +289,9 @@ def render(root: Path, declarations: list[dict[str, JsonValue]]) -> str:
                         args=forwarded,
                         keywords=keywords,
                     )
-                )
+                ),
             ]
+            wrapper.body = statements
             # Types/defaults are the actual helper's interface. Only forwarding is generated.
             interface = ast.FunctionDef(
                 name=name,
@@ -301,7 +300,6 @@ def render(root: Path, declarations: list[dict[str, JsonValue]]) -> str:
                 decorator_list=[],
                 returns=copy.deepcopy(helper.returns),
                 type_comment=None,
-                type_params=[],
             )
             for reference in annotation_names(interface):
                 origin, imported = (
@@ -315,7 +313,7 @@ def render(root: Path, declarations: list[dict[str, JsonValue]]) -> str:
             class_node.body.append(wrapper)
             class_node.body.extend(
                 ast.parse(
-                    f"{name} = _public_metadata({name}, {glue_name}, {helper_name!r}, {qualifier!r}, {public_module!r})"
+                    f"_public_metadata({name}, {glue_name}, {helper_name!r}, {qualifier!r}, {public_module!r})"
                 ).body
             )
         if not family_methods:
@@ -327,24 +325,18 @@ def render(root: Path, declarations: list[dict[str, JsonValue]]) -> str:
 # Do not edit.
 """Public project operations projected from their Rust owner and typed receiver glue."""
 
-from collections.abc import Callable
 from types import FunctionType
-from typing import ParamSpec, TypeVar
 '''
     for module, names in sorted(imports.items()):
         source += f"from {module} import (" + ", ".join(sorted(names)) + ")\n"
     source += """
-P = ParamSpec("P")
-R = TypeVar("R")
-
-def _public_metadata(public: Callable[P, R], glue: type[object], helper: str, owner: str, module: str) -> Callable[P, R]:
+def _public_metadata(public: object, glue: type[object], helper: str, owner: str, module: str) -> None:
     original = vars(glue)[helper]
     if not isinstance(public, FunctionType) or not isinstance(original, FunctionType):
         raise TypeError((helper, type(public), type(original)))
     public.__qualname__ = owner + "." + public.__name__
     public.__module__ = module
     public.__annotations__ = dict(original.__annotations__)
-    return public
 
 """
     source += "\n\n".join(blocks) + "\n"

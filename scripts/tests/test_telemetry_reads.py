@@ -14,7 +14,6 @@ import unittest
 from contextlib import ExitStack, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from scripts import (
@@ -161,7 +160,8 @@ class TelemetryReadTests(unittest.TestCase):
         self,
     ) -> None:
         class Native:
-            activation: ClassVar[dict[str, str | None]] = {"status": "initialized"}
+            def __init__(self) -> None:
+                self.activation: dict[str, str | None] = {"status": "initialized"}
 
             def shutdown(self) -> None:
                 pass
